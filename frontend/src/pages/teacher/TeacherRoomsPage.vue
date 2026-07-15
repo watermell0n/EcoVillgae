@@ -78,9 +78,12 @@ function stageLabel(stage: string) {
             <dd>{{ stageLabel(room.currentStage) }}</dd>
           </div>
         </dl>
-        <button type="button" disabled title="다음 개발 단계에서 연결됩니다.">
+        <RouterLink
+          class="button-link"
+          :to="{ name: 'teacher-room-control', params: { roomId: room.roomId } }"
+        >
           수업 계속하기
-        </button>
+        </RouterLink>
       </article>
 
       <p v-if="!teacher?.rooms.length" class="state-message">아직 생성된 방이 없습니다.</p>

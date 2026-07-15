@@ -13,3 +13,10 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
 export function isUnauthorized(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 401
 }
+
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (!axios.isAxiosError<ApiErrorResponse>(error)) {
+    return undefined
+  }
+  return error.response?.data?.error?.code
+}

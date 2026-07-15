@@ -38,6 +38,11 @@ const router = createRouter({
       name: 'teacher-rooms',
       component: () => import('../../pages/teacher/TeacherRoomsPage.vue'),
     },
+    {
+      path: '/teacher/rooms/:roomId/control',
+      name: 'teacher-room-control',
+      component: () => import('../../pages/teacher/TeacherRoomControlPage.vue'),
+    },
   ],
 })
 

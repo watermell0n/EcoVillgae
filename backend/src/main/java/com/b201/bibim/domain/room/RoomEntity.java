@@ -36,6 +36,9 @@ public class RoomEntity {
     @Column(nullable = false, length = 20)
     private String mode;
 
+    @Column(nullable = false)
+    private int version;
+
     @Column(name = "sync_version", nullable = false)
     private long syncVersion;
 
@@ -77,11 +80,25 @@ public class RoomEntity {
         return mode;
     }
 
+    public int getVersion() {
+        return version;
+    }
+
     public long getSyncVersion() {
         return syncVersion;
     }
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void changeStage(RoomStage targetStage) {
+        this.currentDay = (short) targetStage.day();
+        this.currentStage = targetStage.name();
+        this.status = targetStage.roomStatus();
+        this.mode = targetStage.mode();
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
     }
 }

@@ -44,6 +44,7 @@ public class SecurityConfig {
                                 "/api/v1/student/auth/login"
                         ).permitAll()
                         .requestMatchers("/api/v1/auth/**").hasRole("TEACHER")
+                        .requestMatchers("/api/v1/teacher/**").hasRole("TEACHER")
                         .requestMatchers("/api/v1/student/**").hasRole("STUDENT")
                         .anyRequest().denyAll())
                 .addFilterBefore(authSessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

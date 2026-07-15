@@ -1,24 +1,46 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { getRoomStage } from '../../features/room/model/stages'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useRoomSessionStore } from '../../stores/roomSession'
+import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
+
+const moduleLabels: Record<string, string> = {
+  KNOWLEDGE: '금융지식',
+  SHOP: '상점',
+  DEPOSIT: '예금',
+  INVESTMENT: '투자',
+  WALLET: '지갑·거래 내역',
+}
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
 const student = computed(() => authStore.student)
-
-const stageLabels: Record<string, string> = {
-  DAY1_LOBBY: '입장 대기',
-  DAY1_QUIZ: '월급 퀴즈',
-  DAY1_PAYSLIP_GUIDED: '월급명세서',
-  DAY1_FREE_ACTIVITY: '자유 경제활동',
-}
+const state = computed(() => roomSessionStore.studentState)
+const stageDefinition = computed(() => getRoomStage(state.value?.currentStage))
+const stageComponent = computed(() => getStudentStageComponent(state.value?.currentStage))
+const stageComponentProps = computed(() =>
+  isPlaceholderStage(state.value?.currentStage)
+    ? { stageLabel: stageDefinition.value?.label ?? state.value?.currentStage ?? '대기 중' }
+    : {},
+)
+const activeModules = computed(
+  () => state.value?.modules.filter((module) => module.state === 'ACTIVE') ?? [],
+)
+const connectionLabel = computed(() =>
+  roomSessionStore.connectionStatus === 'CONNECTED' ? '연결됨' : '다시 연결 중',
+)
+const connectionTone = computed(() =>
+  roomSessionStore.connectionStatus === 'CONNECTED' ? 'success' : 'warning',
+)
 
 onMounted(async () => {
   try {
@@ -26,6 +48,8 @@ onMounted(async () => {
     if (route.params.roomId !== loadedStudent.roomId) {
       await router.replace({ name: 'student-room', params: { roomId: loadedStudent.roomId } })
     }
+    await roomSessionStore.refreshStudent(loadedStudent.syncVersion)
+    roomSessionStore.startStudentPolling()
   } catch (error) {
     if (isUnauthorized(error)) {
       await router.replace({ name: 'student-join' })
@@ -37,10 +61,19 @@ onMounted(async () => {
   }
 })
 
-function stageLabel(stage?: string) {
-  if (!stage) return '대기 중'
-  return stageLabels[stage] ?? stage
-}
+onUnmounted(() => {
+  roomSessionStore.stopPolling()
+})
+
+watch(
+  () => roomSessionStore.pollError,
+  async (error) => {
+    if (error && isUnauthorized(error)) {
+      roomSessionStore.stopPolling()
+      await router.replace({ name: 'student-join' })
+    }
+  },
+)
 </script>
 
 <template>
@@ -48,25 +81,31 @@ function stageLabel(stage?: string) {
     <p v-if="loading" class="state-message">수업에 연결하고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
-    <template v-else-if="student">
+    <template v-else-if="student && state">
       <header class="student-room-header">
         <RouterLink class="brand-link" to="/">비빔</RouterLink>
         <div class="student-room-header__info">
-          <span>{{ student.currentDay }}일차</span>
+          <span>{{ state.currentDay }}일차</span>
           <strong>{{ student.nickname }}</strong>
-          <span>{{ student.walletBalance }}비빔</span>
-          <StatusBadge label="연결됨" tone="success" />
+          <span>{{ state.walletBalance }}비빔</span>
+          <StatusBadge :label="connectionLabel" :tone="connectionTone" />
         </div>
       </header>
 
-      <section class="waiting-card" aria-labelledby="waiting-title">
-        <div class="waiting-card__icon" aria-hidden="true">⏳</div>
-        <p class="eyebrow">현재 활동 · {{ stageLabel(student.currentStage) }}</p>
-        <h1 id="waiting-title" class="page-title">선생님이 다음 활동을 준비하고 있어요.</h1>
-        <p class="page-description">
-          오늘은 퀴즈로 소득을 얻고, 월급명세서를 확인한 뒤 직접 소비 활동을 해볼 거예요.
+      <nav v-if="state.mode === 'FREE'" class="student-module-menu" aria-label="자유 활동 메뉴">
+        <button v-for="module in activeModules" :key="module.type" type="button" disabled>
+          {{ moduleLabels[module.type] ?? module.type }}
+        </button>
+      </nav>
+
+      <section class="student-stage-card" :aria-label="stageDefinition?.label ?? state.currentStage">
+        <p class="student-stage-card__mode">
+          {{ state.mode === 'FREE' ? '지금 자유롭게 이용할 수 있어요' : state.mode === 'CLOSED' ? '이 활동은 종료되었어요' : '선생님과 함께 보는 중' }}
         </p>
-        <div class="waiting-room-name">{{ student.roomName }} · {{ student.participantNumber }}번</div>
+        <component :is="stageComponent" v-bind="stageComponentProps" />
+        <div class="waiting-room-name">
+          {{ student.roomName }} · {{ student.participantNumber }}번 · sync {{ state.syncVersion }}
+        </div>
       </section>
     </template>
   </main>

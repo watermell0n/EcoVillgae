@@ -1,0 +1,119 @@
+import { ref, shallowRef } from 'vue'
+import { defineStore } from 'pinia'
+
+import {
+  getStudentRoomState,
+  getTeacherRoomState,
+  setRoomStage as setRoomStageApi,
+  type StudentRoomState,
+  type TeacherRoomState,
+} from '../features/room/api/room'
+
+export type RoomConnectionStatus = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED'
+
+const POLLING_INTERVAL_MS = 2_000
+
+export const useRoomSessionStore = defineStore('roomSession', () => {
+  const teacherState = ref<TeacherRoomState | null>(null)
+  const studentState = ref<StudentRoomState | null>(null)
+  const connectionStatus = ref<RoomConnectionStatus>('DISCONNECTED')
+  const pollError = shallowRef<unknown>(null)
+
+  let pollingTimer: ReturnType<typeof setInterval> | undefined
+  let requestInFlight = false
+
+  function applyTeacherState(nextState: TeacherRoomState) {
+    if (!teacherState.value || nextState.syncVersion >= teacherState.value.syncVersion) {
+      teacherState.value = nextState
+    }
+  }
+
+  function applyStudentState(nextState: StudentRoomState) {
+    if (!studentState.value || nextState.syncVersion >= studentState.value.syncVersion) {
+      studentState.value = nextState
+    }
+  }
+
+  async function refreshTeacher(roomId: string) {
+    const currentSyncVersion =
+      teacherState.value?.roomId === roomId ? teacherState.value.syncVersion : undefined
+    const state = await getTeacherRoomState(roomId, currentSyncVersion)
+    applyTeacherState(state)
+    connectionStatus.value = 'CONNECTED'
+    pollError.value = null
+    return state
+  }
+
+  async function refreshStudent(initialSyncVersion?: number) {
+    const state = await getStudentRoomState(studentState.value?.syncVersion ?? initialSyncVersion)
+    applyStudentState(state)
+    connectionStatus.value = 'CONNECTED'
+    pollError.value = null
+    return state
+  }
+
+  async function runPollingRequest(request: () => Promise<unknown>) {
+    if (requestInFlight) return
+    requestInFlight = true
+    try {
+      await request()
+    } catch (error) {
+      connectionStatus.value = 'RECONNECTING'
+      pollError.value = error
+    } finally {
+      requestInFlight = false
+    }
+  }
+
+  function startTeacherPolling(roomId: string) {
+    stopPolling()
+    connectionStatus.value = 'CONNECTED'
+    pollingTimer = setInterval(() => {
+      void runPollingRequest(() => refreshTeacher(roomId))
+    }, POLLING_INTERVAL_MS)
+  }
+
+  function startStudentPolling() {
+    stopPolling()
+    connectionStatus.value = 'CONNECTED'
+    pollingTimer = setInterval(() => {
+      void runPollingRequest(() => refreshStudent())
+    }, POLLING_INTERVAL_MS)
+  }
+
+  function stopPolling() {
+    if (pollingTimer !== undefined) {
+      clearInterval(pollingTimer)
+      pollingTimer = undefined
+    }
+    requestInFlight = false
+    connectionStatus.value = 'DISCONNECTED'
+  }
+
+  async function setStage(roomId: string, targetStage: string) {
+    if (!teacherState.value || teacherState.value.roomId !== roomId) {
+      await refreshTeacher(roomId)
+    }
+    const expectedVersion = teacherState.value?.version
+    if (expectedVersion === undefined) {
+      throw new Error('현재 방 상태를 불러오지 못했습니다.')
+    }
+
+    const result = await setRoomStageApi(roomId, targetStage, expectedVersion)
+    applyTeacherState(result.state)
+    return result
+  }
+
+  return {
+    teacherState,
+    studentState,
+    connectionStatus,
+    pollError,
+    refreshTeacher,
+    refreshStudent,
+    startTeacherPolling,
+    startStudentPolling,
+    stopPolling,
+    setStage,
+  }
+})
