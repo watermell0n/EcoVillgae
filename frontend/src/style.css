@@ -1,0 +1,204 @@
+:root {
+  font-family:
+    Pretendard, 'Noto Sans KR', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  color: #253142;
+  background: #f6f4ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  padding: 0.72rem 1rem;
+  border: 0;
+  border-radius: 0.8rem;
+  color: white;
+  background: #e85f3d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-page {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 3rem 0;
+}
+
+.hero-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid #e8dfd3;
+  border-radius: 2rem;
+  background: #fffdf8;
+  box-shadow: 0 24px 70px rgb(68 50 34 / 10%);
+}
+
+.hero-card__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: clamp(2rem, 6vw, 5rem);
+}
+
+.eyebrow {
+  margin: 0 0 0.8rem;
+  color: #b9472c;
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(2.3rem, 6vw, 4.6rem);
+  line-height: 1.06;
+  letter-spacing: -0.055em;
+}
+
+.hero-card__description {
+  max-width: 580px;
+  margin: 1.5rem 0;
+  color: #657080;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.connection-error {
+  max-width: 520px;
+  margin: 0.8rem 0;
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.money-illustration {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 30% 25%, rgb(255 255 255 / 90%) 0 4%, transparent 5%),
+    linear-gradient(145deg, #f5ba4d, #e85f3d);
+}
+
+.money-illustration__symbol {
+  display: grid;
+  place-items: center;
+  width: 11rem;
+  height: 11rem;
+  border: 0.8rem solid rgb(255 255 255 / 45%);
+  border-radius: 50%;
+  color: white;
+  background: rgb(255 255 255 / 18%);
+  box-shadow: inset 0 0 0 0.22rem rgb(255 255 255 / 45%);
+  font-size: 2.2rem;
+  font-weight: 950;
+  transform: rotate(-8deg);
+}
+
+.money-illustration__coin {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  color: #c5542e;
+  background: #ffe3a3;
+  box-shadow: 0 16px 30px rgb(103 45 18 / 20%);
+  font-weight: 900;
+}
+
+.money-illustration__coin--one {
+  top: 14%;
+  right: 14%;
+}
+
+.money-illustration__coin--two {
+  bottom: 16%;
+  left: 12%;
+  width: 3rem;
+  height: 3rem;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.role-grid article {
+  padding: 1.5rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 1.25rem;
+  background: #fffdf8;
+}
+
+.role-grid span {
+  color: #b9472c;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.role-grid h2 {
+  margin: 0.5rem 0;
+  color: #263449;
+  font-size: 1.15rem;
+}
+
+.role-grid p {
+  margin: 0;
+  color: #737b87;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .home-page {
+    width: min(100% - 1rem, 560px);
+    padding: 0.5rem 0 2rem;
+  }
+
+  .hero-card {
+    grid-template-columns: 1fr;
+    border-radius: 1.5rem;
+  }
+
+  .hero-card__content {
+    padding: 2rem 1.4rem;
+  }
+
+  .money-illustration {
+    min-height: 240px;
+  }
+
+  .money-illustration__symbol {
+    width: 8rem;
+    height: 8rem;
+    font-size: 1.7rem;
+  }
+
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}

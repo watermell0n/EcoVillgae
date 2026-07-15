@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bibim}
+    username: ${DB_USERNAME:bibim}
+    password: ${DB_PASSWORD:bibim-local-password}
+
+logging:
+  level:
+    com.b201.bibim: DEBUG
+
