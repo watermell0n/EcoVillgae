@@ -32,3 +32,8 @@ management:
         enabled: true
       show-details: never
 
+app:
+  auth:
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    teacher-session-hours: 8
+    student-session-hours: 48

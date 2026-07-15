@@ -51,6 +51,13 @@ onMounted(checkBackend)
         <button v-if="connectionState === 'failed'" type="button" @click="checkBackend">
           다시 확인
         </button>
+
+        <div class="role-actions">
+          <RouterLink class="button-link" to="/student/join">학생으로 참여하기</RouterLink>
+          <RouterLink class="button-link button-link--secondary" to="/teacher/login">
+            교사 로그인
+          </RouterLink>
+        </div>
       </div>
 
       <div class="money-illustration" aria-hidden="true">

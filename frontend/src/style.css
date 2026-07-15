@@ -19,7 +19,8 @@ body {
 }
 
 button,
-input {
+input,
+a {
   font: inherit;
 }
 
@@ -32,6 +33,74 @@ button {
   background: #e85f3d;
   font-weight: 800;
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+a {
+  color: inherit;
+}
+
+input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #d8d4cd;
+  border-radius: 0.75rem;
+  color: #253142;
+  background: white;
+  outline: none;
+}
+
+input:focus {
+  border-color: #e85f3d;
+  box-shadow: 0 0 0 3px rgb(232 95 61 / 13%);
+}
+
+.brand-link {
+  color: #c64f32;
+  font-size: 1.4rem;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.page-description {
+  margin: 1rem 0 1.5rem;
+  color: #657080;
+  line-height: 1.7;
+}
+
+.state-message {
+  padding: 2rem;
+  color: #657080;
+  text-align: center;
+}
+
+.form-error {
+  margin: 0;
+  padding: 0.8rem;
+  border-radius: 0.7rem;
+  color: #a73528;
+  background: #feeeeb;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.helper-text {
+  margin: 1.25rem 0 0;
+  color: #737b87;
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .home-page {
@@ -88,6 +157,248 @@ h1 {
   margin: 0.8rem 0;
   color: #b42318;
   font-size: 0.9rem;
+}
+
+.role-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.5rem;
+}
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.75rem 1.1rem;
+  border-radius: 0.8rem;
+  color: white;
+  background: #e85f3d;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.button-link--secondary {
+  color: #b9472c;
+  background: #fff0e8;
+}
+
+.auth-page {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(circle at 12% 15%, rgb(245 186 77 / 22%), transparent 28rem),
+    #f6f4ee;
+}
+
+.auth-page > .brand-link {
+  display: block;
+  width: min(100%, 520px);
+  margin: 0 auto 1.25rem;
+}
+
+.auth-card {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 2.8rem);
+  border: 1px solid #e8dfd3;
+  border-radius: 1.6rem;
+  background: #fffdf8;
+  box-shadow: 0 24px 60px rgb(68 50 34 / 10%);
+}
+
+.form-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-stack label {
+  display: grid;
+  gap: 0.45rem;
+  color: #3a4656;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.form-stack > button {
+  width: 100%;
+  margin-top: 0.3rem;
+}
+
+.demo-hint {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.3rem;
+  padding: 1rem;
+  border-radius: 0.9rem;
+  color: #6f5948;
+  background: #fff3d9;
+  font-size: 0.88rem;
+}
+
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.code-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.code-examples button {
+  min-height: 34px;
+  padding: 0.4rem 0.6rem;
+  color: #8d4934;
+  background: #fffdf8;
+  font-size: 0.78rem;
+}
+
+.dashboard-page {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+
+.dashboard-header,
+.dashboard-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-header {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e0dcd4;
+}
+
+.dashboard-header p {
+  margin: 0.35rem 0 0;
+  color: #657080;
+  font-size: 0.9rem;
+}
+
+.dashboard-title-row {
+  margin: 2rem 0 1.2rem;
+}
+
+.room-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.room-card {
+  padding: 1.5rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 1.25rem;
+  background: #fffdf8;
+}
+
+.room-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #737b87;
+  font-size: 0.85rem;
+}
+
+.room-card h2 {
+  margin: 1rem 0;
+  font-size: 1.35rem;
+}
+
+.room-stats {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 0 1.2rem;
+}
+
+.room-stats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.room-stats dt {
+  color: #737b87;
+}
+
+.room-stats dd {
+  margin: 0;
+  font-weight: 800;
+  text-align: right;
+}
+
+.room-card > button {
+  width: 100%;
+}
+
+.student-room-page {
+  min-height: 100vh;
+  padding: 1rem;
+  background:
+    radial-gradient(circle at 80% 10%, rgb(245 186 77 / 25%), transparent 24rem),
+    #f6f4ee;
+}
+
+.student-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(100%, 1050px);
+  margin: 0 auto;
+  padding: 1rem 0 1.5rem;
+}
+
+.student-room-header__info {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.waiting-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 820px);
+  min-height: 520px;
+  margin: 1rem auto;
+  padding: clamp(1.5rem, 6vw, 4rem);
+  border: 1px solid #e8dfd3;
+  border-radius: 2rem;
+  background: #fffdf8;
+  box-shadow: 0 24px 60px rgb(68 50 34 / 10%);
+  text-align: center;
+}
+
+.waiting-card__icon {
+  display: grid;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  margin-bottom: 1.3rem;
+  border-radius: 50%;
+  background: #fff0d0;
+  font-size: 2.6rem;
+}
+
+.waiting-card .page-description {
+  max-width: 580px;
+}
+
+.waiting-room-name {
+  margin-top: 1rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  color: #7f4c32;
+  background: #fff0e8;
+  font-weight: 800;
 }
 
 .money-illustration {
@@ -200,5 +511,21 @@ h1 {
 
   .role-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-header,
+  .dashboard-title-row,
+  .student-room-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .student-room-header__info {
+    flex-wrap: wrap;
+  }
+
+  .waiting-card {
+    min-height: 440px;
+    border-radius: 1.4rem;
   }
 }

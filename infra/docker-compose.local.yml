@@ -28,6 +28,9 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bibim}
       DB_USERNAME: ${POSTGRES_USER:-bibim}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-bibim-local-password}
+      DEMO_TEACHER_LOGIN_ID: ${DEMO_TEACHER_LOGIN_ID:-teacher}
+      DEMO_TEACHER_PASSWORD: ${DEMO_TEACHER_PASSWORD:-teacher1234}
+      DEMO_TEACHER_DISPLAY_NAME: ${DEMO_TEACHER_DISPLAY_NAME:-김비빔 선생님}
       TZ: UTC
     ports:
       - "${BACKEND_PORT:-8080}:8080"
@@ -54,4 +57,3 @@ services:
 
 volumes:
   postgres-data:
-

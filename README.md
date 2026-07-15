@@ -20,6 +20,15 @@ docker compose -f infra/docker-compose.local.yml up --build
 - Backend health: http://localhost:8080/api/v1/health
 - Actuator health: http://localhost:8080/actuator/health
 
+### 로컬 데모 인증
+
+- 교사 로그인: `teacher` / `teacher1234`
+- 학생 참여 코드: `BIBIM-01`, `BIBIM-02`, `BIBIM-03`
+- 교사 화면: http://localhost:5173/teacher/login
+- 학생 화면: http://localhost:5173/student/join
+
+교사 자격 증명은 `.env`의 `DEMO_TEACHER_*` 값으로 변경할 수 있습니다. 로컬 프로필에서만 데모 교사·방·참여 코드가 생성됩니다.
+
 종료:
 
 ```powershell
@@ -58,7 +67,5 @@ pnpm dev
 ## 문서
 
 - [오늘의 개발 계획](docs/plans/2026-07-16-demo-flow-development-plan.md)
-- [API 명세](docs/specifications/api%20명세서.txt)
-- [ERD](docs/specifications/erd.txt)
-- [기술 스택 및 배포](docs/specifications/기술스택%20및%20배포%20주의사항.txt)
-
+- [개발 환경 시작 안내](docs/GETTING_STARTED.md)
+- [Git 작업 규칙](docs/GIT_CONVENTION.md)

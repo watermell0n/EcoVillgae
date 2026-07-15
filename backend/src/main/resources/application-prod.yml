@@ -11,3 +11,6 @@ logging:
   file:
     name: ${LOG_PATH:/app/logs/bibim.log}
 
+app:
+  auth:
+    cookie-secure: true
