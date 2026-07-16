@@ -2256,6 +2256,35 @@ h1 {
   letter-spacing: -0.04em;
 }
 
+.stage-wait-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 220px;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid #ead9bd;
+  border-radius: 1rem;
+  background: #fffaf0;
+}
+
+.stage-wait-panel .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4rem;
+  height: 4rem;
+  margin: 0;
+}
+
+.stage-wait-panel h2 {
+  margin: 0 0 0.45rem;
+  color: #69472f;
+}
+
+.stage-wait-panel p {
+  margin: 0;
+  color: #6f7982;
+  line-height: 1.7;
+}
+
 .day2-balance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -152,7 +152,7 @@ public class Day2FinanceService {
                     .orElseThrow(this::resultNotReady);
             return storedStudent(room, run, student, item);
         }
-        return calculatedStudent(room, student, marketContext(room.getId()), "NOT_STARTED", null);
+        return pendingStudent(student);
     }
 
     @Transactional
@@ -452,7 +452,7 @@ public class Day2FinanceService {
                 .toList();
         return new StudentFinanceResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(),
-                COMPLETED, item.getWalletBefore(), item.getDepositPrincipal(),
+                COMPLETED, true, item.getWalletBefore(), item.getDepositPrincipal(),
                 item.getDepositInterest(), item.getInvestmentPrincipal(),
                 item.getInvestmentProfit(), item.getInvestmentValue(),
                 item.getTaxableProfit(), item.getFinancialTax(), item.getWalletAfter(),
@@ -479,11 +479,20 @@ public class Day2FinanceService {
                 .toList();
         return new StudentFinanceResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(),
-                status, amount.walletBefore(), amount.depositPrincipal(),
+                status, COMPLETED.equals(status), amount.walletBefore(), amount.depositPrincipal(),
                 amount.depositInterest(), amount.investmentPrincipal(),
                 amount.investmentProfit(), amount.investmentValue(),
                 amount.taxableProfit(), amount.financialTax(), amount.walletAfter(),
                 allocations, completedAt
+        );
+    }
+
+    private StudentFinanceResponse pendingStudent(StudentEntity student) {
+        return new StudentFinanceResponse(
+                student.getId(), student.getParticipantNumber(), student.getNickname(),
+                "NOT_STARTED", false,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                List.of(), null
         );
     }
 

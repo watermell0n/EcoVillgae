@@ -1,6 +1,7 @@
 package com.b201.bibim.feature.economy;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.b201.bibim.domain.deposit.DepositRepository;
@@ -26,6 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EconomyService {
+
+    private static final Set<String> ECONOMY_STAGES = Set.of(
+            "DAY1_FREE_ACTIVITY",
+            "DAY2_FINAL_SHOP"
+    );
 
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
@@ -130,7 +136,7 @@ public class EconomyService {
         RoomEntity room = roomRepository.findById(roomId).orElseThrow(() -> new ApiException(
                 HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "수업 방을 찾을 수 없습니다."
         ));
-        if (!"DAY1_FREE_ACTIVITY".equals(room.getCurrentStage())) {
+        if (!ECONOMY_STAGES.contains(room.getCurrentStage())) {
             throw new ApiException(
                     HttpStatus.CONFLICT, "ECONOMY_ACTIVITY_CLOSED", "현재는 자유 경제활동 시간이 아닙니다."
             );

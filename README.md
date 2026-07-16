@@ -25,7 +25,7 @@ Test-Path "$env:JAVA_HOME\bin\java.exe"
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f infra/docker-compose.local.yml up -d --build
+docker compose --env-file .env -f infra/docker-compose.local.yml up -d --build
 ```
 
 - Frontend: http://localhost:5173
@@ -44,13 +44,13 @@ docker compose -f infra/docker-compose.local.yml up -d --build
 종료:
 
 ```powershell
-docker compose -f infra/docker-compose.local.yml down
+docker compose --env-file .env -f infra/docker-compose.local.yml down
 ```
 
 Docker Compose 프로젝트명은 `ecovillage-local`입니다. DB 데이터까지 초기화하려면 명시적으로 다음 명령을 사용합니다.
 
 ```powershell
-docker compose -f infra/docker-compose.local.yml down -v
+docker compose --env-file .env -f infra/docker-compose.local.yml down -v
 ```
 
 ### 2. 개별 실행
@@ -58,7 +58,7 @@ docker compose -f infra/docker-compose.local.yml down -v
 PostgreSQL만 실행:
 
 ```powershell
-docker compose -f infra/docker-compose.local.yml up -d postgres
+docker compose --env-file .env -f infra/docker-compose.local.yml up -d postgres
 ```
 
 백엔드:

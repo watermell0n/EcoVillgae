@@ -23,7 +23,11 @@ const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
 
-onMounted(async () => {
+onMounted(() => void refresh())
+
+async function refresh() {
+  loading.value = true
+  errorMessage.value = ''
   try {
     await Promise.all([
       shopStore.refreshStudentCatalog(),
@@ -36,7 +40,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
 
 onUnmounted(() => {
   shopStore.clearStudentShop()
@@ -92,7 +96,11 @@ function formatPurchasedAt(value: string) {
 <template>
   <div class="day2-final-shop-view">
     <p v-if="loading" class="state-message">최종 상점을 준비하고 있습니다.</p>
-    <p v-else-if="errorMessage && !catalog" class="form-error" role="alert">{{ errorMessage }}</p>
+    <div v-else-if="errorMessage || !catalog || !overview" class="quiz-load-error" role="alert">
+      <strong>최종 상점을 불러오지 못했어요.</strong>
+      <p>{{ errorMessage || '필요한 상점 정보가 없습니다.' }}</p>
+      <button type="button" @click="refresh">다시 불러오기</button>
+    </div>
     <template v-else-if="catalog && overview">
       <header class="economy-header">
         <div><p class="eyebrow">2일차 최종 상점</p><h1>물가가 오른 뒤 무엇을 살 수 있을까요?</h1></div>

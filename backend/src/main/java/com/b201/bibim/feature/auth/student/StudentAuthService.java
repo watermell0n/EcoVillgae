@@ -52,10 +52,12 @@ public class StudentAuthService {
         RoomEntity room = findRoom(student.getRoomId());
 
         RequiredAction requiredAction;
-        if (isClosed(room)) {
+        if (isArchived(room)) {
             requiredAction = RequiredAction.ROOM_CLOSED;
         } else if ("INVITED".equals(student.getStatus())) {
-            requiredAction = RequiredAction.SETUP;
+            requiredAction = isCompleted(room)
+                    ? RequiredAction.ROOM_CLOSED
+                    : RequiredAction.SETUP;
         } else if ("ACTIVE".equals(student.getStatus()) || "ABSENT".equals(student.getStatus())) {
             requiredAction = RequiredAction.LOGIN;
         } else {
@@ -105,7 +107,7 @@ public class StudentAuthService {
         }
 
         RoomEntity room = findRoom(student.getRoomId());
-        if (isClosed(room)) {
+        if (isArchived(room)) {
             throw new ApiException(HttpStatus.CONFLICT, "ROOM_CLOSED", "이미 종료된 수업입니다.");
         }
 
@@ -178,7 +180,15 @@ public class StudentAuthService {
     }
 
     private boolean isClosed(RoomEntity room) {
-        return "COMPLETED".equals(room.getStatus()) || "ARCHIVED".equals(room.getStatus());
+        return isCompleted(room) || isArchived(room);
+    }
+
+    private boolean isCompleted(RoomEntity room) {
+        return "COMPLETED".equals(room.getStatus());
+    }
+
+    private boolean isArchived(RoomEntity room) {
+        return "ARCHIVED".equals(room.getStatus());
     }
 
     private ApiException invalidParticipationCode() {

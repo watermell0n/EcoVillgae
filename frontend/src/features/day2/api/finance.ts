@@ -16,6 +16,7 @@ export interface StudentDay2FinanceResult {
   participantNumber: number
   nickname: string | null
   settlementStatus: 'NOT_STARTED' | 'COMPLETED'
+  resultAvailable: boolean
   walletBefore: number
   depositPrincipal: number
   depositInterest: number

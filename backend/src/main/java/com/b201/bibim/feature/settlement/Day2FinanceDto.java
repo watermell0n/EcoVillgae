@@ -25,6 +25,7 @@ public final class Day2FinanceDto {
             int participantNumber,
             String nickname,
             String settlementStatus,
+            boolean resultAvailable,
             long walletBefore,
             long depositPrincipal,
             long depositInterest,
