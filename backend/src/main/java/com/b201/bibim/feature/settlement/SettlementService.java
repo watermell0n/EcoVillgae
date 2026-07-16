@@ -35,6 +35,7 @@ import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomeSettlementRespo
 import com.b201.bibim.feature.settlement.SettlementDto.Day1PayslipResponse;
 import com.b201.bibim.feature.settlement.SettlementDto.StudentIncomeResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.monitoring.ActivityEventService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,7 @@ public class SettlementService {
     private final FinancialTransactionRepository transactionRepository;
     private final FinancialEntryRepository entryRepository;
     private final Day1IncomeCalculator calculator;
+    private final ActivityEventService activityEventService;
 
     public SettlementService(
             RoomRepository roomRepository,
@@ -71,7 +73,8 @@ public class SettlementService {
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
             FinancialEntryRepository entryRepository,
-            Day1IncomeCalculator calculator
+            Day1IncomeCalculator calculator,
+            ActivityEventService activityEventService
     ) {
         this.roomRepository = roomRepository;
         this.roomRulesRepository = roomRulesRepository;
@@ -85,6 +88,7 @@ public class SettlementService {
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
         this.calculator = calculator;
+        this.activityEventService = activityEventService;
     }
 
     @Transactional(readOnly = true)
@@ -224,6 +228,21 @@ public class SettlementService {
                     normalizedKey + ":" + student.getId() + ":tax",
                     "1일차 소득세 납부"
             );
+            activityEventService.record(
+                    room.getId(),
+                    student.getId(),
+                    "TEACHER",
+                    teacherId,
+                    "DAY1_INCOME_SETTLED",
+                    room.getCurrentStage(),
+                    "PAYSLIP",
+                    "DAY1_INCOME_SETTLEMENT",
+                    Map.of(
+                            "grossIncome", amount.grossIncome(),
+                            "incomeTax", amount.incomeTax(),
+                            "netIncome", amount.netIncome()
+                    )
+            );
 
             totalGrossIncome = Math.addExact(totalGrossIncome, amount.grossIncome());
             totalIncomeTax = Math.addExact(totalIncomeTax, amount.incomeTax());
@@ -239,7 +258,7 @@ public class SettlementService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Day1PayslipResponse day1Payslip(UUID studentId) {
         StudentEntity student = studentRepository.findById(studentId)
                 .filter(item -> "ACTIVE".equals(item.getStatus()))
@@ -261,6 +280,17 @@ public class SettlementService {
                 .findBySettlementRunIdAndStudentId(run.getId(), studentId)
                 .orElseThrow(this::payslipNotReady);
         long walletBalance = walletBalance(room.getId(), studentId);
+        activityEventService.record(
+                room.getId(),
+                student.getId(),
+                "STUDENT",
+                student.getId(),
+                "PAYSLIP_VIEWED",
+                room.getCurrentStage(),
+                "PAYSLIP",
+                "DAY1_PAYSLIP",
+                Map.of("settlementRunId", run.getId().toString())
+        );
 
         return new Day1PayslipResponse(
                 run.getId(),

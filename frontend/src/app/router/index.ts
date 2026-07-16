@@ -43,6 +43,16 @@ const router = createRouter({
       name: 'teacher-room-control',
       component: () => import('../../pages/teacher/TeacherRoomControlPage.vue'),
     },
+    {
+      path: '/admin/login',
+      name: 'admin-login',
+      component: () => import('../../pages/admin/AdminLoginPage.vue'),
+    },
+    {
+      path: '/admin',
+      name: 'admin-dashboard',
+      component: () => import('../../pages/admin/AdminDashboardPage.vue'),
+    },
   ],
 })
 

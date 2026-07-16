@@ -13,3 +13,6 @@ app:
     teacher-login-id: ${DEMO_TEACHER_LOGIN_ID:teacher}
     teacher-password: ${DEMO_TEACHER_PASSWORD:teacher1234}
     teacher-display-name: ${DEMO_TEACHER_DISPLAY_NAME:김비빔 선생님}
+    admin-login-id: ${DEMO_ADMIN_LOGIN_ID:admin}
+    admin-password: ${DEMO_ADMIN_PASSWORD:admin1234}
+    admin-display-name: ${DEMO_ADMIN_DISPLAY_NAME:비빔 운영자}

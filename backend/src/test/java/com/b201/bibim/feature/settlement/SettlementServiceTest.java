@@ -30,6 +30,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomeSettlementResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.monitoring.ActivityEventService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,6 +66,8 @@ class SettlementServiceTest {
     private FinancialEntryRepository entryRepository;
     @Mock
     private Day1IncomeCalculator calculator;
+    @Mock
+    private ActivityEventService activityEventService;
     @Mock
     private RoomEntity room;
     @Mock

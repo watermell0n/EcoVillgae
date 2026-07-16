@@ -24,11 +24,15 @@ docker compose -f infra/docker-compose.local.yml up -d --build
 ### 로컬 데모 인증
 
 - 교사 로그인: `teacher` / `teacher1234`
+- 관리자 로그인: `admin` / `admin1234`
 - 학생 참여 코드: `BIBIM-01`, `BIBIM-02`, `BIBIM-03`
 - 교사 페이지: http://localhost:5173/teacher/login
+- 관리자 페이지: http://localhost:5173/admin/login
 - 학생 페이지: http://localhost:5173/student/join
 
-교사 자격 증명은 `.env`의 `DEMO_TEACHER_*` 값으로 변경할 수 있습니다. 로컬 프로필에서만 데모 교사·방·참여 코드가 생성됩니다.
+교사·관리자 자격 증명은 `.env`의 `DEMO_TEACHER_*`, `DEMO_ADMIN_*` 값으로 변경할 수 있습니다. 로컬 프로필에서만 데모 사용자·방·참여 코드가 생성됩니다.
+
+관리자 콘솔은 학생의 마지막 통신 시각, 현재 페이지, 수업 동기화 상태와 활동 타임라인을 5초 간격으로 갱신합니다. 자동 복구가 계속 실패하는 학생은 사유를 남기고 기존 로그인 세션을 종료할 수 있습니다.
 
 종료:
 

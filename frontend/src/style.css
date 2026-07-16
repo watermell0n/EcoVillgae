@@ -1321,6 +1321,272 @@ h1 {
   line-height: 1.6;
 }
 
+.admin-theme {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(97, 73, 190, 0.12), transparent 32%),
+    #f5f6fa;
+}
+
+.admin-dashboard-page {
+  width: min(100% - 2rem, 1500px);
+  margin: 0 auto;
+  padding: 1.25rem 0 3rem;
+}
+
+.admin-header,
+.admin-title-row,
+.admin-header__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-header {
+  padding: 0.75rem 0 1.5rem;
+  border-bottom: 1px solid #e2e5ec;
+}
+
+.admin-header p {
+  margin: 0.4rem 0 0;
+  color: #697386;
+}
+
+.admin-header__actions button {
+  width: auto;
+}
+
+.admin-title-row {
+  margin: 2rem 0 1.25rem;
+}
+
+.admin-room-selector {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 280px;
+  color: #5e6878;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.admin-room-selector select {
+  min-height: 46px;
+  padding: 0 0.9rem;
+  border: 1px solid #d8dce5;
+  border-radius: 0.8rem;
+  background: #fff;
+  color: #253044;
+  font: inherit;
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 1.25rem 0;
+}
+
+.admin-summary-grid article {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 125px;
+  padding: 1.2rem;
+  border: 1px solid #e3e6ed;
+  border-radius: 1.1rem;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(42, 51, 70, 0.05);
+}
+
+.admin-summary-grid article.has-warning {
+  border-color: #efb15d;
+  background: #fffaf1;
+}
+
+.admin-summary-grid span,
+.admin-summary-grid small {
+  color: #727b8b;
+}
+
+.admin-summary-grid strong {
+  color: #263449;
+  font-size: 1.55rem;
+}
+
+.admin-monitoring-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(330px, 0.75fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-student-panel,
+.admin-activity-panel {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid #e3e6ed;
+  border-radius: 1.1rem;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(42, 51, 70, 0.05);
+}
+
+.admin-activity-panel {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.admin-student-table {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.admin-student-table__head,
+.admin-student-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.2fr) 110px minmax(150px, 1.35fr) 100px 105px 90px;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 790px;
+  text-align: left;
+}
+
+.admin-student-table__head {
+  padding: 0.75rem 0.9rem;
+  color: #737d8e;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+button.admin-student-row {
+  width: 100%;
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid transparent;
+  border-top-color: #eceef3;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: #384458;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+button.admin-student-row:hover,
+button.admin-student-row.is-selected {
+  border-color: #cfc8f3;
+  background: #f6f3ff;
+}
+
+.admin-sync-warning {
+  color: #b96518;
+  font-weight: 800;
+}
+
+.admin-student-detail {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.admin-student-detail div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #eceef3;
+}
+
+.admin-student-detail dt {
+  color: #747d8d;
+}
+
+.admin-student-detail dd {
+  margin: 0;
+  color: #2d394d;
+  font-weight: 800;
+  text-align: right;
+}
+
+.admin-recovery-box {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid #f0c8c3;
+  border-radius: 0.9rem;
+  background: #fff7f5;
+}
+
+.admin-recovery-box h3,
+.admin-recovery-box p {
+  margin: 0;
+}
+
+.admin-recovery-box p {
+  color: #805c58;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.admin-recovery-box input {
+  width: 100%;
+}
+
+.admin-recovery-box button {
+  background: #b5483f;
+}
+
+.admin-activity-list {
+  margin-top: 1.25rem;
+}
+
+.admin-activity-list ol {
+  display: grid;
+  gap: 0;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-activity-list li {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.7rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid #eceef3;
+}
+
+.admin-activity-list time {
+  color: #7a8495;
+  font-size: 0.78rem;
+}
+
+.admin-activity-list li div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.admin-activity-list li span {
+  color: #757e8e;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1050px) {
+  .admin-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-monitoring-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-activity-panel {
+    position: static;
+    max-height: none;
+  }
+}
+
 @media (max-width: 760px) {
   .home-page {
     width: min(100% - 1rem, 560px);
@@ -1354,9 +1620,25 @@ h1 {
   .dashboard-title-row,
   .student-room-header,
   .control-header,
-  .control-summary {
+  .control-summary,
+  .admin-header,
+  .admin-title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .admin-header__actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-room-selector {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .control-summary dl,

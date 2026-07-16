@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import {
   getCurrentQuiz,
@@ -8,6 +8,10 @@ import {
   type StudentQuiz,
 } from '../../../features/quiz/api/quiz'
 import { getApiErrorMessage, isUnauthorized } from '../../../shared/api/errors'
+
+const emit = defineEmits<{
+  pageChange: [page: string]
+}>()
 
 const quiz = ref<StudentQuiz | null>(null)
 const currentIndex = ref(0)
@@ -26,6 +30,12 @@ const isSubmitted = computed(() => quiz.value?.submissionStatus === 'SUBMITTED')
 const progressWidth = computed(() => {
   if (!quiz.value) return '0%'
   return `${((currentIndex.value + 1) / quiz.value.questionCount) * 100}%`
+})
+
+watch(currentQuestion, (question) => {
+  if (question) {
+    emit('pageChange', `QUIZ_QUESTION_${question.orderNo}`)
+  }
 })
 
 onMounted(() => {
@@ -90,6 +100,7 @@ async function confirmSubmit() {
     quiz.value.submittedAt = result.submittedAt
     quiz.value.answeredCount = result.answeredCount
     showSubmitConfirm.value = false
+    emit('pageChange', 'QUIZ_SUBMITTED')
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '퀴즈를 제출하지 못했습니다.')
     showSubmitConfirm.value = false

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class LocalDemoDataInitializer implements ApplicationRunner {
 
     private static final UUID DEFAULT_TEACHER_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    private static final UUID DEFAULT_ADMIN_ID = UUID.fromString("10000000-0000-0000-0000-000000000002");
     private static final UUID DEMO_ROOM_ID = UUID.fromString("20000000-0000-0000-0000-000000000001");
     private static final UUID DEMO_RULE_ID = UUID.fromString("21000000-0000-0000-0000-000000000001");
     private static final UUID DEMO_SESSION_ID = UUID.fromString("22000000-0000-0000-0000-000000000001");
@@ -28,25 +29,35 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
     private final String teacherLoginId;
     private final String teacherPassword;
     private final String teacherDisplayName;
+    private final String adminLoginId;
+    private final String adminPassword;
+    private final String adminDisplayName;
 
     public LocalDemoDataInitializer(
             JdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             @Value("${app.demo.teacher-login-id}") String teacherLoginId,
             @Value("${app.demo.teacher-password}") String teacherPassword,
-            @Value("${app.demo.teacher-display-name}") String teacherDisplayName
+            @Value("${app.demo.teacher-display-name}") String teacherDisplayName,
+            @Value("${app.demo.admin-login-id}") String adminLoginId,
+            @Value("${app.demo.admin-password}") String adminPassword,
+            @Value("${app.demo.admin-display-name}") String adminDisplayName
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.teacherLoginId = teacherLoginId;
         this.teacherPassword = teacherPassword;
         this.teacherDisplayName = teacherDisplayName;
+        this.adminLoginId = adminLoginId;
+        this.adminPassword = adminPassword;
+        this.adminDisplayName = adminDisplayName;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         seedTeacher();
+        seedAdmin();
         UUID teacherId = jdbcTemplate.queryForObject(
                 "SELECT id FROM users WHERE login_id = ?",
                 UUID.class,
@@ -73,6 +84,23 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
                 teacherLoginId,
                 passwordEncoder.encode(teacherPassword),
                 teacherDisplayName
+        );
+    }
+
+    private void seedAdmin() {
+        jdbcTemplate.update("""
+                INSERT INTO users (id, role, login_id, password_hash, display_name, status)
+                VALUES (?, 'ADMIN', ?, ?, ?, 'ACTIVE')
+                ON CONFLICT (login_id) DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    display_name = EXCLUDED.display_name,
+                    status = 'ACTIVE',
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                DEFAULT_ADMIN_ID,
+                adminLoginId,
+                passwordEncoder.encode(adminPassword),
+                adminDisplayName
         );
     }
 

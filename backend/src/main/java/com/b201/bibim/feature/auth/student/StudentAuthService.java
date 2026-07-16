@@ -1,6 +1,7 @@
 package com.b201.bibim.feature.auth.student;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import com.b201.bibim.domain.finance.AccountEntity;
@@ -17,6 +18,7 @@ import com.b201.bibim.feature.auth.student.StudentAuthDto.SetupRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.StudentResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.global.security.AuthSessionService;
+import com.b201.bibim.feature.monitoring.ActivityEventService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,19 +33,22 @@ public class StudentAuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthSessionService authSessionService;
     private final AccountRepository accountRepository;
+    private final ActivityEventService activityEventService;
 
     public StudentAuthService(
             StudentRepository studentRepository,
             RoomRepository roomRepository,
             PasswordEncoder passwordEncoder,
             AuthSessionService authSessionService,
-            AccountRepository accountRepository
+            AccountRepository accountRepository,
+            ActivityEventService activityEventService
     ) {
         this.studentRepository = studentRepository;
         this.roomRepository = roomRepository;
         this.passwordEncoder = passwordEncoder;
         this.authSessionService = authSessionService;
         this.accountRepository = accountRepository;
+        this.activityEventService = activityEventService;
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +93,7 @@ public class StudentAuthService {
 
         student.completeSetup(request.nickname().trim(), passwordEncoder.encode(request.password()));
         String token = authSessionService.createStudentSession(student);
+        recordAuthEvent(student, room, "STUDENT_SETUP_COMPLETED");
         return new LoginResult(toResponse(student, room), token);
     }
 
@@ -111,6 +117,7 @@ public class StudentAuthService {
 
         student.recordLogin();
         String token = authSessionService.createStudentSession(student);
+        recordAuthEvent(student, room, "STUDENT_LOGIN");
         return new LoginResult(toResponse(student, room), token);
     }
 
@@ -179,6 +186,20 @@ public class StudentAuthService {
 
     private boolean isClosed(RoomEntity room) {
         return "COMPLETED".equals(room.getStatus()) || "ARCHIVED".equals(room.getStatus());
+    }
+
+    private void recordAuthEvent(StudentEntity student, RoomEntity room, String eventType) {
+        activityEventService.record(
+                room.getId(),
+                student.getId(),
+                "STUDENT",
+                student.getId(),
+                eventType,
+                room.getCurrentStage(),
+                null,
+                "AUTH",
+                Map.of("participantNumber", student.getParticipantNumber())
+        );
     }
 
     private ApiException invalidParticipationCode() {

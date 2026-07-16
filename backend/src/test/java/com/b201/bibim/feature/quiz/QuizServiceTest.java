@@ -18,6 +18,7 @@ import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.monitoring.ActivityEventService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +47,9 @@ class QuizServiceTest {
 
     @Mock
     private StudentRepository studentRepository;
+
+    @Mock
+    private ActivityEventService activityEventService;
 
     @Mock
     private StudentEntity student;

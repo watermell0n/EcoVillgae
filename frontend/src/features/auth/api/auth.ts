@@ -20,6 +20,11 @@ export interface TeacherSession {
   rooms: TeacherRoom[]
 }
 
+export interface AdminSession {
+  adminId: string
+  displayName: string
+}
+
 export type StudentRequiredAction = 'SETUP' | 'LOGIN' | 'WAIT' | 'ROOM_CLOSED'
 
 export interface StudentEntry {
@@ -55,6 +60,19 @@ export async function loginTeacher(loginId: string, password: string) {
 
 export async function getTeacherMe() {
   const response = await http.get<ApiResponse<TeacherSession>>('/auth/me')
+  return response.data.data
+}
+
+export async function loginAdmin(loginId: string, password: string) {
+  const response = await http.post<ApiResponse<AdminSession>>('/admin/auth/login', {
+    loginId,
+    password,
+  })
+  return response.data.data
+}
+
+export async function getAdminMe() {
+  const response = await http.get<ApiResponse<AdminSession>>('/admin/auth/me')
   return response.data.data
 }
 

@@ -62,6 +62,12 @@ public class StudentEntity {
         this.updatedAt = this.lastSeenAt;
     }
 
+    public void forceLogout() {
+        this.loginVersion += 1;
+        this.online = false;
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

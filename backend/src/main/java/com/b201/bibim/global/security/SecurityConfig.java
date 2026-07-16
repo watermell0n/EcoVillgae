@@ -39,12 +39,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/health", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/teacher/login",
+                                "/api/v1/admin/auth/login",
                                 "/api/v1/student/auth/enter",
                                 "/api/v1/student/auth/setup",
                                 "/api/v1/student/auth/login"
                         ).permitAll()
                         .requestMatchers("/api/v1/auth/**").hasRole("TEACHER")
                         .requestMatchers("/api/v1/teacher/**").hasRole("TEACHER")
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/student/**").hasRole("STUDENT")
                         .anyRequest().denyAll())
                 .addFilterBefore(authSessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

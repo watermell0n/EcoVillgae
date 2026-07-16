@@ -6,8 +6,10 @@ import { useAuthStore } from './auth'
 
 vi.mock('../features/auth/api/auth', () => ({
   enterStudent: vi.fn(),
+  getAdminMe: vi.fn(),
   getStudentMe: vi.fn(),
   getTeacherMe: vi.fn(),
+  loginAdmin: vi.fn(),
   loginStudent: vi.fn(),
   loginTeacher: vi.fn(),
   setupStudent: vi.fn(),

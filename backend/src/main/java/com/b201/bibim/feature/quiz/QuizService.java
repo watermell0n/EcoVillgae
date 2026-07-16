@@ -29,6 +29,7 @@ import com.b201.bibim.feature.quiz.QuizDto.SubmitQuizResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizStudentResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizSummaryResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.monitoring.ActivityEventService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class QuizService {
     private final QuizAnswerRepository answerRepository;
     private final RoomRepository roomRepository;
     private final StudentRepository studentRepository;
+    private final ActivityEventService activityEventService;
 
     public QuizService(
             QuizRepository quizRepository,
@@ -50,7 +52,8 @@ public class QuizService {
             QuizSubmissionRepository submissionRepository,
             QuizAnswerRepository answerRepository,
             RoomRepository roomRepository,
-            StudentRepository studentRepository
+            StudentRepository studentRepository,
+            ActivityEventService activityEventService
     ) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
@@ -58,6 +61,7 @@ public class QuizService {
         this.answerRepository = answerRepository;
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
+        this.activityEventService = activityEventService;
     }
 
     @Transactional(readOnly = true)
@@ -134,6 +138,21 @@ public class QuizService {
                 ));
         answerRepository.save(savedAnswer);
         int answeredCount = answerRepository.findAllBySubmissionId(submission.getId()).size();
+        activityEventService.record(
+                room.getId(),
+                student.getId(),
+                "STUDENT",
+                student.getId(),
+                "QUIZ_ANSWER_SAVED",
+                room.getCurrentStage(),
+                "QUIZ",
+                "QUIZ_QUESTION_" + question.getOrderNo(),
+                Map.of(
+                        "quizId", quizId.toString(),
+                        "questionId", questionId.toString(),
+                        "answeredCount", answeredCount
+                )
+        );
 
         return new SaveAnswerResponse(questionId, answer, answeredCount, Instant.now());
     }
@@ -151,6 +170,21 @@ public class QuizService {
                 answerRepository.countBySubmissionIdAndCorrectTrue(submission.getId())
         );
         submission.submit(correctCount);
+        activityEventService.record(
+                room.getId(),
+                student.getId(),
+                "STUDENT",
+                student.getId(),
+                "QUIZ_SUBMITTED",
+                room.getCurrentStage(),
+                "QUIZ",
+                "QUIZ_SUBMITTED",
+                Map.of(
+                        "quizId", quizId.toString(),
+                        "answeredCount", answeredCount,
+                        "correctCount", correctCount
+                )
+        );
 
         return new SubmitQuizResponse(
                 quiz.getId(),

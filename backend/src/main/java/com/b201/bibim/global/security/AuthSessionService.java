@@ -30,19 +30,22 @@ public class AuthSessionService {
     private final StudentRepository studentRepository;
     private final Duration teacherSessionDuration;
     private final Duration studentSessionDuration;
+    private final Duration adminSessionDuration;
 
     public AuthSessionService(
             AuthSessionRepository authSessionRepository,
             UserRepository userRepository,
             StudentRepository studentRepository,
             @Value("${app.auth.teacher-session-hours}") long teacherSessionHours,
-            @Value("${app.auth.student-session-hours}") long studentSessionHours
+            @Value("${app.auth.student-session-hours}") long studentSessionHours,
+            @Value("${app.auth.admin-session-hours}") long adminSessionHours
     ) {
         this.authSessionRepository = authSessionRepository;
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.teacherSessionDuration = Duration.ofHours(teacherSessionHours);
         this.studentSessionDuration = Duration.ofHours(studentSessionHours);
+        this.adminSessionDuration = Duration.ofHours(adminSessionHours);
     }
 
     @Transactional
@@ -68,6 +71,17 @@ public class AuthSessionService {
         return token;
     }
 
+    @Transactional
+    public String createAdminSession(UserEntity admin) {
+        String token = newToken();
+        authSessionRepository.save(AuthSessionEntity.admin(
+                hashToken(token),
+                admin.getId(),
+                Instant.now().plus(adminSessionDuration)
+        ));
+        return token;
+    }
+
     @Transactional(readOnly = true)
     public Optional<AuthenticatedPrincipal> authenticate(String token, AuthRole expectedRole) {
         return authSessionRepository
@@ -76,7 +90,11 @@ public class AuthSessionService {
     }
 
     public Duration sessionDuration(AuthRole role) {
-        return role == AuthRole.TEACHER ? teacherSessionDuration : studentSessionDuration;
+        return switch (role) {
+            case TEACHER -> teacherSessionDuration;
+            case STUDENT -> studentSessionDuration;
+            case ADMIN -> adminSessionDuration;
+        };
     }
 
     private Optional<AuthenticatedPrincipal> authenticateSession(
@@ -87,11 +105,11 @@ public class AuthSessionService {
             return Optional.empty();
         }
 
-        if (expectedRole == AuthRole.TEACHER) {
+        if (expectedRole == AuthRole.TEACHER || expectedRole == AuthRole.ADMIN) {
             return userRepository.findById(session.getUserId())
-                    .filter(user -> "TEACHER".equals(user.getRole()))
+                    .filter(user -> expectedRole.name().equals(user.getRole()))
                     .filter(user -> "ACTIVE".equals(user.getStatus()))
-                    .map(user -> new AuthenticatedPrincipal(user.getId(), AuthRole.TEACHER));
+                    .map(user -> new AuthenticatedPrincipal(user.getId(), expectedRole));
         }
 
         return studentRepository.findById(session.getStudentId())

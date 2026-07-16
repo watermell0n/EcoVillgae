@@ -49,6 +49,10 @@ public class AuthSessionEntity {
         return new AuthSessionEntity(tokenHash, "TEACHER", userId, null, null, expiresAt);
     }
 
+    public static AuthSessionEntity admin(String tokenHash, UUID userId, Instant expiresAt) {
+        return new AuthSessionEntity(tokenHash, "ADMIN", userId, null, null, expiresAt);
+    }
+
     public static AuthSessionEntity student(
             String tokenHash,
             UUID studentId,

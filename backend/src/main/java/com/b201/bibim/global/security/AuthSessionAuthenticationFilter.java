@@ -31,12 +31,12 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            AuthRole expectedRole = request.getRequestURI().startsWith("/api/v1/student/")
-                    ? AuthRole.STUDENT
-                    : AuthRole.TEACHER;
-            String cookieName = expectedRole == AuthRole.STUDENT
-                    ? AuthCookieService.STUDENT_COOKIE_NAME
-                    : AuthCookieService.TEACHER_COOKIE_NAME;
+            AuthRole expectedRole = expectedRole(request.getRequestURI());
+            String cookieName = switch (expectedRole) {
+                case STUDENT -> AuthCookieService.STUDENT_COOKIE_NAME;
+                case ADMIN -> AuthCookieService.ADMIN_COOKIE_NAME;
+                case TEACHER -> AuthCookieService.TEACHER_COOKIE_NAME;
+            };
 
             findCookie(request, cookieName)
                     .flatMap(token -> authSessionService.authenticate(token, expectedRole))
@@ -44,6 +44,16 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private AuthRole expectedRole(String requestUri) {
+        if (requestUri.startsWith("/api/v1/student/")) {
+            return AuthRole.STUDENT;
+        }
+        if (requestUri.startsWith("/api/v1/admin/")) {
+            return AuthRole.ADMIN;
+        }
+        return AuthRole.TEACHER;
     }
 
     private java.util.Optional<String> findCookie(HttpServletRequest request, String name) {

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getRoomStage } from '../../features/room/model/stages'
+import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -23,6 +24,7 @@ const authStore = useAuthStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
+const currentPage = ref('CONNECTING')
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const stageDefinition = computed(() => getRoomStage(state.value?.currentStage))
@@ -35,12 +37,18 @@ const stageComponentProps = computed(() =>
 const activeModules = computed(
   () => state.value?.modules.filter((module) => module.state === 'ACTIVE') ?? [],
 )
+const currentModule = computed(
+  () => state.value?.modules.find((module) => module.state === 'ACTIVE' || module.state === 'GUIDED')?.type ?? null,
+)
 const connectionLabel = computed(() =>
   roomSessionStore.connectionStatus === 'CONNECTED' ? '연결됨' : '다시 연결 중',
 )
 const connectionTone = computed(() =>
   roomSessionStore.connectionStatus === 'CONNECTED' ? 'success' : 'warning',
 )
+
+let presenceTimer: ReturnType<typeof setInterval> | undefined
+let presenceRequestInFlight = false
 
 onMounted(async () => {
   try {
@@ -50,6 +58,8 @@ onMounted(async () => {
     }
     await roomSessionStore.refreshStudent(loadedStudent.syncVersion)
     roomSessionStore.startStudentPolling()
+    currentPage.value = roomSessionStore.studentState?.currentStage ?? 'WAITING'
+    startPresenceReporting()
   } catch (error) {
     if (isUnauthorized(error)) {
       await router.replace({ name: 'student-join' })
@@ -63,6 +73,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   roomSessionStore.stopPolling()
+  stopPresenceReporting()
 })
 
 watch(
@@ -74,6 +85,59 @@ watch(
     }
   },
 )
+
+watch(
+  () => state.value?.currentStage,
+  (stage) => {
+    if (!stage) return
+    currentPage.value = stage
+    void reportPresence()
+  },
+)
+
+function handlePageChange(page: string) {
+  currentPage.value = page
+  void reportPresence()
+}
+
+function startPresenceReporting() {
+  stopPresenceReporting()
+  document.addEventListener('visibilitychange', reportPresence)
+  void reportPresence()
+  presenceTimer = setInterval(() => {
+    void reportPresence()
+  }, 5_000)
+}
+
+function stopPresenceReporting() {
+  if (presenceTimer !== undefined) {
+    clearInterval(presenceTimer)
+    presenceTimer = undefined
+  }
+  document.removeEventListener('visibilitychange', reportPresence)
+  presenceRequestInFlight = false
+}
+
+async function reportPresence() {
+  if (!state.value || presenceRequestInFlight) return
+  presenceRequestInFlight = true
+  try {
+    await sendPresenceHeartbeat({
+      reportedStage: state.value.currentStage,
+      currentModule: currentModule.value,
+      currentPage: currentPage.value,
+      clientSyncVersion: state.value.syncVersion,
+      visibility: document.visibilityState === 'visible' ? 'VISIBLE' : 'HIDDEN',
+    })
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      stopPresenceReporting()
+      await router.replace({ name: 'student-join' })
+    }
+  } finally {
+    presenceRequestInFlight = false
+  }
+}
 </script>
 
 <template>
@@ -102,7 +166,7 @@ watch(
         <p class="student-stage-card__mode">
           {{ state.mode === 'FREE' ? '지금 자유롭게 이용할 수 있어요' : state.mode === 'CLOSED' ? '이 활동은 종료되었어요' : '선생님과 함께 보는 중' }}
         </p>
-        <component :is="stageComponent" v-bind="stageComponentProps" />
+        <component :is="stageComponent" v-bind="stageComponentProps" @page-change="handlePageChange" />
         <div class="waiting-room-name">
           {{ student.roomName }} · {{ student.participantNumber }}번 · sync {{ state.syncVersion }}
         </div>

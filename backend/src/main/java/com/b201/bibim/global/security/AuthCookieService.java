@@ -11,6 +11,7 @@ public class AuthCookieService {
 
     public static final String TEACHER_COOKIE_NAME = "bibim_teacher_session";
     public static final String STUDENT_COOKIE_NAME = "bibim_student_session";
+    public static final String ADMIN_COOKIE_NAME = "bibim_admin_session";
 
     private final AuthSessionService authSessionService;
     private final boolean secure;
@@ -24,7 +25,11 @@ public class AuthCookieService {
     }
 
     public ResponseCookie create(AuthRole role, String token) {
-        String name = role == AuthRole.TEACHER ? TEACHER_COOKIE_NAME : STUDENT_COOKIE_NAME;
+        String name = switch (role) {
+            case TEACHER -> TEACHER_COOKIE_NAME;
+            case STUDENT -> STUDENT_COOKIE_NAME;
+            case ADMIN -> ADMIN_COOKIE_NAME;
+        };
         Duration maxAge = authSessionService.sessionDuration(role);
         return ResponseCookie.from(name, token)
                 .httpOnly(true)

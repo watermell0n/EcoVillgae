@@ -3,12 +3,15 @@ import { defineStore } from 'pinia'
 
 import {
   enterStudent as enterStudentApi,
+  getAdminMe,
   getStudentMe,
   getTeacherMe,
   loginStudent as loginStudentApi,
+  loginAdmin as loginAdminApi,
   loginTeacher as loginTeacherApi,
   setupStudent as setupStudentApi,
   type StudentEntry,
+  type AdminSession,
   type StudentSession,
   type TeacherSession,
 } from '../features/auth/api/auth'
@@ -31,6 +34,7 @@ function readPendingStudentEntry(): StudentEntry | null {
 
 export const useAuthStore = defineStore('auth', () => {
   const teacher = ref<TeacherSession | null>(null)
+  const admin = ref<AdminSession | null>(null)
   const student = ref<StudentSession | null>(null)
   const pendingStudentEntry = ref<StudentEntry | null>(readPendingStudentEntry())
 
@@ -42,6 +46,16 @@ export const useAuthStore = defineStore('auth', () => {
   async function loadTeacher() {
     teacher.value = await getTeacherMe()
     return teacher.value
+  }
+
+  async function loginAdmin(loginId: string, password: string) {
+    admin.value = await loginAdminApi(loginId, password)
+    return admin.value
+  }
+
+  async function loadAdmin() {
+    admin.value = await getAdminMe()
+    return admin.value
   }
 
   async function enterStudent(participationCode: string) {
@@ -87,10 +101,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     teacher,
+    admin,
     student,
     pendingStudentEntry,
     loginTeacher,
     loadTeacher,
+    loginAdmin,
+    loadAdmin,
     enterStudent,
     setupStudent,
     loginStudent,

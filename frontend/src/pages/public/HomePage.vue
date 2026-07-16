@@ -57,6 +57,9 @@ onMounted(checkBackend)
           <RouterLink class="button-link button-link--secondary" to="/teacher/login">
             교사 로그인
           </RouterLink>
+          <RouterLink class="button-link button-link--secondary" to="/admin/login">
+            관리자 로그인
+          </RouterLink>
         </div>
       </div>
 
