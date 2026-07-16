@@ -15,4 +15,6 @@ public interface PurchaseRepository extends JpaRepository<PurchaseEntity, UUID> 
     List<PurchaseEntity> findAllByRoomIdOrderByCreatedAtDesc(UUID roomId);
 
     long countByRoomId(UUID roomId);
+
+    long countByStudentId(UUID studentId);
 }

@@ -18,6 +18,7 @@ import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.room.RoomStage;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
+import com.b201.bibim.feature.day1.Day1Service;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
 import com.b201.bibim.global.exception.ApiException;
 
@@ -48,6 +49,9 @@ class RoomSessionServiceTest {
 
     @Mock
     private QuizRepository quizRepository;
+
+    @Mock
+    private Day1Service day1Service;
 
     @Mock
     private RoomEntity room;
@@ -207,5 +211,49 @@ class RoomSessionServiceTest {
 
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(room, never()).changeStage(RoomStage.DAY1_INCOME_SETTLEMENT);
+    }
+
+    @Test
+    void closesDayOneOnlyThroughExplicitCommand() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(9);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_SUMMARY");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day1-close"))
+                .thenReturn(Optional.empty());
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "day1-close",
+                new CommandRequest("CLOSE_DAY1", "DAY1_SUMMARY", 9)
+        );
+
+        verify(day1Service).closeDayOne(teacherId, room);
+    }
+
+    @Test
+    void rejectsUsingSetStageToBypassDayOneClose() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(10);
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day1-bypass"))
+                .thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "day1-bypass",
+                new CommandRequest("SET_STAGE", "DAY1_CLOSED", 10)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(day1Service, never()).closeDayOne(teacherId, room);
     }
 }

@@ -109,6 +109,29 @@ public class FinancialTransactionEntity {
         );
     }
 
+    public static FinancialTransactionEntity studentTransfer(
+            UUID roomId,
+            UUID sessionId,
+            UUID studentId,
+            String transactionType,
+            String idempotencyKey,
+            String description,
+            Map<String, Object> metadata
+    ) {
+        return create(
+                roomId,
+                sessionId,
+                studentId,
+                studentId,
+                null,
+                transactionType,
+                "STUDENT",
+                idempotencyKey,
+                description,
+                metadata
+        );
+    }
+
     private static FinancialTransactionEntity create(
             UUID roomId,
             UUID sessionId,
@@ -154,4 +177,9 @@ public class FinancialTransactionEntity {
     public String getTransactionType() {
         return transactionType;
     }
+
+    public String getStatus() { return status; }
+    public String getDescription() { return description; }
+    public Map<String, Object> getMetadata() { return metadata; }
+    public Instant getCreatedAt() { return createdAt; }
 }

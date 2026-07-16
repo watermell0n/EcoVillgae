@@ -128,4 +128,14 @@ public class RoomEntity {
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
     }
+
+    public void closeDayOne() {
+        this.currentDay = 1;
+        this.currentStage = RoomStage.DAY1_CLOSED.name();
+        this.status = "DAY1_CLOSED";
+        this.mode = "CLOSED";
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
 }

@@ -23,6 +23,7 @@ import com.b201.bibim.feature.room.RoomSessionDto.ModuleStateResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.StudentRoomStateResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.TeacherRoomStateResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.day1.Day1Service;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class RoomSessionService {
     private final AccountRepository accountRepository;
     private final SettlementRunRepository settlementRunRepository;
     private final QuizRepository quizRepository;
+    private final Day1Service day1Service;
 
     public RoomSessionService(
             RoomRepository roomRepository,
@@ -58,7 +60,8 @@ public class RoomSessionService {
             StudentRepository studentRepository,
             AccountRepository accountRepository,
             SettlementRunRepository settlementRunRepository,
-            QuizRepository quizRepository
+            QuizRepository quizRepository,
+            Day1Service day1Service
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
@@ -66,6 +69,7 @@ public class RoomSessionService {
         this.accountRepository = accountRepository;
         this.settlementRunRepository = settlementRunRepository;
         this.quizRepository = quizRepository;
+        this.day1Service = day1Service;
     }
 
     @Transactional(readOnly = true)
@@ -151,6 +155,18 @@ public class RoomSessionService {
             return new CommandResponse(toTeacherState(room, true), false);
         }
 
+        if ("CLOSE_DAY1".equals(command)) {
+            day1Service.closeDayOne(teacherId, room);
+            commandRequestRepository.save(RoomCommandRequestEntity.completed(
+                    room,
+                    normalizedKey,
+                    command,
+                    targetStageValue,
+                    request.expectedVersion()
+            ));
+            return new CommandResponse(toTeacherState(room, true), false);
+        }
+
         if (!"SET_STAGE".equals(command)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -166,8 +182,15 @@ public class RoomSessionService {
                         "존재하지 않는 수업 단계입니다."
                 ));
 
+        if (targetStage == RoomStage.DAY1_CLOSED) {
+            throw stateConflict("1일차는 CLOSE_DAY1 명령으로 마감해 주세요.");
+        }
+
         RoomStage currentStage = RoomStage.find(room.getCurrentStage())
                 .orElseThrow(() -> stateConflict("현재 수업 단계를 확인할 수 없습니다."));
+        if (currentStage == RoomStage.DAY1_CLOSED || targetStage == RoomStage.DAY2_LOGIN) {
+            throw stateConflict("2일차 시작은 START_DAY2 명령으로 진행해 주세요.");
+        }
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
         }

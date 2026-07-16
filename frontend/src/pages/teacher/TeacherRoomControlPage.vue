@@ -11,6 +11,7 @@ import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/roo
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useDay1Store } from '../../stores/day1'
 import { useLearningStore } from '../../stores/learning'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
@@ -41,6 +42,7 @@ const moduleStateLabels: Record<string, string> = {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const day1Store = useDay1Store()
 const learningStore = useLearningStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
@@ -56,12 +58,15 @@ const preparationError = ref('')
 const pendingStage = ref<string | null>(null)
 const showStageWarning = ref(false)
 const showSettlementConfirm = ref(false)
+const showDay1CloseConfirm = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
 const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const shopSummary = computed(() => shopStore.teacherSummary)
+const day1Summary = computed(() => day1Store.teacherSummary)
+const day1ClosePreview = computed(() => day1Store.closePreview)
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
@@ -105,6 +110,7 @@ onUnmounted(() => {
   settlementStore.clearDay1Income()
   shopStore.clearTeacherSummary()
   learningStore.clearGuided()
+  day1Store.clear()
 })
 
 watch(
@@ -140,6 +146,22 @@ watch(
     shopStore.clearTeacherSummary()
     settlementStore.clearDay1Income()
     learningStore.clearGuided()
+    day1Store.clear()
+    if (stage === 'DAY1_SUMMARY' || stage === 'DAY1_CLOSED') {
+      try {
+        await day1Store.refreshTeacherSummary(roomId.value)
+        if (stage === 'DAY1_SUMMARY') {
+          await day1Store.refreshClosePreview(roomId.value)
+        }
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          await router.replace({ name: 'teacher-login' })
+          return
+        }
+        errorMessage.value = getApiErrorMessage(error, '1일차 결과를 불러오지 못했습니다.')
+      }
+      return
+    }
     if (stage && learningStages.has(stage)) {
       try {
         await learningStore.refreshTeacher(roomId.value)
@@ -366,6 +388,30 @@ async function confirmSettlement() {
   }
 }
 
+async function confirmDay1Close() {
+  if (changingStage.value) return
+  showDay1CloseConfirm.value = false
+  changingStage.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await roomSessionStore.closeDayOne(roomId.value)
+    await day1Store.refreshTeacherSummary(roomId.value)
+    noticeMessage.value = '1일차를 마감했습니다. 확정된 금융 활동과 투자 시나리오가 고정되었습니다.'
+  } catch (error) {
+    if (getApiErrorCode(error) === 'STATE_CONFLICT') {
+      await roomSessionStore.refreshTeacher(roomId.value)
+    }
+    if (isUnauthorized(error)) {
+      await router.replace({ name: 'teacher-login' })
+      return
+    }
+    errorMessage.value = getApiErrorMessage(error, '1일차를 마감하지 못했습니다.')
+  } finally {
+    changingStage.value = false
+  }
+}
+
 function formatBibim(amount: number) {
   return `${amount.toLocaleString('ko-KR')}비빔`
 }
@@ -586,6 +632,55 @@ function moduleTone(moduleState: string) {
                 : settlementStore.executing ? '정산 중…' : `${settlementPreview.targetCount}명 정산하기` }}
             </button>
           </div>
+          <div
+            v-else-if="(state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED') && day1Summary"
+            class="day1-close-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>1일차 활동 결과</span>
+                <strong>{{ day1Summary.studentCount }}명 집계 완료</strong>
+              </div>
+              <StatusBadge
+                :label="state.currentStage === 'DAY1_CLOSED' ? '마감 완료' : '마감 전 확인'"
+                :tone="state.currentStage === 'DAY1_CLOSED' ? 'success' : 'warning'"
+              />
+            </div>
+            <dl class="day1-close-totals">
+              <div><dt>학생 지갑</dt><dd>{{ formatBibim(day1Summary.totalWalletBalance) }}</dd></div>
+              <div><dt>예금 원금</dt><dd>{{ formatBibim(day1Summary.totalDepositPrincipal) }}</dd></div>
+              <div><dt>투자 원금</dt><dd>{{ formatBibim(day1Summary.totalInvestmentPrincipal) }}</dd></div>
+              <div><dt>총소비</dt><dd>{{ formatBibim(day1Summary.totalPurchaseAmount) }}</dd></div>
+            </dl>
+            <div class="day1-student-table" role="table" aria-label="학생별 1일차 활동 결과">
+              <div class="day1-student-table__head" role="row">
+                <span>학생</span><span>잔액</span><span>예금</span><span>투자</span><span>소비</span>
+              </div>
+              <div v-for="studentItem in day1Summary.students" :key="studentItem.studentId" role="row">
+                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                <span>{{ formatBibim(studentItem.walletBalance) }}</span>
+                <span>{{ formatBibim(studentItem.depositPrincipal) }}</span>
+                <span>{{ formatBibim(studentItem.investmentPrincipal) }}</span>
+                <span>{{ formatBibim(studentItem.purchaseTotal) }}</span>
+              </div>
+            </div>
+            <template v-if="state.currentStage === 'DAY1_SUMMARY' && day1ClosePreview">
+              <ul v-if="day1ClosePreview.warnings.length > 0" class="day1-close-warnings">
+                <li v-for="warning in day1ClosePreview.warnings" :key="warning">{{ warning }}</li>
+              </ul>
+              <button
+                class="day1-close-action"
+                type="button"
+                :disabled="!day1ClosePreview.canClose || changingStage"
+                @click="showDay1CloseConfirm = true"
+              >
+                1일차 마감하기
+              </button>
+            </template>
+            <p v-else-if="state.currentStage === 'DAY1_CLOSED'" class="control-caution">
+              1일차 금융 활동은 마감되어 더 이상 수정할 수 없습니다.
+            </p>
+          </div>
           <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
             <header>
               <div>
@@ -626,7 +721,7 @@ function moduleTone(moduleState: string) {
               :disabled="!adjacentStages.previous || changingStage || (
                 state.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
                 settlementPreview?.settlementStatus === 'COMPLETED'
-              )"
+              ) || state.currentStage === 'DAY1_CLOSED'"
               @click="moveToStage(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
@@ -635,7 +730,7 @@ function moduleTone(moduleState: string) {
               type="button"
               :disabled="!adjacentStages.next || changingStage || (
                 state.currentStage.includes('QUIZ') && quizSummary?.status !== 'CLOSED'
-              )"
+              ) || state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED'"
               @click="moveToStage(adjacentStages.next?.id)"
             >
               {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
@@ -648,6 +743,10 @@ function moduleTone(moduleState: string) {
                 : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산을 완료해야 월급명세서 단계로 이동할 수 있습니다.'
+                : state.currentStage === 'DAY1_SUMMARY'
+                  ? '집계 결과와 경고를 확인한 뒤 1일차 마감 버튼을 눌러 주세요.'
+                  : state.currentStage === 'DAY1_CLOSED'
+                    ? '1일차가 마감되었습니다. 2일차 시작 기능은 다음 단계에서 연결합니다.'
                 : '현재 단계의 활동이 끝나면 다음 단계로 이동합니다.' }}
           </p>
         </section>
@@ -659,7 +758,11 @@ function moduleTone(moduleState: string) {
               ? '퀴즈 제출'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산 결과'
-                : state.currentStage === 'DAY1_FREE_ACTIVITY' ? '최근 구매' : '학생 연결' }}</h2>
+                : state.currentStage === 'DAY1_FREE_ACTIVITY'
+                  ? '최근 구매'
+                  : state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED'
+                    ? '1일차 참여'
+                    : '학생 연결' }}</h2>
           </div>
           <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
@@ -717,6 +820,20 @@ function moduleTone(moduleState: string) {
             </ul>
             <p v-else>아직 구매가 발생하지 않았습니다.</p>
           </template>
+          <template
+            v-else-if="(state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED') && day1Summary"
+          >
+            <div class="student-count-ring student-count-ring--day1">
+              <strong>{{ day1Summary.studentCount - day1Summary.inactiveStudentCount }}</strong>
+              <span>/ {{ day1Summary.studentCount }}명 활동</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div><dt>예금 확정</dt><dd>{{ day1Summary.depositConfirmedCount }}명</dd></div>
+              <div><dt>투자 확정</dt><dd>{{ day1Summary.investmentConfirmedCount }}명</dd></div>
+              <div><dt>구매 참여</dt><dd>{{ day1Summary.purchaseParticipantCount }}명</dd></div>
+              <div><dt>미참여</dt><dd>{{ day1Summary.inactiveStudentCount }}명</dd></div>
+            </dl>
+          </template>
           <template v-else>
             <div class="student-count-ring">
               <strong>{{ state.connectedStudentCount }}</strong>
@@ -772,6 +889,24 @@ function moduleTone(moduleState: string) {
             <button type="button" :disabled="settlementStore.executing" @click="confirmSettlement">
               정산 실행하기
             </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showDay1CloseConfirm && day1ClosePreview" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="day1-close-confirm-title">
+          <p class="eyebrow">1일차 최종 마감</p>
+          <h2 id="day1-close-confirm-title">1일차 활동을 마감할까요?</h2>
+          <p class="confirm-modal__warning">
+            마감하면 확정된 예금·투자·구매 결과가 고정되고 새 1일차 거래를 만들 수 없습니다.
+          </p>
+          <p v-if="day1ClosePreview.depositDraftCount + day1ClosePreview.investmentDraftCount > 0">
+            예금 초안 {{ day1ClosePreview.depositDraftCount }}건과 투자 초안
+            {{ day1ClosePreview.investmentDraftCount }}건은 자동 취소됩니다.
+          </p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="showDay1CloseConfirm = false">취소</button>
+            <button type="button" :disabled="changingStage" @click="confirmDay1Close">마감 확정</button>
           </div>
         </section>
       </div>

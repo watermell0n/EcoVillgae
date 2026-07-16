@@ -19,6 +19,7 @@ const stageComponents: Record<string, Component> = {
   DAY1_FINANCE_GUIDED: LearningStageView,
   DAY1_FREE_ACTIVITY: FreeActivityStageView,
   DAY1_SUMMARY: DaySummaryStageView,
+  DAY1_CLOSED: DaySummaryStageView,
   DAY2_SETTLEMENT_WAIT: PlaceholderStageView,
   DAY2_FINAL_RESULT: PlaceholderStageView,
 }

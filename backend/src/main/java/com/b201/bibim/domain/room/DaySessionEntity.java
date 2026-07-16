@@ -57,4 +57,10 @@ public class DaySessionEntity {
     public int getDayNumber() {
         return dayNumber;
     }
+
+    public void closeDayOne() {
+        this.status = "CLOSED";
+        this.currentStage = RoomStage.DAY1_CLOSED.name();
+        this.closedAt = Instant.now();
+    }
 }

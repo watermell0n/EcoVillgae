@@ -1754,6 +1754,331 @@ h1 {
   line-height: 1.6;
 }
 
+.free-activity-stage-view,
+.day1-summary-view {
+  width: 100%;
+  text-align: left;
+}
+
+.economy-header,
+.day1-result-header,
+.day1-close-workspace__headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.economy-header h1,
+.day1-result-header h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(1.45rem, 4vw, 2.25rem);
+  letter-spacing: -0.04em;
+}
+
+.economy-module-tabs {
+  display: flex;
+  gap: 0.45rem;
+  margin: 1.2rem 0;
+  padding-bottom: 0.35rem;
+  overflow-x: auto;
+}
+
+.economy-module-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0.5rem 0.75rem;
+  color: #526176;
+  background: #eef2f5;
+}
+
+.economy-module-tabs button.is-active {
+  color: white;
+  background: #287253;
+}
+
+.economy-balance-grid,
+.day1-assets-grid,
+.day1-close-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.economy-balance-grid article,
+.day1-assets-grid article,
+.day1-close-totals > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.9rem;
+  background: white;
+}
+
+.economy-balance-grid span,
+.day1-assets-grid span,
+.day1-close-totals dt {
+  color: #737b87;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.economy-balance-grid strong,
+.day1-assets-grid strong,
+.day1-close-totals dd {
+  margin: 0;
+  color: #284a3e;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.day1-assets-grid small {
+  color: #6c52a2;
+  font-size: 0.7rem;
+}
+
+.economy-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.economy-activity-grid button {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  min-height: 132px;
+  padding: 1rem;
+  color: #2f3b4d;
+  background: #f7f3ea;
+  text-align: left;
+}
+
+.economy-activity-grid button > span {
+  font-size: 1.7rem;
+}
+
+.economy-activity-grid button small {
+  color: #6d7480;
+  line-height: 1.45;
+}
+
+.finance-activity-panel,
+.wallet-panel,
+.day1-summary-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.finance-guide-card,
+.finance-form-card,
+.investment-total-card,
+.transaction-list,
+.day1-result-section,
+.day1-close-workspace {
+  padding: 1rem;
+  border: 1px solid #e4ddd1;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.finance-guide-card h2,
+.finance-form-card h2,
+.transaction-list h2,
+.day1-result-section h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.finance-form-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.finance-form-card label {
+  font-weight: 900;
+}
+
+.finance-form-card dl,
+.investment-total-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.finance-form-card dl > div,
+.investment-total-card > div:not(.finance-actions) {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #f7f3ea;
+}
+
+.finance-form-card dt,
+.investment-total-card span {
+  color: #737b87;
+  font-size: 0.72rem;
+}
+
+.finance-form-card dd {
+  margin: 0.25rem 0 0;
+  font-weight: 900;
+}
+
+.finance-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.finance-confirmed {
+  margin: 0;
+  color: #287253;
+  font-weight: 900;
+}
+
+.investment-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.investment-asset-grid article {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 1rem;
+  background: white;
+}
+
+.investment-asset-grid h3,
+.investment-asset-grid p {
+  margin: 0;
+}
+
+.investment-asset-grid p,
+.investment-asset-grid small {
+  color: #6b7481;
+}
+
+.risk-badge {
+  width: fit-content;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.risk-badge--low { color: #287253; background: #e5f5ec; }
+.risk-badge--medium { color: #946a17; background: #fff1c9; }
+.risk-badge--high { color: #aa492e; background: #ffede5; }
+
+.transaction-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.transaction-list article {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem;
+  border-radius: 0.75rem;
+  background: #f7f3ea;
+}
+
+.transaction-list article > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.transaction-list small { color: #737b87; }
+.transaction-list .is-positive { color: #287253; }
+
+.day1-result-header {
+  justify-content: flex-start;
+}
+
+.day1-result-header .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0;
+}
+
+.day1-result-section ul,
+.day1-close-warnings {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day1-result-section li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-radius: 0.7rem;
+  background: #f7f3ea;
+}
+
+.day1-purchase-total {
+  margin: 0.8rem 0 0;
+  text-align: right;
+  font-weight: 900;
+}
+
+.day1-close-workspace {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.day1-close-workspace__headline > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.day1-student-table {
+  overflow-x: auto;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.8rem;
+}
+
+.day1-student-table > div {
+  display: grid;
+  grid-template-columns: minmax(135px, 1.3fr) repeat(4, minmax(85px, 1fr));
+  gap: 0.5rem;
+  min-width: 540px;
+  padding: 0.65rem;
+  border-bottom: 1px solid #eee7dd;
+  font-size: 0.76rem;
+}
+
+.day1-student-table > div:last-child { border-bottom: 0; }
+.day1-student-table__head { color: #737b87; background: #f7f3ea; font-weight: 900; }
+
+.day1-close-warnings li {
+  padding: 0.65rem;
+  border-radius: 0.65rem;
+  color: #89582b;
+  background: #fff1d6;
+  font-size: 0.78rem;
+}
+
+.day1-close-action { width: 100%; }
+
+.student-count-ring--day1 {
+  color: #6c52a2;
+  background: #eee8fa;
+}
+
 @media (max-width: 760px) {
   .home-page {
     width: min(100% - 1rem, 560px);
@@ -1807,6 +2132,22 @@ h1 {
   }
 
   .settlement-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .economy-header,
+  .day1-result-header {
+    flex-direction: column;
+  }
+
+  .economy-balance-grid,
+  .day1-assets-grid,
+  .day1-close-totals,
+  .economy-activity-grid,
+  .investment-asset-grid,
+  .finance-form-card dl,
+  .investment-total-card,
+  .finance-actions {
     grid-template-columns: 1fr;
   }
 

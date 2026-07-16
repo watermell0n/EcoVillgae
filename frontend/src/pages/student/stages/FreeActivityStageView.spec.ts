@@ -21,6 +21,21 @@ const learningApi = vi.hoisted(() => ({
 
 vi.mock('../../../features/learning/api/learning', () => learningApi)
 
+const economyApi = vi.hoisted(() => ({
+  getEconomyOverview: vi.fn(),
+  getEconomyTransactions: vi.fn(),
+  getCurrentDeposit: vi.fn(),
+  saveDepositDraft: vi.fn(),
+  cancelDepositDraft: vi.fn(),
+  confirmDeposit: vi.fn(),
+  getCurrentInvestment: vi.fn(),
+  saveInvestmentDraft: vi.fn(),
+  cancelInvestmentDraft: vi.fn(),
+  confirmInvestment: vi.fn(),
+}))
+
+vi.mock('../../../features/economy/api/economy', () => economyApi)
+
 const catalog = {
   walletBalance: 100,
   products: [
@@ -83,7 +98,59 @@ describe('FreeActivityStageView', () => {
         keyPoints: ['원금과 이자를 확인해요.'],
       }],
     })
+    economyApi.getEconomyOverview.mockResolvedValue({
+      walletBalance: 100,
+      depositBalance: 0,
+      investmentBalance: 0,
+      purchaseCount: 0,
+      depositStatus: 'NONE',
+      investmentStatus: 'NONE',
+      totalAssets: 100,
+    })
+    economyApi.getEconomyTransactions.mockResolvedValue([])
+    economyApi.getCurrentDeposit.mockResolvedValue({
+      depositId: null,
+      status: 'NONE',
+      principal: 0,
+      interestRateBps: 500,
+      expectedInterest: 0,
+      expectedMaturityAmount: 0,
+      walletBalance: 100,
+      updatedAt: null,
+      confirmedAt: null,
+      replayed: false,
+    })
+    economyApi.getCurrentInvestment.mockResolvedValue({
+      orderId: null,
+      status: 'NONE',
+      totalAmount: 0,
+      walletBalance: 100,
+      scenarioLocked: false,
+      assets: [
+        {
+          assetId: 'asset-1',
+          code: 'SAFE_BOND',
+          name: '안심 채권',
+          description: '위험이 낮은 투자처예요.',
+          riskLevel: 'LOW',
+          minReturnBps: -200,
+          maxReturnBps: 400,
+          displayOrder: 1,
+        },
+      ],
+      allocations: [],
+      updatedAt: null,
+      confirmedAt: null,
+      replayed: false,
+    })
   })
+
+  async function openTab(wrapper: ReturnType<typeof mount>, label: string) {
+    const button = wrapper.findAll('.economy-module-tabs button')
+      .find((item) => item.text() === label)
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+  }
 
   it('confirms a purchase and updates the wallet and stock', async () => {
     const roomSessionStore = useRoomSessionStore()
@@ -91,8 +158,18 @@ describe('FreeActivityStageView', () => {
     const wrapper = mount(FreeActivityStageView)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('내 지갑')
+    expect(wrapper.text()).toContain('내 비빔을 어떻게 사용할까요?')
     expect(wrapper.text()).toContain('100비빔')
+    economyApi.getEconomyOverview.mockResolvedValue({
+      walletBalance: 75,
+      depositBalance: 0,
+      investmentBalance: 0,
+      purchaseCount: 1,
+      depositStatus: 'NONE',
+      investmentStatus: 'NONE',
+      totalAssets: 75,
+    })
+    await openTab(wrapper, '상점')
     await wrapper.get('.shop-product-card button').trigger('click')
     expect(wrapper.text()).toContain('환불하거나 교환할 수 없어요')
     await wrapper.get('.confirm-modal__actions button:not(.button-secondary)').trigger('click')
@@ -112,6 +189,7 @@ describe('FreeActivityStageView', () => {
     const wrapper = mount(FreeActivityStageView)
     await flushPromises()
 
+    await openTab(wrapper, '금융지식')
     expect(wrapper.text()).toContain('금융지식 다시 보기')
     await wrapper.get('.learning-topic-grid button').trigger('click')
     await flushPromises()
@@ -119,5 +197,64 @@ describe('FreeActivityStageView', () => {
     expect(learningApi.getStudentLearningTopic).toHaveBeenCalledWith('topic-1')
     expect(wrapper.text()).toContain('예금은 무엇일까요?')
     expect(wrapper.text()).toContain('돈을 맡기고 이자를 받아요.')
+  })
+
+  it('saves and confirms a deposit draft', async () => {
+    economyApi.saveDepositDraft.mockResolvedValue({
+      ...(await economyApi.getCurrentDeposit()),
+      depositId: 'deposit-1',
+      status: 'DRAFT',
+      principal: 20,
+      expectedInterest: 1,
+      expectedMaturityAmount: 21,
+    })
+    economyApi.confirmDeposit.mockResolvedValue({
+      ...(await economyApi.getCurrentDeposit()),
+      depositId: 'deposit-1',
+      status: 'CONFIRMED',
+      principal: 20,
+      expectedInterest: 1,
+      expectedMaturityAmount: 21,
+      walletBalance: 80,
+      confirmedAt: '2026-07-16T00:00:00Z',
+    })
+    const roomSessionStore = useRoomSessionStore()
+    vi.spyOn(roomSessionStore, 'refreshStudent').mockResolvedValue(undefined as never)
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '예금')
+    const actions = wrapper.findAll('.finance-actions button')
+    await actions[1]!.trigger('click')
+    await flushPromises()
+    expect(economyApi.saveDepositDraft).toHaveBeenCalledWith(20)
+    await actions[2]!.trigger('click')
+    await flushPromises()
+
+    expect(economyApi.confirmDeposit).toHaveBeenCalledWith(expect.any(String))
+    expect(wrapper.text()).toContain('예금을 확정했어요')
+  })
+
+  it('saves an investment allocation in 10 Bibim units', async () => {
+    economyApi.saveInvestmentDraft.mockResolvedValue({
+      ...(await economyApi.getCurrentInvestment()),
+      orderId: 'order-1',
+      status: 'DRAFT',
+      totalAmount: 30,
+      allocations: [{ assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 30 }],
+    })
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '투자')
+    await wrapper.get('.investment-asset-grid input').setValue(30)
+    const actions = wrapper.findAll('.finance-actions button')
+    await actions[1]!.trigger('click')
+    await flushPromises()
+
+    expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
+      { assetId: 'asset-1', amount: 30 },
+    ])
+    expect(wrapper.text()).toContain('투자 초안을 저장했어요')
   })
 })

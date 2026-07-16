@@ -57,4 +57,9 @@ public class FinancialEntryEntity {
         entry.createdAt = Instant.now();
         return entry;
     }
+
+    public UUID getTransactionId() { return transactionId; }
+    public UUID getAccountId() { return accountId; }
+    public long getAmount() { return amount; }
+    public long getBalanceAfter() { return balanceAfter; }
 }

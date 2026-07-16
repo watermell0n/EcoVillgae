@@ -9,14 +9,6 @@ import { useAuthStore } from '../../stores/auth'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
 
-const moduleLabels: Record<string, string> = {
-  KNOWLEDGE: '금융지식',
-  SHOP: '상점',
-  DEPOSIT: '예금',
-  INVESTMENT: '투자',
-  WALLET: '지갑·거래 내역',
-}
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -31,9 +23,6 @@ const stageComponentProps = computed(() =>
   isPlaceholderStage(state.value?.currentStage)
     ? { stageLabel: stageDefinition.value?.label ?? state.value?.currentStage ?? '대기 중' }
     : {},
-)
-const activeModules = computed(
-  () => state.value?.modules.filter((module) => module.state === 'ACTIVE') ?? [],
 )
 const connectionLabel = computed(() =>
   roomSessionStore.connectionStatus === 'CONNECTED' ? '연결됨' : '다시 연결 중',
@@ -91,12 +80,6 @@ watch(
           <StatusBadge :label="connectionLabel" :tone="connectionTone" />
         </div>
       </header>
-
-      <nav v-if="state.mode === 'FREE'" class="student-module-menu" aria-label="자유 활동 메뉴">
-        <button v-for="module in activeModules" :key="module.type" type="button" disabled>
-          {{ moduleLabels[module.type] ?? module.type }}
-        </button>
-      </nav>
 
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? state.currentStage">
         <p class="student-stage-card__mode">

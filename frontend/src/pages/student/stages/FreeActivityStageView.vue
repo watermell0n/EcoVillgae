@@ -1,15 +1,28 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 
 import type { ShopProduct } from '../../../features/shop/api/shop'
 import { getApiErrorMessage } from '../../../shared/api/errors'
+import { useEconomyStore } from '../../../stores/economy'
 import { useLearningStore } from '../../../stores/learning'
 import { useRoomSessionStore } from '../../../stores/roomSession'
 import { useShopStore } from '../../../stores/shop'
 
+type ActivityView = 'HOME' | 'SHOP' | 'DEPOSIT' | 'INVESTMENT' | 'KNOWLEDGE' | 'WALLET'
+
+const activityCards: Array<{ id: ActivityView; icon: string; title: string; description: string }> = [
+  { id: 'SHOP', icon: '🛒', title: '상점', description: '가격과 재고를 비교해 상품을 구매해요.' },
+  { id: 'DEPOSIT', icon: '🏦', title: '예금', description: '돈을 맡기고 받을 이자를 확인해요.' },
+  { id: 'INVESTMENT', icon: '📈', title: '투자', description: '위험을 비교하고 여러 곳에 나누어 투자해요.' },
+  { id: 'KNOWLEDGE', icon: '📚', title: '금융지식', description: '배운 내용을 내 속도로 다시 읽어요.' },
+  { id: 'WALLET', icon: '👛', title: '지갑', description: '내 잔액과 거래 내역을 확인해요.' },
+]
+
 const shopStore = useShopStore()
+const economyStore = useEconomyStore()
 const learningStore = useLearningStore()
 const roomSessionStore = useRoomSessionStore()
+const activeView = ref<ActivityView>('HOME')
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
@@ -18,32 +31,119 @@ const quantity = ref(1)
 const reviewError = ref('')
 const reviewLoading = ref(false)
 const reviewPageIndex = ref(0)
+const depositPrincipal = ref(20)
+const allocationAmounts = reactive<Record<string, number>>({})
+
 const catalog = computed(() => shopStore.studentCatalog)
+const overview = computed(() => economyStore.overview)
+const deposit = computed(() => economyStore.deposit)
+const investment = computed(() => economyStore.investment)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
 const reviewPage = computed(() => learningStore.selectedTopic?.pages[reviewPageIndex.value])
+const expectedDepositInterest = computed(() => Math.round(depositPrincipal.value * 0.05))
+const selectedAllocations = computed(() =>
+  Object.entries(allocationAmounts)
+    .filter(([, amount]) => Number(amount) > 0)
+    .map(([assetId, amount]) => ({ assetId, amount: Number(amount) })),
+)
+const investmentTotal = computed(() =>
+  selectedAllocations.value.reduce((sum, item) => sum + item.amount, 0),
+)
 
 onMounted(async () => {
   try {
     await Promise.all([
+      economyStore.refreshAll(),
       shopStore.refreshStudentCatalog(),
       shopStore.refreshPurchaseHistory(),
+      learningStore.refreshTopics(),
     ])
+    if (deposit.value?.principal) depositPrincipal.value = deposit.value.principal
+    for (const allocation of investment.value?.allocations ?? []) {
+      allocationAmounts[allocation.assetId] = allocation.amount
+    }
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '상점 정보를 불러오지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
   } finally {
     loading.value = false
-  }
-  try {
-    await learningStore.refreshTopics()
-  } catch (error) {
-    reviewError.value = getApiErrorMessage(error, '복습 주제를 불러오지 못했습니다.')
   }
 })
 
 onUnmounted(() => {
   shopStore.clearStudentShop()
+  economyStore.clear()
   learningStore.clearReview()
 })
+
+function openActivity(view: ActivityView) {
+  activeView.value = view
+  errorMessage.value = ''
+  noticeMessage.value = ''
+}
+
+async function saveDeposit() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await economyStore.updateDepositDraft(depositPrincipal.value)
+    noticeMessage.value = '예금 초안을 저장했어요. 확정 전에는 금액을 바꿀 수 있어요.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '예금 초안을 저장하지 못했습니다.')
+  }
+}
+
+async function cancelDeposit() {
+  try {
+    await economyStore.removeDepositDraft()
+    noticeMessage.value = '예금 초안을 취소했어요.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '예금 초안을 취소하지 못했습니다.')
+  }
+}
+
+async function confirmDeposit() {
+  try {
+    const result = await economyStore.finalizeDeposit()
+    noticeMessage.value = result?.replayed
+      ? '이미 완료된 예금 결과를 불러왔어요.'
+      : '예금을 확정했어요. 원금이 예금 계정으로 이동했습니다.'
+    await roomSessionStore.refreshStudent()
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '예금을 확정하지 못했습니다.')
+  }
+}
+
+async function saveInvestment() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await economyStore.updateInvestmentDraft(selectedAllocations.value)
+    noticeMessage.value = '투자 초안을 저장했어요. 확정 전에 배분을 바꿀 수 있어요.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투자 초안을 저장하지 못했습니다.')
+  }
+}
+
+async function cancelInvestment() {
+  try {
+    await economyStore.removeInvestmentDraft()
+    noticeMessage.value = '투자 초안을 취소했어요.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투자 초안을 취소하지 못했습니다.')
+  }
+}
+
+async function confirmInvestment() {
+  try {
+    const result = await economyStore.finalizeInvestment()
+    noticeMessage.value = result?.replayed
+      ? '이미 완료된 투자 결과를 불러왔어요.'
+      : '투자를 확정했어요. 이제 금액과 시장 시나리오는 바뀌지 않아요.'
+    await roomSessionStore.refreshStudent()
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투자를 확정하지 못했습니다.')
+  }
+}
 
 async function openReview(topicId: string) {
   reviewLoading.value = true
@@ -94,7 +194,11 @@ async function confirmPurchase() {
       ? '이미 완료된 구매 결과를 불러왔어요.'
       : `${purchase.productName} ${purchase.quantity}개를 구매했어요!`
     closePurchase()
-    await roomSessionStore.refreshStudent()
+    await Promise.all([
+      economyStore.refreshOverview(),
+      economyStore.refreshTransactions(),
+      roomSessionStore.refreshStudent(),
+    ])
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '상품을 구매하지 못했습니다.')
   }
@@ -110,169 +214,190 @@ function productEmoji(product: ShopProduct) {
   return ['✏️', '🍪', '⭐'][product.displayOrder - 1] ?? '🎁'
 }
 
+function riskLabel(risk: string) {
+  return { LOW: '낮은 위험', MEDIUM: '중간 위험', HIGH: '높은 위험' }[risk] ?? risk
+}
+
+function transactionIcon(type: string) {
+  return { DAY1_INCOME: '💰', PURCHASE: '🛒', DEPOSIT_CONFIRM: '🏦', INVESTMENT_CONFIRM: '📈' }[type] ?? '↔️'
+}
+
+function formatRate(bps: number) {
+  const value = bps / 100
+  return `${value > 0 ? '+' : ''}${value}%`
+}
+
 function formatBibim(amount: number) {
   return `${amount.toLocaleString('ko-KR')}비빔`
 }
 
 function formatPurchasedAt(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date(value))
 }
 </script>
 
 <template>
-  <div class="shop-stage-view">
-    <p v-if="loading" class="state-message">상점 문을 열고 있습니다.</p>
-    <div v-else-if="errorMessage && !catalog" class="quiz-load-error" role="alert">
-      <strong>상점을 불러오지 못했어요.</strong>
+  <div class="free-activity-stage-view">
+    <p v-if="loading" class="state-message">자유 경제활동을 준비하고 있습니다.</p>
+    <div v-else-if="errorMessage && !overview" class="quiz-load-error" role="alert">
+      <strong>자유 경제활동 정보를 불러오지 못했어요.</strong>
       <p>{{ errorMessage }}</p>
     </div>
-    <template v-else-if="catalog">
-      <header class="shop-header">
+    <template v-else-if="overview && catalog && investment && deposit">
+      <header class="economy-header">
+        <button v-if="activeView !== 'HOME'" class="button-secondary" type="button" @click="openActivity('HOME')">← 활동 홈</button>
         <div>
-          <p class="eyebrow">자유 경제활동 · 상점</p>
-          <h1>필요한 상품을 골라 보세요.</h1>
-          <p>가격과 남은 재고를 확인한 뒤 신중하게 구매해요.</p>
+          <p class="eyebrow">1일차 자유 경제활동</p>
+          <h1>{{ activeView === 'HOME' ? '내 비빔을 어떻게 사용할까요?' : activityCards.find((item) => item.id === activeView)?.title }}</h1>
         </div>
-        <div class="shop-wallet" aria-label="현재 지갑 잔액">
-          <span>내 지갑</span>
-          <strong>{{ formatBibim(catalog.walletBalance) }}</strong>
+        <div class="shop-wallet" aria-label="현재 사용 가능 잔액">
+          <span>사용 가능</span>
+          <strong>{{ formatBibim(overview.walletBalance) }}</strong>
         </div>
       </header>
+
+      <nav class="economy-module-tabs" aria-label="자유 경제활동 메뉴">
+        <button type="button" :class="{ 'is-active': activeView === 'HOME' }" @click="openActivity('HOME')">홈</button>
+        <button v-for="card in activityCards" :key="card.id" type="button" :class="{ 'is-active': activeView === card.id }" @click="openActivity(card.id)">{{ card.title }}</button>
+      </nav>
 
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
       <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
 
-      <section class="shop-product-grid" aria-label="판매 상품">
-        <article
-          v-for="product in catalog.products"
-          :key="product.productId"
-          class="shop-product-card"
-          :class="{ 'is-sold-out': product.status === 'SOLD_OUT' }"
-        >
-          <span class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
-          <div>
-            <span class="shop-product-card__stock">
-              {{ product.status === 'SOLD_OUT' ? '품절' : `재고 ${product.currentStock}개` }}
-            </span>
-            <h2>{{ product.name }}</h2>
-            <p>{{ product.description }}</p>
-          </div>
-          <footer>
-            <strong>{{ formatBibim(product.price) }}</strong>
-            <button
-              type="button"
-              :disabled="!canBuy(product) || shopStore.purchasing"
-              @click="openPurchase(product)"
-            >
-              {{ product.status === 'SOLD_OUT'
-                ? '품절'
-                : product.price > catalog.walletBalance ? '잔액 부족' : '구매하기' }}
-            </button>
-          </footer>
-        </article>
-      </section>
-
-      <section class="shop-history" aria-labelledby="shop-history-title">
-        <div>
-          <p class="eyebrow">구매 내역</p>
-          <h2 id="shop-history-title">내가 산 상품</h2>
+      <section v-if="activeView === 'HOME'" class="economy-home">
+        <div class="economy-balance-grid">
+          <article><span>지갑</span><strong>{{ formatBibim(overview.walletBalance) }}</strong></article>
+          <article><span>예금</span><strong>{{ formatBibim(overview.depositBalance) }}</strong></article>
+          <article><span>투자</span><strong>{{ formatBibim(overview.investmentBalance) }}</strong></article>
+          <article><span>구매</span><strong>{{ overview.purchaseCount }}건</strong></article>
         </div>
-        <p v-if="shopStore.purchaseHistory.length === 0" class="shop-history__empty">
-          아직 구매한 상품이 없어요.
-        </p>
-        <ul v-else>
-          <li v-for="purchase in shopStore.purchaseHistory" :key="purchase.purchaseId">
-            <div>
-              <strong>{{ purchase.productName }}</strong>
-              <span>{{ formatPurchasedAt(purchase.purchasedAt) }} · {{ purchase.quantity }}개</span>
-            </div>
-            <strong>−{{ formatBibim(purchase.totalPrice) }}</strong>
-          </li>
-        </ul>
-      </section>
-
-      <section class="learning-review" aria-labelledby="learning-review-title">
-        <div>
-          <p class="eyebrow">자유 복습</p>
-          <h2 id="learning-review-title">금융지식 다시 보기</h2>
-          <p>궁금한 주제를 골라 내 속도로 다시 읽어 보세요.</p>
-        </div>
-        <p v-if="reviewError" class="form-error" role="alert">{{ reviewError }}</p>
-        <div class="learning-topic-grid">
-          <button
-            v-for="topic in learningStore.topics"
-            :key="topic.topicId"
-            type="button"
-            :disabled="reviewLoading"
-            @click="openReview(topic.topicId)"
-          >
-            <strong>{{ topic.title }}</strong>
-            <span>{{ topic.description }}</span>
+        <div class="economy-activity-grid">
+          <button v-for="card in activityCards" :key="card.id" type="button" @click="openActivity(card.id)">
+            <span aria-hidden="true">{{ card.icon }}</span>
+            <strong>{{ card.title }}</strong>
+            <small>{{ card.description }}</small>
           </button>
         </div>
-        <article v-if="learningStore.selectedTopic && reviewPage" class="learning-review-card">
-          <header>
+      </section>
+
+      <template v-else-if="activeView === 'SHOP'">
+        <section class="shop-product-grid" aria-label="판매 상품">
+          <article v-for="product in catalog.products" :key="product.productId" class="shop-product-card" :class="{ 'is-sold-out': product.status === 'SOLD_OUT' }">
+            <span class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
             <div>
-              <p class="eyebrow">{{ learningStore.selectedTopic.title }}</p>
-              <h3>{{ reviewPage.title }}</h3>
+              <span class="shop-product-card__stock">{{ product.status === 'SOLD_OUT' ? '품절' : `재고 ${product.currentStock}개` }}</span>
+              <h2>{{ product.name }}</h2>
+              <p>{{ product.description }}</p>
             </div>
-            <button class="button-secondary" type="button" @click="closeReview">닫기</button>
-          </header>
-          <p>{{ reviewPage.content }}</p>
-          <ul>
-            <li v-for="point in reviewPage.keyPoints" :key="point">{{ point }}</li>
+            <footer>
+              <strong>{{ formatBibim(product.price) }}</strong>
+              <button type="button" :disabled="!canBuy(product) || shopStore.purchasing" @click="openPurchase(product)">{{ product.status === 'SOLD_OUT' ? '품절' : product.price > catalog.walletBalance ? '잔액 부족' : '구매하기' }}</button>
+            </footer>
+          </article>
+        </section>
+        <section class="shop-history" aria-labelledby="shop-history-title">
+          <div><p class="eyebrow">구매 내역</p><h2 id="shop-history-title">내가 산 상품</h2></div>
+          <p v-if="shopStore.purchaseHistory.length === 0" class="shop-history__empty">아직 구매한 상품이 없어요.</p>
+          <ul v-else>
+            <li v-for="purchase in shopStore.purchaseHistory" :key="purchase.purchaseId">
+              <div><strong>{{ purchase.productName }}</strong><span>{{ formatPurchasedAt(purchase.purchasedAt) }} · {{ purchase.quantity }}개</span></div>
+              <strong>−{{ formatBibim(purchase.totalPrice) }}</strong>
+            </li>
           </ul>
-          <footer>
-            <button
-              class="button-secondary"
-              type="button"
-              :disabled="reviewPageIndex === 0"
-              @click="reviewPageIndex -= 1"
-            >← 이전</button>
-            <span>{{ reviewPageIndex + 1 }} / {{ learningStore.selectedTopic.pages.length }}</span>
-            <button
-              type="button"
-              :disabled="reviewPageIndex === learningStore.selectedTopic.pages.length - 1"
-              @click="reviewPageIndex += 1"
-            >다음 →</button>
-          </footer>
+        </section>
+      </template>
+
+      <section v-else-if="activeView === 'DEPOSIT'" class="finance-activity-panel">
+        <div class="finance-guide-card">
+          <p class="eyebrow">약속 이자율 5%</p>
+          <h2>기다린 만큼 이자를 받아요.</h2>
+          <p>20비빔 이상을 10비빔 단위로 맡길 수 있어요. 확정한 뒤에는 취소하거나 금액을 바꿀 수 없어요.</p>
+        </div>
+        <div class="finance-form-card">
+          <label for="deposit-principal">맡길 금액</label>
+          <input id="deposit-principal" v-model.number="depositPrincipal" type="number" min="20" step="10" :disabled="deposit.status === 'CONFIRMED'" />
+          <dl>
+            <div><dt>예상 이자</dt><dd>{{ formatBibim(expectedDepositInterest) }}</dd></div>
+            <div><dt>만기 예상 금액</dt><dd>{{ formatBibim(depositPrincipal + expectedDepositInterest) }}</dd></div>
+            <div><dt>확정 후 지갑</dt><dd>{{ formatBibim(overview.walletBalance - depositPrincipal) }}</dd></div>
+          </dl>
+          <div class="finance-actions">
+            <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">초안 취소</button>
+            <button type="button" :disabled="deposit.status === 'CONFIRMED' || economyStore.saving" @click="saveDeposit">초안 저장</button>
+            <button type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="confirmDeposit">예금 확정</button>
+          </div>
+          <p v-if="deposit.status === 'CONFIRMED'" class="finance-confirmed">✓ {{ formatBibim(deposit.principal) }} 예금이 확정되었습니다.</p>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'INVESTMENT'" class="finance-activity-panel">
+        <div class="finance-guide-card">
+          <p class="eyebrow">분산투자</p>
+          <h2>수익뿐 아니라 손실 가능성도 비교해요.</h2>
+          <p>1~3개 투자처에 10비빔 단위로 나누어 투자할 수 있어요. 확정 후에는 배분과 시장 시나리오가 고정됩니다.</p>
+        </div>
+        <div class="investment-asset-grid">
+          <article v-for="asset in investment.assets" :key="asset.assetId">
+            <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">{{ riskLabel(asset.riskLevel) }}</span>
+            <h3>{{ asset.name }}</h3>
+            <p>{{ asset.description }}</p>
+            <small>예상 범위 {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
+            <input v-model.number="allocationAmounts[asset.assetId]" :aria-label="`${asset.name} 투자 금액`" type="number" min="0" step="10" placeholder="0" :disabled="investment.status === 'CONFIRMED'" />
+          </article>
+        </div>
+        <div class="investment-total-card">
+          <div><span>총투자금</span><strong>{{ formatBibim(investmentTotal) }}</strong></div>
+          <div><span>투자 후 지갑</span><strong>{{ formatBibim(overview.walletBalance - investmentTotal) }}</strong></div>
+          <div class="finance-actions">
+            <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">초안 취소</button>
+            <button type="button" :disabled="investment.status === 'CONFIRMED' || economyStore.saving" @click="saveInvestment">초안 저장</button>
+            <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
+          </div>
+          <p v-if="investment.status === 'CONFIRMED'" class="finance-confirmed">✓ {{ formatBibim(investment.totalAmount) }} 투자가 확정되었습니다.</p>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'KNOWLEDGE'" class="learning-review" aria-labelledby="learning-review-title">
+        <div><p class="eyebrow">자유 복습</p><h2 id="learning-review-title">금융지식 다시 보기</h2><p>궁금한 주제를 골라 내 속도로 다시 읽어 보세요.</p></div>
+        <p v-if="reviewError" class="form-error" role="alert">{{ reviewError }}</p>
+        <div class="learning-topic-grid">
+          <button v-for="topic in learningStore.topics" :key="topic.topicId" type="button" :disabled="reviewLoading" @click="openReview(topic.topicId)"><strong>{{ topic.title }}</strong><span>{{ topic.description }}</span></button>
+        </div>
+        <article v-if="learningStore.selectedTopic && reviewPage" class="learning-review-card">
+          <header><div><p class="eyebrow">{{ learningStore.selectedTopic.title }}</p><h3>{{ reviewPage.title }}</h3></div><button class="button-secondary" type="button" @click="closeReview">닫기</button></header>
+          <p>{{ reviewPage.content }}</p><ul><li v-for="point in reviewPage.keyPoints" :key="point">{{ point }}</li></ul>
+          <footer><button class="button-secondary" type="button" :disabled="reviewPageIndex === 0" @click="reviewPageIndex -= 1">← 이전</button><span>{{ reviewPageIndex + 1 }} / {{ learningStore.selectedTopic.pages.length }}</span><button type="button" :disabled="reviewPageIndex === learningStore.selectedTopic.pages.length - 1" @click="reviewPageIndex += 1">다음 →</button></footer>
         </article>
+      </section>
+
+      <section v-else-if="activeView === 'WALLET'" class="wallet-panel">
+        <div class="economy-balance-grid">
+          <article><span>사용 가능 잔액</span><strong>{{ formatBibim(overview.walletBalance) }}</strong></article>
+          <article><span>예금 원금</span><strong>{{ formatBibim(overview.depositBalance) }}</strong></article>
+          <article><span>투자 원금</span><strong>{{ formatBibim(overview.investmentBalance) }}</strong></article>
+          <article><span>총자산</span><strong>{{ formatBibim(overview.totalAssets) }}</strong></article>
+        </div>
+        <div class="transaction-list">
+          <h2>내 거래 내역</h2>
+          <p v-if="economyStore.transactions.length === 0">아직 거래 내역이 없습니다.</p>
+          <article v-for="transaction in economyStore.transactions" :key="transaction.transactionId">
+            <span aria-hidden="true">{{ transactionIcon(transaction.transactionType) }}</span>
+            <div><strong>{{ transaction.description }}</strong><small>{{ formatPurchasedAt(transaction.createdAt) }}</small></div>
+            <strong :class="{ 'is-positive': transaction.walletAmount > 0 }">{{ transaction.walletAmount > 0 ? '+' : '' }}{{ formatBibim(transaction.walletAmount) }}</strong>
+          </article>
+        </div>
       </section>
     </template>
 
     <div v-if="selectedProduct && catalog" class="modal-backdrop">
       <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
-        <p class="eyebrow">상품 구매 확인</p>
-        <h2 id="purchase-title">{{ selectedProduct.name }} 상품을 구매할까요?</h2>
-        <div class="shop-quantity">
-          <button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
-          <strong>{{ quantity }}개</strong>
-          <button
-            type="button"
-            aria-label="수량 늘리기"
-            :disabled="quantity >= selectedProduct.currentStock"
-            @click="changeQuantity(1)"
-          >+</button>
-        </div>
-        <p class="confirm-modal__warning">
-          결제 금액 {{ formatBibim(totalPrice) }} · 결제 후 {{ formatBibim(catalog.walletBalance - totalPrice) }}
-        </p>
+        <p class="eyebrow">상품 구매 확인</p><h2 id="purchase-title">{{ selectedProduct.name }} 상품을 구매할까요?</h2>
+        <div class="shop-quantity"><button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button><strong>{{ quantity }}개</strong><button type="button" aria-label="수량 늘리기" :disabled="quantity >= selectedProduct.currentStock" @click="changeQuantity(1)">+</button></div>
+        <p class="confirm-modal__warning">결제 금액 {{ formatBibim(totalPrice) }} · 결제 후 {{ formatBibim(catalog.walletBalance - totalPrice) }}</p>
         <p>구매한 상품은 환불하거나 교환할 수 없어요. 마지막으로 수량과 금액을 확인해 주세요.</p>
-        <div class="confirm-modal__actions">
-          <button class="button-secondary" type="button" :disabled="shopStore.purchasing" @click="closePurchase">취소</button>
-          <button
-            type="button"
-            :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance"
-            @click="confirmPurchase"
-          >
-            {{ shopStore.purchasing ? '결제 중…' : '구매 확정' }}
-          </button>
-        </div>
+        <div class="confirm-modal__actions"><button class="button-secondary" type="button" :disabled="shopStore.purchasing" @click="closePurchase">취소</button><button type="button" :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance" @click="confirmPurchase">{{ shopStore.purchasing ? '결제 중…' : '구매 확정' }}</button></div>
       </section>
     </div>
   </div>
