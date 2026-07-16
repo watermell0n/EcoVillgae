@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getRoomStage } from '../../features/room/model/stages'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import { formatCurrency, SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
@@ -72,11 +73,11 @@ watch(
 
     <template v-else-if="student && state">
       <header class="student-room-header">
-        <RouterLink class="brand-link" to="/">비빔</RouterLink>
+        <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
         <div class="student-room-header__info">
           <span>{{ state.currentDay }}일차</span>
           <strong>{{ student.nickname }}</strong>
-          <span>{{ state.walletBalance }}비빔</span>
+          <span>{{ formatCurrency(state.walletBalance) }}</span>
           <StatusBadge :label="connectionLabel" :tone="connectionTone" />
         </div>
       </header>

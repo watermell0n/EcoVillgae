@@ -21,7 +21,7 @@ public class HealthController {
         return ApiResponse.success(
                 Map.of(
                         "status", "UP",
-                        "service", "bibim-backend"
+                        "service", "ecovillage-backend"
                 ),
                 requestId
         );

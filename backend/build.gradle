@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.b201'
 version = '0.0.1-SNAPSHOT'
-description = 'Bibim classroom economy service'
+description = 'EcoVillage classroom economy service'
 
 java {
 	toolchain {

@@ -9,7 +9,7 @@ server:
 
 logging:
   file:
-    name: ${LOG_PATH:/app/logs/bibim.log}
+    name: ${LOG_PATH:/app/logs/ecovillage.log}
 
 app:
   auth:

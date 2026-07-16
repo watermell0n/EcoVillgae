@@ -99,7 +99,7 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
     private void seedStudents() {
         for (int number = 1; number <= 3; number += 1) {
             UUID studentId = UUID.fromString("30000000-0000-0000-0000-00000000000" + number);
-            String participationCode = "BIBIM-0" + number;
+            String participationCode = "ECO-0" + number;
             jdbcTemplate.update("""
                     INSERT INTO students (
                         id, room_id, participant_number, participation_code, status

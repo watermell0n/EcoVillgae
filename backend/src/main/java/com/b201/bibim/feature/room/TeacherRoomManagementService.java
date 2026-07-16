@@ -175,7 +175,7 @@ public class TeacherRoomManagementService {
 
     private String nextParticipationCode(Set<String> generatedCodes) {
         for (int attempt = 0; attempt < 100; attempt += 1) {
-            StringBuilder code = new StringBuilder("BIBIM-");
+            StringBuilder code = new StringBuilder("ECO-");
             for (int index = 0; index < CODE_RANDOM_LENGTH; index += 1) {
                 code.append(CODE_ALPHABET[SECURE_RANDOM.nextInt(CODE_ALPHABET.length)]);
             }

@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/bibim}
-    username: ${DB_USERNAME:bibim}
-    password: ${DB_PASSWORD:bibim-local-password}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ecovillage}
+    username: ${DB_USERNAME:ecovillage}
+    password: ${DB_PASSWORD:ecovillage-local-password}
 
 logging:
   level:
@@ -12,4 +12,4 @@ app:
   demo:
     teacher-login-id: ${DEMO_TEACHER_LOGIN_ID:teacher}
     teacher-password: ${DEMO_TEACHER_PASSWORD:teacher1234}
-    teacher-display-name: ${DEMO_TEACHER_DISPLAY_NAME:김비빔 선생님}
+    teacher-display-name: ${DEMO_TEACHER_DISPLAY_NAME:이코빌리지 선생님}

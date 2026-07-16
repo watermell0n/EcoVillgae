@@ -1,6 +1,6 @@
-# 비빔 교실 경제
+# 이코빌리지
 
-교사가 수업 단계를 제어하고 학생이 비빔으로 경제활동을 체험하는 웹 서비스입니다.
+교사가 수업 단계를 제어하고 학생이 교실 화폐 `비빔`으로 경제활동을 체험하는 웹 서비스입니다.
 
 ## 기술 스택
 
@@ -10,6 +10,17 @@
 - Local infrastructure: Docker Compose
 
 ## 실행 방법
+
+### 실행 전 확인
+
+개별로 백엔드를 실행할 때는 JDK 21이 필요합니다. `JAVA_HOME`은 `bin` 폴더가 아닌 JDK 설치 폴더를 가리켜야 합니다.
+
+```powershell
+java -version
+$env:JAVA_HOME
+Test-Path "$env:JAVA_HOME\bin\java.exe"
+```
+
 ### 1. 전체 로컬 실행
 
 ```powershell
@@ -24,7 +35,7 @@ docker compose -f infra/docker-compose.local.yml up -d --build
 ### 로컬 데모 인증
 
 - 교사 로그인: `teacher` / `teacher1234`
-- 학생 참여 코드: `BIBIM-01`, `BIBIM-02`, `BIBIM-03`
+- 학생 참여 코드: `ECO-01`, `ECO-02`, `ECO-03`
 - 교사 페이지: http://localhost:5173/teacher/login
 - 학생 페이지: http://localhost:5173/student/join
 
@@ -36,7 +47,7 @@ docker compose -f infra/docker-compose.local.yml up -d --build
 docker compose -f infra/docker-compose.local.yml down
 ```
 
-DB 데이터까지 초기화하려면 명시적으로 다음 명령을 사용합니다.
+Docker Compose 프로젝트명은 `ecovillage-local`입니다. DB 데이터까지 초기화하려면 명시적으로 다음 명령을 사용합니다.
 
 ```powershell
 docker compose -f infra/docker-compose.local.yml down -v
@@ -57,8 +68,8 @@ cd backend
 
 현재 .env.example의 비밀번호가 change-me이므로 환경변수를 맞춰줘야 함
 
-$env:DB_URL="jdbc:postgresql://localhost:5432/bibim"
-$env:DB_USERNAME="bibim"
+$env:DB_URL="jdbc:postgresql://localhost:5432/ecovillage"
+$env:DB_USERNAME="ecovillage"
 $env:DB_PASSWORD="change-me"
 
 .\gradlew.bat bootRun

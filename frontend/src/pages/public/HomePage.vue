@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 
 import { getHealth } from '../../shared/api/health'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import { CURRENCY_UNIT, SERVICE_NAME } from '../../shared/config/brand'
 
 type ConnectionState = 'checking' | 'connected' | 'failed'
 
@@ -29,8 +30,8 @@ onMounted(checkBackend)
   <main class="home-page">
     <section class="hero-card">
       <div class="hero-card__content">
-        <p class="eyebrow">교실 경제활동 서비스</p>
-        <h1>비빔으로 배우는<br />우리 반 경제생활</h1>
+        <p class="eyebrow">{{ SERVICE_NAME }} · 교실 경제활동 서비스</p>
+        <h1>{{ CURRENCY_UNIT }}으로 배우는<br />우리 반 경제생활</h1>
         <p class="hero-card__description">
           교사가 수업 단계를 진행하면 학생 화면이 함께 바뀌는 2일 과정 경제교육 서비스입니다.
         </p>
@@ -61,7 +62,7 @@ onMounted(checkBackend)
       </div>
 
       <div class="money-illustration" aria-hidden="true">
-        <span class="money-illustration__symbol">비빔</span>
+        <span class="money-illustration__symbol">{{ CURRENCY_UNIT }}</span>
         <span class="money-illustration__coin money-illustration__coin--one">₿</span>
         <span class="money-illustration__coin money-illustration__coin--two">₿</span>
       </div>

@@ -13,10 +13,12 @@ import {
   type TeacherSession,
 } from '../features/auth/api/auth'
 
-const PENDING_STUDENT_ENTRY_KEY = 'bibim.pendingStudentEntry'
+const PENDING_STUDENT_ENTRY_KEY = 'ecovillage.pendingStudentEntry'
+const LEGACY_PENDING_STUDENT_ENTRY_KEY = 'bibim.pendingStudentEntry'
 
 function readPendingStudentEntry(): StudentEntry | null {
   const stored = sessionStorage.getItem(PENDING_STUDENT_ENTRY_KEY)
+    ?? sessionStorage.getItem(LEGACY_PENDING_STUDENT_ENTRY_KEY)
   if (!stored) {
     return null
   }
@@ -83,6 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
   function clearPendingStudentEntry() {
     pendingStudentEntry.value = null
     sessionStorage.removeItem(PENDING_STUDENT_ENTRY_KEY)
+    sessionStorage.removeItem(LEGACY_PENDING_STUDENT_ENTRY_KEY)
   }
 
   return {

@@ -6,6 +6,7 @@ import { createTeacherRoom } from '../../features/room/api/room'
 import { getRoomStage } from '../../features/room/model/stages'
 import { isUnauthorized, getApiErrorMessage } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import { SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
@@ -90,7 +91,7 @@ async function submitCreateRoom() {
   <main class="dashboard-page">
     <header class="dashboard-header">
       <div>
-        <RouterLink class="brand-link" to="/">비빔</RouterLink>
+        <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
         <p v-if="teacher">{{ teacher.displayName }}의 수업 공간</p>
       </div>
       <StatusBadge label="교사 로그인됨" tone="success" />

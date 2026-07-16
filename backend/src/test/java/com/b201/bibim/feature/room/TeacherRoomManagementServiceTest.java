@@ -89,7 +89,7 @@ class TeacherRoomManagementServiceTest {
                         .toList()).size()
         );
         assertTrue(response.students().stream()
-                .allMatch(item -> item.participationCode().startsWith("BIBIM-")));
+                .allMatch(item -> item.participationCode().startsWith("ECO-")));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Iterable<StudentEntity>> studentCaptor =
@@ -141,8 +141,8 @@ class TeacherRoomManagementServiceTest {
         UUID teacherId = UUID.randomUUID();
         RoomEntity room = RoomEntity.preparing(teacherId, "테스트 반", 2);
         List<StudentEntity> students = List.of(
-                StudentEntity.invited(room.getId(), 1, "BIBIM-AAAAA"),
-                StudentEntity.invited(room.getId(), 2, "BIBIM-BBBBB")
+                StudentEntity.invited(room.getId(), 1, "ECO-AAAAA"),
+                StudentEntity.invited(room.getId(), 2, "ECO-BBBBB")
         );
         when(roomRepository.findById(room.getId())).thenReturn(Optional.of(room));
         when(studentRepository.findAllByRoomIdOrderByParticipantNumber(room.getId()))

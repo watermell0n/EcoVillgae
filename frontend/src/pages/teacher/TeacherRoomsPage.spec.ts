@@ -23,7 +23,7 @@ vi.mock('../../features/room/api/room', () => roomApi)
 
 const teacher = {
   teacherId: 'teacher-1',
-  displayName: '김비빔 선생님',
+  displayName: '이코빌리지 선생님',
   rooms: [],
 }
 

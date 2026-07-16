@@ -72,8 +72,7 @@ function formatBibim(amount: number) {
         target="_blank"
         rel="noopener noreferrer"
       >마무리 설문 새 탭에서 열기 ↗</a>
-      <p class="control-caution">설문 응답 내용은 비빔 서비스에 저장되지 않습니다.</p>
+      <p class="control-caution">설문 응답 내용은 이코빌리지 서비스에 저장되지 않습니다.</p>
     </template>
   </div>
 </template>
-
