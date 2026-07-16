@@ -2,6 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import {
+  getTeacherRoomStudents,
+  type RoomPreparation,
+  type TeacherRoomStudent,
+} from '../../features/room/api/room'
 import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/room/model/stages'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
@@ -43,6 +48,9 @@ const loading = ref(true)
 const changingStage = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const preparation = ref<RoomPreparation | null>(null)
+const preparationLoading = ref(false)
+const preparationError = ref('')
 const pendingStage = ref<string | null>(null)
 const showStageWarning = ref(false)
 const showSettlementConfirm = ref(false)
@@ -89,6 +97,19 @@ onUnmounted(() => {
   settlementStore.clearDay1Income()
   shopStore.clearTeacherSummary()
 })
+
+watch(
+  () => [state.value?.currentStage, state.value?.connectedStudentCount] as const,
+  async ([stage]) => {
+    if (stage !== 'DAY1_LOBBY') {
+      preparation.value = null
+      preparationError.value = ''
+      return
+    }
+    await refreshPreparation()
+  },
+  { immediate: true },
+)
 
 watch(
   () => roomSessionStore.pollError,
@@ -209,6 +230,45 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
   }
 }
 
+async function refreshPreparation() {
+  if (preparationLoading.value) return
+  preparationLoading.value = true
+  preparationError.value = ''
+  try {
+    preparation.value = await getTeacherRoomStudents(roomId.value)
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      await router.replace({ name: 'teacher-login' })
+      return
+    }
+    preparationError.value = getApiErrorMessage(error, '참여 코드와 학생 현황을 불러오지 못했습니다.')
+  } finally {
+    preparationLoading.value = false
+  }
+}
+
+async function copyParticipationCode(code: string) {
+  try {
+    await navigator.clipboard.writeText(code)
+    noticeMessage.value = `${code} 코드를 복사했습니다.`
+  } catch {
+    noticeMessage.value = `참여 코드: ${code}`
+  }
+}
+
+function studentStatusLabel(student: TeacherRoomStudent) {
+  if (student.online) return '접속'
+  if (student.status === 'ACTIVE') return '설정 완료'
+  if (student.status === 'ABSENT') return '결석'
+  return '입장 전'
+}
+
+function studentStatusTone(student: TeacherRoomStudent): 'success' | 'warning' | 'neutral' {
+  if (student.online) return 'success'
+  if (student.status === 'ACTIVE') return 'warning'
+  return 'neutral'
+}
+
 async function confirmStageMove() {
   const targetStage = pendingStage.value
   showStageWarning.value = false
@@ -320,7 +380,46 @@ function moduleTone(moduleState: string) {
           <p class="stage-control-panel__description">
             {{ currentStage?.description ?? '현재 수업 활동을 진행합니다.' }}
           </p>
-          <div v-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
+          <div v-if="state.currentStage === 'DAY1_LOBBY' && preparation" class="room-preparation-workspace">
+            <div class="room-preparation-heading">
+              <div>
+                <span>개인 참여 코드</span>
+                <strong>{{ preparation.students.length }}개 생성됨</strong>
+              </div>
+              <button class="button-secondary" type="button" :disabled="preparationLoading" @click="refreshPreparation">
+                {{ preparationLoading ? '새로고침 중…' : '접속 현황 새로고침' }}
+              </button>
+            </div>
+            <p v-if="preparationError" class="form-error" role="alert">{{ preparationError }}</p>
+            <div class="participation-code-list" role="table" aria-label="학생 참여 코드와 접속 현황">
+              <div class="participation-code-list__head" role="row">
+                <span>번호</span>
+                <span>개인 코드</span>
+                <span>닉네임</span>
+                <span>상태</span>
+              </div>
+              <div v-for="studentItem in preparation.students" :key="studentItem.studentId" role="row">
+                <strong>{{ studentItem.participantNumber }}번</strong>
+                <button type="button" class="participation-code-button" @click="copyParticipationCode(studentItem.participationCode)">
+                  {{ studentItem.participationCode }}
+                </button>
+                <span>{{ studentItem.nickname ?? '미설정' }}</span>
+                <StatusBadge
+                  :label="studentStatusLabel(studentItem)"
+                  :tone="studentStatusTone(studentItem)"
+                />
+              </div>
+            </div>
+            <p class="control-caution">참여 코드를 학생별로 전달하세요. 코드는 한 학생만 사용할 수 있습니다.</p>
+          </div>
+          <p
+            v-else-if="state.currentStage === 'DAY1_LOBBY'"
+            :class="preparationError ? 'form-error' : 'state-message'"
+            :role="preparationError ? 'alert' : undefined"
+          >
+            {{ preparationError || '참여 코드와 학생 현황을 불러오고 있습니다.' }}
+          </p>
+          <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
             <div class="shop-summary-headline">
               <div>
                 <span>누적 판매</span>

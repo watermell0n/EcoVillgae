@@ -338,6 +338,14 @@ h1 {
   width: 100%;
 }
 
+.room-create-modal .form-stack {
+  margin-top: 1.2rem;
+}
+
+.room-create-modal input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
 .control-page {
   width: min(1380px, calc(100% - 2rem));
   margin: 0 auto;
@@ -593,6 +601,80 @@ h1 {
 .settlement-action {
   width: 100%;
   background: #287253;
+}
+
+.room-preparation-workspace {
+  margin-top: 1.25rem;
+}
+
+.room-preparation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.room-preparation-heading > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.room-preparation-heading span {
+  color: #737b87;
+  font-size: 0.78rem;
+}
+
+.room-preparation-heading strong {
+  color: #263449;
+  font-size: 1.05rem;
+}
+
+.room-preparation-heading button {
+  width: auto;
+  min-height: 38px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+.participation-code-list {
+  overflow-x: auto;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.8rem;
+}
+
+.participation-code-list > div {
+  display: grid;
+  grid-template-columns: 58px minmax(150px, 1.2fr) minmax(100px, 1fr) 90px;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 510px;
+  padding: 0.7rem;
+  border-bottom: 1px solid #eee7dd;
+  font-size: 0.8rem;
+}
+
+.participation-code-list > div:last-child {
+  border-bottom: 0;
+}
+
+.participation-code-list__head {
+  color: #737b87;
+  background: #f7f3ea;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+}
+
+.participation-code-button {
+  width: fit-content;
+  min-height: 34px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #efc9b8;
+  color: #9d4d28;
+  background: #fff7ef;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
 }
 
 .shop-summary-workspace {

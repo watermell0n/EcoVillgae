@@ -48,6 +48,22 @@ public class RoomEntity {
     protected RoomEntity() {
     }
 
+    public static RoomEntity preparing(UUID teacherId, String name, int expectedStudentCount) {
+        RoomEntity room = new RoomEntity();
+        room.id = UUID.randomUUID();
+        room.teacherId = teacherId;
+        room.name = name;
+        room.expectedStudentCount = expectedStudentCount;
+        room.status = "PREPARING";
+        room.currentDay = 1;
+        room.currentStage = RoomStage.DAY1_LOBBY.name();
+        room.mode = "GUIDED";
+        room.version = 0;
+        room.syncVersion = 0;
+        room.updatedAt = Instant.now();
+        return room;
+    }
+
     public UUID getId() {
         return id;
     }

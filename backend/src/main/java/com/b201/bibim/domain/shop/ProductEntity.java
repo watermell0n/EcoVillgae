@@ -51,6 +51,29 @@ public class ProductEntity {
     protected ProductEntity() {
     }
 
+    public static ProductEntity forSale(
+            UUID roomId,
+            String name,
+            String description,
+            long price,
+            int stock,
+            int displayOrder
+    ) {
+        ProductEntity product = new ProductEntity();
+        product.id = UUID.randomUUID();
+        product.roomId = roomId;
+        product.name = name;
+        product.description = description;
+        product.originalPrice = price;
+        product.currentPrice = price;
+        product.initialStock = stock;
+        product.currentStock = stock;
+        product.status = stock == 0 ? "SOLD_OUT" : "ON_SALE";
+        product.displayOrder = displayOrder;
+        product.updatedAt = Instant.now();
+        return product;
+    }
+
     public void sell(int quantity) {
         if (quantity <= 0 || currentStock < quantity || !"ON_SALE".equals(status)) {
             throw new IllegalStateException("판매할 수 없는 상품입니다.");

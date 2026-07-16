@@ -34,6 +34,26 @@ export interface StudentRoomState {
   changed: boolean
 }
 
+export interface TeacherRoomStudent {
+  studentId: string
+  participantNumber: number
+  participationCode: string
+  nickname: string | null
+  status: string
+  online: boolean
+  lastSeenAt: string | null
+}
+
+export interface RoomPreparation {
+  roomId: string
+  name: string
+  expectedStudentCount: number
+  connectedStudentCount: number
+  status: string
+  currentStage: string
+  students: TeacherRoomStudent[]
+}
+
 export interface RoomCommandResponse {
   state: TeacherRoomState
   replayed: boolean
@@ -51,6 +71,21 @@ export async function getStudentRoomState(syncVersion?: number) {
   const response = await http.get<ApiResponse<StudentRoomState>>('/student/room-state', {
     params: syncVersion === undefined ? undefined : { syncVersion },
   })
+  return response.data.data
+}
+
+export async function createTeacherRoom(name: string, expectedStudentCount: number) {
+  const response = await http.post<ApiResponse<RoomPreparation>>('/teacher/rooms', {
+    name,
+    expectedStudentCount,
+  })
+  return response.data.data
+}
+
+export async function getTeacherRoomStudents(roomId: string) {
+  const response = await http.get<ApiResponse<RoomPreparation>>(
+    `/teacher/rooms/${roomId}/students`,
+  )
   return response.data.data
 }
 

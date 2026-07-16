@@ -32,6 +32,17 @@ public class RoomRulesEntity {
     protected RoomRulesEntity() {
     }
 
+    public static RoomRulesEntity defaults(UUID roomId) {
+        RoomRulesEntity rules = new RoomRulesEntity();
+        rules.id = UUID.randomUUID();
+        rules.roomId = roomId;
+        rules.roleIncome = 100;
+        rules.day1ParticipationReward = 10;
+        rules.day1CorrectReward = 10;
+        rules.incomeTaxBps = 1000;
+        return rules;
+    }
+
     public UUID getRoomId() {
         return roomId;
     }
