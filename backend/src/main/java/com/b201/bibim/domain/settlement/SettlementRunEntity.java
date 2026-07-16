@@ -66,12 +66,30 @@ public class SettlementRunEntity {
             String idempotencyKey,
             int targetCount
     ) {
+        return processing(
+                roomId,
+                sessionId,
+                startedBy,
+                idempotencyKey,
+                targetCount,
+                "DAY1_INCOME"
+        );
+    }
+
+    public static SettlementRunEntity processing(
+            UUID roomId,
+            UUID sessionId,
+            UUID startedBy,
+            String idempotencyKey,
+            int targetCount,
+            String settlementType
+    ) {
         SettlementRunEntity run = new SettlementRunEntity();
         run.id = UUID.randomUUID();
         run.roomId = roomId;
         run.sessionId = sessionId;
         run.startedBy = startedBy;
-        run.settlementType = "DAY1_INCOME";
+        run.settlementType = settlementType;
         run.status = "PROCESSING";
         run.idempotencyKey = idempotencyKey;
         run.targetCount = targetCount;
@@ -90,6 +108,28 @@ public class SettlementRunEntity {
                 "totalGrossIncome", totalGrossIncome,
                 "totalIncomeTax", totalIncomeTax,
                 "totalNetIncome", totalNetIncome
+        );
+        completedAt = Instant.now();
+    }
+
+    public void completeFinancial(
+            long totalDepositPrincipal,
+            long totalDepositInterest,
+            long totalInvestmentPrincipal,
+            long totalInvestmentProfit,
+            long totalFinancialTax,
+            long totalWalletAfter
+    ) {
+        status = "COMPLETED";
+        successCount = targetCount;
+        failureCount = 0;
+        summary = Map.of(
+                "totalDepositPrincipal", totalDepositPrincipal,
+                "totalDepositInterest", totalDepositInterest,
+                "totalInvestmentPrincipal", totalInvestmentPrincipal,
+                "totalInvestmentProfit", totalInvestmentProfit,
+                "totalFinancialTax", totalFinancialTax,
+                "totalWalletAfter", totalWalletAfter
         );
         completedAt = Instant.now();
     }

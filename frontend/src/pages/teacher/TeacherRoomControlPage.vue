@@ -12,6 +12,7 @@ import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../share
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useDay1Store } from '../../stores/day1'
+import { useDay2FinanceStore } from '../../stores/day2Finance'
 import { useLearningStore } from '../../stores/learning'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
@@ -43,6 +44,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const day1Store = useDay1Store()
+const day2FinanceStore = useDay2FinanceStore()
 const learningStore = useLearningStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
@@ -59,6 +61,7 @@ const pendingStage = ref<string | null>(null)
 const showStageWarning = ref(false)
 const showSettlementConfirm = ref(false)
 const showDay1CloseConfirm = ref(false)
+const showDay2SettlementConfirm = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
@@ -67,6 +70,7 @@ const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const shopSummary = computed(() => shopStore.teacherSummary)
 const day1Summary = computed(() => day1Store.teacherSummary)
 const day1ClosePreview = computed(() => day1Store.closePreview)
+const day2FinancePreview = computed(() => day2FinanceStore.teacherPreview)
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
@@ -111,6 +115,7 @@ onUnmounted(() => {
   shopStore.clearTeacherSummary()
   learningStore.clearGuided()
   day1Store.clear()
+  day2FinanceStore.clear()
 })
 
 watch(
@@ -147,6 +152,7 @@ watch(
     settlementStore.clearDay1Income()
     learningStore.clearGuided()
     day1Store.clear()
+    day2FinanceStore.clear()
     if (stage === 'DAY1_SUMMARY' || stage === 'DAY1_CLOSED') {
       try {
         await day1Store.refreshTeacherSummary(roomId.value)
@@ -159,6 +165,23 @@ watch(
           return
         }
         errorMessage.value = getApiErrorMessage(error, '1일차 결과를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage && [
+      'DAY2_LOGIN',
+      'DAY2_SETTLEMENT_WAIT',
+      'DAY2_FINANCE_SETTLEMENT',
+      'DAY2_RESULT_GUIDED',
+    ].includes(stage)) {
+      try {
+        await day2FinanceStore.refreshTeacher(roomId.value)
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          await router.replace({ name: 'teacher-login' })
+          return
+        }
+        errorMessage.value = getApiErrorMessage(error, '2일차 금융 정산 정보를 불러오지 못했습니다.')
       }
       return
     }
@@ -409,6 +432,43 @@ async function confirmDay1Close() {
     errorMessage.value = getApiErrorMessage(error, '1일차를 마감하지 못했습니다.')
   } finally {
     changingStage.value = false
+  }
+}
+
+async function startDayTwo() {
+  if (changingStage.value) return
+  changingStage.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await roomSessionStore.startDayTwo(roomId.value)
+    noticeMessage.value = '2일차를 시작했습니다. 학생은 기존 참여 코드와 비밀번호로 다시 로그인할 수 있습니다.'
+  } catch (error) {
+    if (getApiErrorCode(error) === 'STATE_CONFLICT') {
+      await roomSessionStore.refreshTeacher(roomId.value)
+    }
+    errorMessage.value = getApiErrorMessage(error, '2일차를 시작하지 못했습니다.')
+  } finally {
+    changingStage.value = false
+  }
+}
+
+async function confirmDay2FinanceSettlement() {
+  showDay2SettlementConfirm.value = false
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2FinanceStore.settle(roomId.value)
+    await roomSessionStore.refreshTeacher(roomId.value)
+    noticeMessage.value = result?.replayed
+      ? '이미 완료된 금융 정산 결과를 불러왔습니다.'
+      : `${result?.settlement.targetCount ?? 0}명의 예금·투자 정산을 완료했습니다.`
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      await router.replace({ name: 'teacher-login' })
+      return
+    }
+    errorMessage.value = getApiErrorMessage(error, '2일차 금융 정산을 완료하지 못했습니다.')
   }
 }
 
@@ -680,6 +740,77 @@ function moduleTone(moduleState: string) {
             <p v-else-if="state.currentStage === 'DAY1_CLOSED'" class="control-caution">
               1일차 금융 활동은 마감되어 더 이상 수정할 수 없습니다.
             </p>
+            <button
+              v-if="state.currentStage === 'DAY1_CLOSED'"
+              class="day1-close-action"
+              type="button"
+              :disabled="changingStage"
+              @click="startDayTwo"
+            >
+              {{ changingStage ? '2일차 준비 중…' : '2일차 시작하기' }}
+            </button>
+          </div>
+          <div
+            v-else-if="[
+              'DAY2_LOGIN',
+              'DAY2_SETTLEMENT_WAIT',
+              'DAY2_FINANCE_SETTLEMENT',
+              'DAY2_RESULT_GUIDED',
+            ].includes(state.currentStage) && day2FinancePreview"
+            class="day2-finance-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>2일차 예금·투자 정산</span>
+                <strong>{{ day2FinancePreview.targetCount }}명 금융 결과</strong>
+              </div>
+              <StatusBadge
+                :label="day2FinancePreview.settlementStatus === 'COMPLETED' ? '정산 완료' : '정산 전'"
+                :tone="day2FinancePreview.settlementStatus === 'COMPLETED' ? 'success' : 'warning'"
+              />
+            </div>
+            <dl class="day1-close-totals">
+              <div><dt>예금 원금</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositPrincipal) }}</dd></div>
+              <div><dt>예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
+              <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
+              <div><dt>금융세</dt><dd>−{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
+            </dl>
+            <div class="day2-finance-summary-strip">
+              <span>금융세율 {{ day2FinancePreview.financialTaxBps / 100 }}%</span>
+              <strong>정산 후 학생 지갑 합계 {{ formatBibim(day2FinancePreview.totalWalletAfter) }}</strong>
+            </div>
+            <div class="day1-student-table" role="table" aria-label="학생별 2일차 금융 정산">
+              <div class="day1-student-table__head" role="row">
+                <span>학생</span><span>정산 전</span><span>예금 이자</span><span>투자 손익</span><span>정산 후</span>
+              </div>
+              <div v-for="studentItem in day2FinancePreview.students" :key="studentItem.studentId" role="row">
+                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                <span>{{ formatBibim(studentItem.walletBefore) }}</span>
+                <span>+{{ formatBibim(studentItem.depositInterest) }}</span>
+                <span>{{ studentItem.investmentProfit > 0 ? '+' : '' }}{{ formatBibim(studentItem.investmentProfit) }}</span>
+                <strong>{{ formatBibim(studentItem.walletAfter) }}</strong>
+              </div>
+            </div>
+            <p v-if="state.currentStage === 'DAY2_LOGIN'" class="control-caution">
+              학생이 기존 참여 코드와 비밀번호로 다시 로그인하면 1일차 자산이 복구됩니다.
+            </p>
+            <p v-else-if="state.currentStage === 'DAY2_SETTLEMENT_WAIT'" class="control-caution">
+              예상 결과를 확인했습니다. 다음 단계에서 금융 정산을 실행해 주세요.
+            </p>
+            <button
+              v-else-if="state.currentStage === 'DAY2_FINANCE_SETTLEMENT'"
+              class="settlement-action"
+              type="button"
+              :disabled="day2FinancePreview.settlementStatus === 'COMPLETED' || day2FinanceStore.settling"
+              @click="showDay2SettlementConfirm = true"
+            >
+              {{ day2FinancePreview.settlementStatus === 'COMPLETED'
+                ? '금융 정산 완료'
+                : day2FinanceStore.settling ? '정산 중…' : `${day2FinancePreview.targetCount}명 금융 정산하기` }}
+            </button>
+            <p v-else class="control-caution">
+              학생 화면에 원금·이자·투자 손익·금융세·최종 잔액이 표시됩니다.
+            </p>
           </div>
           <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
             <header>
@@ -721,7 +852,7 @@ function moduleTone(moduleState: string) {
               :disabled="!adjacentStages.previous || changingStage || (
                 state.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
                 settlementPreview?.settlementStatus === 'COMPLETED'
-              ) || state.currentStage === 'DAY1_CLOSED'"
+              ) || state.currentStage === 'DAY1_CLOSED' || state.currentStage === 'DAY2_LOGIN'"
               @click="moveToStage(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
@@ -730,7 +861,10 @@ function moduleTone(moduleState: string) {
               type="button"
               :disabled="!adjacentStages.next || changingStage || (
                 state.currentStage.includes('QUIZ') && quizSummary?.status !== 'CLOSED'
-              ) || state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED'"
+              ) || state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED' || (
+                state.currentStage === 'DAY2_FINANCE_SETTLEMENT' &&
+                day2FinancePreview?.settlementStatus !== 'COMPLETED'
+              )"
               @click="moveToStage(adjacentStages.next?.id)"
             >
               {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
@@ -746,7 +880,11 @@ function moduleTone(moduleState: string) {
                 : state.currentStage === 'DAY1_SUMMARY'
                   ? '집계 결과와 경고를 확인한 뒤 1일차 마감 버튼을 눌러 주세요.'
                   : state.currentStage === 'DAY1_CLOSED'
-                    ? '1일차가 마감되었습니다. 2일차 시작 기능은 다음 단계에서 연결합니다.'
+                    ? '2일차 시작 버튼을 누르면 새 세션이 열리고 기존 학생 계정과 자산이 복구됩니다.'
+                    : state.currentStage === 'DAY2_FINANCE_SETTLEMENT'
+                      ? '금융 정산을 완료해야 개인 결과 단계로 이동할 수 있습니다.'
+                      : state.currentStage === 'DAY2_RESULT_GUIDED'
+                        ? '학생과 함께 예금 이자, 투자 손익, 금융세를 확인해 주세요.'
                 : '현재 단계의 활동이 끝나면 다음 단계로 이동합니다.' }}
           </p>
         </section>
@@ -762,6 +900,13 @@ function moduleTone(moduleState: string) {
                   ? '최근 구매'
                   : state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED'
                     ? '1일차 참여'
+                    : [
+                      'DAY2_LOGIN',
+                      'DAY2_SETTLEMENT_WAIT',
+                      'DAY2_FINANCE_SETTLEMENT',
+                      'DAY2_RESULT_GUIDED',
+                    ].includes(state.currentStage)
+                      ? '금융 정산'
                     : '학생 연결' }}</h2>
           </div>
           <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
@@ -832,6 +977,25 @@ function moduleTone(moduleState: string) {
               <div><dt>투자 확정</dt><dd>{{ day1Summary.investmentConfirmedCount }}명</dd></div>
               <div><dt>구매 참여</dt><dd>{{ day1Summary.purchaseParticipantCount }}명</dd></div>
               <div><dt>미참여</dt><dd>{{ day1Summary.inactiveStudentCount }}명</dd></div>
+            </dl>
+          </template>
+          <template
+            v-else-if="[
+              'DAY2_LOGIN',
+              'DAY2_SETTLEMENT_WAIT',
+              'DAY2_FINANCE_SETTLEMENT',
+              'DAY2_RESULT_GUIDED',
+            ].includes(state.currentStage) && day2FinancePreview"
+          >
+            <div class="student-count-ring student-count-ring--day2">
+              <strong>{{ day2FinancePreview.targetCount }}</strong>
+              <span>명 금융 결과</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div><dt>예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
+              <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
+              <div><dt>금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
+              <div><dt>공동기금</dt><dd>{{ formatBibim(day2FinancePreview.classFundBalance) }}</dd></div>
             </dl>
           </template>
           <template v-else>
@@ -907,6 +1071,28 @@ function moduleTone(moduleState: string) {
           <div class="confirm-modal__actions">
             <button class="button-secondary" type="button" @click="showDay1CloseConfirm = false">취소</button>
             <button type="button" :disabled="changingStage" @click="confirmDay1Close">마감 확정</button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showDay2SettlementConfirm && day2FinancePreview" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="day2-finance-confirm-title">
+          <p class="eyebrow">2일차 금융 정산</p>
+          <h2 id="day2-finance-confirm-title">{{ day2FinancePreview.targetCount }}명의 예금과 투자를 정산할까요?</h2>
+          <p class="confirm-modal__warning">
+            예금 원금 {{ formatBibim(day2FinancePreview.totalDepositPrincipal) }},
+            이자 {{ formatBibim(day2FinancePreview.totalDepositInterest) }},
+            투자 손익 {{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}을 반영합니다.
+          </p>
+          <p>
+            이자와 양수인 투자 순이익에 금융세 {{ day2FinancePreview.financialTaxBps / 100 }}%가 적용되며,
+            완료된 정산은 다시 실행되지 않습니다.
+          </p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="showDay2SettlementConfirm = false">취소</button>
+            <button type="button" :disabled="day2FinanceStore.settling" @click="confirmDay2FinanceSettlement">
+              금융 정산 실행
+            </button>
           </div>
         </section>
       </div>

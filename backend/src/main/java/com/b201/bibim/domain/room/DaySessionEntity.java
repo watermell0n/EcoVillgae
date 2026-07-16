@@ -46,6 +46,17 @@ public class DaySessionEntity {
         return session;
     }
 
+    public static DaySessionEntity dayTwoActive(UUID roomId) {
+        DaySessionEntity session = new DaySessionEntity();
+        session.id = UUID.randomUUID();
+        session.roomId = roomId;
+        session.dayNumber = 2;
+        session.status = "ACTIVE";
+        session.currentStage = RoomStage.DAY2_LOGIN.name();
+        session.startedAt = Instant.now();
+        return session;
+    }
+
     public UUID getId() {
         return id;
     }

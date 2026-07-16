@@ -138,4 +138,17 @@ public class RoomEntity {
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
     }
+
+    public void startDayTwo() {
+        if (!RoomStage.DAY1_CLOSED.name().equals(currentStage)) {
+            throw new IllegalStateException("1일차 마감 상태에서만 2일차를 시작할 수 있습니다.");
+        }
+        this.currentDay = 2;
+        this.currentStage = RoomStage.DAY2_LOGIN.name();
+        this.status = RoomStage.DAY2_LOGIN.roomStatus();
+        this.mode = RoomStage.DAY2_LOGIN.mode();
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
 }

@@ -38,4 +38,7 @@ public class InvestmentScenarioReturnEntity {
         result.returnBps = returnBps;
         return result;
     }
+
+    public UUID getAssetId() { return assetId; }
+    public int getReturnBps() { return returnBps; }
 }

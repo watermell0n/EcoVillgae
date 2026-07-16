@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 
 import DaySummaryStageView from './DaySummaryStageView.vue'
+import Day2FinanceStageView from './Day2FinanceStageView.vue'
 import FreeActivityStageView from './FreeActivityStageView.vue'
 import LearningStageView from './LearningStageView.vue'
 import PayslipStageView from './PayslipStageView.vue'
@@ -20,7 +21,10 @@ const stageComponents: Record<string, Component> = {
   DAY1_FREE_ACTIVITY: FreeActivityStageView,
   DAY1_SUMMARY: DaySummaryStageView,
   DAY1_CLOSED: DaySummaryStageView,
-  DAY2_SETTLEMENT_WAIT: PlaceholderStageView,
+  DAY2_LOGIN: Day2FinanceStageView,
+  DAY2_SETTLEMENT_WAIT: Day2FinanceStageView,
+  DAY2_FINANCE_SETTLEMENT: Day2FinanceStageView,
+  DAY2_RESULT_GUIDED: Day2FinanceStageView,
   DAY2_FINAL_RESULT: PlaceholderStageView,
 }
 

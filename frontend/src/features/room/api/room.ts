@@ -95,7 +95,7 @@ export async function setRoomStage(roomId: string, targetStage: string, expected
 
 export async function sendRoomCommand(
   roomId: string,
-  command: 'SET_STAGE' | 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'CLOSE_DAY1',
+  command: 'SET_STAGE' | 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'CLOSE_DAY1' | 'START_DAY2',
   targetStage: string,
   expectedVersion: number,
 ) {

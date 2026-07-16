@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,8 @@ import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.room.RoomStage;
+import com.b201.bibim.domain.room.DaySessionEntity;
+import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.feature.day1.Day1Service;
@@ -52,6 +55,9 @@ class RoomSessionServiceTest {
 
     @Mock
     private Day1Service day1Service;
+
+    @Mock
+    private DaySessionRepository sessionRepository;
 
     @Mock
     private RoomEntity room;
@@ -255,5 +261,56 @@ class RoomSessionServiceTest {
 
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(day1Service, never()).closeDayOne(teacherId, room);
+    }
+
+    @Test
+    void startsDayTwoWithAnExplicitCommandAndCreatesSession() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(11);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_CLOSED");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day2-start"))
+                .thenReturn(Optional.empty());
+        when(sessionRepository.findByRoomIdAndDayNumber(roomId, (short) 2))
+                .thenReturn(Optional.empty());
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "day2-start",
+                new CommandRequest("START_DAY2", "DAY2_LOGIN", 11)
+        );
+
+        verify(sessionRepository).save(any(DaySessionEntity.class));
+        verify(room).startDayTwo();
+    }
+
+    @Test
+    void rejectsResultStageUntilDayTwoFinanceSettlementCompletes() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(12);
+        when(room.getCurrentStage()).thenReturn("DAY2_FINANCE_SETTLEMENT");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day2-result"))
+                .thenReturn(Optional.empty());
+        when(settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                roomId, "DAY2_FINANCE", "COMPLETED"
+        )).thenReturn(false);
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "day2-result",
+                new CommandRequest("SET_STAGE", "DAY2_RESULT_GUIDED", 12)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY2_RESULT_GUIDED);
     }
 }

@@ -11,6 +11,8 @@ import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestEntity;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
+import com.b201.bibim.domain.room.DaySessionEntity;
+import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.room.RoomStage;
@@ -53,6 +55,7 @@ public class RoomSessionService {
     private final SettlementRunRepository settlementRunRepository;
     private final QuizRepository quizRepository;
     private final Day1Service day1Service;
+    private final DaySessionRepository sessionRepository;
 
     public RoomSessionService(
             RoomRepository roomRepository,
@@ -61,7 +64,8 @@ public class RoomSessionService {
             AccountRepository accountRepository,
             SettlementRunRepository settlementRunRepository,
             QuizRepository quizRepository,
-            Day1Service day1Service
+            Day1Service day1Service,
+            DaySessionRepository sessionRepository
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
@@ -70,6 +74,7 @@ public class RoomSessionService {
         this.settlementRunRepository = settlementRunRepository;
         this.quizRepository = quizRepository;
         this.day1Service = day1Service;
+        this.sessionRepository = sessionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -167,6 +172,25 @@ public class RoomSessionService {
             return new CommandResponse(toTeacherState(room, true), false);
         }
 
+        if ("START_DAY2".equals(command)) {
+            if (!RoomStage.DAY1_CLOSED.name().equals(room.getCurrentStage())) {
+                throw stateConflict("1일차를 마감한 뒤 2일차를 시작해 주세요.");
+            }
+            if (sessionRepository.findByRoomIdAndDayNumber(roomId, (short) 2).isPresent()) {
+                throw stateConflict("2일차 세션이 이미 시작되었습니다.");
+            }
+            sessionRepository.save(DaySessionEntity.dayTwoActive(roomId));
+            room.startDayTwo();
+            commandRequestRepository.save(RoomCommandRequestEntity.completed(
+                    room,
+                    normalizedKey,
+                    command,
+                    RoomStage.DAY2_LOGIN.name(),
+                    request.expectedVersion()
+            ));
+            return new CommandResponse(toTeacherState(room, true), false);
+        }
+
         if (!"SET_STAGE".equals(command)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -190,6 +214,15 @@ public class RoomSessionService {
                 .orElseThrow(() -> stateConflict("현재 수업 단계를 확인할 수 없습니다."));
         if (currentStage == RoomStage.DAY1_CLOSED || targetStage == RoomStage.DAY2_LOGIN) {
             throw stateConflict("2일차 시작은 START_DAY2 명령으로 진행해 주세요.");
+        }
+        if (currentStage == RoomStage.DAY2_FINANCE_SETTLEMENT
+                && targetStage == RoomStage.DAY2_RESULT_GUIDED
+                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                        roomId,
+                        "DAY2_FINANCE",
+                        "COMPLETED"
+                )) {
+            throw stateConflict("금융 정산을 완료한 뒤 개인 결과 단계로 이동해 주세요.");
         }
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
