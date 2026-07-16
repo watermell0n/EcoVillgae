@@ -6,6 +6,7 @@ import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/roo
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
 
 const moduleLabels: Record<string, string> = {
@@ -32,14 +33,18 @@ const moduleStateLabels: Record<string, string> = {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const quizStore = useQuizStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const changingStage = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const pendingStage = ref<string | null>(null)
+const showStageWarning = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
+const quizSummary = computed(() => quizStore.teacherSummary)
 const currentStage = computed(() => getRoomStage(state.value?.currentStage))
 const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
@@ -72,6 +77,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   roomSessionStore.stopPolling()
+  quizStore.stopTeacherSummaryPolling()
 })
 
 watch(
@@ -82,10 +88,50 @@ watch(
       await router.replace({ name: 'teacher-login' })
     }
   },
+  { immediate: true },
 )
 
-async function moveToStage(targetStage?: string) {
+watch(
+  () => state.value?.currentStage,
+  async (stage) => {
+    quizStore.stopTeacherSummaryPolling()
+    quizStore.clearTeacherSummary()
+    if (stage !== 'DAY1_QUIZ' && stage !== 'DAY2_QUIZ') return
+
+    try {
+      await quizStore.refreshTeacherSummary(roomId.value)
+      quizStore.startTeacherSummaryPolling(roomId.value)
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        await router.replace({ name: 'teacher-login' })
+        return
+      }
+      errorMessage.value = getApiErrorMessage(error, '퀴즈 제출 현황을 불러오지 못했습니다.')
+    }
+  },
+  { immediate: true },
+)
+
+async function moveToStage(targetStage?: string, skipIncompleteWarning = false) {
   if (!targetStage || changingStage.value) return
+
+  if (
+    !skipIncompleteWarning &&
+    state.value?.currentStage.includes('QUIZ') &&
+    targetStage.includes('SETTLEMENT')
+  ) {
+    try {
+      const latestSummary = await quizStore.refreshTeacherSummary(roomId.value)
+      if (latestSummary.notSubmittedCount > 0) {
+        pendingStage.value = targetStage
+        showStageWarning.value = true
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '퀴즈 제출 현황을 확인하지 못했습니다.')
+      return
+    }
+  }
 
   changingStage.value = true
   errorMessage.value = ''
@@ -107,6 +153,18 @@ async function moveToStage(targetStage?: string) {
   } finally {
     changingStage.value = false
   }
+}
+
+async function confirmStageMove() {
+  const targetStage = pendingStage.value
+  showStageWarning.value = false
+  pendingStage.value = null
+  await moveToStage(targetStage ?? undefined, true)
+}
+
+function cancelStageMove() {
+  showStageWarning.value = false
+  pendingStage.value = null
 }
 
 function moduleTone(moduleState: string) {
@@ -206,20 +264,50 @@ function moduleTone(moduleState: string) {
             </button>
           </div>
           <p class="control-caution">
-            다음 구현에서 퀴즈 미제출 인원과 정산 여부를 확인한 뒤 이동하는 확인창이 연결됩니다.
+            {{ state.currentStage.includes('QUIZ')
+              ? '미제출 학생이 있으면 다음 단계로 이동하기 전에 한 번 더 확인합니다.'
+              : '정산이 필요한 단계의 완료 여부 확인은 다음 구현에서 연결됩니다.' }}
           </p>
         </section>
 
         <aside class="progress-panel" aria-label="학생 진행 현황">
           <div class="panel-heading">
             <p class="eyebrow">실시간 현황</p>
-            <h2>학생 연결</h2>
+            <h2>{{ state.currentStage.includes('QUIZ') ? '퀴즈 제출' : '학생 연결' }}</h2>
           </div>
-          <div class="student-count-ring">
-            <strong>{{ state.connectedStudentCount }}</strong>
-            <span>/ {{ state.expectedStudentCount }}명</span>
-          </div>
-          <p>로그인한 학생이 현재 수업 단계와 동기화됩니다.</p>
+          <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
+            <div class="student-count-ring student-count-ring--quiz">
+              <strong>{{ quizSummary.submittedCount }}</strong>
+              <span>/ {{ quizSummary.expectedStudentCount }}명 제출</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div>
+                <dt>풀이 중</dt>
+                <dd>{{ quizSummary.inProgressCount }}명</dd>
+              </div>
+              <div>
+                <dt>미시작</dt>
+                <dd>{{ quizSummary.notStartedCount }}명</dd>
+              </div>
+            </dl>
+            <ul class="quiz-student-list" aria-label="학생별 퀴즈 현황">
+              <li v-for="studentItem in quizSummary.students" :key="studentItem.studentId">
+                <span>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</span>
+                <strong v-if="studentItem.submissionStatus === 'SUBMITTED'">
+                  제출 · {{ studentItem.correctCount }} / {{ quizSummary.questionCount }}
+                </strong>
+                <strong v-else-if="studentItem.submissionStatus === 'IN_PROGRESS'">풀이 중</strong>
+                <strong v-else>미시작</strong>
+              </li>
+            </ul>
+          </template>
+          <template v-else>
+            <div class="student-count-ring">
+              <strong>{{ state.connectedStudentCount }}</strong>
+              <span>/ {{ state.expectedStudentCount }}명</span>
+            </div>
+            <p>로그인한 학생이 현재 수업 단계와 동기화됩니다.</p>
+          </template>
         </aside>
       </section>
 
@@ -238,6 +326,21 @@ function moduleTone(moduleState: string) {
           </article>
         </div>
       </section>
+
+      <div v-if="showStageWarning && quizSummary" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="stage-warning-title">
+          <p class="eyebrow">미제출 학생 확인</p>
+          <h2 id="stage-warning-title">그래도 다음 단계로 이동할까요?</h2>
+          <p class="confirm-modal__warning">
+            아직 퀴즈를 제출하지 않은 학생이 {{ quizSummary.notSubmittedCount }}명 있습니다.
+          </p>
+          <p>단계를 이동하면 학생은 더 이상 답안을 저장하거나 제출할 수 없습니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="cancelStageMove">돌아가기</button>
+            <button type="button" @click="confirmStageMove">그래도 이동하기</button>
+          </div>
+        </section>
+      </div>
     </template>
   </main>
 </template>

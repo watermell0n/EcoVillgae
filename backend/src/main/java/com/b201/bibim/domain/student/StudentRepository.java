@@ -1,6 +1,7 @@
 package com.b201.bibim.domain.student;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.LockModeType;
@@ -21,4 +22,10 @@ public interface StudentRepository extends JpaRepository<StudentEntity, UUID> {
     );
 
     long countByRoomIdAndOnlineTrue(UUID roomId);
+
+    List<StudentEntity> findAllByRoomIdOrderByParticipantNumber(UUID roomId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select student from StudentEntity student where student.id = :studentId")
+    Optional<StudentEntity> findByIdForUpdate(@Param("studentId") UUID studentId);
 }

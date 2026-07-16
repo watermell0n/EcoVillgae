@@ -93,4 +93,8 @@ public class StudentEntity {
     public int getLoginVersion() {
         return loginVersion;
     }
+
+    public boolean isOnline() {
+        return online;
+    }
 }
