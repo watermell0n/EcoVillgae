@@ -9,11 +9,12 @@
 - Database: PostgreSQL 17
 - Local infrastructure: Docker Compose
 
-## 전체 로컬 실행
+## 실행 방법
+### 1. 전체 로컬 실행
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f infra/docker-compose.local.yml up --build
+docker compose -f infra/docker-compose.local.yml up -d --build
 ```
 
 - Frontend: http://localhost:5173
@@ -24,8 +25,8 @@ docker compose -f infra/docker-compose.local.yml up --build
 
 - 교사 로그인: `teacher` / `teacher1234`
 - 학생 참여 코드: `BIBIM-01`, `BIBIM-02`, `BIBIM-03`
-- 교사 화면: http://localhost:5173/teacher/login
-- 학생 화면: http://localhost:5173/student/join
+- 교사 페이지: http://localhost:5173/teacher/login
+- 학생 페이지: http://localhost:5173/student/join
 
 교사 자격 증명은 `.env`의 `DEMO_TEACHER_*` 값으로 변경할 수 있습니다. 로컬 프로필에서만 데모 교사·방·참여 코드가 생성됩니다.
 
@@ -41,18 +42,25 @@ DB 데이터까지 초기화하려면 명시적으로 다음 명령을 사용합
 docker compose -f infra/docker-compose.local.yml down -v
 ```
 
-## 개별 실행
+### 2. 개별 실행
 
 PostgreSQL만 실행:
 
 ```powershell
-docker compose -f infra/docker-compose.local.yml up postgres
+docker compose -f infra/docker-compose.local.yml up -d postgres
 ```
 
 백엔드:
 
 ```powershell
 cd backend
+
+현재 .env.example의 비밀번호가 change-me이므로 환경변수를 맞춰줘야 함
+
+$env:DB_URL="jdbc:postgresql://localhost:5432/bibim"
+$env:DB_USERNAME="bibim"
+$env:DB_PASSWORD="change-me"
+
 .\gradlew.bat bootRun
 ```
 
@@ -60,6 +68,7 @@ cd backend
 
 ```powershell
 cd frontend
+corepack enable (: pnpm 설치)
 pnpm install
 pnpm dev
 ```
