@@ -75,12 +75,22 @@ public class EconomyService {
         long wallet = balance(room.getId(), studentId, "STUDENT_WALLET");
         long deposit = balance(room.getId(), studentId, "STUDENT_DEPOSIT");
         long investment = balance(room.getId(), studentId, "STUDENT_INVESTMENT");
-        String depositStatus = depositRepository.findBySessionIdAndStudentId(sessionId, studentId)
-                .map(item -> item.getStatus())
-                .orElse("NONE");
-        String investmentStatus = orderRepository.findBySessionIdAndStudentId(sessionId, studentId)
-                .map(item -> item.getStatus())
-                .orElse("NONE");
+        String depositStatus = financialStatus(
+                depositRepository.existsBySessionIdAndStudentIdAndStatus(
+                        sessionId, studentId, "DRAFT"
+                ),
+                depositRepository.existsBySessionIdAndStudentIdAndStatus(
+                        sessionId, studentId, "CONFIRMED"
+                )
+        );
+        String investmentStatus = financialStatus(
+                orderRepository.existsBySessionIdAndStudentIdAndStatus(
+                        sessionId, studentId, "DRAFT"
+                ),
+                orderRepository.existsBySessionIdAndStudentIdAndStatus(
+                        sessionId, studentId, "CONFIRMED"
+                )
+        );
         return new OverviewResponse(
                 wallet,
                 deposit,
@@ -122,6 +132,11 @@ public class EconomyService {
                 })
                 .toList();
         return new TransactionHistoryResponse(items);
+    }
+
+    private String financialStatus(boolean hasDraft, boolean hasConfirmed) {
+        if (hasDraft) return "DRAFT";
+        return hasConfirmed ? "CONFIRMED" : "NONE";
     }
 
     private StudentEntity findActiveStudent(UUID studentId) {

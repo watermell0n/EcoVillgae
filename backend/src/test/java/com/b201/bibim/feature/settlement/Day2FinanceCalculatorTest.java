@@ -60,4 +60,18 @@ class Day2FinanceCalculatorTest {
         assertEquals(0, result.financialTax());
         assertEquals(90, result.walletAfter());
     }
+
+    @Test
+    void keepsThePromisedRoundedInterestFromRepeatedDeposits() {
+        Calculation result = calculator.calculateWithDepositInterest(
+                30,
+                20,
+                2,
+                List.of(),
+                0
+        );
+
+        assertEquals(2, result.depositInterest());
+        assertEquals(52, result.walletAfter());
+    }
 }

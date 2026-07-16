@@ -13,7 +13,23 @@ import org.springframework.data.repository.query.Param;
 
 public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrderEntity, UUID> {
 
-    Optional<InvestmentOrderEntity> findBySessionIdAndStudentId(UUID sessionId, UUID studentId);
+    Optional<InvestmentOrderEntity> findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
+    List<InvestmentOrderEntity> findAllBySessionIdAndStudentIdAndStatus(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
+    boolean existsBySessionIdAndStudentIdAndStatus(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
 
     Optional<InvestmentOrderEntity> findByTransactionId(UUID transactionId);
 
@@ -22,8 +38,13 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
     long countByRoomIdAndStatus(UUID roomId, String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select orders from InvestmentOrderEntity orders where orders.sessionId = :sessionId and orders.studentId = :studentId")
-    Optional<InvestmentOrderEntity> findForUpdate(
+    @Query("""
+            select orders from InvestmentOrderEntity orders
+            where orders.sessionId = :sessionId
+              and orders.studentId = :studentId
+              and orders.status = 'DRAFT'
+            """)
+    Optional<InvestmentOrderEntity> findDraftForUpdate(
             @Param("sessionId") UUID sessionId,
             @Param("studentId") UUID studentId
     );

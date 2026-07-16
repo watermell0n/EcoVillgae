@@ -13,7 +13,23 @@ import org.springframework.data.repository.query.Param;
 
 public interface DepositRepository extends JpaRepository<DepositEntity, UUID> {
 
-    Optional<DepositEntity> findBySessionIdAndStudentId(UUID sessionId, UUID studentId);
+    Optional<DepositEntity> findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
+    List<DepositEntity> findAllBySessionIdAndStudentIdAndStatus(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
+    boolean existsBySessionIdAndStudentIdAndStatus(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
 
     Optional<DepositEntity> findByTransactionId(UUID transactionId);
 
@@ -22,8 +38,13 @@ public interface DepositRepository extends JpaRepository<DepositEntity, UUID> {
     long countByRoomIdAndStatus(UUID roomId, String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select deposit from DepositEntity deposit where deposit.sessionId = :sessionId and deposit.studentId = :studentId")
-    Optional<DepositEntity> findForUpdate(
+    @Query("""
+            select deposit from DepositEntity deposit
+            where deposit.sessionId = :sessionId
+              and deposit.studentId = :studentId
+              and deposit.status = 'DRAFT'
+            """)
+    Optional<DepositEntity> findDraftForUpdate(
             @Param("sessionId") UUID sessionId,
             @Param("studentId") UUID studentId
     );

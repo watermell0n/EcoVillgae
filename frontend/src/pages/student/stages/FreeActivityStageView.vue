@@ -49,6 +49,18 @@ const selectedAllocations = computed(() =>
 const investmentTotal = computed(() =>
   selectedAllocations.value.reduce((sum, item) => sum + item.amount, 0),
 )
+const canSaveDeposit = computed(() =>
+  depositPrincipal.value >= 20
+    && depositPrincipal.value % 10 === 0
+    && depositPrincipal.value <= (overview.value?.walletBalance ?? 0),
+)
+const canSaveInvestment = computed(() =>
+  selectedAllocations.value.length > 0
+    && selectedAllocations.value.length <= 3
+    && selectedAllocations.value.every((item) => item.amount % 10 === 0)
+    && investmentTotal.value % 10 === 0
+    && investmentTotal.value <= (overview.value?.walletBalance ?? 0),
+)
 
 onMounted(async () => {
   try {
@@ -58,9 +70,13 @@ onMounted(async () => {
       shopStore.refreshPurchaseHistory(),
       learningStore.refreshTopics(),
     ])
-    if (deposit.value?.principal) depositPrincipal.value = deposit.value.principal
-    for (const allocation of investment.value?.allocations ?? []) {
-      allocationAmounts[allocation.assetId] = allocation.amount
+    if (deposit.value?.status === 'DRAFT') {
+      depositPrincipal.value = deposit.value.principal
+    }
+    if (investment.value?.status === 'DRAFT') {
+      for (const allocation of investment.value.allocations) {
+        allocationAmounts[allocation.assetId] = allocation.amount
+      }
     }
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
@@ -107,6 +123,7 @@ async function confirmDeposit() {
     noticeMessage.value = result?.replayed
       ? '이미 완료된 예금 결과를 불러왔어요.'
       : '예금을 확정했어요. 원금이 예금 계정으로 이동했습니다.'
+    depositPrincipal.value = 20
     await roomSessionStore.refreshStudent()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '예금을 확정하지 못했습니다.')
@@ -139,6 +156,9 @@ async function confirmInvestment() {
     noticeMessage.value = result?.replayed
       ? '이미 완료된 투자 결과를 불러왔어요.'
       : '투자를 확정했어요. 이제 금액과 시장 시나리오는 바뀌지 않아요.'
+    for (const assetId of Object.keys(allocationAmounts)) {
+      allocationAmounts[assetId] = 0
+    }
     await roomSessionStore.refreshStudent()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '투자를 확정하지 못했습니다.')
@@ -313,11 +333,11 @@ function formatPurchasedAt(value: string) {
         <div class="finance-guide-card">
           <p class="eyebrow">약속 이자율 5%</p>
           <h2>기다린 만큼 이자를 받아요.</h2>
-          <p>20비빔 이상을 10비빔 단위로 맡길 수 있어요. 확정한 뒤에는 취소하거나 금액을 바꿀 수 없어요.</p>
+          <p>20비빔 이상을 10비빔 단위로 맡길 수 있어요. 확정한 건은 취소할 수 없지만, 남은 비빔으로 새 예금을 추가할 수 있어요.</p>
         </div>
         <div class="finance-form-card">
           <label for="deposit-principal">맡길 금액</label>
-          <input id="deposit-principal" v-model.number="depositPrincipal" type="number" min="20" step="10" :disabled="deposit.status === 'CONFIRMED'" />
+          <input id="deposit-principal" v-model.number="depositPrincipal" type="number" min="20" step="10" />
           <dl>
             <div><dt>예상 이자</dt><dd>{{ formatBibim(expectedDepositInterest) }}</dd></div>
             <div><dt>만기 예상 금액</dt><dd>{{ formatBibim(depositPrincipal + expectedDepositInterest) }}</dd></div>
@@ -325,10 +345,10 @@ function formatPurchasedAt(value: string) {
           </dl>
           <div class="finance-actions">
             <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">초안 취소</button>
-            <button type="button" :disabled="deposit.status === 'CONFIRMED' || economyStore.saving" @click="saveDeposit">초안 저장</button>
+            <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">초안 저장</button>
             <button type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="confirmDeposit">예금 확정</button>
           </div>
-          <p v-if="deposit.status === 'CONFIRMED'" class="finance-confirmed">✓ {{ formatBibim(deposit.principal) }} 예금이 확정되었습니다.</p>
+          <p v-if="overview.depositBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.depositBalance) }}을 예금했어요. 남은 잔액으로 추가 예금할 수 있어요.</p>
         </div>
       </section>
 
@@ -336,7 +356,7 @@ function formatPurchasedAt(value: string) {
         <div class="finance-guide-card">
           <p class="eyebrow">분산투자</p>
           <h2>수익뿐 아니라 손실 가능성도 비교해요.</h2>
-          <p>1~3개 투자처에 10비빔 단위로 나누어 투자할 수 있어요. 확정 후에는 배분과 시장 시나리오가 고정됩니다.</p>
+          <p>1~3개 투자처에 10비빔 단위로 나누어 투자할 수 있어요. 확정한 건의 배분은 고정되지만, 남은 비빔으로 새 투자를 추가할 수 있어요.</p>
         </div>
         <div class="investment-asset-grid">
           <article v-for="asset in investment.assets" :key="asset.assetId">
@@ -344,7 +364,7 @@ function formatPurchasedAt(value: string) {
             <h3>{{ asset.name }}</h3>
             <p>{{ asset.description }}</p>
             <small>예상 범위 {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
-            <input v-model.number="allocationAmounts[asset.assetId]" :aria-label="`${asset.name} 투자 금액`" type="number" min="0" step="10" placeholder="0" :disabled="investment.status === 'CONFIRMED'" />
+            <input v-model.number="allocationAmounts[asset.assetId]" :aria-label="`${asset.name} 투자 금액`" type="number" min="0" step="10" placeholder="0" />
           </article>
         </div>
         <div class="investment-total-card">
@@ -352,10 +372,10 @@ function formatPurchasedAt(value: string) {
           <div><span>투자 후 지갑</span><strong>{{ formatBibim(overview.walletBalance - investmentTotal) }}</strong></div>
           <div class="finance-actions">
             <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">초안 취소</button>
-            <button type="button" :disabled="investment.status === 'CONFIRMED' || economyStore.saving" @click="saveInvestment">초안 저장</button>
+            <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">초안 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
-          <p v-if="investment.status === 'CONFIRMED'" class="finance-confirmed">✓ {{ formatBibim(investment.totalAmount) }} 투자가 확정되었습니다.</p>
+          <p v-if="overview.investmentBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.investmentBalance) }}을 투자했어요. 남은 잔액으로 추가 투자할 수 있어요.</p>
         </div>
       </section>
 

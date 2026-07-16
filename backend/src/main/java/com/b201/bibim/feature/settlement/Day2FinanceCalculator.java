@@ -23,7 +23,26 @@ public class Day2FinanceCalculator {
             throw new IllegalArgumentException("금융 정산 값이 올바르지 않습니다.");
         }
 
-        long depositInterest = roundedRate(depositPrincipal, depositInterestBps);
+        return calculateWithDepositInterest(
+                walletBefore,
+                depositPrincipal,
+                roundedRate(depositPrincipal, depositInterestBps),
+                investments,
+                financialTaxBps
+        );
+    }
+
+    public Calculation calculateWithDepositInterest(
+            long walletBefore,
+            long depositPrincipal,
+            long depositInterest,
+            List<AllocationInput> investments,
+            int financialTaxBps
+    ) {
+        if (walletBefore < 0 || depositPrincipal < 0 || depositInterest < 0
+                || financialTaxBps < 0) {
+            throw new IllegalArgumentException("금융 정산 값이 올바르지 않습니다.");
+        }
         long investmentPrincipal = 0;
         long investmentProfit = 0;
         List<AllocationResult> allocationResults = investments.stream()

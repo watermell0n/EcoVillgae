@@ -385,25 +385,23 @@ public class Day2FinanceService {
         DaySessionEntity dayOne = sessionRepository
                 .findByRoomIdAndDayNumber(room.getId(), (short) 1)
                 .orElseThrow(this::dayOneSessionNotFound);
-        DepositEntity deposit = depositRepository
-                .findBySessionIdAndStudentId(dayOne.getId(), student.getId())
-                .filter(item -> "CONFIRMED".equals(item.getStatus()))
-                .orElse(null);
-        InvestmentOrderEntity order = orderRepository
-                .findBySessionIdAndStudentId(dayOne.getId(), student.getId())
-                .filter(item -> "CONFIRMED".equals(item.getStatus()))
-                .orElse(null);
-        List<AllocationInput> allocations = order == null
-                ? List.of()
-                : investmentAllocationRepository.findAllByOrderId(order.getId()).stream()
-                        .map(item -> new AllocationInput(
-                                item.getAssetId(),
-                                item.getAmount(),
-                                market.returnBps().getOrDefault(item.getAssetId(), 0)
-                        ))
-                        .toList();
-        if (order != null && allocations.stream().anyMatch(
-                item -> !market.returnBps().containsKey(item.assetId())
+        List<DepositEntity> deposits = depositRepository
+                .findAllBySessionIdAndStudentIdAndStatus(
+                        dayOne.getId(), student.getId(), "CONFIRMED"
+                );
+        List<InvestmentOrderEntity> orders = orderRepository
+                .findAllBySessionIdAndStudentIdAndStatus(
+                        dayOne.getId(), student.getId(), "CONFIRMED"
+                );
+        Map<UUID, Long> allocationTotals = orders.stream()
+                .flatMap(order -> investmentAllocationRepository
+                        .findAllByOrderId(order.getId()).stream())
+                .collect(Collectors.groupingBy(
+                        allocation -> allocation.getAssetId(),
+                        Collectors.summingLong(allocation -> allocation.getAmount())
+                ));
+        if (allocationTotals.keySet().stream().anyMatch(
+                assetId -> !market.returnBps().containsKey(assetId)
         )) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
@@ -411,12 +409,23 @@ public class Day2FinanceService {
                     "투자 수익률 시나리오를 찾을 수 없습니다."
             );
         }
+        List<AllocationInput> allocations = allocationTotals.entrySet().stream()
+                .map(entry -> new AllocationInput(
+                        entry.getKey(),
+                        entry.getValue(),
+                        market.returnBps().get(entry.getKey())
+                ))
+                .toList();
+        long depositPrincipal = deposits.stream().mapToLong(DepositEntity::getPrincipal).sum();
+        long depositInterest = deposits.stream()
+                .mapToLong(DepositEntity::getExpectedInterest)
+                .sum();
         Calculation calculation;
         try {
-            calculation = calculator.calculate(
+            calculation = calculator.calculateWithDepositInterest(
                     balance(room.getId(), student.getId(), "STUDENT_WALLET"),
-                    deposit == null ? 0 : deposit.getPrincipal(),
-                    deposit == null ? 0 : deposit.getInterestRateBps(),
+                    depositPrincipal,
+                    depositInterest,
                     allocations,
                     rules(room.getId()).getFinancialTaxBps()
             );

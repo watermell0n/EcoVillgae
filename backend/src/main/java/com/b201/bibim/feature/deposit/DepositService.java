@@ -66,7 +66,7 @@ public class DepositService {
         RoomEntity room = findRoom(student.getRoomId());
         ensureOpen(room);
         DaySessionEntity session = dayOneSession(room.getId());
-        return depositRepository.findBySessionIdAndStudentId(session.getId(), studentId)
+        return currentDeposit(session.getId(), studentId)
                 .map(deposit -> toResponse(deposit, walletBalance(room.getId(), studentId), false))
                 .orElseGet(() -> emptyResponse(walletBalance(room.getId(), studentId)));
     }
@@ -84,11 +84,8 @@ public class DepositService {
         }
         DaySessionEntity session = dayOneSession(room.getId());
         long interest = expectedInterest(request.principal());
-        DepositEntity deposit = depositRepository.findForUpdate(session.getId(), studentId)
+        DepositEntity deposit = depositRepository.findDraftForUpdate(session.getId(), studentId)
                 .map(existing -> {
-                    if ("CONFIRMED".equals(existing.getStatus())) {
-                        throw alreadyConfirmed();
-                    }
                     existing.changeDraft(request.principal(), INTEREST_RATE_BPS, interest);
                     return existing;
                 })
@@ -112,11 +109,8 @@ public class DepositService {
         StudentEntity student = lockActiveStudent(studentId);
         ensureOpen(room);
         DaySessionEntity session = dayOneSession(room.getId());
-        DepositEntity deposit = depositRepository.findForUpdate(session.getId(), studentId)
+        DepositEntity deposit = depositRepository.findDraftForUpdate(session.getId(), studentId)
                 .orElseThrow(this::draftNotFound);
-        if (!"DRAFT".equals(deposit.getStatus())) {
-            throw alreadyConfirmed();
-        }
         deposit.cancelDraft();
         room.markEconomicStateChanged();
         return toResponse(deposit, walletBalance(room.getId(), studentId), false);
@@ -143,11 +137,8 @@ public class DepositService {
         }
 
         DaySessionEntity session = dayOneSession(room.getId());
-        DepositEntity deposit = depositRepository.findForUpdate(session.getId(), studentId)
+        DepositEntity deposit = depositRepository.findDraftForUpdate(session.getId(), studentId)
                 .orElseThrow(this::draftNotFound);
-        if (!"DRAFT".equals(deposit.getStatus())) {
-            throw alreadyConfirmed();
-        }
         AccountEntity wallet = walletForUpdate(room.getId(), studentId);
         if (wallet.getBalance() < deposit.getPrincipal()) {
             throw insufficientBalance();
@@ -210,6 +201,17 @@ public class DepositService {
                 null, "NONE", 0, INTEREST_RATE_BPS, 0, 0,
                 walletBalance, null, null, false
         );
+    }
+
+    private java.util.Optional<DepositEntity> currentDeposit(UUID sessionId, UUID studentId) {
+        return depositRepository
+                .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                        sessionId, studentId, "DRAFT"
+                )
+                .or(() -> depositRepository
+                        .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                                sessionId, studentId, "CONFIRMED"
+                        ));
     }
 
     private long expectedInterest(long principal) {
@@ -296,10 +298,6 @@ public class DepositService {
 
     private ApiException insufficientBalance() {
         return new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "지갑 잔액이 부족합니다.");
-    }
-
-    private ApiException alreadyConfirmed() {
-        return new ApiException(HttpStatus.CONFLICT, "DEPOSIT_ALREADY_CONFIRMED", "확정된 예금은 변경하거나 취소할 수 없습니다.");
     }
 
     private ApiException draftNotFound() {

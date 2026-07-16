@@ -194,31 +194,35 @@ public class Day1Service {
 
     private StudentDay1SummaryResponse buildStudentSummary(RoomEntity room, StudentEntity student) {
         DaySessionEntity session = dayOneSession(room.getId());
-        DepositEntity deposit = depositRepository
-                .findBySessionIdAndStudentId(session.getId(), student.getId())
-                .filter(item -> "CONFIRMED".equals(item.getStatus()))
-                .orElse(null);
-        InvestmentOrderEntity order = orderRepository
-                .findBySessionIdAndStudentId(session.getId(), student.getId())
-                .filter(item -> "CONFIRMED".equals(item.getStatus()))
-                .orElse(null);
+        List<DepositEntity> deposits = depositRepository
+                .findAllBySessionIdAndStudentIdAndStatus(
+                        session.getId(), student.getId(), "CONFIRMED"
+                );
+        List<InvestmentOrderEntity> orders = orderRepository
+                .findAllBySessionIdAndStudentIdAndStatus(
+                        session.getId(), student.getId(), "CONFIRMED"
+                );
         Map<UUID, InvestmentAssetEntity> assetsById = assetRepository
                 .findAllByRoomIdOrderByDisplayOrder(room.getId())
                 .stream()
                 .collect(Collectors.toMap(InvestmentAssetEntity::getId, Function.identity()));
-        List<InvestmentAllocationSummaryResponse> investments = order == null
-                ? List.of()
-                : allocationRepository.findAllByOrderId(order.getId()).stream()
-                        .map(allocation -> {
-                            InvestmentAssetEntity asset = assetsById.get(allocation.getAssetId());
-                            return new InvestmentAllocationSummaryResponse(
-                                    allocation.getAssetId(),
-                                    asset == null ? "알 수 없는 투자처" : asset.getName(),
-                                    asset == null ? "UNKNOWN" : asset.getRiskLevel(),
-                                    allocation.getAmount()
-                            );
-                        })
-                        .toList();
+        Map<UUID, Long> allocationTotals = orders.stream()
+                .flatMap(order -> allocationRepository.findAllByOrderId(order.getId()).stream())
+                .collect(Collectors.groupingBy(
+                        allocation -> allocation.getAssetId(),
+                        Collectors.summingLong(allocation -> allocation.getAmount())
+                ));
+        List<InvestmentAllocationSummaryResponse> investments = allocationTotals.entrySet().stream()
+                .map(entry -> {
+                    InvestmentAssetEntity asset = assetsById.get(entry.getKey());
+                    return new InvestmentAllocationSummaryResponse(
+                            entry.getKey(),
+                            asset == null ? "알 수 없는 투자처" : asset.getName(),
+                            asset == null ? "UNKNOWN" : asset.getRiskLevel(),
+                            entry.getValue()
+                    );
+                })
+                .toList();
         Map<UUID, ProductEntity> productsById = productRepository
                 .findAllByRoomIdOrderByDisplayOrder(room.getId())
                 .stream()
@@ -234,9 +238,11 @@ public class Day1Service {
                 ))
                 .toList();
         long wallet = balance(room.getId(), student.getId(), "STUDENT_WALLET");
-        long depositPrincipal = deposit == null ? 0 : deposit.getPrincipal();
-        long interest = deposit == null ? 0 : deposit.getExpectedInterest();
-        long investmentPrincipal = order == null ? 0 : order.getTotalAmount();
+        long depositPrincipal = deposits.stream().mapToLong(DepositEntity::getPrincipal).sum();
+        long interest = deposits.stream().mapToLong(DepositEntity::getExpectedInterest).sum();
+        long investmentPrincipal = orders.stream()
+                .mapToLong(InvestmentOrderEntity::getTotalAmount)
+                .sum();
         long purchaseTotal = purchases.stream().mapToLong(PurchaseSummaryResponse::totalPrice).sum();
         return new StudentDay1SummaryResponse(
                 student.getId(),

@@ -235,6 +235,47 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('예금을 확정했어요')
   })
 
+  it('allows another deposit after a previous deposit was confirmed', async () => {
+    economyApi.getEconomyOverview.mockResolvedValue({
+      walletBalance: 80,
+      depositBalance: 20,
+      investmentBalance: 0,
+      purchaseCount: 0,
+      depositStatus: 'CONFIRMED',
+      investmentStatus: 'NONE',
+      totalAssets: 100,
+    })
+    economyApi.getCurrentDeposit.mockResolvedValue({
+      depositId: 'deposit-1',
+      status: 'CONFIRMED',
+      principal: 20,
+      interestRateBps: 500,
+      expectedInterest: 1,
+      expectedMaturityAmount: 21,
+      walletBalance: 80,
+      updatedAt: '2026-07-16T00:00:00Z',
+      confirmedAt: '2026-07-16T00:00:00Z',
+      replayed: false,
+    })
+    economyApi.saveDepositDraft.mockResolvedValue({
+      ...(await economyApi.getCurrentDeposit()),
+      depositId: 'deposit-2',
+      status: 'DRAFT',
+      confirmedAt: null,
+    })
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '예금')
+    expect(wrapper.text()).toContain('지금까지 20비빔을 예금했어요')
+    const input = wrapper.get('#deposit-principal')
+    expect(input.attributes('disabled')).toBeUndefined()
+    await wrapper.findAll('.finance-actions button')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(economyApi.saveDepositDraft).toHaveBeenCalledWith(20)
+  })
+
   it('saves an investment allocation in 10 Bibim units', async () => {
     economyApi.saveInvestmentDraft.mockResolvedValue({
       ...(await economyApi.getCurrentInvestment()),
@@ -256,5 +297,66 @@ describe('FreeActivityStageView', () => {
       { assetId: 'asset-1', amount: 30 },
     ])
     expect(wrapper.text()).toContain('투자 초안을 저장했어요')
+  })
+
+  it('allows another investment after a previous investment was confirmed', async () => {
+    economyApi.getEconomyOverview.mockResolvedValue({
+      walletBalance: 70,
+      depositBalance: 0,
+      investmentBalance: 30,
+      purchaseCount: 0,
+      depositStatus: 'NONE',
+      investmentStatus: 'CONFIRMED',
+      totalAssets: 100,
+    })
+    economyApi.getCurrentInvestment.mockResolvedValue({
+      orderId: 'order-1',
+      status: 'CONFIRMED',
+      totalAmount: 30,
+      walletBalance: 70,
+      scenarioLocked: true,
+      assets: [
+        {
+          assetId: 'asset-1',
+          code: 'SAFE_BOND',
+          name: '안심 채권',
+          description: '위험이 낮은 투자처예요.',
+          riskLevel: 'LOW',
+          minReturnBps: -200,
+          maxReturnBps: 400,
+          displayOrder: 1,
+        },
+      ],
+      allocations: [
+        { assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 30 },
+      ],
+      updatedAt: '2026-07-16T00:00:00Z',
+      confirmedAt: '2026-07-16T00:00:00Z',
+      replayed: false,
+    })
+    economyApi.saveInvestmentDraft.mockResolvedValue({
+      ...(await economyApi.getCurrentInvestment()),
+      orderId: 'order-2',
+      status: 'DRAFT',
+      totalAmount: 20,
+      allocations: [
+        { assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 20 },
+      ],
+      confirmedAt: null,
+    })
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '투자')
+    expect(wrapper.text()).toContain('지금까지 30비빔을 투자했어요')
+    const input = wrapper.get('.investment-asset-grid input')
+    expect(input.attributes('disabled')).toBeUndefined()
+    await input.setValue(20)
+    await wrapper.findAll('.finance-actions button')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
+      { assetId: 'asset-1', amount: 20 },
+    ])
   })
 })

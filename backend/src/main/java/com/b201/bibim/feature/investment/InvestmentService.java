@@ -108,9 +108,7 @@ public class InvestmentService {
         ensureOpen(room);
         Market market = ensureMarket(room.getId());
         DaySessionEntity session = dayOneSession(room.getId());
-        InvestmentOrderEntity order = orderRepository
-                .findBySessionIdAndStudentId(session.getId(), studentId)
-                .orElse(null);
+        InvestmentOrderEntity order = currentOrder(session.getId(), studentId).orElse(null);
         return toResponse(
                 order,
                 market,
@@ -132,11 +130,8 @@ public class InvestmentService {
             throw insufficientBalance();
         }
         DaySessionEntity session = dayOneSession(room.getId());
-        InvestmentOrderEntity order = orderRepository.findForUpdate(session.getId(), studentId)
+        InvestmentOrderEntity order = orderRepository.findDraftForUpdate(session.getId(), studentId)
                 .map(existing -> {
-                    if ("CONFIRMED".equals(existing.getStatus())) {
-                        throw alreadyConfirmed();
-                    }
                     existing.changeDraft(validated.totalAmount());
                     return existing;
                 })
@@ -164,11 +159,8 @@ public class InvestmentService {
         ensureOpen(room);
         Market market = ensureMarket(room.getId());
         DaySessionEntity session = dayOneSession(room.getId());
-        InvestmentOrderEntity order = orderRepository.findForUpdate(session.getId(), studentId)
+        InvestmentOrderEntity order = orderRepository.findDraftForUpdate(session.getId(), studentId)
                 .orElseThrow(this::draftNotFound);
-        if (!"DRAFT".equals(order.getStatus())) {
-            throw alreadyConfirmed();
-        }
         order.cancelDraft();
         room.markEconomicStateChanged();
         return toResponse(order, market, walletBalance(room.getId(), studentId), false);
@@ -196,11 +188,8 @@ public class InvestmentService {
         }
 
         DaySessionEntity session = dayOneSession(room.getId());
-        InvestmentOrderEntity order = orderRepository.findForUpdate(session.getId(), studentId)
+        InvestmentOrderEntity order = orderRepository.findDraftForUpdate(session.getId(), studentId)
                 .orElseThrow(this::draftNotFound);
-        if (!"DRAFT".equals(order.getStatus())) {
-            throw alreadyConfirmed();
-        }
         List<InvestmentAllocationEntity> allocations = allocationRepository
                 .findAllByOrderId(order.getId());
         if (allocations.isEmpty()) {
@@ -365,6 +354,20 @@ public class InvestmentService {
         );
     }
 
+    private java.util.Optional<InvestmentOrderEntity> currentOrder(
+            UUID sessionId,
+            UUID studentId
+    ) {
+        return orderRepository
+                .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                        sessionId, studentId, "DRAFT"
+                )
+                .or(() -> orderRepository
+                        .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                                sessionId, studentId, "CONFIRMED"
+                        ));
+    }
+
     private StudentEntity findActiveStudent(UUID studentId) {
         return studentRepository.findById(studentId)
                 .filter(student -> "ACTIVE".equals(student.getStatus()))
@@ -429,10 +432,6 @@ public class InvestmentService {
 
     private ApiException insufficientBalance() {
         return new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "지갑 잔액이 부족합니다.");
-    }
-
-    private ApiException alreadyConfirmed() {
-        return new ApiException(HttpStatus.CONFLICT, "INVESTMENT_ALREADY_CONFIRMED", "확정된 투자는 변경하거나 취소할 수 없습니다.");
     }
 
     private ApiException draftNotFound() {
