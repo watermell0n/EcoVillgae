@@ -5,6 +5,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+import com.b201.bibim.domain.finance.AccountEntity;
+import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestEntity;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.RoomEntity;
@@ -12,6 +14,7 @@ import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.room.RoomStage;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.ModuleStateResponse;
@@ -43,15 +46,21 @@ public class RoomSessionService {
     private final RoomRepository roomRepository;
     private final RoomCommandRequestRepository commandRequestRepository;
     private final StudentRepository studentRepository;
+    private final AccountRepository accountRepository;
+    private final SettlementRunRepository settlementRunRepository;
 
     public RoomSessionService(
             RoomRepository roomRepository,
             RoomCommandRequestRepository commandRequestRepository,
-            StudentRepository studentRepository
+            StudentRepository studentRepository,
+            AccountRepository accountRepository,
+            SettlementRunRepository settlementRunRepository
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
         this.studentRepository = studentRepository;
+        this.accountRepository = accountRepository;
+        this.settlementRunRepository = settlementRunRepository;
     }
 
     @Transactional(readOnly = true)
@@ -82,7 +91,7 @@ public class RoomSessionService {
                 room.getCurrentDay(),
                 room.getCurrentStage(),
                 room.getMode(),
-                0,
+                walletBalance(room.getId(), student.getId()),
                 moduleStates(room),
                 room.getSyncVersion(),
                 hasChanged(room, clientSyncVersion)
@@ -144,6 +153,24 @@ public class RoomSessionService {
                 .orElseThrow(() -> stateConflict("현재 수업 단계를 확인할 수 없습니다."));
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
+        }
+        if (currentStage == RoomStage.DAY1_INCOME_SETTLEMENT
+                && targetStage == RoomStage.DAY1_PAYSLIP_GUIDED
+                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                        roomId,
+                        "DAY1_INCOME",
+                        "COMPLETED"
+                )) {
+            throw stateConflict("소득 정산을 완료한 뒤 월급명세서 단계로 이동해 주세요.");
+        }
+        if (currentStage == RoomStage.DAY1_INCOME_SETTLEMENT
+                && targetStage == RoomStage.DAY1_QUIZ
+                && settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                        roomId,
+                        "DAY1_INCOME",
+                        "COMPLETED"
+                )) {
+            throw stateConflict("완료된 소득 정산 이전 단계로는 돌아갈 수 없습니다.");
         }
 
         int expectedVersion = request.expectedVersion();
@@ -241,6 +268,17 @@ public class RoomSessionService {
 
     private boolean hasChanged(RoomEntity room, Long clientSyncVersion) {
         return clientSyncVersion == null || clientSyncVersion != room.getSyncVersion();
+    }
+
+    private long walletBalance(UUID roomId, UUID studentId) {
+        return accountRepository
+                .findByRoomIdAndStudentIdAndAccountType(
+                        roomId,
+                        studentId,
+                        "STUDENT_WALLET"
+                )
+                .map(AccountEntity::getBalance)
+                .orElse(0L);
     }
 
     private String normalizeIdempotencyKey(String idempotencyKey) {

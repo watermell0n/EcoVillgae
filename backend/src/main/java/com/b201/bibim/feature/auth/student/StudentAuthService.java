@@ -3,6 +3,8 @@ package com.b201.bibim.feature.auth.student;
 import java.util.Locale;
 import java.util.UUID;
 
+import com.b201.bibim.domain.finance.AccountEntity;
+import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentEntity;
@@ -28,17 +30,20 @@ public class StudentAuthService {
     private final RoomRepository roomRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthSessionService authSessionService;
+    private final AccountRepository accountRepository;
 
     public StudentAuthService(
             StudentRepository studentRepository,
             RoomRepository roomRepository,
             PasswordEncoder passwordEncoder,
-            AuthSessionService authSessionService
+            AuthSessionService authSessionService,
+            AccountRepository accountRepository
     ) {
         this.studentRepository = studentRepository;
         this.roomRepository = roomRepository;
         this.passwordEncoder = passwordEncoder;
         this.authSessionService = authSessionService;
+        this.accountRepository = accountRepository;
     }
 
     @Transactional(readOnly = true)
@@ -151,7 +156,7 @@ public class StudentAuthService {
                 room.getCurrentDay(),
                 room.getCurrentStage(),
                 room.getMode(),
-                0,
+                walletBalance(room.getId(), student.getId()),
                 room.getSyncVersion(),
                 "CONNECTED"
         );
@@ -159,6 +164,17 @@ public class StudentAuthService {
 
     private String normalizeCode(String code) {
         return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private long walletBalance(UUID roomId, UUID studentId) {
+        return accountRepository
+                .findByRoomIdAndStudentIdAndAccountType(
+                        roomId,
+                        studentId,
+                        "STUDENT_WALLET"
+                )
+                .map(AccountEntity::getBalance)
+                .orElse(0L);
     }
 
     private boolean isClosed(RoomEntity room) {

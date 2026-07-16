@@ -101,4 +101,9 @@ public class RoomEntity {
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
     }
+
+    public void markEconomicStateChanged() {
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
 }

@@ -25,6 +25,11 @@ public interface StudentRepository extends JpaRepository<StudentEntity, UUID> {
 
     List<StudentEntity> findAllByRoomIdOrderByParticipantNumber(UUID roomId);
 
+    List<StudentEntity> findAllByRoomIdAndStatusOrderByParticipantNumber(
+            UUID roomId,
+            String status
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select student from StudentEntity student where student.id = :studentId")
     Optional<StudentEntity> findByIdForUpdate(@Param("studentId") UUID studentId);

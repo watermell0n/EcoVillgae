@@ -8,6 +8,7 @@ import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
+import { useSettlementStore } from '../../stores/settlement'
 
 const moduleLabels: Record<string, string> = {
   QUIZ: '퀴즈',
@@ -34,6 +35,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const quizStore = useQuizStore()
+const settlementStore = useSettlementStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const changingStage = ref(false)
@@ -41,10 +43,12 @@ const errorMessage = ref('')
 const noticeMessage = ref('')
 const pendingStage = ref<string | null>(null)
 const showStageWarning = ref(false)
+const showSettlementConfirm = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
+const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const currentStage = computed(() => getRoomStage(state.value?.currentStage))
 const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
@@ -78,6 +82,7 @@ onMounted(async () => {
 onUnmounted(() => {
   roomSessionStore.stopPolling()
   quizStore.stopTeacherSummaryPolling()
+  settlementStore.clearDay1Income()
 })
 
 watch(
@@ -96,6 +101,19 @@ watch(
   async (stage) => {
     quizStore.stopTeacherSummaryPolling()
     quizStore.clearTeacherSummary()
+    settlementStore.clearDay1Income()
+    if (stage === 'DAY1_INCOME_SETTLEMENT') {
+      try {
+        await settlementStore.refreshDay1IncomePreview(roomId.value)
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          await router.replace({ name: 'teacher-login' })
+          return
+        }
+        errorMessage.value = getApiErrorMessage(error, '소득 정산 미리보기를 불러오지 못했습니다.')
+      }
+      return
+    }
     if (stage !== 'DAY1_QUIZ' && stage !== 'DAY2_QUIZ') return
 
     try {
@@ -133,6 +151,22 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
     }
   }
 
+  if (
+    state.value?.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
+    targetStage === 'DAY1_PAYSLIP_GUIDED'
+  ) {
+    try {
+      const latest = await settlementStore.refreshDay1IncomePreview(roomId.value)
+      if (latest.settlementStatus !== 'COMPLETED') {
+        errorMessage.value = '소득 정산을 먼저 완료한 뒤 월급명세서 단계로 이동해 주세요.'
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '정산 완료 여부를 확인하지 못했습니다.')
+      return
+    }
+  }
+
   changingStage.value = true
   errorMessage.value = ''
   noticeMessage.value = ''
@@ -165,6 +199,31 @@ async function confirmStageMove() {
 function cancelStageMove() {
   showStageWarning.value = false
   pendingStage.value = null
+}
+
+async function confirmSettlement() {
+  showSettlementConfirm.value = false
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await settlementStore.executeDay1IncomeSettlement(roomId.value)
+    if (result) {
+      noticeMessage.value = result.replayed
+        ? '이미 완료된 정산 결과를 불러왔습니다.'
+        : `${result.settlement.targetCount}명의 소득 정산이 완료되었습니다.`
+      await roomSessionStore.refreshTeacher(roomId.value)
+    }
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      await router.replace({ name: 'teacher-login' })
+      return
+    }
+    errorMessage.value = getApiErrorMessage(error, '소득 정산을 완료하지 못했습니다.')
+  }
+}
+
+function formatBibim(amount: number) {
+  return `${amount.toLocaleString('ko-KR')}비빔`
 }
 
 function moduleTone(moduleState: string) {
@@ -241,16 +300,69 @@ function moduleTone(moduleState: string) {
           <p class="stage-control-panel__description">
             {{ currentStage?.description ?? '현재 수업 활동을 진행합니다.' }}
           </p>
-          <div class="stage-control-panel__preview">
+          <div v-if="state.currentStage !== 'DAY1_INCOME_SETTLEMENT'" class="stage-control-panel__preview">
             <span>{{ state.currentDay }}일차</span>
             <strong>{{ currentStage?.label ?? state.currentStage }}</strong>
             <small>학생 화면도 늦어도 2초 안에 이 단계로 전환됩니다.</small>
           </div>
+          <div v-else-if="settlementPreview" class="settlement-workspace">
+            <div class="settlement-status-row">
+              <StatusBadge
+                :label="settlementPreview.settlementStatus === 'COMPLETED' ? '정산 완료' : '정산 전'"
+                :tone="settlementPreview.settlementStatus === 'COMPLETED' ? 'success' : 'warning'"
+              />
+              <span>소득세율 {{ settlementPreview.incomeTaxBps / 100 }}%</span>
+            </div>
+            <dl class="settlement-totals">
+              <div>
+                <dt>총소득</dt>
+                <dd>{{ formatBibim(settlementPreview.totalGrossIncome) }}</dd>
+              </div>
+              <div>
+                <dt>소득세</dt>
+                <dd>{{ formatBibim(settlementPreview.totalIncomeTax) }}</dd>
+              </div>
+              <div>
+                <dt>총 실수령액</dt>
+                <dd>{{ formatBibim(settlementPreview.totalNetIncome) }}</dd>
+              </div>
+            </dl>
+            <div class="settlement-student-table" role="table" aria-label="학생별 정산 미리보기">
+              <div class="settlement-student-table__head" role="row">
+                <span>학생</span>
+                <span>퀴즈</span>
+                <span>총소득</span>
+                <span>세금</span>
+                <span>실수령액</span>
+              </div>
+              <div v-for="item in settlementPreview.students" :key="item.studentId" role="row">
+                <strong>{{ item.participantNumber }}번 {{ item.nickname ?? '미설정' }}</strong>
+                <span>{{ item.quizSubmitted ? `${item.correctCount}개 정답` : '미제출' }}</span>
+                <span>{{ formatBibim(item.grossIncome) }}</span>
+                <span>−{{ formatBibim(item.incomeTax) }}</span>
+                <strong>{{ formatBibim(item.netIncome) }}</strong>
+              </div>
+            </div>
+            <button
+              class="settlement-action"
+              type="button"
+              :disabled="settlementPreview.settlementStatus === 'COMPLETED' || settlementStore.executing"
+              @click="showSettlementConfirm = true"
+            >
+              {{ settlementPreview.settlementStatus === 'COMPLETED'
+                ? '정산 완료'
+                : settlementStore.executing ? '정산 중…' : `${settlementPreview.targetCount}명 정산하기` }}
+            </button>
+          </div>
+          <p v-else class="state-message">정산 미리보기를 불러오고 있습니다.</p>
           <div class="stage-navigation">
             <button
               class="button-secondary"
               type="button"
-              :disabled="!adjacentStages.previous || changingStage"
+              :disabled="!adjacentStages.previous || changingStage || (
+                state.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
+                settlementPreview?.settlementStatus === 'COMPLETED'
+              )"
               @click="moveToStage(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
@@ -266,14 +378,18 @@ function moduleTone(moduleState: string) {
           <p class="control-caution">
             {{ state.currentStage.includes('QUIZ')
               ? '미제출 학생이 있으면 다음 단계로 이동하기 전에 한 번 더 확인합니다.'
-              : '정산이 필요한 단계의 완료 여부 확인은 다음 구현에서 연결됩니다.' }}
+              : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
+                ? '정산을 완료해야 월급명세서 단계로 이동할 수 있습니다.'
+                : '현재 단계의 활동이 끝나면 다음 단계로 이동합니다.' }}
           </p>
         </section>
 
         <aside class="progress-panel" aria-label="학생 진행 현황">
           <div class="panel-heading">
             <p class="eyebrow">실시간 현황</p>
-            <h2>{{ state.currentStage.includes('QUIZ') ? '퀴즈 제출' : '학생 연결' }}</h2>
+            <h2>{{ state.currentStage.includes('QUIZ')
+              ? '퀴즈 제출'
+              : state.currentStage === 'DAY1_INCOME_SETTLEMENT' ? '정산 결과' : '학생 연결' }}</h2>
           </div>
           <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
@@ -300,6 +416,23 @@ function moduleTone(moduleState: string) {
                 <strong v-else>미시작</strong>
               </li>
             </ul>
+          </template>
+          <template v-else-if="state.currentStage === 'DAY1_INCOME_SETTLEMENT' && settlementPreview">
+            <div class="student-count-ring student-count-ring--settlement">
+              <strong>{{ settlementPreview.targetCount }}</strong>
+              <span>명 정산 대상</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div>
+                <dt>공동기금</dt>
+                <dd>{{ formatBibim(settlementPreview.classFundBalance) }}</dd>
+              </div>
+              <div>
+                <dt>상태</dt>
+                <dd>{{ settlementPreview.settlementStatus === 'COMPLETED' ? '완료' : '미실행' }}</dd>
+              </div>
+            </dl>
+            <p>걷힌 소득세는 학급 공동기금에 적립됩니다.</p>
           </template>
           <template v-else>
             <div class="student-count-ring">
@@ -338,6 +471,24 @@ function moduleTone(moduleState: string) {
           <div class="confirm-modal__actions">
             <button class="button-secondary" type="button" @click="cancelStageMove">돌아가기</button>
             <button type="button" @click="confirmStageMove">그래도 이동하기</button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showSettlementConfirm && settlementPreview" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="settlement-confirm-title">
+          <p class="eyebrow">1일차 소득 정산</p>
+          <h2 id="settlement-confirm-title">{{ settlementPreview.targetCount }}명의 월급을 지급할까요?</h2>
+          <p class="confirm-modal__warning">
+            총 {{ formatBibim(settlementPreview.totalNetIncome) }}이 학생 지갑에 지급되고,
+            소득세 {{ formatBibim(settlementPreview.totalIncomeTax) }}은 공동기금에 적립됩니다.
+          </p>
+          <p>완료된 정산은 다시 실행되지 않으며 같은 요청을 반복해도 잔액은 한 번만 변경됩니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="showSettlementConfirm = false">취소</button>
+            <button type="button" :disabled="settlementStore.executing" @click="confirmSettlement">
+              정산 실행하기
+            </button>
           </div>
         </section>
       </div>

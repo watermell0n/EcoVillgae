@@ -513,6 +513,88 @@ h1 {
   line-height: 1.5;
 }
 
+.settlement-workspace {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #dcece3;
+  border-radius: 1rem;
+  background: #f5fbf7;
+}
+
+.settlement-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #5f6e65;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.settlement-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.settlement-totals div {
+  padding: 0.75rem 0.55rem;
+  border-radius: 0.75rem;
+  background: white;
+  text-align: center;
+}
+
+.settlement-totals dt {
+  color: #758078;
+  font-size: 0.7rem;
+}
+
+.settlement-totals dd {
+  margin: 0.3rem 0 0;
+  color: #286349;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.settlement-student-table {
+  overflow-x: auto;
+  border: 1px solid #e3e8e4;
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.settlement-student-table > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) repeat(4, minmax(70px, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 500px;
+  padding: 0.65rem 0.75rem;
+  color: #596774;
+  font-size: 0.72rem;
+}
+
+.settlement-student-table > div + div {
+  border-top: 1px solid #ecefea;
+}
+
+.settlement-student-table .settlement-student-table__head {
+  color: #738078;
+  background: #f1f6f3;
+  font-weight: 900;
+}
+
+.settlement-student-table strong {
+  color: #30453a;
+}
+
+.settlement-action {
+  width: 100%;
+  background: #287253;
+}
+
 .stage-navigation {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -568,6 +650,15 @@ h1 {
 .student-count-ring--quiz {
   margin: 1.2rem auto 0.8rem;
   border-color: #b9dfcd;
+}
+
+.student-count-ring--settlement {
+  margin: 1.2rem auto 0.8rem;
+  border-color: #b9dfcd;
+}
+
+.student-count-ring--settlement strong {
+  color: #287253;
 }
 
 .quiz-summary-counts {
@@ -765,6 +856,125 @@ h1 {
 
 .stage-view .page-description {
   max-width: 620px;
+}
+
+.settlement-formula {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 0.9rem;
+  color: #526176;
+  background: #f7f3ea;
+  font-size: 0.9rem;
+}
+
+.settlement-formula strong {
+  color: #b64a31;
+}
+
+.payslip-stage-view {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  text-align: left;
+}
+
+.payslip-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.payslip-header h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  letter-spacing: -0.04em;
+}
+
+.payslip-header > span {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  color: #287253;
+  background: #e8f7ef;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.payslip-sheet {
+  overflow: hidden;
+  border: 1px solid #dedbd3;
+  border-radius: 1rem;
+  background: white;
+  box-shadow: 0 12px 30px rgb(66 74 69 / 8%);
+}
+
+.payslip-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.82rem 1rem;
+}
+
+.payslip-line + .payslip-line {
+  border-top: 1px solid #efede7;
+}
+
+.payslip-line span {
+  color: #5d6977;
+}
+
+.payslip-line small {
+  margin-left: 0.35rem;
+  color: #8a929b;
+}
+
+.payslip-line--subtotal {
+  background: #f7f5ef;
+}
+
+.payslip-line--tax strong {
+  color: #b34931;
+}
+
+.payslip-line--total {
+  color: #215f45;
+  background: #eaf7f0;
+  font-size: 1.1rem;
+}
+
+.payslip-line--total span,
+.payslip-line--total strong {
+  color: inherit;
+}
+
+.payslip-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.85rem;
+  color: #67422f;
+  background: #fff2de;
+}
+
+.payslip-balance strong {
+  font-size: 1.15rem;
+}
+
+.payslip-explanation {
+  margin: 1rem 0 0;
+  color: #657080;
+  font-size: 0.85rem;
+  line-height: 1.7;
 }
 
 .quiz-stage-view {
@@ -1161,6 +1371,14 @@ h1 {
 
   .stage-navigation {
     grid-template-columns: 1fr;
+  }
+
+  .settlement-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .payslip-header {
+    flex-direction: column;
   }
 
   .student-room-header__info {
