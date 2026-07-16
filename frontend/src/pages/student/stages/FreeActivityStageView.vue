@@ -3,18 +3,24 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import type { ShopProduct } from '../../../features/shop/api/shop'
 import { getApiErrorMessage } from '../../../shared/api/errors'
+import { useLearningStore } from '../../../stores/learning'
 import { useRoomSessionStore } from '../../../stores/roomSession'
 import { useShopStore } from '../../../stores/shop'
 
 const shopStore = useShopStore()
+const learningStore = useLearningStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const selectedProduct = ref<ShopProduct | null>(null)
 const quantity = ref(1)
+const reviewError = ref('')
+const reviewLoading = ref(false)
+const reviewPageIndex = ref(0)
 const catalog = computed(() => shopStore.studentCatalog)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
+const reviewPage = computed(() => learningStore.selectedTopic?.pages[reviewPageIndex.value])
 
 onMounted(async () => {
   try {
@@ -27,11 +33,35 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  try {
+    await learningStore.refreshTopics()
+  } catch (error) {
+    reviewError.value = getApiErrorMessage(error, '복습 주제를 불러오지 못했습니다.')
+  }
 })
 
 onUnmounted(() => {
   shopStore.clearStudentShop()
+  learningStore.clearReview()
 })
+
+async function openReview(topicId: string) {
+  reviewLoading.value = true
+  reviewError.value = ''
+  reviewPageIndex.value = 0
+  try {
+    await learningStore.openTopic(topicId)
+  } catch (error) {
+    reviewError.value = getApiErrorMessage(error, '복습 내용을 불러오지 못했습니다.')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+function closeReview() {
+  learningStore.selectedTopic = null
+  reviewPageIndex.value = 0
+}
 
 function openPurchase(product: ShopProduct) {
   selectedProduct.value = product
@@ -164,6 +194,54 @@ function formatPurchasedAt(value: string) {
             <strong>−{{ formatBibim(purchase.totalPrice) }}</strong>
           </li>
         </ul>
+      </section>
+
+      <section class="learning-review" aria-labelledby="learning-review-title">
+        <div>
+          <p class="eyebrow">자유 복습</p>
+          <h2 id="learning-review-title">금융지식 다시 보기</h2>
+          <p>궁금한 주제를 골라 내 속도로 다시 읽어 보세요.</p>
+        </div>
+        <p v-if="reviewError" class="form-error" role="alert">{{ reviewError }}</p>
+        <div class="learning-topic-grid">
+          <button
+            v-for="topic in learningStore.topics"
+            :key="topic.topicId"
+            type="button"
+            :disabled="reviewLoading"
+            @click="openReview(topic.topicId)"
+          >
+            <strong>{{ topic.title }}</strong>
+            <span>{{ topic.description }}</span>
+          </button>
+        </div>
+        <article v-if="learningStore.selectedTopic && reviewPage" class="learning-review-card">
+          <header>
+            <div>
+              <p class="eyebrow">{{ learningStore.selectedTopic.title }}</p>
+              <h3>{{ reviewPage.title }}</h3>
+            </div>
+            <button class="button-secondary" type="button" @click="closeReview">닫기</button>
+          </header>
+          <p>{{ reviewPage.content }}</p>
+          <ul>
+            <li v-for="point in reviewPage.keyPoints" :key="point">{{ point }}</li>
+          </ul>
+          <footer>
+            <button
+              class="button-secondary"
+              type="button"
+              :disabled="reviewPageIndex === 0"
+              @click="reviewPageIndex -= 1"
+            >← 이전</button>
+            <span>{{ reviewPageIndex + 1 }} / {{ learningStore.selectedTopic.pages.length }}</span>
+            <button
+              type="button"
+              :disabled="reviewPageIndex === learningStore.selectedTopic.pages.length - 1"
+              @click="reviewPageIndex += 1"
+            >다음 →</button>
+          </footer>
+        </article>
       </section>
     </template>
 

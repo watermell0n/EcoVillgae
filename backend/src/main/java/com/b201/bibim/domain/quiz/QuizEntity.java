@@ -39,16 +39,26 @@ public class QuizEntity {
     protected QuizEntity() {
     }
 
-    public static QuizEntity dayOneOpen(UUID roomId, int questionCount) {
+    public static QuizEntity dayOneReady(UUID roomId, int questionCount) {
         QuizEntity quiz = new QuizEntity();
         quiz.id = UUID.randomUUID();
         quiz.roomId = roomId;
         quiz.dayNumber = 1;
         quiz.title = "1일차 월급 퀴즈";
-        quiz.status = "OPEN";
+        quiz.status = "READY";
         quiz.questionCount = questionCount;
-        quiz.openedAt = Instant.now();
         return quiz;
+    }
+
+    public void open() {
+        this.status = "OPEN";
+        this.openedAt = Instant.now();
+        this.closedAt = null;
+    }
+
+    public void close() {
+        this.status = "CLOSED";
+        this.closedAt = Instant.now();
     }
 
     public UUID getId() {

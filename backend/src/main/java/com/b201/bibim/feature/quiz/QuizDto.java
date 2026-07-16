@@ -78,6 +78,7 @@ public final class QuizDto {
     public record TeacherQuizSummaryResponse(
             UUID quizId,
             String title,
+            String status,
             int questionCount,
             int expectedStudentCount,
             long submittedCount,

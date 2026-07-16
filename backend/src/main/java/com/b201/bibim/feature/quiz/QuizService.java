@@ -195,6 +195,7 @@ public class QuizService {
         return new TeacherQuizSummaryResponse(
                 quiz.getId(),
                 quiz.getTitle(),
+                quiz.getStatus(),
                 quiz.getQuestionCount(),
                 room.getExpectedStudentCount(),
                 submittedCount,

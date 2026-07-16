@@ -122,4 +122,10 @@ public class RoomEntity {
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
     }
+
+    public void markControlStateChanged() {
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
 }

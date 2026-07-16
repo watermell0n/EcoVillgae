@@ -14,6 +14,13 @@ const shopApi = vi.hoisted(() => ({
 
 vi.mock('../../../features/shop/api/shop', () => shopApi)
 
+const learningApi = vi.hoisted(() => ({
+  getStudentLearningTopics: vi.fn(),
+  getStudentLearningTopic: vi.fn(),
+}))
+
+vi.mock('../../../features/learning/api/learning', () => learningApi)
+
 const catalog = {
   walletBalance: 100,
   products: [
@@ -51,6 +58,31 @@ describe('FreeActivityStageView', () => {
       purchasedAt: '2026-07-16T00:00:00Z',
       replayed: false,
     })
+    learningApi.getStudentLearningTopics.mockResolvedValue([
+      {
+        topicId: 'topic-1',
+        code: 'DEPOSIT',
+        title: '예금과 이자',
+        description: '돈을 안전하게 맡기는 방법',
+        pageCount: 1,
+      },
+    ])
+    learningApi.getStudentLearningTopic.mockResolvedValue({
+      topicId: 'topic-1',
+      code: 'DEPOSIT',
+      title: '예금과 이자',
+      description: '돈을 안전하게 맡기는 방법',
+      pageCount: 1,
+      pages: [{
+        pageId: 'page-1',
+        topicCode: 'DEPOSIT',
+        topicTitle: '예금과 이자',
+        pageOrder: 1,
+        title: '예금은 무엇일까요?',
+        content: '돈을 맡기고 이자를 받아요.',
+        keyPoints: ['원금과 이자를 확인해요.'],
+      }],
+    })
   })
 
   it('confirms a purchase and updates the wallet and stock', async () => {
@@ -74,5 +106,18 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('연필 세트 1개를 구매했어요!')
     expect(wrapper.text()).toContain('75비빔')
     expect(wrapper.text()).toContain('재고 9개')
+  })
+
+  it('lets the student review a learning topic during free activity', async () => {
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('금융지식 다시 보기')
+    await wrapper.get('.learning-topic-grid button').trigger('click')
+    await flushPromises()
+
+    expect(learningApi.getStudentLearningTopic).toHaveBeenCalledWith('topic-1')
+    expect(wrapper.text()).toContain('예금은 무엇일까요?')
+    expect(wrapper.text()).toContain('돈을 맡기고 이자를 받아요.')
   })
 })

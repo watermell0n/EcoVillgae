@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import {
   getCurrentQuiz,
@@ -7,7 +7,10 @@ import {
   submitQuiz,
   type StudentQuiz,
 } from '../../../features/quiz/api/quiz'
-import { getApiErrorMessage, isUnauthorized } from '../../../shared/api/errors'
+import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../../shared/api/errors'
+import { useRoomSessionStore } from '../../../stores/roomSession'
+
+const roomSessionStore = useRoomSessionStore()
 
 const quiz = ref<StudentQuiz | null>(null)
 const currentIndex = ref(0)
@@ -17,6 +20,8 @@ const recentlySavedQuestionId = ref<string | null>(null)
 const submitting = ref(false)
 const showSubmitConfirm = ref(false)
 const errorMessage = ref('')
+const waitingForOpen = ref(false)
+const closedByTeacher = ref(false)
 
 const currentQuestion = computed(() => quiz.value?.questions[currentIndex.value])
 const unansweredCount = computed(
@@ -32,9 +37,18 @@ onMounted(() => {
   void loadQuiz()
 })
 
+watch(
+  () => roomSessionStore.studentState?.syncVersion,
+  (next, previous) => {
+    if (previous !== undefined && next !== previous && !isSubmitted.value) void loadQuiz()
+  },
+)
+
 async function loadQuiz() {
   loading.value = true
   errorMessage.value = ''
+  waitingForOpen.value = false
+  closedByTeacher.value = false
   try {
     quiz.value = await getCurrentQuiz()
     const firstUnansweredIndex = quiz.value.questions.findIndex((question) => !question.savedAnswer)
@@ -42,6 +56,14 @@ async function loadQuiz() {
   } catch (error) {
     if (isUnauthorized(error)) {
       window.location.assign('/student/join')
+      return
+    }
+    if (getApiErrorCode(error) === 'QUIZ_NOT_OPEN') {
+      if (quiz.value) {
+        closedByTeacher.value = true
+      } else {
+        waitingForOpen.value = true
+      }
       return
     }
     errorMessage.value = getApiErrorMessage(error, '퀴즈를 불러오지 못했습니다.')
@@ -102,6 +124,21 @@ async function confirmSubmit() {
 <template>
   <div class="quiz-stage-view">
     <p v-if="loading" class="state-message">퀴즈 문제를 불러오고 있습니다.</p>
+
+    <section v-else-if="waitingForOpen" class="quiz-complete" aria-labelledby="quiz-waiting-title">
+      <div class="stage-view__icon" aria-hidden="true">⏳</div>
+      <p class="eyebrow">퀴즈 준비</p>
+      <h1 id="quiz-waiting-title" class="page-title">선생님이 퀴즈를 시작할 때까지 기다려 주세요.</h1>
+      <p class="page-description">시작 신호가 오면 이 화면에 문제가 자동으로 나타나요.</p>
+      <button type="button" @click="loadQuiz">지금 확인하기</button>
+    </section>
+
+    <section v-else-if="closedByTeacher" class="quiz-complete" aria-labelledby="quiz-closed-title">
+      <div class="stage-view__icon stage-view__icon--muted" aria-hidden="true">■</div>
+      <p class="eyebrow">퀴즈 마감</p>
+      <h1 id="quiz-closed-title" class="page-title">선생님이 퀴즈를 마감했습니다.</h1>
+      <p class="page-description">이제 답안을 저장하거나 제출할 수 없어요. 다음 활동을 기다려 주세요.</p>
+    </section>
 
     <div v-else-if="errorMessage && !quiz" class="quiz-load-error">
       <p class="form-error" role="alert">{{ errorMessage }}</p>

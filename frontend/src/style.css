@@ -338,6 +338,99 @@ h1 {
   width: 100%;
 }
 
+.learning-stage-view,
+.learning-card,
+.learning-review,
+.learning-review-card,
+.learning-control-workspace,
+.quiz-control-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.learning-card,
+.learning-review,
+.learning-control-workspace,
+.quiz-control-workspace {
+  padding: 1.5rem;
+  border: 1px solid #d9e0e8;
+  border-radius: 1.25rem;
+  background: #fff;
+}
+
+.learning-card header,
+.learning-review-card header,
+.learning-control-workspace header,
+.quiz-control-workspace__headline,
+.learning-review-card footer,
+.learning-control-workspace__navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.learning-card h1,
+.learning-control-workspace h3,
+.learning-review-card h3 {
+  margin: 0.25rem 0 0;
+}
+
+.learning-card__content,
+.learning-control-workspace > p,
+.learning-review-card > p {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.learning-card ul,
+.learning-control-workspace ul,
+.learning-review-card ul {
+  margin: 0;
+  padding: 1rem 1rem 1rem 2rem;
+  border-radius: 1rem;
+  background: #f5f7fa;
+  line-height: 1.7;
+}
+
+.learning-card__sync {
+  margin: 0;
+  color: #657080;
+  font-size: 0.9rem;
+}
+
+.learning-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.learning-topic-grid button {
+  display: grid;
+  gap: 0.4rem;
+  min-height: 7rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.learning-topic-grid span {
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.learning-review-card {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: #f5f7fa;
+}
+
+.quiz-control-workspace > button {
+  justify-self: start;
+}
+
 .room-create-modal .form-stack {
   margin-top: 1.2rem;
 }

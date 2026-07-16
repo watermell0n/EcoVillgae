@@ -11,6 +11,7 @@ import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/roo
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useLearningStore } from '../../stores/learning'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { useSettlementStore } from '../../stores/settlement'
@@ -40,6 +41,7 @@ const moduleStateLabels: Record<string, string> = {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const learningStore = useLearningStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
 const shopStore = useShopStore()
@@ -60,6 +62,12 @@ const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
 const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const shopSummary = computed(() => shopStore.teacherSummary)
+const guidedLearning = computed(() => learningStore.guided)
+const learningStages = new Set([
+  'DAY1_KNOWLEDGE_GUIDED',
+  'DAY1_SHOP_GUIDED',
+  'DAY1_FINANCE_GUIDED',
+])
 const currentStage = computed(() => getRoomStage(state.value?.currentStage))
 const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
@@ -96,6 +104,7 @@ onUnmounted(() => {
   shopStore.stopTeacherSummaryPolling()
   settlementStore.clearDay1Income()
   shopStore.clearTeacherSummary()
+  learningStore.clearGuided()
 })
 
 watch(
@@ -130,6 +139,19 @@ watch(
     shopStore.stopTeacherSummaryPolling()
     shopStore.clearTeacherSummary()
     settlementStore.clearDay1Income()
+    learningStore.clearGuided()
+    if (stage && learningStages.has(stage)) {
+      try {
+        await learningStore.refreshTeacher(roomId.value)
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          await router.replace({ name: 'teacher-login' })
+          return
+        }
+        errorMessage.value = getApiErrorMessage(error, '교육 페이지를 불러오지 못했습니다.')
+      }
+      return
+    }
     if (stage === 'DAY1_INCOME_SETTLEMENT') {
       try {
         await settlementStore.refreshDay1IncomePreview(roomId.value)
@@ -227,6 +249,48 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
     errorMessage.value = getApiErrorMessage(error, '단계를 변경하지 못했습니다.')
   } finally {
     changingStage.value = false
+  }
+}
+
+async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ') {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await roomSessionStore.controlQuiz(roomId.value, command)
+    await quizStore.refreshTeacherSummary(roomId.value)
+    noticeMessage.value = command === 'OPEN_QUIZ'
+      ? '퀴즈를 시작했습니다. 학생 화면에 문제가 열립니다.'
+      : '퀴즈를 마감했습니다. 더 이상 답안을 저장하거나 제출할 수 없습니다.'
+  } catch (error) {
+    if (getApiErrorCode(error) === 'STATE_CONFLICT') {
+      await roomSessionStore.refreshTeacher(roomId.value)
+      await quizStore.refreshTeacherSummary(roomId.value)
+    }
+    errorMessage.value = getApiErrorMessage(error, '퀴즈 상태를 변경하지 못했습니다.')
+  }
+}
+
+async function moveLearningPage(offset: number) {
+  if (!guidedLearning.value || !state.value) return
+  const target = guidedLearning.value.pages[guidedLearning.value.currentIndex + offset]
+  if (!target) return
+
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await learningStore.changeTeacherPage(
+      roomId.value,
+      target.pageId,
+      state.value.version,
+    )
+    await roomSessionStore.refreshTeacher(roomId.value)
+    noticeMessage.value = `${target.title} 페이지를 학생 화면에 표시했습니다.`
+  } catch (error) {
+    if (getApiErrorCode(error) === 'STATE_CONFLICT') {
+      await roomSessionStore.refreshTeacher(roomId.value)
+      await learningStore.refreshTeacher(roomId.value)
+    }
+    errorMessage.value = getApiErrorMessage(error, '교육 페이지를 변경하지 못했습니다.')
   }
 }
 
@@ -419,6 +483,36 @@ function moduleTone(moduleState: string) {
           >
             {{ preparationError || '참여 코드와 학생 현황을 불러오고 있습니다.' }}
           </p>
+          <div v-else-if="state.currentStage.includes('QUIZ') && quizSummary" class="quiz-control-workspace">
+            <div class="quiz-control-workspace__headline">
+              <div>
+                <span>퀴즈 상태</span>
+                <strong>{{ quizSummary.status === 'READY' ? '시작 전' : quizSummary.status === 'OPEN' ? '진행 중' : '마감 완료' }}</strong>
+              </div>
+              <StatusBadge
+                :label="quizSummary.status"
+                :tone="quizSummary.status === 'OPEN' ? 'success' : quizSummary.status === 'READY' ? 'warning' : 'neutral'"
+              />
+            </div>
+            <p v-if="quizSummary.status === 'READY'">
+              시작 버튼을 누르기 전에는 학생이 문제를 열거나 답안을 제출할 수 없습니다.
+            </p>
+            <p v-else-if="quizSummary.status === 'OPEN'">
+              학생이 답안을 저장하고 있습니다. 모두 제출했거나 시간이 끝나면 마감해 주세요.
+            </p>
+            <p v-else>답안 저장과 제출이 차단되었습니다. 이제 다음 단계로 이동할 수 있습니다.</p>
+            <button
+              v-if="quizSummary.status === 'READY'"
+              type="button"
+              @click="controlQuiz('OPEN_QUIZ')"
+            >퀴즈 시작하기</button>
+            <button
+              v-else-if="quizSummary.status === 'OPEN'"
+              class="button-secondary"
+              type="button"
+              @click="controlQuiz('CLOSE_QUIZ')"
+            >퀴즈 마감하기</button>
+          </div>
           <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
             <div class="shop-summary-headline">
               <div>
@@ -492,6 +586,33 @@ function moduleTone(moduleState: string) {
                 : settlementStore.executing ? '정산 중…' : `${settlementPreview.targetCount}명 정산하기` }}
             </button>
           </div>
+          <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
+            <header>
+              <div>
+                <p class="eyebrow">{{ guidedLearning.currentPage.topicTitle }}</p>
+                <h3>{{ guidedLearning.currentPage.title }}</h3>
+              </div>
+              <strong>{{ guidedLearning.currentIndex + 1 }} / {{ guidedLearning.pages.length }}</strong>
+            </header>
+            <p>{{ guidedLearning.currentPage.content }}</p>
+            <ul>
+              <li v-for="point in guidedLearning.currentPage.keyPoints" :key="point">{{ point }}</li>
+            </ul>
+            <div class="learning-control-workspace__navigation">
+              <button
+                class="button-secondary"
+                type="button"
+                :disabled="guidedLearning.currentIndex === 0"
+                @click="moveLearningPage(-1)"
+              >← 이전 페이지</button>
+              <button
+                type="button"
+                :disabled="guidedLearning.currentIndex === guidedLearning.pages.length - 1"
+                @click="moveLearningPage(1)"
+              >다음 페이지 →</button>
+            </div>
+            <small>페이지를 바꾸면 학생 화면에 늦어도 2초 안에 반영됩니다.</small>
+          </div>
           <div v-else-if="state.currentStage !== 'DAY1_INCOME_SETTLEMENT' && state.currentStage !== 'DAY1_FREE_ACTIVITY'" class="stage-control-panel__preview">
             <span>{{ state.currentDay }}일차</span>
             <strong>{{ currentStage?.label ?? state.currentStage }}</strong>
@@ -512,7 +633,9 @@ function moduleTone(moduleState: string) {
             </button>
             <button
               type="button"
-              :disabled="!adjacentStages.next || changingStage"
+              :disabled="!adjacentStages.next || changingStage || (
+                state.currentStage.includes('QUIZ') && quizSummary?.status !== 'CLOSED'
+              )"
               @click="moveToStage(adjacentStages.next?.id)"
             >
               {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
@@ -520,7 +643,9 @@ function moduleTone(moduleState: string) {
           </div>
           <p class="control-caution">
             {{ state.currentStage.includes('QUIZ')
-              ? '미제출 학생이 있으면 다음 단계로 이동하기 전에 한 번 더 확인합니다.'
+              ? quizSummary?.status === 'CLOSED'
+                ? '퀴즈가 마감되었습니다. 미제출 학생을 확인한 뒤 다음 단계로 이동합니다.'
+                : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산을 완료해야 월급명세서 단계로 이동할 수 있습니다.'
                 : '현재 단계의 활동이 끝나면 다음 단계로 이동합니다.' }}

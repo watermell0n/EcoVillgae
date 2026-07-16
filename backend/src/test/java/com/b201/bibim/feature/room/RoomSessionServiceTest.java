@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.quiz.QuizEntity;
+import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
@@ -45,7 +47,13 @@ class RoomSessionServiceTest {
     private SettlementRunRepository settlementRunRepository;
 
     @Mock
+    private QuizRepository quizRepository;
+
+    @Mock
     private RoomEntity room;
+
+    @Mock
+    private QuizEntity quiz;
 
     @InjectMocks
     private RoomSessionService roomSessionService;
@@ -145,5 +153,59 @@ class RoomSessionServiceTest {
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(room, never()).changeStage(RoomStage.DAY1_QUIZ);
+    }
+
+    @Test
+    void opensReadyQuizAndAdvancesRoomControlVersion() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(7);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "quiz-open"))
+                .thenReturn(Optional.empty());
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getStatus()).thenReturn("READY");
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "quiz-open",
+                new CommandRequest("OPEN_QUIZ", "DAY1_QUIZ", 7)
+        );
+
+        verify(quiz).open();
+        verify(room).markControlStateChanged();
+    }
+
+    @Test
+    void rejectsLeavingQuizUntilTeacherClosesIt() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(8);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "quiz-next"))
+                .thenReturn(Optional.empty());
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getStatus()).thenReturn("OPEN");
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "quiz-next",
+                new CommandRequest("SET_STAGE", "DAY1_INCOME_SETTLEMENT", 8)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY1_INCOME_SETTLEMENT);
     }
 }

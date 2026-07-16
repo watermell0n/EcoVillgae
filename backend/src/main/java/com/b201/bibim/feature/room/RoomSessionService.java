@@ -7,6 +7,8 @@ import java.util.UUID;
 
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.quiz.QuizEntity;
+import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestEntity;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.RoomEntity;
@@ -48,19 +50,22 @@ public class RoomSessionService {
     private final StudentRepository studentRepository;
     private final AccountRepository accountRepository;
     private final SettlementRunRepository settlementRunRepository;
+    private final QuizRepository quizRepository;
 
     public RoomSessionService(
             RoomRepository roomRepository,
             RoomCommandRequestRepository commandRequestRepository,
             StudentRepository studentRepository,
             AccountRepository accountRepository,
-            SettlementRunRepository settlementRunRepository
+            SettlementRunRepository settlementRunRepository,
+            QuizRepository quizRepository
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
         this.studentRepository = studentRepository;
         this.accountRepository = accountRepository;
         this.settlementRunRepository = settlementRunRepository;
+        this.quizRepository = quizRepository;
     }
 
     @Transactional(readOnly = true)
@@ -130,11 +135,27 @@ public class RoomSessionService {
             return new CommandResponse(toTeacherState(room, true), true);
         }
 
+        if (room.getVersion() != request.expectedVersion()) {
+            throw stateConflict("다른 화면에서 수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.");
+        }
+
+        if ("OPEN_QUIZ".equals(command) || "CLOSE_QUIZ".equals(command)) {
+            controlQuiz(room, command);
+            commandRequestRepository.save(RoomCommandRequestEntity.completed(
+                    room,
+                    normalizedKey,
+                    command,
+                    targetStageValue,
+                    request.expectedVersion()
+            ));
+            return new CommandResponse(toTeacherState(room, true), false);
+        }
+
         if (!"SET_STAGE".equals(command)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "UNSUPPORTED_COMMAND",
-                    "현재 단계에서는 SET_STAGE 명령만 사용할 수 있습니다."
+                    "사용할 수 없는 수업 제어 명령입니다."
             );
         }
 
@@ -145,14 +166,17 @@ public class RoomSessionService {
                         "존재하지 않는 수업 단계입니다."
                 ));
 
-        if (room.getVersion() != request.expectedVersion()) {
-            throw stateConflict("다른 화면에서 수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.");
-        }
-
         RoomStage currentStage = RoomStage.find(room.getCurrentStage())
                 .orElseThrow(() -> stateConflict("현재 수업 단계를 확인할 수 없습니다."));
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
+        }
+        if (((currentStage == RoomStage.DAY1_QUIZ
+                && targetStage == RoomStage.DAY1_INCOME_SETTLEMENT)
+                || (currentStage == RoomStage.DAY2_QUIZ
+                && targetStage == RoomStage.DAY2_QUIZ_SETTLEMENT))
+                && !currentQuiz(room).getStatus().equals("CLOSED")) {
+            throw stateConflict("퀴즈를 마감한 뒤 다음 단계로 이동해 주세요.");
         }
         if (currentStage == RoomStage.DAY1_INCOME_SETTLEMENT
                 && targetStage == RoomStage.DAY1_PAYSLIP_GUIDED
@@ -184,6 +208,34 @@ public class RoomSessionService {
         ));
 
         return new CommandResponse(toTeacherState(room, true), false);
+    }
+
+    private void controlQuiz(RoomEntity room, String command) {
+        String expectedStage = room.getCurrentDay() == 1 ? "DAY1_QUIZ" : "DAY2_QUIZ";
+        if (!expectedStage.equals(room.getCurrentStage())) {
+            throw stateConflict("퀴즈 단계에서만 퀴즈를 시작하거나 마감할 수 있습니다.");
+        }
+
+        QuizEntity quiz = currentQuiz(room);
+        if ("OPEN_QUIZ".equals(command)) {
+            if (!"READY".equals(quiz.getStatus())) {
+                throw stateConflict("준비 상태의 퀴즈만 시작할 수 있습니다.");
+            }
+            quiz.open();
+        } else {
+            if (!"OPEN".equals(quiz.getStatus())) {
+                throw stateConflict("진행 중인 퀴즈만 마감할 수 있습니다.");
+            }
+            quiz.close();
+        }
+        room.markControlStateChanged();
+    }
+
+    private QuizEntity currentQuiz(RoomEntity room) {
+        return quizRepository.findByRoomIdAndDayNumber(
+                room.getId(),
+                (short) room.getCurrentDay()
+        ).orElseThrow(() -> stateConflict("현재 일차의 퀴즈를 찾을 수 없습니다."));
     }
 
     private RoomEntity findOwnedRoom(UUID teacherId, UUID roomId) {

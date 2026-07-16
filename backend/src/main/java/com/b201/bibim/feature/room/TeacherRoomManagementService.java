@@ -141,7 +141,7 @@ public class TeacherRoomManagementService {
         );
         studentRepository.saveAll(students);
 
-        QuizEntity quiz = quizRepository.save(QuizEntity.dayOneOpen(
+        QuizEntity quiz = quizRepository.save(QuizEntity.dayOneReady(
                 room.getId(),
                 DAY_ONE_QUESTIONS.size()
         ));

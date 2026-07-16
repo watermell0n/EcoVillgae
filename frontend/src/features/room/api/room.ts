@@ -90,11 +90,20 @@ export async function getTeacherRoomStudents(roomId: string) {
 }
 
 export async function setRoomStage(roomId: string, targetStage: string, expectedVersion: number) {
+  return sendRoomCommand(roomId, 'SET_STAGE', targetStage, expectedVersion)
+}
+
+export async function sendRoomCommand(
+  roomId: string,
+  command: 'SET_STAGE' | 'OPEN_QUIZ' | 'CLOSE_QUIZ',
+  targetStage: string,
+  expectedVersion: number,
+) {
   const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   const response = await http.post<ApiResponse<RoomCommandResponse>>(
     `/teacher/rooms/${roomId}/commands`,
     {
-      command: 'SET_STAGE',
+      command,
       targetStage,
       expectedVersion,
     },

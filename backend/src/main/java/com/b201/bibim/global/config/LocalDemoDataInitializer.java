@@ -140,14 +140,12 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
     private void seedDayOneQuiz() {
         jdbcTemplate.update("""
                 INSERT INTO quizzes (
-                    id, room_id, day_number, title, status, question_count, opened_at
+                    id, room_id, day_number, title, status, question_count
                 )
-                VALUES (?, ?, 1, '1일차 월급 퀴즈', 'OPEN', 6, CURRENT_TIMESTAMP)
+                VALUES (?, ?, 1, '1일차 월급 퀴즈', 'READY', 6)
                 ON CONFLICT (room_id, day_number) DO UPDATE SET
                     title = EXCLUDED.title,
-                    status = 'OPEN',
                     question_count = EXCLUDED.question_count,
-                    opened_at = COALESCE(quizzes.opened_at, CURRENT_TIMESTAMP),
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 DEMO_DAY_ONE_QUIZ_ID,

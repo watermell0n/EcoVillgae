@@ -54,6 +54,7 @@ export interface TeacherQuizStudent {
 export interface TeacherQuizSummary {
   quizId: string
   title: string
+  status: 'READY' | 'OPEN' | 'CLOSED'
   questionCount: number
   expectedStudentCount: number
   submittedCount: number
