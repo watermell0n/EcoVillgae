@@ -167,4 +167,16 @@ public class RoomEntity {
         syncVersion += 1;
         updatedAt = inflationAppliedAt;
     }
+
+    public void complete() {
+        if (!RoomStage.DAY2_SURVEY.name().equals(currentStage)) {
+            throw new IllegalStateException("설문 단계에서만 수업을 종료할 수 있습니다.");
+        }
+        currentStage = RoomStage.DAY2_COMPLETED.name();
+        status = "COMPLETED";
+        mode = "CLOSED";
+        version += 1;
+        syncVersion += 1;
+        updatedAt = Instant.now();
+    }
 }

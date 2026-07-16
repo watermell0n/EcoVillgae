@@ -74,4 +74,13 @@ public class DaySessionEntity {
         this.currentStage = RoomStage.DAY1_CLOSED.name();
         this.closedAt = Instant.now();
     }
+
+    public void closeDayTwo() {
+        if (dayNumber != 2 || !"ACTIVE".equals(status)) {
+            throw new IllegalStateException("진행 중인 2일차 세션만 종료할 수 있습니다.");
+        }
+        this.status = "CLOSED";
+        this.currentStage = RoomStage.DAY2_COMPLETED.name();
+        this.closedAt = Instant.now();
+    }
 }

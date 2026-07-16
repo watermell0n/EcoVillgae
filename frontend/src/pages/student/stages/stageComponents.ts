@@ -4,6 +4,8 @@ import DaySummaryStageView from './DaySummaryStageView.vue'
 import Day2FinanceStageView from './Day2FinanceStageView.vue'
 import Day2EducationStageView from './Day2EducationStageView.vue'
 import Day2FinalShopStageView from './Day2FinalShopStageView.vue'
+import Day2FinalResultStageView from './Day2FinalResultStageView.vue'
+import Day2FundStageView from './Day2FundStageView.vue'
 import Day2InflationStageView from './Day2InflationStageView.vue'
 import Day2QuizRewardStageView from './Day2QuizRewardStageView.vue'
 import FreeActivityStageView from './FreeActivityStageView.vue'
@@ -34,7 +36,11 @@ const stageComponents: Record<string, Component> = {
   DAY2_TAX_INFLATION_GUIDED: Day2EducationStageView,
   DAY2_INFLATION_APPLY: Day2InflationStageView,
   DAY2_FINAL_SHOP: Day2FinalShopStageView,
-  DAY2_FINAL_RESULT: PlaceholderStageView,
+  DAY2_FUND_COST: Day2FundStageView,
+  DAY2_FUND_VOTE: Day2FundStageView,
+  DAY2_FINAL_RESULT: Day2FinalResultStageView,
+  DAY2_SURVEY: Day2FinalResultStageView,
+  DAY2_COMPLETED: Day2FinalResultStageView,
 }
 
 export function getStudentStageComponent(stage?: string) {

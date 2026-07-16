@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.fund.FundExpenseRepository;
 import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
@@ -21,6 +22,7 @@ import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
+import com.b201.bibim.domain.vote.VoteSessionRepository;
 import com.b201.bibim.feature.day1.Day1Service;
 import com.b201.bibim.feature.settlement.Day2QuizRewardService;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
@@ -62,6 +64,12 @@ class RoomSessionServiceTest {
 
     @Mock
     private Day2QuizRewardService day2QuizRewardService;
+
+    @Mock
+    private FundExpenseRepository fundExpenseRepository;
+
+    @Mock
+    private VoteSessionRepository voteSessionRepository;
 
     @Mock
     private RoomEntity room;
@@ -221,6 +229,49 @@ class RoomSessionServiceTest {
 
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(room, never()).changeStage(RoomStage.DAY1_INCOME_SETTLEMENT);
+    }
+
+    @Test
+    void completesRoomOnlyThroughExplicitCommand() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        DaySessionEntity dayTwo = org.mockito.Mockito.mock(DaySessionEntity.class);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(9);
+        when(room.getCurrentStage()).thenReturn("DAY2_SURVEY");
+        when(room.getStatus()).thenReturn("DAY2_ACTIVE");
+        when(sessionRepository.findByRoomIdAndDayNumber(roomId, (short) 2)).thenReturn(Optional.of(dayTwo));
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "complete-room-request",
+                new CommandRequest("COMPLETE_ROOM", "DAY2_COMPLETED", 9)
+        );
+
+        verify(dayTwo).closeDayTwo();
+        verify(room).complete();
+    }
+
+    @Test
+    void blocksNewCommandsAfterRoomCompleted() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(10);
+        when(room.getStatus()).thenReturn("COMPLETED");
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "after-complete-request",
+                new CommandRequest("SET_STAGE", "DAY2_SURVEY", 10)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(any());
     }
 
     @Test

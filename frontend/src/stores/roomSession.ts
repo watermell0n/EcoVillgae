@@ -154,6 +154,22 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     return result
   }
 
+  async function completeRoom(roomId: string) {
+    if (!teacherState.value || teacherState.value.roomId !== roomId) {
+      await refreshTeacher(roomId)
+    }
+    const current = teacherState.value
+    if (!current) throw new Error('현재 방 상태를 불러오지 못했습니다.')
+    const result = await sendRoomCommand(
+      roomId,
+      'COMPLETE_ROOM',
+      'DAY2_COMPLETED',
+      current.version,
+    )
+    applyTeacherState(result.state)
+    return result
+  }
+
   return {
     teacherState,
     studentState,
@@ -168,5 +184,6 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     controlQuiz,
     closeDayOne,
     startDayTwo,
+    completeRoom,
   }
 })

@@ -12,6 +12,9 @@ export interface NextStageGuardOptions {
   quizStatus?: string
   day2FinanceSettlementStatus?: string
   day2QuizRewardSettlementStatus?: string
+  fundExpenseApplied?: boolean
+  votePrepared?: boolean
+  voteStatus?: string
 }
 
 export const ROOM_STAGES: readonly RoomStageDefinition[] = [
@@ -64,6 +67,8 @@ export function isNextStageDisabled({
   quizStatus,
   day2FinanceSettlementStatus,
   day2QuizRewardSettlementStatus,
+  votePrepared,
+  voteStatus,
 }: NextStageGuardOptions) {
   if (!hasNextStage || changingStage) {
     return true
@@ -84,6 +89,18 @@ export function isNextStageDisabled({
     currentStage === 'DAY2_FINANCE_SETTLEMENT' &&
     day2FinanceSettlementStatus !== 'COMPLETED'
   ) {
+    return true
+  }
+
+  if (currentStage === 'DAY2_FUND_COST' && !votePrepared) {
+    return true
+  }
+
+  if (currentStage === 'DAY2_FUND_VOTE' && voteStatus !== 'DECIDED') {
+    return true
+  }
+
+  if (currentStage === 'DAY2_SURVEY') {
     return true
   }
 

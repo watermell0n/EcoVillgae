@@ -19,6 +19,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useDay1Store } from '../../stores/day1'
 import { useDay2FinanceStore } from '../../stores/day2Finance'
 import { useDay2FlowStore } from '../../stores/day2Flow'
+import { useDay2EndStore } from '../../stores/day2End'
 import { useLearningStore } from '../../stores/learning'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
@@ -52,6 +53,7 @@ const authStore = useAuthStore()
 const day1Store = useDay1Store()
 const day2FinanceStore = useDay2FinanceStore()
 const day2FlowStore = useDay2FlowStore()
+const day2EndStore = useDay2EndStore()
 const learningStore = useLearningStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
@@ -69,6 +71,7 @@ const showStageWarning = ref(false)
 const showSettlementConfirm = ref(false)
 const showDay1CloseConfirm = ref(false)
 const showDay2SettlementConfirm = ref(false)
+const showRoomCompleteConfirm = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
@@ -80,6 +83,15 @@ const day1ClosePreview = computed(() => day1Store.closePreview)
 const day2FinancePreview = computed(() => day2FinanceStore.teacherPreview)
 const day2QuizRewardPreview = computed(() => day2FlowStore.quizRewardPreview)
 const inflationPreview = computed(() => day2FlowStore.inflationPreview)
+const fundOverview = computed(() => day2EndStore.fund)
+const fundCostOptions = computed(() => day2EndStore.costOptions)
+const fundVote = computed(() => day2EndStore.vote)
+const finalSummary = computed(() => day2EndStore.finalSummary)
+const productDistribution = computed(() => day2EndStore.distribution)
+const canPrepareFundVote = computed(() =>
+  Boolean(fundOverview.value?.appliedExpense) ||
+  (fundCostOptions.value.length > 0 && fundCostOptions.value.every((option) => !option.affordable)),
+)
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
@@ -99,6 +111,9 @@ const nextStageDisabled = computed(() =>
     quizStatus: quizSummary.value?.status,
     day2FinanceSettlementStatus: day2FinancePreview.value?.settlementStatus,
     day2QuizRewardSettlementStatus: day2QuizRewardPreview.value?.settlementStatus,
+    fundExpenseApplied: Boolean(fundOverview.value?.appliedExpense),
+    votePrepared: Boolean(fundVote.value),
+    voteStatus: fundVote.value?.status,
   }),
 )
 const connectionLabel = computed(() =>
@@ -136,6 +151,7 @@ onUnmounted(() => {
   day1Store.clear()
   day2FinanceStore.clear()
   day2FlowStore.clear()
+  day2EndStore.clear()
 })
 
 watch(
@@ -174,6 +190,7 @@ watch(
     day1Store.clear()
     day2FinanceStore.clear()
     day2FlowStore.clear()
+    day2EndStore.clear()
     if (stage === 'DAY1_SUMMARY' || stage === 'DAY1_CLOSED') {
       try {
         await day1Store.refreshTeacherSummary(roomId.value)
@@ -203,6 +220,34 @@ watch(
           return
         }
         errorMessage.value = getApiErrorMessage(error, '2일차 금융 정산 정보를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage === 'DAY2_FUND_COST') {
+      try {
+        await day2EndStore.refreshFund(roomId.value)
+      } catch (error) {
+        errorMessage.value = getApiErrorMessage(error, '공동기금 정보를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage === 'DAY2_FUND_VOTE') {
+      try {
+        await Promise.all([
+          day2EndStore.refreshFund(roomId.value),
+          day2EndStore.refreshVote(roomId.value),
+        ])
+        day2EndStore.startVotePolling(roomId.value)
+      } catch (error) {
+        errorMessage.value = getApiErrorMessage(error, '공동기금 투표를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage && ['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(stage)) {
+      try {
+        await day2EndStore.refreshFinal(roomId.value)
+      } catch (error) {
+        errorMessage.value = getApiErrorMessage(error, '최종 결과를 불러오지 못했습니다.')
       }
       return
     }
@@ -352,6 +397,32 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
     }
   }
 
+  if (state.value?.currentStage === 'DAY2_FUND_COST' && targetStage === 'DAY2_FUND_VOTE') {
+    try {
+      await day2EndStore.refreshFund(roomId.value)
+      if (!day2EndStore.vote) {
+        errorMessage.value = '공동비용을 검토하고 투표 선택지를 준비해 주세요.'
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '공동기금 준비 상태를 확인하지 못했습니다.')
+      return
+    }
+  }
+
+  if (state.value?.currentStage === 'DAY2_FUND_VOTE' && targetStage === 'DAY2_FINAL_RESULT') {
+    try {
+      const latestVote = await day2EndStore.refreshVote(roomId.value)
+      if (latestVote.status !== 'DECIDED') {
+        errorMessage.value = '투표를 마감하고 최종 결과를 확정해 주세요.'
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '투표 결과를 확인하지 못했습니다.')
+      return
+    }
+  }
+
   changingStage.value = true
   errorMessage.value = ''
   noticeMessage.value = ''
@@ -485,6 +556,72 @@ async function confirmSettlement() {
       return
     }
     errorMessage.value = getApiErrorMessage(error, '소득 정산을 완료하지 못했습니다.')
+  }
+}
+
+async function applyFundExpense(optionId: string) {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2EndStore.applyExpense(roomId.value, optionId)
+    if (result) noticeMessage.value = result.replayed ? '기존 공동비용 결과를 불러왔습니다.' : '공동비용을 적용했습니다.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '공동비용을 적용하지 못했습니다.')
+  }
+}
+
+async function prepareFundVote() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2EndStore.prepareVote(roomId.value)
+    if (result) noticeMessage.value = '학생 투표 선택지를 준비했습니다.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투표를 준비하지 못했습니다.')
+  }
+}
+
+async function controlFundVote(action: 'OPEN' | 'CLOSE') {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2EndStore.updateVote(action, roomId.value)
+    if (result) {
+      noticeMessage.value = action === 'OPEN'
+        ? '공동기금 투표를 시작했습니다.'
+        : result.status === 'DECIDED'
+          ? '투표를 마감하고 단독 1위 결과를 확정했습니다.'
+          : '투표를 마감했습니다. 동률 1위 중 최종 선택을 골라 주세요.'
+    }
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투표 상태를 변경하지 못했습니다.')
+  }
+}
+
+async function decideFundVote(optionId: string) {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2EndStore.decideVote(roomId.value, optionId)
+    if (result) noticeMessage.value = '동점 투표의 최종 선택을 확정했습니다.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '최종 선택을 확정하지 못했습니다.')
+  }
+}
+
+async function completeRoom() {
+  showRoomCompleteConfirm.value = false
+  changingStage.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await roomSessionStore.completeRoom(roomId.value)
+    await day2EndStore.refreshFinal(roomId.value)
+    noticeMessage.value = '수업을 종료했습니다. 최종 결과 조회는 계속 사용할 수 있습니다.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '수업을 종료하지 못했습니다.')
+  } finally {
+    changingStage.value = false
   }
 }
 
@@ -1012,6 +1149,168 @@ function moduleTone(moduleState: string) {
               </article>
             </div>
           </div>
+          <div
+            v-else-if="state.currentStage === 'DAY2_FUND_COST' && fundOverview"
+            class="fund-control-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>우리 반 공동기금</span>
+                <strong>{{ formatBibim(fundOverview.balance) }}</strong>
+              </div>
+              <StatusBadge
+                :label="fundOverview.appliedExpense ? '공동비용 적용 완료' : '비용 선택 전'"
+                :tone="fundOverview.appliedExpense ? 'success' : 'warning'"
+              />
+            </div>
+            <dl class="fund-source-grid">
+              <div><dt>소득세 적립</dt><dd>+{{ formatBibim(fundOverview.totalIncomeTax) }}</dd></div>
+              <div><dt>금융세 적립</dt><dd>+{{ formatBibim(fundOverview.totalFinancialTax) }}</dd></div>
+              <div><dt>공동비용</dt><dd>−{{ formatBibim(fundOverview.totalExpenses) }}</dd></div>
+            </dl>
+            <div class="fund-cost-option-grid">
+              <article v-for="option in fundCostOptions" :key="option.optionId">
+                <div>
+                  <strong>{{ option.name }}</strong>
+                  <span>{{ formatBibim(option.amount) }}</span>
+                </div>
+                <button
+                  type="button"
+                  :disabled="Boolean(fundOverview.appliedExpense) || !option.affordable || day2EndStore.mutating"
+                  @click="applyFundExpense(option.optionId)"
+                >
+                  {{ option.applied ? '적용 완료' : option.affordable ? '이 비용 적용' : '잔액 부족' }}
+                </button>
+              </article>
+            </div>
+            <p v-if="!fundOverview.appliedExpense && canPrepareFundVote" class="control-caution">
+              현재 잔액으로 적용할 수 있는 기본 공동비용이 없어 비용 차감 없이 투표를 준비할 수 있습니다.
+            </p>
+            <button
+              v-if="canPrepareFundVote"
+              class="settlement-action"
+              type="button"
+              :disabled="Boolean(fundVote) || day2EndStore.mutating"
+              @click="prepareFundVote"
+            >
+              {{ fundVote ? '학생 투표 준비 완료' : '학생 투표 선택지 준비하기' }}
+            </button>
+          </div>
+          <div
+            v-else-if="state.currentStage === 'DAY2_FUND_VOTE' && fundOverview && fundVote"
+            class="fund-control-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>익명 공동기금 투표</span>
+                <strong>{{ fundVote.submittedCount }} / {{ fundVote.eligibleStudentCount }}명 참여</strong>
+              </div>
+              <StatusBadge
+                :label="fundVote.status === 'READY' ? '시작 전' : fundVote.status === 'OPEN' ? '투표 중' : fundVote.status === 'CLOSED' ? '동점 결정 필요' : '결과 확정'"
+                :tone="fundVote.status === 'DECIDED' ? 'success' : fundVote.status === 'OPEN' ? 'warning' : 'neutral'"
+              />
+            </div>
+            <h3>{{ fundVote.question }}</h3>
+            <p v-if="fundVote.status === 'OPEN'" class="control-caution">
+              투표 중에는 선택지별 득표수를 공개하지 않습니다.
+            </p>
+            <div class="teacher-vote-options">
+              <article
+                v-for="option in fundVote.options"
+                :key="option.optionId"
+                :class="{ 'is-decided': option.decided, 'is-tied': fundVote.status === 'CLOSED' && option.tiedForFirst }"
+              >
+                <div>
+                  <strong>{{ option.title }}</strong>
+                  <span>{{ option.description }}</span>
+                  <small>필요 {{ formatBibim(option.requiredAmount) }}</small>
+                </div>
+                <b v-if="option.voteCount !== null">{{ option.voteCount }}표</b>
+                <button
+                  v-if="fundVote.status === 'CLOSED' && option.tiedForFirst"
+                  type="button"
+                  :disabled="day2EndStore.mutating"
+                  @click="decideFundVote(option.optionId)"
+                >동점 최종 선택</button>
+              </article>
+            </div>
+            <button
+              v-if="fundVote.status === 'READY'"
+              class="settlement-action"
+              type="button"
+              :disabled="day2EndStore.mutating"
+              @click="controlFundVote('OPEN')"
+            >투표 시작하기</button>
+            <button
+              v-else-if="fundVote.status === 'OPEN'"
+              class="settlement-action"
+              type="button"
+              :disabled="day2EndStore.mutating"
+              @click="controlFundVote('CLOSE')"
+            >투표 마감하기</button>
+          </div>
+          <div
+            v-else-if="['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(state.currentStage) && finalSummary && productDistribution"
+            class="final-control-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>2일 경제활동 최종 결과</span>
+                <strong>{{ finalSummary.studentCount }}명 · 지갑 합계 {{ formatBibim(finalSummary.totalFinalWalletBalance) }}</strong>
+              </div>
+              <StatusBadge
+                :label="state.currentStage === 'DAY2_COMPLETED' ? '수업 종료' : '결과 공개'"
+                :tone="state.currentStage === 'DAY2_COMPLETED' ? 'neutral' : 'success'"
+              />
+            </div>
+            <dl class="final-class-summary">
+              <div><dt>총소득</dt><dd>{{ formatBibim(finalSummary.totalGrossIncome) }}</dd></div>
+              <div><dt>총세금</dt><dd>{{ formatBibim(finalSummary.totalIncomeTax + finalSummary.totalFinancialTax) }}</dd></div>
+              <div><dt>총소비</dt><dd>{{ formatBibim(finalSummary.totalPurchaseAmount) }}</dd></div>
+              <div><dt>공동기금 잔액</dt><dd>{{ formatBibim(finalSummary.classFundBalance) }}</dd></div>
+            </dl>
+            <div class="day1-student-table final-student-table" role="table" aria-label="학생별 최종 결과">
+              <div class="day1-student-table__head" role="row">
+                <span>학생</span><span>소득</span><span>세금</span><span>소비</span><span>최종 지갑</span>
+              </div>
+              <div v-for="studentItem in finalSummary.students" :key="studentItem.studentId" role="row">
+                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                <span>{{ formatBibim(studentItem.grossIncome) }}</span>
+                <span>{{ formatBibim(studentItem.totalTax) }}</span>
+                <span>{{ formatBibim(studentItem.purchaseAmount) }}</span>
+                <strong>{{ formatBibim(studentItem.finalWalletBalance) }}</strong>
+              </div>
+            </div>
+            <section class="distribution-list">
+              <h3>상품 배부 목록 · 총 {{ productDistribution.totalQuantity }}개</h3>
+              <ul v-if="productDistribution.items.length">
+                <li v-for="item in productDistribution.items" :key="`${item.productId}-${item.studentId}`">
+                  <strong>{{ item.productName }} × {{ item.quantity }}</strong>
+                  <span>{{ item.participantNumber }}번 {{ item.nickname ?? '미설정' }}</span>
+                </li>
+              </ul>
+              <p v-else>배부할 상품이 없습니다.</p>
+            </section>
+            <section v-if="finalSummary.voteResult" class="final-vote-result">
+              <p class="eyebrow">공동기금 투표 결과</p>
+              <h3>{{ finalSummary.voteResult.title }}</h3>
+              <p>{{ finalSummary.voteResult.voteCount }} / {{ finalSummary.voteResult.submittedCount }}표</p>
+            </section>
+            <a
+              v-if="state.currentStage !== 'DAY2_FINAL_RESULT'"
+              class="survey-link-button"
+              :href="finalSummary.surveyUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >외부 설문 새 탭에서 열기 ↗</a>
+            <button
+              v-if="state.currentStage === 'DAY2_SURVEY'"
+              class="settlement-action room-complete-button"
+              type="button"
+              :disabled="changingStage"
+              @click="showRoomCompleteConfirm = true"
+            >수업 종료하기</button>
+          </div>
           <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
             <header>
               <div>
@@ -1052,7 +1351,11 @@ function moduleTone(moduleState: string) {
               :disabled="!adjacentStages.previous || changingStage || (
                 state.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
                 settlementPreview?.settlementStatus === 'COMPLETED'
-              ) || state.currentStage === 'DAY1_CLOSED' || state.currentStage === 'DAY2_LOGIN'"
+              ) || state.currentStage === 'DAY1_CLOSED' || state.currentStage === 'DAY2_LOGIN' || (
+                state.currentStage === 'DAY2_FUND_COST' && (Boolean(fundOverview?.appliedExpense) || Boolean(fundVote))
+              ) || (
+                state.currentStage === 'DAY2_FUND_VOTE' && fundVote?.status !== 'READY'
+              ) || state.currentStage === 'DAY2_COMPLETED'"
               @click="moveToStage(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
@@ -1082,6 +1385,14 @@ function moduleTone(moduleState: string) {
                       ? '금융 정산을 완료해야 개인 결과 단계로 이동할 수 있습니다.'
                       : state.currentStage === 'DAY2_RESULT_GUIDED'
                         ? '학생과 함께 예금 이자, 투자 손익, 금융세를 확인해 주세요.'
+                        : state.currentStage === 'DAY2_FUND_COST'
+                          ? '공동비용을 검토하고 투표 선택지를 준비하면 다음 단계로 이동할 수 있습니다.'
+                          : state.currentStage === 'DAY2_FUND_VOTE'
+                            ? '투표를 마감하고 결과를 확정하면 최종 결과로 이동할 수 있습니다.'
+                            : state.currentStage === 'DAY2_SURVEY'
+                              ? '설문 링크를 안내한 뒤 수업 종료 버튼으로 명시적으로 종료해 주세요.'
+                              : state.currentStage === 'DAY2_COMPLETED'
+                                ? '수업이 종료되었습니다. 결과 조회만 계속 사용할 수 있습니다.'
                 : '현재 단계의 활동이 끝나면 다음 단계로 이동합니다.' }}
           </p>
         </section>
@@ -1089,7 +1400,7 @@ function moduleTone(moduleState: string) {
         <aside class="progress-panel" aria-label="학생 진행 현황">
           <div class="panel-heading">
             <p class="eyebrow">실시간 현황</p>
-            <h2>{{ state.currentStage.includes('QUIZ')
+            <h2>{{ ['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage)
               ? '퀴즈 제출'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산 결과'
@@ -1104,9 +1415,13 @@ function moduleTone(moduleState: string) {
                       'DAY2_RESULT_GUIDED',
                     ].includes(state.currentStage)
                       ? '금융 정산'
-                    : '학생 연결' }}</h2>
+                      : state.currentStage === 'DAY2_FUND_VOTE'
+                        ? '익명 투표 참여'
+                        : ['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(state.currentStage)
+                          ? '최종 결과'
+                          : '학생 연결' }}</h2>
           </div>
-          <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
+          <template v-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
               <strong>{{ quizSummary.submittedCount }}</strong>
               <span>/ {{ quizSummary.expectedStudentCount }}명 제출</span>
@@ -1193,6 +1508,27 @@ function moduleTone(moduleState: string) {
               <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
               <div><dt>금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
               <div><dt>공동기금</dt><dd>{{ formatBibim(day2FinancePreview.classFundBalance) }}</dd></div>
+            </dl>
+          </template>
+          <template v-else-if="state.currentStage === 'DAY2_FUND_VOTE' && fundVote">
+            <div class="student-count-ring student-count-ring--day2">
+              <strong>{{ fundVote.submittedCount }}</strong>
+              <span>/ {{ fundVote.eligibleStudentCount }}명 투표</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div><dt>상태</dt><dd>{{ fundVote.status === 'READY' ? '시작 전' : fundVote.status === 'OPEN' ? '진행 중' : '마감' }}</dd></div>
+              <div><dt>결과</dt><dd>{{ fundVote.status === 'DECIDED' ? '확정' : '대기' }}</dd></div>
+            </dl>
+            <p>개별 학생의 선택은 공개하지 않고 참여 인원만 표시합니다.</p>
+          </template>
+          <template v-else-if="['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(state.currentStage) && finalSummary">
+            <div class="student-count-ring student-count-ring--day2">
+              <strong>{{ finalSummary.studentCount }}</strong>
+              <span>명 결과 집계</span>
+            </div>
+            <dl class="quiz-summary-counts">
+              <div><dt>상품 배부</dt><dd>{{ productDistribution?.totalQuantity ?? 0 }}개</dd></div>
+              <div><dt>공동기금</dt><dd>{{ formatBibim(finalSummary.classFundBalance) }}</dd></div>
             </dl>
           </template>
           <template v-else>
@@ -1290,6 +1626,21 @@ function moduleTone(moduleState: string) {
             <button type="button" :disabled="day2FinanceStore.settling" @click="confirmDay2FinanceSettlement">
               금융 정산 실행
             </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showRoomCompleteConfirm" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="room-complete-title">
+          <p class="eyebrow">2일 수업 최종 종료</p>
+          <h2 id="room-complete-title">수업을 종료할까요?</h2>
+          <p class="confirm-modal__warning">
+            종료 후에는 구매·정산·투표·단계 변경이 모두 차단됩니다.
+          </p>
+          <p>학생과 교사는 새로고침하거나 다시 로그인해도 최종 결과를 계속 확인할 수 있습니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="showRoomCompleteConfirm = false">취소</button>
+            <button type="button" :disabled="changingStage" @click="completeRoom">수업 종료 확정</button>
           </div>
         </section>
       </div>

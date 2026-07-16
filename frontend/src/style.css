@@ -1760,6 +1760,156 @@ h1 {
   text-align: left;
 }
 
+.fund-control-workspace,
+.final-control-workspace,
+.student-fund-view,
+.student-final-result {
+  display: grid;
+  gap: 1rem;
+}
+
+.fund-source-grid,
+.final-class-summary,
+.final-result-ledger {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.fund-source-grid > div,
+.final-class-summary > div,
+.final-result-ledger > div {
+  padding: 0.9rem;
+  border: 1px solid var(--line-color, #dbe2ea);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.fund-source-grid dt,
+.final-class-summary dt,
+.final-result-ledger dt {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.fund-source-grid dd,
+.final-class-summary dd,
+.final-result-ledger dd {
+  margin: 0.3rem 0 0;
+  font-weight: 800;
+}
+
+.fund-cost-option-grid,
+.teacher-vote-options,
+.student-vote-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.fund-cost-option-grid article,
+.teacher-vote-options article,
+.student-vote-options label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fund-cost-option-grid article > div,
+.teacher-vote-options article > div,
+.student-vote-options label > span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.teacher-vote-options article.is-tied {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.teacher-vote-options article.is-decided,
+.student-vote-options label.is-decided,
+.student-vote-options label.is-selected {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.student-fund-balance,
+.fund-wait-card,
+.student-vote-card,
+.final-result-hero,
+.final-purchase-list,
+.final-vote-result,
+.distribution-list {
+  padding: 1.1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.student-vote-options input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+}
+
+.student-vote-options small,
+.student-vote-options em {
+  color: #64748b;
+  font-style: normal;
+}
+
+.final-purchase-list ul,
+.distribution-list ul {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  list-style: none;
+}
+
+.final-purchase-list li,
+.distribution-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.survey-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.room-complete-button {
+  background: #b91c1c;
+}
+
+@media (max-width: 680px) {
+  .fund-cost-option-grid article,
+  .teacher-vote-options article,
+  .student-vote-options label,
+  .final-purchase-list li,
+  .distribution-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .economy-header,
 .day1-result-header,
 .day1-close-workspace__headline {

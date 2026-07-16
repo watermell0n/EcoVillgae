@@ -53,4 +53,44 @@ describe('room stages', () => {
       }),
     ).toBe(true)
   })
+
+  it('requires a prepared fund vote and a decided result before advancing', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_COST',
+        hasNextStage: true,
+        changingStage: false,
+        fundExpenseApplied: true,
+        votePrepared: true,
+      }),
+    ).toBe(false)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_COST',
+        hasNextStage: true,
+        changingStage: false,
+        fundExpenseApplied: false,
+        votePrepared: true,
+      }),
+    ).toBe(false)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_VOTE',
+        hasNextStage: true,
+        changingStage: false,
+        voteStatus: 'CLOSED',
+      }),
+    ).toBe(true)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_VOTE',
+        hasNextStage: true,
+        changingStage: false,
+        voteStatus: 'DECIDED',
+      }),
+    ).toBe(false)
+  })
 })

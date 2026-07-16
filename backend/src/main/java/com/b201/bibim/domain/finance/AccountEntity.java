@@ -83,6 +83,10 @@ public class AccountEntity {
         return new AccountEntity(roomId, null, "SHOP_REVENUE", false);
     }
 
+    public static AccountEntity classExpense(UUID roomId) {
+        return new AccountEntity(roomId, null, "CLASS_EXPENSE", false);
+    }
+
     public void changeBy(long amount) {
         long nextBalance = Math.addExact(balance, amount);
         if (!allowNegative && nextBalance < 0) {
