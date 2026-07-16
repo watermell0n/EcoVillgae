@@ -50,6 +50,17 @@ public class QuizEntity {
         return quiz;
     }
 
+    public static QuizEntity dayTwoReady(UUID roomId, int questionCount) {
+        QuizEntity quiz = new QuizEntity();
+        quiz.id = UUID.randomUUID();
+        quiz.roomId = roomId;
+        quiz.dayNumber = 2;
+        quiz.title = "2일차 금융 복습 퀴즈";
+        quiz.status = "READY";
+        quiz.questionCount = questionCount;
+        return quiz;
+    }
+
     public void open() {
         this.status = "OPEN";
         this.openedAt = Instant.now();

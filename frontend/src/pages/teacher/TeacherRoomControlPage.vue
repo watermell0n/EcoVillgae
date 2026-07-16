@@ -7,12 +7,18 @@ import {
   type RoomPreparation,
   type TeacherRoomStudent,
 } from '../../features/room/api/room'
-import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/room/model/stages'
+import {
+  getAdjacentStages,
+  getRoomStage,
+  isNextStageDisabled,
+  ROOM_STAGES,
+} from '../../features/room/model/stages'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useDay1Store } from '../../stores/day1'
 import { useDay2FinanceStore } from '../../stores/day2Finance'
+import { useDay2FlowStore } from '../../stores/day2Flow'
 import { useLearningStore } from '../../stores/learning'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
@@ -45,6 +51,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const day1Store = useDay1Store()
 const day2FinanceStore = useDay2FinanceStore()
+const day2FlowStore = useDay2FlowStore()
 const learningStore = useLearningStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
@@ -71,6 +78,8 @@ const shopSummary = computed(() => shopStore.teacherSummary)
 const day1Summary = computed(() => day1Store.teacherSummary)
 const day1ClosePreview = computed(() => day1Store.closePreview)
 const day2FinancePreview = computed(() => day2FinanceStore.teacherPreview)
+const day2QuizRewardPreview = computed(() => day2FlowStore.quizRewardPreview)
+const inflationPreview = computed(() => day2FlowStore.inflationPreview)
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
@@ -82,6 +91,16 @@ const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
 )
 const adjacentStages = computed(() => getAdjacentStages(state.value?.currentStage))
+const nextStageDisabled = computed(() =>
+  isNextStageDisabled({
+    currentStage: state.value?.currentStage,
+    hasNextStage: Boolean(adjacentStages.value.next),
+    changingStage: changingStage.value,
+    quizStatus: quizSummary.value?.status,
+    day2FinanceSettlementStatus: day2FinancePreview.value?.settlementStatus,
+    day2QuizRewardSettlementStatus: day2QuizRewardPreview.value?.settlementStatus,
+  }),
+)
 const connectionLabel = computed(() =>
   roomSessionStore.connectionStatus === 'CONNECTED' ? '2초 간격 동기화 중' : '다시 연결하는 중',
 )
@@ -116,6 +135,7 @@ onUnmounted(() => {
   learningStore.clearGuided()
   day1Store.clear()
   day2FinanceStore.clear()
+  day2FlowStore.clear()
 })
 
 watch(
@@ -153,6 +173,7 @@ watch(
     learningStore.clearGuided()
     day1Store.clear()
     day2FinanceStore.clear()
+    day2FlowStore.clear()
     if (stage === 'DAY1_SUMMARY' || stage === 'DAY1_CLOSED') {
       try {
         await day1Store.refreshTeacherSummary(roomId.value)
@@ -182,6 +203,30 @@ watch(
           return
         }
         errorMessage.value = getApiErrorMessage(error, '2일차 금융 정산 정보를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage === 'DAY2_QUIZ_SETTLEMENT') {
+      try {
+        await day2FlowStore.refreshQuizReward(roomId.value)
+      } catch (error) {
+        errorMessage.value = getApiErrorMessage(error, '2일차 퀴즈 보상 정보를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage && [
+      'DAY2_TAX_INFLATION_GUIDED',
+      'DAY2_INFLATION_APPLY',
+      'DAY2_FINAL_SHOP',
+    ].includes(stage)) {
+      try {
+        await day2FlowStore.refreshInflation(roomId.value)
+        if (stage === 'DAY2_FINAL_SHOP') {
+          await shopStore.refreshTeacherSummary(roomId.value)
+          shopStore.startTeacherSummaryPolling(roomId.value)
+        }
+      } catch (error) {
+        errorMessage.value = getApiErrorMessage(error, '물가상승 정보를 불러오지 못했습니다.')
       }
       return
     }
@@ -271,6 +316,38 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
       }
     } catch (error) {
       errorMessage.value = getApiErrorMessage(error, '정산 완료 여부를 확인하지 못했습니다.')
+      return
+    }
+  }
+
+  if (
+    state.value?.currentStage === 'DAY2_QUIZ_SETTLEMENT' &&
+    targetStage === 'DAY2_TAX_INFLATION_GUIDED'
+  ) {
+    try {
+      const latest = await day2FlowStore.refreshQuizReward(roomId.value)
+      if (latest.settlementStatus !== 'COMPLETED') {
+        errorMessage.value = '2일차 퀴즈 보상 정산을 먼저 완료해 주세요.'
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '퀴즈 보상 정산 상태를 확인하지 못했습니다.')
+      return
+    }
+  }
+
+  if (
+    state.value?.currentStage === 'DAY2_INFLATION_APPLY' &&
+    targetStage === 'DAY2_FINAL_SHOP'
+  ) {
+    try {
+      const latest = await day2FlowStore.refreshInflation(roomId.value)
+      if (!latest.applied) {
+        errorMessage.value = '물가상승을 먼저 적용해 주세요.'
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '물가상승 적용 상태를 확인하지 못했습니다.')
       return
     }
   }
@@ -469,6 +546,34 @@ async function confirmDay2FinanceSettlement() {
       return
     }
     errorMessage.value = getApiErrorMessage(error, '2일차 금융 정산을 완료하지 못했습니다.')
+  }
+}
+
+async function settleDay2QuizReward() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2FlowStore.settleQuizReward(roomId.value)
+    await roomSessionStore.refreshTeacher(roomId.value)
+    noticeMessage.value = result?.replayed
+      ? '이미 완료된 2일차 퀴즈 보상 결과를 불러왔습니다.'
+      : `${result?.settlement.submittedCount ?? 0}명의 퀴즈 보상을 지급했습니다.`
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '2일차 퀴즈 보상을 정산하지 못했습니다.')
+  }
+}
+
+async function applyInflation() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const result = await day2FlowStore.applyInflation(roomId.value)
+    await roomSessionStore.refreshTeacher(roomId.value)
+    noticeMessage.value = result?.replayed
+      ? '이미 적용된 물가상승 결과를 불러왔습니다.'
+      : `상품 ${result?.inflation.products.length ?? 0}개의 가격에 물가상승을 적용했습니다.`
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '물가상승을 적용하지 못했습니다.')
   }
 }
 
@@ -812,6 +917,101 @@ function moduleTone(moduleState: string) {
               학생 화면에 원금·이자·투자 손익·금융세·최종 잔액이 표시됩니다.
             </p>
           </div>
+          <div
+            v-else-if="state.currentStage === 'DAY2_QUIZ_SETTLEMENT' && day2QuizRewardPreview"
+            class="day2-reward-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>2일차 복습 퀴즈</span>
+                <strong>{{ day2QuizRewardPreview.submittedCount }} / {{ day2QuizRewardPreview.targetCount }}명 제출</strong>
+              </div>
+              <StatusBadge
+                :label="day2QuizRewardPreview.settlementStatus === 'COMPLETED' ? '보상 완료' : '정산 대기'"
+                :tone="day2QuizRewardPreview.settlementStatus === 'COMPLETED' ? 'success' : 'warning'"
+              />
+            </div>
+            <div class="day2-reward-rule">
+              <span>제출 참여수당 {{ formatBibim(day2QuizRewardPreview.participationRewardPerStudent) }}</span>
+              <span>정답당 {{ formatBibim(day2QuizRewardPreview.correctRewardPerQuestion) }}</span>
+              <strong>예상 총 보상 {{ formatBibim(day2QuizRewardPreview.totalReward) }}</strong>
+            </div>
+            <p v-if="day2QuizRewardPreview.notSubmittedCount > 0" class="control-caution">
+              미제출 학생 {{ day2QuizRewardPreview.notSubmittedCount }}명은 보상을 받지 않습니다.
+            </p>
+            <div class="day1-student-table" role="table" aria-label="2일차 퀴즈 보상 미리보기">
+              <div class="day1-student-table__head" role="row">
+                <span>학생</span><span>제출</span><span>정답</span><span>참여수당</span><span>총 보상</span>
+              </div>
+              <div v-for="studentItem in day2QuizRewardPreview.students" :key="studentItem.studentId" role="row">
+                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                <span>{{ studentItem.submitted ? '제출' : '미제출' }}</span>
+                <span>{{ studentItem.correctCount }}개</span>
+                <span>{{ formatBibim(studentItem.participationReward) }}</span>
+                <strong>{{ formatBibim(studentItem.totalReward) }}</strong>
+              </div>
+            </div>
+            <button
+              class="settlement-action"
+              type="button"
+              :disabled="day2QuizRewardPreview.settlementStatus === 'COMPLETED' || day2FlowStore.settlingQuizReward"
+              @click="settleDay2QuizReward"
+            >
+              {{ day2QuizRewardPreview.settlementStatus === 'COMPLETED'
+                ? '퀴즈 보상 정산 완료'
+                : day2FlowStore.settlingQuizReward ? '정산 중…' : '퀴즈 보상 지급하기' }}
+            </button>
+          </div>
+          <div
+            v-else-if="[
+              'DAY2_TAX_INFLATION_GUIDED',
+              'DAY2_INFLATION_APPLY',
+              'DAY2_FINAL_SHOP',
+            ].includes(state.currentStage) && inflationPreview"
+            class="inflation-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>인플레이션 체험</span>
+                <strong>상품 가격 +{{ inflationPreview.inflationBps / 100 }}%</strong>
+              </div>
+              <StatusBadge
+                :label="inflationPreview.applied ? '적용 완료' : '적용 전'"
+                :tone="inflationPreview.applied ? 'success' : 'warning'"
+              />
+            </div>
+            <div v-if="state.currentStage === 'DAY2_TAX_INFLATION_GUIDED'" class="inflation-lesson">
+              <article><strong>금융세</strong><p>금융 이익의 10%가 공동기금에 적립됩니다.</p></article>
+              <article><strong>위험과 수익</strong><p>기대 수익이 커질수록 손실 위험도 함께 살펴야 합니다.</p></article>
+              <article><strong>인플레이션</strong><p>물가가 오르면 같은 돈으로 살 수 있는 양이 줄어듭니다.</p></article>
+            </div>
+            <div class="inflation-product-table" role="table" aria-label="상품 가격 상승 미리보기">
+              <div role="row"><strong>상품</strong><strong>기존 가격</strong><strong>상승 후</strong><strong>증가액</strong></div>
+              <div v-for="product in inflationPreview.products" :key="product.productId" role="row">
+                <span>{{ product.name }}</span>
+                <span>{{ formatBibim(product.originalPrice) }}</span>
+                <strong>{{ formatBibim(product.priceAfterInflation) }}</strong>
+                <span>+{{ formatBibim(product.increaseAmount) }}</span>
+              </div>
+            </div>
+            <button
+              v-if="state.currentStage === 'DAY2_INFLATION_APPLY'"
+              class="settlement-action"
+              type="button"
+              :disabled="inflationPreview.applied || day2FlowStore.applyingInflation"
+              @click="applyInflation"
+            >
+              {{ inflationPreview.applied
+                ? '물가상승 적용 완료'
+                : day2FlowStore.applyingInflation ? '가격 변경 중…' : '모든 상품에 물가상승 적용' }}
+            </button>
+            <div v-if="state.currentStage === 'DAY2_FINAL_SHOP' && shopSummary" class="teacher-product-list">
+              <article v-for="product in shopSummary.products" :key="product.productId">
+                <div><strong>{{ product.name }}</strong><span>{{ formatBibim(product.price) }}</span></div>
+                <div><span>기존 {{ formatBibim(product.originalPrice) }}</span><strong>재고 {{ product.currentStock }}개</strong></div>
+              </article>
+            </div>
+          </div>
           <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
             <header>
               <div>
@@ -859,22 +1059,19 @@ function moduleTone(moduleState: string) {
             </button>
             <button
               type="button"
-              :disabled="!adjacentStages.next || changingStage || (
-                state.currentStage.includes('QUIZ') && quizSummary?.status !== 'CLOSED'
-              ) || state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED' || (
-                state.currentStage === 'DAY2_FINANCE_SETTLEMENT' &&
-                day2FinancePreview?.settlementStatus !== 'COMPLETED'
-              )"
+              :disabled="nextStageDisabled"
               @click="moveToStage(adjacentStages.next?.id)"
             >
               {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
             </button>
           </div>
           <p class="control-caution">
-            {{ state.currentStage.includes('QUIZ')
+            {{ ['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage)
               ? quizSummary?.status === 'CLOSED'
                 ? '퀴즈가 마감되었습니다. 미제출 학생을 확인한 뒤 다음 단계로 이동합니다.'
                 : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
+              : state.currentStage === 'DAY2_QUIZ_SETTLEMENT'
+                ? '퀴즈 보상 정산을 완료하면 금융세·인플레이션 교육 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산을 완료해야 월급명세서 단계로 이동할 수 있습니다.'
                 : state.currentStage === 'DAY1_SUMMARY'

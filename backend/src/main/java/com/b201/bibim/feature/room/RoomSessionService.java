@@ -26,6 +26,7 @@ import com.b201.bibim.feature.room.RoomSessionDto.StudentRoomStateResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.TeacherRoomStateResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.day1.Day1Service;
+import com.b201.bibim.feature.settlement.Day2QuizRewardService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,7 @@ public class RoomSessionService {
     private final QuizRepository quizRepository;
     private final Day1Service day1Service;
     private final DaySessionRepository sessionRepository;
+    private final Day2QuizRewardService day2QuizRewardService;
 
     public RoomSessionService(
             RoomRepository roomRepository,
@@ -65,7 +67,8 @@ public class RoomSessionService {
             SettlementRunRepository settlementRunRepository,
             QuizRepository quizRepository,
             Day1Service day1Service,
-            DaySessionRepository sessionRepository
+            DaySessionRepository sessionRepository,
+            Day2QuizRewardService day2QuizRewardService
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
@@ -75,6 +78,7 @@ public class RoomSessionService {
         this.quizRepository = quizRepository;
         this.day1Service = day1Service;
         this.sessionRepository = sessionRepository;
+        this.day2QuizRewardService = day2QuizRewardService;
     }
 
     @Transactional(readOnly = true)
@@ -180,6 +184,7 @@ public class RoomSessionService {
                 throw stateConflict("2일차 세션이 이미 시작되었습니다.");
             }
             sessionRepository.save(DaySessionEntity.dayTwoActive(roomId));
+            day2QuizRewardService.ensureQuiz(roomId);
             room.startDayTwo();
             commandRequestRepository.save(RoomCommandRequestEntity.completed(
                     room,
@@ -224,6 +229,20 @@ public class RoomSessionService {
                 )) {
             throw stateConflict("금융 정산을 완료한 뒤 개인 결과 단계로 이동해 주세요.");
         }
+        if (currentStage == RoomStage.DAY2_QUIZ_SETTLEMENT
+                && targetStage == RoomStage.DAY2_TAX_INFLATION_GUIDED
+                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                        roomId,
+                        "DAY2_QUIZ_REWARD",
+                        "COMPLETED"
+                )) {
+            throw stateConflict("2일차 퀴즈 보상 정산을 완료한 뒤 다음 단계로 이동해 주세요.");
+        }
+        if (currentStage == RoomStage.DAY2_INFLATION_APPLY
+                && targetStage == RoomStage.DAY2_FINAL_SHOP
+                && room.getInflationAppliedAt() == null) {
+            throw stateConflict("물가상승을 적용한 뒤 최종 상점을 열어 주세요.");
+        }
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
         }
@@ -254,6 +273,9 @@ public class RoomSessionService {
         }
 
         int expectedVersion = request.expectedVersion();
+        if (targetStage == RoomStage.DAY2_QUIZ) {
+            day2QuizRewardService.ensureQuiz(roomId);
+        }
         room.changeStage(targetStage);
         commandRequestRepository.save(RoomCommandRequestEntity.completed(
                 room,
@@ -343,6 +365,9 @@ public class RoomSessionService {
 
     private Set<String> activeModuleTypes(RoomEntity room) {
         if ("FREE".equals(room.getMode())) {
+            if (room.getCurrentDay() == 2) {
+                return Set.of("KNOWLEDGE", "SHOP", "WALLET");
+            }
             return Set.of("KNOWLEDGE", "SHOP", "DEPOSIT", "INVESTMENT", "WALLET");
         }
 

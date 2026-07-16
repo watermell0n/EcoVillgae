@@ -39,7 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ShopService {
 
-    private static final String OPEN_STAGE = "DAY1_FREE_ACTIVITY";
+    private static final java.util.Set<String> OPEN_STAGES = java.util.Set.of(
+            "DAY1_FREE_ACTIVITY",
+            "DAY2_FINAL_SHOP"
+    );
 
     private final RoomRepository roomRepository;
     private final DaySessionRepository sessionRepository;
@@ -327,7 +330,7 @@ public class ShopService {
     }
 
     private void ensureStoreOpen(RoomEntity room) {
-        if (!OPEN_STAGE.equals(room.getCurrentStage())) {
+        if (!OPEN_STAGES.contains(room.getCurrentStage())) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "STORE_CLOSED",

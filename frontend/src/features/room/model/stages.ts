@@ -5,6 +5,15 @@ export interface RoomStageDefinition {
   description: string
 }
 
+export interface NextStageGuardOptions {
+  currentStage?: string
+  hasNextStage: boolean
+  changingStage: boolean
+  quizStatus?: string
+  day2FinanceSettlementStatus?: string
+  day2QuizRewardSettlementStatus?: string
+}
+
 export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_LOBBY', day: 1, label: '입장 대기', description: '학생 접속을 확인하고 수업을 준비합니다.' },
   { id: 'DAY1_PROFILE', day: 1, label: '활동 안내', description: '오늘의 역할과 활동 순서를 안내합니다.' },
@@ -46,4 +55,40 @@ export function getAdjacentStages(stageId?: string) {
         ? ROOM_STAGES[currentIndex + 1]
         : undefined,
   }
+}
+
+export function isNextStageDisabled({
+  currentStage,
+  hasNextStage,
+  changingStage,
+  quizStatus,
+  day2FinanceSettlementStatus,
+  day2QuizRewardSettlementStatus,
+}: NextStageGuardOptions) {
+  if (!hasNextStage || changingStage) {
+    return true
+  }
+
+  if (currentStage === 'DAY1_SUMMARY' || currentStage === 'DAY1_CLOSED') {
+    return true
+  }
+
+  if (
+    (currentStage === 'DAY1_QUIZ' || currentStage === 'DAY2_QUIZ') &&
+    quizStatus !== 'CLOSED'
+  ) {
+    return true
+  }
+
+  if (
+    currentStage === 'DAY2_FINANCE_SETTLEMENT' &&
+    day2FinanceSettlementStatus !== 'COMPLETED'
+  ) {
+    return true
+  }
+
+  return (
+    currentStage === 'DAY2_QUIZ_SETTLEMENT' &&
+    day2QuizRewardSettlementStatus !== 'COMPLETED'
+  )
 }

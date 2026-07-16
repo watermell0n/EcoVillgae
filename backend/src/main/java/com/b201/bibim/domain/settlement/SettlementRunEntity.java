@@ -134,6 +134,17 @@ public class SettlementRunEntity {
         completedAt = Instant.now();
     }
 
+    public void completeQuizReward(long totalReward, int submittedCount) {
+        status = "COMPLETED";
+        successCount = targetCount;
+        failureCount = 0;
+        summary = Map.of(
+                "totalReward", totalReward,
+                "submittedCount", submittedCount
+        );
+        completedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

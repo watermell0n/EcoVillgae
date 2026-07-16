@@ -35,6 +35,15 @@ public class RoomRulesEntity {
     @Column(name = "financial_tax_bps", nullable = false)
     private int financialTaxBps;
 
+    @Column(name = "day2_participation_reward", nullable = false)
+    private long day2ParticipationReward;
+
+    @Column(name = "day2_correct_reward", nullable = false)
+    private long day2CorrectReward;
+
+    @Column(name = "inflation_bps", nullable = false)
+    private int inflationBps;
+
     protected RoomRulesEntity() {
     }
 
@@ -48,6 +57,9 @@ public class RoomRulesEntity {
         rules.incomeTaxBps = 1000;
         rules.depositInterestBps = 1000;
         rules.financialTaxBps = 1000;
+        rules.day2ParticipationReward = 10;
+        rules.day2CorrectReward = 5;
+        rules.inflationBps = 1000;
         return rules;
     }
 
@@ -77,5 +89,17 @@ public class RoomRulesEntity {
 
     public int getFinancialTaxBps() {
         return financialTaxBps;
+    }
+
+    public long getDay2ParticipationReward() {
+        return day2ParticipationReward;
+    }
+
+    public long getDay2CorrectReward() {
+        return day2CorrectReward;
+    }
+
+    public int getInflationBps() {
+        return inflationBps;
     }
 }

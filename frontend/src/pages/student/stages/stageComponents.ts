@@ -2,6 +2,10 @@ import type { Component } from 'vue'
 
 import DaySummaryStageView from './DaySummaryStageView.vue'
 import Day2FinanceStageView from './Day2FinanceStageView.vue'
+import Day2EducationStageView from './Day2EducationStageView.vue'
+import Day2FinalShopStageView from './Day2FinalShopStageView.vue'
+import Day2InflationStageView from './Day2InflationStageView.vue'
+import Day2QuizRewardStageView from './Day2QuizRewardStageView.vue'
 import FreeActivityStageView from './FreeActivityStageView.vue'
 import LearningStageView from './LearningStageView.vue'
 import PayslipStageView from './PayslipStageView.vue'
@@ -25,6 +29,11 @@ const stageComponents: Record<string, Component> = {
   DAY2_SETTLEMENT_WAIT: Day2FinanceStageView,
   DAY2_FINANCE_SETTLEMENT: Day2FinanceStageView,
   DAY2_RESULT_GUIDED: Day2FinanceStageView,
+  DAY2_QUIZ: QuizStageView,
+  DAY2_QUIZ_SETTLEMENT: Day2QuizRewardStageView,
+  DAY2_TAX_INFLATION_GUIDED: Day2EducationStageView,
+  DAY2_INFLATION_APPLY: Day2InflationStageView,
+  DAY2_FINAL_SHOP: Day2FinalShopStageView,
   DAY2_FINAL_RESULT: PlaceholderStageView,
 }
 

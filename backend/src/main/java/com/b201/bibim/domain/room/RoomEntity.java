@@ -45,6 +45,9 @@ public class RoomEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "inflation_applied_at")
+    private Instant inflationAppliedAt;
+
     protected RoomEntity() {
     }
 
@@ -108,6 +111,10 @@ public class RoomEntity {
         return updatedAt;
     }
 
+    public Instant getInflationAppliedAt() {
+        return inflationAppliedAt;
+    }
+
     public void changeStage(RoomStage targetStage) {
         this.currentDay = (short) targetStage.day();
         this.currentStage = targetStage.name();
@@ -150,5 +157,14 @@ public class RoomEntity {
         this.version += 1;
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
+    }
+
+    public void markInflationApplied() {
+        if (inflationAppliedAt != null) {
+            throw new IllegalStateException("물가상승은 방마다 한 번만 적용할 수 있습니다.");
+        }
+        inflationAppliedAt = Instant.now();
+        syncVersion += 1;
+        updatedAt = inflationAppliedAt;
     }
 }

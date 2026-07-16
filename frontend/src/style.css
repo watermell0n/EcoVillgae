@@ -2360,3 +2360,156 @@ h1 {
     min-height: auto;
   }
 }
+.day2-reward-view,
+.day2-education-view,
+.day2-inflation-wait,
+.day2-final-shop-view {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.day2-reward-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.day2-reward-breakdown div {
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface-soft, #f6f7fb);
+}
+
+.day2-reward-breakdown dt,
+.day2-reward-breakdown dd {
+  margin: 0;
+}
+
+.day2-reward-breakdown dd {
+  margin-top: 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.day2-reward-breakdown .is-total {
+  color: #fff;
+  background: linear-gradient(135deg, #6255d9, #8275ed);
+}
+
+.day2-lesson-grid,
+.inflation-lesson {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.day2-lesson-grid article,
+.inflation-lesson article {
+  padding: 24px;
+  border: 1px solid #e6e7ef;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(32 34 60 / 7%);
+}
+
+.day2-lesson-grid article > span,
+.day2-inflation-wait > span {
+  font-size: 2.5rem;
+}
+
+.day2-lesson-grid article strong {
+  display: block;
+  margin-top: 18px;
+  color: #5145b8;
+}
+
+.day2-inflation-wait {
+  padding: 48px;
+  text-align: center;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #fff8e9, #fff);
+}
+
+.inflated-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.inflated-price del {
+  color: #85889a;
+}
+
+.inflated-price strong {
+  color: #d85a35;
+  font-size: 1.35rem;
+}
+
+.inflated-price span {
+  padding: 4px 8px;
+  color: #a44429;
+  font-size: .75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #ffebe4;
+}
+
+.day2-final-knowledge ul {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.day2-final-knowledge li {
+  display: flex;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #f6f7fb;
+}
+
+.day2-reward-rule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.day2-reward-rule span,
+.day2-reward-rule strong {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #f0effc;
+}
+
+.inflation-product-table {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.inflation-product-table > div {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f7f7fb;
+}
+
+@media (max-width: 760px) {
+  .day2-lesson-grid,
+  .inflation-lesson,
+  .day2-reward-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .inflation-product-table > div {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -85,6 +85,14 @@ public class ProductEntity {
         updatedAt = Instant.now();
     }
 
+    public void updateCurrentPrice(long price) {
+        if (price < 0) {
+            throw new IllegalArgumentException("상품 가격은 0 이상이어야 합니다.");
+        }
+        currentPrice = price;
+        updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

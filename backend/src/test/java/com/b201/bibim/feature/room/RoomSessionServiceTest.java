@@ -22,6 +22,7 @@ import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.feature.day1.Day1Service;
+import com.b201.bibim.feature.settlement.Day2QuizRewardService;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
 import com.b201.bibim.global.exception.ApiException;
 
@@ -58,6 +59,9 @@ class RoomSessionServiceTest {
 
     @Mock
     private DaySessionRepository sessionRepository;
+
+    @Mock
+    private Day2QuizRewardService day2QuizRewardService;
 
     @Mock
     private RoomEntity room;
@@ -286,6 +290,7 @@ class RoomSessionServiceTest {
         );
 
         verify(sessionRepository).save(any(DaySessionEntity.class));
+        verify(day2QuizRewardService).ensureQuiz(roomId);
         verify(room).startDayTwo();
     }
 
@@ -312,5 +317,53 @@ class RoomSessionServiceTest {
 
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(room, never()).changeStage(RoomStage.DAY2_RESULT_GUIDED);
+    }
+
+    @Test
+    void rejectsInflationLessonUntilDayTwoQuizRewardCompletes() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(13);
+        when(room.getCurrentStage()).thenReturn("DAY2_QUIZ_SETTLEMENT");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day2-reward-next"))
+                .thenReturn(Optional.empty());
+        when(settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                roomId, "DAY2_QUIZ_REWARD", "COMPLETED"
+        )).thenReturn(false);
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "day2-reward-next",
+                new CommandRequest("SET_STAGE", "DAY2_TAX_INFLATION_GUIDED", 13)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY2_TAX_INFLATION_GUIDED);
+    }
+
+    @Test
+    void rejectsFinalShopUntilInflationIsApplied() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(14);
+        when(room.getCurrentStage()).thenReturn("DAY2_INFLATION_APPLY");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "day2-shop-next"))
+                .thenReturn(Optional.empty());
+        when(room.getInflationAppliedAt()).thenReturn(null);
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "day2-shop-next",
+                new CommandRequest("SET_STAGE", "DAY2_FINAL_SHOP", 14)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY2_FINAL_SHOP);
     }
 }

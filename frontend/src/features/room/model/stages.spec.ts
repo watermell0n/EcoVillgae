@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAdjacentStages, getRoomStage, ROOM_STAGES } from './stages'
+import { getAdjacentStages, getRoomStage, isNextStageDisabled, ROOM_STAGES } from './stages'
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
@@ -21,5 +21,36 @@ describe('room stages', () => {
       day: 1,
     })
     expect(ROOM_STAGES.every((stage) => stage.label && stage.description)).toBe(true)
+  })
+
+  it('enables navigation after the day 2 quiz reward settlement completes', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ_SETTLEMENT',
+        hasNextStage: true,
+        changingStage: false,
+        day2QuizRewardSettlementStatus: 'COMPLETED',
+      }),
+    ).toBe(false)
+  })
+
+  it('keeps settlement and active quiz stages blocked until their own prerequisite completes', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ_SETTLEMENT',
+        hasNextStage: true,
+        changingStage: false,
+        day2QuizRewardSettlementStatus: 'NOT_STARTED',
+      }),
+    ).toBe(true)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ',
+        hasNextStage: true,
+        changingStage: false,
+        quizStatus: 'OPEN',
+      }),
+    ).toBe(true)
   })
 })

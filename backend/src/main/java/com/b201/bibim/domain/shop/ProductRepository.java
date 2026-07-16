@@ -16,6 +16,10 @@ public interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
     List<ProductEntity> findAllByRoomIdOrderByDisplayOrder(UUID roomId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select product from ProductEntity product where product.roomId = :roomId order by product.displayOrder")
+    List<ProductEntity> findAllByRoomIdForUpdate(@Param("roomId") UUID roomId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select product from ProductEntity product where product.id = :productId")
     Optional<ProductEntity> findByIdForUpdate(@Param("productId") UUID productId);
 }
