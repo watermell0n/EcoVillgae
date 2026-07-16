@@ -38,6 +38,12 @@ export interface VoteOption {
   decided: boolean
 }
 
+export interface VoteParticipation {
+  studentId: string
+  participantNumber: number
+  nickname: string | null
+}
+
 export interface VoteSession {
   voteSessionId: string
   roomId: string
@@ -51,6 +57,7 @@ export interface VoteSession {
   decidedOptionId: string | null
   openedAt: string | null
   closedAt: string | null
+  pendingStudents: VoteParticipation[]
   options: VoteOption[]
 }
 
@@ -117,9 +124,11 @@ export async function openTeacherVote(roomId: string, voteId: string) {
   return response.data.data
 }
 
-export async function closeTeacherVote(roomId: string, voteId: string) {
+export async function closeTeacherVote(roomId: string, voteId: string, force = false) {
   const response = await http.post<ApiResponse<VoteSession>>(
     `/teacher/rooms/${roomId}/vote-sessions/${voteId}/close`,
+    undefined,
+    { params: { force } },
   )
   return response.data.data
 }
@@ -141,4 +150,3 @@ export async function castStudentVote(voteId: string, optionId: string) {
   const response = await http.post<ApiResponse<VoteSession>>(`/student/votes/${voteId}`, { optionId })
   return response.data.data
 }
-

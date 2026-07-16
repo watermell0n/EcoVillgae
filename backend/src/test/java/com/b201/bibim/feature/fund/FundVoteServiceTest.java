@@ -3,6 +3,8 @@ package com.b201.bibim.feature.fund;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Optional;
@@ -154,5 +156,56 @@ class FundVoteServiceTest {
 
         assertEquals("READY", response.status());
         assertEquals(29L, response.fundBalanceSnapshot());
+    }
+
+    @Test
+    void rejectsClosingVoteWhileActiveStudentHasNotParticipated() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+        StudentEntity active = org.mockito.Mockito.mock(StudentEntity.class);
+        VoteSessionEntity vote = org.mockito.Mockito.mock(VoteSessionEntity.class);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getStatus()).thenReturn("DAY2_ACTIVE");
+        when(room.getCurrentStage()).thenReturn("DAY2_FUND_VOTE");
+        when(voteSessionRepository.findByIdForUpdate(voteId)).thenReturn(Optional.of(vote));
+        when(vote.getId()).thenReturn(voteId);
+        when(vote.getRoomId()).thenReturn(roomId);
+        when(studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE"))
+                .thenReturn(java.util.List.of(active));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                service.closeVote(teacherId, roomId, voteId, false)
+        );
+
+        assertEquals("VOTE_INCOMPLETE", exception.getCode());
+        verify(vote, never()).close();
+    }
+
+    @Test
+    void forceClosesVoteWithPendingActiveStudents() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+        StudentEntity active = org.mockito.Mockito.mock(StudentEntity.class);
+        VoteSessionEntity vote = org.mockito.Mockito.mock(VoteSessionEntity.class);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getStatus()).thenReturn("DAY2_ACTIVE");
+        when(room.getCurrentStage()).thenReturn("DAY2_FUND_VOTE");
+        when(voteSessionRepository.findByIdForUpdate(voteId)).thenReturn(Optional.of(vote));
+        when(vote.getId()).thenReturn(voteId);
+        when(vote.getRoomId()).thenReturn(roomId);
+        when(vote.getStatus()).thenReturn("CLOSED");
+        when(studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE"))
+                .thenReturn(java.util.List.of(active));
+
+        service.closeVote(teacherId, roomId, voteId, true);
+
+        verify(vote).close();
+        verify(room).markControlStateChanged();
     }
 }

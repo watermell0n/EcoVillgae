@@ -1428,6 +1428,32 @@ h1 {
   gap: 1rem;
 }
 
+.close-warning-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 12rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.close-warning-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.7rem;
+  background: #fff4e5;
+}
+
+.close-warning-list span {
+  color: #9a5b30;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .quiz-complete__count {
   padding: 0.7rem 1rem;
   border-radius: 999px;

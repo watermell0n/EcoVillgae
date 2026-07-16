@@ -67,8 +67,8 @@ const noticeMessage = ref('')
 const preparation = ref<RoomPreparation | null>(null)
 const preparationLoading = ref(false)
 const preparationError = ref('')
-const pendingStage = ref<string | null>(null)
-const showStageWarning = ref(false)
+const showQuizCloseWarning = ref(false)
+const showVoteCloseWarning = ref(false)
 const showSettlementConfirm = ref(false)
 const showDay1CloseConfirm = ref(false)
 const showDay2SettlementConfirm = ref(false)
@@ -77,6 +77,9 @@ const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
+const incompleteQuizStudents = computed(() => (
+  quizSummary.value?.students.filter((student) => student.submissionStatus !== 'SUBMITTED') ?? []
+))
 const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const shopSummary = computed(() => shopStore.teacherSummary)
 const day1Summary = computed(() => day1Store.teacherSummary)
@@ -329,26 +332,8 @@ watch(
   { immediate: true },
 )
 
-async function moveToStage(targetStage?: string, skipIncompleteWarning = false) {
+async function moveToStage(targetStage?: string) {
   if (!targetStage || changingStage.value) return
-
-  if (
-    !skipIncompleteWarning &&
-    state.value?.currentStage.includes('QUIZ') &&
-    targetStage.includes('SETTLEMENT')
-  ) {
-    try {
-      const latestSummary = await quizStore.refreshTeacherSummary(roomId.value)
-      if (latestSummary.notSubmittedCount > 0) {
-        pendingStage.value = targetStage
-        showStageWarning.value = true
-        return
-      }
-    } catch (error) {
-      errorMessage.value = getApiErrorMessage(error, '퀴즈 제출 현황을 확인하지 못했습니다.')
-      return
-    }
-  }
 
   if (
     state.value?.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
@@ -446,7 +431,7 @@ async function moveToStage(targetStage?: string, skipIncompleteWarning = false) 
   }
 }
 
-async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ') {
+async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QUIZ') {
   errorMessage.value = ''
   noticeMessage.value = ''
   try {
@@ -456,6 +441,11 @@ async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ') {
       ? '퀴즈를 시작했습니다. 학생 화면에 문제가 열립니다.'
       : '퀴즈를 마감했습니다. 더 이상 답안을 저장하거나 제출할 수 없습니다.'
   } catch (error) {
+    if (getApiErrorCode(error) === 'QUIZ_INCOMPLETE') {
+      await quizStore.refreshTeacherSummary(roomId.value)
+      showQuizCloseWarning.value = true
+      return
+    }
     if (getApiErrorCode(error) === 'STATE_CONFLICT') {
       await roomSessionStore.refreshTeacher(roomId.value)
       await quizStore.refreshTeacherSummary(roomId.value)
@@ -527,18 +517,6 @@ function studentStatusTone(student: TeacherRoomStudent): 'success' | 'warning' |
   return 'neutral'
 }
 
-async function confirmStageMove() {
-  const targetStage = pendingStage.value
-  showStageWarning.value = false
-  pendingStage.value = null
-  await moveToStage(targetStage ?? undefined, true)
-}
-
-function cancelStageMove() {
-  showStageWarning.value = false
-  pendingStage.value = null
-}
-
 async function confirmSettlement() {
   showSettlementConfirm.value = false
   errorMessage.value = ''
@@ -582,11 +560,11 @@ async function prepareFundVote() {
   }
 }
 
-async function controlFundVote(action: 'OPEN' | 'CLOSE') {
+async function controlFundVote(action: 'OPEN' | 'CLOSE', force = false) {
   errorMessage.value = ''
   noticeMessage.value = ''
   try {
-    const result = await day2EndStore.updateVote(action, roomId.value)
+    const result = await day2EndStore.updateVote(action, roomId.value, force)
     if (result) {
       noticeMessage.value = action === 'OPEN'
         ? '공동기금 투표를 시작했습니다.'
@@ -595,8 +573,32 @@ async function controlFundVote(action: 'OPEN' | 'CLOSE') {
           : '투표를 마감했습니다. 동률 1위 중 최종 선택을 골라 주세요.'
     }
   } catch (error) {
+    if (getApiErrorCode(error) === 'VOTE_INCOMPLETE') {
+      await day2EndStore.refreshVote(roomId.value)
+      showVoteCloseWarning.value = true
+      return
+    }
     errorMessage.value = getApiErrorMessage(error, '투표 상태를 변경하지 못했습니다.')
   }
+}
+
+async function requestFundVoteClose() {
+  errorMessage.value = ''
+  try {
+    const latest = await day2EndStore.refreshVote(roomId.value)
+    if (latest.pendingStudents.length > 0) {
+      showVoteCloseWarning.value = true
+      return
+    }
+    await controlFundVote('CLOSE')
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '투표 참여 현황을 확인하지 못했습니다.')
+  }
+}
+
+async function confirmFundVoteClose() {
+  showVoteCloseWarning.value = false
+  await controlFundVote('CLOSE', true)
 }
 
 async function decideFundVote(optionId: string) {
@@ -648,6 +650,25 @@ async function confirmDay1Close() {
   } finally {
     changingStage.value = false
   }
+}
+
+async function requestQuizClose() {
+  errorMessage.value = ''
+  try {
+    const latest = await quizStore.refreshTeacherSummary(roomId.value)
+    if (latest.notSubmittedCount > 0) {
+      showQuizCloseWarning.value = true
+      return
+    }
+    await controlQuiz('CLOSE_QUIZ')
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '퀴즈 제출 현황을 확인하지 못했습니다.')
+  }
+}
+
+async function confirmQuizClose() {
+  showQuizCloseWarning.value = false
+  await controlQuiz('FORCE_CLOSE_QUIZ')
 }
 
 async function startDayTwo() {
@@ -859,7 +880,7 @@ function moduleTone(moduleState: string) {
               v-else-if="quizSummary.status === 'OPEN'"
               class="button-secondary"
               type="button"
-              @click="controlQuiz('CLOSE_QUIZ')"
+              @click="requestQuizClose"
             >퀴즈 마감하기</button>
           </div>
           <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
@@ -1247,7 +1268,7 @@ function moduleTone(moduleState: string) {
               class="settlement-action"
               type="button"
               :disabled="day2EndStore.mutating"
-              @click="controlFundVote('CLOSE')"
+              @click="requestFundVoteClose"
             >투표 마감하기</button>
           </div>
           <div
@@ -1425,7 +1446,7 @@ function moduleTone(moduleState: string) {
           <template v-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
               <strong>{{ quizSummary.submittedCount }}</strong>
-              <span>/ {{ quizSummary.expectedStudentCount }}명 제출</span>
+              <span>/ {{ quizSummary.eligibleStudentCount }}명 제출</span>
             </div>
             <dl class="quiz-summary-counts">
               <div>
@@ -1558,17 +1579,45 @@ function moduleTone(moduleState: string) {
         </div>
       </section>
 
-      <div v-if="showStageWarning && quizSummary" class="modal-backdrop">
-        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="stage-warning-title">
+      <div v-if="showQuizCloseWarning && quizSummary" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="quiz-close-warning-title">
           <p class="eyebrow">미제출 학생 확인</p>
-          <h2 id="stage-warning-title">그래도 다음 단계로 이동할까요?</h2>
+          <h2 id="quiz-close-warning-title">그래도 퀴즈를 마감할까요?</h2>
           <p class="confirm-modal__warning">
-            아직 퀴즈를 제출하지 않은 학생이 {{ quizSummary.notSubmittedCount }}명 있습니다.
+            아직 제출하지 않은 학생이 {{ incompleteQuizStudents.length }}명 있습니다.
           </p>
-          <p>단계를 이동하면 학생은 더 이상 답안을 저장하거나 제출할 수 없습니다.</p>
+          <ul class="close-warning-list" aria-label="퀴즈 미제출 학생">
+            <li v-for="studentItem in incompleteQuizStudents" :key="studentItem.studentId">
+              <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+              <span>{{ studentItem.submissionStatus === 'IN_PROGRESS' ? '풀이 중' : '미시작' }}</span>
+            </li>
+          </ul>
+          <p>강제로 마감하면 해당 학생은 더 이상 답안을 저장하거나 제출할 수 없습니다.</p>
           <div class="confirm-modal__actions">
-            <button class="button-secondary" type="button" @click="cancelStageMove">돌아가기</button>
-            <button type="button" @click="confirmStageMove">그래도 이동하기</button>
+            <button class="button-secondary" type="button" @click="showQuizCloseWarning = false">돌아가기</button>
+            <button type="button" @click="confirmQuizClose">그래도 마감하기</button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showVoteCloseWarning && fundVote" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="vote-close-warning-title">
+          <p class="eyebrow">투표 미참여 학생 확인</p>
+          <h2 id="vote-close-warning-title">그래도 공동기금 투표를 마감할까요?</h2>
+          <p class="confirm-modal__warning">
+            ACTIVE 학생 {{ fundVote.eligibleStudentCount }}명 중
+            {{ fundVote.pendingStudents.length }}명이 아직 참여하지 않았습니다.
+          </p>
+          <ul class="close-warning-list" aria-label="공동기금 투표 미참여 학생">
+            <li v-for="studentItem in fundVote.pendingStudents" :key="studentItem.studentId">
+              <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+              <span>미참여</span>
+            </li>
+          </ul>
+          <p>강제로 마감하면 현재까지 제출된 표만으로 결과를 계산합니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="showVoteCloseWarning = false">돌아가기</button>
+            <button type="button" @click="confirmFundVoteClose">그래도 마감하기</button>
           </div>
         </section>
       </div>

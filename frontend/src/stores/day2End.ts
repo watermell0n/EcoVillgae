@@ -104,13 +104,13 @@ export const useDay2EndStore = defineStore('day2End', () => {
     votePollingTimer = undefined
   }
 
-  async function updateVote(action: 'OPEN' | 'CLOSE', roomId: string) {
+  async function updateVote(action: 'OPEN' | 'CLOSE', roomId: string, force = false) {
     if (!vote.value || mutating.value) return undefined
     mutating.value = true
     try {
       vote.value = action === 'OPEN'
         ? await openTeacherVote(roomId, vote.value.voteSessionId)
-        : await closeTeacherVote(roomId, vote.value.voteSessionId)
+        : await closeTeacherVote(roomId, vote.value.voteSessionId, force)
       return vote.value
     } finally {
       mutating.value = false

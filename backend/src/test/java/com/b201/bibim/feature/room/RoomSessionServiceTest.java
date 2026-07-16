@@ -8,12 +8,14 @@ import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.fund.FundExpenseRepository;
 import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizRepository;
+import com.b201.bibim.domain.quiz.QuizSubmissionRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
@@ -21,6 +23,7 @@ import com.b201.bibim.domain.room.RoomStage;
 import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.vote.VoteSessionRepository;
 import com.b201.bibim.feature.day1.Day1Service;
@@ -55,6 +58,9 @@ class RoomSessionServiceTest {
 
     @Mock
     private QuizRepository quizRepository;
+
+    @Mock
+    private QuizSubmissionRepository quizSubmissionRepository;
 
     @Mock
     private Day1Service day1Service;
@@ -202,6 +208,63 @@ class RoomSessionServiceTest {
 
         verify(quiz).open();
         verify(room).markControlStateChanged();
+    }
+
+    @Test
+    void rejectsClosingQuizWhileActiveStudentHasNotSubmitted() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        StudentEntity activeStudent = org.mockito.Mockito.mock(StudentEntity.class);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(7);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "quiz-close"))
+                .thenReturn(Optional.empty());
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getId()).thenReturn(UUID.randomUUID());
+        when(quiz.getStatus()).thenReturn("OPEN");
+        when(studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE"))
+                .thenReturn(List.of(activeStudent));
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "quiz-close",
+                new CommandRequest("CLOSE_QUIZ", "DAY1_QUIZ", 7)
+        ));
+
+        assertEquals("QUIZ_INCOMPLETE", exception.getCode());
+        verify(quiz, never()).close();
+    }
+
+    @Test
+    void forceClosesQuizEvenWhenActiveStudentHasNotSubmitted() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(7);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "quiz-force-close"))
+                .thenReturn(Optional.empty());
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getStatus()).thenReturn("OPEN");
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "quiz-force-close",
+                new CommandRequest("FORCE_CLOSE_QUIZ", "DAY1_QUIZ", 7)
+        );
+
+        verify(quiz).close();
     }
 
     @Test

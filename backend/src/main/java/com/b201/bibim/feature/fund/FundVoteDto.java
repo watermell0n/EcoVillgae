@@ -103,6 +103,13 @@ public final class FundVoteDto {
     ) {
     }
 
+    public record VoteParticipationResponse(
+            UUID studentId,
+            int participantNumber,
+            String nickname
+    ) {
+    }
+
     public record VoteSessionResponse(
             UUID voteSessionId,
             UUID roomId,
@@ -116,8 +123,8 @@ public final class FundVoteDto {
             UUID decidedOptionId,
             Instant openedAt,
             Instant closedAt,
+            List<VoteParticipationResponse> pendingStudents,
             List<VoteOptionResponse> options
     ) {
     }
 }
-

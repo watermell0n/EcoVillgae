@@ -10,6 +10,7 @@ import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.fund.FundExpenseRepository;
 import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizRepository;
+import com.b201.bibim.domain.quiz.QuizSubmissionRepository;
 import com.b201.bibim.domain.room.RoomCommandRequestEntity;
 import com.b201.bibim.domain.room.RoomCommandRequestRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
@@ -57,6 +58,7 @@ public class RoomSessionService {
     private final AccountRepository accountRepository;
     private final SettlementRunRepository settlementRunRepository;
     private final QuizRepository quizRepository;
+    private final QuizSubmissionRepository quizSubmissionRepository;
     private final Day1Service day1Service;
     private final DaySessionRepository sessionRepository;
     private final Day2QuizRewardService day2QuizRewardService;
@@ -70,6 +72,7 @@ public class RoomSessionService {
             AccountRepository accountRepository,
             SettlementRunRepository settlementRunRepository,
             QuizRepository quizRepository,
+            QuizSubmissionRepository quizSubmissionRepository,
             Day1Service day1Service,
             DaySessionRepository sessionRepository,
             Day2QuizRewardService day2QuizRewardService,
@@ -82,6 +85,7 @@ public class RoomSessionService {
         this.accountRepository = accountRepository;
         this.settlementRunRepository = settlementRunRepository;
         this.quizRepository = quizRepository;
+        this.quizSubmissionRepository = quizSubmissionRepository;
         this.day1Service = day1Service;
         this.sessionRepository = sessionRepository;
         this.day2QuizRewardService = day2QuizRewardService;
@@ -164,7 +168,7 @@ public class RoomSessionService {
             throw stateConflict("종료된 수업에서는 상태를 변경할 수 없습니다.");
         }
 
-        if ("OPEN_QUIZ".equals(command) || "CLOSE_QUIZ".equals(command)) {
+        if (Set.of("OPEN_QUIZ", "CLOSE_QUIZ", "FORCE_CLOSE_QUIZ").contains(command)) {
             controlQuiz(room, command);
             commandRequestRepository.save(RoomCommandRequestEntity.completed(
                     room,
@@ -357,9 +361,28 @@ public class RoomSessionService {
             if (!"OPEN".equals(quiz.getStatus())) {
                 throw stateConflict("진행 중인 퀴즈만 마감할 수 있습니다.");
             }
+            if ("CLOSE_QUIZ".equals(command) && hasIncompleteQuizStudents(room, quiz)) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "QUIZ_INCOMPLETE",
+                        "아직 퀴즈를 제출하지 않은 학생이 있습니다."
+                );
+            }
             quiz.close();
         }
         room.markControlStateChanged();
+    }
+
+    private boolean hasIncompleteQuizStudents(RoomEntity room, QuizEntity quiz) {
+        Set<UUID> submittedStudentIds = quizSubmissionRepository.findAllByQuizId(quiz.getId())
+                .stream()
+                .filter(submission -> "SUBMITTED".equals(submission.getStatus()))
+                .map(submission -> submission.getStudentId())
+                .collect(java.util.stream.Collectors.toSet());
+        return studentRepository
+                .findAllByRoomIdAndStatusOrderByParticipantNumber(room.getId(), "ACTIVE")
+                .stream()
+                .anyMatch(student -> !submittedStudentIds.contains(student.getId()));
     }
 
     private QuizEntity currentQuiz(RoomEntity room) {

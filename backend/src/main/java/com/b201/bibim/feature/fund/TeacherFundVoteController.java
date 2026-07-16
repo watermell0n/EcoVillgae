@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -102,9 +103,13 @@ public class TeacherFundVoteController {
             @AuthenticationPrincipal AuthenticatedPrincipal principal,
             @PathVariable UUID roomId,
             @PathVariable UUID voteId,
+            @RequestParam(defaultValue = "false") boolean force,
             HttpServletRequest request
     ) {
-        return ApiResponse.success(service.closeVote(principal.id(), roomId, voteId), requestId(request));
+        return ApiResponse.success(
+                service.closeVote(principal.id(), roomId, voteId, force),
+                requestId(request)
+        );
     }
 
     @PostMapping("/vote-sessions/{voteId}/decide")
@@ -122,4 +127,3 @@ public class TeacherFundVoteController {
         return (String) request.getAttribute(RequestIdFilter.ATTRIBUTE_NAME);
     }
 }
-

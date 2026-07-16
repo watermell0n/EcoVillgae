@@ -81,6 +81,7 @@ public final class QuizDto {
             String status,
             int questionCount,
             int expectedStudentCount,
+            int eligibleStudentCount,
             long submittedCount,
             long inProgressCount,
             long notStartedCount,

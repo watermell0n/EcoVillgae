@@ -105,7 +105,10 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     return result
   }
 
-  async function controlQuiz(roomId: string, command: 'OPEN_QUIZ' | 'CLOSE_QUIZ') {
+  async function controlQuiz(
+    roomId: string,
+    command: 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QUIZ',
+  ) {
     if (!teacherState.value || teacherState.value.roomId !== roomId) {
       await refreshTeacher(roomId)
     }

@@ -180,6 +180,7 @@ public class QuizService {
         List<TeacherQuizStudentResponse> students = studentRepository
                 .findAllByRoomIdOrderByParticipantNumber(roomId)
                 .stream()
+                .filter(student -> "ACTIVE".equals(student.getStatus()))
                 .map(student -> toTeacherStudent(student, submissions.get(student.getId())))
                 .toList();
         long submittedCount = students.stream()
@@ -198,6 +199,7 @@ public class QuizService {
                 quiz.getStatus(),
                 quiz.getQuestionCount(),
                 room.getExpectedStudentCount(),
+                students.size(),
                 submittedCount,
                 inProgressCount,
                 notStartedCount,

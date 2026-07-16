@@ -57,6 +57,7 @@ export interface TeacherQuizSummary {
   status: 'READY' | 'OPEN' | 'CLOSED'
   questionCount: number
   expectedStudentCount: number
+  eligibleStudentCount: number
   submittedCount: number
   inProgressCount: number
   notStartedCount: number

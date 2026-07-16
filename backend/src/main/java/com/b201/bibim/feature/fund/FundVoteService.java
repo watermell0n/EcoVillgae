@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -43,6 +44,7 @@ import com.b201.bibim.feature.fund.FundVoteDto.DecideVoteRequest;
 import com.b201.bibim.feature.fund.FundVoteDto.FundExpenseResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.FundOverviewResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.VoteOptionResponse;
+import com.b201.bibim.feature.fund.FundVoteDto.VoteParticipationResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.VoteSessionResponse;
 import com.b201.bibim.global.exception.ApiException;
 
@@ -261,7 +263,12 @@ public class FundVoteService {
     }
 
     @Transactional
-    public VoteSessionResponse closeVote(UUID teacherId, UUID roomId, UUID voteId) {
+    public VoteSessionResponse closeVote(
+            UUID teacherId,
+            UUID roomId,
+            UUID voteId,
+            boolean force
+    ) {
         RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
         ensureOwner(room, teacherId);
         ensureRoomWritable(room);
@@ -269,12 +276,15 @@ public class FundVoteService {
             throw conflict("VOTE_NOT_OPEN", "공동기금 투표 단계에서 투표를 마감해 주세요.");
         }
         VoteSessionEntity session = lockedVote(roomId, voteId);
+        if (!force && hasPendingVoters(session)) {
+            throw conflict("VOTE_INCOMPLETE", "아직 공동기금 투표에 참여하지 않은 학생이 있습니다.");
+        }
         try {
             session.close();
         } catch (IllegalStateException exception) {
             throw conflict("VOTE_STATE_CONFLICT", exception.getMessage());
         }
-        List<UUID> leaders = leadingOptionIds(session.getId());
+        List<UUID> leaders = leadingOptionIds(session.getId(), roomId);
         if (leaders.size() == 1) session.decide(leaders.get(0), null);
         room.markControlStateChanged();
         return toVoteResponse(session, null);
@@ -291,7 +301,7 @@ public class FundVoteService {
         ensureOwner(room, teacherId);
         ensureRoomWritable(room);
         VoteSessionEntity session = lockedVote(roomId, voteId);
-        if (!leadingOptionIds(session.getId()).contains(request.optionId())) {
+        if (!leadingOptionIds(session.getId(), roomId).contains(request.optionId())) {
             throw conflict("VOTE_DECISION_INVALID", "동률 1위 선택지 중에서 최종 결과를 골라 주세요.");
         }
         try {
@@ -377,7 +387,13 @@ public class FundVoteService {
     private VoteSessionResponse toVoteResponse(VoteSessionEntity session, UUID studentId) {
         List<VoteOptionEntity> options = voteOptionRepository
                 .findAllByVoteSessionIdOrderByDisplayOrder(session.getId());
-        List<VoteEntity> votes = voteRepository.findAllByVoteSessionId(session.getId());
+        List<StudentEntity> eligibleStudents = activeStudents(session.getRoomId());
+        Set<UUID> eligibleStudentIds = eligibleStudents.stream()
+                .map(StudentEntity::getId)
+                .collect(Collectors.toSet());
+        List<VoteEntity> votes = voteRepository.findAllByVoteSessionId(session.getId()).stream()
+                .filter(vote -> eligibleStudentIds.contains(vote.getStudentId()))
+                .toList();
         Map<UUID, Long> counts = votes.stream().collect(Collectors.groupingBy(
                 VoteEntity::getOptionId, LinkedHashMap::new, Collectors.counting()
         ));
@@ -400,16 +416,43 @@ public class FundVoteService {
                     );
                 })
                 .toList();
+        Set<UUID> submittedStudentIds = votes.stream()
+                .map(VoteEntity::getStudentId)
+                .collect(Collectors.toSet());
+        List<VoteParticipationResponse> pendingStudents = studentId == null
+                ? eligibleStudents.stream()
+                        .filter(student -> !submittedStudentIds.contains(student.getId()))
+                        .map(student -> new VoteParticipationResponse(
+                                student.getId(),
+                                student.getParticipantNumber(),
+                                student.getNickname()
+                        ))
+                        .toList()
+                : List.of();
         return new VoteSessionResponse(
                 session.getId(), session.getRoomId(), session.getQuestion(), session.getFundBalanceSnapshot(),
-                session.getStatus(), activeStudents(session.getRoomId()).size(), votes.size(), selected != null,
-                selected, session.getDecidedOptionId(), session.getOpenedAt(), session.getClosedAt(), responseOptions
+                session.getStatus(), eligibleStudents.size(), votes.size(), selected != null,
+                selected, session.getDecidedOptionId(), session.getOpenedAt(), session.getClosedAt(),
+                pendingStudents, responseOptions
         );
     }
 
-    private List<UUID> leadingOptionIds(UUID sessionId) {
+    private boolean hasPendingVoters(VoteSessionEntity session) {
+        Set<UUID> submittedStudentIds = voteRepository.findAllByVoteSessionId(session.getId())
+                .stream()
+                .map(VoteEntity::getStudentId)
+                .collect(Collectors.toSet());
+        return activeStudents(session.getRoomId()).stream()
+                .anyMatch(student -> !submittedStudentIds.contains(student.getId()));
+    }
+
+    private List<UUID> leadingOptionIds(UUID sessionId, UUID roomId) {
         List<VoteOptionEntity> options = voteOptionRepository.findAllByVoteSessionIdOrderByDisplayOrder(sessionId);
+        Set<UUID> eligibleStudentIds = activeStudents(roomId).stream()
+                .map(StudentEntity::getId)
+                .collect(Collectors.toSet());
         Map<UUID, Long> counts = voteRepository.findAllByVoteSessionId(sessionId).stream()
+                .filter(vote -> eligibleStudentIds.contains(vote.getStudentId()))
                 .collect(Collectors.groupingBy(VoteEntity::getOptionId, Collectors.counting()));
         long max = options.stream().mapToLong(option -> counts.getOrDefault(option.getId(), 0L)).max().orElse(0L);
         return options.stream()
