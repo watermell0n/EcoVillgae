@@ -9,6 +9,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useQuizStore } from '../../stores/quiz'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { useSettlementStore } from '../../stores/settlement'
+import { useShopStore } from '../../stores/shop'
 
 const moduleLabels: Record<string, string> = {
   QUIZ: '퀴즈',
@@ -36,6 +37,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const quizStore = useQuizStore()
 const settlementStore = useSettlementStore()
+const shopStore = useShopStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const changingStage = ref(false)
@@ -49,6 +51,7 @@ const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
 const settlementPreview = computed(() => settlementStore.day1IncomePreview)
+const shopSummary = computed(() => shopStore.teacherSummary)
 const currentStage = computed(() => getRoomStage(state.value?.currentStage))
 const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
@@ -82,7 +85,9 @@ onMounted(async () => {
 onUnmounted(() => {
   roomSessionStore.stopPolling()
   quizStore.stopTeacherSummaryPolling()
+  shopStore.stopTeacherSummaryPolling()
   settlementStore.clearDay1Income()
+  shopStore.clearTeacherSummary()
 })
 
 watch(
@@ -101,6 +106,8 @@ watch(
   async (stage) => {
     quizStore.stopTeacherSummaryPolling()
     quizStore.clearTeacherSummary()
+    shopStore.stopTeacherSummaryPolling()
+    shopStore.clearTeacherSummary()
     settlementStore.clearDay1Income()
     if (stage === 'DAY1_INCOME_SETTLEMENT') {
       try {
@@ -111,6 +118,19 @@ watch(
           return
         }
         errorMessage.value = getApiErrorMessage(error, '소득 정산 미리보기를 불러오지 못했습니다.')
+      }
+      return
+    }
+    if (stage === 'DAY1_FREE_ACTIVITY') {
+      try {
+        await shopStore.refreshTeacherSummary(roomId.value)
+        shopStore.startTeacherSummaryPolling(roomId.value)
+      } catch (error) {
+        if (isUnauthorized(error)) {
+          await router.replace({ name: 'teacher-login' })
+          return
+        }
+        errorMessage.value = getApiErrorMessage(error, '상점 판매 현황을 불러오지 못했습니다.')
       }
       return
     }
@@ -300,12 +320,31 @@ function moduleTone(moduleState: string) {
           <p class="stage-control-panel__description">
             {{ currentStage?.description ?? '현재 수업 활동을 진행합니다.' }}
           </p>
-          <div v-if="state.currentStage !== 'DAY1_INCOME_SETTLEMENT'" class="stage-control-panel__preview">
-            <span>{{ state.currentDay }}일차</span>
-            <strong>{{ currentStage?.label ?? state.currentStage }}</strong>
-            <small>학생 화면도 늦어도 2초 안에 이 단계로 전환됩니다.</small>
+          <div v-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
+            <div class="shop-summary-headline">
+              <div>
+                <span>누적 판매</span>
+                <strong>{{ shopSummary.totalPurchaseCount }}건</strong>
+              </div>
+              <div>
+                <span>상점 수입</span>
+                <strong>{{ formatBibim(shopSummary.totalRevenue) }}</strong>
+              </div>
+            </div>
+            <div class="teacher-product-list" aria-label="상품별 판매 현황">
+              <article v-for="product in shopSummary.products" :key="product.productId">
+                <div>
+                  <strong>{{ product.name }}</strong>
+                  <span>{{ formatBibim(product.price) }}</span>
+                </div>
+                <div>
+                  <span>판매 {{ product.initialStock - product.currentStock }}개</span>
+                  <strong>재고 {{ product.currentStock }}개</strong>
+                </div>
+              </article>
+            </div>
           </div>
-          <div v-else-if="settlementPreview" class="settlement-workspace">
+          <div v-else-if="state.currentStage === 'DAY1_INCOME_SETTLEMENT' && settlementPreview" class="settlement-workspace">
             <div class="settlement-status-row">
               <StatusBadge
                 :label="settlementPreview.settlementStatus === 'COMPLETED' ? '정산 완료' : '정산 전'"
@@ -354,7 +393,12 @@ function moduleTone(moduleState: string) {
                 : settlementStore.executing ? '정산 중…' : `${settlementPreview.targetCount}명 정산하기` }}
             </button>
           </div>
-          <p v-else class="state-message">정산 미리보기를 불러오고 있습니다.</p>
+          <div v-else-if="state.currentStage !== 'DAY1_INCOME_SETTLEMENT' && state.currentStage !== 'DAY1_FREE_ACTIVITY'" class="stage-control-panel__preview">
+            <span>{{ state.currentDay }}일차</span>
+            <strong>{{ currentStage?.label ?? state.currentStage }}</strong>
+            <small>학생 화면도 늦어도 2초 안에 이 단계로 전환됩니다.</small>
+          </div>
+          <p v-else class="state-message">현재 단계 현황을 불러오고 있습니다.</p>
           <div class="stage-navigation">
             <button
               class="button-secondary"
@@ -389,7 +433,9 @@ function moduleTone(moduleState: string) {
             <p class="eyebrow">실시간 현황</p>
             <h2>{{ state.currentStage.includes('QUIZ')
               ? '퀴즈 제출'
-              : state.currentStage === 'DAY1_INCOME_SETTLEMENT' ? '정산 결과' : '학생 연결' }}</h2>
+              : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
+                ? '정산 결과'
+                : state.currentStage === 'DAY1_FREE_ACTIVITY' ? '최근 구매' : '학생 연결' }}</h2>
           </div>
           <template v-if="state.currentStage.includes('QUIZ') && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
@@ -433,6 +479,19 @@ function moduleTone(moduleState: string) {
               </div>
             </dl>
             <p>걷힌 소득세는 학급 공동기금에 적립됩니다.</p>
+          </template>
+          <template v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary">
+            <div class="student-count-ring student-count-ring--shop">
+              <strong>{{ shopSummary.totalPurchaseCount }}</strong>
+              <span>건 구매 완료</span>
+            </div>
+            <ul v-if="shopSummary.recentPurchases.length > 0" class="shop-purchase-list" aria-label="최근 구매 목록">
+              <li v-for="purchase in shopSummary.recentPurchases.slice(0, 6)" :key="purchase.purchaseId">
+                <span>{{ purchase.participantNumber }}번 {{ purchase.nickname ?? '미설정' }}</span>
+                <strong>{{ purchase.productName }} · {{ purchase.quantity }}개</strong>
+              </li>
+            </ul>
+            <p v-else>아직 구매가 발생하지 않았습니다.</p>
           </template>
           <template v-else>
             <div class="student-count-ring">

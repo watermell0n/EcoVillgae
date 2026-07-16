@@ -22,6 +22,11 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
     private static final UUID DEMO_DAY_ONE_QUIZ_ID = UUID.fromString(
             "40000000-0000-0000-0000-000000000001"
     );
+    private static final UUID[] DEMO_PRODUCT_IDS = {
+            UUID.fromString("50000000-0000-0000-0000-000000000001"),
+            UUID.fromString("50000000-0000-0000-0000-000000000002"),
+            UUID.fromString("50000000-0000-0000-0000-000000000003")
+    };
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
@@ -57,6 +62,7 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
         seedRoomRules();
         seedDayOneSession();
         seedDayOneQuiz();
+        seedProducts();
     }
 
     private void seedTeacher() {
@@ -216,11 +222,59 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
         }
     }
 
+    private void seedProducts() {
+        DemoProduct[] products = {
+                new DemoProduct(
+                        "연필 세트",
+                        "수업과 일상에서 알차게 사용할 수 있는 연필 세트예요.",
+                        25,
+                        10
+                ),
+                new DemoProduct(
+                        "간식 꾸러미",
+                        "활동을 마친 뒤 즐길 수 있는 작은 간식 꾸러미예요.",
+                        40,
+                        8
+                ),
+                new DemoProduct(
+                        "우선 선택권",
+                        "다음 학급 활동에서 순서를 먼저 선택할 수 있어요.",
+                        70,
+                        3
+                )
+        };
+
+        for (int index = 0; index < products.length; index += 1) {
+            DemoProduct product = products[index];
+            jdbcTemplate.update("""
+                    INSERT INTO products (
+                        id, room_id, name, description, original_price, current_price,
+                        initial_stock, current_stock, status, display_order
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ON_SALE', ?)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    DEMO_PRODUCT_IDS[index],
+                    DEMO_ROOM_ID,
+                    product.name(),
+                    product.description(),
+                    product.price(),
+                    product.price(),
+                    product.stock(),
+                    product.stock(),
+                    index + 1
+            );
+        }
+    }
+
     private record DemoQuestion(
             String prompt,
             String options,
             String correctAnswer,
             String explanation
     ) {
+    }
+
+    private record DemoProduct(String name, String description, long price, int stock) {
     }
 }

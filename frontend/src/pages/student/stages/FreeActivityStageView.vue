@@ -1,10 +1,201 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+
+import type { ShopProduct } from '../../../features/shop/api/shop'
+import { getApiErrorMessage } from '../../../shared/api/errors'
+import { useRoomSessionStore } from '../../../stores/roomSession'
+import { useShopStore } from '../../../stores/shop'
+
+const shopStore = useShopStore()
+const roomSessionStore = useRoomSessionStore()
+const loading = ref(true)
+const errorMessage = ref('')
+const noticeMessage = ref('')
+const selectedProduct = ref<ShopProduct | null>(null)
+const quantity = ref(1)
+const catalog = computed(() => shopStore.studentCatalog)
+const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
+
+onMounted(async () => {
+  try {
+    await Promise.all([
+      shopStore.refreshStudentCatalog(),
+      shopStore.refreshPurchaseHistory(),
+    ])
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '상점 정보를 불러오지 못했습니다.')
+  } finally {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  shopStore.clearStudentShop()
+})
+
+function openPurchase(product: ShopProduct) {
+  selectedProduct.value = product
+  quantity.value = 1
+  errorMessage.value = ''
+  noticeMessage.value = ''
+}
+
+function closePurchase() {
+  selectedProduct.value = null
+  quantity.value = 1
+}
+
+function changeQuantity(amount: number) {
+  if (!selectedProduct.value) return
+  quantity.value = Math.min(
+    selectedProduct.value.currentStock,
+    Math.max(1, quantity.value + amount),
+  )
+}
+
+async function confirmPurchase() {
+  if (!selectedProduct.value) return
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    const purchase = await shopStore.buyProduct(selectedProduct.value.productId, quantity.value)
+    if (!purchase) return
+    noticeMessage.value = purchase.replayed
+      ? '이미 완료된 구매 결과를 불러왔어요.'
+      : `${purchase.productName} ${purchase.quantity}개를 구매했어요!`
+    closePurchase()
+    await roomSessionStore.refreshStudent()
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '상품을 구매하지 못했습니다.')
+  }
+}
+
+function canBuy(product: ShopProduct) {
+  return product.status === 'ON_SALE'
+    && product.currentStock > 0
+    && product.price <= (catalog.value?.walletBalance ?? 0)
+}
+
+function productEmoji(product: ShopProduct) {
+  return ['✏️', '🍪', '⭐'][product.displayOrder - 1] ?? '🎁'
+}
+
+function formatBibim(amount: number) {
+  return `${amount.toLocaleString('ko-KR')}비빔`
+}
+
+function formatPurchasedAt(value: string) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+</script>
+
 <template>
-  <div class="stage-view">
-    <div class="stage-view__icon stage-view__icon--orange" aria-hidden="true">↗</div>
-    <p class="eyebrow">자유 경제활동</p>
-    <h1 class="page-title">이제 원하는 활동을 선택할 수 있어요.</h1>
-    <p class="page-description">
-      상점, 예금, 투자 중 원하는 활동을 이용할 수 있습니다. 다음 개발 단계에서 실제 상품 구매 흐름이 연결됩니다.
-    </p>
+  <div class="shop-stage-view">
+    <p v-if="loading" class="state-message">상점 문을 열고 있습니다.</p>
+    <div v-else-if="errorMessage && !catalog" class="quiz-load-error" role="alert">
+      <strong>상점을 불러오지 못했어요.</strong>
+      <p>{{ errorMessage }}</p>
+    </div>
+    <template v-else-if="catalog">
+      <header class="shop-header">
+        <div>
+          <p class="eyebrow">자유 경제활동 · 상점</p>
+          <h1>필요한 상품을 골라 보세요.</h1>
+          <p>가격과 남은 재고를 확인한 뒤 신중하게 구매해요.</p>
+        </div>
+        <div class="shop-wallet" aria-label="현재 지갑 잔액">
+          <span>내 지갑</span>
+          <strong>{{ formatBibim(catalog.walletBalance) }}</strong>
+        </div>
+      </header>
+
+      <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+      <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
+
+      <section class="shop-product-grid" aria-label="판매 상품">
+        <article
+          v-for="product in catalog.products"
+          :key="product.productId"
+          class="shop-product-card"
+          :class="{ 'is-sold-out': product.status === 'SOLD_OUT' }"
+        >
+          <span class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
+          <div>
+            <span class="shop-product-card__stock">
+              {{ product.status === 'SOLD_OUT' ? '품절' : `재고 ${product.currentStock}개` }}
+            </span>
+            <h2>{{ product.name }}</h2>
+            <p>{{ product.description }}</p>
+          </div>
+          <footer>
+            <strong>{{ formatBibim(product.price) }}</strong>
+            <button
+              type="button"
+              :disabled="!canBuy(product) || shopStore.purchasing"
+              @click="openPurchase(product)"
+            >
+              {{ product.status === 'SOLD_OUT'
+                ? '품절'
+                : product.price > catalog.walletBalance ? '잔액 부족' : '구매하기' }}
+            </button>
+          </footer>
+        </article>
+      </section>
+
+      <section class="shop-history" aria-labelledby="shop-history-title">
+        <div>
+          <p class="eyebrow">구매 내역</p>
+          <h2 id="shop-history-title">내가 산 상품</h2>
+        </div>
+        <p v-if="shopStore.purchaseHistory.length === 0" class="shop-history__empty">
+          아직 구매한 상품이 없어요.
+        </p>
+        <ul v-else>
+          <li v-for="purchase in shopStore.purchaseHistory" :key="purchase.purchaseId">
+            <div>
+              <strong>{{ purchase.productName }}</strong>
+              <span>{{ formatPurchasedAt(purchase.purchasedAt) }} · {{ purchase.quantity }}개</span>
+            </div>
+            <strong>−{{ formatBibim(purchase.totalPrice) }}</strong>
+          </li>
+        </ul>
+      </section>
+    </template>
+
+    <div v-if="selectedProduct && catalog" class="modal-backdrop">
+      <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
+        <p class="eyebrow">상품 구매 확인</p>
+        <h2 id="purchase-title">{{ selectedProduct.name }} 상품을 구매할까요?</h2>
+        <div class="shop-quantity">
+          <button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
+          <strong>{{ quantity }}개</strong>
+          <button
+            type="button"
+            aria-label="수량 늘리기"
+            :disabled="quantity >= selectedProduct.currentStock"
+            @click="changeQuantity(1)"
+          >+</button>
+        </div>
+        <p class="confirm-modal__warning">
+          결제 금액 {{ formatBibim(totalPrice) }} · 결제 후 {{ formatBibim(catalog.walletBalance - totalPrice) }}
+        </p>
+        <p>구매한 상품은 환불하거나 교환할 수 없어요. 마지막으로 수량과 금액을 확인해 주세요.</p>
+        <div class="confirm-modal__actions">
+          <button class="button-secondary" type="button" :disabled="shopStore.purchasing" @click="closePurchase">취소</button>
+          <button
+            type="button"
+            :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance"
+            @click="confirmPurchase"
+          >
+            {{ shopStore.purchasing ? '결제 중…' : '구매 확정' }}
+          </button>
+        </div>
+      </section>
+    </div>
   </div>
 </template>

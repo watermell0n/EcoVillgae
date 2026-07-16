@@ -71,6 +71,10 @@ public class AccountEntity {
         return new AccountEntity(roomId, null, "SYSTEM_TREASURY", true);
     }
 
+    public static AccountEntity shopRevenue(UUID roomId) {
+        return new AccountEntity(roomId, null, "SHOP_REVENUE", false);
+    }
+
     public void changeBy(long amount) {
         long nextBalance = Math.addExact(balance, amount);
         if (!allowNegative && nextBalance < 0) {
