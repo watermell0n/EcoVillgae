@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 import * as authApi from '../features/auth/api/auth'
 import { useAuthStore } from './auth'
+import { useRoomSessionStore } from './roomSession'
 
 vi.mock('../features/auth/api/auth', () => ({
   enterStudent: vi.fn(),
@@ -53,10 +54,14 @@ describe('auth store', () => {
     expect(store.pendingStudentEntry).toEqual(entry)
     expect(sessionStorage.getItem('ecovillage.pendingStudentEntry')).toContain('ECO-02')
 
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = { syncVersion: 99 } as never
+
     await store.setupStudent('비빔이', '1234')
 
     expect(store.student).toEqual(student)
     expect(store.pendingStudentEntry).toBeNull()
     expect(sessionStorage.getItem('ecovillage.pendingStudentEntry')).toBeNull()
+    expect(roomSessionStore.studentState).toBeNull()
   })
 })

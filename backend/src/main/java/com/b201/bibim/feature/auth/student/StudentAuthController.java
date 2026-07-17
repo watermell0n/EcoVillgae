@@ -10,11 +10,9 @@ import com.b201.bibim.feature.auth.student.StudentAuthDto.SetupRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.StudentResponse;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
-import com.b201.bibim.global.security.AuthCookieService;
-import com.b201.bibim.global.security.AuthRole;
 import com.b201.bibim.global.security.AuthenticatedPrincipal;
+import com.b201.bibim.global.security.AuthSessionAuthenticationFilter;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,14 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentAuthController {
 
     private final StudentAuthService studentAuthService;
-    private final AuthCookieService authCookieService;
 
-    public StudentAuthController(
-            StudentAuthService studentAuthService,
-            AuthCookieService authCookieService
-    ) {
+    public StudentAuthController(StudentAuthService studentAuthService) {
         this.studentAuthService = studentAuthService;
-        this.authCookieService = authCookieService;
     }
 
     @PostMapping("/auth/enter")
@@ -75,10 +68,7 @@ public class StudentAuthController {
             HttpServletRequest request
     ) {
         return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.SET_COOKIE,
-                        authCookieService.create(AuthRole.STUDENT, result.token()).toString()
-                )
+                .header(AuthSessionAuthenticationFilter.STUDENT_SESSION_HEADER, result.token())
                 .body(ApiResponse.success(result.response(), requestId(request)));
     }
 

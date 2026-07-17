@@ -91,6 +91,12 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     connectionStatus.value = 'DISCONNECTED'
   }
 
+  function resetStudentContext() {
+    stopPolling()
+    studentState.value = null
+    pollError.value = null
+  }
+
   async function setStage(roomId: string, targetStage: string) {
     if (!teacherState.value || teacherState.value.roomId !== roomId) {
       await refreshTeacher(roomId)
@@ -183,6 +189,7 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     startTeacherPolling,
     startStudentPolling,
     stopPolling,
+    resetStudentContext,
     setStage,
     controlQuiz,
     closeDayOne,
