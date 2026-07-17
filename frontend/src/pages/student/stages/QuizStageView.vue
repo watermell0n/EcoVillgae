@@ -27,6 +27,9 @@ const currentQuestion = computed(() => quiz.value?.questions[currentIndex.value]
 const unansweredCount = computed(
   () => quiz.value?.questions.filter((question) => !question.savedAnswer).length ?? 0,
 )
+const answeredQuestions = computed(
+  () => quiz.value?.questions.filter((question) => question.savedAnswer).length ?? 0,
+)
 const isSubmitted = computed(() => quiz.value?.submissionStatus === 'SUBMITTED')
 const progressWidth = computed(() => {
   if (!quiz.value) return '0%'
@@ -101,6 +104,20 @@ function moveQuestion(index: number) {
   errorMessage.value = ''
 }
 
+function selectedOptionText(question: StudentQuiz['questions'][number]) {
+  if (!question.savedAnswer) return '선택한 답 없음'
+  const selectedOption = question.options.find((option) => option.id === question.savedAnswer)
+  return selectedOption ? `${selectedOption.id}. ${selectedOption.text}` : question.savedAnswer
+}
+
+function formatSubmittedAt(submittedAt: string | null) {
+  if (!submittedAt) return '제출 시간 확인 중'
+  return new Intl.DateTimeFormat('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(submittedAt))
+}
+
 async function confirmSubmit() {
   if (!quiz.value || submitting.value) return
 
@@ -145,14 +162,52 @@ async function confirmSubmit() {
       <button type="button" @click="loadQuiz">다시 불러오기</button>
     </div>
 
-    <section v-else-if="quiz && isSubmitted" class="quiz-complete" aria-labelledby="quiz-complete-title">
-      <div class="stage-view__icon stage-view__icon--green" aria-hidden="true">✓</div>
-      <p class="eyebrow">제출 완료</p>
-      <h1 id="quiz-complete-title" class="page-title">퀴즈 제출이 완료되었습니다.</h1>
-      <p class="page-description">
-        답안은 더 이상 수정할 수 없습니다. 선생님이 다음 활동을 준비할 때까지 기다려 주세요.
-      </p>
-      <strong class="quiz-complete__count">{{ quiz.answeredCount }} / {{ quiz.questionCount }}문제 응답</strong>
+    <section v-else-if="quiz && isSubmitted" class="quiz-complete quiz-result" aria-labelledby="quiz-complete-title">
+      <header class="quiz-result__header">
+        <div class="stage-view__icon stage-view__icon--green" aria-hidden="true">✓</div>
+        <div>
+          <p class="eyebrow">제출 완료</p>
+          <h1 id="quiz-complete-title" class="page-title">퀴즈 제출이 완료되었습니다.</h1>
+          <p class="page-description">내가 제출한 답을 확인하고 결과 발표를 기다려 주세요.</p>
+        </div>
+      </header>
+
+      <div class="quiz-result__summary" aria-label="퀴즈 제출 요약">
+        <article>
+          <span>응답한 문제</span>
+          <strong>{{ answeredQuestions }} / {{ quiz.questionCount }}</strong>
+        </article>
+        <article :class="{ 'has-warning': unansweredCount > 0 }">
+          <span>미응답 문제</span>
+          <strong>{{ unansweredCount }}문제</strong>
+        </article>
+        <article>
+          <span>제출 시간</span>
+          <strong>{{ formatSubmittedAt(quiz.submittedAt) }}</strong>
+        </article>
+      </div>
+
+      <section class="quiz-answer-review" aria-labelledby="quiz-answer-review-title">
+        <div>
+          <p class="eyebrow">내가 제출한 답</p>
+          <h2 id="quiz-answer-review-title">답안 제출 내역</h2>
+        </div>
+        <ol>
+          <li v-for="question in quiz.questions" :key="question.questionId">
+            <span :class="{ 'is-empty': !question.savedAnswer }">{{ question.orderNo }}</span>
+            <div>
+              <strong>{{ question.prompt }}</strong>
+              <p>{{ selectedOptionText(question) }}</p>
+            </div>
+            <small>{{ question.savedAnswer ? '응답 완료' : '미응답' }}</small>
+          </li>
+        </ol>
+      </section>
+
+      <aside class="quiz-result__notice">
+        <span aria-hidden="true">🔒</span>
+        <p><strong>정답 수와 보상은 퀴즈 마감 후 공개돼요.</strong> 아직 문제를 풀고 있는 친구가 있어 채점 결과는 다음 화면에서 확인할 수 있어요.</p>
+      </aside>
     </section>
 
     <section v-else-if="quiz && currentQuestion" class="quiz-player" aria-labelledby="quiz-question-title">

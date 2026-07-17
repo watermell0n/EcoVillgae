@@ -64,12 +64,18 @@ describe('Day2FinanceStageView', () => {
     await flushPromises()
 
     expect(financeApi.getStudentDay2FinanceResult).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('내 예금과 투자 결과를 확인해요.')
+    expect(wrapper.text()).toContain('숫자 뒤에 숨은 금융 원리를 알아봐요.')
+    expect(wrapper.text()).toContain('내 돈은 왜 이렇게 달라졌을까요?')
+    expect(wrapper.text()).toContain('기다린 대가로 이자를 받아요.')
+    expect(wrapper.text()).toContain('가격이 움직이면 손익도 달라져요.')
+    expect(wrapper.text()).toContain('수익의 일부는 공동체에 기여해요.')
+    expect(wrapper.text()).toContain('오늘의 핵심')
     expect(wrapper.text()).toContain('예금 원금')
-    expect(wrapper.text()).toContain('투자 손익')
+    expect(wrapper.text()).toContain('내 손익')
     expect(wrapper.text()).toContain('금융세')
     expect(wrapper.text()).toContain('67비빔')
     expect(wrapper.text()).toContain('튼튼 채권')
+    expect(wrapper.text()).toContain('낮은 위험')
   })
 
   it('does not show predicted amounts before settlement is completed', async () => {

@@ -1028,36 +1028,63 @@ function moduleTone(moduleState: string) {
           >
             <div class="day1-close-workspace__headline">
               <div>
-                <span>2일차 예금·투자 정산</span>
-                <strong>{{ day2FinancePreview.targetCount }}명 금융 결과</strong>
+                <span>{{ state.currentStage === 'DAY2_RESULT_GUIDED' ? '2일차 금융 결과 교육' : '2일차 예금·투자 정산' }}</span>
+                <strong>{{ state.currentStage === 'DAY2_RESULT_GUIDED' ? '예금·투자·금융세 핵심 정리' : `${day2FinancePreview.targetCount}명 금융 결과` }}</strong>
               </div>
               <StatusBadge
                 :label="day2FinancePreview.settlementStatus === 'COMPLETED' ? '정산 완료' : '정산 전'"
                 :tone="day2FinancePreview.settlementStatus === 'COMPLETED' ? 'success' : 'warning'"
               />
             </div>
-            <dl class="day1-close-totals">
-              <div><dt>예금 원금</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositPrincipal) }}</dd></div>
-              <div><dt>예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
-              <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
-              <div><dt>금융세</dt><dd>−{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
-            </dl>
-            <div class="day2-finance-summary-strip">
-              <span>금융세율 {{ day2FinancePreview.financialTaxBps / 100 }}%</span>
-              <strong>정산 후 학생 지갑 합계 {{ formatBibim(day2FinancePreview.totalWalletAfter) }}</strong>
-            </div>
-            <div class="day1-student-table" role="table" aria-label="학생별 2일차 금융 정산">
-              <div class="day1-student-table__head" role="row">
-                <span>학생</span><span>정산 전</span><span>예금 이자</span><span>투자 손익</span><span>정산 후</span>
+            <template v-if="state.currentStage === 'DAY2_RESULT_GUIDED'">
+              <div class="teacher-finance-lesson">
+                <p>학생 화면에 각자의 실제 결과와 함께 아래 설명이 표시됩니다. 순서대로 읽으며 진행해 주세요.</p>
+                <ol>
+                  <li>
+                    <span>1</span>
+                    <div><strong>예금은 약속한 이자를 받습니다.</strong><small>맡긴 원금과 받은 이자를 확인합니다.</small></div>
+                  </li>
+                  <li>
+                    <span>2</span>
+                    <div><strong>투자는 가격에 따라 손익이 달라집니다.</strong><small>위험과 기대 수익의 관계를 비교합니다.</small></div>
+                  </li>
+                  <li>
+                    <span>3</span>
+                    <div><strong>금융 수익에는 세금이 적용됩니다.</strong><small>과세 대상 수익과 실제로 남은 돈을 확인합니다.</small></div>
+                  </li>
+                </ol>
               </div>
-              <div v-for="studentItem in day2FinancePreview.students" :key="studentItem.studentId" role="row">
-                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
-                <span>{{ formatBibim(studentItem.walletBefore) }}</span>
-                <span>+{{ formatBibim(studentItem.depositInterest) }}</span>
-                <span>{{ studentItem.investmentProfit > 0 ? '+' : '' }}{{ formatBibim(studentItem.investmentProfit) }}</span>
-                <strong>{{ formatBibim(studentItem.walletAfter) }}</strong>
+              <dl class="day1-close-totals teacher-finance-lesson__totals">
+                <div><dt>전체 예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
+                <div><dt>전체 투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
+                <div><dt>금융세율</dt><dd>{{ day2FinancePreview.financialTaxBps / 100 }}%</dd></div>
+                <div><dt>정산 후 지갑 합계</dt><dd>{{ formatBibim(day2FinancePreview.totalWalletAfter) }}</dd></div>
+              </dl>
+            </template>
+            <template v-else>
+              <dl class="day1-close-totals">
+                <div><dt>예금 원금</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositPrincipal) }}</dd></div>
+                <div><dt>예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
+                <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
+                <div><dt>금융세</dt><dd>−{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
+              </dl>
+              <div class="day2-finance-summary-strip">
+                <span>금융세율 {{ day2FinancePreview.financialTaxBps / 100 }}%</span>
+                <strong>정산 후 학생 지갑 합계 {{ formatBibim(day2FinancePreview.totalWalletAfter) }}</strong>
               </div>
-            </div>
+              <div class="day1-student-table" role="table" aria-label="학생별 2일차 금융 정산">
+                <div class="day1-student-table__head" role="row">
+                  <span>학생</span><span>정산 전</span><span>예금 이자</span><span>투자 손익</span><span>정산 후</span>
+                </div>
+                <div v-for="studentItem in day2FinancePreview.students" :key="studentItem.studentId" role="row">
+                  <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                  <span>{{ formatBibim(studentItem.walletBefore) }}</span>
+                  <span>+{{ formatBibim(studentItem.depositInterest) }}</span>
+                  <span>{{ studentItem.investmentProfit > 0 ? '+' : '' }}{{ formatBibim(studentItem.investmentProfit) }}</span>
+                  <strong>{{ formatBibim(studentItem.walletAfter) }}</strong>
+                </div>
+              </div>
+            </template>
             <p v-if="state.currentStage === 'DAY2_LOGIN'" class="control-caution">
               학생이 기존 참여 코드와 비밀번호로 다시 로그인하면 1일차 자산이 복구됩니다.
             </p>
@@ -1076,7 +1103,7 @@ function moduleTone(moduleState: string) {
                 : day2FinanceStore.settling ? '정산 중…' : `${day2FinancePreview.targetCount}명 금융 정산하기` }}
             </button>
             <p v-else class="control-caution">
-              학생 화면에 원금·이자·투자 손익·금융세·최종 잔액이 표시됩니다.
+              학생별 화면에 실제 결과를 바탕으로 예금, 투자 위험, 금융세 설명이 표시됩니다.
             </p>
           </div>
           <div

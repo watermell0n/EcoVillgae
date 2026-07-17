@@ -82,6 +82,9 @@ describe('QuizStageView', () => {
 
     expect(quizApi.submitQuiz).toHaveBeenCalledWith('quiz-1')
     expect(wrapper.text()).toContain('퀴즈 제출이 완료되었습니다.')
+    expect(wrapper.text()).toContain('답안 제출 내역')
+    expect(wrapper.text()).toContain('A. 역할 소득')
+    expect(wrapper.text()).toContain('정답 수와 보상은 퀴즈 마감 후 공개돼요.')
     expect(wrapper.find('.quiz-options').exists()).toBe(false)
   })
 
