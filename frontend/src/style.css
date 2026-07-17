@@ -1835,7 +1835,8 @@ h1 {
 
 .fund-cost-option-grid article,
 .teacher-vote-options article,
-.student-vote-options label {
+.student-vote-options label,
+.student-vote-options article {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1848,7 +1849,8 @@ h1 {
 
 .fund-cost-option-grid article > div,
 .teacher-vote-options article > div,
-.student-vote-options label > span {
+.student-vote-options label > span,
+.student-vote-options article > span {
   display: grid;
   gap: 0.25rem;
 }
@@ -1860,6 +1862,7 @@ h1 {
 
 .teacher-vote-options article.is-decided,
 .student-vote-options label.is-decided,
+.student-vote-options article.is-decided,
 .student-vote-options label.is-selected {
   border-color: #16a34a;
   background: #f0fdf4;
@@ -1929,6 +1932,7 @@ h1 {
   .fund-cost-option-grid article,
   .teacher-vote-options article,
   .student-vote-options label,
+  .student-vote-options article,
   .final-purchase-list li,
   .distribution-list li {
     align-items: stretch;

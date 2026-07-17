@@ -4,7 +4,7 @@ import { getAdjacentStages, getRoomStage, isNextStageDisabled, ROOM_STAGES } fro
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
-    expect(ROOM_STAGES).toHaveLength(25)
+    expect(ROOM_STAGES).toHaveLength(26)
     expect(ROOM_STAGES[0]?.id).toBe('DAY1_LOBBY')
     expect(ROOM_STAGES.at(-1)?.id).toBe('DAY2_COMPLETED')
   })
@@ -92,5 +92,8 @@ describe('room stages', () => {
         voteStatus: 'DECIDED',
       }),
     ).toBe(false)
+
+    expect(getAdjacentStages('DAY2_FUND_VOTE').next?.id).toBe('DAY2_FUND_RESULT')
+    expect(getAdjacentStages('DAY2_FUND_RESULT').next?.id).toBe('DAY2_FINAL_RESULT')
   })
 })

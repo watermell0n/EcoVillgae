@@ -511,7 +511,8 @@ public class FundVoteService {
 
     private void ensureVoteVisible(RoomEntity room) {
         if (!List.of(
-                "DAY2_FUND_VOTE", "DAY2_FINAL_RESULT", "DAY2_SURVEY", "DAY2_COMPLETED"
+                "DAY2_FUND_VOTE", "DAY2_FUND_RESULT", "DAY2_FINAL_RESULT",
+                "DAY2_SURVEY", "DAY2_COMPLETED"
         ).contains(room.getCurrentStage())) {
             throw conflict("VOTE_NOT_OPEN", "공동기금 투표 단계부터 투표를 확인할 수 있습니다.");
         }

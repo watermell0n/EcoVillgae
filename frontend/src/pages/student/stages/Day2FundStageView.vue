@@ -19,12 +19,13 @@ const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
 const currentStage = computed(() => roomSessionStore.studentState?.currentStage)
+const decidedOption = computed(() => vote.value?.options.find((option) => option.decided) ?? null)
 let pollingTimer: ReturnType<typeof setInterval> | undefined
 
 async function refresh() {
   try {
     fund.value = await getStudentFund()
-    if (currentStage.value === 'DAY2_FUND_VOTE') {
+    if (['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(currentStage.value ?? '')) {
       vote.value = await getStudentCurrentVote()
       selectedOptionId.value = vote.value.selectedOptionId ?? selectedOptionId.value
     }
@@ -70,6 +71,37 @@ function formatBibim(amount: number) {
     <p v-if="loading" class="state-message">공동기금 정보를 확인하고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
     <template v-else-if="fund">
+      <section
+        v-if="currentStage === 'DAY2_FUND_RESULT' && vote"
+        class="student-vote-card"
+        aria-labelledby="student-vote-result-title"
+      >
+        <p class="eyebrow">우리 반 공동기금 투표 결과</p>
+        <h1 id="student-vote-result-title" class="page-title">
+          {{ decidedOption?.title ?? '최종 선택 결과' }}
+        </h1>
+        <p class="page-description">{{ vote.question }}</p>
+        <p v-if="decidedOption" class="finance-confirmed">
+          {{ decidedOption.voteCount }}표를 받아 우리 반의 선택으로 결정되었어요.
+        </p>
+        <div class="student-vote-options" aria-label="공동기금 투표 득표 결과">
+          <article
+            v-for="option in vote.options"
+            :key="option.optionId"
+            :class="{ 'is-decided': option.decided }"
+          >
+            <span>
+              <strong>{{ option.title }}</strong>
+              <small>{{ option.description }}</small>
+              <em>필요 금액 {{ formatBibim(option.requiredAmount) }}</em>
+              <b>{{ option.voteCount ?? 0 }}표</b>
+            </span>
+          </article>
+        </div>
+        <p class="control-caution">선생님과 투표 결과를 함께 확인한 뒤 최종 결과로 이동합니다.</p>
+      </section>
+
+      <template v-else>
       <section class="student-fund-balance" aria-labelledby="student-fund-title">
         <p class="eyebrow">우리 반 공동기금</p>
         <h1 id="student-fund-title" class="page-title">{{ formatBibim(fund.balance) }}</h1>
@@ -126,7 +158,7 @@ function formatBibim(amount: number) {
         <p v-else-if="vote.status === 'CLOSED'" class="control-caution">동점 결과를 선생님이 최종 결정하고 있습니다.</p>
         <p v-else class="control-caution">가장 많은 표를 받은 선택지가 표시되었습니다.</p>
       </section>
+      </template>
     </template>
   </div>
 </template>
-

@@ -90,6 +90,7 @@ const inflationPreview = computed(() => day2FlowStore.inflationPreview)
 const fundOverview = computed(() => day2EndStore.fund)
 const fundCostOptions = computed(() => day2EndStore.costOptions)
 const fundVote = computed(() => day2EndStore.vote)
+const decidedFundOption = computed(() => fundVote.value?.options.find((option) => option.decided) ?? null)
 const finalSummary = computed(() => day2EndStore.finalSummary)
 const productDistribution = computed(() => day2EndStore.distribution)
 const canPrepareFundVote = computed(() =>
@@ -235,13 +236,15 @@ watch(
       }
       return
     }
-    if (stage === 'DAY2_FUND_VOTE') {
+    if (stage && ['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(stage)) {
       try {
         await Promise.all([
           day2EndStore.refreshFund(roomId.value),
           day2EndStore.refreshVote(roomId.value),
         ])
-        day2EndStore.startVotePolling(roomId.value)
+        if (stage === 'DAY2_FUND_VOTE') {
+          day2EndStore.startVotePolling(roomId.value)
+        }
       } catch (error) {
         errorMessage.value = getApiErrorMessage(error, '공동기금 투표를 불러오지 못했습니다.')
       }
@@ -396,7 +399,7 @@ async function moveToStage(targetStage?: string) {
     }
   }
 
-  if (state.value?.currentStage === 'DAY2_FUND_VOTE' && targetStage === 'DAY2_FINAL_RESULT') {
+  if (state.value?.currentStage === 'DAY2_FUND_VOTE' && targetStage === 'DAY2_FUND_RESULT') {
     try {
       const latestVote = await day2EndStore.refreshVote(roomId.value)
       if (latestVote.status !== 'DECIDED') {
@@ -1272,6 +1275,37 @@ function moduleTone(moduleState: string) {
             >투표 마감하기</button>
           </div>
           <div
+            v-else-if="state.currentStage === 'DAY2_FUND_RESULT' && fundVote"
+            class="fund-control-workspace"
+          >
+            <div class="day1-close-workspace__headline">
+              <div>
+                <span>공동기금 투표 결과</span>
+                <strong>{{ decidedFundOption?.title ?? '최종 선택 결과' }}</strong>
+              </div>
+              <StatusBadge label="결과 공개" tone="success" />
+            </div>
+            <h3>{{ fundVote.question }}</h3>
+            <p v-if="decidedFundOption" class="control-notice">
+              {{ decidedFundOption.voteCount }}표를 받은 ‘{{ decidedFundOption.title }}’이 우리 반의 선택으로 확정되었습니다.
+            </p>
+            <div class="teacher-vote-options" aria-label="공동기금 투표 득표 결과">
+              <article
+                v-for="option in fundVote.options"
+                :key="option.optionId"
+                :class="{ 'is-decided': option.decided }"
+              >
+                <div>
+                  <strong>{{ option.title }}</strong>
+                  <span>{{ option.description }}</span>
+                  <small>필요 {{ formatBibim(option.requiredAmount) }}</small>
+                </div>
+                <b>{{ option.voteCount ?? 0 }}표</b>
+              </article>
+            </div>
+            <p class="control-caution">학생들과 결과를 함께 확인한 뒤 최종 결과 단계로 이동해 주세요.</p>
+          </div>
+          <div
             v-else-if="['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(state.currentStage) && finalSummary && productDistribution"
             class="final-control-workspace"
           >
@@ -1377,7 +1411,7 @@ function moduleTone(moduleState: string) {
                 state.currentStage === 'DAY2_FUND_COST' && (Boolean(fundOverview?.appliedExpense) || Boolean(fundVote))
               ) || (
                 state.currentStage === 'DAY2_FUND_VOTE' && fundVote?.status !== 'READY'
-              ) || state.currentStage === 'DAY2_COMPLETED'"
+              ) || state.currentStage === 'DAY2_FUND_RESULT' || state.currentStage === 'DAY2_COMPLETED'"
               @click="moveToStage(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
@@ -1410,7 +1444,9 @@ function moduleTone(moduleState: string) {
                         : state.currentStage === 'DAY2_FUND_COST'
                           ? '공동비용을 검토하고 투표 선택지를 준비하면 다음 단계로 이동할 수 있습니다.'
                           : state.currentStage === 'DAY2_FUND_VOTE'
-                            ? '투표를 마감하고 결과를 확정하면 최종 결과로 이동할 수 있습니다.'
+                            ? '투표를 마감하고 결과를 확정하면 공동기금 투표 결과 화면으로 이동할 수 있습니다.'
+                            : state.currentStage === 'DAY2_FUND_RESULT'
+                              ? '학생들과 공동기금 투표 결과를 확인한 뒤 최종 결과로 이동해 주세요.'
                             : state.currentStage === 'DAY2_SURVEY'
                               ? '설문 링크를 안내한 뒤 수업 종료 버튼으로 명시적으로 종료해 주세요.'
                               : state.currentStage === 'DAY2_COMPLETED'
@@ -1437,8 +1473,8 @@ function moduleTone(moduleState: string) {
                       'DAY2_RESULT_GUIDED',
                     ].includes(state.currentStage)
                       ? '금융 정산'
-                      : state.currentStage === 'DAY2_FUND_VOTE'
-                        ? '익명 투표 참여'
+                      : ['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(state.currentStage)
+                        ? state.currentStage === 'DAY2_FUND_RESULT' ? '투표 결과' : '익명 투표 참여'
                         : ['DAY2_FINAL_RESULT', 'DAY2_SURVEY', 'DAY2_COMPLETED'].includes(state.currentStage)
                           ? '최종 결과'
                           : '학생 연결' }}</h2>
@@ -1532,13 +1568,13 @@ function moduleTone(moduleState: string) {
               <div><dt>공동기금</dt><dd>{{ formatBibim(day2FinancePreview.classFundBalance) }}</dd></div>
             </dl>
           </template>
-          <template v-else-if="state.currentStage === 'DAY2_FUND_VOTE' && fundVote">
+          <template v-else-if="['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(state.currentStage) && fundVote">
             <div class="student-count-ring student-count-ring--day2">
               <strong>{{ fundVote.submittedCount }}</strong>
               <span>/ {{ fundVote.eligibleStudentCount }}명 투표</span>
             </div>
             <dl class="quiz-summary-counts">
-              <div><dt>상태</dt><dd>{{ fundVote.status === 'READY' ? '시작 전' : fundVote.status === 'OPEN' ? '진행 중' : '마감' }}</dd></div>
+              <div><dt>상태</dt><dd>{{ state.currentStage === 'DAY2_FUND_RESULT' ? '결과 공개' : fundVote.status === 'READY' ? '시작 전' : fundVote.status === 'OPEN' ? '진행 중' : '마감' }}</dd></div>
               <div><dt>결과</dt><dd>{{ fundVote.status === 'DECIDED' ? '확정' : '대기' }}</dd></div>
             </dl>
             <p>개별 학생의 선택은 공개하지 않고 참여 인원만 표시합니다.</p>

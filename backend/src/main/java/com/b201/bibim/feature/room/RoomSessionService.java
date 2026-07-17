@@ -290,15 +290,24 @@ public class RoomSessionService {
             throw stateConflict("공동기금 처리를 확정한 뒤에는 최종 상점 단계로 돌아갈 수 없습니다.");
         }
         if (currentStage == RoomStage.DAY2_FUND_VOTE
+                && targetStage == RoomStage.DAY2_FUND_RESULT
+                && !voteSessionRepository.existsByRoomIdAndStatus(roomId, "DECIDED")) {
+            throw stateConflict("공동기금 투표 결과를 확정한 뒤 결과 확인 단계로 이동해 주세요.");
+        }
+        if (currentStage == RoomStage.DAY2_FUND_RESULT
                 && targetStage == RoomStage.DAY2_FINAL_RESULT
                 && !voteSessionRepository.existsByRoomIdAndStatus(roomId, "DECIDED")) {
-            throw stateConflict("공동기금 투표 결과를 확정한 뒤 최종 결과로 이동해 주세요.");
+            throw stateConflict("확정된 공동기금 투표 결과를 확인한 뒤 최종 결과로 이동해 주세요.");
         }
         if (currentStage == RoomStage.DAY2_FUND_VOTE
                 && targetStage == RoomStage.DAY2_FUND_COST
                 && voteSessionRepository.findByRoomId(roomId)
                 .filter(vote -> !"READY".equals(vote.getStatus())).isPresent()) {
             throw stateConflict("투표를 시작한 뒤에는 공동비용 단계로 돌아갈 수 없습니다.");
+        }
+        if (currentStage == RoomStage.DAY2_FUND_RESULT
+                && targetStage == RoomStage.DAY2_FUND_VOTE) {
+            throw stateConflict("확정된 공동기금 투표 단계로는 돌아갈 수 없습니다.");
         }
         if (!currentStage.canMoveTo(targetStage)) {
             throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");

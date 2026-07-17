@@ -38,6 +38,7 @@ const stageComponents: Record<string, Component> = {
   DAY2_FINAL_SHOP: Day2FinalShopStageView,
   DAY2_FUND_COST: Day2FundStageView,
   DAY2_FUND_VOTE: Day2FundStageView,
+  DAY2_FUND_RESULT: Day2FundStageView,
   DAY2_FINAL_RESULT: Day2FinalResultStageView,
   DAY2_SURVEY: Day2FinalResultStageView,
   DAY2_COMPLETED: Day2FinalResultStageView,

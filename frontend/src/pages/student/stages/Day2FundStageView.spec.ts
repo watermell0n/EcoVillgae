@@ -1,0 +1,85 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { useRoomSessionStore } from '../../../stores/roomSession'
+import Day2FundStageView from './Day2FundStageView.vue'
+
+const fundApi = vi.hoisted(() => ({
+  castStudentVote: vi.fn(),
+  getStudentCurrentVote: vi.fn(),
+  getStudentFund: vi.fn(),
+}))
+
+vi.mock('../../../features/day2/api/fundVote', () => fundApi)
+
+describe('Day2FundStageView', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+    fundApi.getStudentFund.mockResolvedValue({
+      roomId: 'room-1',
+      balance: 50,
+      totalIncomeTax: 40,
+      totalFinancialTax: 20,
+      totalExpenses: 10,
+      appliedExpense: null,
+    })
+    fundApi.getStudentCurrentVote.mockResolvedValue({
+      voteSessionId: 'vote-1',
+      roomId: 'room-1',
+      question: '남은 공동기금은 어디에 사용할까요?',
+      fundBalanceSnapshot: 50,
+      status: 'DECIDED',
+      eligibleStudentCount: 3,
+      submittedCount: 3,
+      hasVoted: true,
+      selectedOptionId: 'option-1',
+      decidedOptionId: 'option-1',
+      openedAt: '2026-07-17T00:00:00Z',
+      closedAt: '2026-07-17T00:05:00Z',
+      pendingStudents: [],
+      options: [
+        {
+          optionId: 'option-1',
+          title: '다음 활동을 위해 저축',
+          description: '다음 공동 활동을 위해 남겨요.',
+          requiredAmount: 0,
+          affordable: true,
+          voteCount: 2,
+          tiedForFirst: false,
+          decided: true,
+        },
+        {
+          optionId: 'option-2',
+          title: '간식 나눔',
+          description: '함께 간식을 나눠요.',
+          requiredAmount: 40,
+          affordable: true,
+          voteCount: 1,
+          tiedForFirst: false,
+          decided: false,
+        },
+      ],
+    })
+  })
+
+  it('shows a read-only vote result before the final result stage', async () => {
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = {
+      currentStage: 'DAY2_FUND_RESULT',
+      syncVersion: 1,
+    } as never
+
+    const wrapper = mount(Day2FundStageView)
+    await flushPromises()
+
+    expect(fundApi.getStudentCurrentVote).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('우리 반 공동기금 투표 결과')
+    expect(wrapper.text()).toContain('다음 활동을 위해 저축')
+    expect(wrapper.text()).toContain('2표를 받아 우리 반의 선택으로 결정되었어요')
+    expect(wrapper.find('input').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+})

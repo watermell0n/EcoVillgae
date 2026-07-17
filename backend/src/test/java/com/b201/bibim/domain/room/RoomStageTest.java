@@ -24,4 +24,11 @@ class RoomStageTest {
         assertTrue(RoomStage.DAY2_COMPLETED.roomStatus().equals("COMPLETED"));
         assertTrue(RoomStage.DAY2_COMPLETED.mode().equals("CLOSED"));
     }
+
+    @Test
+    void placesFundResultBetweenVoteAndFinalResult() {
+        assertTrue(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FUND_RESULT));
+        assertTrue(RoomStage.DAY2_FUND_RESULT.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
+        assertFalse(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
+    }
 }
