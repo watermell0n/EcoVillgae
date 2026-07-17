@@ -73,6 +73,77 @@ public class FinancialTransactionEntity {
             String description,
             Map<String, Object> metadata
     ) {
+        return create(
+                roomId,
+                sessionId,
+                studentId,
+                actorId,
+                settlementRunId,
+                transactionType,
+                "TEACHER",
+                idempotencyKey,
+                description,
+                metadata
+        );
+    }
+
+    public static FinancialTransactionEntity studentPurchase(
+            UUID roomId,
+            UUID sessionId,
+            UUID studentId,
+            String idempotencyKey,
+            String description,
+            Map<String, Object> metadata
+    ) {
+        return create(
+                roomId,
+                sessionId,
+                studentId,
+                studentId,
+                null,
+                "PURCHASE",
+                "STUDENT",
+                idempotencyKey,
+                description,
+                metadata
+        );
+    }
+
+    public static FinancialTransactionEntity studentTransfer(
+            UUID roomId,
+            UUID sessionId,
+            UUID studentId,
+            String transactionType,
+            String idempotencyKey,
+            String description,
+            Map<String, Object> metadata
+    ) {
+        return create(
+                roomId,
+                sessionId,
+                studentId,
+                studentId,
+                null,
+                transactionType,
+                "STUDENT",
+                idempotencyKey,
+                description,
+                metadata
+        );
+    }
+
+    private static FinancialTransactionEntity create(
+            UUID roomId,
+            UUID sessionId,
+            UUID studentId,
+            UUID actorId,
+            UUID settlementRunId,
+            String transactionType,
+            String actorType,
+            String idempotencyKey,
+            String description,
+            Map<String, Object> metadata
+    ) {
         FinancialTransactionEntity transaction = new FinancialTransactionEntity();
         transaction.id = UUID.randomUUID();
         transaction.roomId = roomId;
@@ -82,7 +153,7 @@ public class FinancialTransactionEntity {
         transaction.settlementRunId = settlementRunId;
         transaction.transactionType = transactionType;
         transaction.status = "SUCCESS";
-        transaction.actorType = "TEACHER";
+        transaction.actorType = actorType;
         transaction.idempotencyKey = idempotencyKey;
         transaction.description = description;
         transaction.metadata = Map.copyOf(metadata);
@@ -94,4 +165,21 @@ public class FinancialTransactionEntity {
     public UUID getId() {
         return id;
     }
+
+    public UUID getRoomId() {
+        return roomId;
+    }
+
+    public UUID getStudentId() {
+        return studentId;
+    }
+
+    public String getTransactionType() {
+        return transactionType;
+    }
+
+    public String getStatus() { return status; }
+    public String getDescription() { return description; }
+    public Map<String, Object> getMetadata() { return metadata; }
+    public Instant getCreatedAt() { return createdAt; }
 }

@@ -15,11 +15,14 @@ import {
   type StudentSession,
   type TeacherSession,
 } from '../features/auth/api/auth'
+import { useRoomSessionStore } from './roomSession'
 
-const PENDING_STUDENT_ENTRY_KEY = 'bibim.pendingStudentEntry'
+const PENDING_STUDENT_ENTRY_KEY = 'ecovillage.pendingStudentEntry'
+const LEGACY_PENDING_STUDENT_ENTRY_KEY = 'bibim.pendingStudentEntry'
 
 function readPendingStudentEntry(): StudentEntry | null {
   const stored = sessionStorage.getItem(PENDING_STUDENT_ENTRY_KEY)
+    ?? sessionStorage.getItem(LEGACY_PENDING_STUDENT_ENTRY_KEY)
   if (!stored) {
     return null
   }
@@ -60,6 +63,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function enterStudent(participationCode: string) {
     const entry = await enterStudentApi(participationCode)
+    student.value = null
+    useRoomSessionStore().resetStudentContext()
     pendingStudentEntry.value = entry
     sessionStorage.setItem(PENDING_STUDENT_ENTRY_KEY, JSON.stringify(entry))
     return entry
@@ -70,11 +75,13 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('참여 코드 정보가 없습니다.')
     }
 
-    student.value = await setupStudentApi(
+    const nextStudent = await setupStudentApi(
       pendingStudentEntry.value.participationCode,
       nickname,
       password,
     )
+    useRoomSessionStore().resetStudentContext()
+    student.value = nextStudent
     clearPendingStudentEntry()
     return student.value
   }
@@ -84,19 +91,26 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('참여 코드 정보가 없습니다.')
     }
 
-    student.value = await loginStudentApi(pendingStudentEntry.value.participationCode, password)
+    const nextStudent = await loginStudentApi(pendingStudentEntry.value.participationCode, password)
+    useRoomSessionStore().resetStudentContext()
+    student.value = nextStudent
     clearPendingStudentEntry()
     return student.value
   }
 
   async function loadStudent() {
-    student.value = await getStudentMe()
+    const nextStudent = await getStudentMe()
+    if (student.value && student.value.studentId !== nextStudent.studentId) {
+      useRoomSessionStore().resetStudentContext()
+    }
+    student.value = nextStudent
     return student.value
   }
 
   function clearPendingStudentEntry() {
     pendingStudentEntry.value = null
     sessionStorage.removeItem(PENDING_STUDENT_ENTRY_KEY)
+    sessionStorage.removeItem(LEGACY_PENDING_STUDENT_ENTRY_KEY)
   }
 
   return {

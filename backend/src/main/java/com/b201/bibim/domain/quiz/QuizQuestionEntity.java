@@ -43,6 +43,26 @@ public class QuizQuestionEntity {
     protected QuizQuestionEntity() {
     }
 
+    public static QuizQuestionEntity multipleChoice(
+            UUID quizId,
+            int orderNo,
+            String prompt,
+            List<QuizOption> options,
+            String correctAnswer,
+            String explanation
+    ) {
+        QuizQuestionEntity question = new QuizQuestionEntity();
+        question.id = UUID.randomUUID();
+        question.quizId = quizId;
+        question.orderNo = orderNo;
+        question.questionType = "MULTIPLE_CHOICE";
+        question.prompt = prompt;
+        question.options = List.copyOf(options);
+        question.correctAnswer = correctAnswer;
+        question.explanation = explanation;
+        return question;
+    }
+
     public boolean accepts(String answer) {
         return options.stream().anyMatch(option -> option.id().equals(answer));
     }

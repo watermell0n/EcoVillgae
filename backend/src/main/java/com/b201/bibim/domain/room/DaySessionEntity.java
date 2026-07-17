@@ -1,5 +1,6 @@
 package com.b201.bibim.domain.room;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -20,7 +21,40 @@ public class DaySessionEntity {
     @Column(name = "day_number", nullable = false)
     private short dayNumber;
 
+    @Column(nullable = false, length = 20)
+    private String status;
+
+    @Column(name = "current_stage", nullable = false, length = 50)
+    private String currentStage;
+
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
     protected DaySessionEntity() {
+    }
+
+    public static DaySessionEntity dayOneReady(UUID roomId) {
+        DaySessionEntity session = new DaySessionEntity();
+        session.id = UUID.randomUUID();
+        session.roomId = roomId;
+        session.dayNumber = 1;
+        session.status = "READY";
+        session.currentStage = RoomStage.DAY1_LOBBY.name();
+        return session;
+    }
+
+    public static DaySessionEntity dayTwoActive(UUID roomId) {
+        DaySessionEntity session = new DaySessionEntity();
+        session.id = UUID.randomUUID();
+        session.roomId = roomId;
+        session.dayNumber = 2;
+        session.status = "ACTIVE";
+        session.currentStage = RoomStage.DAY2_LOGIN.name();
+        session.startedAt = Instant.now();
+        return session;
     }
 
     public UUID getId() {
@@ -33,5 +67,20 @@ public class DaySessionEntity {
 
     public int getDayNumber() {
         return dayNumber;
+    }
+
+    public void closeDayOne() {
+        this.status = "CLOSED";
+        this.currentStage = RoomStage.DAY1_CLOSED.name();
+        this.closedAt = Instant.now();
+    }
+
+    public void closeDayTwo() {
+        if (dayNumber != 2 || !"ACTIVE".equals(status)) {
+            throw new IllegalStateException("진행 중인 2일차 세션만 종료할 수 있습니다.");
+        }
+        this.status = "CLOSED";
+        this.currentStage = RoomStage.DAY2_COMPLETED.name();
+        this.closedAt = Instant.now();
     }
 }

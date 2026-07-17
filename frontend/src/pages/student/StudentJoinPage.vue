@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { getApiErrorMessage } from '../../shared/api/errors'
+import { DEMO_PARTICIPATION_CODES, SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
@@ -10,7 +11,7 @@ const authStore = useAuthStore()
 const participationCode = ref('')
 const submitting = ref(false)
 const errorMessage = ref('')
-const examples = ['BIBIM-01', 'BIBIM-02', 'BIBIM-03']
+const examples = DEMO_PARTICIPATION_CODES
 
 async function submit() {
   submitting.value = true
@@ -46,7 +47,7 @@ function useExample(code: string) {
 
 <template>
   <main class="auth-page student-theme">
-    <RouterLink class="brand-link" to="/">비빔</RouterLink>
+    <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
 
     <section class="auth-card" aria-labelledby="student-join-title">
       <p class="eyebrow">학생용</p>
@@ -61,7 +62,7 @@ function useExample(code: string) {
             class="code-input"
             name="participationCode"
             autocomplete="off"
-            placeholder="예: BIBIM-01"
+            placeholder="예: ECO-01"
             maxlength="20"
             required
           />

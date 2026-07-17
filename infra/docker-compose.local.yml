@@ -1,13 +1,13 @@
-name: bibim-local
+name: ecovillage-local
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-bibim}
-      POSTGRES_USER: ${POSTGRES_USER:-bibim}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bibim-local-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ecovillage}
+      POSTGRES_USER: ${POSTGRES_USER:-ecovillage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecovillage-local-password}
       TZ: UTC
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -25,15 +25,16 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: local
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bibim}
-      DB_USERNAME: ${POSTGRES_USER:-bibim}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-bibim-local-password}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecovillage}
+      DB_USERNAME: ${POSTGRES_USER:-ecovillage}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-ecovillage-local-password}
       DEMO_TEACHER_LOGIN_ID: ${DEMO_TEACHER_LOGIN_ID:-teacher}
       DEMO_TEACHER_PASSWORD: ${DEMO_TEACHER_PASSWORD:-teacher1234}
-      DEMO_TEACHER_DISPLAY_NAME: ${DEMO_TEACHER_DISPLAY_NAME:-김비빔 선생님}
+      DEMO_TEACHER_DISPLAY_NAME: ${DEMO_TEACHER_DISPLAY_NAME:-이코빌리지 선생님}
       DEMO_ADMIN_LOGIN_ID: ${DEMO_ADMIN_LOGIN_ID:-admin}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin1234}
       DEMO_ADMIN_DISPLAY_NAME: ${DEMO_ADMIN_DISPLAY_NAME:-비빔 운영자}
+      SURVEY_URL: ${SURVEY_URL:-https://docs.google.com/forms/}
       TZ: UTC
     ports:
       - "${BACKEND_PORT:-8080}:8080"

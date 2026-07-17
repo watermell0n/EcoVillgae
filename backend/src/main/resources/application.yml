@@ -1,6 +1,6 @@
 spring:
   application:
-    name: bibim
+    name: ecovillage
   profiles:
     default: local
   datasource:
@@ -38,3 +38,5 @@ app:
     teacher-session-hours: 8
     student-session-hours: 48
     admin-session-hours: 8
+  survey:
+    url: ${SURVEY_URL:https://docs.google.com/forms/}

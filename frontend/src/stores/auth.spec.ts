@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 import * as authApi from '../features/auth/api/auth'
 import { useAuthStore } from './auth'
+import { useRoomSessionStore } from './roomSession'
 
 vi.mock('../features/auth/api/auth', () => ({
   enterStudent: vi.fn(),
@@ -16,7 +17,7 @@ vi.mock('../features/auth/api/auth', () => ({
 }))
 
 const entry: authApi.StudentEntry = {
-  participationCode: 'BIBIM-02',
+  participationCode: 'ECO-02',
   roomId: 'room-1',
   roomName: '6학년 2반 경제교실',
   participantNumber: 2,
@@ -50,15 +51,19 @@ describe('auth store', () => {
     vi.mocked(authApi.setupStudent).mockResolvedValue(student)
     const store = useAuthStore()
 
-    await store.enterStudent('bibim-02')
+    await store.enterStudent('eco-02')
 
     expect(store.pendingStudentEntry).toEqual(entry)
-    expect(sessionStorage.getItem('bibim.pendingStudentEntry')).toContain('BIBIM-02')
+    expect(sessionStorage.getItem('ecovillage.pendingStudentEntry')).toContain('ECO-02')
+
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = { syncVersion: 99 } as never
 
     await store.setupStudent('비빔이', '1234')
 
     expect(store.student).toEqual(student)
     expect(store.pendingStudentEntry).toBeNull()
-    expect(sessionStorage.getItem('bibim.pendingStudentEntry')).toBeNull()
+    expect(sessionStorage.getItem('ecovillage.pendingStudentEntry')).toBeNull()
+    expect(roomSessionStore.studentState).toBeNull()
   })
 })

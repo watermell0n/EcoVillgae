@@ -48,6 +48,23 @@ public class StudentEntity {
     protected StudentEntity() {
     }
 
+    public static StudentEntity invited(
+            UUID roomId,
+            int participantNumber,
+            String participationCode
+    ) {
+        StudentEntity student = new StudentEntity();
+        student.id = UUID.randomUUID();
+        student.roomId = roomId;
+        student.participantNumber = participantNumber;
+        student.participationCode = participationCode;
+        student.status = "INVITED";
+        student.online = false;
+        student.loginVersion = 0;
+        student.updatedAt = Instant.now();
+        return student;
+    }
+
     public void completeSetup(String nickname, String passwordHash) {
         this.nickname = nickname;
         this.passwordHash = passwordHash;
@@ -102,5 +119,9 @@ public class StudentEntity {
 
     public boolean isOnline() {
         return online;
+    }
+
+    public Instant getLastSeenAt() {
+        return lastSeenAt;
     }
 }

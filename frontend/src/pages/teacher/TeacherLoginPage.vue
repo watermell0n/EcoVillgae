@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../../stores/auth'
 import { getApiErrorMessage } from '../../shared/api/errors'
+import { SERVICE_NAME } from '../../shared/config/brand'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -29,7 +30,7 @@ async function submit() {
 
 <template>
   <main class="auth-page">
-    <RouterLink class="brand-link" to="/">비빔</RouterLink>
+    <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
 
     <section class="auth-card" aria-labelledby="teacher-login-title">
       <p class="eyebrow">교사용</p>

@@ -63,12 +63,28 @@ public class AccountEntity {
         return new AccountEntity(roomId, studentId, "STUDENT_WALLET", false);
     }
 
+    public static AccountEntity studentDeposit(UUID roomId, UUID studentId) {
+        return new AccountEntity(roomId, studentId, "STUDENT_DEPOSIT", false);
+    }
+
+    public static AccountEntity studentInvestment(UUID roomId, UUID studentId) {
+        return new AccountEntity(roomId, studentId, "STUDENT_INVESTMENT", false);
+    }
+
     public static AccountEntity classFund(UUID roomId) {
         return new AccountEntity(roomId, null, "CLASS_FUND", false);
     }
 
     public static AccountEntity systemTreasury(UUID roomId) {
         return new AccountEntity(roomId, null, "SYSTEM_TREASURY", true);
+    }
+
+    public static AccountEntity shopRevenue(UUID roomId) {
+        return new AccountEntity(roomId, null, "SHOP_REVENUE", false);
+    }
+
+    public static AccountEntity classExpense(UUID roomId) {
+        return new AccountEntity(roomId, null, "CLASS_EXPENSE", false);
     }
 
     public void changeBy(long amount) {

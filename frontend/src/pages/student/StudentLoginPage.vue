@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { getApiErrorMessage } from '../../shared/api/errors'
+import { SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
@@ -35,7 +36,7 @@ async function submit() {
 
 <template>
   <main class="auth-page student-theme">
-    <RouterLink class="brand-link" to="/student/join">비빔</RouterLink>
+    <RouterLink class="brand-link" to="/student/join">{{ SERVICE_NAME }}</RouterLink>
 
     <section v-if="entry" class="auth-card" aria-labelledby="student-login-title">
       <p class="eyebrow">{{ entry.roomName }} · {{ entry.participantNumber }}번</p>

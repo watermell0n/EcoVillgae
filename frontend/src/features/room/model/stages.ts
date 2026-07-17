@@ -5,6 +5,18 @@ export interface RoomStageDefinition {
   description: string
 }
 
+export interface NextStageGuardOptions {
+  currentStage?: string
+  hasNextStage: boolean
+  changingStage: boolean
+  quizStatus?: string
+  day2FinanceSettlementStatus?: string
+  day2QuizRewardSettlementStatus?: string
+  fundExpenseApplied?: boolean
+  votePrepared?: boolean
+  voteStatus?: string
+}
+
 export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_LOBBY', day: 1, label: '입장 대기', description: '학생 접속을 확인하고 수업을 준비합니다.' },
   { id: 'DAY1_PROFILE', day: 1, label: '활동 안내', description: '오늘의 역할과 활동 순서를 안내합니다.' },
@@ -28,6 +40,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY2_FINAL_SHOP', day: 2, label: '최종 상점 활동', description: '변경된 가격으로 마지막 소비 활동을 합니다.' },
   { id: 'DAY2_FUND_COST', day: 2, label: '공동기금 비용 확인', description: '공동기금으로 선택할 수 있는 활동을 확인합니다.' },
   { id: 'DAY2_FUND_VOTE', day: 2, label: '공동기금 투표', description: '공동기금 사용처를 함께 선택합니다.' },
+  { id: 'DAY2_FUND_RESULT', day: 2, label: '공동기금 투표 결과', description: '우리 반이 선택한 공동기금 사용처와 득표 결과를 확인합니다.' },
   { id: 'DAY2_FINAL_RESULT', day: 2, label: '최종 결과', description: '2일 동안의 경제활동 결과를 확인합니다.' },
   { id: 'DAY2_SURVEY', day: 2, label: '마무리 설문', description: '외부 설문으로 수업 경험을 돌아봅니다.' },
   { id: 'DAY2_COMPLETED', day: 2, label: '수업 종료', description: '모든 활동을 종료하고 결과를 저장합니다.' },
@@ -46,4 +59,54 @@ export function getAdjacentStages(stageId?: string) {
         ? ROOM_STAGES[currentIndex + 1]
         : undefined,
   }
+}
+
+export function isNextStageDisabled({
+  currentStage,
+  hasNextStage,
+  changingStage,
+  quizStatus,
+  day2FinanceSettlementStatus,
+  day2QuizRewardSettlementStatus,
+  votePrepared,
+  voteStatus,
+}: NextStageGuardOptions) {
+  if (!hasNextStage || changingStage) {
+    return true
+  }
+
+  if (currentStage === 'DAY1_SUMMARY' || currentStage === 'DAY1_CLOSED') {
+    return true
+  }
+
+  if (
+    (currentStage === 'DAY1_QUIZ' || currentStage === 'DAY2_QUIZ') &&
+    quizStatus !== 'CLOSED'
+  ) {
+    return true
+  }
+
+  if (
+    currentStage === 'DAY2_FINANCE_SETTLEMENT' &&
+    day2FinanceSettlementStatus !== 'COMPLETED'
+  ) {
+    return true
+  }
+
+  if (currentStage === 'DAY2_FUND_COST' && !votePrepared) {
+    return true
+  }
+
+  if (currentStage === 'DAY2_FUND_VOTE' && voteStatus !== 'DECIDED') {
+    return true
+  }
+
+  if (currentStage === 'DAY2_SURVEY') {
+    return true
+  }
+
+  return (
+    currentStage === 'DAY2_QUIZ_SETTLEMENT' &&
+    day2QuizRewardSettlementStatus !== 'COMPLETED'
+  )
 }

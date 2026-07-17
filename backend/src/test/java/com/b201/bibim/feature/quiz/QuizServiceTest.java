@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import com.b201.bibim.domain.quiz.QuizAnswerRepository;
@@ -109,6 +110,56 @@ class QuizServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("QUIZ_NOT_OPEN", exception.getCode());
+    }
+
+    @Test
+    void rejectsQuizAccessBeforeTeacherOpensIt() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getStatus()).thenReturn("READY");
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> quizService.currentQuiz(studentId)
+        );
+
+        assertEquals("QUIZ_NOT_OPEN", exception.getCode());
+    }
+
+    @Test
+    void teacherSummaryCountsOnlyActiveStudentsAsEligible() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        StudentEntity active = org.mockito.Mockito.mock(StudentEntity.class);
+        StudentEntity invited = org.mockito.Mockito.mock(StudentEntity.class);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getExpectedStudentCount()).thenReturn(2);
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getId()).thenReturn(quizId);
+        when(quiz.getStatus()).thenReturn("OPEN");
+        when(studentRepository.findAllByRoomIdOrderByParticipantNumber(roomId))
+                .thenReturn(List.of(active, invited));
+        when(active.getStatus()).thenReturn("ACTIVE");
+        when(active.getId()).thenReturn(UUID.randomUUID());
+        when(invited.getStatus()).thenReturn("INVITED");
+
+        var summary = quizService.teacherSummary(teacherId, roomId);
+
+        assertEquals(1, summary.eligibleStudentCount());
+        assertEquals(1, summary.notSubmittedCount());
+        assertEquals(1, summary.students().size());
     }
 
     private void prepareOpenQuiz(UUID studentId, UUID roomId, UUID quizId) {

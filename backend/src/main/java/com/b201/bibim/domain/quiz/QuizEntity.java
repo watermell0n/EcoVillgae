@@ -39,6 +39,39 @@ public class QuizEntity {
     protected QuizEntity() {
     }
 
+    public static QuizEntity dayOneReady(UUID roomId, int questionCount) {
+        QuizEntity quiz = new QuizEntity();
+        quiz.id = UUID.randomUUID();
+        quiz.roomId = roomId;
+        quiz.dayNumber = 1;
+        quiz.title = "1일차 월급 퀴즈";
+        quiz.status = "READY";
+        quiz.questionCount = questionCount;
+        return quiz;
+    }
+
+    public static QuizEntity dayTwoReady(UUID roomId, int questionCount) {
+        QuizEntity quiz = new QuizEntity();
+        quiz.id = UUID.randomUUID();
+        quiz.roomId = roomId;
+        quiz.dayNumber = 2;
+        quiz.title = "2일차 금융 복습 퀴즈";
+        quiz.status = "READY";
+        quiz.questionCount = questionCount;
+        return quiz;
+    }
+
+    public void open() {
+        this.status = "OPEN";
+        this.openedAt = Instant.now();
+        this.closedAt = null;
+    }
+
+    public void close() {
+        this.status = "CLOSED";
+        this.closedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

@@ -6,17 +6,10 @@ import { getRoomStage } from '../../features/room/model/stages'
 import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import { formatCurrency, SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
-
-const moduleLabels: Record<string, string> = {
-  KNOWLEDGE: '금융지식',
-  SHOP: '상점',
-  DEPOSIT: '예금',
-  INVESTMENT: '투자',
-  WALLET: '지갑·거래 내역',
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -33,9 +26,6 @@ const stageComponentProps = computed(() =>
   isPlaceholderStage(state.value?.currentStage)
     ? { stageLabel: stageDefinition.value?.label ?? state.value?.currentStage ?? '대기 중' }
     : {},
-)
-const activeModules = computed(
-  () => state.value?.modules.filter((module) => module.state === 'ACTIVE') ?? [],
 )
 const currentModule = computed(
   () => state.value?.modules.find((module) => module.state === 'ACTIVE' || module.state === 'GUIDED')?.type ?? null,
@@ -147,20 +137,14 @@ async function reportPresence() {
 
     <template v-else-if="student && state">
       <header class="student-room-header">
-        <RouterLink class="brand-link" to="/">비빔</RouterLink>
+        <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
         <div class="student-room-header__info">
           <span>{{ state.currentDay }}일차</span>
           <strong>{{ student.nickname }}</strong>
-          <span>{{ state.walletBalance }}비빔</span>
+          <span>{{ formatCurrency(state.walletBalance) }}</span>
           <StatusBadge :label="connectionLabel" :tone="connectionTone" />
         </div>
       </header>
-
-      <nav v-if="state.mode === 'FREE'" class="student-module-menu" aria-label="자유 활동 메뉴">
-        <button v-for="module in activeModules" :key="module.type" type="button" disabled>
-          {{ moduleLabels[module.type] ?? module.type }}
-        </button>
-      </nav>
 
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? state.currentStage">
         <p class="student-stage-card__mode">

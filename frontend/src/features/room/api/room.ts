@@ -34,6 +34,26 @@ export interface StudentRoomState {
   changed: boolean
 }
 
+export interface TeacherRoomStudent {
+  studentId: string
+  participantNumber: number
+  participationCode: string
+  nickname: string | null
+  status: string
+  online: boolean
+  lastSeenAt: string | null
+}
+
+export interface RoomPreparation {
+  roomId: string
+  name: string
+  expectedStudentCount: number
+  connectedStudentCount: number
+  status: string
+  currentStage: string
+  students: TeacherRoomStudent[]
+}
+
 export interface RoomCommandResponse {
   state: TeacherRoomState
   replayed: boolean
@@ -54,12 +74,36 @@ export async function getStudentRoomState(syncVersion?: number) {
   return response.data.data
 }
 
+export async function createTeacherRoom(name: string, expectedStudentCount: number) {
+  const response = await http.post<ApiResponse<RoomPreparation>>('/teacher/rooms', {
+    name,
+    expectedStudentCount,
+  })
+  return response.data.data
+}
+
+export async function getTeacherRoomStudents(roomId: string) {
+  const response = await http.get<ApiResponse<RoomPreparation>>(
+    `/teacher/rooms/${roomId}/students`,
+  )
+  return response.data.data
+}
+
 export async function setRoomStage(roomId: string, targetStage: string, expectedVersion: number) {
+  return sendRoomCommand(roomId, 'SET_STAGE', targetStage, expectedVersion)
+}
+
+export async function sendRoomCommand(
+  roomId: string,
+  command: 'SET_STAGE' | 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QUIZ' | 'CLOSE_DAY1' | 'START_DAY2' | 'COMPLETE_ROOM',
+  targetStage: string,
+  expectedVersion: number,
+) {
   const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
   const response = await http.post<ApiResponse<RoomCommandResponse>>(
     `/teacher/rooms/${roomId}/commands`,
     {
-      command: 'SET_STAGE',
+      command,
       targetStage,
       expectedVersion,
     },

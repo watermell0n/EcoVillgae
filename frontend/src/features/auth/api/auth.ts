@@ -1,4 +1,8 @@
-import { http } from '../../../shared/api/http'
+import {
+  clearStudentSessionToken,
+  http,
+  setStudentSessionToken,
+} from '../../../shared/api/http'
 import type { ApiResponse } from '../../../shared/api/types'
 
 export interface TeacherRoom {
@@ -82,6 +86,7 @@ export async function enterStudent(participationCode: string) {
     '/student/auth/enter',
     { participationCode: normalizedCode },
   )
+  clearStudentSessionToken()
   return { participationCode: normalizedCode, ...response.data.data }
 }
 
@@ -95,6 +100,7 @@ export async function setupStudent(
     nickname,
     password,
   })
+  storeStudentSessionToken(response.headers['x-student-session-token'])
   return response.data.data
 }
 
@@ -103,10 +109,17 @@ export async function loginStudent(participationCode: string, password: string) 
     participationCode,
     password,
   })
+  storeStudentSessionToken(response.headers['x-student-session-token'])
   return response.data.data
 }
 
 export async function getStudentMe() {
   const response = await http.get<ApiResponse<StudentSession>>('/student/me')
   return response.data.data
+}
+
+function storeStudentSessionToken(value: unknown) {
+  if (typeof value === 'string' && value.trim()) {
+    setStudentSessionToken(value.trim())
+  }
 }

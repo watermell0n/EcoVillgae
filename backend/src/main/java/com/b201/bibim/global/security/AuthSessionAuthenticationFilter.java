@@ -12,11 +12,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
+
+    public static final String STUDENT_SESSION_HEADER = "X-Student-Session-Token";
 
     private final AuthSessionService authSessionService;
 
@@ -38,7 +41,7 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
                 case TEACHER -> AuthCookieService.TEACHER_COOKIE_NAME;
             };
 
-            findCookie(request, cookieName)
+            findToken(request, expectedRole, cookieName)
                     .flatMap(token -> authSessionService.authenticate(token, expectedRole))
                     .ifPresent(this::setAuthentication);
         }
@@ -54,6 +57,29 @@ public class AuthSessionAuthenticationFilter extends OncePerRequestFilter {
             return AuthRole.ADMIN;
         }
         return AuthRole.TEACHER;
+    }
+
+    private java.util.Optional<String> findToken(
+            HttpServletRequest request,
+            AuthRole expectedRole,
+            String cookieName
+    ) {
+        if (expectedRole == AuthRole.STUDENT) {
+            String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+            return authorization == null
+                    ? java.util.Optional.empty()
+                    : bearerToken(authorization);
+        }
+        return findCookie(request, cookieName);
+    }
+
+    private java.util.Optional<String> bearerToken(String authorization) {
+        String prefix = "Bearer ";
+        if (!authorization.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            return java.util.Optional.empty();
+        }
+        String token = authorization.substring(prefix.length()).trim();
+        return token.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(token);
     }
 
     private java.util.Optional<String> findCookie(HttpServletRequest request, String name) {

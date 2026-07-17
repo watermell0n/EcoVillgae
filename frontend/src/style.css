@@ -338,6 +338,107 @@ h1 {
   width: 100%;
 }
 
+.learning-stage-view,
+.learning-card,
+.learning-review,
+.learning-review-card,
+.learning-control-workspace,
+.quiz-control-workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.learning-card,
+.learning-review,
+.learning-control-workspace,
+.quiz-control-workspace {
+  padding: 1.5rem;
+  border: 1px solid #d9e0e8;
+  border-radius: 1.25rem;
+  background: #fff;
+}
+
+.learning-card header,
+.learning-review-card header,
+.learning-control-workspace header,
+.quiz-control-workspace__headline,
+.learning-review-card footer,
+.learning-control-workspace__navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.learning-card h1,
+.learning-control-workspace h3,
+.learning-review-card h3 {
+  margin: 0.25rem 0 0;
+}
+
+.learning-card__content,
+.learning-control-workspace > p,
+.learning-review-card > p {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.learning-card ul,
+.learning-control-workspace ul,
+.learning-review-card ul {
+  margin: 0;
+  padding: 1rem 1rem 1rem 2rem;
+  border-radius: 1rem;
+  background: #f5f7fa;
+  line-height: 1.7;
+}
+
+.learning-card__sync {
+  margin: 0;
+  color: #657080;
+  font-size: 0.9rem;
+}
+
+.learning-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.learning-topic-grid button {
+  display: grid;
+  gap: 0.4rem;
+  min-height: 7rem;
+  padding: 1rem;
+  text-align: left;
+}
+
+.learning-topic-grid span {
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.learning-review-card {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: #f5f7fa;
+}
+
+.quiz-control-workspace > button {
+  justify-self: start;
+}
+
+.room-create-modal .form-stack {
+  margin-top: 1.2rem;
+}
+
+.room-create-modal input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
 .control-page {
   width: min(1380px, calc(100% - 2rem));
   margin: 0 auto;
@@ -593,6 +694,164 @@ h1 {
 .settlement-action {
   width: 100%;
   background: #287253;
+}
+
+.room-preparation-workspace {
+  margin-top: 1.25rem;
+}
+
+.room-preparation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.room-preparation-heading > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.room-preparation-heading span {
+  color: #737b87;
+  font-size: 0.78rem;
+}
+
+.room-preparation-heading strong {
+  color: #263449;
+  font-size: 1.05rem;
+}
+
+.room-preparation-heading button {
+  width: auto;
+  min-height: 38px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+.participation-code-list {
+  overflow-x: auto;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.8rem;
+}
+
+.participation-code-list > div {
+  display: grid;
+  grid-template-columns: 58px minmax(150px, 1.2fr) minmax(100px, 1fr) 90px;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 510px;
+  padding: 0.7rem;
+  border-bottom: 1px solid #eee7dd;
+  font-size: 0.8rem;
+}
+
+.participation-code-list > div:last-child {
+  border-bottom: 0;
+}
+
+.participation-code-list__head {
+  color: #737b87;
+  background: #f7f3ea;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+}
+
+.participation-code-button {
+  width: fit-content;
+  min-height: 34px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #efc9b8;
+  color: #9d4d28;
+  background: #fff7ef;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+}
+
+.shop-summary-workspace {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #f0d9bd;
+  border-radius: 1rem;
+  background: #fff9ef;
+}
+
+.shop-summary-headline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.shop-summary-headline > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.shop-summary-headline span,
+.teacher-product-list span {
+  color: #7a6b5e;
+  font-size: 0.72rem;
+}
+
+.shop-summary-headline strong {
+  color: #9d4d28;
+  font-size: 1.15rem;
+}
+
+.teacher-product-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.teacher-product-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.teacher-product-list article > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.teacher-product-list article > div:last-child {
+  text-align: right;
+}
+
+.student-count-ring--shop {
+  color: #9d4d28;
+  background: #fff0de;
+}
+
+.shop-purchase-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-purchase-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border-radius: 0.65rem;
+  background: #f7f3ea;
+  font-size: 0.76rem;
+}
+
+.shop-purchase-list li span {
+  color: #737b87;
 }
 
 .stage-navigation {
@@ -858,6 +1117,180 @@ h1 {
   max-width: 620px;
 }
 
+.shop-stage-view {
+  width: 100%;
+  text-align: left;
+}
+
+.shop-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.shop-header h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(1.6rem, 4vw, 2.35rem);
+  letter-spacing: -0.04em;
+}
+
+.shop-header > div:first-child > p:last-child {
+  margin: 0.65rem 0 0;
+  color: #657080;
+}
+
+.shop-wallet {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.9rem;
+  color: #764326;
+  background: #fff0d0;
+  text-align: right;
+}
+
+.shop-wallet span {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.shop-wallet strong {
+  font-size: 1.15rem;
+}
+
+.shop-product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1.25rem;
+}
+
+.shop-product-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  padding: 1rem;
+  border: 1px solid #eadfce;
+  border-radius: 1.1rem;
+  background: white;
+  box-shadow: 0 10px 24px rgb(69 50 29 / 7%);
+}
+
+.shop-product-card.is-sold-out {
+  opacity: 0.62;
+}
+
+.shop-product-card__emoji {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.8rem;
+  border-radius: 1rem;
+  background: #fff3df;
+  font-size: 1.7rem;
+}
+
+.shop-product-card__stock {
+  color: #a4502f;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.shop-product-card h2 {
+  margin: 0.35rem 0;
+  color: #263449;
+  font-size: 1.05rem;
+}
+
+.shop-product-card p {
+  margin: 0;
+  color: #717b87;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.shop-product-card footer {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
+
+.shop-product-card footer > strong {
+  color: #92502e;
+  font-size: 1.05rem;
+}
+
+.shop-product-card footer button {
+  width: 100%;
+}
+
+.shop-history {
+  margin-top: 1.2rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #f7f3ea;
+}
+
+.shop-history h2 {
+  margin: 0;
+  color: #263449;
+  font-size: 1.05rem;
+}
+
+.shop-history ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-history li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.7rem;
+  background: white;
+  font-size: 0.78rem;
+}
+
+.shop-history li > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.shop-history li span,
+.shop-history__empty {
+  color: #737b87;
+}
+
+.shop-history__empty {
+  margin: 0.8rem 0 0;
+  font-size: 0.82rem;
+}
+
+.shop-quantity {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 2.5rem;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.shop-quantity button {
+  min-height: 2.5rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
 .settlement-formula {
   display: flex;
   flex-wrap: wrap;
@@ -995,11 +1428,186 @@ h1 {
   gap: 1rem;
 }
 
+.close-warning-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 12rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.close-warning-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.7rem;
+  background: #fff4e5;
+}
+
+.close-warning-list span {
+  color: #9a5b30;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .quiz-complete__count {
   padding: 0.7rem 1rem;
   border-radius: 999px;
   color: #287253;
   background: #e8f7ef;
+}
+
+.quiz-complete.quiz-result {
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 1rem;
+  text-align: left;
+}
+
+.quiz-result__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #eef9f3, #fffdf8);
+}
+
+.quiz-result__header .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0;
+}
+
+.quiz-result__header .page-title,
+.quiz-result__header .page-description {
+  margin: 0.2rem 0 0;
+  text-align: left;
+}
+
+.quiz-result__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.quiz-result__summary article {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem;
+  border: 1px solid #dfe8e2;
+  border-radius: 0.85rem;
+  background: white;
+}
+
+.quiz-result__summary article.has-warning {
+  border-color: #efcf98;
+  background: #fff8e9;
+}
+
+.quiz-result__summary span {
+  color: #737b87;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quiz-result__summary strong {
+  color: #2d5f4d;
+  font-size: 1.05rem;
+}
+
+.quiz-answer-review {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e4e5df;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.quiz-answer-review h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.quiz-answer-review ol {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-answer-review li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #f5f7f4;
+}
+
+.quiz-answer-review li > span {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: #287253;
+  background: #e1f3e9;
+  font-weight: 950;
+}
+
+.quiz-answer-review li > span.is-empty {
+  color: #9b6828;
+  background: #ffedca;
+}
+
+.quiz-answer-review li strong {
+  display: block;
+  color: #384455;
+  font-size: 0.86rem;
+}
+
+.quiz-answer-review li p,
+.quiz-answer-review li small {
+  margin: 0.2rem 0 0;
+  color: #6d7783;
+  font-size: 0.75rem;
+}
+
+.quiz-answer-review li small {
+  margin: 0;
+  font-weight: 800;
+}
+
+.quiz-result__notice,
+.quiz-reward-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  color: #65553d;
+  background: #fff4da;
+}
+
+.quiz-result__notice > span,
+.quiz-reward-tip > span {
+  font-size: 1.4rem;
+}
+
+.quiz-result__notice p,
+.quiz-reward-tip p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
 }
 
 .quiz-player {
@@ -1567,6 +2175,81 @@ button.admin-student-row.is-selected {
   gap: 0.25rem;
 }
 
+.free-activity-stage-view,
+.day1-summary-view {
+  width: 100%;
+  text-align: left;
+}
+
+.fund-control-workspace,
+.final-control-workspace,
+.student-fund-view,
+.student-final-result {
+  display: grid;
+  gap: 1rem;
+}
+
+.fund-source-grid,
+.final-class-summary,
+.final-result-ledger {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.fund-source-grid > div,
+.final-class-summary > div,
+.final-result-ledger > div {
+  padding: 0.9rem;
+  border: 1px solid var(--line-color, #dbe2ea);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.fund-source-grid dt,
+.final-class-summary dt,
+.final-result-ledger dt {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.fund-source-grid dd,
+.final-class-summary dd,
+.final-result-ledger dd {
+  margin: 0.3rem 0 0;
+  font-weight: 800;
+}
+
+.fund-cost-option-grid,
+.teacher-vote-options,
+.student-vote-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.fund-cost-option-grid article,
+.teacher-vote-options article,
+.student-vote-options label,
+.student-vote-options article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.fund-cost-option-grid article > div,
+.teacher-vote-options article > div,
+.student-vote-options label > span,
+.student-vote-options article > span {
+  display: grid;
+  gap: 0.25rem;
+}
+
 .admin-activity-list li span {
   color: #757e8e;
   font-size: 0.82rem;
@@ -1585,6 +2268,802 @@ button.admin-student-row.is-selected {
     position: static;
     max-height: none;
   }
+}
+
+.teacher-vote-options article.is-tied {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.teacher-vote-options article.is-decided,
+.student-vote-options label.is-decided,
+.student-vote-options article.is-decided,
+.student-vote-options label.is-selected {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.student-fund-balance,
+.fund-wait-card,
+.student-vote-card,
+.final-result-hero,
+.final-purchase-list,
+.final-vote-result,
+.distribution-list {
+  padding: 1.1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.student-vote-options input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+}
+
+.student-vote-options small,
+.student-vote-options em {
+  color: #64748b;
+  font-style: normal;
+}
+
+.final-purchase-list ul,
+.distribution-list ul {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  list-style: none;
+}
+
+.final-purchase-list li,
+.distribution-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.survey-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.room-complete-button {
+  background: #b91c1c;
+}
+
+@media (max-width: 680px) {
+  .fund-cost-option-grid article,
+  .teacher-vote-options article,
+  .student-vote-options label,
+  .student-vote-options article,
+  .final-purchase-list li,
+  .distribution-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.economy-header,
+.day1-result-header,
+.day1-close-workspace__headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.economy-header h1,
+.day1-result-header h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(1.45rem, 4vw, 2.25rem);
+  letter-spacing: -0.04em;
+}
+
+.economy-module-tabs {
+  display: flex;
+  gap: 0.45rem;
+  margin: 1.2rem 0;
+  padding-bottom: 0.35rem;
+  overflow-x: auto;
+}
+
+.economy-module-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0.5rem 0.75rem;
+  color: #526176;
+  background: #eef2f5;
+}
+
+.economy-module-tabs button.is-active {
+  color: white;
+  background: #287253;
+}
+
+.economy-balance-grid,
+.day1-assets-grid,
+.day1-close-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.economy-balance-grid article,
+.day1-assets-grid article,
+.day1-close-totals > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.9rem;
+  background: white;
+}
+
+.economy-balance-grid span,
+.day1-assets-grid span,
+.day1-close-totals dt {
+  color: #737b87;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.economy-balance-grid strong,
+.day1-assets-grid strong,
+.day1-close-totals dd {
+  margin: 0;
+  color: #284a3e;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.day1-assets-grid small {
+  color: #6c52a2;
+  font-size: 0.7rem;
+}
+
+.economy-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.economy-activity-grid button {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  min-height: 132px;
+  padding: 1rem;
+  color: #2f3b4d;
+  background: #f7f3ea;
+  text-align: left;
+}
+
+.economy-activity-grid button > span {
+  font-size: 1.7rem;
+}
+
+.economy-activity-grid button small {
+  color: #6d7480;
+  line-height: 1.45;
+}
+
+.finance-activity-panel,
+.wallet-panel,
+.day1-summary-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.finance-guide-card,
+.finance-form-card,
+.investment-total-card,
+.transaction-list,
+.day1-result-section,
+.day1-close-workspace {
+  padding: 1rem;
+  border: 1px solid #e4ddd1;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.finance-guide-card h2,
+.finance-form-card h2,
+.transaction-list h2,
+.day1-result-section h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.finance-form-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.finance-form-card label {
+  font-weight: 900;
+}
+
+.finance-form-card dl,
+.investment-total-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.finance-form-card dl > div,
+.investment-total-card > div:not(.finance-actions) {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #f7f3ea;
+}
+
+.finance-form-card dt,
+.investment-total-card span {
+  color: #737b87;
+  font-size: 0.72rem;
+}
+
+.finance-form-card dd {
+  margin: 0.25rem 0 0;
+  font-weight: 900;
+}
+
+.finance-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.finance-confirmed {
+  margin: 0;
+  color: #287253;
+  font-weight: 900;
+}
+
+.investment-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.investment-asset-grid article {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 1rem;
+  background: white;
+}
+
+.investment-asset-grid h3,
+.investment-asset-grid p {
+  margin: 0;
+}
+
+.investment-asset-grid p,
+.investment-asset-grid small {
+  color: #6b7481;
+}
+
+.risk-badge {
+  width: fit-content;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.risk-badge--low { color: #287253; background: #e5f5ec; }
+.risk-badge--medium { color: #946a17; background: #fff1c9; }
+.risk-badge--high { color: #aa492e; background: #ffede5; }
+
+.transaction-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.transaction-list article {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem;
+  border-radius: 0.75rem;
+  background: #f7f3ea;
+}
+
+.transaction-list article > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.transaction-list small { color: #737b87; }
+.transaction-list .is-positive { color: #287253; }
+
+.day1-result-header {
+  justify-content: flex-start;
+}
+
+.day1-result-header .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0;
+}
+
+.day1-result-section ul,
+.day1-close-warnings {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day1-result-section li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-radius: 0.7rem;
+  background: #f7f3ea;
+}
+
+.day1-purchase-total {
+  margin: 0.8rem 0 0;
+  text-align: right;
+  font-weight: 900;
+}
+
+.day1-close-workspace {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.day1-close-workspace__headline > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.day1-student-table {
+  overflow-x: auto;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.8rem;
+}
+
+.day1-student-table > div {
+  display: grid;
+  grid-template-columns: minmax(135px, 1.3fr) repeat(4, minmax(85px, 1fr));
+  gap: 0.5rem;
+  min-width: 540px;
+  padding: 0.65rem;
+  border-bottom: 1px solid #eee7dd;
+  font-size: 0.76rem;
+}
+
+.day1-student-table > div:last-child { border-bottom: 0; }
+.day1-student-table__head { color: #737b87; background: #f7f3ea; font-weight: 900; }
+
+.day1-close-warnings li {
+  padding: 0.65rem;
+  border-radius: 0.65rem;
+  color: #89582b;
+  background: #fff1d6;
+  font-size: 0.78rem;
+}
+
+.day1-close-action { width: 100%; }
+
+.student-count-ring--day1 {
+  color: #6c52a2;
+  background: #eee8fa;
+}
+
+.day2-finance-view {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  text-align: left;
+}
+
+.day2-finance-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.day2-finance-header .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0;
+}
+
+.day2-finance-header h1 {
+  margin: 0;
+  color: #263449;
+  font-size: clamp(1.45rem, 4vw, 2.25rem);
+  letter-spacing: -0.04em;
+}
+
+.stage-wait-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 220px;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid #ead9bd;
+  border-radius: 1rem;
+  background: #fffaf0;
+}
+
+.stage-wait-panel .stage-view__icon {
+  flex: 0 0 auto;
+  width: 4rem;
+  height: 4rem;
+  margin: 0;
+}
+
+.stage-wait-panel h2 {
+  margin: 0 0 0.45rem;
+  color: #69472f;
+}
+
+.stage-wait-panel p {
+  margin: 0;
+  color: #6f7982;
+  line-height: 1.7;
+}
+
+.day2-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.day2-balance-grid article {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid #dce5df;
+  border-radius: 0.9rem;
+  background: white;
+}
+
+.day2-balance-grid article.is-highlight {
+  border-color: #9ccbb6;
+  background: #eaf7f0;
+}
+
+.day2-balance-grid span,
+.day2-balance-grid small {
+  color: #6f7982;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.day2-balance-grid strong {
+  color: #28664e;
+  font-size: 1.05rem;
+}
+
+.day2-finance-view .is-loss {
+  color: #b24c3e;
+}
+
+.day2-result-breakdown,
+.day2-finance-workspace {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #dce5df;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.day2-result-breakdown h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.day2-result-breakdown > dl,
+.day2-allocation-list article dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.day2-result-breakdown > dl > div,
+.day2-allocation-list article dl > div {
+  padding: 0.65rem;
+  border-radius: 0.7rem;
+  background: #f4f7f4;
+}
+
+.day2-result-breakdown dt,
+.day2-allocation-list dt {
+  color: #737b87;
+  font-size: 0.7rem;
+}
+
+.day2-result-breakdown dd,
+.day2-allocation-list dd {
+  margin: 0.25rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.day2-allocation-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.day2-allocation-list article {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid #e5e8e1;
+  border-radius: 0.8rem;
+  background: white;
+}
+
+.day2-allocation-list article > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.day2-allocation-list article > div:first-child span {
+  color: #737b87;
+  font-size: 0.72rem;
+}
+
+.finance-learning-journey,
+.finance-investment-lesson {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid #dce5df;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.finance-learning-journey__heading h2,
+.finance-investment-lesson h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.finance-learning-journey__heading > p:last-child {
+  margin-bottom: 0;
+  color: #6f7982;
+}
+
+.finance-learning-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.finance-learning-steps article {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.7rem;
+  min-height: 245px;
+  padding: 1rem;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: #f2f8f4;
+}
+
+.finance-learning-steps article:nth-child(2) {
+  background: #fff5e8;
+}
+
+.finance-learning-steps article:nth-child(3) {
+  background: #f2effb;
+}
+
+.finance-learning-steps__number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  color: white;
+  background: #397a60;
+  font-weight: 950;
+}
+
+.finance-learning-steps h3 {
+  margin: 0;
+  color: #344252;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.finance-learning-steps p:not(.eyebrow) {
+  color: #687481;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.finance-learning-steps article strong {
+  display: block;
+  margin-top: 0.8rem;
+  color: #28664e;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.finance-investment-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.finance-investment-cards article {
+  padding: 0.9rem;
+  border: 1px solid #e4e7e1;
+  border-radius: 0.85rem;
+  background: white;
+}
+
+.finance-investment-cards article > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.finance-investment-cards article > div:first-child span {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  color: #6c52a2;
+  background: #eee8fa;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.finance-investment-cards p {
+  color: #687481;
+  font-size: 0.8rem;
+}
+
+.finance-investment-cards dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.finance-investment-cards dl > div {
+  padding: 0.55rem;
+  border-radius: 0.65rem;
+  background: #f5f7f4;
+}
+
+.finance-investment-cards dt {
+  color: #737b87;
+  font-size: 0.68rem;
+}
+
+.finance-investment-cards dd {
+  margin: 0.2rem 0 0;
+  font-weight: 900;
+}
+
+.finance-learning-takeaway {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  color: #fff;
+  background: linear-gradient(135deg, #315f4e, #42816a);
+}
+
+.finance-learning-takeaway > strong {
+  align-self: start;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 16%);
+  white-space: nowrap;
+}
+
+.finance-learning-takeaway ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.teacher-finance-lesson {
+  padding: 1rem;
+  border-radius: 0.9rem;
+  background: #f2f8f4;
+}
+
+.teacher-finance-lesson > p {
+  margin: 0 0 0.8rem;
+  color: #557064;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.teacher-finance-lesson ol {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teacher-finance-lesson li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem;
+  border-radius: 0.7rem;
+  background: white;
+}
+
+.teacher-finance-lesson li > span {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  color: white;
+  background: #397a60;
+  font-weight: 900;
+}
+
+.teacher-finance-lesson li strong,
+.teacher-finance-lesson li small {
+  display: block;
+}
+
+.teacher-finance-lesson li small {
+  margin-top: 0.15rem;
+  color: #737b87;
+}
+
+.day2-finance-summary-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-radius: 0.7rem;
+  color: #35604f;
+  background: #eaf7f0;
+  font-size: 0.78rem;
+}
+
+.student-count-ring--day2 {
+  color: #287253;
+  background: #e5f5ec;
 }
 
 @media (max-width: 760px) {
@@ -1659,8 +3138,75 @@ button.admin-student-row.is-selected {
     grid-template-columns: 1fr;
   }
 
+  .economy-header,
+  .day1-result-header {
+    flex-direction: column;
+  }
+
+  .economy-balance-grid,
+  .day1-assets-grid,
+  .day1-close-totals,
+  .economy-activity-grid,
+  .investment-asset-grid,
+  .finance-form-card dl,
+  .investment-total-card,
+  .finance-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .day2-finance-header {
+    flex-direction: column;
+  }
+
+  .day2-balance-grid,
+  .day2-result-breakdown > dl,
+  .day2-allocation-list article dl,
+  .finance-learning-steps,
+  .finance-investment-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-learning-takeaway {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-result__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quiz-result__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-answer-review li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .quiz-answer-review li small {
+    grid-column: 2;
+  }
+
+  .day2-finance-summary-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .payslip-header {
     flex-direction: column;
+  }
+
+  .shop-header {
+    flex-direction: column;
+  }
+
+  .shop-wallet {
+    width: 100%;
+    text-align: left;
+  }
+
+  .shop-product-grid {
+    grid-template-columns: 1fr;
   }
 
   .student-room-header__info {
@@ -1690,5 +3236,261 @@ button.admin-student-row.is-selected {
 
   .quiz-question h1 {
     min-height: auto;
+  }
+}
+.day2-reward-view,
+.day2-education-view,
+.day2-inflation-wait,
+.day2-final-shop-view {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.day2-reward-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.day2-reward-breakdown div {
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface-soft, #f6f7fb);
+}
+
+.day2-reward-breakdown dt,
+.day2-reward-breakdown dd {
+  margin: 0;
+}
+
+.day2-reward-breakdown dd {
+  margin-top: 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.day2-reward-breakdown .is-total {
+  color: #fff;
+  background: linear-gradient(135deg, #6255d9, #8275ed);
+}
+
+.quiz-reward-result {
+  padding: clamp(1rem, 4vw, 2rem);
+  border: 1px solid #e2e2eb;
+  border-radius: 1.5rem;
+  background: #fffdf8;
+  text-align: left;
+}
+
+.quiz-reward-result__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.quiz-reward-result__header .page-title,
+.quiz-reward-result__header .page-description {
+  text-align: left;
+}
+
+.quiz-reward-score {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 9rem;
+  height: 9rem;
+  border: 0.7rem solid #e6e1ff;
+  border-radius: 50%;
+  color: #5145b8;
+  background: #f7f5ff;
+}
+
+.quiz-reward-score.is-empty {
+  color: #777e89;
+  border-color: #e7e8ea;
+  background: #f6f6f6;
+}
+
+.quiz-reward-score span,
+.quiz-reward-score small {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quiz-reward-score strong {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.quiz-reward-equation {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1.2fr;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 1.5rem 0;
+}
+
+.quiz-reward-equation > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  background: #f4f3fb;
+}
+
+.quiz-reward-equation > div.is-total {
+  color: white;
+  background: linear-gradient(135deg, #6255d9, #8275ed);
+}
+
+.quiz-reward-equation span {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quiz-reward-equation b {
+  color: #777e89;
+  font-size: 1.2rem;
+}
+
+.quiz-reward-tip {
+  color: #514932;
+  background: #fff6dc;
+}
+
+.day2-lesson-grid,
+.inflation-lesson {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.day2-lesson-grid article,
+.inflation-lesson article {
+  padding: 24px;
+  border: 1px solid #e6e7ef;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(32 34 60 / 7%);
+}
+
+.day2-lesson-grid article > span,
+.day2-inflation-wait > span {
+  font-size: 2.5rem;
+}
+
+.day2-lesson-grid article strong {
+  display: block;
+  margin-top: 18px;
+  color: #5145b8;
+}
+
+.day2-inflation-wait {
+  padding: 48px;
+  text-align: center;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #fff8e9, #fff);
+}
+
+.inflated-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.inflated-price del {
+  color: #85889a;
+}
+
+.inflated-price strong {
+  color: #d85a35;
+  font-size: 1.35rem;
+}
+
+.inflated-price span {
+  padding: 4px 8px;
+  color: #a44429;
+  font-size: .75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #ffebe4;
+}
+
+.day2-final-knowledge ul {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.day2-final-knowledge li {
+  display: flex;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 18px;
+  background: #f6f7fb;
+}
+
+.day2-reward-rule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.day2-reward-rule span,
+.day2-reward-rule strong {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #f0effc;
+}
+
+.inflation-product-table {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.inflation-product-table > div {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f7f7fb;
+}
+
+@media (max-width: 760px) {
+  .day2-lesson-grid,
+  .inflation-lesson,
+  .day2-reward-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .inflation-product-table > div {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quiz-reward-result__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quiz-reward-score {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+
+  .quiz-reward-equation {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-reward-equation b {
+    text-align: center;
   }
 }

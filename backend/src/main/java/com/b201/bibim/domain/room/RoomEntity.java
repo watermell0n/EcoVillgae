@@ -45,7 +45,26 @@ public class RoomEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "inflation_applied_at")
+    private Instant inflationAppliedAt;
+
     protected RoomEntity() {
+    }
+
+    public static RoomEntity preparing(UUID teacherId, String name, int expectedStudentCount) {
+        RoomEntity room = new RoomEntity();
+        room.id = UUID.randomUUID();
+        room.teacherId = teacherId;
+        room.name = name;
+        room.expectedStudentCount = expectedStudentCount;
+        room.status = "PREPARING";
+        room.currentDay = 1;
+        room.currentStage = RoomStage.DAY1_LOBBY.name();
+        room.mode = "GUIDED";
+        room.version = 0;
+        room.syncVersion = 0;
+        room.updatedAt = Instant.now();
+        return room;
     }
 
     public UUID getId() {
@@ -92,6 +111,10 @@ public class RoomEntity {
         return updatedAt;
     }
 
+    public Instant getInflationAppliedAt() {
+        return inflationAppliedAt;
+    }
+
     public void changeStage(RoomStage targetStage) {
         this.currentDay = (short) targetStage.day();
         this.currentStage = targetStage.name();
@@ -105,5 +128,55 @@ public class RoomEntity {
     public void markEconomicStateChanged() {
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
+    }
+
+    public void markControlStateChanged() {
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
+
+    public void closeDayOne() {
+        this.currentDay = 1;
+        this.currentStage = RoomStage.DAY1_CLOSED.name();
+        this.status = "DAY1_CLOSED";
+        this.mode = "CLOSED";
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
+
+    public void startDayTwo() {
+        if (!RoomStage.DAY1_CLOSED.name().equals(currentStage)) {
+            throw new IllegalStateException("1일차 마감 상태에서만 2일차를 시작할 수 있습니다.");
+        }
+        this.currentDay = 2;
+        this.currentStage = RoomStage.DAY2_LOGIN.name();
+        this.status = RoomStage.DAY2_LOGIN.roomStatus();
+        this.mode = RoomStage.DAY2_LOGIN.mode();
+        this.version += 1;
+        this.syncVersion += 1;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markInflationApplied() {
+        if (inflationAppliedAt != null) {
+            throw new IllegalStateException("물가상승은 방마다 한 번만 적용할 수 있습니다.");
+        }
+        inflationAppliedAt = Instant.now();
+        syncVersion += 1;
+        updatedAt = inflationAppliedAt;
+    }
+
+    public void complete() {
+        if (!RoomStage.DAY2_SURVEY.name().equals(currentStage)) {
+            throw new IllegalStateException("설문 단계에서만 수업을 종료할 수 있습니다.");
+        }
+        currentStage = RoomStage.DAY2_COMPLETED.name();
+        status = "COMPLETED";
+        mode = "CLOSED";
+        version += 1;
+        syncVersion += 1;
+        updatedAt = Instant.now();
     }
 }

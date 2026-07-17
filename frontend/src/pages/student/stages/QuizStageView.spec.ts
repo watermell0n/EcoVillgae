@@ -1,6 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useRoomSessionStore } from '../../../stores/roomSession'
 import QuizStageView from './QuizStageView.vue'
 
 const quizApi = vi.hoisted(() => ({
@@ -36,6 +38,7 @@ const quizFixture = {
 
 describe('QuizStageView', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     quizApi.getCurrentQuiz.mockResolvedValue(structuredClone(quizFixture))
     quizApi.saveQuizAnswer.mockResolvedValue({
@@ -79,6 +82,40 @@ describe('QuizStageView', () => {
 
     expect(quizApi.submitQuiz).toHaveBeenCalledWith('quiz-1')
     expect(wrapper.text()).toContain('퀴즈 제출이 완료되었습니다.')
+    expect(wrapper.text()).toContain('답안 제출 내역')
+    expect(wrapper.text()).toContain('A. 역할 소득')
+    expect(wrapper.text()).toContain('정답 수와 보상은 퀴즈 마감 후 공개돼요.')
+    expect(wrapper.find('.quiz-options').exists()).toBe(false)
+  })
+
+  it('shows the closed state when the teacher closes an open quiz', async () => {
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = {
+      roomId: 'room-1',
+      roomStatus: 'DAY1_ACTIVE',
+      currentDay: 1,
+      currentStage: 'DAY1_QUIZ',
+      mode: 'GUIDED',
+      walletBalance: 0,
+      modules: [],
+      syncVersion: 1,
+      changed: true,
+    }
+    const wrapper = mount(QuizStageView)
+    await flushPromises()
+    expect(wrapper.find('.quiz-player').exists()).toBe(true)
+
+    quizApi.getCurrentQuiz.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'QUIZ_NOT_OPEN' } } },
+    })
+    roomSessionStore.studentState = {
+      ...roomSessionStore.studentState,
+      syncVersion: 2,
+    }
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('선생님이 퀴즈를 마감했습니다.')
     expect(wrapper.find('.quiz-options').exists()).toBe(false)
   })
 })

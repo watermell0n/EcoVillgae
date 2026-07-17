@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAdjacentStages, getRoomStage, ROOM_STAGES } from './stages'
+import { getAdjacentStages, getRoomStage, isNextStageDisabled, ROOM_STAGES } from './stages'
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
-    expect(ROOM_STAGES).toHaveLength(25)
+    expect(ROOM_STAGES).toHaveLength(26)
     expect(ROOM_STAGES[0]?.id).toBe('DAY1_LOBBY')
     expect(ROOM_STAGES.at(-1)?.id).toBe('DAY2_COMPLETED')
   })
@@ -21,5 +21,79 @@ describe('room stages', () => {
       day: 1,
     })
     expect(ROOM_STAGES.every((stage) => stage.label && stage.description)).toBe(true)
+  })
+
+  it('enables navigation after the day 2 quiz reward settlement completes', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ_SETTLEMENT',
+        hasNextStage: true,
+        changingStage: false,
+        day2QuizRewardSettlementStatus: 'COMPLETED',
+      }),
+    ).toBe(false)
+  })
+
+  it('keeps settlement and active quiz stages blocked until their own prerequisite completes', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ_SETTLEMENT',
+        hasNextStage: true,
+        changingStage: false,
+        day2QuizRewardSettlementStatus: 'NOT_STARTED',
+      }),
+    ).toBe(true)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_QUIZ',
+        hasNextStage: true,
+        changingStage: false,
+        quizStatus: 'OPEN',
+      }),
+    ).toBe(true)
+  })
+
+  it('requires a prepared fund vote and a decided result before advancing', () => {
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_COST',
+        hasNextStage: true,
+        changingStage: false,
+        fundExpenseApplied: true,
+        votePrepared: true,
+      }),
+    ).toBe(false)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_COST',
+        hasNextStage: true,
+        changingStage: false,
+        fundExpenseApplied: false,
+        votePrepared: true,
+      }),
+    ).toBe(false)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_VOTE',
+        hasNextStage: true,
+        changingStage: false,
+        voteStatus: 'CLOSED',
+      }),
+    ).toBe(true)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_VOTE',
+        hasNextStage: true,
+        changingStage: false,
+        voteStatus: 'DECIDED',
+      }),
+    ).toBe(false)
+
+    expect(getAdjacentStages('DAY2_FUND_VOTE').next?.id).toBe('DAY2_FUND_RESULT')
+    expect(getAdjacentStages('DAY2_FUND_RESULT').next?.id).toBe('DAY2_FINAL_RESULT')
   })
 })
