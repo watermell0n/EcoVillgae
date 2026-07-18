@@ -26,6 +26,26 @@ export interface StudentQuiz {
   questions: QuizQuestion[]
 }
 
+export interface QuizResultQuestion {
+  questionId: string
+  orderNo: number
+  prompt: string
+  options: QuizOption[]
+  selectedAnswer: string | null
+  correctAnswer: string
+  correct: boolean
+  explanation: string | null
+}
+
+export interface StudentQuizResult {
+  quizId: string
+  title: string
+  questionCount: number
+  answeredCount: number
+  correctCount: number
+  questions: QuizResultQuestion[]
+}
+
 export interface SaveAnswerResponse {
   questionId: string
   answer: string
@@ -67,6 +87,13 @@ export interface TeacherQuizSummary {
 
 export async function getCurrentQuiz() {
   const response = await http.get<ApiResponse<StudentQuiz>>('/student/quizzes/current')
+  return response.data.data
+}
+
+export async function getDayOneQuizResult() {
+  const response = await http.get<ApiResponse<StudentQuizResult>>(
+    '/student/quizzes/day-1/result',
+  )
   return response.data.data
 }
 

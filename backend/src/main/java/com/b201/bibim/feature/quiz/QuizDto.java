@@ -40,6 +40,28 @@ public final class QuizDto {
     ) {
     }
 
+    public record QuizResultQuestionResponse(
+            UUID questionId,
+            int orderNo,
+            String prompt,
+            List<QuizOptionResponse> options,
+            String selectedAnswer,
+            String correctAnswer,
+            boolean correct,
+            String explanation
+    ) {
+    }
+
+    public record StudentQuizResultResponse(
+            UUID quizId,
+            String title,
+            int questionCount,
+            int answeredCount,
+            int correctCount,
+            List<QuizResultQuestionResponse> questions
+    ) {
+    }
+
     public record SaveAnswerRequest(
             @NotBlank(message = "답안을 선택해 주세요.")
             @Size(max = 50, message = "답안이 너무 깁니다.")

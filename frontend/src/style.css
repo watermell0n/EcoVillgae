@@ -1329,6 +1329,154 @@ h1 {
   color: #b64a31;
 }
 
+.day1-quiz-result-stage {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 840px);
+  margin: 0 auto;
+  text-align: left;
+}
+
+.quiz-result-detail {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #e4e5df;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.quiz-result-detail h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.quiz-result-detail ol {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-result-detail li {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid #e4ddd1;
+  border-left: 0.35rem solid #d3a64d;
+  border-radius: 0.85rem;
+  background: white;
+}
+
+.quiz-result-detail li.is-correct {
+  border-left-color: #3c936d;
+}
+
+.quiz-result-detail li.is-incorrect {
+  border-left-color: #c65d48;
+}
+
+.quiz-result-detail li > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.quiz-result-detail li > header span,
+.quiz-result-detail li > header strong {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  color: #526176;
+  background: #f1f3f4;
+  font-size: 0.75rem;
+}
+
+.quiz-result-detail li.is-correct > header strong {
+  color: #287253;
+  background: #e8f7ef;
+}
+
+.quiz-result-detail li.is-incorrect > header strong {
+  color: #a34331;
+  background: #fff0ec;
+}
+
+.quiz-result-detail h3 {
+  margin: 0;
+  color: #334155;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.quiz-result-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.quiz-result-detail dl > div {
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  background: #f7f3ea;
+}
+
+.quiz-result-detail dt {
+  color: #737b87;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.quiz-result-detail dd {
+  margin: 0.25rem 0 0;
+  color: #334155;
+  font-weight: 900;
+}
+
+.quiz-result-detail__explanation {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  color: #526176;
+  background: #eef5fa;
+  line-height: 1.55;
+}
+
+.quiz-result-detail__explanation strong {
+  margin-right: 0.5rem;
+  color: #315a78;
+}
+
+.settlement-wait-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  color: #65553d;
+  background: #fff4da;
+}
+
+.settlement-wait-card > span {
+  font-size: 1.6rem;
+}
+
+.settlement-wait-card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.settlement-wait-card .settlement-formula {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+  background: rgb(255 255 255 / 65%);
+}
+
 .payslip-stage-view {
   width: min(100%, 720px);
   margin: 0 auto;
@@ -3393,6 +3541,10 @@ button.admin-student-row.is-selected {
   }
 
   .quiz-result__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-result-detail dl {
     grid-template-columns: 1fr;
   }
 

@@ -22,9 +22,11 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.quiz.QuizDto.QuizOptionResponse;
 import com.b201.bibim.feature.quiz.QuizDto.QuizQuestionResponse;
+import com.b201.bibim.feature.quiz.QuizDto.QuizResultQuestionResponse;
 import com.b201.bibim.feature.quiz.QuizDto.SaveAnswerRequest;
 import com.b201.bibim.feature.quiz.QuizDto.SaveAnswerResponse;
 import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResponse;
+import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResultResponse;
 import com.b201.bibim.feature.quiz.QuizDto.SubmitQuizResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizStudentResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizSummaryResponse;
@@ -98,6 +100,60 @@ public class QuizService {
                                 savedAnswers.get(question.getId())
                         ))
                         .toList()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public StudentQuizResultResponse dayOneResult(UUID studentId) {
+        StudentEntity student = findActiveStudent(studentId);
+        RoomEntity room = findRoom(student.getRoomId());
+        String effectiveStage = studentFlowService.effectiveStage(
+                studentId,
+                room.getCurrentStage()
+        );
+        if (!"DAY1_INCOME_SETTLEMENT".equals(effectiveStage)) {
+            throw quizResultNotAvailable();
+        }
+        QuizEntity quiz = quizRepository.findByRoomIdAndDayNumber(room.getId(), (short) 1)
+                .filter(item -> "CLOSED".equals(item.getStatus()))
+                .orElseThrow(this::quizResultNotAvailable);
+        List<QuizQuestionEntity> questions = questionRepository
+                .findAllByQuizIdOrderByOrderNo(quiz.getId());
+        var submission = submissionRepository.findByQuizIdAndStudentId(quiz.getId(), studentId);
+        List<QuizAnswerEntity> answers = submission
+                .map(item -> answerRepository.findAllBySubmissionId(item.getId()))
+                .orElseGet(List::of);
+        Map<UUID, String> answersByQuestionId = answers.stream().collect(Collectors.toMap(
+                QuizAnswerEntity::getQuestionId,
+                QuizAnswerEntity::getAnswer
+        ));
+        List<QuizResultQuestionResponse> resultQuestions = questions.stream()
+                .map(question -> {
+                    String selectedAnswer = answersByQuestionId.get(question.getId());
+                    return new QuizResultQuestionResponse(
+                            question.getId(),
+                            question.getOrderNo(),
+                            question.getPrompt(),
+                            question.getOptions().stream()
+                                    .map(option -> new QuizOptionResponse(option.id(), option.text()))
+                                    .toList(),
+                            selectedAnswer,
+                            question.getCorrectAnswer(),
+                            question.isCorrect(selectedAnswer),
+                            question.getExplanation()
+                    );
+                })
+                .toList();
+        int correctCount = (int) resultQuestions.stream()
+                .filter(QuizResultQuestionResponse::correct)
+                .count();
+        return new StudentQuizResultResponse(
+                quiz.getId(),
+                quiz.getTitle(),
+                quiz.getQuestionCount(),
+                answers.size(),
+                correctCount,
+                resultQuestions
         );
     }
 
@@ -355,6 +411,14 @@ public class QuizService {
                 HttpStatus.CONFLICT,
                 "QUIZ_NOT_OPEN",
                 "현재는 퀴즈를 풀 수 있는 단계가 아닙니다."
+        );
+    }
+
+    private ApiException quizResultNotAvailable() {
+        return new ApiException(
+                HttpStatus.CONFLICT,
+                "QUIZ_RESULT_NOT_AVAILABLE",
+                "퀴즈 마감 후 결과 확인 단계에서 공개됩니다."
         );
     }
 

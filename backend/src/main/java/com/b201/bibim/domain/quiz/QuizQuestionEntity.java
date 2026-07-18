@@ -95,6 +95,14 @@ public class QuizQuestionEntity {
         return List.copyOf(options);
     }
 
+    public String getCorrectAnswer() {
+        return correctAnswer;
+    }
+
+    public String getExplanation() {
+        return explanation;
+    }
+
     public record QuizOption(String id, String text) {
     }
 }

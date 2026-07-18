@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import com.b201.bibim.feature.quiz.QuizDto.SaveAnswerRequest;
 import com.b201.bibim.feature.quiz.QuizDto.SaveAnswerResponse;
 import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResponse;
+import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResultResponse;
 import com.b201.bibim.feature.quiz.QuizDto.SubmitQuizResponse;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
@@ -39,6 +40,17 @@ public class StudentQuizController {
     ) {
         return ApiResponse.success(
                 quizService.currentQuiz(principal.id()),
+                requestId(request)
+        );
+    }
+
+    @GetMapping("/day-1/result")
+    ApiResponse<StudentQuizResultResponse> dayOneResult(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                quizService.dayOneResult(principal.id()),
                 requestId(request)
         );
     }

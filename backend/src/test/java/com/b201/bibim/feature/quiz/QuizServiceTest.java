@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.UUID;
 
 import com.b201.bibim.domain.quiz.QuizAnswerRepository;
+import com.b201.bibim.domain.quiz.QuizAnswerEntity;
 import com.b201.bibim.domain.quiz.QuizEntity;
+import com.b201.bibim.domain.quiz.QuizQuestionEntity;
 import com.b201.bibim.domain.quiz.QuizQuestionRepository;
 import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.quiz.QuizSubmissionEntity;
@@ -191,6 +193,75 @@ class QuizServiceTest {
         assertEquals(1, summary.eligibleStudentCount());
         assertEquals(1, summary.notSubmittedCount());
         assertEquals(1, summary.students().size());
+    }
+
+    @Test
+    void returnsDayOneQuestionResultsAfterStudentReachesSettlement() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        QuizEntity closedQuiz = QuizEntity.dayOneReady(roomId, 1);
+        closedQuiz.open();
+        closedQuiz.close();
+        QuizQuestionEntity question = QuizQuestionEntity.multipleChoice(
+                closedQuiz.getId(),
+                1,
+                "역할의 일을 하고 받는 돈은 무엇일까요?",
+                List.of(
+                        new QuizQuestionEntity.QuizOption("A", "역할 소득"),
+                        new QuizQuestionEntity.QuizOption("B", "상품 가격")
+                ),
+                "A",
+                "역할을 수행하고 받는 돈을 역할 소득이라고 해요."
+        );
+        QuizSubmissionEntity submitted = QuizSubmissionEntity.start(closedQuiz.getId(), studentId);
+        submitted.submit(1);
+        QuizAnswerEntity answer = QuizAnswerEntity.create(
+                submitted.getId(), question.getId(), "A", true
+        );
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getCurrentStage()).thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(studentFlowService.effectiveStage(studentId, "DAY1_INCOME_SETTLEMENT"))
+                .thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(closedQuiz));
+        when(questionRepository.findAllByQuizIdOrderByOrderNo(closedQuiz.getId()))
+                .thenReturn(List.of(question));
+        when(submissionRepository.findByQuizIdAndStudentId(closedQuiz.getId(), studentId))
+                .thenReturn(Optional.of(submitted));
+        when(answerRepository.findAllBySubmissionId(submitted.getId()))
+                .thenReturn(List.of(answer));
+
+        var result = quizService.dayOneResult(studentId);
+
+        assertEquals(1, result.correctCount());
+        assertEquals("A", result.questions().getFirst().correctAnswer());
+        assertEquals("A", result.questions().getFirst().selectedAnswer());
+        assertEquals("역할을 수행하고 받는 돈을 역할 소득이라고 해요.",
+                result.questions().getFirst().explanation());
+    }
+
+    @Test
+    void hidesResultsFromCatchUpStudentWhoIsStillTakingTheQuiz() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getCurrentStage()).thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(studentFlowService.effectiveStage(studentId, "DAY1_INCOME_SETTLEMENT"))
+                .thenReturn("DAY1_QUIZ");
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> quizService.dayOneResult(studentId)
+        );
+
+        assertEquals("QUIZ_RESULT_NOT_AVAILABLE", exception.getCode());
     }
 
     private void prepareOpenQuiz(UUID studentId, UUID roomId, UUID quizId) {
