@@ -269,6 +269,7 @@ class RoomSessionServiceTest {
         );
 
         verify(quiz).close();
+        verify(studentFlowService).markQuizClosed(room, 1);
     }
 
     @Test

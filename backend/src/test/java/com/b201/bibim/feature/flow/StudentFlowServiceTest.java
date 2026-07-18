@@ -12,6 +12,7 @@ import java.util.UUID;
 import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.monitoring.StudentPresenceEntity;
 import com.b201.bibim.domain.monitoring.StudentPresenceRepository;
+import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.quiz.QuizSubmissionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
@@ -51,6 +52,7 @@ class StudentFlowServiceTest {
     @Mock StudentEntity student;
     @Mock RoomEntity room;
     @Mock StudentPresenceEntity presence;
+    @Mock QuizEntity quiz;
 
     @InjectMocks StudentFlowService service;
 
@@ -100,6 +102,32 @@ class StudentFlowServiceTest {
         assertEquals("LIVE", state.getFlowMode());
         assertEquals("COMPLETED", progress.getStatus());
         assertEquals(10_000, progress.getRewardRateBps());
+    }
+
+    @Test
+    void movesUnsubmittedLiveStudentToCatchUpWhenQuizCloses() {
+        UUID roomId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        StudentFlowStateEntity state = StudentFlowStateEntity.live(
+                roomId, studentId, "DAY1_QUIZ"
+        );
+        prepare(roomId, studentId, state);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getId()).thenReturn(quizId);
+        when(submissionRepository.findAllByQuizId(quizId)).thenReturn(List.of());
+        when(progressRepository.findByStudentIdAndActivityCode(studentId, "DAY1_QUIZ"))
+                .thenReturn(Optional.empty());
+        when(progressRepository.save(any(StudentActivityProgressEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.markQuizClosed(room, 1);
+
+        assertEquals("CATCH_UP", state.getFlowMode());
+        assertEquals("DAY1_QUIZ", state.getEffectiveStage());
+        assertEquals(8_000, state.getRewardRateBps());
     }
 
     private void prepare(

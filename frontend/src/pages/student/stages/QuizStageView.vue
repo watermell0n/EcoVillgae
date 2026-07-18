@@ -14,6 +14,7 @@ const roomSessionStore = useRoomSessionStore()
 
 const emit = defineEmits<{
   pageChange: [page: string]
+  completionChange: [completed: boolean]
 }>()
 
 const quiz = ref<StudentQuiz | null>(null)
@@ -62,8 +63,10 @@ async function loadQuiz() {
   errorMessage.value = ''
   waitingForOpen.value = false
   closedByTeacher.value = false
+  emit('completionChange', false)
   try {
     quiz.value = await getCurrentQuiz()
+    emit('completionChange', quiz.value.submissionStatus === 'SUBMITTED')
     const firstUnansweredIndex = quiz.value.questions.findIndex((question) => !question.savedAnswer)
     currentIndex.value = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0
   } catch (error) {
@@ -140,6 +143,7 @@ async function confirmSubmit() {
     quiz.value.answeredCount = result.answeredCount
     showSubmitConfirm.value = false
     emit('pageChange', 'QUIZ_SUBMITTED')
+    emit('completionChange', true)
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '퀴즈를 제출하지 못했습니다.')
     showSubmitConfirm.value = false

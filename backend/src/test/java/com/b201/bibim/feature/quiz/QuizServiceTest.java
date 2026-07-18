@@ -138,6 +138,34 @@ class QuizServiceTest {
     }
 
     @Test
+    void allowsCatchUpStudentToSubmitAfterGlobalQuizClose() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID quizId = UUID.randomUUID();
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getCurrentStage()).thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(studentFlowService.effectiveStage(studentId, "DAY1_INCOME_SETTLEMENT"))
+                .thenReturn("DAY1_QUIZ");
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getId()).thenReturn(quizId);
+        when(quiz.getDayNumber()).thenReturn(1);
+        when(studentFlowService.canUseStage(studentId, "DAY1_QUIZ")).thenReturn(true);
+        when(questionRepository.findAllByQuizIdOrderByOrderNo(quizId)).thenReturn(List.of());
+        when(submissionRepository.findByQuizIdAndStudentId(quizId, studentId))
+                .thenReturn(Optional.empty());
+
+        var response = quizService.currentQuiz(studentId);
+
+        assertEquals(quizId, response.quizId());
+        assertEquals("NOT_STARTED", response.submissionStatus());
+    }
+
+    @Test
     void teacherSummaryCountsOnlyActiveStudentsAsEligible() {
         UUID teacherId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();

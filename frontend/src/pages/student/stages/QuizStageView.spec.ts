@@ -86,6 +86,14 @@ describe('QuizStageView', () => {
     expect(wrapper.text()).toContain('A. 역할 소득')
     expect(wrapper.text()).toContain('정답 수와 보상은 퀴즈 마감 후 공개돼요.')
     expect(wrapper.find('.quiz-options').exists()).toBe(false)
+    expect(wrapper.emitted('completionChange')?.at(-1)).toEqual([true])
+  })
+
+  it('reports that catch-up cannot advance before submission', async () => {
+    const wrapper = mount(QuizStageView)
+    await flushPromises()
+
+    expect(wrapper.emitted('completionChange')?.at(-1)).toEqual([false])
   })
 
   it('shows the closed state when the teacher closes an open quiz', async () => {

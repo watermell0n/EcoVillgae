@@ -20,6 +20,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const flowError = ref('')
 const advancingFlow = ref(false)
+const quizActivityCompleted = ref(false)
 const currentPage = ref('CONNECTING')
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
@@ -31,6 +32,11 @@ const stageComponentProps = computed(() =>
     ? { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
     : {},
 )
+const isCatchUpQuiz = computed(() =>
+  state.value?.flowMode === 'CATCH_UP'
+    && (displayStage.value === 'DAY1_QUIZ' || displayStage.value === 'DAY2_QUIZ'),
+)
+const canAdvanceCatchUp = computed(() => !isCatchUpQuiz.value || quizActivityCompleted.value)
 const currentModule = computed(
   () => state.value?.modules.find((module) => module.state === 'ACTIVE' || module.state === 'GUIDED')?.type ?? null,
 )
@@ -86,6 +92,7 @@ watch(
   () => displayStage.value,
   (stage) => {
     if (!stage) return
+    quizActivityCompleted.value = false
     currentPage.value = stage
     void reportPresence()
   },
@@ -135,6 +142,11 @@ async function reportPresence() {
   }
 }
 
+function handleActivityCompletion(completed: boolean) {
+  quizActivityCompleted.value = completed
+  if (completed) flowError.value = ''
+}
+
 async function advanceCatchUp() {
   if (advancingFlow.value) return
   advancingFlow.value = true
@@ -177,6 +189,9 @@ async function advanceCatchUp() {
             반 수업은 {{ getRoomStage(state.roomStage ?? state.currentStage)?.label ?? state.roomStage ?? state.currentStage }} 단계예요.
             지연 퀴즈 정답수당과 투자 수익은 {{ (state.rewardRateBps ?? 8000) / 100 }}%가 적용됩니다.
           </p>
+          <p v-if="isCatchUpQuiz">
+            선생님 수업이 다음 단계로 이동해도 이 퀴즈를 제출해야 다음 활동으로 갈 수 있어요.
+          </p>
         </aside>
         <aside
           v-else-if="state.flowMode === 'AWAITING_JOIN'"
@@ -192,10 +207,18 @@ async function advanceCatchUp() {
         <p class="student-stage-card__mode">
           {{ state.mode === 'FREE' ? '지금 자유롭게 이용할 수 있어요' : state.mode === 'CLOSED' ? '이 활동은 종료되었어요' : '선생님과 함께 보는 중' }}
         </p>
-        <component :is="stageComponent" v-bind="stageComponentProps" @page-change="handlePageChange" />
+        <component
+          :is="stageComponent"
+          v-bind="stageComponentProps"
+          @page-change="handlePageChange"
+          @completion-change="handleActivityCompletion"
+        />
         <p v-if="flowError" class="form-error" role="alert">{{ flowError }}</p>
+        <p v-if="isCatchUpQuiz && !canAdvanceCatchUp" class="state-message">
+          퀴즈 제출을 완료하면 다음 활동으로 이동할 수 있어요.
+        </p>
         <button
-          v-if="state.flowMode === 'CATCH_UP'"
+          v-if="state.flowMode === 'CATCH_UP' && canAdvanceCatchUp"
           class="settlement-action catch-up-next"
           type="button"
           :disabled="advancingFlow"

@@ -443,7 +443,9 @@ async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QU
     await quizStore.refreshTeacherSummary(roomId.value)
     noticeMessage.value = command === 'OPEN_QUIZ'
       ? '퀴즈를 시작했습니다. 학생 화면에 문제가 열립니다.'
-      : '퀴즈를 마감했습니다. 더 이상 답안을 저장하거나 제출할 수 없습니다.'
+      : command === 'FORCE_CLOSE_QUIZ'
+        ? '퀴즈를 마감했습니다. 미제출 학생은 개인 보충 퀴즈를 계속 진행합니다.'
+        : '퀴즈를 마감했습니다. 제출 결과가 저장되었습니다.'
   } catch (error) {
     if (getApiErrorCode(error) === 'QUIZ_INCOMPLETE') {
       await quizStore.refreshTeacherSummary(roomId.value)
@@ -874,7 +876,7 @@ function moduleTone(moduleState: string) {
             <p v-else-if="quizSummary.status === 'OPEN'">
               학생이 답안을 저장하고 있습니다. 모두 제출했거나 시간이 끝나면 마감해 주세요.
             </p>
-            <p v-else>답안 저장과 제출이 차단되었습니다. 이제 다음 단계로 이동할 수 있습니다.</p>
+            <p v-else>전체 퀴즈는 마감되었습니다. 미제출 학생은 개인 보충 퀴즈를 계속 진행할 수 있습니다.</p>
             <button
               v-if="quizSummary.status === 'READY'"
               type="button"
@@ -1658,7 +1660,10 @@ function moduleTone(moduleState: string) {
               <span>{{ studentItem.submissionStatus === 'IN_PROGRESS' ? '풀이 중' : '미시작' }}</span>
             </li>
           </ul>
-          <p>강제로 마감하면 해당 학생은 더 이상 답안을 저장하거나 제출할 수 없습니다.</p>
+          <p>
+            강제로 마감하면 미제출 학생은 다음 화면으로 자동 이동하지 않습니다.
+            개인 보충 퀴즈를 계속 풀 수 있으며, 지연 정답수당은 80%가 적용됩니다.
+          </p>
           <div class="confirm-modal__actions">
             <button class="button-secondary" type="button" @click="showQuizCloseWarning = false">돌아가기</button>
             <button type="button" @click="confirmQuizClose">그래도 마감하기</button>
