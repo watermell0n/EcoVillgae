@@ -9,6 +9,8 @@ export interface LearningPage {
   title: string
   content: string
   keyPoints: string[]
+  icon?: string
+  example?: string
 }
 
 export interface GuidedLearning {

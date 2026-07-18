@@ -10,6 +10,21 @@ const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
 const learning = computed(() => learningStore.guided)
+const pageAccent = computed(() => {
+  const accents: Record<string, string> = {
+    '월급과 실수령액': 'green',
+    '세금이란?': 'orange',
+    '세금의 활용': 'blue',
+    '소비와 저축': 'gold',
+    '예금이란?': 'purple',
+    '이자란?': 'violet',
+    '투자란?': 'red',
+    '위험과 분산투자': 'orange',
+    '금융세가 뭐예요?': 'blue',
+    '인플레이션이 뭐예요?': 'purple',
+  }
+  return accents[learning.value?.currentPage.title ?? ''] ?? 'blue'
+})
 
 onMounted(() => void refresh())
 
@@ -40,18 +55,27 @@ async function refresh() {
       <p>{{ errorMessage }}</p>
       <button type="button" @click="refresh">다시 불러오기</button>
     </div>
-    <article v-else-if="learning" class="learning-card">
-      <header>
-        <div>
-          <p class="eyebrow">{{ learning.currentPage.topicTitle }}</p>
-          <h1>{{ learning.currentPage.title }}</h1>
-        </div>
+    <article
+      v-else-if="learning"
+      :class="['learning-card', `learning-card--${pageAccent}`]"
+      aria-live="polite"
+    >
+      <header class="learning-card__progress">
+        <p class="eyebrow">{{ learning.currentPage.topicTitle }}</p>
         <strong>{{ learning.currentIndex + 1 }} / {{ learning.pages.length }}</strong>
       </header>
+      <div class="learning-card__hero">
+        <span class="learning-card__icon" aria-hidden="true">{{ learning.currentPage.icon ?? '💡' }}</span>
+        <h1>{{ learning.currentPage.title }}</h1>
+      </div>
       <p class="learning-card__content">{{ learning.currentPage.content }}</p>
-      <ul>
+      <ul v-if="learning.currentPage.keyPoints.length > 0">
         <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ point }}</li>
       </ul>
+      <aside v-if="learning.currentPage.example" class="learning-card__example">
+        <span>📌 예시</span>
+        <strong>{{ learning.currentPage.example }}</strong>
+      </aside>
       <p class="learning-card__sync">선생님이 페이지를 넘기면 이 화면도 자동으로 바뀌어요.</p>
     </article>
   </div>

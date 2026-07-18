@@ -17,7 +17,9 @@ public final class LearningDto {
             int pageOrder,
             String title,
             String content,
-            List<String> keyPoints
+            List<String> keyPoints,
+            String icon,
+            String example
     ) {
     }
 

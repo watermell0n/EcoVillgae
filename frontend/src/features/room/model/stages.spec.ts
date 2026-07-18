@@ -19,6 +19,9 @@ describe('room stages', () => {
     expect(getAdjacentStages('DAY1_QUIZ').previous?.id).toBe('DAY1_PROFILE')
     expect(getAdjacentStages('DAY1_QUIZ').next?.id).toBe('DAY1_QUIZ_RESULT')
     expect(getAdjacentStages('DAY1_QUIZ_RESULT').next?.id).toBe('DAY1_INCOME_SETTLEMENT')
+    expect(getAdjacentStages('DAY1_PAYSLIP_GUIDED').next?.id).toBe('DAY1_KNOWLEDGE_GUIDED')
+    expect(getAdjacentStages('DAY1_KNOWLEDGE_GUIDED').next?.id).toBe('DAY1_FINANCE_GUIDED')
+    expect(getAdjacentStages('DAY1_FINANCE_GUIDED').next?.id).toBe('DAY1_SHOP_GUIDED')
     expect(getAdjacentStages('DAY2_QUIZ').next?.id).toBe('DAY2_QUIZ_RESULT')
     expect(getAdjacentStages('DAY2_QUIZ_RESULT').next?.id).toBe('DAY2_QUIZ_SETTLEMENT')
     expect(getAdjacentStages('DAY1_LOBBY').previous).toBeUndefined()
@@ -36,6 +39,13 @@ describe('room stages', () => {
     expect(getRoomStage('DAY1_FREE_ACTIVITY')).toMatchObject({
       label: '자유 경제활동',
       day: 1,
+    })
+    expect(getRoomStage('DAY1_PAYSLIP_GUIDED')?.label).toBe('월급명세서 확인')
+    expect(getRoomStage('DAY1_KNOWLEDGE_GUIDED')?.label).toBe('월급명세서 학습')
+    expect(getRoomStage('DAY1_FINANCE_GUIDED')?.label).toBe('금융지식 교육')
+    expect(getRoomStage('DAY2_TAX_INFLATION_GUIDED')).toMatchObject({
+      label: '금융지식 교육',
+      description: '금융세와 인플레이션을 2페이지로 배웁니다.',
     })
     expect(ROOM_STAGES.every((stage) => stage.label && stage.description)).toBe(true)
   })

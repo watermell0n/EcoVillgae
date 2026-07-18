@@ -32,65 +32,92 @@ public class LearningService {
     private static final UUID SHOP_TOPIC_ID = id(102);
     private static final UUID DEPOSIT_TOPIC_ID = id(103);
     private static final UUID INVESTMENT_TOPIC_ID = id(104);
+    private static final UUID DAY2_FINANCE_TOPIC_ID = id(105);
 
     private static final List<TopicDefinition> TOPICS = List.of(
             new TopicDefinition(
                     INCOME_TOPIC_ID,
                     "INCOME_AND_TAX",
-                    "소득과 세금",
-                    "일해서 얻는 소득과 함께 쓰는 세금의 역할을 알아봐요."
+                    "월급명세서 학습",
+                    "월급과 실수령액, 세금과 공동기금의 역할을 알아봐요.",
+                    1
             ),
             new TopicDefinition(
                     SHOP_TOPIC_ID,
                     "SMART_SPENDING",
                     "합리적인 소비",
-                    "가격, 필요, 남은 돈을 비교해 현명하게 소비해요."
+                    "가격, 필요, 남은 돈을 비교해 현명하게 소비해요.",
+                    1
             ),
             new TopicDefinition(
                     DEPOSIT_TOPIC_ID,
                     "DEPOSIT",
-                    "예금과 이자",
-                    "돈을 안전하게 맡기고 이자를 받는 방법을 알아봐요."
+                    "소비·저축과 예금",
+                    "소비와 저축을 나누고 예금과 이자를 알아봐요.",
+                    1
             ),
             new TopicDefinition(
                     INVESTMENT_TOPIC_ID,
                     "INVESTMENT",
                     "투자와 위험",
-                    "기대 수익과 손실 위험, 분산투자의 원리를 알아봐요."
+                    "기대 수익과 손실 위험, 분산투자의 원리를 알아봐요.",
+                    1
+            ),
+            new TopicDefinition(
+                    DAY2_FINANCE_TOPIC_ID,
+                    "DAY2_FINANCIAL_KNOWLEDGE",
+                    "금융지식 교육",
+                    "금융세와 인플레이션이 내 돈에 미치는 영향을 알아봐요.",
+                    2
             )
     );
 
     private static final List<PageDefinition> PAGES = List.of(
-            page(111, "INCOME_AND_TAX", "소득은 어디에서 올까요?",
-                    "맡은 역할의 일을 하고 받는 돈을 소득이라고 해요.",
-                    "일의 대가로 받는 돈이에요.", "총소득은 여러 소득을 모두 더한 값이에요."),
-            page(112, "INCOME_AND_TAX", "세금은 함께 쓰는 돈이에요",
-                    "소득의 일부를 세금으로 모아 학급 모두에게 필요한 곳에 사용해요.",
-                    "세금은 공동체를 위해 사용돼요.", "비빔에서는 소득세가 공동기금에 쌓여요."),
-            page(121, "SMART_SPENDING", "필요와 원하는 것을 구분해요",
+            page(111, "INCOME_AND_TAX", "💵", "월급과 실수령액",
+                    "일을 해서 받는 돈을 월급이라고 해요.\n세금을 내고 나면 실제로 받는 금액이 달라져요.\n이걸 실수령액이라고 부른답니다!",
+                    "총 월급 150비빔 → 세금 15비빔 → 실수령액 135비빔"),
+            page(112, "INCOME_AND_TAX", "🏛️", "세금이란?",
+                    "세금은 학교, 도로, 병원처럼 모두가 함께 쓰는 것을 위해 내는 돈이에요.\n이코빌리지에서는 학급 공동기금으로 모여요!",
+                    "세금 15비빔 → 공동기금 → 학급 행사에 사용"),
+            page(113, "INCOME_AND_TAX", "🏫", "세금의 활용",
+                    "세금은 모두를 위해 쓰이는 돈이에요.\n학교, 도로, 공원처럼 함께 사용하는 곳에 쓰여요.\n우리 교실에서는 공동기금처럼 사용할 수 있어요!",
+                    "모은 세금 → 공용 물품 구입 또는 학급 행사 준비"),
+            page(121, "SMART_SPENDING", "🛒", "필요와 원하는 것을 구분해요",
                     "구매 전 꼭 필요한지, 가격은 알맞은지, 사고 난 뒤 돈이 얼마나 남는지 확인해요.",
+                    "필요한 물건부터 고르고 남은 돈을 확인해요.",
                     "필요한 것부터 선택해요.", "가격과 내 지갑 잔액을 함께 비교해요."),
-            page(122, "SMART_SPENDING", "가격과 재고를 확인해요",
+            page(122, "SMART_SPENDING", "🏷️", "가격과 재고를 확인해요",
                     "상품의 가격과 남은 수량은 한정되어 있으므로 구매 전에 정보를 살펴봐요.",
+                    "가격과 재고를 확인한 뒤 구매를 확정해요.",
                     "재고가 없으면 살 수 없어요.", "한 번의 선택이 다음 소비 기회에 영향을 줘요."),
-            page(131, "DEPOSIT", "예금은 안전하게 보관하는 방법이에요",
-                    "일정 기간 돈을 맡기면 약속한 이자를 받을 수 있어요.",
-                    "원금과 받을 이자를 확인해요.", "기간 동안 바로 쓰기 어려울 수 있어요."),
-            page(132, "DEPOSIT", "이자는 기다린 대가예요",
-                    "맡긴 금액과 기간, 이자율에 따라 받는 이자가 달라져요.",
-                    "이자율이 같으면 맡긴 돈이 클수록 이자가 커져요.", "상품 조건을 비교해야 해요."),
-            page(141, "INVESTMENT", "투자는 수익과 손실이 함께 있어요",
-                    "더 큰 수익을 기대할 수 있지만 원금보다 돈이 줄어들 수도 있어요.",
-                    "기대 수익만 보고 선택하지 않아요.", "감당할 수 있는 손실인지 생각해요."),
-            page(142, "INVESTMENT", "나누어 투자하면 위험을 줄일 수 있어요",
-                    "투자금을 여러 대상에 나누면 한 곳의 손실이 전체에 주는 영향을 줄일 수 있어요.",
-                    "한 곳에 모두 투자하지 않아요.", "예금과 투자도 목적에 맞게 나눌 수 있어요.")
+            page(131, "DEPOSIT", "🐷", "소비와 저축",
+                    "소비는 필요한 물건이나 서비스를 사는 거예요.\n저축은 나중을 위해 돈을 모아 두는 거예요.\n쓰기와 모으기를 잘 나누는 것이 중요해요!",
+                    "용돈 100비빔 → 60비빔은 소비, 40비빔은 저축"),
+            page(132, "DEPOSIT", "🏦", "예금이란?",
+                    "은행에 돈을 맡기면 이자를 줘요.\n이코빌리지에서는 맡긴 금액의 10%를 이자로 받아요!\n단, 2일차까지는 꺼낼 수 없어요.",
+                    "100비빔 예금 → 2일차에 110비빔"),
+            page(133, "DEPOSIT", "🏦➕", "이자란?",
+                    "이자는 돈을 맡기거나 빌릴 때 붙는 추가 금액이에요.\n은행에 예금하면 이자를 받을 수 있어요.\n반대로 돈을 빌리면 이자를 내기도 해요!",
+                    "100비빔을 예금하면 → 이자 10비빔 → 나중에 110비빔"),
+            page(141, "INVESTMENT", "📈", "투자란?",
+                    "투자는 회사에 돈을 빌려주고 수익을 받는 거예요.\n하지만 손실이 날 수도 있어요!\n위험도가 높을수록 기회도, 위험도 커져요.",
+                    "거북이상사: 조금 벌지만 안전\n독수리테크: 크게 벌 수 있지만 잃을 수도!"),
+            page(142, "INVESTMENT", "⚖️", "위험과 분산투자",
+                    "한 곳에 모든 돈을 넣으면 전부 잃을 수도 있어요.\n여러 곳에 나눠서 투자하면 위험이 줄어들어요.\n이걸 분산투자라고 해요!",
+                    "달걀을 한 바구니에 담지 마세요 🥚"),
+            page(151, "DAY2_FINANCIAL_KNOWLEDGE", "🧾", "금융세가 뭐예요?",
+                    "금융세는 예금 이자나 투자 수익처럼 금융 활동으로 번 돈에 붙는 세금이에요.\n이코빌리지에서는 금융 이익의 10%를 금융세로 내요.\n모인 금융세는 학급 공동기금에 더해져요!",
+                    "금융 이익 20비빔 → 금융세 2비빔\n실제로 받는 금융 이익은 18비빔"),
+            page(152, "DAY2_FINANCIAL_KNOWLEDGE", "📈", "인플레이션이 뭐예요?",
+                    "인플레이션은 물건값이 점점 오르는 거예요.\n그래서 같은 돈으로 살 수 있는 것이 줄어들어요.\n쉽게 말해, 돈의 힘이 조금 약해지는 거예요!",
+                    "어제 사탕 1개 10비빔 → 오늘 12비빔\n같은 돈으로는 전보다 덜 살 수 있어요")
     );
 
     private static final Map<String, Set<String>> STAGE_TOPICS = Map.of(
-            "DAY1_KNOWLEDGE_GUIDED", Set.of("INCOME_AND_TAX", "DEPOSIT", "INVESTMENT"),
+            "DAY1_KNOWLEDGE_GUIDED", Set.of("INCOME_AND_TAX"),
             "DAY1_SHOP_GUIDED", Set.of("SMART_SPENDING"),
-            "DAY1_FINANCE_GUIDED", Set.of("DEPOSIT", "INVESTMENT")
+            "DAY1_FINANCE_GUIDED", Set.of("DEPOSIT", "INVESTMENT"),
+            "DAY2_TAX_INFLATION_GUIDED", Set.of("DAY2_FINANCIAL_KNOWLEDGE")
     );
 
     private final RoomRepository roomRepository;
@@ -171,14 +198,17 @@ public class LearningService {
         if (room.getCurrentDay() != 1) {
             throw learningNotAvailable();
         }
-        return TOPICS.stream().map(this::toTopicResponse).toList();
+        return TOPICS.stream()
+                .filter(topic -> topic.dayNumber() == 1)
+                .map(this::toTopicResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public TopicDetailResponse studentTopic(UUID studentId, UUID topicId) {
         roomForFreeReview(studentId);
         TopicDefinition topic = TOPICS.stream()
-                .filter(item -> item.id().equals(topicId))
+                .filter(item -> item.dayNumber() == 1 && item.id().equals(topicId))
                 .findFirst()
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -308,7 +338,9 @@ public class LearningService {
                 page.order(),
                 page.title(),
                 page.content(),
-                page.keyPoints()
+                page.keyPoints(),
+                page.icon(),
+                page.example()
         );
     }
 
@@ -335,18 +367,23 @@ public class LearningService {
     private static PageDefinition page(
             int suffix,
             String topicCode,
+            String icon,
             String title,
             String content,
+            String example,
             String... keyPoints
     ) {
-        return new PageDefinition(id(suffix), topicCode, suffix % 10, title, content, List.of(keyPoints));
+        return new PageDefinition(
+                id(suffix), topicCode, suffix % 10, title, content, List.of(keyPoints), icon, example
+        );
     }
 
     private record TopicDefinition(
             UUID id,
             String code,
             String title,
-            String description
+            String description,
+            int dayNumber
     ) {
     }
 
@@ -356,7 +393,9 @@ public class LearningService {
             int order,
             String title,
             String content,
-            List<String> keyPoints
+            List<String> keyPoints,
+            String icon,
+            String example
     ) {
     }
 }

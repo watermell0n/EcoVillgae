@@ -542,7 +542,8 @@ function formatPurchasedAt(value: string) {
         </div>
         <article v-if="learningStore.selectedTopic && reviewPage" class="learning-review-card">
           <header><div><p class="eyebrow">{{ learningStore.selectedTopic.title }}</p><h3>{{ reviewPage.title }}</h3></div><button class="button-secondary" type="button" @click="closeReview">닫기</button></header>
-          <p>{{ reviewPage.content }}</p><ul><li v-for="point in reviewPage.keyPoints" :key="point">{{ point }}</li></ul>
+          <p>{{ reviewPage.content }}</p><ul v-if="reviewPage.keyPoints.length"><li v-for="point in reviewPage.keyPoints" :key="point">{{ point }}</li></ul>
+          <p v-if="reviewPage.example" class="learning-review-card__example"><strong>📌 예시</strong> {{ reviewPage.example }}</p>
           <footer><button class="button-secondary" type="button" :disabled="reviewPageIndex === 0" @click="reviewPageIndex -= 1">← 이전</button><span>{{ reviewPageIndex + 1 }} / {{ learningStore.selectedTopic.pages.length }}</span><button type="button" :disabled="reviewPageIndex === learningStore.selectedTopic.pages.length - 1" @click="reviewPageIndex += 1">다음 →</button></footer>
         </article>
       </section>

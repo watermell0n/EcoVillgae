@@ -37,7 +37,7 @@ import { useShopStore } from '../../stores/shop'
 const moduleLabels: Record<string, string> = {
   QUIZ: '퀴즈',
   PAYSLIP: '월급명세서',
-  KNOWLEDGE: '금융지식',
+  KNOWLEDGE: '학습 자료',
   SHOP: '상점',
   DEPOSIT: '예금',
   INVESTMENT: '투자',
@@ -115,6 +115,7 @@ const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
   'DAY1_SHOP_GUIDED',
   'DAY1_FINANCE_GUIDED',
+  'DAY2_TAX_INFLATION_GUIDED',
 ])
 const currentStage = computed(() => getRoomStage(state.value?.currentStage))
 const currentStageIndex = computed(() =>
@@ -378,6 +379,9 @@ watch(
     ].includes(stage)) {
       try {
         await day2FlowStore.refreshInflation(roomId.value)
+        if (stage === 'DAY2_TAX_INFLATION_GUIDED') {
+          await learningStore.refreshTeacher(roomId.value)
+        }
         if (stage === 'DAY2_FINAL_SHOP') {
           await shopStore.refreshTeacherSummary(roomId.value)
           shopStore.startTeacherSummaryPolling(roomId.value)
@@ -1347,7 +1351,6 @@ function moduleTone(moduleState: string) {
           </div>
           <div
             v-else-if="[
-              'DAY2_TAX_INFLATION_GUIDED',
               'DAY2_INFLATION_APPLY',
               'DAY2_FINAL_SHOP',
             ].includes(state.currentStage) && inflationPreview"
@@ -1362,11 +1365,6 @@ function moduleTone(moduleState: string) {
                 :label="inflationPreview.applied ? '적용 완료' : '적용 전'"
                 :tone="inflationPreview.applied ? 'success' : 'warning'"
               />
-            </div>
-            <div v-if="state.currentStage === 'DAY2_TAX_INFLATION_GUIDED'" class="inflation-lesson">
-              <article><strong>금융세</strong><p>금융 이익의 10%가 공동기금에 적립됩니다.</p></article>
-              <article><strong>위험과 수익</strong><p>기대 수익이 커질수록 손실 위험도 함께 살펴야 합니다.</p></article>
-              <article><strong>인플레이션</strong><p>물가가 오르면 같은 돈으로 살 수 있는 양이 줄어듭니다.</p></article>
             </div>
             <div class="inflation-product-table" role="table" aria-label="상품 가격 상승 미리보기">
               <div role="row"><strong>상품</strong><strong>기존 가격</strong><strong>상승 후</strong><strong>증가액</strong></div>
@@ -1626,10 +1624,14 @@ function moduleTone(moduleState: string) {
               </div>
               <strong>{{ guidedLearning.currentIndex + 1 }} / {{ guidedLearning.pages.length }}</strong>
             </header>
-            <p>{{ guidedLearning.currentPage.content }}</p>
-            <ul>
+            <p class="learning-control-workspace__content">{{ guidedLearning.currentPage.content }}</p>
+            <ul v-if="guidedLearning.currentPage.keyPoints.length > 0">
               <li v-for="point in guidedLearning.currentPage.keyPoints" :key="point">{{ point }}</li>
             </ul>
+            <p v-if="guidedLearning.currentPage.example" class="learning-control-workspace__example">
+              <strong>📌 예시</strong>
+              <span>{{ guidedLearning.currentPage.example }}</span>
+            </p>
             <div class="learning-control-workspace__navigation">
               <button
                 class="button-secondary"
@@ -1691,7 +1693,7 @@ function moduleTone(moduleState: string) {
               : state.currentStage === 'DAY2_QUIZ_RESULT'
                 ? '학생들과 문항별 정답과 해설을 확인한 뒤 퀴즈 보상 정산으로 이동해 주세요.'
               : state.currentStage === 'DAY2_QUIZ_SETTLEMENT'
-                ? '퀴즈 보상 정산을 완료하면 금융세·인플레이션 교육 단계로 이동할 수 있습니다.'
+                ? '퀴즈 보상 정산을 완료하면 금융지식 교육 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산을 완료해야 월급명세서 단계로 이동할 수 있습니다.'
                 : state.currentStage === 'DAY1_SUMMARY'

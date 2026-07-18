@@ -40,6 +40,16 @@ class RoomStageTest {
     }
 
     @Test
+    void placesDayOneLearningStagesInTheRequestedOrder() {
+        assertTrue(RoomStage.DAY1_PAYSLIP_GUIDED.ordinal()
+                < RoomStage.DAY1_KNOWLEDGE_GUIDED.ordinal());
+        assertTrue(RoomStage.DAY1_KNOWLEDGE_GUIDED.ordinal()
+                < RoomStage.DAY1_FINANCE_GUIDED.ordinal());
+        assertTrue(RoomStage.DAY1_FINANCE_GUIDED.ordinal()
+                < RoomStage.DAY1_SHOP_GUIDED.ordinal());
+    }
+
+    @Test
     void placesDayTwoQuizResultBeforeRewardSettlement() {
         assertTrue(RoomStage.DAY2_QUIZ_RESULT.ordinal() > RoomStage.DAY2_QUIZ.ordinal());
         assertTrue(RoomStage.DAY2_QUIZ_RESULT.ordinal() < RoomStage.DAY2_QUIZ_SETTLEMENT.ordinal());

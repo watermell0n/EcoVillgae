@@ -2,7 +2,6 @@ import type { Component } from 'vue'
 
 import DaySummaryStageView from './DaySummaryStageView.vue'
 import Day2FinanceStageView from './Day2FinanceStageView.vue'
-import Day2EducationStageView from './Day2EducationStageView.vue'
 import Day2FinalShopStageView from './Day2FinalShopStageView.vue'
 import Day2FinalResultStageView from './Day2FinalResultStageView.vue'
 import Day2FundStageView from './Day2FundStageView.vue'
@@ -37,7 +36,7 @@ const stageComponents: Record<string, Component> = {
   DAY2_QUIZ: QuizStageView,
   DAY2_QUIZ_RESULT: Day2QuizResultStageView,
   DAY2_QUIZ_SETTLEMENT: Day2QuizRewardStageView,
-  DAY2_TAX_INFLATION_GUIDED: Day2EducationStageView,
+  DAY2_TAX_INFLATION_GUIDED: LearningStageView,
   DAY2_INFLATION_APPLY: Day2InflationStageView,
   DAY2_FINAL_SHOP: Day2FinalShopStageView,
   DAY2_FUND_COST: Day2FundStageView,
