@@ -2626,6 +2626,27 @@ button.admin-student-row.is-selected {
   text-decoration: none;
 }
 
+.lobby-start-warning {
+  width: min(92vw, 560px);
+}
+
+.lobby-start-warning__group {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+}
+
+.lobby-start-warning__group h3 {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.88rem;
+}
+
+.lobby-start-warning__group .close-warning-list {
+  max-height: 9rem;
+  overflow: auto;
+}
+
 .survey-wait-notice {
   display: flex;
   align-items: center;

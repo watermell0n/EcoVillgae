@@ -14,6 +14,7 @@ import {
   isNextStageDisabled,
   ROOM_STAGES,
 } from '../../features/room/model/stages'
+import { getLobbyAttendance } from '../../features/room/model/attendance'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
@@ -79,6 +80,8 @@ const showDay2SettlementConfirm = ref(false)
 const showFundVotePrepareConfirm = ref(false)
 const showRoomCompleteConfirm = ref(false)
 const pendingStageTarget = ref<string | null>(null)
+const pendingLobbyExitTarget = ref<string | null>(null)
+let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
@@ -112,6 +115,11 @@ const currentStageIndex = computed(() =>
 )
 const adjacentStages = computed(() => getAdjacentStages(state.value?.currentStage))
 const pendingStageDefinition = computed(() => getRoomStage(pendingStageTarget.value ?? undefined))
+const pendingLobbyExitDefinition = computed(() => getRoomStage(pendingLobbyExitTarget.value ?? undefined))
+const lobbyAttendance = computed(() => getLobbyAttendance(preparation.value?.students ?? []))
+const lobbyWarningCount = computed(() => (
+  lobbyAttendance.value.notJoined.length + lobbyAttendance.value.disconnected.length
+))
 const pendingStageMovesForward = computed(() => {
   const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === pendingStageTarget.value)
   return targetIndex > currentStageIndex.value
@@ -156,18 +164,41 @@ function stageNavigationBlockReason(targetStage?: string) {
   })
 }
 
-function requestStageMove(targetStage: string) {
+async function requestStageMove(targetStage?: string) {
+  if (!targetStage) return
   const blockReason = stageNavigationBlockReason(targetStage)
   if (blockReason) {
     errorMessage.value = blockReason
     return
   }
   const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === targetStage)
+  if (state.value?.currentStage === 'DAY1_LOBBY' && targetIndex > currentStageIndex.value) {
+    const latestPreparation = await refreshPreparation()
+    if (!latestPreparation) {
+      errorMessage.value = preparationError.value || '학생 접속 상태를 확인하지 못했습니다.'
+      return
+    }
+    if (lobbyWarningCount.value > 0) {
+      pendingLobbyExitTarget.value = targetStage
+      return
+    }
+  }
+  continueStageMove(targetStage)
+}
+
+function continueStageMove(targetStage: string) {
+  const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === targetStage)
   if (Math.abs(targetIndex - currentStageIndex.value) > 1) {
     pendingStageTarget.value = targetStage
     return
   }
   void moveToStage(targetStage)
+}
+
+async function confirmLobbyExit() {
+  const targetStage = pendingLobbyExitTarget.value
+  pendingLobbyExitTarget.value = null
+  if (targetStage) await moveToStage(targetStage)
 }
 
 async function confirmStageMove() {
@@ -562,20 +593,36 @@ async function moveLearningPage(offset: number) {
 }
 
 async function refreshPreparation() {
-  if (preparationLoading.value) return
+  const targetRoomId = roomId.value
+  if (preparationRequest?.roomId === targetRoomId) return preparationRequest.promise
   preparationLoading.value = true
   preparationError.value = ''
-  try {
-    preparation.value = await getTeacherRoomStudents(roomId.value)
-  } catch (error) {
-    if (isUnauthorized(error)) {
-      await router.replace({ name: 'teacher-login' })
-      return
-    }
-    preparationError.value = getApiErrorMessage(error, '참여 코드와 학생 현황을 불러오지 못했습니다.')
-  } finally {
-    preparationLoading.value = false
+  const request = {
+    roomId: targetRoomId,
+    promise: Promise.resolve(null) as Promise<RoomPreparation | null>,
   }
+  request.promise = (async () => {
+    try {
+      const latest = await getTeacherRoomStudents(targetRoomId)
+      if (roomId.value !== targetRoomId) return null
+      preparation.value = latest
+      return latest
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        await router.replace({ name: 'teacher-login' })
+        return null
+      }
+      preparationError.value = getApiErrorMessage(error, '참여 코드와 학생 현황을 불러오지 못했습니다.')
+      return null
+    } finally {
+      if (preparationRequest === request) {
+        preparationLoading.value = false
+        preparationRequest = undefined
+      }
+    }
+  })()
+  preparationRequest = request
+  return request.promise
 }
 
 async function copyParticipationCode(code: string) {
@@ -1562,14 +1609,14 @@ function moduleTone(moduleState: string) {
               ) || (
                 state.currentStage === 'DAY2_FUND_VOTE' && fundVote?.status !== 'READY'
               ) || state.currentStage === 'DAY2_FUND_RESULT' || state.currentStage === 'DAY2_COMPLETED'"
-              @click="moveToStage(adjacentStages.previous?.id)"
+              @click="requestStageMove(adjacentStages.previous?.id)"
             >
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
             </button>
             <button
               type="button"
               :disabled="nextStageDisabled"
-              @click="moveToStage(adjacentStages.next?.id)"
+              @click="requestStageMove(adjacentStages.next?.id)"
             >
               {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
             </button>
@@ -1886,6 +1933,40 @@ function moduleTone(moduleState: string) {
             <button class="button-secondary" type="button" @click="pendingStageTarget = null">취소</button>
             <button type="button" :disabled="changingStage" @click="confirmStageMove">
               {{ changingStage ? '이동 중…' : '단계 이동' }}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="pendingLobbyExitTarget && pendingLobbyExitDefinition" class="modal-backdrop">
+        <section class="confirm-modal lobby-start-warning" role="dialog" aria-modal="true" aria-labelledby="lobby-start-warning-title">
+          <p class="eyebrow">학생 접속 확인</p>
+          <h2 id="lobby-start-warning-title">아직 준비되지 않은 학생이 {{ lobbyWarningCount }}명 있습니다.</h2>
+          <p class="confirm-modal__warning">
+            지금 {{ pendingLobbyExitDefinition.label }} 단계로 이동하면 준비되지 않은 학생은 이후 보충 흐름으로 참여합니다.
+          </p>
+          <section v-if="lobbyAttendance.notJoined.length" class="lobby-start-warning__group">
+            <h3>아직 입장하지 않음 · {{ lobbyAttendance.notJoined.length }}명</h3>
+            <ul class="close-warning-list">
+              <li v-for="studentItem in lobbyAttendance.notJoined" :key="studentItem.studentId">
+                <strong>{{ studentItem.participantNumber }}번 학생</strong>
+                <span>입장 전</span>
+              </li>
+            </ul>
+          </section>
+          <section v-if="lobbyAttendance.disconnected.length" class="lobby-start-warning__group">
+            <h3>현재 연결 끊김 · {{ lobbyAttendance.disconnected.length }}명</h3>
+            <ul class="close-warning-list">
+              <li v-for="studentItem in lobbyAttendance.disconnected" :key="studentItem.studentId">
+                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname || '학생' }}</strong>
+                <span>오프라인</span>
+              </li>
+            </ul>
+          </section>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="pendingLobbyExitTarget = null">입장 대기 계속하기</button>
+            <button type="button" :disabled="changingStage" @click="confirmLobbyExit">
+              {{ changingStage ? '이동 중…' : '그래도 시작하기' }}
             </button>
           </div>
         </section>
