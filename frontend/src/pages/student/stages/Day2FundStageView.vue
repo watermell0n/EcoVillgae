@@ -128,7 +128,7 @@ function formatBibim(amount: number) {
           <label
             v-for="option in vote.options"
             :key="option.optionId"
-            :class="{ 'is-selected': selectedOptionId === option.optionId, 'is-decided': option.decided }"
+            :class="{ 'is-selected': selectedOptionId === option.optionId }"
           >
             <input
               v-if="vote.status === 'OPEN' && vote.eligible"
@@ -142,7 +142,6 @@ function formatBibim(amount: number) {
               <strong>{{ option.title }}</strong>
               <small>{{ option.description }}</small>
               <em>필요 금액 {{ formatBibim(option.requiredAmount) }}</em>
-              <b v-if="option.voteCount !== null">{{ option.voteCount }}표</b>
             </span>
           </label>
         </div>
@@ -161,7 +160,7 @@ function formatBibim(amount: number) {
         </p>
         <p v-else-if="vote.status === 'READY'" class="control-caution">선생님이 곧 투표를 시작합니다.</p>
         <p v-else-if="vote.status === 'CLOSED'" class="control-caution">동점 결과를 선생님이 최종 결정하고 있습니다.</p>
-        <p v-else class="control-caution">가장 많은 표를 받은 선택지가 표시되었습니다.</p>
+        <p v-else class="control-caution">투표가 마감되었습니다. 선생님이 결과를 공개할 때까지 기다려 주세요.</p>
       </section>
       </template>
     </template>

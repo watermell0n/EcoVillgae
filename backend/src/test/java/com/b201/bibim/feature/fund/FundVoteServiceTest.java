@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
@@ -28,6 +29,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.vote.VoteOptionEntity;
 import com.b201.bibim.domain.vote.VoteOptionRepository;
+import com.b201.bibim.domain.vote.VoteEntity;
 import com.b201.bibim.domain.vote.VoteRepository;
 import com.b201.bibim.domain.vote.VoteSessionEntity;
 import com.b201.bibim.domain.vote.VoteSessionRepository;
@@ -231,5 +233,78 @@ class FundVoteServiceTest {
 
         verify(vote).close();
         verify(room).markControlStateChanged();
+    }
+
+    @Test
+    void hidesDecidedVoteResultFromStudentUntilTeacherOpensResultStage() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        UUID optionId = UUID.randomUUID();
+        StudentEntity student = org.mockito.Mockito.mock(StudentEntity.class);
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+        VoteSessionEntity voteSession = org.mockito.Mockito.mock(VoteSessionEntity.class);
+        VoteOptionEntity option = org.mockito.Mockito.mock(VoteOptionEntity.class);
+        VoteEntity submittedVote = org.mockito.Mockito.mock(VoteEntity.class);
+        AtomicReference<String> stage = new AtomicReference<>("DAY2_FUND_VOTE");
+
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getId()).thenReturn(studentId);
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getCurrentStage()).thenAnswer(invocation -> stage.get());
+        when(voteSessionRepository.findByRoomId(roomId)).thenReturn(Optional.of(voteSession));
+        when(voteSession.getId()).thenReturn(voteId);
+        when(voteSession.getRoomId()).thenReturn(roomId);
+        when(voteSession.getStatus()).thenReturn("DECIDED");
+        when(voteSession.getFundBalanceSnapshot()).thenReturn(50L);
+        when(voteSession.getDecidedOptionId()).thenReturn(optionId);
+        when(voteEligibleStudentRepository.findAllByVoteSessionId(voteId)).thenReturn(java.util.List.of());
+        when(studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE"))
+                .thenReturn(java.util.List.of(student));
+        when(voteOptionRepository.findAllByVoteSessionIdOrderByDisplayOrder(voteId))
+                .thenReturn(java.util.List.of(option));
+        when(option.getId()).thenReturn(optionId);
+        when(option.getRequiredAmount()).thenReturn(0L);
+        when(voteRepository.findAllByVoteSessionId(voteId)).thenReturn(java.util.List.of(submittedVote));
+        when(submittedVote.getStudentId()).thenReturn(studentId);
+        when(submittedVote.getOptionId()).thenReturn(optionId);
+
+        var hidden = service.studentVote(studentId);
+
+        assertEquals(null, hidden.decidedOptionId());
+        assertEquals(null, hidden.options().getFirst().voteCount());
+        assertEquals(false, hidden.options().getFirst().decided());
+
+        stage.set("DAY2_FUND_RESULT");
+        var revealed = service.studentVote(studentId);
+
+        assertEquals(optionId, revealed.decidedOptionId());
+        assertEquals(1L, revealed.options().getFirst().voteCount());
+        assertEquals(true, revealed.options().getFirst().decided());
+    }
+
+    @Test
+    void rejectsStudentResultEndpointBeforeTeacherOpensResultStage() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        StudentEntity student = org.mockito.Mockito.mock(StudentEntity.class);
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getCurrentStage()).thenReturn("DAY2_FUND_VOTE");
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                service.voteResult(studentId, voteId)
+        );
+
+        assertEquals("VOTE_RESULT_NOT_OPEN", exception.getCode());
+        verify(voteSessionRepository, never()).findById(voteId);
     }
 }

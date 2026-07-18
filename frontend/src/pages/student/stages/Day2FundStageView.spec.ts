@@ -82,4 +82,22 @@ describe('Day2FundStageView', () => {
 
     wrapper.unmount()
   })
+
+  it('hides decided vote counts until the teacher opens the result stage', async () => {
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = {
+      currentStage: 'DAY2_FUND_VOTE',
+      syncVersion: 1,
+    } as never
+
+    const wrapper = mount(Day2FundStageView)
+    await flushPromises()
+
+    expect(wrapper.find('#student-vote-result-title').exists()).toBe(false)
+    expect(wrapper.find('.student-vote-options b').exists()).toBe(false)
+    expect(wrapper.find('.student-vote-options .is-decided').exists()).toBe(false)
+    expect(wrapper.text()).toContain('선생님이 결과를 공개할 때까지 기다려 주세요')
+
+    wrapper.unmount()
+  })
 })

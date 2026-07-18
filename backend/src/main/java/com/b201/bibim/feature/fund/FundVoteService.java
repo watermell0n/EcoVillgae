@@ -210,7 +210,7 @@ public class FundVoteService {
             throw conflict("VOTE_CREATE_NOT_OPEN", "공동기금 비용 확인 단계에서 투표를 준비해 주세요.");
         }
         var existing = voteSessionRepository.findByRoomId(roomId);
-        if (existing.isPresent()) return toVoteResponse(existing.get(), null);
+        if (existing.isPresent()) return toVoteResponse(existing.get(), null, true);
 
         List<String> normalizedTitles = request.options().stream()
                 .map(option -> option.title().trim().toLowerCase(Locale.ROOT))
@@ -230,13 +230,13 @@ public class FundVoteService {
             ));
         }
         room.markControlStateChanged();
-        return toVoteResponse(session, null);
+        return toVoteResponse(session, null, true);
     }
 
     @Transactional(readOnly = true)
     public VoteSessionResponse teacherVote(UUID teacherId, UUID roomId) {
         findOwnedRoom(teacherId, roomId);
-        return currentVote(roomId, null);
+        return currentVote(roomId, null, true);
     }
 
     @Transactional(readOnly = true)
@@ -244,7 +244,7 @@ public class FundVoteService {
         StudentEntity student = activeStudent(studentId);
         RoomEntity room = roomRepository.findById(student.getRoomId()).orElseThrow(this::roomNotFound);
         ensureVoteVisible(room);
-        return currentVote(room.getId(), studentId);
+        return currentVote(room.getId(), studentId, isVoteResultVisible(room));
     }
 
     @Transactional
@@ -271,7 +271,7 @@ public class FundVoteService {
             throw conflict("VOTE_STATE_CONFLICT", exception.getMessage());
         }
         room.markControlStateChanged();
-        return toVoteResponse(session, null);
+        return toVoteResponse(session, null, true);
     }
 
     @Transactional
@@ -299,7 +299,7 @@ public class FundVoteService {
         List<UUID> leaders = leadingOptionIds(session.getId(), roomId);
         if (leaders.size() == 1) session.decide(leaders.get(0), null);
         room.markControlStateChanged();
-        return toVoteResponse(session, null);
+        return toVoteResponse(session, null, true);
     }
 
     @Transactional
@@ -322,7 +322,7 @@ public class FundVoteService {
             throw conflict("VOTE_STATE_CONFLICT", exception.getMessage());
         }
         room.markControlStateChanged();
-        return toVoteResponse(session, null);
+        return toVoteResponse(session, null, true);
     }
 
     @Transactional
@@ -354,19 +354,23 @@ public class FundVoteService {
         }
         voteRepository.saveAndFlush(VoteEntity.cast(voteId, studentId, option.getId()));
         room.markControlStateChanged();
-        return toVoteResponse(session, studentId);
+        return toVoteResponse(session, studentId, false);
     }
 
     @Transactional(readOnly = true)
     public VoteSessionResponse voteResult(UUID studentId, UUID voteId) {
         StudentEntity student = activeStudent(studentId);
+        RoomEntity room = roomRepository.findById(student.getRoomId()).orElseThrow(this::roomNotFound);
+        if (!isVoteResultVisible(room)) {
+            throw conflict("VOTE_RESULT_NOT_OPEN", "선생님이 투표 결과 확인 단계로 이동한 뒤 결과를 확인할 수 있습니다.");
+        }
         VoteSessionEntity session = voteSessionRepository.findById(voteId)
                 .filter(item -> item.getRoomId().equals(student.getRoomId()))
                 .orElseThrow(() -> conflict("VOTE_NOT_FOUND", "투표를 찾을 수 없습니다."));
         if (!List.of("CLOSED", "DECIDED").contains(session.getStatus())) {
             throw conflict("VOTE_RESULT_NOT_OPEN", "투표를 마감한 뒤 결과를 확인할 수 있습니다.");
         }
-        return toVoteResponse(session, studentId);
+        return toVoteResponse(session, studentId, true);
     }
 
     private FundOverviewResponse fundOverview(RoomEntity room) {
@@ -396,13 +400,17 @@ public class FundVoteService {
                 .orElse(0L);
     }
 
-    private VoteSessionResponse currentVote(UUID roomId, UUID studentId) {
+    private VoteSessionResponse currentVote(UUID roomId, UUID studentId, boolean allowResultReveal) {
         VoteSessionEntity session = voteSessionRepository.findByRoomId(roomId)
                 .orElseThrow(() -> conflict("VOTE_NOT_FOUND", "준비된 공동기금 투표가 없습니다."));
-        return toVoteResponse(session, studentId);
+        return toVoteResponse(session, studentId, allowResultReveal);
     }
 
-    private VoteSessionResponse toVoteResponse(VoteSessionEntity session, UUID studentId) {
+    private VoteSessionResponse toVoteResponse(
+            VoteSessionEntity session,
+            UUID studentId,
+            boolean allowResultReveal
+    ) {
         List<VoteOptionEntity> options = voteOptionRepository
                 .findAllByVoteSessionIdOrderByDisplayOrder(session.getId());
         List<StudentEntity> eligibleStudents = eligibleStudents(session);
@@ -416,7 +424,7 @@ public class FundVoteService {
                 VoteEntity::getOptionId, LinkedHashMap::new, Collectors.counting()
         ));
         long maxVotes = options.stream().mapToLong(option -> counts.getOrDefault(option.getId(), 0L)).max().orElse(0L);
-        boolean reveal = List.of("CLOSED", "DECIDED").contains(session.getStatus());
+        boolean reveal = allowResultReveal && List.of("CLOSED", "DECIDED").contains(session.getStatus());
         UUID selected = studentId == null ? null : votes.stream()
                 .filter(vote -> vote.getStudentId().equals(studentId))
                 .map(VoteEntity::getOptionId)
@@ -430,7 +438,7 @@ public class FundVoteService {
                             option.getRequiredAmount() <= session.getFundBalanceSnapshot(),
                             reveal ? count : null,
                             reveal && count == maxVotes,
-                            option.getId().equals(session.getDecidedOptionId())
+                            reveal && option.getId().equals(session.getDecidedOptionId())
                     );
                 })
                 .toList();
@@ -451,9 +459,16 @@ public class FundVoteService {
                 session.getId(), session.getRoomId(), session.getQuestion(), session.getFundBalanceSnapshot(),
                 session.getStatus(), eligibleStudents.size(), votes.size(),
                 studentId == null || eligibleStudentIds.contains(studentId), selected != null,
-                selected, session.getDecidedOptionId(), session.getOpenedAt(), session.getClosedAt(),
+                selected, reveal ? session.getDecidedOptionId() : null,
+                session.getOpenedAt(), session.getClosedAt(),
                 pendingStudents, responseOptions
         );
+    }
+
+    private boolean isVoteResultVisible(RoomEntity room) {
+        return List.of(
+                "DAY2_FUND_RESULT", "DAY2_FINAL_RESULT", "DAY2_SURVEY", "DAY2_COMPLETED"
+        ).contains(room.getCurrentStage());
     }
 
     private boolean hasPendingVoters(VoteSessionEntity session) {
