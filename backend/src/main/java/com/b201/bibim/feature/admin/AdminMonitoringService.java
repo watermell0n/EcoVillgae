@@ -206,6 +206,7 @@ public class AdminMonitoringService {
         return new StudentMonitoringResponse(
                 student.getId(),
                 student.getParticipantNumber(),
+                student.getParticipationCode(),
                 student.getNickname(),
                 student.getStatus(),
                 connectionStatus(presence, now),

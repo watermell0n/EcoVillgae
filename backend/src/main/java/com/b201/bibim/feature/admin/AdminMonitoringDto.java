@@ -33,6 +33,7 @@ public final class AdminMonitoringDto {
     public record StudentMonitoringResponse(
             UUID studentId,
             int participantNumber,
+            String participationCode,
             String nickname,
             String studentStatus,
             String connectionStatus,

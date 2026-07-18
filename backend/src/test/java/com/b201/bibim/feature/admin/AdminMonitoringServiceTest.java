@@ -82,6 +82,7 @@ class AdminMonitoringServiceTest {
 
         assertEquals("OFFLINE", response.students().getFirst().connectionStatus());
         assertEquals("SESSION_TERMINATED", response.students().getFirst().currentPage());
+        assertEquals("ECO-TEST-01", response.students().getFirst().participationCode());
     }
 
     @Test
@@ -134,6 +135,7 @@ class AdminMonitoringServiceTest {
                 .thenReturn(List.of(student));
         when(student.getId()).thenReturn(studentId);
         when(student.getParticipantNumber()).thenReturn(1);
+        when(student.getParticipationCode()).thenReturn("ECO-TEST-01");
         when(student.getStatus()).thenReturn("ACTIVE");
     }
 }

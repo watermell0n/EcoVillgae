@@ -1009,6 +1009,17 @@ h1 {
   color: #287253;
 }
 
+.participation-code-directory-trigger {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.participation-code-dialog {
+  width: min(92vw, 720px);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+}
+
 .shop-summary-workspace {
   display: grid;
   gap: 0.85rem;
@@ -2501,6 +2512,14 @@ button.admin-student-row.is-selected {
   color: #2d394d;
   font-weight: 800;
   text-align: right;
+}
+
+.admin-student-detail .admin-student-code-row {
+  align-items: center;
+}
+
+.admin-student-code-row .participation-code-button {
+  width: 180px;
 }
 
 .admin-recovery-box {

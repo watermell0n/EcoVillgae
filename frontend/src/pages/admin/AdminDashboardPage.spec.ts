@@ -49,6 +49,7 @@ describe('AdminDashboardPage', () => {
         {
           studentId: 'student-1',
           participantNumber: 1,
+          participationCode: 'ECO-TEST-01',
           nickname: '비빔이',
           studentStatus: 'ACTIVE',
           connectionStatus: 'UNSTABLE',
@@ -85,6 +86,29 @@ describe('AdminDashboardPage', () => {
     expect(wrapper.text()).toContain('퀴즈 3번 문제')
     expect(wrapper.text()).toContain('1단계 지연')
     expect(wrapper.text()).toContain('120비빔')
+
+    wrapper.unmount()
+  })
+
+  it('shows the participation code in the selected student detail', async () => {
+    const wrapper = mount(AdminDashboardPage, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+        },
+      },
+    })
+    await flushPromises()
+
+    const rows = wrapper.findAll('.admin-student-row')
+    expect(rows).toHaveLength(1)
+    await rows[0]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('개인 참여 코드')
+    expect(wrapper.text()).toContain('ECO-TEST-01')
+    expect(wrapper.get('[aria-label="ECO-TEST-01 참여 코드 복사"]').text()).toContain('ECO-TEST-01')
 
     wrapper.unmount()
   })

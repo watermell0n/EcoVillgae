@@ -18,6 +18,7 @@ import { groupProductDistribution } from '../../features/day2/model/productDistr
 import { getLobbyAttendance } from '../../features/room/model/attendance'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import ParticipationCodeDialog from './ParticipationCodeDialog.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
 import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
@@ -81,6 +82,7 @@ const showDay1CloseConfirm = ref(false)
 const showDay2SettlementConfirm = ref(false)
 const showFundVotePrepareConfirm = ref(false)
 const showRoomCompleteConfirm = ref(false)
+const showParticipationCodes = ref(false)
 const pendingStageTarget = ref<string | null>(null)
 const pendingLobbyExitTarget = ref<string | null>(null)
 let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
@@ -261,7 +263,7 @@ watch(
   () => [state.value?.currentStage, state.value?.connectedStudentCount] as const,
   async ([stage]) => {
     if (stage !== 'DAY1_LOBBY') {
-      preparation.value = null
+      if (!showParticipationCodes.value) preparation.value = null
       preparationError.value = ''
       return
     }
@@ -645,6 +647,17 @@ async function copyParticipationCode(code: string) {
     noticeMessage.value = ''
     errorMessage.value = `${code} 코드를 자동으로 복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.`
   }
+}
+
+async function openParticipationCodes() {
+  showParticipationCodes.value = true
+  await refreshPreparation()
+}
+
+function closeParticipationCodes() {
+  showParticipationCodes.value = false
+  copiedParticipationCode.value = null
+  if (state.value?.currentStage !== 'DAY1_LOBBY') preparation.value = null
 }
 
 function studentStatusLabel(student: TeacherRoomStudent) {
@@ -1851,6 +1864,11 @@ function moduleTone(moduleState: string) {
             </div>
             <p>로그인한 학생이 현재 수업 단계와 동기화됩니다.</p>
           </template>
+          <button
+            class="button-secondary participation-code-directory-trigger"
+            type="button"
+            @click="openParticipationCodes"
+          >학생별 입장 코드 보기</button>
         </aside>
       </section>
 
@@ -1871,6 +1889,17 @@ function moduleTone(moduleState: string) {
           </article>
         </div>
       </section>
+
+      <ParticipationCodeDialog
+        v-if="showParticipationCodes"
+        :students="preparation?.students ?? []"
+        :loading="preparationLoading"
+        :error-message="preparationError"
+        :copied-code="copiedParticipationCode"
+        @close="closeParticipationCodes"
+        @refresh="refreshPreparation"
+        @copy="copyParticipationCode"
+      />
 
       <div v-if="showQuizCloseWarning && quizSummary" class="modal-backdrop">
         <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="quiz-close-warning-title">

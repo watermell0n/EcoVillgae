@@ -23,6 +23,7 @@ export interface AdminRoomMonitoring {
 export interface AdminStudentMonitoring {
   studentId: string
   participantNumber: number
+  participationCode: string
   nickname: string | null
   studentStatus: string
   connectionStatus: ConnectionStatus

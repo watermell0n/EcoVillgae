@@ -16,6 +16,7 @@ import {
 import { getRoomStage } from '../../features/room/model/stages'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import { copyText } from '../../shared/utils/clipboard'
 import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
@@ -31,6 +32,7 @@ const terminating = ref(false)
 const terminationReason = ref('')
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const copiedParticipationCode = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | undefined
 
 const admin = computed(() => authStore.admin)
@@ -101,6 +103,7 @@ watch(selectedRoomId, async (roomId, previousRoomId) => {
 })
 
 watch(selectedStudentId, async (studentId, previousStudentId) => {
+  copiedParticipationCode.value = ''
   if (!studentId || studentId === previousStudentId) {
     if (!studentId) activities.value = []
     return
@@ -179,6 +182,19 @@ async function terminateSession() {
   } finally {
     terminating.value = false
   }
+}
+
+async function copySelectedParticipationCode() {
+  if (!selectedStudent.value) return
+  const code = selectedStudent.value.participationCode
+  const copied = await copyText(code)
+  copiedParticipationCode.value = copied ? code : ''
+  noticeMessage.value = copied
+    ? `${code} 코드를 복사했습니다.`
+    : ''
+  errorMessage.value = copied
+    ? ''
+    : `${code} 코드를 자동으로 복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.`
 }
 
 async function handleError(error: unknown, fallback: string, silent = false) {
@@ -342,6 +358,21 @@ function formatBibim(amount: number) {
               </div>
 
               <dl class="admin-student-detail">
+                <div class="admin-student-code-row">
+                  <dt>개인 참여 코드</dt>
+                  <dd>
+                    <button
+                      type="button"
+                      class="participation-code-button"
+                      :class="{ 'is-copied': copiedParticipationCode === selectedStudent.participationCode }"
+                      :aria-label="`${selectedStudent.participationCode} 참여 코드 복사`"
+                      @click="copySelectedParticipationCode"
+                    >
+                      <span>{{ selectedStudent.participationCode }}</span>
+                      <small>{{ copiedParticipationCode === selectedStudent.participationCode ? '복사됨' : '복사' }}</small>
+                    </button>
+                  </dd>
+                </div>
                 <div><dt>현재 페이지</dt><dd>{{ pageLabel(selectedStudent.currentPage) }}</dd></div>
                 <div><dt>현재 모듈</dt><dd>{{ selectedStudent.currentModule ?? '-' }}</dd></div>
                 <div><dt>재접속 시각</dt><dd>{{ formatTime(selectedStudent.reconnectedAt) }}</dd></div>
