@@ -19,6 +19,8 @@ import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.deposit.DepositDto.DepositResponse;
+import com.b201.bibim.feature.deposit.DepositDto.DepositHistoryItemResponse;
+import com.b201.bibim.feature.deposit.DepositDto.DepositHistoryResponse;
 import com.b201.bibim.feature.deposit.DepositDto.SaveDraftRequest;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.flow.StudentFlowService;
@@ -73,6 +75,29 @@ public class DepositService {
         return currentDeposit(session.getId(), studentId)
                 .map(deposit -> toResponse(deposit, walletBalance(room.getId(), studentId), false))
                 .orElseGet(() -> emptyResponse(walletBalance(room.getId(), studentId)));
+    }
+
+    @Transactional(readOnly = true)
+    public DepositHistoryResponse history(UUID studentId) {
+        StudentEntity student = findActiveStudent(studentId);
+        RoomEntity room = findRoom(student.getRoomId());
+        ensureOpen(room, studentId);
+        DaySessionEntity session = dayOneSession(room.getId());
+        List<DepositHistoryItemResponse> deposits = depositRepository
+                .findAllBySessionIdAndStudentIdAndStatusOrderByConfirmedAtDesc(
+                        session.getId(), studentId, "CONFIRMED"
+                )
+                .stream()
+                .map(deposit -> new DepositHistoryItemResponse(
+                        deposit.getId(),
+                        deposit.getPrincipal(),
+                        deposit.getInterestRateBps(),
+                        deposit.getExpectedInterest(),
+                        deposit.getPrincipal() + deposit.getExpectedInterest(),
+                        deposit.getConfirmedAt()
+                ))
+                .toList();
+        return new DepositHistoryResponse(deposits);
     }
 
     @Transactional

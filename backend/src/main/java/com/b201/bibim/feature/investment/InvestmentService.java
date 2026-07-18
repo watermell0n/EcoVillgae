@@ -35,6 +35,8 @@ import com.b201.bibim.feature.investment.InvestmentDto.AllocationRequest;
 import com.b201.bibim.feature.investment.InvestmentDto.AllocationResponse;
 import com.b201.bibim.feature.investment.InvestmentDto.AssetResponse;
 import com.b201.bibim.feature.investment.InvestmentDto.InvestmentResponse;
+import com.b201.bibim.feature.investment.InvestmentDto.InvestmentHistoryItemResponse;
+import com.b201.bibim.feature.investment.InvestmentDto.InvestmentHistoryResponse;
 import com.b201.bibim.feature.investment.InvestmentDto.SaveDraftRequest;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.flow.StudentFlowService;
@@ -119,6 +121,31 @@ public class InvestmentService {
                 walletBalance(room.getId(), studentId),
                 false
         );
+    }
+
+    @Transactional(readOnly = true)
+    public InvestmentHistoryResponse history(UUID studentId) {
+        StudentEntity student = findActiveStudent(studentId);
+        RoomEntity room = findRoom(student.getRoomId());
+        ensureOpen(room, studentId);
+        DaySessionEntity session = dayOneSession(room.getId());
+        Map<UUID, InvestmentAssetEntity> assetsById = assetRepository
+                .findAllByRoomIdOrderByDisplayOrder(room.getId())
+                .stream()
+                .collect(Collectors.toMap(InvestmentAssetEntity::getId, Function.identity()));
+        List<InvestmentHistoryItemResponse> investments = orderRepository
+                .findAllBySessionIdAndStudentIdAndStatusOrderByConfirmedAtDesc(
+                        session.getId(), studentId, "CONFIRMED"
+                )
+                .stream()
+                .map(order -> new InvestmentHistoryItemResponse(
+                        order.getId(),
+                        order.getTotalAmount(),
+                        allocationResponses(order.getId(), assetsById),
+                        order.getConfirmedAt()
+                ))
+                .toList();
+        return new InvestmentHistoryResponse(investments);
     }
 
     @Transactional
@@ -331,7 +358,19 @@ public class InvestmentService {
         }
         Map<UUID, InvestmentAssetEntity> assetsById = market.assets().stream()
                 .collect(Collectors.toMap(InvestmentAssetEntity::getId, Function.identity()));
-        List<AllocationResponse> allocations = allocationRepository.findAllByOrderId(order.getId())
+        List<AllocationResponse> allocations = allocationResponses(order.getId(), assetsById);
+        return new InvestmentResponse(
+                order.getId(), order.getStatus(), order.getTotalAmount(), walletBalance,
+                "LOCKED".equals(market.scenario().getStatus()),
+                assetResponses, allocations, order.getUpdatedAt(), order.getConfirmedAt(), replayed
+        );
+    }
+
+    private List<AllocationResponse> allocationResponses(
+            UUID orderId,
+            Map<UUID, InvestmentAssetEntity> assetsById
+    ) {
+        return allocationRepository.findAllByOrderId(orderId)
                 .stream()
                 .map(item -> {
                     InvestmentAssetEntity asset = assetsById.get(item.getAssetId());
@@ -343,11 +382,6 @@ public class InvestmentService {
                     );
                 })
                 .toList();
-        return new InvestmentResponse(
-                order.getId(), order.getStatus(), order.getTotalAmount(), walletBalance,
-                "LOCKED".equals(market.scenario().getStatus()),
-                assetResponses, allocations, order.getUpdatedAt(), order.getConfirmedAt(), replayed
-        );
     }
 
     private AssetResponse toAssetResponse(InvestmentAssetEntity asset) {
@@ -386,6 +420,10 @@ public class InvestmentService {
 
     private RoomEntity lockRoom(UUID roomId) {
         return roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
+    }
+
+    private RoomEntity findRoom(UUID roomId) {
+        return roomRepository.findById(roomId).orElseThrow(this::roomNotFound);
     }
 
     private DaySessionEntity dayOneSession(UUID roomId) {

@@ -34,6 +34,15 @@ export interface DepositState {
   replayed: boolean
 }
 
+export interface DepositHistoryItem {
+  depositId: string
+  principal: number
+  interestRateBps: number
+  expectedInterest: number
+  expectedMaturityAmount: number
+  confirmedAt: string
+}
+
 export interface InvestmentAsset {
   assetId: string
   code: string
@@ -65,6 +74,13 @@ export interface InvestmentState {
   replayed: boolean
 }
 
+export interface InvestmentHistoryItem {
+  orderId: string
+  totalAmount: number
+  allocations: InvestmentAllocation[]
+  confirmedAt: string
+}
+
 export async function getEconomyOverview() {
   const response = await http.get<ApiResponse<EconomyOverview>>('/student/economy/overview')
   return response.data.data
@@ -80,6 +96,13 @@ export async function getEconomyTransactions() {
 export async function getCurrentDeposit() {
   const response = await http.get<ApiResponse<DepositState>>('/student/deposits/current')
   return response.data.data
+}
+
+export async function getDepositHistory() {
+  const response = await http.get<ApiResponse<{ deposits: DepositHistoryItem[] }>>(
+    '/student/deposits/history',
+  )
+  return response.data.data.deposits
 }
 
 export async function saveDepositDraft(principal: number) {
@@ -106,6 +129,13 @@ export async function confirmDeposit(idempotencyKey: string) {
 export async function getCurrentInvestment() {
   const response = await http.get<ApiResponse<InvestmentState>>('/student/investments/current')
   return response.data.data
+}
+
+export async function getInvestmentHistory() {
+  const response = await http.get<ApiResponse<{ investments: InvestmentHistoryItem[] }>>(
+    '/student/investments/history',
+  )
+  return response.data.data.investments
 }
 
 export async function saveInvestmentDraft(allocations: Array<{ assetId: string; amount: number }>) {

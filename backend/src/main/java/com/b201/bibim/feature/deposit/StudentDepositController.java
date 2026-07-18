@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import com.b201.bibim.feature.deposit.DepositDto.DepositResponse;
+import com.b201.bibim.feature.deposit.DepositDto.DepositHistoryResponse;
 import com.b201.bibim.feature.deposit.DepositDto.SaveDraftRequest;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
@@ -35,6 +36,14 @@ public class StudentDepositController {
             HttpServletRequest request
     ) {
         return ApiResponse.success(depositService.current(principal.id()), requestId(request));
+    }
+
+    @GetMapping("/history")
+    ApiResponse<DepositHistoryResponse> history(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(depositService.history(principal.id()), requestId(request));
     }
 
     @PutMapping("/draft")

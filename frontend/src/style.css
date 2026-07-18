@@ -2599,6 +2599,7 @@ button.admin-student-row.is-selected {
 .finance-guide-card,
 .finance-form-card,
 .investment-total-card,
+.finance-history-card,
 .transaction-list,
 .day1-result-section,
 .day1-close-workspace {
@@ -2661,6 +2662,93 @@ button.admin-student-row.is-selected {
   margin: 0;
   color: #287253;
   font-weight: 900;
+}
+
+.finance-history-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.finance-history-card__header,
+.finance-history-list__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.finance-history-card__header h2 {
+  margin: 0;
+  color: #263449;
+}
+
+.finance-history-card__header > strong {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  color: #287253;
+  background: #eaf6ef;
+}
+
+.finance-history-card__empty {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  color: #737b87;
+  background: #f7f3ea;
+  text-align: center;
+}
+
+.finance-history-list,
+.investment-history-allocations {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-history-list > li {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid #e8dfd3;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.finance-history-list__title time {
+  color: #737b87;
+  font-size: 0.78rem;
+}
+
+.finance-history-list dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.finance-history-list dl > div {
+  padding: 0.65rem;
+  border-radius: 0.65rem;
+  background: #f7f3ea;
+}
+
+.finance-history-list dt {
+  color: #737b87;
+  font-size: 0.72rem;
+}
+
+.finance-history-list dd {
+  margin: 0.2rem 0 0;
+  font-weight: 900;
+}
+
+.investment-history-allocations li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .investment-asset-grid {
@@ -3278,6 +3366,7 @@ button.admin-student-row.is-selected {
   .investment-asset-grid,
   .finance-form-card dl,
   .investment-total-card,
+  .finance-history-list dl,
   .finance-actions {
     grid-template-columns: 1fr;
   }

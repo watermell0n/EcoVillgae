@@ -25,6 +25,12 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
             String status
     );
 
+    List<InvestmentOrderEntity> findAllBySessionIdAndStudentIdAndStatusOrderByConfirmedAtDesc(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
     boolean existsBySessionIdAndStudentIdAndStatus(
             UUID sessionId,
             UUID studentId,

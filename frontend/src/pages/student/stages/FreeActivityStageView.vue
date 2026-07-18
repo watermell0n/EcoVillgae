@@ -350,6 +350,26 @@ function formatPurchasedAt(value: string) {
           </div>
           <p v-if="overview.depositBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.depositBalance) }}을 예금했어요. 남은 잔액으로 추가 예금할 수 있어요.</p>
         </div>
+        <section class="finance-history-card" aria-labelledby="deposit-history-title">
+          <div class="finance-history-card__header">
+            <div><p class="eyebrow">확정 내역</p><h2 id="deposit-history-title">내가 맡긴 예금</h2></div>
+            <strong>{{ economyStore.depositHistory.length }}건</strong>
+          </div>
+          <p v-if="economyStore.depositHistory.length === 0" class="finance-history-card__empty">아직 확정한 예금이 없어요.</p>
+          <ol v-else class="finance-history-list">
+            <li v-for="item in economyStore.depositHistory" :key="item.depositId">
+              <div class="finance-history-list__title">
+                <strong>{{ formatBibim(item.principal) }} 예금</strong>
+                <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
+              </div>
+              <dl>
+                <div><dt>약속 이자율</dt><dd>{{ formatRate(item.interestRateBps) }}</dd></div>
+                <div><dt>예상 이자</dt><dd>+{{ formatBibim(item.expectedInterest) }}</dd></div>
+                <div><dt>만기 예상</dt><dd>{{ formatBibim(item.expectedMaturityAmount) }}</dd></div>
+              </dl>
+            </li>
+          </ol>
+        </section>
       </section>
 
       <section v-else-if="activeView === 'INVESTMENT'" class="finance-activity-panel">
@@ -377,6 +397,28 @@ function formatPurchasedAt(value: string) {
           </div>
           <p v-if="overview.investmentBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.investmentBalance) }}을 투자했어요. 남은 잔액으로 추가 투자할 수 있어요.</p>
         </div>
+        <section class="finance-history-card" aria-labelledby="investment-history-title">
+          <div class="finance-history-card__header">
+            <div><p class="eyebrow">확정 내역</p><h2 id="investment-history-title">내가 선택한 투자처</h2></div>
+            <strong>{{ economyStore.investmentHistory.length }}건</strong>
+          </div>
+          <p v-if="economyStore.investmentHistory.length === 0" class="finance-history-card__empty">아직 확정한 투자가 없어요.</p>
+          <ol v-else class="finance-history-list">
+            <li v-for="item in economyStore.investmentHistory" :key="item.orderId">
+              <div class="finance-history-list__title">
+                <strong>총 {{ formatBibim(item.totalAmount) }}</strong>
+                <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
+              </div>
+              <ul class="investment-history-allocations">
+                <li v-for="allocation in item.allocations" :key="allocation.assetId">
+                  <span :class="`risk-badge risk-badge--${allocation.riskLevel.toLowerCase()}`">{{ riskLabel(allocation.riskLevel) }}</span>
+                  <strong>{{ allocation.assetName }}</strong>
+                  <span>{{ formatBibim(allocation.amount) }}</span>
+                </li>
+              </ul>
+            </li>
+          </ol>
+        </section>
       </section>
 
       <section v-else-if="activeView === 'KNOWLEDGE'" class="learning-review" aria-labelledby="learning-review-title">

@@ -8,21 +8,27 @@ import {
   confirmInvestment,
   getCurrentDeposit,
   getCurrentInvestment,
+  getDepositHistory,
   getEconomyOverview,
   getEconomyTransactions,
+  getInvestmentHistory,
   saveDepositDraft,
   saveInvestmentDraft,
   type DepositState,
+  type DepositHistoryItem,
   type EconomyOverview,
   type EconomyTransaction,
   type InvestmentState,
+  type InvestmentHistoryItem,
 } from '../features/economy/api/economy'
 
 export const useEconomyStore = defineStore('economy', () => {
   const overview = ref<EconomyOverview | null>(null)
   const transactions = ref<EconomyTransaction[]>([])
   const deposit = ref<DepositState | null>(null)
+  const depositHistory = ref<DepositHistoryItem[]>([])
   const investment = ref<InvestmentState | null>(null)
+  const investmentHistory = ref<InvestmentHistoryItem[]>([])
   const loading = ref(false)
   const saving = ref(false)
   const error = shallowRef<unknown>(null)
@@ -44,9 +50,19 @@ export const useEconomyStore = defineStore('economy', () => {
     return deposit.value
   }
 
+  async function refreshDepositHistory() {
+    depositHistory.value = await getDepositHistory()
+    return depositHistory.value
+  }
+
   async function refreshInvestment() {
     investment.value = await getCurrentInvestment()
     return investment.value
+  }
+
+  async function refreshInvestmentHistory() {
+    investmentHistory.value = await getInvestmentHistory()
+    return investmentHistory.value
   }
 
   async function refreshAll() {
@@ -56,7 +72,9 @@ export const useEconomyStore = defineStore('economy', () => {
         refreshOverview(),
         refreshTransactions(),
         refreshDeposit(),
+        refreshDepositHistory(),
         refreshInvestment(),
+        refreshInvestmentHistory(),
       ])
       error.value = null
     } catch (caughtError) {
@@ -97,7 +115,7 @@ export const useEconomyStore = defineStore('economy', () => {
     try {
       deposit.value = await confirmDeposit(depositKey)
       depositKey = undefined
-      await Promise.all([refreshOverview(), refreshTransactions()])
+      await Promise.all([refreshOverview(), refreshTransactions(), refreshDepositHistory()])
       return deposit.value
     } finally {
       saving.value = false
@@ -134,7 +152,7 @@ export const useEconomyStore = defineStore('economy', () => {
     try {
       investment.value = await confirmInvestment(investmentKey)
       investmentKey = undefined
-      await Promise.all([refreshOverview(), refreshTransactions()])
+      await Promise.all([refreshOverview(), refreshTransactions(), refreshInvestmentHistory()])
       return investment.value
     } finally {
       saving.value = false
@@ -145,7 +163,9 @@ export const useEconomyStore = defineStore('economy', () => {
     overview.value = null
     transactions.value = []
     deposit.value = null
+    depositHistory.value = []
     investment.value = null
+    investmentHistory.value = []
     depositKey = undefined
     investmentKey = undefined
     error.value = null
@@ -155,14 +175,18 @@ export const useEconomyStore = defineStore('economy', () => {
     overview,
     transactions,
     deposit,
+    depositHistory,
     investment,
+    investmentHistory,
     loading,
     saving,
     error,
     refreshOverview,
     refreshTransactions,
     refreshDeposit,
+    refreshDepositHistory,
     refreshInvestment,
+    refreshInvestmentHistory,
     refreshAll,
     updateDepositDraft,
     removeDepositDraft,

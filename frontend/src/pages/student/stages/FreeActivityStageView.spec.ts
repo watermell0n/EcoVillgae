@@ -25,10 +25,12 @@ const economyApi = vi.hoisted(() => ({
   getEconomyOverview: vi.fn(),
   getEconomyTransactions: vi.fn(),
   getCurrentDeposit: vi.fn(),
+  getDepositHistory: vi.fn(),
   saveDepositDraft: vi.fn(),
   cancelDepositDraft: vi.fn(),
   confirmDeposit: vi.fn(),
   getCurrentInvestment: vi.fn(),
+  getInvestmentHistory: vi.fn(),
   saveInvestmentDraft: vi.fn(),
   cancelInvestmentDraft: vi.fn(),
   confirmInvestment: vi.fn(),
@@ -108,6 +110,7 @@ describe('FreeActivityStageView', () => {
       totalAssets: 100,
     })
     economyApi.getEconomyTransactions.mockResolvedValue([])
+    economyApi.getDepositHistory.mockResolvedValue([])
     economyApi.getCurrentDeposit.mockResolvedValue({
       depositId: null,
       status: 'NONE',
@@ -143,6 +146,7 @@ describe('FreeActivityStageView', () => {
       confirmedAt: null,
       replayed: false,
     })
+    economyApi.getInvestmentHistory.mockResolvedValue([])
   })
 
   async function openTab(wrapper: ReturnType<typeof mount>, label: string) {
@@ -358,5 +362,41 @@ describe('FreeActivityStageView', () => {
     expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
       { assetId: 'asset-1', amount: 20 },
     ])
+  })
+
+  it('shows every confirmed deposit and investment allocation', async () => {
+    economyApi.getDepositHistory.mockResolvedValue([
+      {
+        depositId: 'deposit-1',
+        principal: 40,
+        interestRateBps: 500,
+        expectedInterest: 2,
+        expectedMaturityAmount: 42,
+        confirmedAt: '2026-07-16T00:00:00Z',
+      },
+    ])
+    economyApi.getInvestmentHistory.mockResolvedValue([
+      {
+        orderId: 'order-1',
+        totalAmount: 30,
+        confirmedAt: '2026-07-16T00:00:00Z',
+        allocations: [
+          { assetId: 'asset-1', assetName: '튼튼 채권', riskLevel: 'LOW', amount: 30 },
+        ],
+      },
+    ])
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '예금')
+    expect(wrapper.text()).toContain('내가 맡긴 예금')
+    expect(wrapper.text()).toContain('40비빔 예금')
+    expect(wrapper.text()).toContain('만기 예상')
+    expect(wrapper.text()).toContain('42비빔')
+
+    await openTab(wrapper, '투자')
+    expect(wrapper.text()).toContain('내가 선택한 투자처')
+    expect(wrapper.text()).toContain('튼튼 채권')
+    expect(wrapper.text()).toContain('30비빔')
   })
 })

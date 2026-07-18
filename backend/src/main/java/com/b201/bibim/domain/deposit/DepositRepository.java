@@ -25,6 +25,12 @@ public interface DepositRepository extends JpaRepository<DepositEntity, UUID> {
             String status
     );
 
+    List<DepositEntity> findAllBySessionIdAndStudentIdAndStatusOrderByConfirmedAtDesc(
+            UUID sessionId,
+            UUID studentId,
+            String status
+    );
+
     boolean existsBySessionIdAndStudentIdAndStatus(
             UUID sessionId,
             UUID studentId,

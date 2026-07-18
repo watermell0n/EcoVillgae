@@ -61,4 +61,17 @@ public final class InvestmentDto {
             boolean replayed
     ) {
     }
+
+    public record InvestmentHistoryItemResponse(
+            UUID orderId,
+            long totalAmount,
+            List<AllocationResponse> allocations,
+            Instant confirmedAt
+    ) {
+    }
+
+    public record InvestmentHistoryResponse(
+            List<InvestmentHistoryItemResponse> investments
+    ) {
+    }
 }
