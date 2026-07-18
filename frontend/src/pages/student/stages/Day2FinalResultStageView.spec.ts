@@ -27,7 +27,14 @@ const resultFixture = {
   day2QuizReward: 15,
   totalPurchaseAmount: 30,
   finalWalletBalance: 58,
-  purchases: [],
+  purchases: [
+    {
+      productId: 'product-1',
+      productName: '연필 세트',
+      quantity: 2,
+      totalPrice: 22,
+    },
+  ],
   voteResult: null,
   surveyUrl: 'https://example.com/survey',
 }
@@ -50,6 +57,9 @@ describe('Day2FinalResultStageView', () => {
 
     expect(wrapper.find('.survey-link-button').exists()).toBe(false)
     expect(wrapper.text()).toContain('선생님이 마무리 설문을 열어 줄 때까지 기다려 주세요.')
+    expect(wrapper.findAll('.final-purchase-list li')).toHaveLength(1)
+    expect(wrapper.text()).toContain('연필 세트 × 2')
+    expect(wrapper.text()).toContain('22비빔')
   })
 
   it.each(['DAY2_SURVEY', 'DAY2_COMPLETED'])('shows the survey link at %s', async (stage) => {

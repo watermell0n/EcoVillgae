@@ -14,6 +14,7 @@ import {
   isNextStageDisabled,
   ROOM_STAGES,
 } from '../../features/room/model/stages'
+import { groupProductDistribution } from '../../features/day2/model/productDistribution'
 import { getLobbyAttendance } from '../../features/room/model/attendance'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
@@ -103,6 +104,9 @@ const fundVote = computed(() => day2EndStore.vote)
 const decidedFundOption = computed(() => fundVote.value?.options.find((option) => option.decided) ?? null)
 const finalSummary = computed(() => day2EndStore.finalSummary)
 const productDistribution = computed(() => day2EndStore.distribution)
+const productDistributionByDay = computed(() => groupProductDistribution(
+  productDistribution.value?.items ?? [],
+))
 const canPrepareFundVote = computed(() => Boolean(fundOverview.value))
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
@@ -1548,12 +1552,37 @@ function moduleTone(moduleState: string) {
             </div>
             <section class="distribution-list">
               <h3>상품 배부 목록 · 총 {{ productDistribution.totalQuantity }}개</h3>
-              <ul v-if="productDistribution.items.length">
-                <li v-for="item in productDistribution.items" :key="`${item.productId}-${item.studentId}`">
-                  <strong>{{ item.productName }} × {{ item.quantity }}</strong>
-                  <span>{{ item.participantNumber }}번 {{ item.nickname ?? '미설정' }}</span>
-                </li>
-              </ul>
+              <div v-if="productDistribution.items.length" class="distribution-days">
+                <section
+                  v-for="day in productDistributionByDay"
+                  :key="day.dayNumber"
+                  class="distribution-day"
+                >
+                  <header>
+                    <h4>{{ day.dayNumber }}일차 구매</h4>
+                    <strong>총 {{ day.totalQuantity }}개</strong>
+                  </header>
+                  <div v-if="day.students.length" class="distribution-students">
+                    <article
+                      v-for="studentItem in day.students"
+                      :key="studentItem.studentId"
+                      class="distribution-student"
+                    >
+                      <div class="distribution-student__header">
+                        <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                        <span>{{ studentItem.totalQuantity }}개</span>
+                      </div>
+                      <ul>
+                        <li v-for="item in studentItem.items" :key="item.productId">
+                          <strong>{{ item.productName }}</strong>
+                          <span>× {{ item.quantity }}</span>
+                        </li>
+                      </ul>
+                    </article>
+                  </div>
+                  <p v-else>이 날 배부할 상품이 없습니다.</p>
+                </section>
+              </div>
               <p v-else>배부할 상품이 없습니다.</p>
             </section>
             <section v-if="finalSummary.voteResult" class="final-vote-result">

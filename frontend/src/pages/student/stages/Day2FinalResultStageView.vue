@@ -56,7 +56,7 @@ function formatBibim(amount: number) {
       <section class="final-purchase-list">
         <h2>내가 구매한 상품</h2>
         <ul v-if="result.purchases.length">
-          <li v-for="purchase in result.purchases" :key="purchase.purchaseId">
+          <li v-for="purchase in result.purchases" :key="purchase.productId">
             <span>{{ purchase.productName }} × {{ purchase.quantity }}</span>
             <strong>{{ purchase.totalPrice.toLocaleString('ko-KR') }}비빔</strong>
           </li>

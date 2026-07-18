@@ -1,6 +1,5 @@
 package com.b201.bibim.feature.result;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,13 +9,10 @@ public final class FinalResultDto {
     }
 
     public record PurchaseResultResponse(
-            UUID purchaseId,
             UUID productId,
             String productName,
             int quantity,
-            long unitPrice,
-            long totalPrice,
-            Instant purchasedAt
+            long totalPrice
     ) {
     }
 
@@ -88,6 +84,7 @@ public final class FinalResultDto {
     }
 
     public record ProductDistributionItemResponse(
+            int dayNumber,
             UUID productId,
             String productName,
             UUID studentId,

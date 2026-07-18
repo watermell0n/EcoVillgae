@@ -170,6 +170,10 @@ public class FinancialTransactionEntity {
         return roomId;
     }
 
+    public UUID getSessionId() {
+        return sessionId;
+    }
+
     public UUID getStudentId() {
         return studentId;
     }

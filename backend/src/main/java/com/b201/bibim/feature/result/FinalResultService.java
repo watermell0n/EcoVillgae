@@ -1,7 +1,8 @@
 package com.b201.bibim.feature.result;
 
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -10,7 +11,10 @@ import java.util.stream.Collectors;
 
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.finance.FinancialTransactionEntity;
+import com.b201.bibim.domain.finance.FinancialTransactionRepository;
 import com.b201.bibim.domain.fund.FundExpenseRepository;
+import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.settlement.FinancialSettlementItemEntity;
@@ -53,8 +57,10 @@ public class FinalResultService {
     );
 
     private final RoomRepository roomRepository;
+    private final DaySessionRepository sessionRepository;
     private final StudentRepository studentRepository;
     private final AccountRepository accountRepository;
+    private final FinancialTransactionRepository transactionRepository;
     private final SettlementRunRepository runRepository;
     private final SettlementItemRepository settlementItemRepository;
     private final FinancialSettlementItemRepository financialItemRepository;
@@ -68,8 +74,10 @@ public class FinalResultService {
 
     public FinalResultService(
             RoomRepository roomRepository,
+            DaySessionRepository sessionRepository,
             StudentRepository studentRepository,
             AccountRepository accountRepository,
+            FinancialTransactionRepository transactionRepository,
             SettlementRunRepository runRepository,
             SettlementItemRepository settlementItemRepository,
             FinancialSettlementItemRepository financialItemRepository,
@@ -82,8 +90,10 @@ public class FinalResultService {
             @Value("${app.survey.url}") String surveyUrl
     ) {
         this.roomRepository = roomRepository;
+        this.sessionRepository = sessionRepository;
         this.studentRepository = studentRepository;
         this.accountRepository = accountRepository;
+        this.transactionRepository = transactionRepository;
         this.runRepository = runRepository;
         this.settlementItemRepository = settlementItemRepository;
         this.financialItemRepository = financialItemRepository;
@@ -150,21 +160,43 @@ public class FinalResultService {
         Map<UUID, ProductEntity> products = products(roomId);
         Map<UUID, StudentEntity> students = studentRepository.findAllByRoomIdOrderByParticipantNumber(roomId)
                 .stream().collect(Collectors.toMap(StudentEntity::getId, Function.identity()));
-        List<ProductDistributionItemResponse> items = purchaseRepository
+        List<PurchaseEntity> purchases = purchaseRepository
                 .findAllByRoomIdOrderByCreatedAtDesc(roomId).stream()
                 .filter(purchase -> "SUCCESS".equals(purchase.getStatus()))
-                .map(purchase -> {
-                    ProductEntity product = products.get(purchase.getProductId());
-                    StudentEntity student = students.get(purchase.getStudentId());
+                .toList();
+        Map<UUID, Integer> daysBySessionId = daysBySessionId(roomId);
+        Map<UUID, FinancialTransactionEntity> transactions = transactionRepository
+                .findAllById(purchases.stream().map(PurchaseEntity::getTransactionId).toList()).stream()
+                .collect(Collectors.toMap(FinancialTransactionEntity::getId, Function.identity()));
+        List<ProductDistributionItemResponse> items = purchases.stream()
+                .collect(Collectors.groupingBy(
+                        purchase -> new DistributionKey(
+                                purchaseDay(purchase, transactions, daysBySessionId),
+                                purchase.getStudentId(),
+                                purchase.getProductId()
+                        ),
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ))
+                .entrySet().stream()
+                .map(entry -> {
+                    DistributionKey key = entry.getKey();
+                    List<PurchaseEntity> groupedPurchases = entry.getValue();
+                    ProductEntity product = products.get(key.productId());
+                    StudentEntity student = students.get(key.studentId());
                     return new ProductDistributionItemResponse(
-                            purchase.getProductId(), product == null ? "삭제된 상품" : product.getName(),
-                            purchase.getStudentId(), student == null ? 0 : student.getParticipantNumber(),
-                            student == null ? "알 수 없음" : student.getNickname(), purchase.getQuantity(),
-                            purchase.getTotalPrice()
+                            key.dayNumber(), key.productId(), product == null ? "삭제된 상품" : product.getName(),
+                            key.studentId(), student == null ? 0 : student.getParticipantNumber(),
+                            student == null ? "알 수 없음" : student.getNickname(),
+                            groupedPurchases.stream().mapToInt(PurchaseEntity::getQuantity)
+                                    .reduce(0, Math::addExact),
+                            groupedPurchases.stream().mapToLong(PurchaseEntity::getTotalPrice)
+                                    .reduce(0L, Math::addExact)
                     );
                 })
-                .sorted(Comparator.comparing(ProductDistributionItemResponse::productName)
-                        .thenComparingInt(ProductDistributionItemResponse::participantNumber))
+                .sorted(Comparator.comparingInt(ProductDistributionItemResponse::dayNumber)
+                        .thenComparingInt(ProductDistributionItemResponse::participantNumber)
+                        .thenComparing(ProductDistributionItemResponse::productName))
                 .toList();
         return new ProductDistributionResponse(
                 roomId, items.stream().mapToInt(ProductDistributionItemResponse::quantity).sum(), items
@@ -180,10 +212,28 @@ public class FinalResultService {
         SettlementItemEntity income = settlementItem(room.getId(), "DAY1_INCOME", student.getId());
         SettlementItemEntity quizReward = settlementItem(room.getId(), "DAY2_QUIZ_REWARD", student.getId());
         FinancialSettlementItemEntity finance = financialItem(room.getId(), student.getId());
-        List<PurchaseResultResponse> purchases = purchaseRepository
+        List<PurchaseEntity> successfulPurchases = purchaseRepository
                 .findAllByStudentIdOrderByCreatedAtDesc(student.getId()).stream()
                 .filter(purchase -> "SUCCESS".equals(purchase.getStatus()))
-                .map(purchase -> toPurchase(purchase, products.get(purchase.getProductId())))
+                .toList();
+        List<PurchaseResultResponse> purchases = successfulPurchases.stream()
+                .collect(Collectors.groupingBy(
+                        PurchaseEntity::getProductId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ))
+                .entrySet().stream()
+                .map(entry -> {
+                    ProductEntity product = products.get(entry.getKey());
+                    return new PurchaseResultResponse(
+                            entry.getKey(), product == null ? "삭제된 상품" : product.getName(),
+                            entry.getValue().stream().mapToInt(PurchaseEntity::getQuantity)
+                                    .reduce(0, Math::addExact),
+                            entry.getValue().stream().mapToLong(PurchaseEntity::getTotalPrice)
+                                    .reduce(0L, Math::addExact)
+                    );
+                })
+                .sorted(Comparator.comparing(PurchaseResultResponse::productName))
                 .toList();
         return new StudentFinalResultResponse(
                 room.getId(), student.getId(), student.getParticipantNumber(), student.getNickname(),
@@ -202,11 +252,30 @@ public class FinalResultService {
         );
     }
 
-    private PurchaseResultResponse toPurchase(PurchaseEntity purchase, ProductEntity product) {
-        return new PurchaseResultResponse(
-                purchase.getId(), purchase.getProductId(), product == null ? "삭제된 상품" : product.getName(),
-                purchase.getQuantity(), purchase.getUnitPrice(), purchase.getTotalPrice(), purchase.getCreatedAt()
-        );
+    private Map<UUID, Integer> daysBySessionId(UUID roomId) {
+        Map<UUID, Integer> result = new HashMap<>();
+        for (short day = 1; day <= 2; day++) {
+            sessionRepository.findByRoomIdAndDayNumber(roomId, day)
+                    .ifPresent(session -> result.put(session.getId(), session.getDayNumber()));
+        }
+        return result;
+    }
+
+    private int purchaseDay(
+            PurchaseEntity purchase,
+            Map<UUID, FinancialTransactionEntity> transactions,
+            Map<UUID, Integer> daysBySessionId
+    ) {
+        FinancialTransactionEntity transaction = transactions.get(purchase.getTransactionId());
+        Integer dayNumber = transaction == null ? null : daysBySessionId.get(transaction.getSessionId());
+        if (dayNumber == null) {
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "PURCHASE_SESSION_NOT_FOUND",
+                    "구매 내역의 수업 일차를 확인할 수 없습니다."
+            );
+        }
+        return dayNumber;
     }
 
     private VoteDecisionResponse voteDecision(UUID roomId) {
@@ -279,6 +348,9 @@ public class FinalResultService {
 
     private ApiException roomNotFound() {
         return new ApiException(HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "수업 방을 찾을 수 없습니다.");
+    }
+
+    private record DistributionKey(int dayNumber, UUID studentId, UUID productId) {
     }
 }
 

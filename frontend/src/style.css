@@ -2793,6 +2793,64 @@ button.admin-student-row.is-selected {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.distribution-days {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+.distribution-day {
+  padding: 0.9rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.distribution-day > header,
+.distribution-student__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.distribution-day h4 {
+  margin: 0;
+}
+
+.distribution-day > header > strong,
+.distribution-student__header span {
+  color: #2563eb;
+  font-size: 0.85rem;
+}
+
+.distribution-students {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.distribution-student {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.distribution-student ul {
+  margin-top: 0.45rem;
+}
+
+.distribution-student li {
+  padding: 0.45rem 0;
+  font-size: 0.9rem;
+}
+
+.distribution-student li:last-child {
+  border-bottom: 0;
+}
+
 .survey-link-button {
   display: inline-flex;
   align-items: center;
@@ -2870,6 +2928,10 @@ button.admin-student-row.is-selected {
 }
 
 @media (max-width: 680px) {
+  .distribution-days {
+    grid-template-columns: 1fr;
+  }
+
   .fund-cost-option-grid article,
   .teacher-vote-options article,
   .student-vote-options label,
@@ -2878,6 +2940,11 @@ button.admin-student-row.is-selected {
   .distribution-list li {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .distribution-student li {
+    align-items: center;
+    flex-direction: row;
   }
 }
 

@@ -2,13 +2,10 @@ import { http } from '../../../shared/api/http'
 import type { ApiResponse } from '../../../shared/api/types'
 
 export interface PurchaseResult {
-  purchaseId: string
   productId: string
   productName: string
   quantity: number
-  unitPrice: number
   totalPrice: number
-  purchasedAt: string
 }
 
 export interface VoteDecision {
@@ -75,6 +72,7 @@ export interface TeacherFinalSummary {
 }
 
 export interface ProductDistributionItem {
+  dayNumber: 1 | 2
   productId: string
   productName: string
   studentId: string
