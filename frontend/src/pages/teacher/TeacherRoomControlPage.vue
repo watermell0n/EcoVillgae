@@ -418,7 +418,12 @@ watch(
       }
       return
     }
-    if (!stage || !['DAY1_QUIZ', 'DAY1_QUIZ_RESULT', 'DAY2_QUIZ'].includes(stage)) return
+    if (!stage || ![
+      'DAY1_QUIZ',
+      'DAY1_QUIZ_RESULT',
+      'DAY2_QUIZ',
+      'DAY2_QUIZ_RESULT',
+    ].includes(stage)) return
 
     try {
       await quizStore.refreshTeacherSummary(roomId.value)
@@ -1023,8 +1028,10 @@ function moduleTone(moduleState: string) {
             {{ preparationError || '참여 코드와 학생 현황을 불러오고 있습니다.' }}
           </p>
           <TeacherQuizResultPanel
-            v-else-if="state.currentStage === 'DAY1_QUIZ_RESULT' && quizSummary"
+            v-else-if="['DAY1_QUIZ_RESULT', 'DAY2_QUIZ_RESULT'].includes(state.currentStage) && quizSummary"
             :summary="quizSummary"
+            :day-number="state.currentStage === 'DAY1_QUIZ_RESULT' ? 1 : 2"
+            :next-stage-label="state.currentStage === 'DAY1_QUIZ_RESULT' ? '소득·세금 정산' : '퀴즈 보상 정산'"
           />
           <div v-else-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary" class="quiz-control-workspace">
             <div class="quiz-control-workspace__headline">
@@ -1627,6 +1634,8 @@ function moduleTone(moduleState: string) {
                 ? '변경 중…'
                 : state.currentStage === 'DAY1_QUIZ_RESULT'
                   ? '퀴즈 결과 확인 완료 · 소득·세금 정산 →'
+                  : state.currentStage === 'DAY2_QUIZ_RESULT'
+                    ? '퀴즈 결과 확인 완료 · 보상 정산 →'
                   : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
             </button>
           </div>
@@ -1637,6 +1646,8 @@ function moduleTone(moduleState: string) {
                 : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_QUIZ_RESULT'
                 ? '학생들과 문항별 정답과 해설을 확인한 뒤 소득·세금 정산으로 이동해 주세요.'
+              : state.currentStage === 'DAY2_QUIZ_RESULT'
+                ? '학생들과 문항별 정답과 해설을 확인한 뒤 퀴즈 보상 정산으로 이동해 주세요.'
               : state.currentStage === 'DAY2_QUIZ_SETTLEMENT'
                 ? '퀴즈 보상 정산을 완료하면 금융세·인플레이션 교육 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
@@ -1668,7 +1679,7 @@ function moduleTone(moduleState: string) {
             <p class="eyebrow">실시간 현황</p>
             <h2>{{ ['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage)
               ? '퀴즈 제출'
-              : state.currentStage === 'DAY1_QUIZ_RESULT'
+              : ['DAY1_QUIZ_RESULT', 'DAY2_QUIZ_RESULT'].includes(state.currentStage)
                 ? '퀴즈 결과'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산 결과'
@@ -1689,7 +1700,12 @@ function moduleTone(moduleState: string) {
                           ? '최종 결과'
                           : '학생 연결' }}</h2>
           </div>
-          <template v-if="['DAY1_QUIZ', 'DAY1_QUIZ_RESULT', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary">
+          <template v-if="[
+            'DAY1_QUIZ',
+            'DAY1_QUIZ_RESULT',
+            'DAY2_QUIZ',
+            'DAY2_QUIZ_RESULT',
+          ].includes(state.currentStage) && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
               <strong>{{ quizSummary.submittedCount }}</strong>
               <span>/ {{ quizSummary.eligibleStudentCount }}명 제출</span>

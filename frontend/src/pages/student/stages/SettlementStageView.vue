@@ -3,10 +3,17 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   getDayOneQuizResult,
+  getDayTwoQuizResult,
   type QuizResultQuestion,
   type StudentQuizResult,
 } from '../../../features/quiz/api/quiz'
 import { getApiErrorMessage } from '../../../shared/api/errors'
+
+const props = withDefaults(defineProps<{
+  dayNumber?: 1 | 2
+}>(), {
+  dayNumber: 1,
+})
 
 const result = ref<StudentQuizResult | null>(null)
 const loading = ref(true)
@@ -29,7 +36,9 @@ async function loadResult() {
   loading.value = true
   errorMessage.value = ''
   try {
-    result.value = await getDayOneQuizResult()
+    result.value = props.dayNumber === 1
+      ? await getDayOneQuizResult()
+      : await getDayTwoQuizResult()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '퀴즈 결과를 불러오지 못했습니다.')
   } finally {
@@ -63,7 +72,7 @@ function resultLabel(question: QuizResultQuestion) {
       <header class="quiz-result__header">
         <div class="stage-view__icon stage-view__icon--green" aria-hidden="true">✓</div>
         <div>
-          <p class="eyebrow">1일차 퀴즈 결과</p>
+          <p class="eyebrow">{{ props.dayNumber }}일차 퀴즈 결과</p>
           <h1 class="page-title">내가 푼 문제를 확인해요.</h1>
           <p class="page-description">선생님과 함께 정답과 해설을 살펴보세요.</p>
         </div>
@@ -117,12 +126,18 @@ function resultLabel(question: QuizResultQuestion) {
         <span aria-hidden="true">⌛</span>
         <div>
           <strong>지금은 퀴즈 결과를 함께 확인하는 시간이에요.</strong>
-          <p>결과 확인이 끝나면 선생님이 역할 소득, 퀴즈 보상과 소득세를 계산해요.</p>
+          <p v-if="props.dayNumber === 1">결과 확인이 끝나면 선생님이 역할 소득, 퀴즈 보상과 소득세를 계산해요.</p>
+          <p v-else>결과 확인이 끝나면 선생님이 참여수당과 정답 보상을 계산해요.</p>
         </div>
-        <div class="settlement-formula" aria-label="실수령액 계산식">
+        <div v-if="props.dayNumber === 1" class="settlement-formula" aria-label="실수령액 계산식">
           <span>역할 소득 + 퀴즈 보상</span>
           <strong>− 소득세</strong>
           <span>= 실수령액</span>
+        </div>
+        <div v-else class="settlement-formula" aria-label="퀴즈 보상 계산식">
+          <span>참여수당</span>
+          <strong>+ 정답 보상</strong>
+          <span>= 총 퀴즈 보상</span>
         </div>
       </aside>
     </template>

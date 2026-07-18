@@ -7,6 +7,8 @@ describe('TeacherQuizResultPanel', () => {
   it('shows class averages, question rates, and student question results', () => {
     const wrapper = mount(TeacherQuizResultPanel, {
       props: {
+        dayNumber: 2,
+        nextStageLabel: '퀴즈 보상 정산',
         summary: {
           quizId: 'quiz-1',
           title: '월급 퀴즈',
@@ -73,6 +75,8 @@ describe('TeacherQuizResultPanel', () => {
     })
 
     expect(wrapper.text()).toContain('1.5 / 2')
+    expect(wrapper.text()).toContain('2일차 퀴즈 결과')
+    expect(wrapper.text()).toContain('퀴즈 보상 정산 단계')
     expect(wrapper.text()).toContain('100%')
     expect(wrapper.text()).toContain('50%')
     expect(wrapper.text()).toContain('1번 하이')

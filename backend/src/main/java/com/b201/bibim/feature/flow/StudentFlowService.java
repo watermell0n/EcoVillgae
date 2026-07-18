@@ -58,6 +58,7 @@ public class StudentFlowService {
             "DAY1_SUMMARY",
             "DAY2_RESULT_GUIDED",
             "DAY2_QUIZ",
+            "DAY2_QUIZ_RESULT",
             "DAY2_QUIZ_SETTLEMENT",
             "DAY2_TAX_INFLATION_GUIDED",
             "DAY2_FINAL_SHOP",

@@ -10,7 +10,7 @@ import {
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
-    expect(ROOM_STAGES).toHaveLength(27)
+    expect(ROOM_STAGES).toHaveLength(28)
     expect(ROOM_STAGES[0]?.id).toBe('DAY1_LOBBY')
     expect(ROOM_STAGES.at(-1)?.id).toBe('DAY2_COMPLETED')
   })
@@ -19,6 +19,8 @@ describe('room stages', () => {
     expect(getAdjacentStages('DAY1_QUIZ').previous?.id).toBe('DAY1_PROFILE')
     expect(getAdjacentStages('DAY1_QUIZ').next?.id).toBe('DAY1_QUIZ_RESULT')
     expect(getAdjacentStages('DAY1_QUIZ_RESULT').next?.id).toBe('DAY1_INCOME_SETTLEMENT')
+    expect(getAdjacentStages('DAY2_QUIZ').next?.id).toBe('DAY2_QUIZ_RESULT')
+    expect(getAdjacentStages('DAY2_QUIZ_RESULT').next?.id).toBe('DAY2_QUIZ_SETTLEMENT')
     expect(getAdjacentStages('DAY1_LOBBY').previous).toBeUndefined()
   })
 
@@ -133,6 +135,13 @@ describe('room stages', () => {
     expect(getStageNavigationBlockReason({
       currentStage: 'DAY1_QUIZ',
       targetStage: 'DAY1_INCOME_SETTLEMENT',
+      changingStage: false,
+      quizStatus: 'CLOSED',
+    })).toContain('퀴즈 결과')
+
+    expect(getStageNavigationBlockReason({
+      currentStage: 'DAY2_QUIZ',
+      targetStage: 'DAY2_QUIZ_SETTLEMENT',
       changingStage: false,
       quizStatus: 'CLOSED',
     })).toContain('퀴즈 결과')

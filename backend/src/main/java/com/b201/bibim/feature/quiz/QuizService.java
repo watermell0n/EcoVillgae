@@ -108,16 +108,29 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public StudentQuizResultResponse dayOneResult(UUID studentId) {
+        return quizResult(studentId, (short) 1, "DAY1_QUIZ_RESULT");
+    }
+
+    @Transactional(readOnly = true)
+    public StudentQuizResultResponse dayTwoResult(UUID studentId) {
+        return quizResult(studentId, (short) 2, "DAY2_QUIZ_RESULT");
+    }
+
+    private StudentQuizResultResponse quizResult(
+            UUID studentId,
+            short dayNumber,
+            String resultStage
+    ) {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
         String effectiveStage = studentFlowService.effectiveStage(
                 studentId,
                 room.getCurrentStage()
         );
-        if (!"DAY1_QUIZ_RESULT".equals(effectiveStage)) {
+        if (!resultStage.equals(effectiveStage)) {
             throw quizResultNotAvailable();
         }
-        QuizEntity quiz = quizRepository.findByRoomIdAndDayNumber(room.getId(), (short) 1)
+        QuizEntity quiz = quizRepository.findByRoomIdAndDayNumber(room.getId(), dayNumber)
                 .filter(item -> "CLOSED".equals(item.getStatus()))
                 .orElseThrow(this::quizResultNotAvailable);
         List<QuizQuestionEntity> questions = questionRepository

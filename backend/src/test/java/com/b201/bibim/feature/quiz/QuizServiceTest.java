@@ -294,6 +294,51 @@ class QuizServiceTest {
     }
 
     @Test
+    void returnsDayTwoQuestionResultsBeforeRewardSettlement() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        QuizEntity closedQuiz = QuizEntity.dayTwoReady(roomId, 1);
+        closedQuiz.open();
+        closedQuiz.close();
+        QuizQuestionEntity question = QuizQuestionEntity.multipleChoice(
+                closedQuiz.getId(),
+                1,
+                "여러 투자처에 나누어 투자하는 방법은?",
+                List.of(new QuizQuestionEntity.QuizOption("A", "분산투자")),
+                "A",
+                "분산투자는 위험을 나누는 방법이에요."
+        );
+        QuizSubmissionEntity submitted = QuizSubmissionEntity.start(closedQuiz.getId(), studentId);
+        submitted.submit(1);
+        QuizAnswerEntity answer = QuizAnswerEntity.create(
+                submitted.getId(), question.getId(), "A", true
+        );
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getCurrentStage()).thenReturn("DAY2_QUIZ_RESULT");
+        when(studentFlowService.effectiveStage(studentId, "DAY2_QUIZ_RESULT"))
+                .thenReturn("DAY2_QUIZ_RESULT");
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 2))
+                .thenReturn(Optional.of(closedQuiz));
+        when(questionRepository.findAllByQuizIdOrderByOrderNo(closedQuiz.getId()))
+                .thenReturn(List.of(question));
+        when(submissionRepository.findByQuizIdAndStudentId(closedQuiz.getId(), studentId))
+                .thenReturn(Optional.of(submitted));
+        when(answerRepository.findAllBySubmissionId(submitted.getId()))
+                .thenReturn(List.of(answer));
+
+        var result = quizService.dayTwoResult(studentId);
+
+        assertEquals(1, result.correctCount());
+        assertEquals("A", result.questions().getFirst().selectedAnswer());
+        assertEquals("분산투자는 위험을 나누는 방법이에요.",
+                result.questions().getFirst().explanation());
+    }
+
+    @Test
     void hidesResultsFromCatchUpStudentWhoIsStillTakingTheQuiz() {
         UUID studentId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();

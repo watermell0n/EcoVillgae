@@ -38,7 +38,7 @@ function formatBibim(amount: number) {
     <section v-else-if="reward" class="day2-result-card quiz-reward-result" aria-labelledby="day2-reward-title">
       <header class="quiz-reward-result__header">
         <div>
-          <p class="eyebrow">2일차 복습 퀴즈 결과</p>
+          <p class="eyebrow">2일차 퀴즈 보상 정산 결과</p>
           <h1 id="day2-reward-title" class="page-title">
             {{ reward.submitted ? `${reward.correctCount}문제를 맞혔어요!` : '제출한 답안이 없어요' }}
           </h1>

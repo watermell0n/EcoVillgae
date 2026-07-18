@@ -8,6 +8,8 @@ import type {
 
 const props = defineProps<{
   summary: TeacherQuizSummary
+  dayNumber: 1 | 2
+  nextStageLabel: string
 }>()
 
 const averageCorrectCount = computed(() => {
@@ -34,7 +36,7 @@ function correctAnswerText(question: TeacherQuizQuestionSummary) {
   <div class="teacher-quiz-result">
     <header class="teacher-quiz-result__header">
       <div>
-        <span>1일차 퀴즈 결과</span>
+        <span>{{ props.dayNumber }}일차 퀴즈 결과</span>
         <h3>학생들과 정답과 해설을 확인해 주세요.</h3>
       </div>
       <strong>{{ summary.title }}</strong>
@@ -107,7 +109,7 @@ function correctAnswerText(question: TeacherQuizQuestionSummary) {
     </section>
 
     <p class="control-caution">
-      결과 확인이 끝나면 아래 버튼으로 소득·세금 정산 단계로 이동해 주세요.
+      결과 확인이 끝나면 아래 버튼으로 {{ props.nextStageLabel }} 단계로 이동해 주세요.
     </p>
   </div>
 </template>

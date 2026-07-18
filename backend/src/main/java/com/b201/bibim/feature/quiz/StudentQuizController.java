@@ -55,6 +55,17 @@ public class StudentQuizController {
         );
     }
 
+    @GetMapping("/day-2/result")
+    ApiResponse<StudentQuizResultResponse> dayTwoResult(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                quizService.dayTwoResult(principal.id()),
+                requestId(request)
+        );
+    }
+
     @PutMapping("/{quizId}/answers/{questionId}")
     ApiResponse<SaveAnswerResponse> saveAnswer(
             @AuthenticationPrincipal AuthenticatedPrincipal principal,

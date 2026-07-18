@@ -117,6 +117,13 @@ export async function getDayOneQuizResult() {
   return response.data.data
 }
 
+export async function getDayTwoQuizResult() {
+  const response = await http.get<ApiResponse<StudentQuizResult>>(
+    '/student/quizzes/day-2/result',
+  )
+  return response.data.data
+}
+
 export async function saveQuizAnswer(quizId: string, questionId: string, answer: string) {
   const response = await http.put<ApiResponse<SaveAnswerResponse>>(
     `/student/quizzes/${quizId}/answers/${questionId}`,

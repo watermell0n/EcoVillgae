@@ -5,6 +5,7 @@ import SettlementStageView from './SettlementStageView.vue'
 
 const quizApi = vi.hoisted(() => ({
   getDayOneQuizResult: vi.fn(),
+  getDayTwoQuizResult: vi.fn(),
 }))
 
 vi.mock('../../../features/quiz/api/quiz', () => quizApi)
@@ -73,5 +74,33 @@ describe('SettlementStageView', () => {
 
     expect(quizApi.getDayOneQuizResult).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('정답과 해설')
+  })
+
+  it('loads day two results before showing the reward settlement', async () => {
+    quizApi.getDayTwoQuizResult.mockResolvedValue({
+      quizId: 'quiz-2',
+      title: '2일차 복습 퀴즈',
+      questionCount: 1,
+      answeredCount: 1,
+      correctCount: 1,
+      questions: [{
+        questionId: 'question-3',
+        orderNo: 1,
+        prompt: '위험을 나누는 투자 방법은?',
+        options: [{ id: 'A', text: '분산투자' }],
+        selectedAnswer: 'A',
+        correctAnswer: 'A',
+        correct: true,
+        explanation: '분산투자는 위험을 나누는 방법이에요.',
+      }],
+    })
+    const wrapper = mount(SettlementStageView, { props: { dayNumber: 2 } })
+    await flushPromises()
+
+    expect(quizApi.getDayTwoQuizResult).toHaveBeenCalledOnce()
+    expect(quizApi.getDayOneQuizResult).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('2일차 퀴즈 결과')
+    expect(wrapper.text()).toContain('참여수당과 정답 보상')
+    expect(wrapper.text()).toContain('분산투자는 위험을 나누는 방법이에요.')
   })
 })

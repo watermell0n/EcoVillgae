@@ -8,6 +8,7 @@ import Day2FinalResultStageView from './Day2FinalResultStageView.vue'
 import Day2FundStageView from './Day2FundStageView.vue'
 import Day2InflationStageView from './Day2InflationStageView.vue'
 import Day2QuizRewardStageView from './Day2QuizRewardStageView.vue'
+import Day2QuizResultStageView from './Day2QuizResultStageView.vue'
 import FreeActivityStageView from './FreeActivityStageView.vue'
 import LearningStageView from './LearningStageView.vue'
 import IncomeSettlementStageView from './IncomeSettlementStageView.vue'
@@ -34,6 +35,7 @@ const stageComponents: Record<string, Component> = {
   DAY2_FINANCE_SETTLEMENT: Day2FinanceStageView,
   DAY2_RESULT_GUIDED: Day2FinanceStageView,
   DAY2_QUIZ: QuizStageView,
+  DAY2_QUIZ_RESULT: Day2QuizResultStageView,
   DAY2_QUIZ_SETTLEMENT: Day2QuizRewardStageView,
   DAY2_TAX_INFLATION_GUIDED: Day2EducationStageView,
   DAY2_INFLATION_APPLY: Day2InflationStageView,

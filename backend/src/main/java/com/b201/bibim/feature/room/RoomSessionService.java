@@ -321,6 +321,10 @@ public class RoomSessionService {
                 && targetStage.ordinal() > RoomStage.DAY1_QUIZ_RESULT.ordinal()) {
             throw stateConflict("1일차 퀴즈 결과를 확인한 뒤 소득 정산 단계로 이동해 주세요.");
         }
+        if (currentStage.ordinal() < RoomStage.DAY2_QUIZ_RESULT.ordinal()
+                && targetStage.ordinal() > RoomStage.DAY2_QUIZ_RESULT.ordinal()) {
+            throw stateConflict("2일차 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.");
+        }
         if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY1_INCOME_SETTLEMENT)
                 && !settlementCompleted(roomId, "DAY1_INCOME")) {
             throw stateConflict("소득 정산을 완료한 뒤 월급명세서 이후 단계로 이동해 주세요.");

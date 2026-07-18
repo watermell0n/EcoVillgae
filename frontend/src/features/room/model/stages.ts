@@ -41,6 +41,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY2_FINANCE_SETTLEMENT', day: 2, label: '금융 결과 정산', description: '예금 이자와 투자 손익을 반영합니다.' },
   { id: 'DAY2_RESULT_GUIDED', day: 2, label: '금융 결과 교육', description: '개인별 금융 결과를 선생님과 확인합니다.' },
   { id: 'DAY2_QUIZ', day: 2, label: '2일차 퀴즈', description: '배운 내용을 확인하는 퀴즈를 진행합니다.' },
+  { id: 'DAY2_QUIZ_RESULT', day: 2, label: '퀴즈 결과 확인', description: '문항별 정답과 학급 퀴즈 결과를 함께 확인합니다.' },
   { id: 'DAY2_QUIZ_SETTLEMENT', day: 2, label: '퀴즈 보상 정산', description: '참여수당과 정답수당을 반영합니다.' },
   { id: 'DAY2_TAX_INFLATION_GUIDED', day: 2, label: '금융세·인플레이션 교육', description: '수익에 붙는 세금과 물가 변화를 배웁니다.' },
   { id: 'DAY2_INFLATION_APPLY', day: 2, label: '물가상승 적용', description: '상점 가격에 물가상승률을 반영합니다.' },
@@ -113,6 +114,10 @@ export function getStageNavigationBlockReason({
   const targetIndex = ROOM_STAGES.indexOf(target)
   if (currentIndex < day1QuizResultIndex && targetIndex > day1QuizResultIndex) {
     return '1일차 퀴즈 결과를 확인한 뒤 소득 정산 단계로 이동해 주세요.'
+  }
+  const day2QuizResultIndex = ROOM_STAGES.findIndex((stage) => stage.id === 'DAY2_QUIZ_RESULT')
+  if (currentIndex < day2QuizResultIndex && targetIndex > day2QuizResultIndex) {
+    return '2일차 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.'
   }
   if (
     movesForwardAcross(current.id, target.id, 'DAY1_INCOME_SETTLEMENT')
