@@ -160,6 +160,12 @@ public class FundVoteService {
             }
             return new ApplyExpenseResponse(fundOverview(room), true);
         }
+        if (voteSessionRepository.findByRoomId(roomId).isPresent()) {
+            throw conflict(
+                    "FUND_VOTE_ALREADY_PREPARED",
+                    "투표 선택지를 준비한 뒤에는 공동비용을 적용할 수 없습니다."
+            );
+        }
         if (expenseRepository.existsByRoomId(roomId)) {
             throw conflict("FUND_EXPENSE_ALREADY_APPLIED", "공동비용은 한 번만 적용할 수 있습니다.");
         }
@@ -202,14 +208,6 @@ public class FundVoteService {
         ensureRoomWritable(room);
         if (!"DAY2_FUND_COST".equals(room.getCurrentStage())) {
             throw conflict("VOTE_CREATE_NOT_OPEN", "공동기금 비용 확인 단계에서 투표를 준비해 주세요.");
-        }
-        if (!expenseRepository.existsByRoomId(roomId)) {
-            long fundBalance = currentFundBalance(roomId);
-            boolean hasAffordableCost = ensureCostOptions(roomId).stream()
-                    .anyMatch(option -> option.isEnabled() && option.getAmount() <= fundBalance);
-            if (hasAffordableCost) {
-                throw conflict("FUND_EXPENSE_REQUIRED", "적용 가능한 공동비용을 먼저 선택해 주세요.");
-            }
         }
         var existing = voteSessionRepository.findByRoomId(roomId);
         if (existing.isPresent()) return toVoteResponse(existing.get(), null);

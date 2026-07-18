@@ -128,23 +128,18 @@ class FundVoteServiceTest {
     }
 
     @Test
-    void allowsPreparingVoteWithoutExpenseWhenNoCostIsAffordable() {
+    void allowsPreparingVoteWithoutApplyingAnExpense() {
         UUID teacherId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();
         RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
-        FundCostOptionEntity cost = org.mockito.Mockito.mock(FundCostOptionEntity.class);
         AccountEntity fund = org.mockito.Mockito.mock(AccountEntity.class);
         when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(room.getTeacherId()).thenReturn(teacherId);
         when(room.getStatus()).thenReturn("DAY2_ACTIVE");
         when(room.getCurrentStage()).thenReturn("DAY2_FUND_COST");
-        when(expenseRepository.existsByRoomId(roomId)).thenReturn(false);
         when(accountRepository.findByRoomIdAndStudentIdIsNullAndAccountType(roomId, "CLASS_FUND"))
                 .thenReturn(Optional.of(fund));
         when(fund.getBalance()).thenReturn(29L);
-        when(costOptionRepository.findAllByRoomIdOrderByDisplayOrder(roomId)).thenReturn(java.util.List.of(cost));
-        when(cost.isEnabled()).thenReturn(true);
-        when(cost.getAmount()).thenReturn(30L);
         when(voteSessionRepository.findByRoomId(roomId)).thenReturn(Optional.empty());
         when(voteSessionRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -162,6 +157,28 @@ class FundVoteServiceTest {
 
         assertEquals("READY", response.status());
         assertEquals(29L, response.fundBalanceSnapshot());
+    }
+
+    @Test
+    void rejectsApplyingExpenseAfterVoteWasPrepared() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID optionId = UUID.randomUUID();
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+        VoteSessionEntity vote = org.mockito.Mockito.mock(VoteSessionEntity.class);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getStatus()).thenReturn("DAY2_ACTIVE");
+        when(room.getCurrentStage()).thenReturn("DAY2_FUND_COST");
+        when(transactionRepository.findByIdempotencyKey("expense-after-vote")).thenReturn(Optional.empty());
+        when(voteSessionRepository.findByRoomId(roomId)).thenReturn(Optional.of(vote));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                service.applyExpense(teacherId, roomId, "expense-after-vote", optionId)
+        );
+
+        assertEquals("FUND_VOTE_ALREADY_PREPARED", exception.getCode());
+        verify(costOptionRepository, never()).findById(optionId);
     }
 
     @Test

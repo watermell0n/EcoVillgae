@@ -60,6 +60,16 @@ describe('room stages', () => {
         currentStage: 'DAY2_FUND_COST',
         hasNextStage: true,
         changingStage: false,
+        fundExpenseApplied: false,
+        votePrepared: false,
+      }),
+    ).toBe(true)
+
+    expect(
+      isNextStageDisabled({
+        currentStage: 'DAY2_FUND_COST',
+        hasNextStage: true,
+        changingStage: false,
         fundExpenseApplied: true,
         votePrepared: true,
       }),

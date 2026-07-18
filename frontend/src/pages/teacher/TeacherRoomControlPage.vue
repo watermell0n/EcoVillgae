@@ -75,6 +75,7 @@ const showVoteCloseWarning = ref(false)
 const showSettlementConfirm = ref(false)
 const showDay1CloseConfirm = ref(false)
 const showDay2SettlementConfirm = ref(false)
+const showFundVotePrepareConfirm = ref(false)
 const showRoomCompleteConfirm = ref(false)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
@@ -96,10 +97,7 @@ const fundVote = computed(() => day2EndStore.vote)
 const decidedFundOption = computed(() => fundVote.value?.options.find((option) => option.decided) ?? null)
 const finalSummary = computed(() => day2EndStore.finalSummary)
 const productDistribution = computed(() => day2EndStore.distribution)
-const canPrepareFundVote = computed(() =>
-  Boolean(fundOverview.value?.appliedExpense) ||
-  (fundCostOptions.value.length > 0 && fundCostOptions.value.every((option) => !option.affordable)),
-)
+const canPrepareFundVote = computed(() => Boolean(fundOverview.value))
 const guidedLearning = computed(() => learningStore.guided)
 const learningStages = new Set([
   'DAY1_KNOWLEDGE_GUIDED',
@@ -563,12 +561,31 @@ async function applyFundExpense(optionId: string) {
 async function prepareFundVote() {
   errorMessage.value = ''
   noticeMessage.value = ''
+  const withoutExpense = !fundOverview.value?.appliedExpense
   try {
     const result = await day2EndStore.prepareVote(roomId.value)
-    if (result) noticeMessage.value = '학생 투표 선택지를 준비했습니다.'
+    if (result) {
+      noticeMessage.value = withoutExpense
+        ? '공동비용을 사용하지 않고 학생 투표 선택지를 준비했습니다.'
+        : '학생 투표 선택지를 준비했습니다.'
+    }
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '투표를 준비하지 못했습니다.')
   }
+}
+
+function requestFundVotePreparation() {
+  if (fundVote.value || day2EndStore.mutating) return
+  if (!fundOverview.value?.appliedExpense) {
+    showFundVotePrepareConfirm.value = true
+    return
+  }
+  void prepareFundVote()
+}
+
+async function confirmFundVoteWithoutExpense() {
+  showFundVotePrepareConfirm.value = false
+  await prepareFundVote()
 }
 
 async function controlFundVote(action: 'OPEN' | 'CLOSE', force = false) {
@@ -1226,8 +1243,8 @@ function moduleTone(moduleState: string) {
                 <strong>{{ formatBibim(fundOverview.balance) }}</strong>
               </div>
               <StatusBadge
-                :label="fundOverview.appliedExpense ? '공동비용 적용 완료' : '비용 선택 전'"
-                :tone="fundOverview.appliedExpense ? 'success' : 'warning'"
+                :label="fundOverview.appliedExpense ? '공동비용 적용 완료' : fundVote ? '공동비용 미사용' : '비용 선택 전'"
+                :tone="fundOverview.appliedExpense || fundVote ? 'success' : 'warning'"
               />
             </div>
             <dl class="fund-source-grid">
@@ -1243,24 +1260,29 @@ function moduleTone(moduleState: string) {
                 </div>
                 <button
                   type="button"
-                  :disabled="Boolean(fundOverview.appliedExpense) || !option.affordable || day2EndStore.mutating"
+                  :disabled="Boolean(fundOverview.appliedExpense) || Boolean(fundVote) || !option.affordable || day2EndStore.mutating"
                   @click="applyFundExpense(option.optionId)"
                 >
                   {{ option.applied ? '적용 완료' : option.affordable ? '이 비용 적용' : '잔액 부족' }}
                 </button>
               </article>
             </div>
-            <p v-if="!fundOverview.appliedExpense && canPrepareFundVote" class="control-caution">
-              현재 잔액으로 적용할 수 있는 기본 공동비용이 없어 비용 차감 없이 투표를 준비할 수 있습니다.
+            <p v-if="!fundOverview.appliedExpense && !fundVote" class="control-caution">
+              공동비용을 선택하지 않고 기금을 그대로 보존한 채 학생 투표를 준비할 수도 있습니다.
+            </p>
+            <p v-else-if="!fundOverview.appliedExpense && fundVote" class="control-notice">
+              공동비용을 사용하지 않기로 확정했습니다. 현재 공동기금 전액을 기준으로 투표가 준비되었습니다.
             </p>
             <button
               v-if="canPrepareFundVote"
               class="settlement-action"
               type="button"
               :disabled="Boolean(fundVote) || day2EndStore.mutating"
-              @click="prepareFundVote"
+              @click="requestFundVotePreparation"
             >
-              {{ fundVote ? '학생 투표 준비 완료' : '학생 투표 선택지 준비하기' }}
+              {{ fundVote
+                ? '학생 투표 준비 완료'
+                : fundOverview.appliedExpense ? '학생 투표 선택지 준비하기' : '공동비용 없이 투표 준비하기' }}
             </button>
           </div>
           <div
@@ -1758,6 +1780,25 @@ function moduleTone(moduleState: string) {
             <button class="button-secondary" type="button" @click="showDay2SettlementConfirm = false">취소</button>
             <button type="button" :disabled="day2FinanceStore.settling" @click="confirmDay2FinanceSettlement">
               금융 정산 실행
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="showFundVotePrepareConfirm && fundOverview" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="fund-vote-prepare-title">
+          <p class="eyebrow">공동비용 미사용</p>
+          <h2 id="fund-vote-prepare-title">공동비용 없이 투표를 준비할까요?</h2>
+          <p class="confirm-modal__warning">
+            공동기금 {{ formatBibim(fundOverview.balance) }}을 차감하지 않고 그대로 투표 기준 금액으로 사용합니다.
+          </p>
+          <p>투표 선택지를 준비한 뒤에는 공동비용을 다시 적용할 수 없습니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" :disabled="day2EndStore.mutating" @click="showFundVotePrepareConfirm = false">
+              돌아가기
+            </button>
+            <button type="button" :disabled="day2EndStore.mutating" @click="confirmFundVoteWithoutExpense">
+              {{ day2EndStore.mutating ? '준비 중…' : '비용 없이 투표 준비' }}
             </button>
           </div>
         </section>
