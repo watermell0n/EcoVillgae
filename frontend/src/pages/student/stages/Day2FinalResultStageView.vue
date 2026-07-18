@@ -49,7 +49,7 @@ function formatBibim(amount: number) {
         <div><dt>예금 이자</dt><dd>{{ formatBibim(result.depositInterest) }}</dd></div>
         <div><dt>투자 손익</dt><dd>{{ formatBibim(result.investmentProfit) }}</dd></div>
         <div><dt>금융세</dt><dd>−{{ Math.abs(result.financialTax).toLocaleString('ko-KR') }}비빔</dd></div>
-        <div><dt>2일차 퀴즈 보상</dt><dd>{{ formatBibim(result.day2QuizReward) }}</dd></div>
+        <div><dt>경제 퀴즈 보상</dt><dd>{{ formatBibim(result.day2QuizReward) }}</dd></div>
         <div><dt>총소비</dt><dd>−{{ result.totalPurchaseAmount.toLocaleString('ko-KR') }}비빔</dd></div>
       </dl>
 

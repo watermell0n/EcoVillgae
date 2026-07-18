@@ -11,7 +11,7 @@ describe('TeacherQuizResultPanel', () => {
         nextStageLabel: '퀴즈 보상 정산',
         summary: {
           quizId: 'quiz-1',
-          title: '월급 퀴즈',
+          title: '경제 퀴즈',
           status: 'CLOSED',
           questionCount: 2,
           expectedStudentCount: 2,
@@ -75,11 +75,47 @@ describe('TeacherQuizResultPanel', () => {
     })
 
     expect(wrapper.text()).toContain('1.5 / 2')
-    expect(wrapper.text()).toContain('2일차 퀴즈 결과')
+    expect(wrapper.text()).toContain('경제 퀴즈 결과')
     expect(wrapper.text()).toContain('퀴즈 보상 정산 단계')
     expect(wrapper.text()).toContain('100%')
     expect(wrapper.text()).toContain('50%')
     expect(wrapper.text()).toContain('1번 하이')
     expect(wrapper.text()).toContain('문제 2 · 오답')
+  })
+
+  it('hides explanations from the day-one reading quiz results', () => {
+    const wrapper = mount(TeacherQuizResultPanel, {
+      props: {
+        dayNumber: 1,
+        nextStageLabel: '소득·세금 정산',
+        summary: {
+          quizId: 'quiz-1',
+          title: '독서 퀴즈',
+          status: 'CLOSED',
+          questionCount: 1,
+          expectedStudentCount: 1,
+          eligibleStudentCount: 1,
+          submittedCount: 1,
+          inProgressCount: 0,
+          notStartedCount: 0,
+          notSubmittedCount: 0,
+          students: [],
+          questions: [{
+            questionId: 'question-1',
+            orderNo: 1,
+            prompt: '주인공의 이름은 무엇인가요?',
+            options: [{ id: 'C', text: '푸실' }],
+            correctAnswer: 'C',
+            explanation: '화면에 표시되면 안 되는 해설입니다.',
+            answeredCount: 1,
+            correctCount: 1,
+          }],
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('독서 퀴즈')
+    expect(wrapper.text()).toContain('학생들과 정답을 확인해 주세요.')
+    expect(wrapper.text()).not.toContain('해설')
   })
 })

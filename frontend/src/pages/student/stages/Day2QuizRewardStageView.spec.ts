@@ -29,6 +29,7 @@ describe('Day2QuizRewardStageView', () => {
     const wrapper = mount(Day2QuizRewardStageView)
     await flushPromises()
 
+    expect(wrapper.text()).toContain('경제 퀴즈 보상 정산 결과')
     expect(wrapper.text()).toContain('2문제를 맞혔어요!')
     expect(wrapper.text()).toContain('2문제 정답 보상')
     expect(wrapper.text()).toContain('내가 받은 총 보상')

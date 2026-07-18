@@ -1,6 +1,7 @@
 package com.b201.bibim.feature.quiz;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
@@ -240,8 +241,7 @@ class QuizServiceTest {
         assertEquals(1, result.correctCount());
         assertEquals("A", result.questions().getFirst().correctAnswer());
         assertEquals("A", result.questions().getFirst().selectedAnswer());
-        assertEquals("역할을 수행하고 받는 돈을 역할 소득이라고 해요.",
-                result.questions().getFirst().explanation());
+        assertNull(result.questions().getFirst().explanation());
     }
 
     @Test
@@ -290,6 +290,7 @@ class QuizServiceTest {
         assertEquals(1, summary.questions().size());
         assertEquals(1, summary.questions().getFirst().correctCount());
         assertEquals(1, summary.questions().getFirst().answeredCount());
+        assertNull(summary.questions().getFirst().explanation());
         assertEquals(true, summary.students().getFirst().questions().getFirst().correct());
     }
 

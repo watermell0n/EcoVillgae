@@ -36,8 +36,8 @@ function correctAnswerText(question: TeacherQuizQuestionSummary) {
   <div class="teacher-quiz-result">
     <header class="teacher-quiz-result__header">
       <div>
-        <span>{{ props.dayNumber }}일차 퀴즈 결과</span>
-        <h3>학생들과 정답과 해설을 확인해 주세요.</h3>
+        <span>{{ props.dayNumber === 1 ? '1일차 퀴즈 결과' : '경제 퀴즈 결과' }}</span>
+        <h3>{{ props.dayNumber === 1 ? '학생들과 정답을 확인해 주세요.' : '학생들과 정답과 해설을 확인해 주세요.' }}</h3>
       </div>
       <strong>{{ summary.title }}</strong>
     </header>
@@ -73,7 +73,7 @@ function correctAnswerText(question: TeacherQuizQuestionSummary) {
             <span :style="{ width: `${correctRate(question)}%` }"></span>
           </div>
           <small>정답 {{ question.correctCount }}명 · {{ correctAnswerText(question) }}</small>
-          <p v-if="question.explanation" class="teacher-quiz-question-results__explanation">
+          <p v-if="props.dayNumber === 2 && question.explanation" class="teacher-quiz-question-results__explanation">
             {{ question.explanation }}
           </p>
         </li>

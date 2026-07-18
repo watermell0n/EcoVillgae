@@ -26,7 +26,7 @@ export interface StageNavigationGuardOptions extends Omit<NextStageGuardOptions,
 export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_LOBBY', day: 1, label: '입장 대기', description: '학생 접속을 확인하고 수업을 준비합니다.' },
   { id: 'DAY1_PROFILE', day: 1, label: '활동 안내', description: '오늘의 역할과 활동 순서를 안내합니다.' },
-  { id: 'DAY1_QUIZ', day: 1, label: '월급 퀴즈', description: '6문제 퀴즈로 참여수당과 정답수당을 얻습니다.' },
+  { id: 'DAY1_QUIZ', day: 1, label: '독서 퀴즈', description: '10문제 독서 퀴즈로 참여수당과 정답수당을 얻습니다.' },
   { id: 'DAY1_QUIZ_RESULT', day: 1, label: '퀴즈 결과 확인', description: '문항별 정답과 학급 퀴즈 결과를 함께 확인합니다.' },
   { id: 'DAY1_INCOME_SETTLEMENT', day: 1, label: '소득·세금 정산', description: '역할 소득과 퀴즈 보상, 소득세를 계산합니다.' },
   { id: 'DAY1_PAYSLIP_GUIDED', day: 1, label: '월급명세서 교육', description: '각자의 월급명세서를 선생님과 함께 확인합니다.' },
@@ -40,7 +40,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY2_SETTLEMENT_WAIT', day: 2, label: '금융 정산 대기', description: '예금과 투자 결과 정산을 기다립니다.' },
   { id: 'DAY2_FINANCE_SETTLEMENT', day: 2, label: '금융 결과 정산', description: '예금 이자와 투자 손익을 반영합니다.' },
   { id: 'DAY2_RESULT_GUIDED', day: 2, label: '금융 결과 교육', description: '개인별 금융 결과를 선생님과 확인합니다.' },
-  { id: 'DAY2_QUIZ', day: 2, label: '2일차 퀴즈', description: '배운 내용을 확인하는 퀴즈를 진행합니다.' },
+  { id: 'DAY2_QUIZ', day: 2, label: '경제 퀴즈', description: '10문제 경제 퀴즈로 배운 내용을 확인합니다.' },
   { id: 'DAY2_QUIZ_RESULT', day: 2, label: '퀴즈 결과 확인', description: '문항별 정답과 학급 퀴즈 결과를 함께 확인합니다.' },
   { id: 'DAY2_QUIZ_SETTLEMENT', day: 2, label: '퀴즈 보상 정산', description: '참여수당과 정답수당을 반영합니다.' },
   { id: 'DAY2_TAX_INFLATION_GUIDED', day: 2, label: '금융세·인플레이션 교육', description: '수익에 붙는 세금과 물가 변화를 배웁니다.' },
@@ -117,7 +117,7 @@ export function getStageNavigationBlockReason({
   }
   const day2QuizResultIndex = ROOM_STAGES.findIndex((stage) => stage.id === 'DAY2_QUIZ_RESULT')
   if (currentIndex < day2QuizResultIndex && targetIndex > day2QuizResultIndex) {
-    return '2일차 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.'
+    return '경제 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.'
   }
   if (
     movesForwardAcross(current.id, target.id, 'DAY1_INCOME_SETTLEMENT')

@@ -156,7 +156,7 @@ public class QuizService {
                             selectedAnswer,
                             question.getCorrectAnswer(),
                             question.isCorrect(selectedAnswer),
-                            question.getExplanation()
+                            dayNumber == 1 ? null : question.getExplanation()
                     );
                 })
                 .toList();
@@ -340,7 +340,7 @@ public class QuizService {
                                     .map(option -> new QuizOptionResponse(option.id(), option.text()))
                                     .toList(),
                             question.getCorrectAnswer(),
-                            question.getExplanation(),
+                            room.getCurrentDay() == 1 ? null : question.getExplanation(),
                             submittedAnswers.size(),
                             correctCount
                     );

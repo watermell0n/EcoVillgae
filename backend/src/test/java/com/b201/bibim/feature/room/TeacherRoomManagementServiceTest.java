@@ -101,7 +101,20 @@ class TeacherRoomManagementServiceTest {
         ArgumentCaptor<Iterable<QuizQuestionEntity>> questionCaptor =
                 ArgumentCaptor.forClass(Iterable.class);
         verify(questionRepository).saveAll(questionCaptor.capture());
-        assertEquals(6, count(questionCaptor.getValue()));
+        List<QuizQuestionEntity> questions = toList(questionCaptor.getValue());
+        assertEquals(10, questions.size());
+        assertEquals("《담을 넘은 아이》의 주인공 이름은 무엇인가요?",
+                questions.getFirst().getPrompt());
+        assertEquals("C", questions.getFirst().getCorrectAnswer());
+        assertEquals("푸실", questions.getFirst().getOptions().get(2).text());
+        assertEquals(3, questions.get(8).getOptions().size());
+        assertEquals("D", questions.getLast().getCorrectAnswer());
+        assertTrue(questions.stream().allMatch(question -> question.getExplanation() == null));
+
+        ArgumentCaptor<QuizEntity> quizCaptor = ArgumentCaptor.forClass(QuizEntity.class);
+        verify(quizRepository).save(quizCaptor.capture());
+        assertEquals("독서 퀴즈", quizCaptor.getValue().getTitle());
+        assertEquals(10, quizCaptor.getValue().getQuestionCount());
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Iterable<ProductEntity>> productCaptor =
@@ -174,5 +187,11 @@ class TeacherRoomManagementServiceTest {
             count += 1;
         }
         return count;
+    }
+
+    private <T> List<T> toList(Iterable<T> values) {
+        List<T> result = new java.util.ArrayList<>();
+        values.forEach(result::add);
+        return result;
     }
 }

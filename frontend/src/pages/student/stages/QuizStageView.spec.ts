@@ -15,7 +15,7 @@ vi.mock('../../../features/quiz/api/quiz', () => quizApi)
 
 const quizFixture = {
   quizId: 'quiz-1',
-  title: '1일차 월급 퀴즈',
+  title: '독서 퀴즈',
   dayNumber: 1,
   questionCount: 1,
   submissionStatus: 'NOT_STARTED' as const,

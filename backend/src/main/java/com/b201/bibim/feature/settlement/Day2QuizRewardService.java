@@ -47,11 +47,60 @@ public class Day2QuizRewardService {
 
     private static final String SETTLEMENT_TYPE = "DAY2_QUIZ_REWARD";
     private static final List<QuestionDefinition> QUESTIONS = List.of(
-            question("예금의 가장 큰 특징은 무엇일까요?", "맡긴 돈에 약속된 이자가 붙는다", "항상 큰 수익이 난다", "원금을 돌려받지 못한다", "가격이 매일 바뀐다", "A"),
-            question("투자 수익이 클 가능성이 높아질수록 일반적으로 함께 커지는 것은?", "세금", "위험", "예금 이자", "참여수당", "B"),
-            question("여러 투자처에 돈을 나누는 방법을 무엇이라고 할까요?", "분산투자", "충동구매", "소득세", "예금 만기", "A"),
-            question("물가가 올라 같은 돈으로 살 수 있는 물건이 줄어드는 현상은?", "저축", "분배", "인플레이션", "정산", "C"),
-            question("금융 활동에서 얻은 이익에 부과되는 세금은 어디에 모이나요?", "개인 지갑", "학급 공동기금", "상점 재고", "투자 계정", "B")
+            question(
+                    "내가 일해서 받는 돈을 무엇이라고 할까요?",
+                    "세금", "월급", "이자", "투자", "B",
+                    "일을 한 대가로 받는 돈을 월급이라고 합니다."
+            ),
+            question(
+                    "국가나 지역을 위해 내는 돈을 무엇이라고 할까요?",
+                    "월급", "이자", "세금", "저축", "C",
+                    "세금은 국가나 지역 사회의 공공서비스와 공동체 운영을 위해 내는 돈입니다."
+            ),
+            question(
+                    "세금을 내고 실제로 받게 되는 금액을 무엇이라고 할까요?",
+                    "총소득", "실수령액", "공동기금", "이자", "B",
+                    "총소득에서 세금처럼 빠져나가는 금액을 뺀 뒤 실제로 받는 돈이 실수령액입니다."
+            ),
+            question(
+                    "돈을 은행에 맡겨 나중에 사용하도록 모아 두는 것을 무엇이라고 할까요?",
+                    "소비", "세금", "투자", "저축", "D",
+                    "저축은 지금 쓰지 않은 돈을 은행 등에 맡겨 미래에 사용하도록 모으는 것입니다."
+            ),
+            question(
+                    "은행에 돈을 맡기면 돌려받는 추가 금액을 무엇이라고 할까요?",
+                    "세금", "월급", "인플레이션", "이자", "D",
+                    "은행에 돈을 맡기면 약속된 조건에 따라 원금에 더해 이자를 받을 수 있습니다."
+            ),
+            question(
+                    "미래에 더 많은 돈을 얻기 위해 돈을 사용하지만, 손해를 볼 수도 있는 활동은 무엇이라고 할까요?",
+                    "투자", "저축", "세금", "월급", "A",
+                    "투자는 더 큰 수익을 기대할 수 있지만 원금 손실의 위험도 있는 활동입니다."
+            ),
+            question(
+                    "필요한 물건이나 서비스를 사기 위해 돈을 사용하는 것을 무엇이라고 할까요?",
+                    "저축", "투자", "소비", "이자", "C",
+                    "필요한 물건이나 서비스를 사기 위해 돈을 사용하는 활동을 소비라고 합니다."
+            ),
+            question(
+                    "분산투자를 하는 가장 큰 이유는 무엇이라고 할까요?",
+                    "더 많이 벌기 위해", "위험을 나누기 위해", "세금을 줄이기 위해", "빨리 쓰기 위해", "B",
+                    "분산투자는 돈을 여러 곳에 나누어 투자해 한 곳의 손실이 전체에 미치는 위험을 줄이는 방법입니다."
+            ),
+            question(
+                    "돈의 가치가 떨어져서 물건 가격이 오르는 현상을 무엇이라고 할까요?",
+                    "디플레이션", "인플레이션", "이자율", "세금", "B",
+                    "인플레이션은 전반적인 물가가 올라 같은 돈으로 살 수 있는 양이 줄어드는 현상입니다."
+            ),
+            question(
+                    "우리 반에서 모은 세금을 가장 알맞게 사용하는 방법은 무엇일까요?",
+                    "한 학생이 원하는 장난감을 산다.",
+                    "선생님이 개인적으로 사용한다.",
+                    "반 전체가 사용할 공용 물품을 산다.",
+                    "세금을 가장 많이 낸 학생에게 모두 준다.",
+                    "C",
+                    "세금은 특정 개인이 아니라 공동체 구성원 모두에게 필요한 공용 물품이나 서비스에 사용하는 것이 알맞습니다."
+            )
     );
 
     private final QuizRepository quizRepository;
@@ -139,14 +188,14 @@ public class Day2QuizRewardService {
         RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
         ensureOwner(room, teacherId);
         if (!"DAY2_QUIZ_SETTLEMENT".equals(room.getCurrentStage())) {
-            throw conflict("DAY2_QUIZ_REWARD_NOT_OPEN", "2일차 퀴즈 보상 정산 단계에서만 실행할 수 있습니다.");
+            throw conflict("DAY2_QUIZ_REWARD_NOT_OPEN", "경제 퀴즈 보상 정산 단계에서만 실행할 수 있습니다.");
         }
         var existing = runRepository.findByRoomIdAndSettlementType(roomId, SETTLEMENT_TYPE);
         if (existing.isPresent()) {
             if ("COMPLETED".equals(existing.get().getStatus())) {
                 return new SettlementResponse(completedPreview(room, existing.get()), true);
             }
-            throw conflict("SETTLEMENT_IN_PROGRESS", "2일차 퀴즈 보상 정산이 진행 중입니다.");
+            throw conflict("SETTLEMENT_IN_PROGRESS", "경제 퀴즈 보상 정산이 진행 중입니다.");
         }
         runRepository.findByIdempotencyKey(key).ifPresent(run -> {
             throw conflict("IDEMPOTENCY_KEY_REUSED", "같은 요청 키를 다른 정산에 사용할 수 없습니다.");
@@ -270,7 +319,7 @@ public class Day2QuizRewardService {
         FinancialTransactionEntity transaction = transactionRepository.save(
                 FinancialTransactionEntity.success(
                         room.getId(), session.getId(), student.getId(), teacherId, run.getId(),
-                        SETTLEMENT_TYPE, key + ":" + student.getId(), "2일차 퀴즈 보상 지급",
+                        SETTLEMENT_TYPE, key + ":" + student.getId(), "경제 퀴즈 보상 지급",
                         Map.of(
                                 "participationReward", reward.participationReward(),
                                 "correctReward", reward.correctReward(),
@@ -392,7 +441,7 @@ public class Day2QuizRewardService {
 
     private QuizEntity quiz(UUID roomId) {
         return quizRepository.findByRoomIdAndDayNumber(roomId, (short) 2)
-                .orElseThrow(() -> conflict("QUIZ_NOT_FOUND", "2일차 퀴즈를 찾을 수 없습니다."));
+                .orElseThrow(() -> conflict("QUIZ_NOT_FOUND", "경제 퀴즈를 찾을 수 없습니다."));
     }
 
     private long walletBalance(UUID roomId, UUID studentId) {
@@ -416,7 +465,7 @@ public class Day2QuizRewardService {
                 "DAY2_QUIZ", "DAY2_QUIZ_SETTLEMENT", "DAY2_TAX_INFLATION_GUIDED",
                 "DAY2_INFLATION_APPLY", "DAY2_FINAL_SHOP"
         ).contains(room.getCurrentStage())) {
-            throw conflict("DAY2_QUIZ_REWARD_NOT_OPEN", "2일차 퀴즈 이후에 보상 결과를 확인할 수 있습니다.");
+            throw conflict("DAY2_QUIZ_REWARD_NOT_OPEN", "경제 퀴즈 이후에 보상 결과를 확인할 수 있습니다.");
         }
     }
 
@@ -436,7 +485,7 @@ public class Day2QuizRewardService {
     }
 
     private ApiException rewardNotReady() {
-        return conflict("DAY2_QUIZ_REWARD_NOT_READY", "2일차 퀴즈 보상 결과를 찾을 수 없습니다.");
+        return conflict("DAY2_QUIZ_REWARD_NOT_READY", "경제 퀴즈 보상 결과를 찾을 수 없습니다.");
     }
 
     private ApiException roomNotFound() {
@@ -453,18 +502,24 @@ public class Day2QuizRewardService {
             String b,
             String c,
             String d,
-            String answer
+            String answer,
+            String explanation
     ) {
         return new QuestionDefinition(prompt, List.of(
                 new QuizOption("A", a), new QuizOption("B", b),
                 new QuizOption("C", c), new QuizOption("D", d)
-        ), answer);
+        ), answer, explanation);
     }
 
-    private record QuestionDefinition(String prompt, List<QuizOption> options, String answer) {
+    private record QuestionDefinition(
+            String prompt,
+            List<QuizOption> options,
+            String answer,
+            String explanation
+    ) {
         QuizQuestionEntity toEntity(UUID quizId, int orderNo) {
             return QuizQuestionEntity.multipleChoice(
-                    quizId, orderNo, prompt, options, answer, "앞에서 배운 금융 개념을 다시 확인해 보세요."
+                    quizId, orderNo, prompt, options, answer, explanation
             );
         }
     }

@@ -367,7 +367,7 @@ watch(
       try {
         await day2FlowStore.refreshQuizReward(roomId.value)
       } catch (error) {
-        errorMessage.value = getApiErrorMessage(error, '2일차 퀴즈 보상 정보를 불러오지 못했습니다.')
+        errorMessage.value = getApiErrorMessage(error, '경제 퀴즈 보상 정보를 불러오지 못했습니다.')
       }
       return
     }
@@ -477,7 +477,7 @@ async function moveToStage(targetStage?: string) {
     try {
       const latest = await day2FlowStore.refreshQuizReward(roomId.value)
       if (latest.settlementStatus !== 'COMPLETED') {
-        errorMessage.value = '2일차 퀴즈 보상 정산을 먼저 완료해 주세요.'
+        errorMessage.value = '경제 퀴즈 보상 정산을 먼저 완료해 주세요.'
         return
       }
     } catch (error) {
@@ -890,10 +890,10 @@ async function settleDay2QuizReward() {
     const result = await day2FlowStore.settleQuizReward(roomId.value)
     await roomSessionStore.refreshTeacher(roomId.value)
     noticeMessage.value = result?.replayed
-      ? '이미 완료된 2일차 퀴즈 보상 결과를 불러왔습니다.'
+      ? '이미 완료된 경제 퀴즈 보상 결과를 불러왔습니다.'
       : `${result?.settlement.submittedCount ?? 0}명의 퀴즈 보상을 지급했습니다.`
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '2일차 퀴즈 보상을 정산하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '경제 퀴즈 보상을 정산하지 못했습니다.')
   }
 }
 
@@ -1306,7 +1306,7 @@ function moduleTone(moduleState: string) {
           >
             <div class="day1-close-workspace__headline">
               <div>
-                <span>2일차 복습 퀴즈</span>
+                <span>경제 퀴즈</span>
                 <strong>{{ day2QuizRewardPreview.submittedCount }} / {{ day2QuizRewardPreview.targetCount }}명 제출</strong>
               </div>
               <StatusBadge
@@ -1322,7 +1322,7 @@ function moduleTone(moduleState: string) {
             <p v-if="day2QuizRewardPreview.notSubmittedCount > 0" class="control-caution">
               미제출 학생 {{ day2QuizRewardPreview.notSubmittedCount }}명은 보상을 받지 않습니다.
             </p>
-            <div class="day1-student-table" role="table" aria-label="2일차 퀴즈 보상 미리보기">
+            <div class="day1-student-table" role="table" aria-label="경제 퀴즈 보상 미리보기">
               <div class="day1-student-table__head" role="row">
                 <span>학생</span><span>제출</span><span>정답</span><span>참여수당</span><span>총 보상</span>
               </div>
@@ -1687,7 +1687,7 @@ function moduleTone(moduleState: string) {
                 ? '퀴즈가 마감되었습니다. 미제출 학생을 확인한 뒤 다음 단계로 이동합니다.'
                 : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_QUIZ_RESULT'
-                ? '학생들과 문항별 정답과 해설을 확인한 뒤 소득·세금 정산으로 이동해 주세요.'
+                ? '학생들과 문항별 정답을 확인한 뒤 소득·세금 정산으로 이동해 주세요.'
               : state.currentStage === 'DAY2_QUIZ_RESULT'
                 ? '학생들과 문항별 정답과 해설을 확인한 뒤 퀴즈 보상 정산으로 이동해 주세요.'
               : state.currentStage === 'DAY2_QUIZ_SETTLEMENT'

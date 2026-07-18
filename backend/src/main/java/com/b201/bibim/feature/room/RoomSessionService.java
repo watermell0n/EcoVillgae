@@ -323,7 +323,7 @@ public class RoomSessionService {
         }
         if (currentStage.ordinal() < RoomStage.DAY2_QUIZ_RESULT.ordinal()
                 && targetStage.ordinal() > RoomStage.DAY2_QUIZ_RESULT.ordinal()) {
-            throw stateConflict("2일차 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.");
+            throw stateConflict("경제 퀴즈 결과를 확인한 뒤 보상 정산 단계로 이동해 주세요.");
         }
         if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY1_INCOME_SETTLEMENT)
                 && !settlementCompleted(roomId, "DAY1_INCOME")) {
@@ -335,7 +335,7 @@ public class RoomSessionService {
         }
         if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_QUIZ_SETTLEMENT)
                 && !settlementCompleted(roomId, "DAY2_QUIZ_REWARD")) {
-            throw stateConflict("2일차 퀴즈 보상 정산을 완료한 뒤 다음 단계로 이동해 주세요.");
+            throw stateConflict("경제 퀴즈 보상 정산을 완료한 뒤 다음 단계로 이동해 주세요.");
         }
         if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_INFLATION_APPLY)
                 && room.getInflationAppliedAt() == null) {

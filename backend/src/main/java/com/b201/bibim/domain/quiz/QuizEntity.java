@@ -44,7 +44,7 @@ public class QuizEntity {
         quiz.id = UUID.randomUUID();
         quiz.roomId = roomId;
         quiz.dayNumber = 1;
-        quiz.title = "1일차 월급 퀴즈";
+        quiz.title = "독서 퀴즈";
         quiz.status = "READY";
         quiz.questionCount = questionCount;
         return quiz;
@@ -55,7 +55,7 @@ public class QuizEntity {
         quiz.id = UUID.randomUUID();
         quiz.roomId = roomId;
         quiz.dayNumber = 2;
-        quiz.title = "2일차 금융 복습 퀴즈";
+        quiz.title = "경제 퀴즈";
         quiz.status = "READY";
         quiz.questionCount = questionCount;
         return quiz;

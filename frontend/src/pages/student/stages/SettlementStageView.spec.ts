@@ -15,7 +15,7 @@ describe('SettlementStageView', () => {
     vi.clearAllMocks()
     quizApi.getDayOneQuizResult.mockResolvedValue({
       quizId: 'quiz-1',
-      title: '1일차 월급 퀴즈',
+      title: '독서 퀴즈',
       questionCount: 2,
       answeredCount: 1,
       correctCount: 1,
@@ -50,7 +50,7 @@ describe('SettlementStageView', () => {
     })
   })
 
-  it('shows per-question answers and explanations before the payslip', async () => {
+  it('shows day-one answers without explanations before the payslip', async () => {
     const wrapper = mount(SettlementStageView)
     await flushPromises()
 
@@ -59,7 +59,9 @@ describe('SettlementStageView', () => {
     expect(wrapper.text()).toContain('1 / 2')
     expect(wrapper.text()).toContain('A. 역할 소득')
     expect(wrapper.text()).toContain('답하지 않음')
-    expect(wrapper.text()).toContain('소득이 생기면 소득세를 내요.')
+    expect(wrapper.text()).toContain('정답 확인')
+    expect(wrapper.text()).not.toContain('해설')
+    expect(wrapper.text()).not.toContain('소득이 생기면 소득세를 내요.')
     expect(wrapper.text()).toContain('퀴즈 결과를 함께 확인하는 시간이에요.')
   })
 
@@ -73,13 +75,14 @@ describe('SettlementStageView', () => {
     await flushPromises()
 
     expect(quizApi.getDayOneQuizResult).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('정답과 해설')
+    expect(wrapper.text()).toContain('정답 확인')
+    expect(wrapper.text()).not.toContain('해설')
   })
 
   it('loads day two results before showing the reward settlement', async () => {
     quizApi.getDayTwoQuizResult.mockResolvedValue({
       quizId: 'quiz-2',
-      title: '2일차 복습 퀴즈',
+      title: '경제 퀴즈',
       questionCount: 1,
       answeredCount: 1,
       correctCount: 1,
@@ -99,7 +102,7 @@ describe('SettlementStageView', () => {
 
     expect(quizApi.getDayTwoQuizResult).toHaveBeenCalledOnce()
     expect(quizApi.getDayOneQuizResult).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('2일차 퀴즈 결과')
+    expect(wrapper.text()).toContain('경제 퀴즈 결과')
     expect(wrapper.text()).toContain('참여수당과 정답 보상')
     expect(wrapper.text()).toContain('분산투자는 위험을 나누는 방법이에요.')
   })

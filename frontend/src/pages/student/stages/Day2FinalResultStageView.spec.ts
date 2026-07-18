@@ -58,6 +58,7 @@ describe('Day2FinalResultStageView', () => {
     expect(wrapper.find('.survey-link-button').exists()).toBe(false)
     expect(wrapper.text()).toContain('선생님이 마무리 설문을 열어 줄 때까지 기다려 주세요.')
     expect(wrapper.findAll('.final-purchase-list li')).toHaveLength(1)
+    expect(wrapper.text()).toContain('경제 퀴즈 보상')
     expect(wrapper.text()).toContain('연필 세트 × 2')
     expect(wrapper.text()).toContain('22비빔')
   })

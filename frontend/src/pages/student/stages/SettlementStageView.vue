@@ -72,9 +72,11 @@ function resultLabel(question: QuizResultQuestion) {
       <header class="quiz-result__header">
         <div class="stage-view__icon stage-view__icon--green" aria-hidden="true">✓</div>
         <div>
-          <p class="eyebrow">{{ props.dayNumber }}일차 퀴즈 결과</p>
+          <p class="eyebrow">{{ props.dayNumber === 1 ? '1일차 퀴즈 결과' : '경제 퀴즈 결과' }}</p>
           <h1 class="page-title">내가 푼 문제를 확인해요.</h1>
-          <p class="page-description">선생님과 함께 정답과 해설을 살펴보세요.</p>
+          <p class="page-description">
+            {{ props.dayNumber === 1 ? '선생님과 함께 정답을 살펴보세요.' : '선생님과 함께 정답과 해설을 살펴보세요.' }}
+          </p>
         </div>
       </header>
 
@@ -96,7 +98,7 @@ function resultLabel(question: QuizResultQuestion) {
       <section class="quiz-result-detail" aria-labelledby="quiz-result-detail-title">
         <div>
           <p class="eyebrow">문제별 확인</p>
-          <h2 id="quiz-result-detail-title">정답과 해설</h2>
+          <h2 id="quiz-result-detail-title">{{ props.dayNumber === 1 ? '정답 확인' : '정답과 해설' }}</h2>
         </div>
         <ol>
           <li
@@ -117,7 +119,9 @@ function resultLabel(question: QuizResultQuestion) {
               <div><dt>내가 고른 답</dt><dd>{{ answerText(question, question.selectedAnswer) }}</dd></div>
               <div><dt>정답</dt><dd>{{ answerText(question, question.correctAnswer) }}</dd></div>
             </dl>
-            <p class="quiz-result-detail__explanation"><strong>해설</strong>{{ question.explanation || '정답을 다시 한번 확인해 보세요.' }}</p>
+            <p v-if="props.dayNumber === 2" class="quiz-result-detail__explanation">
+              <strong>해설</strong>{{ question.explanation || '정답을 다시 한번 확인해 보세요.' }}
+            </p>
           </li>
         </ol>
       </section>

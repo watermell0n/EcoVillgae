@@ -40,41 +40,74 @@ public class TeacherRoomManagementService {
 
     private static final List<QuestionDefinition> DAY_ONE_QUESTIONS = List.of(
             question(
-                    "내가 맡은 역할의 일을 하고 받는 돈을 무엇이라고 할까요?",
-                    "역할 소득", "예금 이자", "투자 손실", "상품 가격",
-                    "A",
-                    "일한 대가로 받는 돈을 소득이라고 합니다."
-            ),
-            question(
-                    "역할 소득 100비빔과 퀴즈 참여수당 10비빔을 받으면 총소득은 얼마일까요?",
-                    "90비빔", "100비빔", "110비빔", "120비빔",
+                    "《담을 넘은 아이》의 주인공 이름은 무엇인가요?",
                     "C",
-                    "100비빔과 10비빔을 더하면 110비빔입니다."
+                    "해님", "효진", "푸실", "귀손"
             ),
             question(
-                    "소득의 일부를 세금으로 내는 이유로 가장 알맞은 것은 무엇일까요?",
-                    "돈을 모두 없애기 위해서", "함께 필요한 곳에 사용하기 위해서",
-                    "상품 재고를 줄이기 위해서", "투자 위험을 높이기 위해서",
-                    "B",
-                    "세금은 공동체에 필요한 일과 서비스를 위해 사용됩니다."
-            ),
-            question(
-                    "돈을 비교적 안전하게 맡기고 약속된 이자를 받는 활동은 무엇일까요?",
-                    "소비", "예금", "투표", "세금",
-                    "B",
-                    "예금은 돈을 일정 기간 맡기고 이자를 받는 금융 활동입니다."
-            ),
-            question(
-                    "일반적으로 더 큰 수익을 기대하는 투자일수록 무엇도 커질 수 있을까요?",
-                    "손실 위험", "참여 코드", "학급 인원", "예금 기간",
+                    "《담을 넘은 아이》를 쓴 사람은 누구인가요?",
                     "A",
-                    "기대 수익이 큰 투자에는 보통 더 큰 손실 위험이 따릅니다."
+                    "김정민", "이영환", "황선미", "유은실"
             ),
             question(
-                    "투자금을 여러 곳에 나누어 투자하는 방법을 무엇이라고 할까요?",
-                    "충동구매", "소득세", "분산투자", "중도 인출",
+                    "《담을 넘은 아이》를 출판한 출판사는 어디인가요?",
+                    "A",
+                    "비룡소", "창비", "문학동네", "웅진주니어"
+            ),
+            question(
+                    "푸실이의 어머니가 대감댁에 가게 된 이유는 무엇인가요?",
+                    "B",
+                    "푸실이에게 글을 가르치기 위해서",
+                    "귀손이의 약값을 갚고 젖어미로 일하기 위해서",
+                    "새로운 집으로 이사하기 위해서",
+                    "효진 아가씨를 만나기 위해서"
+            ),
+            question(
+                    "푸실이가 글을 배우고 싶어 한 가장 큰 이유는 무엇인가요?",
+                    "B",
+                    "다른 사람에게 자랑하기 위해",
+                    "자신의 생각을 알고 세상을 더 넓게 보기 위해",
+                    "돈을 많이 벌기 위해",
+                    "집안일을 하지 않기 위해"
+            ),
+            question(
+                    "효진의 아버지는 푸실이가 가진 책을 보고 놀랍니다. 푸실이와 대화를 나눈 뒤, 마지막에 무슨 약속을 꼭 지키라고 했나요?",
+                    "D",
+                    "책을 읽고 나서 돌려주라는 약속",
+                    "책의 주인을 꼭 찾아주라는 약속",
+                    "책의 값으로 쌀 두 가마니를 내겠냐는 약속",
+                    "글을 배워서 책을 꼭 읽겠다는 약속"
+            ),
+            question(
+                    "'어머니가 대감마님댁에 간 지도 달포나 지났다.'에서 '달포'의 뜻은 무엇인가요?",
                     "C",
-                    "분산투자는 투자 대상을 나누어 위험을 줄이는 방법입니다."
+                    "한 달의 절반",
+                    "딱 한 달",
+                    "한 달이 조금 넘는 기간",
+                    "한 달이 조금 안 되는 기간"
+            ),
+            question(
+                    "책 제목에서 ‘담’이 의미하는 것으로 가장 알맞은 것은 무엇인가요?",
+                    "C",
+                    "마을을 지키는 실제 성벽만을 뜻한다.",
+                    "사람들이 함께 쉬는 장소를 뜻한다.",
+                    "푸실이를 가로막는 차별과 사회의 규칙을 뜻한다.",
+                    "푸실이의 가족이 사는 집을 뜻한다."
+            ),
+            question(
+                    "152쪽, 이 책의 마지막 문장은 무엇인지 고르시오.",
+                    "A",
+                    "어찌 살 것입니까.",
+                    "저는 담을 넘겠습니다.",
+                    "더 힘차게 앞으로 나아가겠습니다."
+            ),
+            question(
+                    "《담을 넘은 아이》가 우리에게 전하는 생각으로 가장 알맞은 것은 무엇인가요?",
+                    "D",
+                    "옛날의 규칙은 언제나 지켜야 한다.",
+                    "태어난 환경에 따라 사람의 가능성이 정해진다.",
+                    "어려움이 생기면 자신의 꿈을 포기해야 한다.",
+                    "차별과 편견을 넘어 자신의 삶을 스스로 선택할 수 있다."
             )
     );
 
@@ -202,7 +235,7 @@ public class TeacherRoomManagementService {
                     definition.prompt(),
                     definition.options(),
                     definition.correctAnswer(),
-                    definition.explanation()
+                    null
             ));
         }
         return questions;
@@ -265,31 +298,27 @@ public class TeacherRoomManagementService {
 
     private static QuestionDefinition question(
             String prompt,
-            String optionA,
-            String optionB,
-            String optionC,
-            String optionD,
             String correctAnswer,
-            String explanation
+            String... optionTexts
     ) {
+        List<QuizOption> options = new ArrayList<>(optionTexts.length);
+        for (int index = 0; index < optionTexts.length; index += 1) {
+            options.add(new QuizOption(
+                    String.valueOf((char) ('A' + index)),
+                    optionTexts[index]
+            ));
+        }
         return new QuestionDefinition(
                 prompt,
-                List.of(
-                        new QuizOption("A", optionA),
-                        new QuizOption("B", optionB),
-                        new QuizOption("C", optionC),
-                        new QuizOption("D", optionD)
-                ),
-                correctAnswer,
-                explanation
+                List.copyOf(options),
+                correctAnswer
         );
     }
 
     private record QuestionDefinition(
             String prompt,
             List<QuizOption> options,
-            String correctAnswer,
-            String explanation
+            String correctAnswer
     ) {
     }
 
