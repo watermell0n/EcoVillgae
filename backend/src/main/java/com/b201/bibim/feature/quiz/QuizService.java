@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -29,6 +30,8 @@ import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResponse;
 import com.b201.bibim.feature.quiz.QuizDto.StudentQuizResultResponse;
 import com.b201.bibim.feature.quiz.QuizDto.SubmitQuizResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizStudentResponse;
+import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizStudentQuestionResponse;
+import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizQuestionSummaryResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizSummaryResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
@@ -111,7 +114,7 @@ public class QuizService {
                 studentId,
                 room.getCurrentStage()
         );
-        if (!"DAY1_INCOME_SETTLEMENT".equals(effectiveStage)) {
+        if (!"DAY1_QUIZ_RESULT".equals(effectiveStage)) {
             throw quizResultNotAvailable();
         }
         QuizEntity quiz = quizRepository.findByRoomIdAndDayNumber(room.getId(), (short) 1)
@@ -271,11 +274,32 @@ public class QuizService {
                         QuizSubmissionEntity::getStudentId,
                         Function.identity()
                 ));
+        List<QuizQuestionEntity> questions = questionRepository
+                .findAllByQuizIdOrderByOrderNo(quiz.getId());
+        List<QuizAnswerEntity> answers = submissions.isEmpty()
+                ? List.of()
+                : answerRepository.findAllBySubmissionIdIn(
+                        submissions.values().stream().map(QuizSubmissionEntity::getId).toList()
+                );
+        Map<UUID, Map<UUID, QuizAnswerEntity>> answersBySubmission = answers.stream()
+                .collect(Collectors.groupingBy(
+                        QuizAnswerEntity::getSubmissionId,
+                        Collectors.toMap(QuizAnswerEntity::getQuestionId, Function.identity())
+                ));
+        Set<UUID> submittedSubmissionIds = submissions.values().stream()
+                .filter(QuizSubmissionEntity::isSubmitted)
+                .map(QuizSubmissionEntity::getId)
+                .collect(Collectors.toSet());
         List<TeacherQuizStudentResponse> students = studentRepository
                 .findAllByRoomIdOrderByParticipantNumber(roomId)
                 .stream()
                 .filter(student -> "ACTIVE".equals(student.getStatus()))
-                .map(student -> toTeacherStudent(student, submissions.get(student.getId())))
+                .map(student -> toTeacherStudent(
+                        student,
+                        submissions.get(student.getId()),
+                        questions,
+                        answersBySubmission
+                ))
                 .toList();
         long submittedCount = students.stream()
                 .filter(student -> "SUBMITTED".equals(student.submissionStatus()))
@@ -286,6 +310,29 @@ public class QuizService {
         long notStartedCount = students.stream()
                 .filter(student -> "NOT_STARTED".equals(student.submissionStatus()))
                 .count();
+        List<TeacherQuizQuestionSummaryResponse> questionSummaries = questions.stream()
+                .map(question -> {
+                    List<QuizAnswerEntity> submittedAnswers = answers.stream()
+                            .filter(answer -> submittedSubmissionIds.contains(answer.getSubmissionId()))
+                            .filter(answer -> question.getId().equals(answer.getQuestionId()))
+                            .toList();
+                    long correctCount = submittedAnswers.stream()
+                            .filter(QuizAnswerEntity::isCorrect)
+                            .count();
+                    return new TeacherQuizQuestionSummaryResponse(
+                            question.getId(),
+                            question.getOrderNo(),
+                            question.getPrompt(),
+                            question.getOptions().stream()
+                                    .map(option -> new QuizOptionResponse(option.id(), option.text()))
+                                    .toList(),
+                            question.getCorrectAnswer(),
+                            question.getExplanation(),
+                            submittedAnswers.size(),
+                            correctCount
+                    );
+                })
+                .toList();
 
         return new TeacherQuizSummaryResponse(
                 quiz.getId(),
@@ -298,7 +345,8 @@ public class QuizService {
                 inProgressCount,
                 notStartedCount,
                 students.size() - submittedCount,
-                students
+                students,
+                questionSummaries
         );
     }
 
@@ -320,12 +368,29 @@ public class QuizService {
 
     private TeacherQuizStudentResponse toTeacherStudent(
             StudentEntity student,
-            QuizSubmissionEntity submission
+            QuizSubmissionEntity submission,
+            List<QuizQuestionEntity> questions,
+            Map<UUID, Map<UUID, QuizAnswerEntity>> answersBySubmission
     ) {
         String status = submission == null ? "NOT_STARTED" : submission.getStatus();
         Integer correctCount = submission != null && submission.isSubmitted()
                 ? submission.getCorrectCount()
                 : null;
+        Map<UUID, QuizAnswerEntity> studentAnswers = submission == null
+                ? Map.of()
+                : answersBySubmission.getOrDefault(submission.getId(), Map.of());
+        List<TeacherQuizStudentQuestionResponse> questionResults = submission != null
+                && submission.isSubmitted()
+                ? questions.stream().map(question -> {
+                    QuizAnswerEntity answer = studentAnswers.get(question.getId());
+                    return new TeacherQuizStudentQuestionResponse(
+                            question.getId(),
+                            question.getOrderNo(),
+                            answer != null,
+                            answer != null && answer.isCorrect()
+                    );
+                }).toList()
+                : List.of();
         return new TeacherQuizStudentResponse(
                 student.getId(),
                 student.getParticipantNumber(),
@@ -333,7 +398,8 @@ public class QuizService {
                 student.isOnline(),
                 status,
                 correctCount,
-                submission == null ? null : submission.getSubmittedAt()
+                submission == null ? null : submission.getSubmittedAt(),
+                questionResults
         );
     }
 

@@ -93,7 +93,28 @@ public final class QuizDto {
             boolean online,
             String submissionStatus,
             Integer correctCount,
-            Instant submittedAt
+            Instant submittedAt,
+            List<TeacherQuizStudentQuestionResponse> questions
+    ) {
+    }
+
+    public record TeacherQuizStudentQuestionResponse(
+            UUID questionId,
+            int orderNo,
+            boolean answered,
+            boolean correct
+    ) {
+    }
+
+    public record TeacherQuizQuestionSummaryResponse(
+            UUID questionId,
+            int orderNo,
+            String prompt,
+            List<QuizOptionResponse> options,
+            String correctAnswer,
+            String explanation,
+            long answeredCount,
+            long correctCount
     ) {
     }
 
@@ -108,7 +129,8 @@ public final class QuizDto {
             long inProgressCount,
             long notStartedCount,
             long notSubmittedCount,
-            List<TeacherQuizStudentResponse> students
+            List<TeacherQuizStudentResponse> students,
+            List<TeacherQuizQuestionSummaryResponse> questions
     ) {
     }
 }

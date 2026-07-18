@@ -10,6 +10,7 @@ import Day2InflationStageView from './Day2InflationStageView.vue'
 import Day2QuizRewardStageView from './Day2QuizRewardStageView.vue'
 import FreeActivityStageView from './FreeActivityStageView.vue'
 import LearningStageView from './LearningStageView.vue'
+import IncomeSettlementStageView from './IncomeSettlementStageView.vue'
 import PayslipStageView from './PayslipStageView.vue'
 import PlaceholderStageView from './PlaceholderStageView.vue'
 import QuizStageView from './QuizStageView.vue'
@@ -19,7 +20,8 @@ import WaitingStageView from './WaitingStageView.vue'
 const stageComponents: Record<string, Component> = {
   DAY1_LOBBY: WaitingStageView,
   DAY1_QUIZ: QuizStageView,
-  DAY1_INCOME_SETTLEMENT: SettlementStageView,
+  DAY1_QUIZ_RESULT: SettlementStageView,
+  DAY1_INCOME_SETTLEMENT: IncomeSettlementStageView,
   DAY1_PAYSLIP_GUIDED: PayslipStageView,
   DAY1_KNOWLEDGE_GUIDED: LearningStageView,
   DAY1_SHOP_GUIDED: LearningStageView,

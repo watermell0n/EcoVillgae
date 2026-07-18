@@ -1,6 +1,7 @@
 package com.b201.bibim.domain.quiz;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,8 @@ public interface QuizAnswerRepository extends JpaRepository<QuizAnswerEntity, UU
     );
 
     List<QuizAnswerEntity> findAllBySubmissionId(UUID submissionId);
+
+    List<QuizAnswerEntity> findAllBySubmissionIdIn(Collection<UUID> submissionIds);
 
     long countBySubmissionIdAndCorrectTrue(UUID submissionId);
 }

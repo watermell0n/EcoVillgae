@@ -65,7 +65,7 @@ function resultLabel(question: QuizResultQuestion) {
         <div>
           <p class="eyebrow">1일차 퀴즈 결과</p>
           <h1 class="page-title">내가 푼 문제를 확인해요.</h1>
-          <p class="page-description">정답과 해설을 살펴본 뒤 월급명세서를 기다려 주세요.</p>
+          <p class="page-description">선생님과 함께 정답과 해설을 살펴보세요.</p>
         </div>
       </header>
 
@@ -116,8 +116,8 @@ function resultLabel(question: QuizResultQuestion) {
       <aside class="settlement-wait-card">
         <span aria-hidden="true">⌛</span>
         <div>
-          <strong>선생님이 월급을 계산하고 있어요.</strong>
-          <p>정산이 끝나면 다음 화면에서 역할 소득, 퀴즈 보상과 소득세가 담긴 월급명세서를 확인해요.</p>
+          <strong>지금은 퀴즈 결과를 함께 확인하는 시간이에요.</strong>
+          <p>결과 확인이 끝나면 선생님이 역할 소득, 퀴즈 보상과 소득세를 계산해요.</p>
         </div>
         <div class="settlement-formula" aria-label="실수령액 계산식">
           <span>역할 소득 + 퀴즈 보상</span>

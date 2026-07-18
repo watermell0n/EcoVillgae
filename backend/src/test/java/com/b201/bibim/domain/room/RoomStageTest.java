@@ -32,4 +32,10 @@ class RoomStageTest {
         assertTrue(RoomStage.DAY2_FUND_RESULT.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
         assertTrue(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
     }
+
+    @Test
+    void placesDayOneQuizResultBeforeIncomeSettlement() {
+        assertTrue(RoomStage.DAY1_QUIZ_RESULT.ordinal() > RoomStage.DAY1_QUIZ.ordinal());
+        assertTrue(RoomStage.DAY1_QUIZ_RESULT.ordinal() < RoomStage.DAY1_INCOME_SETTLEMENT.ordinal());
+    }
 }

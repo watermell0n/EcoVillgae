@@ -69,6 +69,25 @@ export interface TeacherQuizStudent {
   submissionStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED'
   correctCount: number | null
   submittedAt: string | null
+  questions: TeacherQuizStudentQuestion[]
+}
+
+export interface TeacherQuizStudentQuestion {
+  questionId: string
+  orderNo: number
+  answered: boolean
+  correct: boolean
+}
+
+export interface TeacherQuizQuestionSummary {
+  questionId: string
+  orderNo: number
+  prompt: string
+  options: QuizOption[]
+  correctAnswer: string
+  explanation: string | null
+  answeredCount: number
+  correctCount: number
 }
 
 export interface TeacherQuizSummary {
@@ -83,6 +102,7 @@ export interface TeacherQuizSummary {
   notStartedCount: number
   notSubmittedCount: number
   students: TeacherQuizStudent[]
+  questions: TeacherQuizQuestionSummary[]
 }
 
 export async function getCurrentQuiz() {

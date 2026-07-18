@@ -196,7 +196,7 @@ class QuizServiceTest {
     }
 
     @Test
-    void returnsDayOneQuestionResultsAfterStudentReachesSettlement() {
+    void returnsDayOneQuestionResultsAfterStudentReachesResultStage() {
         UUID studentId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();
         QuizEntity closedQuiz = QuizEntity.dayOneReady(roomId, 1);
@@ -223,9 +223,9 @@ class QuizServiceTest {
         when(student.getRoomId()).thenReturn(roomId);
         when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(room.getId()).thenReturn(roomId);
-        when(room.getCurrentStage()).thenReturn("DAY1_INCOME_SETTLEMENT");
-        when(studentFlowService.effectiveStage(studentId, "DAY1_INCOME_SETTLEMENT"))
-                .thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ_RESULT");
+        when(studentFlowService.effectiveStage(studentId, "DAY1_QUIZ_RESULT"))
+                .thenReturn("DAY1_QUIZ_RESULT");
         when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
                 .thenReturn(Optional.of(closedQuiz));
         when(questionRepository.findAllByQuizIdOrderByOrderNo(closedQuiz.getId()))
@@ -242,6 +242,55 @@ class QuizServiceTest {
         assertEquals("A", result.questions().getFirst().selectedAnswer());
         assertEquals("역할을 수행하고 받는 돈을 역할 소득이라고 해요.",
                 result.questions().getFirst().explanation());
+    }
+
+    @Test
+    void teacherSummaryIncludesQuestionRatesAndStudentQuestionResults() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        QuizEntity closedQuiz = QuizEntity.dayOneReady(roomId, 1);
+        closedQuiz.open();
+        closedQuiz.close();
+        QuizQuestionEntity question = QuizQuestionEntity.multipleChoice(
+                closedQuiz.getId(),
+                1,
+                "일한 대가로 받는 돈은 무엇일까요?",
+                List.of(new QuizQuestionEntity.QuizOption("A", "소득")),
+                "A",
+                "일한 대가를 소득이라고 해요."
+        );
+        QuizSubmissionEntity submitted = QuizSubmissionEntity.start(closedQuiz.getId(), studentId);
+        submitted.submit(1);
+        QuizAnswerEntity answer = QuizAnswerEntity.create(
+                submitted.getId(), question.getId(), "A", true
+        );
+        StudentEntity active = org.mockito.Mockito.mock(StudentEntity.class);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getExpectedStudentCount()).thenReturn(1);
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(closedQuiz));
+        when(questionRepository.findAllByQuizIdOrderByOrderNo(closedQuiz.getId()))
+                .thenReturn(List.of(question));
+        when(submissionRepository.findAllByQuizId(closedQuiz.getId()))
+                .thenReturn(List.of(submitted));
+        when(answerRepository.findAllBySubmissionIdIn(
+                org.mockito.ArgumentMatchers.anyCollection()
+        )).thenReturn(List.of(answer));
+        when(studentRepository.findAllByRoomIdOrderByParticipantNumber(roomId))
+                .thenReturn(List.of(active));
+        when(active.getStatus()).thenReturn("ACTIVE");
+        when(active.getId()).thenReturn(studentId);
+        when(active.getParticipantNumber()).thenReturn(1);
+
+        var summary = quizService.teacherSummary(teacherId, roomId);
+
+        assertEquals(1, summary.questions().size());
+        assertEquals(1, summary.questions().getFirst().correctCount());
+        assertEquals(1, summary.questions().getFirst().answeredCount());
+        assertEquals(true, summary.students().getFirst().questions().getFirst().correct());
     }
 
     @Test

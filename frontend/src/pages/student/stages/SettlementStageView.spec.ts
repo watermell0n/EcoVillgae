@@ -59,7 +59,7 @@ describe('SettlementStageView', () => {
     expect(wrapper.text()).toContain('A. 역할 소득')
     expect(wrapper.text()).toContain('답하지 않음')
     expect(wrapper.text()).toContain('소득이 생기면 소득세를 내요.')
-    expect(wrapper.text()).toContain('선생님이 월급을 계산하고 있어요.')
+    expect(wrapper.text()).toContain('퀴즈 결과를 함께 확인하는 시간이에요.')
   })
 
   it('offers retry when the result cannot be loaded', async () => {

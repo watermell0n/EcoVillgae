@@ -27,6 +27,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_LOBBY', day: 1, label: '입장 대기', description: '학생 접속을 확인하고 수업을 준비합니다.' },
   { id: 'DAY1_PROFILE', day: 1, label: '활동 안내', description: '오늘의 역할과 활동 순서를 안내합니다.' },
   { id: 'DAY1_QUIZ', day: 1, label: '월급 퀴즈', description: '6문제 퀴즈로 참여수당과 정답수당을 얻습니다.' },
+  { id: 'DAY1_QUIZ_RESULT', day: 1, label: '퀴즈 결과 확인', description: '문항별 정답과 학급 퀴즈 결과를 함께 확인합니다.' },
   { id: 'DAY1_INCOME_SETTLEMENT', day: 1, label: '소득·세금 정산', description: '역할 소득과 퀴즈 보상, 소득세를 계산합니다.' },
   { id: 'DAY1_PAYSLIP_GUIDED', day: 1, label: '월급명세서 교육', description: '각자의 월급명세서를 선생님과 함께 확인합니다.' },
   { id: 'DAY1_KNOWLEDGE_GUIDED', day: 1, label: '금융지식 교육', description: '예금과 투자, 위험과 수익을 배웁니다.' },
@@ -107,6 +108,12 @@ export function getStageNavigationBlockReason({
   ) {
     return '퀴즈를 마감한 뒤 이후 단계로 이동해 주세요.'
   }
+  const day1QuizResultIndex = ROOM_STAGES.findIndex((stage) => stage.id === 'DAY1_QUIZ_RESULT')
+  const currentIndex = ROOM_STAGES.indexOf(current)
+  const targetIndex = ROOM_STAGES.indexOf(target)
+  if (currentIndex < day1QuizResultIndex && targetIndex > day1QuizResultIndex) {
+    return '1일차 퀴즈 결과를 확인한 뒤 소득 정산 단계로 이동해 주세요.'
+  }
   if (
     movesForwardAcross(current.id, target.id, 'DAY1_INCOME_SETTLEMENT')
     && day1IncomeSettlementStatus !== 'COMPLETED'
@@ -138,8 +145,6 @@ export function getStageNavigationBlockReason({
     return '공동기금 투표 결과를 확정한 뒤 이후 단계로 이동해 주세요.'
   }
 
-  const currentIndex = ROOM_STAGES.indexOf(current)
-  const targetIndex = ROOM_STAGES.indexOf(target)
   if (targetIndex < currentIndex) {
     if (
       targetIndex < ROOM_STAGES.findIndex((stage) => stage.id === 'DAY1_INCOME_SETTLEMENT')

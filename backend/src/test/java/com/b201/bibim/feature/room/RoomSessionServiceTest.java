@@ -329,6 +329,33 @@ class RoomSessionServiceTest {
     }
 
     @Test
+    void rejectsSkippingDayOneQuizResultAfterQuizClose() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
+        when(room.getVersion()).thenReturn(8);
+        when(room.getCurrentDay()).thenReturn(1);
+        when(room.getCurrentStage()).thenReturn("DAY1_QUIZ");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "skip-quiz-result"))
+                .thenReturn(Optional.empty());
+        when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
+                .thenReturn(Optional.of(quiz));
+        when(quiz.getStatus()).thenReturn("CLOSED");
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "skip-quiz-result",
+                new CommandRequest("SET_STAGE", "DAY1_INCOME_SETTLEMENT", 8)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY1_INCOME_SETTLEMENT);
+    }
+
+    @Test
     void completesRoomOnlyThroughExplicitCommand() {
         UUID teacherId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();

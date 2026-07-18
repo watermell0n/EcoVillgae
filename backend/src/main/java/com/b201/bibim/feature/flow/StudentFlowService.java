@@ -48,6 +48,7 @@ public class StudentFlowService {
     private static final List<String> CATCH_UP_STAGES = List.of(
             "DAY1_PROFILE",
             "DAY1_QUIZ",
+            "DAY1_QUIZ_RESULT",
             "DAY1_INCOME_SETTLEMENT",
             "DAY1_PAYSLIP_GUIDED",
             "DAY1_KNOWLEDGE_GUIDED",

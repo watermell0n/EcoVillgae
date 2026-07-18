@@ -64,7 +64,15 @@ public class QuizAnswerEntity {
         return questionId;
     }
 
+    public UUID getSubmissionId() {
+        return submissionId;
+    }
+
     public String getAnswer() {
         return answer;
+    }
+
+    public boolean isCorrect() {
+        return correct;
     }
 }

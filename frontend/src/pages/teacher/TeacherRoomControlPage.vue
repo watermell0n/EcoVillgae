@@ -18,6 +18,7 @@ import { getLobbyAttendance } from '../../features/room/model/attendance'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
+import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
 import { copyText } from '../../shared/utils/clipboard'
 import { useAuthStore } from '../../stores/auth'
@@ -417,7 +418,7 @@ watch(
       }
       return
     }
-    if (stage !== 'DAY1_QUIZ' && stage !== 'DAY2_QUIZ') return
+    if (!stage || !['DAY1_QUIZ', 'DAY1_QUIZ_RESULT', 'DAY2_QUIZ'].includes(stage)) return
 
     try {
       await quizStore.refreshTeacherSummary(roomId.value)
@@ -1021,7 +1022,11 @@ function moduleTone(moduleState: string) {
           >
             {{ preparationError || '참여 코드와 학생 현황을 불러오고 있습니다.' }}
           </p>
-          <div v-else-if="state.currentStage.includes('QUIZ') && quizSummary" class="quiz-control-workspace">
+          <TeacherQuizResultPanel
+            v-else-if="state.currentStage === 'DAY1_QUIZ_RESULT' && quizSummary"
+            :summary="quizSummary"
+          />
+          <div v-else-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary" class="quiz-control-workspace">
             <div class="quiz-control-workspace__headline">
               <div>
                 <span>퀴즈 상태</span>
@@ -1618,7 +1623,11 @@ function moduleTone(moduleState: string) {
               :disabled="nextStageDisabled"
               @click="requestStageMove(adjacentStages.next?.id)"
             >
-              {{ changingStage ? '변경 중…' : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
+              {{ changingStage
+                ? '변경 중…'
+                : state.currentStage === 'DAY1_QUIZ_RESULT'
+                  ? '퀴즈 결과 확인 완료 · 소득·세금 정산 →'
+                  : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
             </button>
           </div>
           <p class="control-caution">
@@ -1626,6 +1635,8 @@ function moduleTone(moduleState: string) {
               ? quizSummary?.status === 'CLOSED'
                 ? '퀴즈가 마감되었습니다. 미제출 학생을 확인한 뒤 다음 단계로 이동합니다.'
                 : '퀴즈를 시작하고 마감해야 다음 단계로 이동할 수 있습니다.'
+              : state.currentStage === 'DAY1_QUIZ_RESULT'
+                ? '학생들과 문항별 정답과 해설을 확인한 뒤 소득·세금 정산으로 이동해 주세요.'
               : state.currentStage === 'DAY2_QUIZ_SETTLEMENT'
                 ? '퀴즈 보상 정산을 완료하면 금융세·인플레이션 교육 단계로 이동할 수 있습니다.'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
@@ -1657,6 +1668,8 @@ function moduleTone(moduleState: string) {
             <p class="eyebrow">실시간 현황</p>
             <h2>{{ ['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage)
               ? '퀴즈 제출'
+              : state.currentStage === 'DAY1_QUIZ_RESULT'
+                ? '퀴즈 결과'
               : state.currentStage === 'DAY1_INCOME_SETTLEMENT'
                 ? '정산 결과'
                 : state.currentStage === 'DAY1_FREE_ACTIVITY'
@@ -1676,7 +1689,7 @@ function moduleTone(moduleState: string) {
                           ? '최종 결과'
                           : '학생 연결' }}</h2>
           </div>
-          <template v-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary">
+          <template v-if="['DAY1_QUIZ', 'DAY1_QUIZ_RESULT', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
               <strong>{{ quizSummary.submittedCount }}</strong>
               <span>/ {{ quizSummary.eligibleStudentCount }}명 제출</span>
