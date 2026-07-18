@@ -199,10 +199,17 @@ async function advanceCatchUp() {
           role="status"
         >
           <div>
-            <strong>필수 활동을 모두 마쳤어요</strong>
-            <span>선생님 합류 승인 대기</span>
+            <strong>{{ state.joinStatus === 'APPROVED_PENDING_BOUNDARY'
+              ? '선생님 승인이 완료됐어요'
+              : '필수 활동을 모두 마쳤어요' }}</strong>
+            <span>{{ state.joinStatus === 'APPROVED_PENDING_BOUNDARY'
+              ? '현재 수업 단계 마무리 대기'
+              : '선생님 합류 승인 대기' }}</span>
           </div>
-          <p>저장된 결과는 그대로 유지됩니다. 선생님이 승인하면 현재 수업 단계로 이동해요.</p>
+          <p v-if="state.joinStatus === 'APPROVED_PENDING_BOUNDARY'">
+            현재 수업 화면으로 이동했습니다. 선생님이 다음 단계로 진행하면 자동으로 정상 합류해요.
+          </p>
+          <p v-else>저장된 결과는 그대로 유지됩니다. 선생님이 승인하면 현재 수업 단계로 이동해요.</p>
         </aside>
         <p class="student-stage-card__mode">
           {{ state.mode === 'FREE' ? '지금 자유롭게 이용할 수 있어요' : state.mode === 'CLOSED' ? '이 활동은 종료되었어요' : '선생님과 함께 보는 중' }}

@@ -2806,6 +2806,17 @@ button.admin-student-row.is-selected {
   text-decoration: none;
 }
 
+.student-flow-approved {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  color: #286349;
+  background: #e8f7ef;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
 .lobby-start-warning {
   width: min(92vw, 560px);
 }

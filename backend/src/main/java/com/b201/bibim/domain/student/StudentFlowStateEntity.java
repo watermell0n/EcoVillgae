@@ -111,7 +111,9 @@ public class StudentFlowStateEntity {
         this.approvedBy = teacherId;
         this.approvedAt = Instant.now();
         this.joinStatus = pendingBoundary ? "APPROVED_PENDING_BOUNDARY" : "JOINED";
-        if (!pendingBoundary) {
+        if (pendingBoundary) {
+            this.effectiveStage = roomStage;
+        } else {
             this.flowMode = "LIVE";
             this.effectiveStage = roomStage;
             this.rewardRateBps = 10_000;

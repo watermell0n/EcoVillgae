@@ -18,6 +18,7 @@ const data = ref<TeacherFlowList | null>(null)
 const loading = ref(true)
 const actingStudentId = ref('')
 const errorMessage = ref('')
+const noticeMessage = ref('')
 const reasons = ref<Record<string, string>>({})
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -39,7 +40,10 @@ async function refresh() {
 }
 
 async function approve(student: TeacherStudentFlow) {
-  await run(student, () => approveStudentJoin(props.roomId, student.studentId))
+  const succeeded = await run(student, () => approveStudentJoin(props.roomId, student.studentId))
+  if (succeeded) {
+    noticeMessage.value = `${student.participantNumber}번 학생을 현재 수업 화면으로 이동시켰습니다.`
+  }
 }
 
 async function waive(student: TeacherStudentFlow) {
@@ -75,12 +79,15 @@ async function reopen(student: TeacherStudentFlow) {
 async function run(student: TeacherStudentFlow, action: () => Promise<unknown>) {
   actingStudentId.value = student.studentId
   errorMessage.value = ''
+  noticeMessage.value = ''
   try {
     await action()
     reasons.value[student.studentId] = ''
     await refresh()
+    return true
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '학생 진행 상태를 변경하지 못했습니다.')
+    return false
   } finally {
     actingStudentId.value = ''
   }
@@ -92,7 +99,8 @@ function tone(mode: string) {
   return 'neutral'
 }
 
-function modeLabel(mode: string) {
+function modeLabel(mode: string, joinStatus: string) {
+  if (joinStatus === 'APPROVED_PENDING_BOUNDARY') return '승인 완료 · 현재 단계 대기'
   return {
     CATCH_UP: '보충 중',
     AWAITING_JOIN: '합류 승인 대기',
@@ -119,6 +127,7 @@ onUnmounted(() => {
     </div>
     <p v-if="loading" class="state-message">학생별 진행 상태를 확인하고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+    <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
     <p v-if="!loading && attentionStudents.length === 0" class="student-flow-empty">
       현재 별도 보충이나 합류 승인이 필요한 학생이 없습니다.
     </p>
@@ -131,7 +140,7 @@ onUnmounted(() => {
           </div>
           <StatusBadge
             v-if="student.flow"
-            :label="modeLabel(student.flow.flowMode)"
+            :label="modeLabel(student.flow.flowMode, student.flow.joinStatus)"
             :tone="tone(student.flow.flowMode)"
           />
         </header>
@@ -142,13 +151,19 @@ onUnmounted(() => {
             · 보상 {{ student.flow.rewardRateBps / 100 }}%
           </p>
           <button
-            v-if="student.flow.flowMode === 'AWAITING_JOIN'"
+            v-if="student.flow.flowMode === 'AWAITING_JOIN' && student.flow.joinStatus !== 'APPROVED_PENDING_BOUNDARY'"
             type="button"
             :disabled="actingStudentId === student.studentId"
             @click="approve(student)"
           >
             현재 수업에 합류 승인
           </button>
+          <p
+            v-else-if="student.flow.joinStatus === 'APPROVED_PENDING_BOUNDARY'"
+            class="student-flow-approved"
+          >
+            승인 완료 · 학생 화면은 현재 단계로 이동했으며 다음 안전 단계에서 자동 합류합니다.
+          </p>
           <div v-else class="student-flow-override">
             <input
               v-model="reasons[student.studentId]"
