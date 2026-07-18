@@ -45,6 +45,12 @@ public class SettlementItemEntity {
     @Column(name = "net_income", nullable = false)
     private long netIncome;
 
+    @Column(name = "attempt_type", nullable = false, length = 20)
+    private String attemptType;
+
+    @Column(name = "reward_rate_bps", nullable = false)
+    private int rewardRateBps;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -63,6 +69,27 @@ public class SettlementItemEntity {
             long incomeTax,
             long netIncome
     ) {
+        return create(
+                settlementRunId, studentId, quizSubmitted, correctCount,
+                roleIncome, participationReward, correctReward, grossIncome,
+                incomeTax, netIncome, "LIVE", 10_000
+        );
+    }
+
+    public static SettlementItemEntity create(
+            UUID settlementRunId,
+            UUID studentId,
+            boolean quizSubmitted,
+            int correctCount,
+            long roleIncome,
+            long participationReward,
+            long correctReward,
+            long grossIncome,
+            long incomeTax,
+            long netIncome,
+            String attemptType,
+            int rewardRateBps
+    ) {
         SettlementItemEntity item = new SettlementItemEntity();
         item.id = UUID.randomUUID();
         item.settlementRunId = settlementRunId;
@@ -75,6 +102,8 @@ public class SettlementItemEntity {
         item.grossIncome = grossIncome;
         item.incomeTax = incomeTax;
         item.netIncome = netIncome;
+        item.attemptType = attemptType;
+        item.rewardRateBps = rewardRateBps;
         item.createdAt = Instant.now();
         return item;
     }
@@ -118,4 +147,8 @@ public class SettlementItemEntity {
     public long getNetIncome() {
         return netIncome;
     }
+
+    public String getAttemptType() { return attemptType; }
+
+    public int getRewardRateBps() { return rewardRateBps; }
 }

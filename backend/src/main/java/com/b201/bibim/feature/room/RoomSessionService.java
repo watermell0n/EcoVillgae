@@ -29,6 +29,8 @@ import com.b201.bibim.feature.room.RoomSessionDto.StudentRoomStateResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.TeacherRoomStateResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.day1.Day1Service;
+import com.b201.bibim.feature.flow.StudentFlowDto.FlowResponse;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.feature.settlement.Day2QuizRewardService;
 
 import org.springframework.http.HttpStatus;
@@ -64,6 +66,7 @@ public class RoomSessionService {
     private final Day2QuizRewardService day2QuizRewardService;
     private final FundExpenseRepository fundExpenseRepository;
     private final VoteSessionRepository voteSessionRepository;
+    private final StudentFlowService studentFlowService;
 
     public RoomSessionService(
             RoomRepository roomRepository,
@@ -77,7 +80,8 @@ public class RoomSessionService {
             DaySessionRepository sessionRepository,
             Day2QuizRewardService day2QuizRewardService,
             FundExpenseRepository fundExpenseRepository,
-            VoteSessionRepository voteSessionRepository
+            VoteSessionRepository voteSessionRepository,
+            StudentFlowService studentFlowService
     ) {
         this.roomRepository = roomRepository;
         this.commandRequestRepository = commandRequestRepository;
@@ -91,6 +95,7 @@ public class RoomSessionService {
         this.day2QuizRewardService = day2QuizRewardService;
         this.fundExpenseRepository = fundExpenseRepository;
         this.voteSessionRepository = voteSessionRepository;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
@@ -103,7 +108,7 @@ public class RoomSessionService {
         return toTeacherState(room, hasChanged(room, clientSyncVersion));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public StudentRoomStateResponse studentState(UUID studentId, Long clientSyncVersion) {
         StudentEntity student = studentRepository.findById(studentId)
                 .filter(item -> "ACTIVE".equals(item.getStatus()))
@@ -114,17 +119,28 @@ public class RoomSessionService {
                 ));
         RoomEntity room = roomRepository.findById(student.getRoomId())
                 .orElseThrow(this::roomNotFound);
+        FlowResponse flow = studentFlowService.current(studentId);
 
         return new StudentRoomStateResponse(
                 room.getId(),
                 room.getStatus(),
                 room.getCurrentDay(),
                 room.getCurrentStage(),
-                room.getMode(),
+                room.getCurrentStage(),
+                flow.effectiveStage(),
+                RoomStage.find(flow.effectiveStage())
+                        .map(RoomStage::mode)
+                        .orElse(room.getMode()),
                 walletBalance(room.getId(), student.getId()),
                 moduleStates(room),
                 room.getSyncVersion(),
-                hasChanged(room, clientSyncVersion)
+                hasChanged(room, clientSyncVersion),
+                flow.flowMode(),
+                flow.joinStatus(),
+                flow.attemptType(),
+                flow.rewardRateBps(),
+                flow.completedCount(),
+                flow.totalCount()
         );
     }
 
@@ -181,7 +197,9 @@ public class RoomSessionService {
         }
 
         if ("CLOSE_DAY1".equals(command)) {
+            studentFlowService.captureStageCompletion(room, room.getCurrentStage());
             day1Service.closeDayOne(teacherId, room);
+            studentFlowService.roomStageChanged(room);
             commandRequestRepository.save(RoomCommandRequestEntity.completed(
                     room,
                     normalizedKey,
@@ -202,6 +220,7 @@ public class RoomSessionService {
             sessionRepository.save(DaySessionEntity.dayTwoActive(roomId));
             day2QuizRewardService.ensureQuiz(roomId);
             room.startDayTwo();
+            studentFlowService.roomStageChanged(room);
             commandRequestRepository.save(RoomCommandRequestEntity.completed(
                     room,
                     normalizedKey,
@@ -216,6 +235,13 @@ public class RoomSessionService {
             if (!RoomStage.DAY2_SURVEY.name().equals(room.getCurrentStage())
                     || !RoomStage.DAY2_COMPLETED.name().equals(targetStageValue)) {
                 throw stateConflict("설문 단계에서만 수업을 종료할 수 있습니다.");
+            }
+            if (studentFlowService.hasPendingStudents(roomId)) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "CATCH_UP_STUDENTS_PENDING",
+                        "보충 중이거나 합류 승인 대기 중인 학생을 먼저 처리해 주세요."
+                );
             }
             DaySessionEntity session = sessionRepository.findByRoomIdAndDayNumber(roomId, (short) 2)
                     .orElseThrow(() -> stateConflict("2일차 세션을 찾을 수 없습니다."));
@@ -342,7 +368,11 @@ public class RoomSessionService {
         if (targetStage == RoomStage.DAY2_QUIZ) {
             day2QuizRewardService.ensureQuiz(roomId);
         }
+        if (targetStage.ordinal() > currentStage.ordinal()) {
+            studentFlowService.captureStageCompletion(room, currentStage.name());
+        }
         room.changeStage(targetStage);
+        studentFlowService.roomStageChanged(room);
         commandRequestRepository.save(RoomCommandRequestEntity.completed(
                 room,
                 normalizedKey,
@@ -378,6 +408,7 @@ public class RoomSessionService {
                 );
             }
             quiz.close();
+            studentFlowService.markQuizClosed(room, quiz.getDayNumber());
         }
         room.markControlStateChanged();
     }

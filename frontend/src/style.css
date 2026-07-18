@@ -2175,6 +2175,86 @@ button.admin-student-row.is-selected {
   gap: 0.25rem;
 }
 
+.catch-up-banner {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #f0bd62;
+  border-radius: 16px;
+  background: #fff8e8;
+  color: #5f4312;
+}
+
+.catch-up-banner > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.catch-up-banner p {
+  margin: 0;
+}
+
+.catch-up-banner--waiting {
+  border-color: #7fc8a1;
+  background: #eefaf3;
+  color: #21583a;
+}
+
+.catch-up-next {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.student-flow-panel {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color, #d9dfda);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.student-flow-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.student-flow-item {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e7e3;
+  border-radius: 14px;
+  background: #fafcfb;
+}
+
+.student-flow-item header,
+.student-flow-item header > div,
+.student-flow-override {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.student-flow-item header {
+  justify-content: space-between;
+}
+
+.student-flow-item p,
+.student-flow-empty {
+  margin: 0;
+}
+
+.student-flow-override {
+  flex-wrap: wrap;
+}
+
+.student-flow-override input {
+  flex: 1 1 16rem;
+}
+
 .free-activity-stage-view,
 .day1-summary-view {
   width: 100%;

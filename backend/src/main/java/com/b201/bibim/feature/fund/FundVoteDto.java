@@ -118,6 +118,7 @@ public final class FundVoteDto {
             String status,
             int eligibleStudentCount,
             long submittedCount,
+            boolean eligible,
             boolean hasVoted,
             UUID selectedOptionId,
             UUID decidedOptionId,

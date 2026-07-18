@@ -27,6 +27,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.vote.VoteSessionRepository;
 import com.b201.bibim.feature.day1.Day1Service;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.feature.settlement.Day2QuizRewardService;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
 import com.b201.bibim.global.exception.ApiException;
@@ -76,6 +77,9 @@ class RoomSessionServiceTest {
 
     @Mock
     private VoteSessionRepository voteSessionRepository;
+
+    @Mock
+    private StudentFlowService studentFlowService;
 
     @Mock
     private RoomEntity room;

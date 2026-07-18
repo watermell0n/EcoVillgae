@@ -31,6 +31,7 @@ import com.b201.bibim.feature.shop.ShopDto.PurchaseResponse;
 import com.b201.bibim.feature.shop.ShopDto.TeacherPurchaseResponse;
 import com.b201.bibim.feature.shop.ShopDto.TeacherShopSummaryResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -52,6 +53,7 @@ public class ShopService {
     private final AccountRepository accountRepository;
     private final FinancialTransactionRepository transactionRepository;
     private final FinancialEntryRepository entryRepository;
+    private final StudentFlowService studentFlowService;
 
     public ShopService(
             RoomRepository roomRepository,
@@ -61,7 +63,8 @@ public class ShopService {
             PurchaseRepository purchaseRepository,
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
-            FinancialEntryRepository entryRepository
+            FinancialEntryRepository entryRepository,
+            StudentFlowService studentFlowService
     ) {
         this.roomRepository = roomRepository;
         this.sessionRepository = sessionRepository;
@@ -71,6 +74,7 @@ public class ShopService {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +82,7 @@ public class ShopService {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = roomRepository.findById(student.getRoomId())
                 .orElseThrow(this::roomNotFound);
-        ensureStoreOpen(room);
+        ensureStoreOpen(room, studentId);
         return new ProductListResponse(
                 walletBalance(room.getId(), studentId),
                 productRepository.findAllByRoomIdOrderByDisplayOrder(room.getId())
@@ -108,7 +112,7 @@ public class ShopService {
             return replayPurchase(existingTransaction.get(), student, request);
         }
 
-        ensureStoreOpen(room);
+        ensureStoreOpen(room, studentId);
         AccountEntity wallet = accountRepository.findStudentAccountForUpdate(
                         room.getId(),
                         studentId,
@@ -329,8 +333,10 @@ public class ShopService {
         return room;
     }
 
-    private void ensureStoreOpen(RoomEntity room) {
-        if (!OPEN_STAGES.contains(room.getCurrentStage())) {
+    private void ensureStoreOpen(RoomEntity room, UUID studentId) {
+        boolean catchUpStore = studentFlowService.canUseStage(studentId, "DAY1_FREE_ACTIVITY")
+                || studentFlowService.canUseStage(studentId, "DAY2_FINAL_SHOP");
+        if (!OPEN_STAGES.contains(room.getCurrentStage()) && !catchUpStore) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "STORE_CLOSED",

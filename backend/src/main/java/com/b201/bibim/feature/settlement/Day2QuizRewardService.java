@@ -31,6 +31,7 @@ import com.b201.bibim.domain.settlement.SettlementItemRepository;
 import com.b201.bibim.domain.settlement.SettlementRunEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.Day2QuizRewardDto.SettlementResponse;
 import com.b201.bibim.feature.settlement.Day2QuizRewardDto.StudentRewardResponse;
@@ -60,6 +61,7 @@ public class Day2QuizRewardService {
     private final RoomRulesRepository rulesRepository;
     private final DaySessionRepository sessionRepository;
     private final StudentRepository studentRepository;
+    private final StudentFlowStateRepository flowStateRepository;
     private final SettlementRunRepository runRepository;
     private final SettlementItemRepository itemRepository;
     private final AccountRepository accountRepository;
@@ -74,6 +76,7 @@ public class Day2QuizRewardService {
             RoomRulesRepository rulesRepository,
             DaySessionRepository sessionRepository,
             StudentRepository studentRepository,
+            StudentFlowStateRepository flowStateRepository,
             SettlementRunRepository runRepository,
             SettlementItemRepository itemRepository,
             AccountRepository accountRepository,
@@ -87,6 +90,7 @@ public class Day2QuizRewardService {
         this.rulesRepository = rulesRepository;
         this.sessionRepository = sessionRepository;
         this.studentRepository = studentRepository;
+        this.flowStateRepository = flowStateRepository;
         this.runRepository = runRepository;
         this.itemRepository = itemRepository;
         this.accountRepository = accountRepository;
@@ -117,7 +121,7 @@ public class Day2QuizRewardService {
     public StudentRewardResponse studentResult(UUID studentId) {
         StudentEntity student = activeStudent(studentId);
         RoomEntity room = roomRepository.findById(student.getRoomId()).orElseThrow(this::roomNotFound);
-        ensurePreviewStage(room);
+        ensureStudentPreviewStage(room, studentId);
         var completed = runRepository.findByRoomIdAndSettlementType(room.getId(), SETTLEMENT_TYPE)
                 .filter(run -> "COMPLETED".equals(run.getStatus()));
         if (completed.isPresent()) {
@@ -153,7 +157,15 @@ public class Day2QuizRewardService {
         if (!"CLOSED".equals(quiz.getStatus())) {
             throw conflict("QUIZ_NOT_CLOSED", "퀴즈를 마감한 뒤 보상을 정산해 주세요.");
         }
-        List<StudentEntity> students = activeStudents(roomId);
+        List<StudentEntity> students = activeStudents(roomId).stream()
+                .filter(student -> flowStateRepository.findByStudentId(student.getId())
+                        .map(state -> !"CATCH_UP".equals(state.getFlowMode())
+                                || submissionRepository
+                                .findByQuizIdAndStudentId(quiz.getId(), student.getId())
+                                .map(QuizSubmissionEntity::isSubmitted)
+                                .orElse(false))
+                        .orElse(true))
+                .toList();
         DaySessionEntity session = sessionRepository.findByRoomIdAndDayNumber(roomId, (short) 2)
                 .orElseThrow(() -> conflict("SESSION_NOT_FOUND", "2일차 세션을 찾을 수 없습니다."));
         SettlementRunEntity run = runRepository.saveAndFlush(SettlementRunEntity.processing(
@@ -165,6 +177,10 @@ public class Day2QuizRewardService {
         long totalReward = 0;
         for (StudentEntity student : students) {
             StudentRewardResponse calculated = calculateStudent(room, rules, quiz, student);
+            int rewardRateBps = flowStateRepository.findByStudentId(student.getId())
+                    .filter(state -> !"LIVE".equals(state.getFlowMode()))
+                    .map(state -> state.getRewardRateBps())
+                    .orElse(10_000);
             AccountEntity wallet = accountRepository.findStudentAccountForUpdate(
                             roomId, student.getId(), "STUDENT_WALLET"
                     )
@@ -174,7 +190,8 @@ public class Day2QuizRewardService {
             itemRepository.save(SettlementItemEntity.create(
                     run.getId(), student.getId(), calculated.submitted(), calculated.correctCount(),
                     0, calculated.participationReward(), calculated.correctReward(),
-                    calculated.totalReward(), 0, calculated.totalReward()
+                    calculated.totalReward(), 0, calculated.totalReward(),
+                    rewardRateBps < 10_000 ? "LATE" : "LIVE", rewardRateBps
             ));
             transferReward(room, session, teacherId, run, student, treasury, wallet, calculated, key);
             if (calculated.submitted()) submittedCount += 1;
@@ -183,6 +200,59 @@ public class Day2QuizRewardService {
         run.completeQuizReward(totalReward, submittedCount);
         room.markEconomicStateChanged();
         return new SettlementResponse(completedPreview(room, run), false);
+    }
+
+    @Transactional
+    public boolean settleCatchUpStudent(UUID studentId, int rewardRateBps) {
+        StudentEntity student = studentRepository.findByIdForUpdate(studentId)
+                .filter(item -> "ACTIVE".equals(item.getStatus()))
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다."
+                ));
+        RoomEntity room = roomRepository.findByIdForUpdate(student.getRoomId())
+                .orElseThrow(this::roomNotFound);
+        SettlementRunEntity run = runRepository
+                .findByRoomIdAndSettlementType(room.getId(), SETTLEMENT_TYPE)
+                .filter(item -> "COMPLETED".equals(item.getStatus()))
+                .orElse(null);
+        if (run == null) return false;
+        if (itemRepository.findBySettlementRunIdAndStudentId(run.getId(), studentId).isPresent()) {
+            return true;
+        }
+
+        RoomRulesEntity rules = rules(room.getId());
+        QuizEntity quiz = quiz(room.getId());
+        StudentRewardResponse reward = calculateStudent(
+                room, rules, quiz, student, rewardRateBps
+        );
+        if (!reward.submitted()) {
+            throw conflict("QUIZ_SUBMISSION_REQUIRED", "보충 퀴즈를 제출한 뒤 정산할 수 있습니다.");
+        }
+        itemRepository.save(SettlementItemEntity.create(
+                run.getId(), studentId, true, reward.correctCount(),
+                0, reward.participationReward(), reward.correctReward(),
+                reward.totalReward(), 0, reward.totalReward(), "LATE", rewardRateBps
+        ));
+        DaySessionEntity session = sessionRepository
+                .findByRoomIdAndDayNumber(room.getId(), (short) 2)
+                .orElseThrow(() -> conflict("SESSION_NOT_FOUND", "2일차 세션을 찾을 수 없습니다."));
+        AccountEntity treasury = accountRepository
+                .findRoomAccountForUpdate(room.getId(), "SYSTEM_TREASURY")
+                .orElseGet(() -> accountRepository.saveAndFlush(
+                        AccountEntity.systemTreasury(room.getId())
+                ));
+        AccountEntity wallet = accountRepository.findStudentAccountForUpdate(
+                        room.getId(), studentId, "STUDENT_WALLET"
+                )
+                .orElseGet(() -> accountRepository.saveAndFlush(
+                        AccountEntity.studentWallet(room.getId(), studentId)
+                ));
+        transferReward(
+                room, session, room.getTeacherId(), run, student, treasury, wallet,
+                reward, "catchup:day2-quiz:" + studentId
+        );
+        room.markEconomicStateChanged();
+        return true;
     }
 
     private void transferReward(
@@ -259,6 +329,20 @@ public class Day2QuizRewardService {
             QuizEntity quiz,
             StudentEntity student
     ) {
+        int rewardRateBps = flowStateRepository.findByStudentId(student.getId())
+                .filter(state -> !"LIVE".equals(state.getFlowMode()))
+                .map(state -> state.getRewardRateBps())
+                .orElse(10_000);
+        return calculateStudent(room, rules, quiz, student, rewardRateBps);
+    }
+
+    private StudentRewardResponse calculateStudent(
+            RoomEntity room,
+            RoomRulesEntity rules,
+            QuizEntity quiz,
+            StudentEntity student,
+            int rewardRateBps
+    ) {
         QuizSubmissionEntity submission = submissionRepository
                 .findByQuizIdAndStudentId(quiz.getId(), student.getId())
                 .filter(QuizSubmissionEntity::isSubmitted)
@@ -266,7 +350,10 @@ public class Day2QuizRewardService {
         boolean submitted = submission != null;
         int correct = submitted ? submission.getCorrectCount() : 0;
         long participation = submitted ? rules.getDay2ParticipationReward() : 0;
-        long correctReward = Math.multiplyExact(correct, rules.getDay2CorrectReward());
+        long rawCorrectReward = Math.multiplyExact(correct, rules.getDay2CorrectReward());
+        long correctReward = Math.floorDiv(
+                Math.multiplyExact(rawCorrectReward, rewardRateBps), 10_000L
+        );
         long total = Math.addExact(participation, correctReward);
         return new StudentRewardResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(), submitted,
@@ -331,6 +418,14 @@ public class Day2QuizRewardService {
         ).contains(room.getCurrentStage())) {
             throw conflict("DAY2_QUIZ_REWARD_NOT_OPEN", "2일차 퀴즈 이후에 보상 결과를 확인할 수 있습니다.");
         }
+    }
+
+    private void ensureStudentPreviewStage(RoomEntity room, UUID studentId) {
+        boolean catchUpResult = flowStateRepository.findByStudentId(studentId)
+                .filter(state -> "CATCH_UP".equals(state.getFlowMode()))
+                .map(state -> "DAY2_QUIZ_SETTLEMENT".equals(state.getEffectiveStage()))
+                .orElse(false);
+        if (!catchUpResult) ensurePreviewStage(room);
     }
 
     private String normalizeKey(String key) {

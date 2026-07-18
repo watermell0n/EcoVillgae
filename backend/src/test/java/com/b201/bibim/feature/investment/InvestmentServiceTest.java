@@ -25,6 +25,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.investment.InvestmentDto.AllocationRequest;
 import com.b201.bibim.feature.investment.InvestmentDto.SaveDraftRequest;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.global.exception.ApiException;
 
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,7 @@ class InvestmentServiceTest {
     @Mock AccountRepository accountRepository;
     @Mock FinancialTransactionRepository transactionRepository;
     @Mock FinancialEntryRepository entryRepository;
+    @Mock StudentFlowService studentFlowService;
     @Mock StudentEntity student;
     @Mock RoomEntity room;
     @Mock InvestmentAssetEntity asset;

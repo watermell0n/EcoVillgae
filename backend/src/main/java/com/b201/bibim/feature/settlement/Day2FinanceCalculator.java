@@ -39,8 +39,23 @@ public class Day2FinanceCalculator {
             List<AllocationInput> investments,
             int financialTaxBps
     ) {
+        return calculateWithDepositInterest(
+                walletBefore, depositPrincipal, depositInterest,
+                investments, financialTaxBps, 10_000
+        );
+    }
+
+    public Calculation calculateWithDepositInterest(
+            long walletBefore,
+            long depositPrincipal,
+            long depositInterest,
+            List<AllocationInput> investments,
+            int financialTaxBps,
+            int positiveProfitRewardRateBps
+    ) {
         if (walletBefore < 0 || depositPrincipal < 0 || depositInterest < 0
-                || financialTaxBps < 0) {
+                || financialTaxBps < 0 || positiveProfitRewardRateBps < 0
+                || positiveProfitRewardRateBps > 10_000) {
             throw new IllegalArgumentException("금융 정산 값이 올바르지 않습니다.");
         }
         long investmentPrincipal = 0;
@@ -50,7 +65,13 @@ public class Day2FinanceCalculator {
                     if (input.principal() <= 0) {
                         throw new IllegalArgumentException("투자 원금은 0보다 커야 합니다.");
                     }
-                    long profit = roundedRate(input.principal(), input.returnBps());
+                    long rawProfit = roundedRate(input.principal(), input.returnBps());
+                    long profit = rawProfit > 0
+                            ? Math.floorDiv(
+                                    Math.multiplyExact(rawProfit, positiveProfitRewardRateBps),
+                                    BASIS_POINTS_DIVISOR
+                            )
+                            : rawProfit;
                     long finalValue = Math.addExact(input.principal(), profit);
                     if (finalValue < 0) {
                         throw new IllegalArgumentException("투자 평가액은 음수가 될 수 없습니다.");

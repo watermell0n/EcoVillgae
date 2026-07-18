@@ -42,11 +42,19 @@ public final class RoomSessionDto {
             String roomStatus,
             int currentDay,
             String currentStage,
+            String roomStage,
+            String effectiveStage,
             String mode,
             long walletBalance,
             List<ModuleStateResponse> modules,
             long syncVersion,
-            boolean changed
+            boolean changed,
+            String flowMode,
+            String joinStatus,
+            String attemptType,
+            int rewardRateBps,
+            int completedActivityCount,
+            int totalActivityCount
     ) {
     }
 

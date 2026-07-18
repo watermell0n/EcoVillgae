@@ -74,4 +74,26 @@ class Day2FinanceCalculatorTest {
         assertEquals(2, result.depositInterest());
         assertEquals(52, result.walletAfter());
     }
+
+    @Test
+    void reducesOnlyPositiveLateInvestmentProfitToEightyPercent() {
+        UUID gainAssetId = UUID.randomUUID();
+        UUID lossAssetId = UUID.randomUUID();
+
+        Calculation result = calculator.calculateWithDepositInterest(
+                0,
+                0,
+                0,
+                List.of(
+                        new AllocationInput(gainAssetId, 100, 500),
+                        new AllocationInput(lossAssetId, 100, -500)
+                ),
+                0,
+                8_000
+        );
+
+        assertEquals(4, result.allocations().get(0).profit());
+        assertEquals(-5, result.allocations().get(1).profit());
+        assertEquals(-1, result.investmentProfit());
+    }
 }

@@ -16,6 +16,7 @@ import com.b201.bibim.feature.auth.student.StudentAuthDto.EnterRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.LoginRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.RequiredAction;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.global.security.AuthSessionService;
 
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class StudentAuthServiceTest {
     @Mock AuthSessionService authSessionService;
     @Mock AccountRepository accountRepository;
     @Mock ActivityEventService activityEventService;
+    @Mock StudentFlowService studentFlowService;
 
     @InjectMocks StudentAuthService studentAuthService;
 

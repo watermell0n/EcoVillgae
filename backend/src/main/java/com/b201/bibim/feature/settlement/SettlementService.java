@@ -28,6 +28,7 @@ import com.b201.bibim.domain.settlement.SettlementItemRepository;
 import com.b201.bibim.domain.settlement.SettlementRunEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.Day1IncomeCalculator.Calculation;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomePreviewResponse;
@@ -51,6 +52,7 @@ public class SettlementService {
     private final RoomRulesRepository roomRulesRepository;
     private final DaySessionRepository sessionRepository;
     private final StudentRepository studentRepository;
+    private final StudentFlowStateRepository studentFlowStateRepository;
     private final QuizRepository quizRepository;
     private final QuizSubmissionRepository submissionRepository;
     private final SettlementRunRepository settlementRunRepository;
@@ -66,6 +68,7 @@ public class SettlementService {
             RoomRulesRepository roomRulesRepository,
             DaySessionRepository sessionRepository,
             StudentRepository studentRepository,
+            StudentFlowStateRepository studentFlowStateRepository,
             QuizRepository quizRepository,
             QuizSubmissionRepository submissionRepository,
             SettlementRunRepository settlementRunRepository,
@@ -80,6 +83,7 @@ public class SettlementService {
         this.roomRulesRepository = roomRulesRepository;
         this.sessionRepository = sessionRepository;
         this.studentRepository = studentRepository;
+        this.studentFlowStateRepository = studentFlowStateRepository;
         this.quizRepository = quizRepository;
         this.submissionRepository = submissionRepository;
         this.settlementRunRepository = settlementRunRepository;
@@ -259,13 +263,107 @@ public class SettlementService {
     }
 
     @Transactional
+    public boolean settleCatchUpStudent(UUID studentId, int rewardRateBps) {
+        StudentEntity student = studentRepository.findByIdForUpdate(studentId)
+                .filter(item -> "ACTIVE".equals(item.getStatus()))
+                .orElseThrow(this::authenticationRequired);
+        RoomEntity room = roomRepository.findByIdForUpdate(student.getRoomId())
+                .orElseThrow(this::roomNotFound);
+        SettlementRunEntity run = settlementRunRepository
+                .findByRoomIdAndSettlementType(room.getId(), DAY1_INCOME)
+                .filter(item -> COMPLETED.equals(item.getStatus()))
+                .orElse(null);
+        if (run == null) return false;
+        if (settlementItemRepository
+                .findBySettlementRunIdAndStudentId(run.getId(), studentId)
+                .isPresent()) {
+            return true;
+        }
+
+        QuizEntity quiz = quizRepository.findByRoomIdAndDayNumber(room.getId(), (short) 1)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.CONFLICT, "SETTLEMENT_VALIDATION_FAILED",
+                        "1일차 퀴즈를 찾을 수 없습니다."
+                ));
+        QuizSubmissionEntity submission = submissionRepository
+                .findByQuizIdAndStudentId(quiz.getId(), studentId)
+                .filter(QuizSubmissionEntity::isSubmitted)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.CONFLICT, "QUIZ_SUBMISSION_REQUIRED",
+                        "보충 퀴즈를 제출한 뒤 정산할 수 있습니다."
+                ));
+        RoomRulesEntity rules = findRules(room.getId());
+        Calculation regular = calculator.calculate(
+                rules.getRoleIncome(), rules.getDay1ParticipationReward(),
+                rules.getDay1CorrectReward(), rules.getIncomeTaxBps(),
+                true, submission.getCorrectCount()
+        );
+        long correctReward = scaledPositive(regular.correctReward(), rewardRateBps);
+        long grossIncome = Math.addExact(
+                Math.addExact(regular.roleIncome(), regular.participationReward()),
+                correctReward
+        );
+        long incomeTax = Math.floorDiv(
+                Math.multiplyExact(grossIncome, rules.getIncomeTaxBps()), 10_000L
+        );
+        Calculation amount = new Calculation(
+                regular.roleIncome(), regular.participationReward(), correctReward,
+                grossIncome, incomeTax, grossIncome - incomeTax
+        );
+        settlementItemRepository.save(SettlementItemEntity.create(
+                run.getId(), student.getId(), true, submission.getCorrectCount(),
+                amount.roleIncome(), amount.participationReward(), amount.correctReward(),
+                amount.grossIncome(), amount.incomeTax(), amount.netIncome(),
+                "LATE", rewardRateBps
+        ));
+
+        DaySessionEntity session = sessionRepository
+                .findByRoomIdAndDayNumber(room.getId(), (short) 1)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.CONFLICT, "SESSION_NOT_FOUND",
+                        "1일차 수업 세션을 찾을 수 없습니다."
+                ));
+        AccountEntity wallet = getOrCreateStudentWallet(room.getId(), studentId);
+        AccountEntity classFund = getOrCreateRoomAccount(room.getId(), "CLASS_FUND");
+        AccountEntity treasury = getOrCreateRoomAccount(room.getId(), "SYSTEM_TREASURY");
+        String key = "catchup:day1:" + studentId;
+        transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
+                amount.roleIncome(), "ROLE_INCOME", key + ":role", "보충 역할 급여 지급");
+        transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
+                amount.participationReward(), "QUIZ_PARTICIPATION_REWARD",
+                key + ":participation", "보충 퀴즈 참여수당 지급");
+        transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
+                amount.correctReward(), "QUIZ_CORRECT_REWARD",
+                key + ":correct", "보충 퀴즈 정답수당 지급");
+        transfer(room, session, room.getTeacherId(), run, student, wallet, classFund,
+                amount.incomeTax(), "INCOME_TAX", key + ":tax", "보충 소득세 납부");
+        activityEventService.record(
+                room.getId(), studentId, "SYSTEM", null,
+                "DAY1_CATCH_UP_SETTLED", room.getCurrentStage(), "PAYSLIP",
+                "DAY1_INCOME_SETTLEMENT",
+                Map.of(
+                        "grossIncome", amount.grossIncome(),
+                        "incomeTax", amount.incomeTax(),
+                        "netIncome", amount.netIncome(),
+                        "rewardRateBps", rewardRateBps
+                )
+        );
+        room.markEconomicStateChanged();
+        return true;
+    }
+
+    @Transactional
     public Day1PayslipResponse day1Payslip(UUID studentId) {
         StudentEntity student = studentRepository.findById(studentId)
                 .filter(item -> "ACTIVE".equals(item.getStatus()))
                 .orElseThrow(this::authenticationRequired);
         RoomEntity room = roomRepository.findById(student.getRoomId())
                 .orElseThrow(this::roomNotFound);
-        if (!"DAY1_PAYSLIP_GUIDED".equals(room.getCurrentStage())) {
+        boolean catchUpPayslip = studentFlowStateRepository.findByStudentId(studentId)
+                .filter(state -> "CATCH_UP".equals(state.getFlowMode()))
+                .map(state -> "DAY1_PAYSLIP_GUIDED".equals(state.getEffectiveStage()))
+                .orElse(false);
+        if (!"DAY1_PAYSLIP_GUIDED".equals(room.getCurrentStage()) && !catchUpPayslip) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "PAYSLIP_NOT_OPEN",
@@ -378,11 +476,20 @@ public class SettlementService {
         return studentRepository
                 .findAllByRoomIdAndStatusOrderByParticipantNumber(room.getId(), "ACTIVE")
                 .stream()
+                .filter(student -> studentFlowStateRepository.findByStudentId(student.getId())
+                        .map(state -> !"CATCH_UP".equals(state.getFlowMode())
+                                || (submissions.get(student.getId()) != null
+                                && submissions.get(student.getId()).isSubmitted()))
+                        .orElse(true))
                 .map(student -> {
                     QuizSubmissionEntity submission = submissions.get(student.getId());
                     boolean submitted = submission != null && submission.isSubmitted();
                     int correctCount = submitted ? submission.getCorrectCount() : 0;
-                    Calculation amount = calculator.calculate(
+                    int rewardRateBps = studentFlowStateRepository.findByStudentId(student.getId())
+                            .filter(state -> !"LIVE".equals(state.getFlowMode()))
+                            .map(state -> state.getRewardRateBps())
+                            .orElse(10_000);
+                    Calculation regular = calculator.calculate(
                             rules.getRoleIncome(),
                             rules.getDay1ParticipationReward(),
                             rules.getDay1CorrectReward(),
@@ -390,7 +497,24 @@ public class SettlementService {
                             submitted,
                             correctCount
                     );
-                    return new CalculatedStudent(student, submitted, correctCount, amount);
+                    long correctReward = scaledPositive(
+                            regular.correctReward(), rewardRateBps
+                    );
+                    long grossIncome = Math.addExact(
+                            Math.addExact(regular.roleIncome(), regular.participationReward()),
+                            correctReward
+                    );
+                    long incomeTax = Math.floorDiv(
+                            Math.multiplyExact(grossIncome, rules.getIncomeTaxBps()),
+                            10_000L
+                    );
+                    Calculation amount = new Calculation(
+                            regular.roleIncome(), regular.participationReward(), correctReward,
+                            grossIncome, incomeTax, grossIncome - incomeTax
+                    );
+                    return new CalculatedStudent(
+                            student, submitted, correctCount, amount, rewardRateBps
+                    );
                 })
                 .toList();
     }
@@ -496,7 +620,9 @@ public class SettlementService {
                 amount.correctReward(),
                 amount.grossIncome(),
                 amount.incomeTax(),
-                amount.netIncome()
+                amount.netIncome(),
+                calculated.rewardRateBps() < 10_000 ? "LATE" : "LIVE",
+                calculated.rewardRateBps()
         );
     }
 
@@ -549,6 +675,14 @@ public class SettlementService {
             java.util.function.ToLongFunction<StudentIncomeResponse> extractor
     ) {
         return students.stream().mapToLong(extractor).sum();
+    }
+
+    private long scaledPositive(long amount, int rewardRateBps) {
+        if (amount <= 0) return amount;
+        if (rewardRateBps < 0 || rewardRateBps > 10_000) {
+            throw new IllegalArgumentException("보상 비율은 0~10000 사이여야 합니다.");
+        }
+        return Math.floorDiv(Math.multiplyExact(amount, rewardRateBps), 10_000L);
     }
 
     private RoomEntity findOwnedRoom(UUID teacherId, UUID roomId) {
@@ -629,7 +763,8 @@ public class SettlementService {
             StudentEntity student,
             boolean quizSubmitted,
             int correctCount,
-            Calculation amount
+            Calculation amount,
+            int rewardRateBps
     ) {
     }
 }

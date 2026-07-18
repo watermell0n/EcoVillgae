@@ -9,7 +9,8 @@ const financeStore = useDay2FinanceStore()
 const roomSessionStore = useRoomSessionStore()
 const errorMessage = ref('')
 const result = computed(() => financeStore.studentResult)
-const stage = computed(() => roomSessionStore.studentState?.currentStage)
+const stage = computed(() => roomSessionStore.studentState?.effectiveStage
+  ?? roomSessionStore.studentState?.currentStage)
 const isCompleted = computed(() => (
   result.value?.settlementStatus === 'COMPLETED' && result.value.resultAvailable
 ))
@@ -35,7 +36,8 @@ onMounted(() => void refresh())
 
 watch(
   () => [
-    roomSessionStore.studentState?.currentStage,
+    roomSessionStore.studentState?.effectiveStage
+      ?? roomSessionStore.studentState?.currentStage,
     roomSessionStore.studentState?.syncVersion,
   ] as const,
   (next, previous) => {

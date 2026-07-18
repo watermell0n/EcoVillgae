@@ -20,6 +20,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,9 @@ class QuizServiceTest {
 
     @Mock
     private ActivityEventService activityEventService;
+
+    @Mock
+    private StudentFlowService studentFlowService;
 
     @Mock
     private StudentEntity student;
@@ -121,7 +125,6 @@ class QuizServiceTest {
         when(student.getRoomId()).thenReturn(roomId);
         when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(room.getId()).thenReturn(roomId);
-        when(room.getCurrentDay()).thenReturn(1);
         when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
                 .thenReturn(Optional.of(quiz));
         when(quiz.getStatus()).thenReturn("READY");

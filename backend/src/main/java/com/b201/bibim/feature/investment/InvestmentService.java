@@ -37,6 +37,7 @@ import com.b201.bibim.feature.investment.InvestmentDto.AssetResponse;
 import com.b201.bibim.feature.investment.InvestmentDto.InvestmentResponse;
 import com.b201.bibim.feature.investment.InvestmentDto.SaveDraftRequest;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -74,6 +75,7 @@ public class InvestmentService {
     private final AccountRepository accountRepository;
     private final FinancialTransactionRepository transactionRepository;
     private final FinancialEntryRepository entryRepository;
+    private final StudentFlowService studentFlowService;
 
     public InvestmentService(
             InvestmentAssetRepository assetRepository,
@@ -86,7 +88,8 @@ public class InvestmentService {
             DaySessionRepository sessionRepository,
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
-            FinancialEntryRepository entryRepository
+            FinancialEntryRepository entryRepository,
+            StudentFlowService studentFlowService
     ) {
         this.assetRepository = assetRepository;
         this.scenarioRepository = scenarioRepository;
@@ -99,13 +102,14 @@ public class InvestmentService {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional
     public InvestmentResponse current(UUID studentId) {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = lockRoom(student.getRoomId());
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         Market market = ensureMarket(room.getId());
         DaySessionEntity session = dayOneSession(room.getId());
         InvestmentOrderEntity order = currentOrder(session.getId(), studentId).orElse(null);
@@ -122,7 +126,7 @@ public class InvestmentService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         Market market = ensureMarket(room.getId());
         ValidatedAllocations validated = validateAllocations(request.allocations(), market.assets());
         AccountEntity wallet = walletForUpdate(room.getId(), studentId);
@@ -156,7 +160,7 @@ public class InvestmentService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         Market market = ensureMarket(room.getId());
         DaySessionEntity session = dayOneSession(room.getId());
         InvestmentOrderEntity order = orderRepository.findDraftForUpdate(session.getId(), studentId)
@@ -172,7 +176,7 @@ public class InvestmentService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         Market market = ensureMarket(room.getId());
 
         var existingTransaction = transactionRepository.findByIdempotencyKey(normalizedKey);
@@ -403,8 +407,9 @@ public class InvestmentService {
         ).map(AccountEntity::getBalance).orElse(0L);
     }
 
-    private void ensureOpen(RoomEntity room) {
-        if (!OPEN_STAGE.equals(room.getCurrentStage())) {
+    private void ensureOpen(RoomEntity room, UUID studentId) {
+        if (!OPEN_STAGE.equals(room.getCurrentStage())
+                && !studentFlowService.canUseStage(studentId, OPEN_STAGE)) {
             throw new ApiException(
                     HttpStatus.CONFLICT, "INVESTMENT_CLOSED", "현재는 투자를 저장하거나 확정할 수 없습니다."
             );

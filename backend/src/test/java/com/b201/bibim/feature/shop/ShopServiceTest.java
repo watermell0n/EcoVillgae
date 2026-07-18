@@ -27,6 +27,7 @@ import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.shop.ShopDto.PurchaseRequest;
 import com.b201.bibim.feature.shop.ShopDto.PurchaseResponse;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.global.exception.ApiException;
 
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,8 @@ class ShopServiceTest {
     private FinancialTransactionRepository transactionRepository;
     @Mock
     private FinancialEntryRepository entryRepository;
+    @Mock
+    private StudentFlowService studentFlowService;
     @Mock
     private StudentEntity student;
     @Mock

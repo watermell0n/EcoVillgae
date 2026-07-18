@@ -2,7 +2,7 @@ import { http } from '../../../shared/api/http'
 import type { ApiResponse } from '../../../shared/api/types'
 
 export type ConnectionStatus = 'ONLINE' | 'UNSTABLE' | 'AWAY' | 'OFFLINE' | 'NEVER_CONNECTED'
-export type SyncStatus = 'SYNCED' | 'DELAYED' | 'UNKNOWN'
+export type SyncStatus = 'SYNCED' | 'DELAYED' | 'PERSONAL_PROGRESS' | 'UNKNOWN'
 
 export interface AdminRoomMonitoring {
   roomId: string
@@ -33,6 +33,11 @@ export interface AdminStudentMonitoring {
   clientSyncVersion: number
   roomSyncVersion: number
   syncStatus: SyncStatus
+  flowMode: string
+  effectiveStage: string
+  completedActivityCount: number
+  totalActivityCount: number
+  rewardRateBps: number
   walletBalance: number
   firstSeenAt: string | null
   lastSeenAt: string | null

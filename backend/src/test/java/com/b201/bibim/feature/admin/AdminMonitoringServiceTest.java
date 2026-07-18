@@ -17,6 +17,8 @@ import com.b201.bibim.domain.monitoring.StudentPresenceRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentActivityProgressRepository;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationResponse;
@@ -45,6 +47,10 @@ class AdminMonitoringServiceTest {
     private AccountRepository accountRepository;
     @Mock
     private AuthSessionRepository authSessionRepository;
+    @Mock
+    private StudentFlowStateRepository flowStateRepository;
+    @Mock
+    private StudentActivityProgressRepository progressRepository;
     @Mock
     private RoomEntity room;
     @Mock

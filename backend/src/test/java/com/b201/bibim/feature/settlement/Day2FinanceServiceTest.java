@@ -26,6 +26,8 @@ import com.b201.bibim.domain.settlement.FinancialSettlementAllocationRepository;
 import com.b201.bibim.domain.settlement.FinancialSettlementItemRepository;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentActivityProgressRepository;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.Day2FinanceDto.StudentFinanceResponse;
 
@@ -55,6 +57,8 @@ class Day2FinanceServiceTest {
     @Mock FinancialTransactionRepository transactionRepository;
     @Mock FinancialEntryRepository entryRepository;
     @Mock Day2FinanceCalculator calculator;
+    @Mock StudentFlowStateRepository flowStateRepository;
+    @Mock StudentActivityProgressRepository progressRepository;
 
     @InjectMocks Day2FinanceService day2FinanceService;
 

@@ -15,6 +15,7 @@ import {
 } from '../../features/room/model/stages'
 import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
+import StudentFlowPanel from './StudentFlowPanel.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 import { useDay1Store } from '../../stores/day1'
@@ -1625,6 +1626,8 @@ function moduleTone(moduleState: string) {
           </template>
         </aside>
       </section>
+
+      <StudentFlowPanel :room-id="roomId" />
 
       <section class="module-status-panel" aria-labelledby="module-status-title">
         <div class="panel-heading">

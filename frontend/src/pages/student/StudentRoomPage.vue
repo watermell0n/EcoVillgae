@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getRoomStage } from '../../features/room/model/stages'
+import { advanceStudentFlow } from '../../features/flow/api/flow'
 import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
@@ -17,14 +18,17 @@ const authStore = useAuthStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
+const flowError = ref('')
+const advancingFlow = ref(false)
 const currentPage = ref('CONNECTING')
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
-const stageDefinition = computed(() => getRoomStage(state.value?.currentStage))
-const stageComponent = computed(() => getStudentStageComponent(state.value?.currentStage))
+const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
+const stageDefinition = computed(() => getRoomStage(displayStage.value))
+const stageComponent = computed(() => getStudentStageComponent(displayStage.value))
 const stageComponentProps = computed(() =>
-  isPlaceholderStage(state.value?.currentStage)
-    ? { stageLabel: stageDefinition.value?.label ?? state.value?.currentStage ?? '대기 중' }
+  isPlaceholderStage(displayStage.value)
+    ? { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
     : {},
 )
 const currentModule = computed(
@@ -48,7 +52,9 @@ onMounted(async () => {
     }
     await roomSessionStore.refreshStudent(loadedStudent.syncVersion)
     roomSessionStore.startStudentPolling()
-    currentPage.value = roomSessionStore.studentState?.currentStage ?? 'WAITING'
+    currentPage.value = roomSessionStore.studentState?.effectiveStage
+      ?? roomSessionStore.studentState?.currentStage
+      ?? 'WAITING'
     startPresenceReporting()
   } catch (error) {
     if (isUnauthorized(error)) {
@@ -77,7 +83,7 @@ watch(
 )
 
 watch(
-  () => state.value?.currentStage,
+  () => displayStage.value,
   (stage) => {
     if (!stage) return
     currentPage.value = stage
@@ -113,7 +119,7 @@ async function reportPresence() {
   presenceRequestInFlight = true
   try {
     await sendPresenceHeartbeat({
-      reportedStage: state.value.currentStage,
+      reportedStage: displayStage.value ?? state.value.currentStage,
       currentModule: currentModule.value,
       currentPage: currentPage.value,
       clientSyncVersion: state.value.syncVersion,
@@ -126,6 +132,21 @@ async function reportPresence() {
     }
   } finally {
     presenceRequestInFlight = false
+  }
+}
+
+async function advanceCatchUp() {
+  if (advancingFlow.value) return
+  advancingFlow.value = true
+  flowError.value = ''
+  try {
+    await advanceStudentFlow()
+    await roomSessionStore.refreshStudent()
+    currentPage.value = displayStage.value ?? 'WAITING'
+  } catch (error) {
+    flowError.value = getApiErrorMessage(error, '현재 활동을 완료한 뒤 다음 단계로 이동해 주세요.')
+  } finally {
+    advancingFlow.value = false
   }
 }
 </script>
@@ -146,11 +167,42 @@ async function reportPresence() {
         </div>
       </header>
 
-      <section class="student-stage-card" :aria-label="stageDefinition?.label ?? state.currentStage">
+      <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
+        <aside v-if="state.flowMode === 'CATCH_UP'" class="catch-up-banner" role="status">
+          <div>
+            <strong>놓친 활동을 순서대로 진행하고 있어요</strong>
+            <span>{{ state.completedActivityCount ?? 0 }} / {{ state.totalActivityCount ?? 0 }} 완료</span>
+          </div>
+          <p>
+            반 수업은 {{ getRoomStage(state.roomStage ?? state.currentStage)?.label ?? state.roomStage ?? state.currentStage }} 단계예요.
+            지연 퀴즈 정답수당과 투자 수익은 {{ (state.rewardRateBps ?? 8000) / 100 }}%가 적용됩니다.
+          </p>
+        </aside>
+        <aside
+          v-else-if="state.flowMode === 'AWAITING_JOIN'"
+          class="catch-up-banner catch-up-banner--waiting"
+          role="status"
+        >
+          <div>
+            <strong>필수 활동을 모두 마쳤어요</strong>
+            <span>선생님 합류 승인 대기</span>
+          </div>
+          <p>저장된 결과는 그대로 유지됩니다. 선생님이 승인하면 현재 수업 단계로 이동해요.</p>
+        </aside>
         <p class="student-stage-card__mode">
           {{ state.mode === 'FREE' ? '지금 자유롭게 이용할 수 있어요' : state.mode === 'CLOSED' ? '이 활동은 종료되었어요' : '선생님과 함께 보는 중' }}
         </p>
         <component :is="stageComponent" v-bind="stageComponentProps" @page-change="handlePageChange" />
+        <p v-if="flowError" class="form-error" role="alert">{{ flowError }}</p>
+        <button
+          v-if="state.flowMode === 'CATCH_UP'"
+          class="settlement-action catch-up-next"
+          type="button"
+          :disabled="advancingFlow"
+          @click="advanceCatchUp"
+        >
+          {{ advancingFlow ? '확인 중…' : '이 활동을 완료하고 다음으로' }}
+        </button>
         <div class="waiting-room-name">
           {{ student.roomName }} · {{ student.participantNumber }}번 · sync {{ state.syncVersion }}
         </div>

@@ -39,6 +39,8 @@ import com.b201.bibim.domain.settlement.FinancialSettlementItemRepository;
 import com.b201.bibim.domain.settlement.SettlementRunEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
+import com.b201.bibim.domain.student.StudentActivityProgressRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.Day2FinanceCalculator.AllocationInput;
 import com.b201.bibim.feature.settlement.Day2FinanceCalculator.AllocationResult;
@@ -82,6 +84,8 @@ public class Day2FinanceService {
     private final FinancialTransactionRepository transactionRepository;
     private final FinancialEntryRepository entryRepository;
     private final Day2FinanceCalculator calculator;
+    private final StudentFlowStateRepository flowStateRepository;
+    private final StudentActivityProgressRepository progressRepository;
 
     public Day2FinanceService(
             RoomRepository roomRepository,
@@ -100,7 +104,9 @@ public class Day2FinanceService {
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
             FinancialEntryRepository entryRepository,
-            Day2FinanceCalculator calculator
+            Day2FinanceCalculator calculator,
+            StudentFlowStateRepository flowStateRepository,
+            StudentActivityProgressRepository progressRepository
     ) {
         this.roomRepository = roomRepository;
         this.rulesRepository = rulesRepository;
@@ -119,6 +125,8 @@ public class Day2FinanceService {
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
         this.calculator = calculator;
+        this.flowStateRepository = flowStateRepository;
+        this.progressRepository = progressRepository;
     }
 
     @Transactional(readOnly = true)
@@ -197,7 +205,10 @@ public class Day2FinanceService {
                 .findByRoomIdAndDayNumber(roomId, (short) 2)
                 .orElseThrow(this::dayTwoSessionNotFound);
         List<StudentEntity> students = studentRepository
-                .findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE");
+                .findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE")
+                .stream()
+                .filter(this::readyForClassFinanceSettlement)
+                .toList();
         if (students.isEmpty()) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
@@ -246,7 +257,9 @@ public class Day2FinanceService {
                             amount.depositPrincipal(), amount.depositInterest(),
                             amount.investmentPrincipal(), amount.investmentProfit(),
                             amount.investmentValue(), amount.taxableProfit(),
-                            amount.financialTax(), amount.walletAfter()
+                            amount.financialTax(), amount.walletAfter(),
+                            value.rewardRateBps() < 10_000 ? "LATE" : "LIVE",
+                            value.rewardRateBps()
                     )
             );
             resultAllocationRepository.saveAll(amount.allocations().stream()
@@ -313,6 +326,74 @@ public class Day2FinanceService {
         return new SettlementResponse(completedPreview(room, run), false);
     }
 
+    @Transactional
+    public boolean settleCatchUpStudent(UUID studentId, int rewardRateBps) {
+        StudentEntity student = studentRepository.findByIdForUpdate(studentId)
+                .filter(item -> "ACTIVE".equals(item.getStatus()))
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "로그인이 필요합니다."
+                ));
+        RoomEntity room = roomRepository.findByIdForUpdate(student.getRoomId())
+                .orElseThrow(this::roomNotFound);
+        SettlementRunEntity run = runRepository
+                .findByRoomIdAndSettlementType(room.getId(), DAY2_FINANCE)
+                .filter(item -> COMPLETED.equals(item.getStatus()))
+                .orElse(null);
+        if (run == null) return false;
+        if (itemRepository.findBySettlementRunIdAndStudentId(run.getId(), studentId).isPresent()) {
+            return true;
+        }
+
+        MarketContext market = marketContext(room.getId());
+        CalculatedStudent calculated = calculate(room, student, market, rewardRateBps);
+        Calculation amount = calculated.calculation();
+        AccountEntity wallet = studentAccount(room.getId(), studentId, "STUDENT_WALLET");
+        AccountEntity depositAccount = studentAccount(room.getId(), studentId, "STUDENT_DEPOSIT");
+        AccountEntity investmentAccount = studentAccount(
+                room.getId(), studentId, "STUDENT_INVESTMENT"
+        );
+        validateAccountBalances(amount, wallet, depositAccount, investmentAccount);
+        FinancialSettlementItemEntity item = itemRepository.saveAndFlush(
+                FinancialSettlementItemEntity.create(
+                        run.getId(), studentId, amount.walletBefore(),
+                        amount.depositPrincipal(), amount.depositInterest(),
+                        amount.investmentPrincipal(), amount.investmentProfit(),
+                        amount.investmentValue(), amount.taxableProfit(),
+                        amount.financialTax(), amount.walletAfter(), "LATE", rewardRateBps
+                )
+        );
+        resultAllocationRepository.saveAll(amount.allocations().stream()
+                .map(allocation -> FinancialSettlementAllocationEntity.create(
+                        item.getId(), allocation.assetId(), allocation.principal(),
+                        allocation.returnBps(), allocation.profit(), allocation.finalValue()
+                ))
+                .toList());
+
+        DaySessionEntity session = sessionRepository
+                .findByRoomIdAndDayNumber(room.getId(), (short) 2)
+                .orElseThrow(this::dayTwoSessionNotFound);
+        AccountEntity classFund = roomAccount(room.getId(), "CLASS_FUND");
+        AccountEntity treasury = roomAccount(room.getId(), "SYSTEM_TREASURY");
+        String key = "catchup:day2-finance:" + studentId;
+        transfer(room, session, room.getTeacherId(), run, student, depositAccount, wallet,
+                amount.depositPrincipal(), "DEPOSIT_PRINCIPAL_RETURN", key, "보충 예금 원금 반환");
+        transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
+                amount.depositInterest(), "DEPOSIT_INTEREST", key, "보충 예금 이자 지급");
+        transfer(room, session, room.getTeacherId(), run, student, investmentAccount, wallet,
+                amount.investmentPrincipal(), "INVESTMENT_PRINCIPAL_RETURN", key, "보충 투자 원금 반환");
+        if (amount.investmentProfit() > 0) {
+            transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
+                    amount.investmentProfit(), "INVESTMENT_PROFIT", key, "보충 투자 수익 지급");
+        } else if (amount.investmentProfit() < 0) {
+            transfer(room, session, room.getTeacherId(), run, student, wallet, treasury,
+                    -amount.investmentProfit(), "INVESTMENT_LOSS", key, "보충 투자 손실 반영");
+        }
+        transfer(room, session, room.getTeacherId(), run, student, wallet, classFund,
+                amount.financialTax(), "FINANCIAL_TAX", key, "보충 금융세 납부");
+        room.markEconomicStateChanged();
+        return true;
+    }
+
     private TeacherFinancePreviewResponse currentPreview(RoomEntity room) {
         MarketContext market = marketContext(room.getId());
         List<StudentFinanceResponse> students = studentRepository
@@ -377,10 +458,38 @@ public class Day2FinanceService {
         return response(student, status, value.calculation(), market.assets(), completedAt);
     }
 
+    private boolean readyForClassFinanceSettlement(StudentEntity student) {
+        return flowStateRepository.findByStudentId(student.getId())
+                .map(state -> {
+                    if (!"CATCH_UP".equals(state.getFlowMode())) return true;
+                    return progressRepository
+                            .findByStudentIdAndActivityCode(
+                                    student.getId(), "DAY1_FREE_ACTIVITY"
+                            )
+                            .map(progress -> List.of("COMPLETED", "WAIVED")
+                                    .contains(progress.getStatus()))
+                            .orElse(false);
+                })
+                .orElse(true);
+    }
+
     private CalculatedStudent calculate(
             RoomEntity room,
             StudentEntity student,
             MarketContext market
+    ) {
+        int rewardRateBps = flowStateRepository.findByStudentId(student.getId())
+                .filter(state -> !"LIVE".equals(state.getFlowMode()))
+                .map(state -> state.getRewardRateBps())
+                .orElse(10_000);
+        return calculate(room, student, market, rewardRateBps);
+    }
+
+    private CalculatedStudent calculate(
+            RoomEntity room,
+            StudentEntity student,
+            MarketContext market,
+            int rewardRateBps
     ) {
         DaySessionEntity dayOne = sessionRepository
                 .findByRoomIdAndDayNumber(room.getId(), (short) 1)
@@ -427,7 +536,8 @@ public class Day2FinanceService {
                     depositPrincipal,
                     depositInterest,
                     allocations,
-                    rules(room.getId()).getFinancialTaxBps()
+                    rules(room.getId()).getFinancialTaxBps(),
+                    rewardRateBps
             );
         } catch (ArithmeticException | IllegalArgumentException exception) {
             throw new ApiException(
@@ -436,7 +546,7 @@ public class Day2FinanceService {
                     "금융 정산 금액을 계산할 수 없습니다."
             );
         }
-        return new CalculatedStudent(student, calculation);
+        return new CalculatedStudent(student, calculation, rewardRateBps);
     }
 
     private StudentFinanceResponse storedStudent(
@@ -702,6 +812,10 @@ public class Day2FinanceService {
     ) {
     }
 
-    private record CalculatedStudent(StudentEntity student, Calculation calculation) {
+    private record CalculatedStudent(
+            StudentEntity student,
+            Calculation calculation,
+            int rewardRateBps
+    ) {
     }
 }

@@ -198,6 +198,9 @@ function connectionTone(status: ConnectionStatus) {
 
 function syncLabel(student: AdminStudentMonitoring) {
   if (student.syncStatus === 'SYNCED') return '정상'
+  if (student.syncStatus === 'PERSONAL_PROGRESS') {
+    return `개인 진행 ${student.completedActivityCount}/${student.totalActivityCount}`
+  }
   if (student.syncStatus === 'DELAYED') {
     return `${student.roomSyncVersion - student.clientSyncVersion}단계 지연`
   }
@@ -316,7 +319,11 @@ function formatBibim(amount: number) {
                   :label="connectionLabels[student.connectionStatus]"
                   :tone="connectionTone(student.connectionStatus)"
                 />
-                <span>{{ pageLabel(student.currentPage) }}</span>
+                <span>
+                  {{ student.syncStatus === 'PERSONAL_PROGRESS'
+                    ? `보충: ${pageLabel(student.effectiveStage)}`
+                    : pageLabel(student.currentPage) }}
+                </span>
                 <span :class="{ 'admin-sync-warning': student.syncStatus === 'DELAYED' }">
                   {{ syncLabel(student) }}
                 </span>

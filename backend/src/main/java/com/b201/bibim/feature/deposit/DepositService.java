@@ -21,6 +21,7 @@ import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.deposit.DepositDto.DepositResponse;
 import com.b201.bibim.feature.deposit.DepositDto.SaveDraftRequest;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ public class DepositService {
     private final AccountRepository accountRepository;
     private final FinancialTransactionRepository transactionRepository;
     private final FinancialEntryRepository entryRepository;
+    private final StudentFlowService studentFlowService;
 
     public DepositService(
             DepositRepository depositRepository,
@@ -49,7 +51,8 @@ public class DepositService {
             DaySessionRepository sessionRepository,
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
-            FinancialEntryRepository entryRepository
+            FinancialEntryRepository entryRepository,
+            StudentFlowService studentFlowService
     ) {
         this.depositRepository = depositRepository;
         this.studentRepository = studentRepository;
@@ -58,13 +61,14 @@ public class DepositService {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
     public DepositResponse current(UUID studentId) {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         DaySessionEntity session = dayOneSession(room.getId());
         return currentDeposit(session.getId(), studentId)
                 .map(deposit -> toResponse(deposit, walletBalance(room.getId(), studentId), false))
@@ -77,7 +81,7 @@ public class DepositService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         AccountEntity wallet = walletForUpdate(room.getId(), studentId);
         if (wallet.getBalance() < request.principal()) {
             throw insufficientBalance();
@@ -107,7 +111,7 @@ public class DepositService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
         DaySessionEntity session = dayOneSession(room.getId());
         DepositEntity deposit = depositRepository.findDraftForUpdate(session.getId(), studentId)
                 .orElseThrow(this::draftNotFound);
@@ -122,7 +126,7 @@ public class DepositService {
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
         StudentEntity student = lockActiveStudent(studentId);
-        ensureOpen(room);
+        ensureOpen(room, studentId);
 
         var existingTransaction = transactionRepository.findByIdempotencyKey(normalizedKey);
         if (existingTransaction.isPresent()) {
@@ -267,8 +271,9 @@ public class DepositService {
         ).map(AccountEntity::getBalance).orElse(0L);
     }
 
-    private void ensureOpen(RoomEntity room) {
-        if (!OPEN_STAGE.equals(room.getCurrentStage())) {
+    private void ensureOpen(RoomEntity room, UUID studentId) {
+        if (!OPEN_STAGE.equals(room.getCurrentStage())
+                && !studentFlowService.canUseStage(studentId, OPEN_STAGE)) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "DEPOSIT_CLOSED",

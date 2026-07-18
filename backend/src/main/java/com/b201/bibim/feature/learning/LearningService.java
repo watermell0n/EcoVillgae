@@ -18,6 +18,8 @@ import com.b201.bibim.feature.learning.LearningDto.PageResponse;
 import com.b201.bibim.feature.learning.LearningDto.TopicDetailResponse;
 import com.b201.bibim.feature.learning.LearningDto.TopicResponse;
 import com.b201.bibim.global.exception.ApiException;
+import com.b201.bibim.feature.flow.StudentFlowService;
+import com.b201.bibim.domain.room.RoomStage;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -95,17 +97,20 @@ public class LearningService {
     private final StudentRepository studentRepository;
     private final DaySessionRepository sessionRepository;
     private final ModuleStateRepository moduleStateRepository;
+    private final StudentFlowService studentFlowService;
 
     public LearningService(
             RoomRepository roomRepository,
             StudentRepository studentRepository,
             DaySessionRepository sessionRepository,
-            ModuleStateRepository moduleStateRepository
+            ModuleStateRepository moduleStateRepository,
+            StudentFlowService studentFlowService
     ) {
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
         this.sessionRepository = sessionRepository;
         this.moduleStateRepository = moduleStateRepository;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
@@ -153,7 +158,11 @@ public class LearningService {
     @Transactional(readOnly = true)
     public GuidedLearningResponse studentCurrent(UUID studentId) {
         StudentEntity student = findActiveStudent(studentId);
-        return guidedResponse(findRoom(student.getRoomId()));
+        RoomEntity room = findRoom(student.getRoomId());
+        return guidedResponse(
+                room,
+                studentFlowService.effectiveStage(studentId, room.getCurrentStage())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -187,9 +196,18 @@ public class LearningService {
     }
 
     private GuidedLearningResponse guidedResponse(RoomEntity room) {
-        List<PageDefinition> pages = pagesForStage(room.getCurrentStage());
+        return guidedResponse(room, room.getCurrentStage());
+    }
+
+    private GuidedLearningResponse guidedResponse(RoomEntity room, String stage) {
+        List<PageDefinition> pages = pagesForStage(stage);
         UUID sessionId = sessionRepository
-                .findByRoomIdAndDayNumber(room.getId(), (short) room.getCurrentDay())
+                .findByRoomIdAndDayNumber(
+                        room.getId(),
+                        RoomStage.find(stage)
+                                .map(value -> (short) value.day())
+                                .orElse((short) room.getCurrentDay())
+                )
                 .orElseThrow(() -> stateConflict("현재 일차 수업을 찾을 수 없습니다."))
                 .getId();
         UUID currentPageId = moduleStateRepository
@@ -197,11 +215,20 @@ public class LearningService {
                 .map(ModuleStateEntity::getCurrentPageId)
                 .filter(id -> pages.stream().anyMatch(page -> page.id().equals(id)))
                 .orElse(pages.getFirst().id());
-        return guidedResponse(room, pages, currentPageId);
+        return guidedResponse(room, stage, pages, currentPageId);
     }
 
     private GuidedLearningResponse guidedResponse(
             RoomEntity room,
+            List<PageDefinition> pages,
+            UUID currentPageId
+    ) {
+        return guidedResponse(room, room.getCurrentStage(), pages, currentPageId);
+    }
+
+    private GuidedLearningResponse guidedResponse(
+            RoomEntity room,
+            String stage,
             List<PageDefinition> pages,
             UUID currentPageId
     ) {
@@ -214,8 +241,8 @@ public class LearningService {
         }
         List<PageResponse> responses = pages.stream().map(this::toPageResponse).toList();
         return new GuidedLearningResponse(
-                room.getCurrentStage(),
-                room.getMode(),
+                stage,
+                RoomStage.find(stage).map(RoomStage::mode).orElse(room.getMode()),
                 room.getSyncVersion(),
                 currentIndex,
                 responses,
@@ -234,7 +261,9 @@ public class LearningService {
     private RoomEntity roomForFreeReview(UUID studentId) {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
-        if (!"DAY1_FREE_ACTIVITY".equals(room.getCurrentStage()) || !"FREE".equals(room.getMode())) {
+        boolean catchUpReview = studentFlowService.canUseStage(studentId, "DAY1_FREE_ACTIVITY");
+        if ((!"DAY1_FREE_ACTIVITY".equals(room.getCurrentStage())
+                || !"FREE".equals(room.getMode())) && !catchUpReview) {
             throw learningNotAvailable();
         }
         return room;

@@ -19,6 +19,9 @@ import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentFlowStateEntity;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
+import com.b201.bibim.domain.student.StudentActivityProgressRepository;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.ActivityResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
@@ -45,6 +48,8 @@ public class AdminMonitoringService {
     private final ActivityEventService activityEventService;
     private final AccountRepository accountRepository;
     private final AuthSessionRepository authSessionRepository;
+    private final StudentFlowStateRepository flowStateRepository;
+    private final StudentActivityProgressRepository progressRepository;
 
     public AdminMonitoringService(
             RoomRepository roomRepository,
@@ -53,7 +58,9 @@ public class AdminMonitoringService {
             ActivityEventRepository activityEventRepository,
             ActivityEventService activityEventService,
             AccountRepository accountRepository,
-            AuthSessionRepository authSessionRepository
+            AuthSessionRepository authSessionRepository,
+            StudentFlowStateRepository flowStateRepository,
+            StudentActivityProgressRepository progressRepository
     ) {
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
@@ -62,6 +69,8 @@ public class AdminMonitoringService {
         this.activityEventService = activityEventService;
         this.accountRepository = accountRepository;
         this.authSessionRepository = authSessionRepository;
+        this.flowStateRepository = flowStateRepository;
+        this.progressRepository = progressRepository;
     }
 
     @Transactional(readOnly = true)
@@ -180,9 +189,20 @@ public class AdminMonitoringService {
             Instant now
     ) {
         long clientSyncVersion = presence == null ? 0 : presence.getClientSyncVersion();
-        String syncStatus = presence == null
+        StudentFlowStateEntity flow = flowStateRepository.findByStudentId(student.getId())
+                .orElse(null);
+        String syncStatus = flow != null && !"LIVE".equals(flow.getFlowMode())
+                ? "PERSONAL_PROGRESS"
+                : presence == null
                 ? "UNKNOWN"
                 : clientSyncVersion == room.getSyncVersion() ? "SYNCED" : "DELAYED";
+        long completedActivityCount = progressRepository.findAllByStudentId(student.getId())
+                .stream()
+                .filter(progress -> List.of("COMPLETED", "WAIVED", "RESULT_ONLY")
+                        .contains(progress.getStatus()))
+                .count();
+        int totalActivityCount = flow == null ? 0
+                : progressRepository.findAllByStudentId(student.getId()).size();
         return new StudentMonitoringResponse(
                 student.getId(),
                 student.getParticipantNumber(),
@@ -196,6 +216,11 @@ public class AdminMonitoringService {
                 clientSyncVersion,
                 room.getSyncVersion(),
                 syncStatus,
+                flow == null ? "NOT_STARTED" : flow.getFlowMode(),
+                flow == null ? room.getCurrentStage() : flow.getEffectiveStage(),
+                Math.toIntExact(completedActivityCount),
+                totalActivityCount,
+                flow == null ? 10_000 : flow.getRewardRateBps(),
                 walletBalance(room.getId(), student.getId()),
                 presence == null ? null : presence.getFirstSeenAt(),
                 presence == null ? null : presence.getLastSeenAt(),

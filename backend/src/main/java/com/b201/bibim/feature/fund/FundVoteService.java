@@ -20,6 +20,8 @@ import com.b201.bibim.domain.fund.FundCostOptionEntity;
 import com.b201.bibim.domain.fund.FundCostOptionRepository;
 import com.b201.bibim.domain.fund.FundExpenseEntity;
 import com.b201.bibim.domain.fund.FundExpenseRepository;
+import com.b201.bibim.domain.fund.VoteEligibleStudentEntity;
+import com.b201.bibim.domain.fund.VoteEligibleStudentRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
@@ -69,6 +71,7 @@ public class FundVoteService {
     private final SettlementRunRepository settlementRunRepository;
     private final SettlementItemRepository settlementItemRepository;
     private final FinancialSettlementItemRepository financialItemRepository;
+    private final VoteEligibleStudentRepository voteEligibleStudentRepository;
 
     public FundVoteService(
             RoomRepository roomRepository,
@@ -84,7 +87,8 @@ public class FundVoteService {
             VoteRepository voteRepository,
             SettlementRunRepository settlementRunRepository,
             SettlementItemRepository settlementItemRepository,
-            FinancialSettlementItemRepository financialItemRepository
+            FinancialSettlementItemRepository financialItemRepository,
+            VoteEligibleStudentRepository voteEligibleStudentRepository
     ) {
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
@@ -100,6 +104,7 @@ public class FundVoteService {
         this.settlementRunRepository = settlementRunRepository;
         this.settlementItemRepository = settlementItemRepository;
         this.financialItemRepository = financialItemRepository;
+        this.voteEligibleStudentRepository = voteEligibleStudentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -253,6 +258,15 @@ public class FundVoteService {
             throw conflict("VOTE_NOT_OPEN", "공동기금 투표 단계에서 투표를 시작해 주세요.");
         }
         VoteSessionEntity session = lockedVote(roomId, voteId);
+        if (voteEligibleStudentRepository.countByVoteSessionId(voteId) == 0) {
+            voteEligibleStudentRepository.saveAll(
+                    activeStudents(roomId).stream()
+                            .map(student -> VoteEligibleStudentEntity.create(
+                                    voteId, student.getId()
+                            ))
+                            .toList()
+            );
+        }
         try {
             session.open();
         } catch (IllegalStateException exception) {
@@ -322,6 +336,12 @@ public class FundVoteService {
             throw conflict("VOTE_NOT_OPEN", "지금은 투표할 수 없습니다.");
         }
         VoteSessionEntity session = lockedVote(room.getId(), voteId);
+        if (!isEligible(session, studentId)) {
+            throw conflict(
+                    "VOTE_NOT_ELIGIBLE",
+                    "투표가 시작된 뒤 참여한 학생은 이번 투표를 선택할 수 없습니다."
+            );
+        }
         if (!"OPEN".equals(session.getStatus())) {
             throw conflict("VOTE_NOT_OPEN", "투표가 진행 중일 때만 참여할 수 있습니다.");
         }
@@ -387,7 +407,7 @@ public class FundVoteService {
     private VoteSessionResponse toVoteResponse(VoteSessionEntity session, UUID studentId) {
         List<VoteOptionEntity> options = voteOptionRepository
                 .findAllByVoteSessionIdOrderByDisplayOrder(session.getId());
-        List<StudentEntity> eligibleStudents = activeStudents(session.getRoomId());
+        List<StudentEntity> eligibleStudents = eligibleStudents(session);
         Set<UUID> eligibleStudentIds = eligibleStudents.stream()
                 .map(StudentEntity::getId)
                 .collect(Collectors.toSet());
@@ -431,7 +451,8 @@ public class FundVoteService {
                 : List.of();
         return new VoteSessionResponse(
                 session.getId(), session.getRoomId(), session.getQuestion(), session.getFundBalanceSnapshot(),
-                session.getStatus(), eligibleStudents.size(), votes.size(), selected != null,
+                session.getStatus(), eligibleStudents.size(), votes.size(),
+                studentId == null || eligibleStudentIds.contains(studentId), selected != null,
                 selected, session.getDecidedOptionId(), session.getOpenedAt(), session.getClosedAt(),
                 pendingStudents, responseOptions
         );
@@ -442,13 +463,15 @@ public class FundVoteService {
                 .stream()
                 .map(VoteEntity::getStudentId)
                 .collect(Collectors.toSet());
-        return activeStudents(session.getRoomId()).stream()
+        return eligibleStudents(session).stream()
                 .anyMatch(student -> !submittedStudentIds.contains(student.getId()));
     }
 
     private List<UUID> leadingOptionIds(UUID sessionId, UUID roomId) {
         List<VoteOptionEntity> options = voteOptionRepository.findAllByVoteSessionIdOrderByDisplayOrder(sessionId);
-        Set<UUID> eligibleStudentIds = activeStudents(roomId).stream()
+        VoteSessionEntity session = voteSessionRepository.findByRoomId(roomId)
+                .orElseThrow(() -> conflict("VOTE_NOT_FOUND", "투표를 찾을 수 없습니다."));
+        Set<UUID> eligibleStudentIds = eligibleStudents(session).stream()
                 .map(StudentEntity::getId)
                 .collect(Collectors.toSet());
         Map<UUID, Long> counts = voteRepository.findAllByVoteSessionId(sessionId).stream()
@@ -479,6 +502,26 @@ public class FundVoteService {
 
     private List<StudentEntity> activeStudents(UUID roomId) {
         return studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE");
+    }
+
+    private List<StudentEntity> eligibleStudents(VoteSessionEntity session) {
+        List<UUID> ids = voteEligibleStudentRepository
+                .findAllByVoteSessionId(session.getId()).stream()
+                .map(VoteEligibleStudentEntity::getStudentId)
+                .toList();
+        if (ids.isEmpty()) return activeStudents(session.getRoomId());
+        return studentRepository.findAllById(ids).stream()
+                .sorted(Comparator.comparingInt(StudentEntity::getParticipantNumber))
+                .toList();
+    }
+
+    private boolean isEligible(VoteSessionEntity session, UUID studentId) {
+        if (voteEligibleStudentRepository.countByVoteSessionId(session.getId()) == 0) {
+            return activeStudents(session.getRoomId()).stream()
+                    .anyMatch(student -> student.getId().equals(studentId));
+        }
+        return voteEligibleStudentRepository
+                .existsByVoteSessionIdAndStudentId(session.getId(), studentId);
     }
 
     private StudentEntity activeStudent(UUID studentId) {

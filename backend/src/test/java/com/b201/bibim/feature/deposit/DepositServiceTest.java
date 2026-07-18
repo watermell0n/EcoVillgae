@@ -11,6 +11,7 @@ import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.deposit.DepositDto.SaveDraftRequest;
+import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.global.exception.ApiException;
 
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ class DepositServiceTest {
     @Mock AccountRepository accountRepository;
     @Mock FinancialTransactionRepository transactionRepository;
     @Mock FinancialEntryRepository entryRepository;
+    @Mock StudentFlowService studentFlowService;
 
     @InjectMocks DepositService depositService;
 

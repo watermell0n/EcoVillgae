@@ -52,6 +52,7 @@ export interface VoteSession {
   status: 'READY' | 'OPEN' | 'CLOSED' | 'DECIDED'
   eligibleStudentCount: number
   submittedCount: number
+  eligible: boolean
   hasVoted: boolean
   selectedOptionId: string | null
   decidedOptionId: string | null

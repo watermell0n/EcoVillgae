@@ -48,6 +48,12 @@ public class FinancialSettlementItemEntity {
     @Column(name = "wallet_after", nullable = false)
     private long walletAfter;
 
+    @Column(name = "attempt_type", nullable = false, length = 20)
+    private String attemptType;
+
+    @Column(name = "reward_rate_bps", nullable = false)
+    private int rewardRateBps;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -67,6 +73,29 @@ public class FinancialSettlementItemEntity {
             long financialTax,
             long walletAfter
     ) {
+        return create(
+                settlementRunId, studentId, walletBefore, depositPrincipal,
+                depositInterest, investmentPrincipal, investmentProfit,
+                investmentValue, taxableProfit, financialTax, walletAfter,
+                "LIVE", 10_000
+        );
+    }
+
+    public static FinancialSettlementItemEntity create(
+            UUID settlementRunId,
+            UUID studentId,
+            long walletBefore,
+            long depositPrincipal,
+            long depositInterest,
+            long investmentPrincipal,
+            long investmentProfit,
+            long investmentValue,
+            long taxableProfit,
+            long financialTax,
+            long walletAfter,
+            String attemptType,
+            int rewardRateBps
+    ) {
         FinancialSettlementItemEntity item = new FinancialSettlementItemEntity();
         item.id = UUID.randomUUID();
         item.settlementRunId = settlementRunId;
@@ -80,6 +109,8 @@ public class FinancialSettlementItemEntity {
         item.taxableProfit = taxableProfit;
         item.financialTax = financialTax;
         item.walletAfter = walletAfter;
+        item.attemptType = attemptType;
+        item.rewardRateBps = rewardRateBps;
         item.createdAt = Instant.now();
         return item;
     }
@@ -95,4 +126,6 @@ public class FinancialSettlementItemEntity {
     public long getTaxableProfit() { return taxableProfit; }
     public long getFinancialTax() { return financialTax; }
     public long getWalletAfter() { return walletAfter; }
+    public String getAttemptType() { return attemptType; }
+    public int getRewardRateBps() { return rewardRateBps; }
 }

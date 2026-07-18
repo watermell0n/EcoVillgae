@@ -79,6 +79,13 @@ public class StudentEntity {
         this.updatedAt = this.lastSeenAt;
     }
 
+    public void reactivateFromAbsence() {
+        if ("ABSENT".equals(this.status)) {
+            this.status = "ACTIVE";
+        }
+        recordLogin();
+    }
+
     public void forceLogout() {
         this.loginVersion += 1;
         this.online = false;

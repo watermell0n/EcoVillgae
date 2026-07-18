@@ -30,6 +30,7 @@ import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizStudentResponse;
 import com.b201.bibim.feature.quiz.QuizDto.TeacherQuizSummaryResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class QuizService {
     private final RoomRepository roomRepository;
     private final StudentRepository studentRepository;
     private final ActivityEventService activityEventService;
+    private final StudentFlowService studentFlowService;
 
     public QuizService(
             QuizRepository quizRepository,
@@ -53,7 +55,8 @@ public class QuizService {
             QuizAnswerRepository answerRepository,
             RoomRepository roomRepository,
             StudentRepository studentRepository,
-            ActivityEventService activityEventService
+            ActivityEventService activityEventService,
+            StudentFlowService studentFlowService
     ) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
@@ -62,13 +65,14 @@ public class QuizService {
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
         this.activityEventService = activityEventService;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
     public StudentQuizResponse currentQuiz(UUID studentId) {
         StudentEntity student = findActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
-        QuizEntity quiz = findOpenQuiz(room);
+        QuizEntity quiz = findOpenQuiz(room, studentId);
         List<QuizQuestionEntity> questions = questionRepository
                 .findAllByQuizIdOrderByOrderNo(quiz.getId());
         var submission = submissionRepository.findByQuizIdAndStudentId(quiz.getId(), studentId);
@@ -106,7 +110,7 @@ public class QuizService {
     ) {
         StudentEntity student = lockActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
-        QuizEntity quiz = findQuizForStudent(quizId, room);
+        QuizEntity quiz = findQuizForStudent(quizId, room, studentId);
         QuizQuestionEntity question = questionRepository.findByIdAndQuizId(questionId, quizId)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -161,7 +165,7 @@ public class QuizService {
     public SubmitQuizResponse submit(UUID studentId, UUID quizId) {
         StudentEntity student = lockActiveStudent(studentId);
         RoomEntity room = findRoom(student.getRoomId());
-        QuizEntity quiz = findQuizForStudent(quizId, room);
+        QuizEntity quiz = findQuizForStudent(quizId, room, studentId);
         QuizSubmissionEntity submission = getOrStartSubmission(quizId, studentId);
         ensureNotSubmitted(submission);
 
@@ -300,24 +304,27 @@ public class QuizService {
         return roomRepository.findById(roomId).orElseThrow(this::roomNotFound);
     }
 
-    private QuizEntity findOpenQuiz(RoomEntity room) {
+    private QuizEntity findOpenQuiz(RoomEntity room, UUID studentId) {
+        String effectiveStage = studentFlowService.effectiveStage(studentId, room.getCurrentStage());
+        short dayNumber = (short) ("DAY2_QUIZ".equals(effectiveStage) ? 2 : 1);
         QuizEntity quiz = quizRepository
-                .findByRoomIdAndDayNumber(room.getId(), (short) room.getCurrentDay())
+                .findByRoomIdAndDayNumber(room.getId(), dayNumber)
                 .orElseThrow(this::quizNotOpen);
-        ensureQuizOpen(quiz, room);
+        ensureQuizOpen(quiz, room, studentId);
         return quiz;
     }
 
-    private QuizEntity findQuizForStudent(UUID quizId, RoomEntity room) {
+    private QuizEntity findQuizForStudent(UUID quizId, RoomEntity room, UUID studentId) {
         QuizEntity quiz = quizRepository.findById(quizId)
                 .filter(item -> item.getRoomId().equals(room.getId()))
                 .orElseThrow(this::quizNotOpen);
-        ensureQuizOpen(quiz, room);
+        ensureQuizOpen(quiz, room, studentId);
         return quiz;
     }
 
-    private void ensureQuizOpen(QuizEntity quiz, RoomEntity room) {
+    private void ensureQuizOpen(QuizEntity quiz, RoomEntity room, UUID studentId) {
         String expectedStage = quiz.getDayNumber() == 1 ? "DAY1_QUIZ" : "DAY2_QUIZ";
+        if (studentFlowService.canUseStage(studentId, expectedStage)) return;
         if (!"OPEN".equals(quiz.getStatus())
                 || quiz.getDayNumber() != room.getCurrentDay()
                 || !expectedStage.equals(room.getCurrentStage())) {

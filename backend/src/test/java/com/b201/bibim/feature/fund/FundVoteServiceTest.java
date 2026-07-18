@@ -17,6 +17,7 @@ import com.b201.bibim.domain.finance.FinancialTransactionRepository;
 import com.b201.bibim.domain.fund.FundCostOptionEntity;
 import com.b201.bibim.domain.fund.FundCostOptionRepository;
 import com.b201.bibim.domain.fund.FundExpenseRepository;
+import com.b201.bibim.domain.fund.VoteEligibleStudentRepository;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
@@ -58,6 +59,7 @@ class FundVoteServiceTest {
     @Mock SettlementRunRepository settlementRunRepository;
     @Mock SettlementItemRepository settlementItemRepository;
     @Mock FinancialSettlementItemRepository financialItemRepository;
+    @Mock VoteEligibleStudentRepository voteEligibleStudentRepository;
     @InjectMocks FundVoteService service;
 
     @Test
@@ -78,9 +80,13 @@ class FundVoteServiceTest {
         when(room.getCurrentStage()).thenReturn("DAY2_FUND_VOTE");
         when(room.getStatus()).thenReturn("DAY2_ACTIVE");
         when(voteSessionRepository.findByIdForUpdate(voteId)).thenReturn(Optional.of(vote));
+        when(vote.getId()).thenReturn(voteId);
         when(vote.getRoomId()).thenReturn(roomId);
         when(vote.getStatus()).thenReturn("OPEN");
         when(vote.getFundBalanceSnapshot()).thenReturn(100L);
+        when(voteEligibleStudentRepository.countByVoteSessionId(voteId)).thenReturn(1L);
+        when(voteEligibleStudentRepository.existsByVoteSessionIdAndStudentId(voteId, studentId))
+                .thenReturn(true);
         when(voteOptionRepository.findById(optionId)).thenReturn(Optional.of(option));
         when(option.getVoteSessionId()).thenReturn(voteId);
         when(option.getRequiredAmount()).thenReturn(40L);
@@ -200,6 +206,7 @@ class FundVoteServiceTest {
         when(vote.getId()).thenReturn(voteId);
         when(vote.getRoomId()).thenReturn(roomId);
         when(vote.getStatus()).thenReturn("CLOSED");
+        when(voteSessionRepository.findByRoomId(roomId)).thenReturn(Optional.of(vote));
         when(studentRepository.findAllByRoomIdAndStatusOrderByParticipantNumber(roomId, "ACTIVE"))
                 .thenReturn(java.util.List.of(active));
 

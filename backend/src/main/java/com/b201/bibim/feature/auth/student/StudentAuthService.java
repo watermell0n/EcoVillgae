@@ -19,6 +19,7 @@ import com.b201.bibim.feature.auth.student.StudentAuthDto.StudentResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.global.security.AuthSessionService;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
+import com.b201.bibim.feature.flow.StudentFlowService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +35,7 @@ public class StudentAuthService {
     private final AuthSessionService authSessionService;
     private final AccountRepository accountRepository;
     private final ActivityEventService activityEventService;
+    private final StudentFlowService studentFlowService;
 
     public StudentAuthService(
             StudentRepository studentRepository,
@@ -41,7 +43,8 @@ public class StudentAuthService {
             PasswordEncoder passwordEncoder,
             AuthSessionService authSessionService,
             AccountRepository accountRepository,
-            ActivityEventService activityEventService
+            ActivityEventService activityEventService,
+            StudentFlowService studentFlowService
     ) {
         this.studentRepository = studentRepository;
         this.roomRepository = roomRepository;
@@ -49,6 +52,7 @@ public class StudentAuthService {
         this.authSessionService = authSessionService;
         this.accountRepository = accountRepository;
         this.activityEventService = activityEventService;
+        this.studentFlowService = studentFlowService;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +98,7 @@ public class StudentAuthService {
         }
 
         student.completeSetup(request.nickname().trim(), passwordEncoder.encode(request.password()));
+        studentFlowService.initialize(student, room);
         String token = authSessionService.createStudentSession(student);
         recordAuthEvent(student, room, "STUDENT_SETUP_COMPLETED");
         return new LoginResult(toResponse(student, room), token);
@@ -102,7 +107,7 @@ public class StudentAuthService {
     @Transactional
     public LoginResult login(LoginRequest request) {
         StudentEntity student = findByCodeForUpdate(request.participationCode());
-        if (!"ACTIVE".equals(student.getStatus())
+        if (!("ACTIVE".equals(student.getStatus()) || "ABSENT".equals(student.getStatus()))
                 || student.getPasswordHash() == null
                 || !passwordEncoder.matches(request.password(), student.getPasswordHash())) {
             throw new ApiException(
@@ -117,7 +122,11 @@ public class StudentAuthService {
             throw new ApiException(HttpStatus.CONFLICT, "ROOM_CLOSED", "이미 종료된 수업입니다.");
         }
 
-        student.recordLogin();
+        if ("ABSENT".equals(student.getStatus())) {
+            student.reactivateFromAbsence();
+        } else {
+            student.recordLogin();
+        }
         String token = authSessionService.createStudentSession(student);
         recordAuthEvent(student, room, "STUDENT_LOGIN");
         return new LoginResult(toResponse(student, room), token);

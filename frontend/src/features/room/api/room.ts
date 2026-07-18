@@ -27,11 +27,19 @@ export interface StudentRoomState {
   roomStatus: string
   currentDay: number
   currentStage: string
+  roomStage?: string
+  effectiveStage?: string
   mode: string
   walletBalance: number
   modules: ModuleState[]
   syncVersion: number
   changed: boolean
+  flowMode?: 'LIVE' | 'CATCH_UP' | 'AWAITING_JOIN' | 'LOCKED'
+  joinStatus?: string
+  attemptType?: 'LIVE' | 'LATE' | 'RECOVERY'
+  rewardRateBps?: number
+  completedActivityCount?: number
+  totalActivityCount?: number
 }
 
 export interface TeacherRoomStudent {

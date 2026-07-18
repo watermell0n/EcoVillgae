@@ -18,7 +18,8 @@ const selectedOptionId = ref('')
 const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
-const currentStage = computed(() => roomSessionStore.studentState?.currentStage)
+const currentStage = computed(() => roomSessionStore.studentState?.effectiveStage
+  ?? roomSessionStore.studentState?.currentStage)
 const decidedOption = computed(() => vote.value?.options.find((option) => option.decided) ?? null)
 let pollingTimer: ReturnType<typeof setInterval> | undefined
 
@@ -130,6 +131,7 @@ function formatBibim(amount: number) {
             :class="{ 'is-selected': selectedOptionId === option.optionId, 'is-decided': option.decided }"
           >
             <input
+              v-if="vote.status === 'OPEN' && vote.eligible"
               v-model="selectedOptionId"
               type="radio"
               name="fund-vote"
@@ -146,14 +148,17 @@ function formatBibim(amount: number) {
         </div>
 
         <button
-          v-if="vote.status === 'OPEN'"
+          v-if="vote.status === 'OPEN' && vote.eligible"
           class="settlement-action"
           type="button"
-          :disabled="!selectedOptionId || vote.hasVoted || submitting"
+          :disabled="!vote.eligible || !selectedOptionId || vote.hasVoted || submitting"
           @click="submitVote"
         >
           {{ vote.hasVoted ? '투표 제출 완료' : submitting ? '제출 중…' : '이 선택으로 투표하기' }}
         </button>
+        <p v-if="vote.status === 'OPEN' && !vote.eligible" class="control-caution">
+          투표가 시작된 뒤 합류해 이번 선택에는 참여할 수 없습니다. 마감 후 결과를 확인할 수 있어요.
+        </p>
         <p v-else-if="vote.status === 'READY'" class="control-caution">선생님이 곧 투표를 시작합니다.</p>
         <p v-else-if="vote.status === 'CLOSED'" class="control-caution">동점 결과를 선생님이 최종 결정하고 있습니다.</p>
         <p v-else class="control-caution">가장 많은 표를 받은 선택지가 표시되었습니다.</p>

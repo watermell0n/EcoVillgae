@@ -27,6 +27,7 @@ import com.b201.bibim.domain.settlement.SettlementItemRepository;
 import com.b201.bibim.domain.settlement.SettlementRunEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
+import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomeSettlementResponse;
 import com.b201.bibim.global.exception.ApiException;
@@ -50,6 +51,8 @@ class SettlementServiceTest {
     private DaySessionRepository sessionRepository;
     @Mock
     private StudentRepository studentRepository;
+    @Mock
+    private StudentFlowStateRepository studentFlowStateRepository;
     @Mock
     private QuizRepository quizRepository;
     @Mock
