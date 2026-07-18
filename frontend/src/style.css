@@ -759,7 +759,11 @@ h1 {
 }
 
 .participation-code-button {
-  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  width: min(100%, 180px);
   min-height: 34px;
   padding: 0.4rem 0.65rem;
   border: 1px solid #efc9b8;
@@ -768,6 +772,23 @@ h1 {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
+}
+
+.participation-code-button small {
+  color: #9a6b55;
+  font-family: inherit;
+  font-size: 0.65rem;
+  letter-spacing: 0;
+}
+
+.participation-code-button.is-copied {
+  border-color: #8ec7ab;
+  color: #287253;
+  background: #e8f7ef;
+}
+
+.participation-code-button.is-copied small {
+  color: #287253;
 }
 
 .shop-summary-workspace {
@@ -2417,6 +2438,33 @@ button.admin-student-row.is-selected {
   color: #fff;
   font-weight: 800;
   text-decoration: none;
+}
+
+.survey-wait-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  color: #66573d;
+  background: #fff5dc;
+}
+
+.survey-wait-notice > span {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+}
+
+.survey-wait-notice p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.survey-wait-notice strong {
+  display: block;
+  margin-bottom: 0.15rem;
 }
 
 .room-complete-button {

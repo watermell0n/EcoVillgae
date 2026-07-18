@@ -17,6 +17,7 @@ import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../share
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
+import { copyText } from '../../shared/utils/clipboard'
 import { useAuthStore } from '../../stores/auth'
 import { useDay1Store } from '../../stores/day1'
 import { useDay2FinanceStore } from '../../stores/day2Finance'
@@ -65,6 +66,7 @@ const loading = ref(true)
 const changingStage = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const copiedParticipationCode = ref<string | null>(null)
 const preparation = ref<RoomPreparation | null>(null)
 const preparationLoading = ref(false)
 const preparationError = ref('')
@@ -502,11 +504,14 @@ async function refreshPreparation() {
 }
 
 async function copyParticipationCode(code: string) {
-  try {
-    await navigator.clipboard.writeText(code)
+  const copied = await copyText(code)
+  copiedParticipationCode.value = copied ? code : null
+  if (copied) {
     noticeMessage.value = `${code} 코드를 복사했습니다.`
-  } catch {
-    noticeMessage.value = `참여 코드: ${code}`
+    errorMessage.value = ''
+  } else {
+    noticeMessage.value = ''
+    errorMessage.value = `${code} 코드를 자동으로 복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.`
   }
 }
 
@@ -840,8 +845,15 @@ function moduleTone(moduleState: string) {
               </div>
               <div v-for="studentItem in preparation.students" :key="studentItem.studentId" role="row">
                 <strong>{{ studentItem.participantNumber }}번</strong>
-                <button type="button" class="participation-code-button" @click="copyParticipationCode(studentItem.participationCode)">
-                  {{ studentItem.participationCode }}
+                <button
+                  type="button"
+                  class="participation-code-button"
+                  :class="{ 'is-copied': copiedParticipationCode === studentItem.participationCode }"
+                  :aria-label="`${studentItem.participationCode} 참여 코드 복사`"
+                  @click="copyParticipationCode(studentItem.participationCode)"
+                >
+                  <span>{{ studentItem.participationCode }}</span>
+                  <small>{{ copiedParticipationCode === studentItem.participationCode ? '복사됨' : '복사' }}</small>
                 </button>
                 <span>{{ studentItem.nickname ?? '미설정' }}</span>
                 <StatusBadge

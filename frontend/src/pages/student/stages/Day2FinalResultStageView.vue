@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import {
   getStudentFinalResult,
   type StudentFinalResult,
 } from '../../../features/day2/api/finalResult'
 import { getApiErrorMessage } from '../../../shared/api/errors'
+import { useRoomSessionStore } from '../../../stores/roomSession'
 
+const roomSessionStore = useRoomSessionStore()
 const result = ref<StudentFinalResult | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const currentStage = computed(() => roomSessionStore.studentState?.effectiveStage
+  ?? roomSessionStore.studentState?.currentStage)
+const surveyAvailable = computed(() => ['DAY2_SURVEY', 'DAY2_COMPLETED'].includes(currentStage.value ?? ''))
 
 onMounted(async () => {
   try {
@@ -67,12 +72,17 @@ function formatBibim(amount: number) {
       </section>
 
       <a
+        v-if="surveyAvailable"
         class="survey-link-button"
         :href="result.surveyUrl"
         target="_blank"
         rel="noopener noreferrer"
       >마무리 설문 새 탭에서 열기 ↗</a>
-      <p class="control-caution">설문 응답 내용은 이코빌리지 서비스에 저장되지 않습니다.</p>
+      <p v-if="surveyAvailable" class="control-caution">설문 응답 내용은 이코빌리지 서비스에 저장되지 않습니다.</p>
+      <aside v-else class="survey-wait-notice" role="status">
+        <span aria-hidden="true">⏳</span>
+        <p><strong>선생님이 마무리 설문을 열어 줄 때까지 기다려 주세요.</strong> 설문 단계가 시작되면 이 화면에 참여 버튼이 나타납니다.</p>
+      </aside>
     </template>
   </div>
 </template>
