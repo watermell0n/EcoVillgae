@@ -22,9 +22,15 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
 
   let pollingTimer: ReturnType<typeof setInterval> | undefined
   let requestInFlight = false
+  let activeTeacherRoomId: string | undefined
 
   function applyTeacherState(nextState: TeacherRoomState) {
-    if (!teacherState.value || nextState.syncVersion >= teacherState.value.syncVersion) {
+    if (activeTeacherRoomId && nextState.roomId !== activeTeacherRoomId) return
+    if (
+      !teacherState.value
+      || teacherState.value.roomId !== nextState.roomId
+      || nextState.syncVersion >= teacherState.value.syncVersion
+    ) {
       teacherState.value = nextState
     }
   }
@@ -36,9 +42,11 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
   }
 
   async function refreshTeacher(roomId: string) {
+    activeTeacherRoomId = roomId
     const currentSyncVersion =
       teacherState.value?.roomId === roomId ? teacherState.value.syncVersion : undefined
     const state = await getTeacherRoomState(roomId, currentSyncVersion)
+    if (activeTeacherRoomId !== roomId) return state
     applyTeacherState(state)
     connectionStatus.value = 'CONNECTED'
     pollError.value = null
@@ -68,6 +76,7 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
 
   function startTeacherPolling(roomId: string) {
     stopPolling()
+    activeTeacherRoomId = roomId
     connectionStatus.value = 'CONNECTED'
     pollingTimer = setInterval(() => {
       void runPollingRequest(() => refreshTeacher(roomId))
@@ -88,7 +97,14 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
       pollingTimer = undefined
     }
     requestInFlight = false
+    activeTeacherRoomId = undefined
     connectionStatus.value = 'DISCONNECTED'
+  }
+
+  function resetTeacherContext() {
+    stopPolling()
+    teacherState.value = null
+    pollError.value = null
   }
 
   function resetStudentContext() {
@@ -189,6 +205,7 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     startTeacherPolling,
     startStudentPolling,
     stopPolling,
+    resetTeacherContext,
     resetStudentContext,
     setStage,
     controlQuiz,

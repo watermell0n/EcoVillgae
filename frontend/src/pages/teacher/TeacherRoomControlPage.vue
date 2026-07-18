@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import {
@@ -176,26 +176,40 @@ async function confirmStageMove() {
   if (targetStage) await moveToStage(targetStage)
 }
 
-onMounted(async () => {
+async function loadTeacherRoom(targetRoomId: string) {
+  roomSessionStore.resetTeacherContext()
+  loading.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
   try {
     if (!authStore.teacher) {
       await authStore.loadTeacher()
     }
-    await roomSessionStore.refreshTeacher(roomId.value)
-    roomSessionStore.startTeacherPolling(roomId.value)
+    await roomSessionStore.refreshTeacher(targetRoomId)
+    if (roomId.value !== targetRoomId) return
+    roomSessionStore.startTeacherPolling(targetRoomId)
   } catch (error) {
+    if (roomId.value !== targetRoomId) return
     if (isUnauthorized(error)) {
       await router.replace({ name: 'teacher-login' })
       return
     }
     errorMessage.value = getApiErrorMessage(error, '수업 상태를 불러오지 못했습니다.')
   } finally {
-    loading.value = false
+    if (roomId.value === targetRoomId) loading.value = false
   }
-})
+}
+
+watch(
+  roomId,
+  (nextRoomId) => {
+    void loadTeacherRoom(nextRoomId)
+  },
+  { immediate: true },
+)
 
 onUnmounted(() => {
-  roomSessionStore.stopPolling()
+  roomSessionStore.resetTeacherContext()
   quizStore.stopTeacherSummaryPolling()
   shopStore.stopTeacherSummaryPolling()
   settlementStore.clearDay1Income()
