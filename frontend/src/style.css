@@ -3110,6 +3110,95 @@ button.admin-student-row.is-selected {
   font-weight: 900;
 }
 
+.amount-stepper-label {
+  color: #263449;
+  font-weight: 900;
+}
+
+.amount-stepper {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(7rem, 1fr) minmax(4.5rem, auto);
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.amount-stepper button {
+  min-height: 3rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.amount-stepper__value {
+  display: grid;
+  min-height: 3rem;
+  place-items: center;
+  padding: 0.65rem 0.85rem;
+  border: 2px solid #ead9c8;
+  border-radius: 0.75rem;
+  background: #fffaf3;
+  color: #263449;
+  font-size: 1.05rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.amount-spinner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+  width: 100%;
+  min-width: 0;
+  min-height: 3.25rem;
+  margin-top: auto;
+  overflow: hidden;
+  border: 2px solid #ead9c8;
+  border-radius: 0.75rem;
+  background: #fffaf3;
+  box-sizing: border-box;
+}
+
+.amount-spinner__value {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: 0.65rem 0.5rem;
+  color: #263449;
+  font-size: 1.05rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.amount-spinner__buttons {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  border-left: 1px solid #d9c8b7;
+}
+
+.amount-spinner__buttons button {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #a95634;
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.amount-spinner__buttons button + button {
+  border-top: 1px solid rgb(255 255 255 / 45%);
+}
+
+.amount-spinner__buttons button:hover:not(:disabled) {
+  background: #8f4329;
+}
+
+.amount-spinner__buttons button:disabled {
+  background: #ded7cf;
+  color: #8d8984;
+}
+
 .finance-form-card dl,
 .investment-total-card {
   display: grid;

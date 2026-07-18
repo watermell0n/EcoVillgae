@@ -272,8 +272,9 @@ describe('FreeActivityStageView', () => {
 
     await openTab(wrapper, '예금')
     expect(wrapper.text()).toContain('지금까지 20비빔을 예금했어요')
-    const input = wrapper.get('#deposit-principal')
-    expect(input.attributes('disabled')).toBeUndefined()
+    const amount = wrapper.get('#deposit-principal')
+    expect(amount.element.tagName).toBe('OUTPUT')
+    expect(amount.text()).toBe('20비빔')
     await wrapper.findAll('.finance-actions button')[1]!.trigger('click')
     await flushPromises()
 
@@ -292,7 +293,10 @@ describe('FreeActivityStageView', () => {
     await flushPromises()
 
     await openTab(wrapper, '투자')
-    await wrapper.get('.investment-asset-grid input').setValue(30)
+    const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
     const actions = wrapper.findAll('.finance-actions button')
     await actions[1]!.trigger('click')
     await flushPromises()
@@ -353,15 +357,48 @@ describe('FreeActivityStageView', () => {
 
     await openTab(wrapper, '투자')
     expect(wrapper.text()).toContain('지금까지 30비빔을 투자했어요')
-    const input = wrapper.get('.investment-asset-grid input')
-    expect(input.attributes('disabled')).toBeUndefined()
-    await input.setValue(20)
+    expect(wrapper.find('.investment-asset-grid input').exists()).toBe(false)
+    const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
     await wrapper.findAll('.finance-actions button')[1]!.trigger('click')
     await flushPromises()
 
     expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
       { assetId: 'asset-1', amount: 20 },
     ])
+  })
+
+  it('uses button-only amount controls and never exceeds the available wallet balance', async () => {
+    economyApi.getEconomyOverview.mockResolvedValue({
+      walletBalance: 25,
+      depositBalance: 0,
+      investmentBalance: 0,
+      purchaseCount: 0,
+      depositStatus: 'NONE',
+      investmentStatus: 'NONE',
+      totalAssets: 25,
+    })
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '예금')
+    expect(wrapper.find('.finance-form-card input').exists()).toBe(false)
+    expect(wrapper.get('#deposit-principal').text()).toBe('20비빔')
+    expect(wrapper.get('[aria-label="예금 금액 10비빔 줄이기"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[aria-label="예금 금액 10비빔 늘리기"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('확정 후 지갑')
+    expect(wrapper.text()).toContain('5비빔')
+
+    await openTab(wrapper, '투자')
+    expect(wrapper.find('.investment-asset-grid input').exists()).toBe(false)
+    const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+
+    expect(wrapper.text()).toContain('총투자금')
+    expect(wrapper.text()).toContain('20비빔')
+    expect(increaseButton.attributes('disabled')).toBeDefined()
   })
 
   it('shows every confirmed deposit and investment allocation', async () => {

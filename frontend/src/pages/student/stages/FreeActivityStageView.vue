@@ -10,6 +10,9 @@ import { useShopStore } from '../../../stores/shop'
 
 type ActivityView = 'HOME' | 'SHOP' | 'DEPOSIT' | 'INVESTMENT' | 'KNOWLEDGE' | 'WALLET'
 
+const AMOUNT_UNIT = 10
+const MINIMUM_DEPOSIT = 20
+
 const activityCards: Array<{ id: ActivityView; icon: string; title: string; description: string }> = [
   { id: 'SHOP', icon: '🛒', title: '상점', description: '가격과 재고를 비교해 상품을 구매해요.' },
   { id: 'DEPOSIT', icon: '🏦', title: '예금', description: '돈을 맡기고 받을 이자를 확인해요.' },
@@ -31,7 +34,7 @@ const quantity = ref(1)
 const reviewError = ref('')
 const reviewLoading = ref(false)
 const reviewPageIndex = ref(0)
-const depositPrincipal = ref(20)
+const depositPrincipal = ref(MINIMUM_DEPOSIT)
 const allocationAmounts = reactive<Record<string, number>>({})
 
 const catalog = computed(() => shopStore.studentCatalog)
@@ -49,16 +52,26 @@ const selectedAllocations = computed(() =>
 const investmentTotal = computed(() =>
   selectedAllocations.value.reduce((sum, item) => sum + item.amount, 0),
 )
+const adjustableWalletBalance = computed(() =>
+  Math.floor(Math.max(overview.value?.walletBalance ?? 0, 0) / AMOUNT_UNIT) * AMOUNT_UNIT,
+)
+const canDecreaseDeposit = computed(() => depositPrincipal.value > MINIMUM_DEPOSIT)
+const canIncreaseDeposit = computed(() => {
+  const nextAmount = depositPrincipal.value < MINIMUM_DEPOSIT
+    ? MINIMUM_DEPOSIT
+    : depositPrincipal.value + AMOUNT_UNIT
+  return nextAmount <= adjustableWalletBalance.value
+})
 const canSaveDeposit = computed(() =>
-  depositPrincipal.value >= 20
-    && depositPrincipal.value % 10 === 0
+  depositPrincipal.value >= MINIMUM_DEPOSIT
+    && depositPrincipal.value % AMOUNT_UNIT === 0
     && depositPrincipal.value <= (overview.value?.walletBalance ?? 0),
 )
 const canSaveInvestment = computed(() =>
   selectedAllocations.value.length > 0
     && selectedAllocations.value.length <= 3
-    && selectedAllocations.value.every((item) => item.amount % 10 === 0)
-    && investmentTotal.value % 10 === 0
+    && selectedAllocations.value.every((item) => item.amount % AMOUNT_UNIT === 0)
+    && investmentTotal.value % AMOUNT_UNIT === 0
     && investmentTotal.value <= (overview.value?.walletBalance ?? 0),
 )
 
@@ -70,14 +83,8 @@ onMounted(async () => {
       shopStore.refreshPurchaseHistory(),
       learningStore.refreshTopics(),
     ])
-    if (deposit.value?.status === 'DRAFT') {
-      depositPrincipal.value = deposit.value.principal
-    }
-    if (investment.value?.status === 'DRAFT') {
-      for (const allocation of investment.value.allocations) {
-        allocationAmounts[allocation.assetId] = allocation.amount
-      }
-    }
+    resetDepositPrincipal(deposit.value?.status === 'DRAFT' ? deposit.value.principal : undefined)
+    resetInvestmentAllocations()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
   } finally {
@@ -95,6 +102,80 @@ function openActivity(view: ActivityView) {
   activeView.value = view
   errorMessage.value = ''
   noticeMessage.value = ''
+  if (view === 'DEPOSIT') resetDepositPrincipal(depositPrincipal.value)
+  if (view === 'INVESTMENT') clampInvestmentAllocations()
+}
+
+function normalizedAmount(amount: number | undefined) {
+  if (!Number.isFinite(amount) || !amount || amount < 0) return 0
+  return Math.floor(amount / AMOUNT_UNIT) * AMOUNT_UNIT
+}
+
+function resetDepositPrincipal(amount = MINIMUM_DEPOSIT) {
+  if (adjustableWalletBalance.value < MINIMUM_DEPOSIT) {
+    depositPrincipal.value = 0
+    return
+  }
+  depositPrincipal.value = Math.min(
+    adjustableWalletBalance.value,
+    Math.max(MINIMUM_DEPOSIT, normalizedAmount(amount)),
+  )
+}
+
+function changeDepositPrincipal(direction: -1 | 1) {
+  if (direction < 0) {
+    if (!canDecreaseDeposit.value) return
+    depositPrincipal.value = Math.max(
+      MINIMUM_DEPOSIT,
+      depositPrincipal.value - AMOUNT_UNIT,
+    )
+    return
+  }
+  if (!canIncreaseDeposit.value) return
+  depositPrincipal.value = depositPrincipal.value < MINIMUM_DEPOSIT
+    ? MINIMUM_DEPOSIT
+    : depositPrincipal.value + AMOUNT_UNIT
+}
+
+function investmentAmount(assetId: string) {
+  return normalizedAmount(allocationAmounts[assetId])
+}
+
+function canIncreaseInvestment() {
+  return investmentTotal.value + AMOUNT_UNIT <= adjustableWalletBalance.value
+}
+
+function changeInvestmentAmount(assetId: string, direction: -1 | 1) {
+  const currentAmount = investmentAmount(assetId)
+  if (direction < 0) {
+    allocationAmounts[assetId] = Math.max(0, currentAmount - AMOUNT_UNIT)
+    return
+  }
+  if (!canIncreaseInvestment()) return
+  allocationAmounts[assetId] = currentAmount + AMOUNT_UNIT
+}
+
+function resetInvestmentAllocations() {
+  for (const asset of investment.value?.assets ?? []) {
+    allocationAmounts[asset.assetId] = 0
+  }
+  if (investment.value?.status !== 'DRAFT') return
+
+  let remainingBalance = adjustableWalletBalance.value
+  for (const allocation of investment.value.allocations) {
+    const amount = Math.min(normalizedAmount(allocation.amount), remainingBalance)
+    allocationAmounts[allocation.assetId] = amount
+    remainingBalance -= amount
+  }
+}
+
+function clampInvestmentAllocations() {
+  let remainingBalance = adjustableWalletBalance.value
+  for (const asset of investment.value?.assets ?? []) {
+    const amount = Math.min(investmentAmount(asset.assetId), remainingBalance)
+    allocationAmounts[asset.assetId] = amount
+    remainingBalance -= amount
+  }
 }
 
 async function saveDeposit() {
@@ -111,6 +192,7 @@ async function saveDeposit() {
 async function cancelDeposit() {
   try {
     await economyStore.removeDepositDraft()
+    resetDepositPrincipal()
     noticeMessage.value = '예금 초안을 취소했어요.'
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '예금 초안을 취소하지 못했습니다.')
@@ -123,7 +205,7 @@ async function confirmDeposit() {
     noticeMessage.value = result?.replayed
       ? '이미 완료된 예금 결과를 불러왔어요.'
       : '예금을 확정했어요. 원금이 예금 계정으로 이동했습니다.'
-    depositPrincipal.value = 20
+    resetDepositPrincipal()
     await roomSessionStore.refreshStudent()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '예금을 확정하지 못했습니다.')
@@ -144,6 +226,7 @@ async function saveInvestment() {
 async function cancelInvestment() {
   try {
     await economyStore.removeInvestmentDraft()
+    resetInvestmentAllocations()
     noticeMessage.value = '투자 초안을 취소했어요.'
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '투자 초안을 취소하지 못했습니다.')
@@ -156,9 +239,7 @@ async function confirmInvestment() {
     noticeMessage.value = result?.replayed
       ? '이미 완료된 투자 결과를 불러왔어요.'
       : '투자를 확정했어요. 이제 금액과 시장 시나리오는 바뀌지 않아요.'
-    for (const assetId of Object.keys(allocationAmounts)) {
-      allocationAmounts[assetId] = 0
-    }
+    resetInvestmentAllocations()
     await roomSessionStore.refreshStudent()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '투자를 확정하지 못했습니다.')
@@ -336,8 +417,23 @@ function formatPurchasedAt(value: string) {
           <p>20비빔 이상을 10비빔 단위로 맡길 수 있어요. 확정한 건은 취소할 수 없지만, 남은 비빔으로 새 예금을 추가할 수 있어요.</p>
         </div>
         <div class="finance-form-card">
-          <label for="deposit-principal">맡길 금액</label>
-          <input id="deposit-principal" v-model.number="depositPrincipal" type="number" min="20" step="10" />
+          <span id="deposit-principal-label" class="amount-stepper-label">맡길 금액</span>
+          <div class="amount-stepper" role="group" aria-labelledby="deposit-principal-label">
+            <button
+              class="button-secondary"
+              type="button"
+              aria-label="예금 금액 10비빔 줄이기"
+              :disabled="!canDecreaseDeposit || economyStore.saving"
+              @click="changeDepositPrincipal(-1)"
+            >−10</button>
+            <output id="deposit-principal" class="amount-stepper__value" aria-live="polite">{{ formatBibim(depositPrincipal) }}</output>
+            <button
+              type="button"
+              aria-label="예금 금액 10비빔 늘리기"
+              :disabled="!canIncreaseDeposit || economyStore.saving"
+              @click="changeDepositPrincipal(1)"
+            >+10</button>
+          </div>
           <dl>
             <div><dt>예상 이자</dt><dd>{{ formatBibim(expectedDepositInterest) }}</dd></div>
             <div><dt>만기 예상 금액</dt><dd>{{ formatBibim(depositPrincipal + expectedDepositInterest) }}</dd></div>
@@ -384,7 +480,24 @@ function formatPurchasedAt(value: string) {
             <h3>{{ asset.name }}</h3>
             <p>{{ asset.description }}</p>
             <small>예상 범위 {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
-            <input v-model.number="allocationAmounts[asset.assetId]" :aria-label="`${asset.name} 투자 금액`" type="number" min="0" step="10" placeholder="0" />
+            <span :id="`investment-${asset.assetId}-label`" class="amount-stepper-label">투자 금액</span>
+            <div class="amount-spinner" role="group" :aria-labelledby="`investment-${asset.assetId}-label`">
+              <output class="amount-spinner__value" aria-live="polite">{{ formatBibim(investmentAmount(asset.assetId)) }}</output>
+              <div class="amount-spinner__buttons" aria-hidden="false">
+                <button
+                  type="button"
+                  :aria-label="`${asset.name} 투자 금액 10비빔 늘리기`"
+                  :disabled="!canIncreaseInvestment() || economyStore.saving"
+                  @click="changeInvestmentAmount(asset.assetId, 1)"
+                ><span aria-hidden="true">▲</span></button>
+                <button
+                  type="button"
+                  :aria-label="`${asset.name} 투자 금액 10비빔 줄이기`"
+                  :disabled="investmentAmount(asset.assetId) === 0 || economyStore.saving"
+                  @click="changeInvestmentAmount(asset.assetId, -1)"
+                ><span aria-hidden="true">▼</span></button>
+              </div>
+            </div>
           </article>
         </div>
         <div class="investment-total-card">
