@@ -10,6 +10,7 @@ import {
 import {
   getAdjacentStages,
   getRoomStage,
+  getStageNavigationBlockReason,
   isNextStageDisabled,
   ROOM_STAGES,
 } from '../../features/room/model/stages'
@@ -77,6 +78,7 @@ const showDay1CloseConfirm = ref(false)
 const showDay2SettlementConfirm = ref(false)
 const showFundVotePrepareConfirm = ref(false)
 const showRoomCompleteConfirm = ref(false)
+const pendingStageTarget = ref<string | null>(null)
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
@@ -109,6 +111,15 @@ const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
 )
 const adjacentStages = computed(() => getAdjacentStages(state.value?.currentStage))
+const pendingStageDefinition = computed(() => getRoomStage(pendingStageTarget.value ?? undefined))
+const pendingStageMovesForward = computed(() => {
+  const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === pendingStageTarget.value)
+  return targetIndex > currentStageIndex.value
+})
+const pendingStageDistance = computed(() => {
+  const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === pendingStageTarget.value)
+  return Math.max(0, Math.abs(targetIndex - currentStageIndex.value) - 1)
+})
 const nextStageDisabled = computed(() =>
   isNextStageDisabled({
     currentStage: state.value?.currentStage,
@@ -128,6 +139,42 @@ const connectionLabel = computed(() =>
 const connectionTone = computed(() =>
   roomSessionStore.connectionStatus === 'CONNECTED' ? 'success' : 'warning',
 )
+
+function stageNavigationBlockReason(targetStage?: string) {
+  return getStageNavigationBlockReason({
+    currentStage: state.value?.currentStage,
+    targetStage,
+    changingStage: changingStage.value,
+    quizStatus: quizSummary.value?.status,
+    day1IncomeSettlementStatus: settlementPreview.value?.settlementStatus,
+    day2FinanceSettlementStatus: day2FinancePreview.value?.settlementStatus,
+    day2QuizRewardSettlementStatus: day2QuizRewardPreview.value?.settlementStatus,
+    inflationApplied: Boolean(inflationPreview.value?.applied),
+    fundExpenseApplied: Boolean(fundOverview.value?.appliedExpense),
+    votePrepared: Boolean(fundVote.value),
+    voteStatus: fundVote.value?.status,
+  })
+}
+
+function requestStageMove(targetStage: string) {
+  const blockReason = stageNavigationBlockReason(targetStage)
+  if (blockReason) {
+    errorMessage.value = blockReason
+    return
+  }
+  const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === targetStage)
+  if (Math.abs(targetIndex - currentStageIndex.value) > 1) {
+    pendingStageTarget.value = targetStage
+    return
+  }
+  void moveToStage(targetStage)
+}
+
+async function confirmStageMove() {
+  const targetStage = pendingStageTarget.value
+  pendingStageTarget.value = null
+  if (targetStage) await moveToStage(targetStage)
+}
 
 onMounted(async () => {
   try {
@@ -232,6 +279,11 @@ watch(
     if (stage === 'DAY2_FUND_COST') {
       try {
         await day2EndStore.refreshFund(roomId.value)
+        try {
+          await day2EndStore.refreshVote(roomId.value)
+        } catch (error) {
+          if (getApiErrorCode(error) !== 'VOTE_NOT_FOUND') throw error
+        }
       } catch (error) {
         errorMessage.value = getApiErrorMessage(error, '공동기금 정보를 불러오지 못했습니다.')
       }
@@ -339,6 +391,12 @@ watch(
 async function moveToStage(targetStage?: string) {
   if (!targetStage || changingStage.value) return
 
+  const navigationBlockReason = stageNavigationBlockReason(targetStage)
+  if (navigationBlockReason) {
+    errorMessage.value = navigationBlockReason
+    return
+  }
+
   if (
     state.value?.currentStage === 'DAY1_INCOME_SETTLEMENT' &&
     targetStage === 'DAY1_PAYSLIP_GUIDED'
@@ -422,7 +480,12 @@ async function moveToStage(targetStage?: string) {
   } catch (error) {
     if (getApiErrorCode(error) === 'STATE_CONFLICT') {
       await roomSessionStore.refreshTeacher(roomId.value)
-      noticeMessage.value = '다른 화면의 변경을 반영했습니다. 최신 단계에서 다시 진행해 주세요.'
+      const conflictMessage = getApiErrorMessage(error, '단계를 변경하지 못했습니다.')
+      if (conflictMessage.includes('다른 화면에서 수업 상태가 변경')) {
+        noticeMessage.value = '다른 화면의 변경을 반영했습니다. 최신 단계에서 다시 진행해 주세요.'
+      } else {
+        errorMessage.value = conflictMessage
+      }
       return
     }
     if (isUnauthorized(error)) {
@@ -819,6 +882,7 @@ function moduleTone(moduleState: string) {
             <p class="eyebrow">전체 흐름</p>
             <h2>단계 목록</h2>
           </div>
+          <p class="stage-timeline__guide">같은 일차의 선택 가능한 단계를 눌러 바로 이동할 수 있습니다.</p>
           <ol>
             <li
               v-for="stage in ROOM_STAGES"
@@ -828,8 +892,16 @@ function moduleTone(moduleState: string) {
                 'is-complete': ROOM_STAGES.findIndex((item) => item.id === stage.id) < currentStageIndex,
               }"
             >
-              <span>{{ stage.day }}일차</span>
-              <strong>{{ stage.label }}</strong>
+              <button
+                type="button"
+                :disabled="Boolean(stageNavigationBlockReason(stage.id))"
+                :title="stageNavigationBlockReason(stage.id)"
+                :aria-current="stage.id === state.currentStage ? 'step' : undefined"
+                @click="requestStageMove(stage.id)"
+              >
+                <span>{{ stage.day }}일차</span>
+                <strong>{{ stage.label }}</strong>
+              </button>
             </li>
           </ol>
         </aside>
@@ -1780,6 +1852,26 @@ function moduleTone(moduleState: string) {
             <button class="button-secondary" type="button" @click="showDay2SettlementConfirm = false">취소</button>
             <button type="button" :disabled="day2FinanceStore.settling" @click="confirmDay2FinanceSettlement">
               금융 정산 실행
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="pendingStageTarget && pendingStageDefinition" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="direct-stage-move-title">
+          <p class="eyebrow">단계 목록 이동</p>
+          <h2 id="direct-stage-move-title">{{ pendingStageDefinition.label }} 단계로 바로 이동할까요?</h2>
+          <p class="confirm-modal__warning">
+            {{ pendingStageMovesForward
+              ? `${pendingStageDistance}개의 중간 단계를 건너뛰며 학생 화면도 즉시 이동합니다.`
+              : `${pendingStageDistance}개의 중간 단계를 건너 이전 화면으로 돌아갑니다.` }}
+          </p>
+          <p v-if="pendingStageMovesForward">건너뛴 활동은 자동 실행되지 않습니다. 필요한 정산과 확정 작업은 이동 전에 완료해야 합니다.</p>
+          <p v-else>이미 완료한 거래·정산·투표 결과는 이전 단계로 이동해도 취소되지 않습니다.</p>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="pendingStageTarget = null">취소</button>
+            <button type="button" :disabled="changingStage" @click="confirmStageMove">
+              {{ changingStage ? '이동 중…' : '단계 이동' }}
             </button>
           </div>
         </section>

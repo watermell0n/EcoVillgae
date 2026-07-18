@@ -91,24 +91,52 @@ class RoomSessionServiceTest {
     private RoomSessionService roomSessionService;
 
     @Test
-    void rejectsNonAdjacentStageWithStateConflict() {
+    void allowsDirectNavigationToANonAdjacentStageInTheSameDay() {
         UUID teacherId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();
         when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
         when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getId()).thenReturn(roomId);
         when(room.getVersion()).thenReturn(3);
-        when(room.getCurrentStage()).thenReturn("DAY1_LOBBY");
+        when(room.getCurrentStage()).thenReturn("DAY1_PAYSLIP_GUIDED");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "request-1"))
+                .thenReturn(Optional.empty());
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "request-1",
+                new CommandRequest("SET_STAGE", "DAY1_FINANCE_GUIDED", 3)
+        );
+
+        verify(studentFlowService).captureStageCompletion(room, "DAY1_PAYSLIP_GUIDED");
+        verify(room).changeStage(RoomStage.DAY1_FINANCE_GUIDED);
+        verify(studentFlowService).roomStageChanged(room);
+    }
+
+    @Test
+    void rejectsSkippingPastIncompleteIncomeSettlement() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(4);
+        when(room.getCurrentStage()).thenReturn("DAY1_INCOME_SETTLEMENT");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "skip-settlement"))
+                .thenReturn(Optional.empty());
+        when(settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                roomId, "DAY1_INCOME", "COMPLETED"
+        )).thenReturn(false);
 
         ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
                 teacherId,
                 roomId,
-                "request-1",
-                new CommandRequest("SET_STAGE", "DAY1_PAYSLIP_GUIDED", 3)
+                "skip-settlement",
+                new CommandRequest("SET_STAGE", "DAY1_KNOWLEDGE_GUIDED", 4)
         ));
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("STATE_CONFLICT", exception.getCode());
-        verify(room, never()).changeStage(RoomStage.DAY1_PAYSLIP_GUIDED);
+        verify(room, never()).changeStage(RoomStage.DAY1_KNOWLEDGE_GUIDED);
     }
 
     @Test
@@ -260,6 +288,7 @@ class RoomSessionServiceTest {
         when(quizRepository.findByRoomIdAndDayNumber(roomId, (short) 1))
                 .thenReturn(Optional.of(quiz));
         when(quiz.getStatus()).thenReturn("OPEN");
+        when(quiz.getDayNumber()).thenReturn(1);
 
         roomSessionService.command(
                 teacherId,
@@ -484,5 +513,28 @@ class RoomSessionServiceTest {
 
         assertEquals("STATE_CONFLICT", exception.getCode());
         verify(room, never()).changeStage(RoomStage.DAY2_FINAL_SHOP);
+    }
+
+    @Test
+    void rejectsSkippingPastFundVotePreparation() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(15);
+        when(room.getCurrentStage()).thenReturn("DAY2_FINAL_SHOP");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "skip-fund-vote"))
+                .thenReturn(Optional.empty());
+        when(voteSessionRepository.findByRoomId(roomId)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class, () -> roomSessionService.command(
+                teacherId,
+                roomId,
+                "skip-fund-vote",
+                new CommandRequest("SET_STAGE", "DAY2_FINAL_RESULT", 15)
+        ));
+
+        assertEquals("STATE_CONFLICT", exception.getCode());
+        verify(room, never()).changeStage(RoomStage.DAY2_FINAL_RESULT);
     }
 }

@@ -1,7 +1,6 @@
 package com.b201.bibim.domain.room;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 public enum RoomStage {
@@ -32,8 +31,6 @@ public enum RoomStage {
     DAY2_SURVEY(2, "DAY2_ACTIVE", "GUIDED"),
     DAY2_COMPLETED(2, "COMPLETED", "CLOSED");
 
-    private static final List<RoomStage> ORDERED_STAGES = List.of(values());
-
     private final int day;
     private final String roomStatus;
     private final String mode;
@@ -57,7 +54,7 @@ public enum RoomStage {
     }
 
     public boolean canMoveTo(RoomStage target) {
-        return Math.abs(ORDERED_STAGES.indexOf(this) - ORDERED_STAGES.indexOf(target)) == 1;
+        return target != null && this != target && day == target.day;
     }
 
     public static Optional<RoomStage> find(String value) {

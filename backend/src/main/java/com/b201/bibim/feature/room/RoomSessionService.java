@@ -281,88 +281,10 @@ public class RoomSessionService {
         if (currentStage == RoomStage.DAY1_CLOSED || targetStage == RoomStage.DAY2_LOGIN) {
             throw stateConflict("2일차 시작은 START_DAY2 명령으로 진행해 주세요.");
         }
-        if (currentStage == RoomStage.DAY2_FINANCE_SETTLEMENT
-                && targetStage == RoomStage.DAY2_RESULT_GUIDED
-                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
-                        roomId,
-                        "DAY2_FINANCE",
-                        "COMPLETED"
-                )) {
-            throw stateConflict("금융 정산을 완료한 뒤 개인 결과 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_QUIZ_SETTLEMENT
-                && targetStage == RoomStage.DAY2_TAX_INFLATION_GUIDED
-                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
-                        roomId,
-                        "DAY2_QUIZ_REWARD",
-                        "COMPLETED"
-                )) {
-            throw stateConflict("2일차 퀴즈 보상 정산을 완료한 뒤 다음 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_INFLATION_APPLY
-                && targetStage == RoomStage.DAY2_FINAL_SHOP
-                && room.getInflationAppliedAt() == null) {
-            throw stateConflict("물가상승을 적용한 뒤 최종 상점을 열어 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_COST
-                && targetStage == RoomStage.DAY2_FUND_VOTE
-                && voteSessionRepository.findByRoomId(roomId).isEmpty()) {
-            throw stateConflict("공동비용을 검토하고 투표 선택지를 준비한 뒤 투표 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_COST
-                && targetStage == RoomStage.DAY2_FINAL_SHOP
-                && (fundExpenseRepository.existsByRoomId(roomId)
-                || voteSessionRepository.findByRoomId(roomId).isPresent())) {
-            throw stateConflict("공동기금 처리를 확정한 뒤에는 최종 상점 단계로 돌아갈 수 없습니다.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_VOTE
-                && targetStage == RoomStage.DAY2_FUND_RESULT
-                && !voteSessionRepository.existsByRoomIdAndStatus(roomId, "DECIDED")) {
-            throw stateConflict("공동기금 투표 결과를 확정한 뒤 결과 확인 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_RESULT
-                && targetStage == RoomStage.DAY2_FINAL_RESULT
-                && !voteSessionRepository.existsByRoomIdAndStatus(roomId, "DECIDED")) {
-            throw stateConflict("확정된 공동기금 투표 결과를 확인한 뒤 최종 결과로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_VOTE
-                && targetStage == RoomStage.DAY2_FUND_COST
-                && voteSessionRepository.findByRoomId(roomId)
-                .filter(vote -> !"READY".equals(vote.getStatus())).isPresent()) {
-            throw stateConflict("투표를 시작한 뒤에는 공동비용 단계로 돌아갈 수 없습니다.");
-        }
-        if (currentStage == RoomStage.DAY2_FUND_RESULT
-                && targetStage == RoomStage.DAY2_FUND_VOTE) {
-            throw stateConflict("확정된 공동기금 투표 단계로는 돌아갈 수 없습니다.");
-        }
         if (!currentStage.canMoveTo(targetStage)) {
-            throw stateConflict("수업 단계는 현재 단계의 이전 또는 다음 단계로만 이동할 수 있습니다.");
+            throw stateConflict("현재 일차 안의 다른 단계만 선택할 수 있습니다.");
         }
-        if (((currentStage == RoomStage.DAY1_QUIZ
-                && targetStage == RoomStage.DAY1_INCOME_SETTLEMENT)
-                || (currentStage == RoomStage.DAY2_QUIZ
-                && targetStage == RoomStage.DAY2_QUIZ_SETTLEMENT))
-                && !currentQuiz(room).getStatus().equals("CLOSED")) {
-            throw stateConflict("퀴즈를 마감한 뒤 다음 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY1_INCOME_SETTLEMENT
-                && targetStage == RoomStage.DAY1_PAYSLIP_GUIDED
-                && !settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
-                        roomId,
-                        "DAY1_INCOME",
-                        "COMPLETED"
-                )) {
-            throw stateConflict("소득 정산을 완료한 뒤 월급명세서 단계로 이동해 주세요.");
-        }
-        if (currentStage == RoomStage.DAY1_INCOME_SETTLEMENT
-                && targetStage == RoomStage.DAY1_QUIZ
-                && settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
-                        roomId,
-                        "DAY1_INCOME",
-                        "COMPLETED"
-                )) {
-            throw stateConflict("완료된 소득 정산 이전 단계로는 돌아갈 수 없습니다.");
-        }
+        validateStageNavigation(room, roomId, currentStage, targetStage);
 
         int expectedVersion = request.expectedVersion();
         if (targetStage == RoomStage.DAY2_QUIZ) {
@@ -382,6 +304,90 @@ public class RoomSessionService {
         ));
 
         return new CommandResponse(toTeacherState(room, true), false);
+    }
+
+    private void validateStageNavigation(
+            RoomEntity room,
+            UUID roomId,
+            RoomStage currentStage,
+            RoomStage targetStage
+    ) {
+        if ((movesForwardAcross(currentStage, targetStage, RoomStage.DAY1_QUIZ)
+                || movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_QUIZ))
+                && !"CLOSED".equals(currentQuiz(room).getStatus())) {
+            throw stateConflict("퀴즈를 마감한 뒤 다음 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY1_INCOME_SETTLEMENT)
+                && !settlementCompleted(roomId, "DAY1_INCOME")) {
+            throw stateConflict("소득 정산을 완료한 뒤 월급명세서 이후 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_FINANCE_SETTLEMENT)
+                && !settlementCompleted(roomId, "DAY2_FINANCE")) {
+            throw stateConflict("금융 정산을 완료한 뒤 개인 결과 이후 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_QUIZ_SETTLEMENT)
+                && !settlementCompleted(roomId, "DAY2_QUIZ_REWARD")) {
+            throw stateConflict("2일차 퀴즈 보상 정산을 완료한 뒤 다음 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_INFLATION_APPLY)
+                && room.getInflationAppliedAt() == null) {
+            throw stateConflict("물가상승을 적용한 뒤 최종 상점 이후 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_FUND_COST)
+                && voteSessionRepository.findByRoomId(roomId).isEmpty()) {
+            throw stateConflict("공동비용을 검토하고 투표 선택지를 준비한 뒤 투표 단계로 이동해 주세요.");
+        }
+        if (movesForwardAcross(currentStage, targetStage, RoomStage.DAY2_FUND_VOTE)
+                && !voteSessionRepository.existsByRoomIdAndStatus(roomId, "DECIDED")) {
+            throw stateConflict("공동기금 투표 결과를 확정한 뒤 결과 이후 단계로 이동해 주세요.");
+        }
+
+        if (movesBackwardBefore(currentStage, targetStage, RoomStage.DAY1_INCOME_SETTLEMENT)
+                && settlementCompleted(roomId, "DAY1_INCOME")) {
+            throw stateConflict("완료된 소득 정산 이전 단계로는 돌아갈 수 없습니다.");
+        }
+        if (currentStage.day() == 2 && targetStage.ordinal() < currentStage.ordinal()) {
+            var vote = voteSessionRepository.findByRoomId(roomId);
+            if (vote.filter(item -> "DECIDED".equals(item.getStatus())).isPresent()
+                    && targetStage.ordinal() < RoomStage.DAY2_FUND_RESULT.ordinal()) {
+                throw stateConflict("확정된 공동기금 투표 결과 이전 단계로는 돌아갈 수 없습니다.");
+            }
+            if (vote.filter(item -> !"READY".equals(item.getStatus())).isPresent()
+                    && targetStage.ordinal() < RoomStage.DAY2_FUND_VOTE.ordinal()) {
+                throw stateConflict("투표를 시작한 뒤에는 공동비용 이전 단계로 돌아갈 수 없습니다.");
+            }
+            if ((vote.isPresent() || fundExpenseRepository.existsByRoomId(roomId))
+                    && targetStage.ordinal() < RoomStage.DAY2_FUND_COST.ordinal()) {
+                throw stateConflict("공동기금 처리를 확정한 뒤에는 최종 상점 이전 단계로 돌아갈 수 없습니다.");
+            }
+        }
+    }
+
+    private boolean settlementCompleted(UUID roomId, String settlementType) {
+        return settlementRunRepository.existsByRoomIdAndSettlementTypeAndStatus(
+                roomId,
+                settlementType,
+                "COMPLETED"
+        );
+    }
+
+    private boolean movesForwardAcross(
+            RoomStage currentStage,
+            RoomStage targetStage,
+            RoomStage checkpoint
+    ) {
+        return currentStage.ordinal() <= checkpoint.ordinal()
+                && targetStage.ordinal() > checkpoint.ordinal();
+    }
+
+    private boolean movesBackwardBefore(
+            RoomStage currentStage,
+            RoomStage targetStage,
+            RoomStage checkpoint
+    ) {
+        return targetStage.ordinal() < currentStage.ordinal()
+                && targetStage.ordinal() < checkpoint.ordinal()
+                && currentStage.ordinal() >= checkpoint.ordinal();
     }
 
     private void controlQuiz(RoomEntity room, String command) {

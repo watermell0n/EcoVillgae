@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAdjacentStages, getRoomStage, isNextStageDisabled, ROOM_STAGES } from './stages'
+import {
+  getAdjacentStages,
+  getRoomStage,
+  getStageNavigationBlockReason,
+  isNextStageDisabled,
+  ROOM_STAGES,
+} from './stages'
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
@@ -105,5 +111,37 @@ describe('room stages', () => {
 
     expect(getAdjacentStages('DAY2_FUND_VOTE').next?.id).toBe('DAY2_FUND_RESULT')
     expect(getAdjacentStages('DAY2_FUND_RESULT').next?.id).toBe('DAY2_FINAL_RESULT')
+  })
+
+  it('allows direct same-day selection while keeping explicit day boundaries', () => {
+    expect(getStageNavigationBlockReason({
+      currentStage: 'DAY1_PAYSLIP_GUIDED',
+      targetStage: 'DAY1_FINANCE_GUIDED',
+      changingStage: false,
+      day1IncomeSettlementStatus: 'COMPLETED',
+    })).toBeUndefined()
+
+    expect(getStageNavigationBlockReason({
+      currentStage: 'DAY1_SUMMARY',
+      targetStage: 'DAY2_LOGIN',
+      changingStage: false,
+    })).toContain('전용 시작 버튼')
+  })
+
+  it('blocks direct selection that would bypass an unfinished checkpoint', () => {
+    expect(getStageNavigationBlockReason({
+      currentStage: 'DAY2_SETTLEMENT_WAIT',
+      targetStage: 'DAY2_RESULT_GUIDED',
+      changingStage: false,
+      day2FinanceSettlementStatus: 'NOT_STARTED',
+    })).toContain('금융 정산')
+
+    expect(getStageNavigationBlockReason({
+      currentStage: 'DAY2_FUND_COST',
+      targetStage: 'DAY2_FINAL_RESULT',
+      changingStage: false,
+      votePrepared: true,
+      voteStatus: 'OPEN',
+    })).toContain('투표 결과')
   })
 })

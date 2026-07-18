@@ -547,15 +547,49 @@ h1 {
   list-style: none;
 }
 
+.stage-timeline__guide {
+  margin: 0.6rem 0 0;
+  color: #737b87;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
 .stage-timeline li {
+  padding: 0;
+  border-radius: 0.65rem;
+  color: #737b87;
+  font-size: 0.82rem;
+}
+
+.stage-timeline li button {
   display: grid;
   grid-template-columns: 3rem 1fr;
   gap: 0.45rem;
   align-items: center;
+  width: 100%;
+  min-height: auto;
   padding: 0.58rem 0.7rem;
+  border: 0;
   border-radius: 0.65rem;
-  color: #737b87;
-  font-size: 0.82rem;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+.stage-timeline li button:not(:disabled):hover {
+  color: #9f3f27;
+  background: #fff6f0;
+}
+
+.stage-timeline li button:focus-visible {
+  outline: 3px solid rgb(232 95 61 / 30%);
+  outline-offset: 1px;
+}
+
+.stage-timeline li button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .stage-timeline li span {
@@ -772,6 +806,10 @@ h1 {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.78rem;
   letter-spacing: 0.05em;
+}
+
+.stage-timeline li.is-current button:disabled {
+  opacity: 1;
 }
 
 .participation-code-button small {

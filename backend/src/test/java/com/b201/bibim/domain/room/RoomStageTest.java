@@ -8,11 +8,12 @@ import org.junit.jupiter.api.Test;
 class RoomStageTest {
 
     @Test
-    void onlyAdjacentStagesCanBeSelected() {
+    void anyDifferentStageInTheSameDayCanBeSelected() {
         assertTrue(RoomStage.DAY1_LOBBY.canMoveTo(RoomStage.DAY1_PROFILE));
         assertTrue(RoomStage.DAY1_PROFILE.canMoveTo(RoomStage.DAY1_LOBBY));
-        assertFalse(RoomStage.DAY1_LOBBY.canMoveTo(RoomStage.DAY1_QUIZ));
+        assertTrue(RoomStage.DAY1_LOBBY.canMoveTo(RoomStage.DAY1_QUIZ));
         assertFalse(RoomStage.DAY1_LOBBY.canMoveTo(RoomStage.DAY1_LOBBY));
+        assertFalse(RoomStage.DAY1_LOBBY.canMoveTo(RoomStage.DAY2_LOGIN));
     }
 
     @Test
@@ -29,6 +30,6 @@ class RoomStageTest {
     void placesFundResultBetweenVoteAndFinalResult() {
         assertTrue(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FUND_RESULT));
         assertTrue(RoomStage.DAY2_FUND_RESULT.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
-        assertFalse(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
+        assertTrue(RoomStage.DAY2_FUND_VOTE.canMoveTo(RoomStage.DAY2_FINAL_RESULT));
     }
 }

@@ -17,6 +17,12 @@ export interface NextStageGuardOptions {
   voteStatus?: string
 }
 
+export interface StageNavigationGuardOptions extends Omit<NextStageGuardOptions, 'hasNextStage'> {
+  targetStage?: string
+  day1IncomeSettlementStatus?: string
+  inflationApplied?: boolean
+}
+
 export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_LOBBY', day: 1, label: '입장 대기', description: '학생 접속을 확인하고 수업을 준비합니다.' },
   { id: 'DAY1_PROFILE', day: 1, label: '활동 안내', description: '오늘의 역할과 활동 순서를 안내합니다.' },
@@ -59,6 +65,103 @@ export function getAdjacentStages(stageId?: string) {
         ? ROOM_STAGES[currentIndex + 1]
         : undefined,
   }
+}
+
+function movesForwardAcross(currentStage: string, targetStage: string, checkpoint: string) {
+  const currentIndex = ROOM_STAGES.findIndex((stage) => stage.id === currentStage)
+  const targetIndex = ROOM_STAGES.findIndex((stage) => stage.id === targetStage)
+  const checkpointIndex = ROOM_STAGES.findIndex((stage) => stage.id === checkpoint)
+  return currentIndex <= checkpointIndex && targetIndex > checkpointIndex
+}
+
+export function getStageNavigationBlockReason({
+  currentStage,
+  targetStage,
+  changingStage,
+  quizStatus,
+  day1IncomeSettlementStatus,
+  day2FinanceSettlementStatus,
+  day2QuizRewardSettlementStatus,
+  fundExpenseApplied,
+  votePrepared,
+  voteStatus,
+  inflationApplied,
+}: StageNavigationGuardOptions) {
+  const current = getRoomStage(currentStage)
+  const target = getRoomStage(targetStage)
+  if (!current || !target) return '단계 정보를 확인할 수 없습니다.'
+  if (changingStage) return '단계를 변경하고 있습니다.'
+  if (current.id === target.id) return '현재 진행 중인 단계입니다.'
+  if (current.id === 'DAY1_CLOSED' || target.id === 'DAY2_LOGIN') {
+    return '2일차는 전용 시작 버튼으로 시작해 주세요.'
+  }
+  if (current.id === 'DAY2_COMPLETED') return '종료된 수업의 단계는 변경할 수 없습니다.'
+  if (target.id === 'DAY1_CLOSED') return '1일차 마감은 전용 마감 버튼으로 진행해 주세요.'
+  if (target.id === 'DAY2_COMPLETED') return '수업 종료는 전용 종료 버튼으로 진행해 주세요.'
+  if (current.day !== target.day) return '다른 일차로는 단계 목록에서 이동할 수 없습니다.'
+
+  if (
+    (movesForwardAcross(current.id, target.id, 'DAY1_QUIZ')
+      || movesForwardAcross(current.id, target.id, 'DAY2_QUIZ'))
+    && quizStatus !== 'CLOSED'
+  ) {
+    return '퀴즈를 마감한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (
+    movesForwardAcross(current.id, target.id, 'DAY1_INCOME_SETTLEMENT')
+    && day1IncomeSettlementStatus !== 'COMPLETED'
+  ) {
+    return '소득 정산을 완료한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (
+    movesForwardAcross(current.id, target.id, 'DAY2_FINANCE_SETTLEMENT')
+    && day2FinanceSettlementStatus !== 'COMPLETED'
+  ) {
+    return '금융 정산을 완료한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (
+    movesForwardAcross(current.id, target.id, 'DAY2_QUIZ_SETTLEMENT')
+    && day2QuizRewardSettlementStatus !== 'COMPLETED'
+  ) {
+    return '퀴즈 보상 정산을 완료한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (
+    movesForwardAcross(current.id, target.id, 'DAY2_INFLATION_APPLY')
+    && !inflationApplied
+  ) {
+    return '물가상승을 적용한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (movesForwardAcross(current.id, target.id, 'DAY2_FUND_COST') && !votePrepared) {
+    return '공동기금 투표 선택지를 준비한 뒤 이후 단계로 이동해 주세요.'
+  }
+  if (movesForwardAcross(current.id, target.id, 'DAY2_FUND_VOTE') && voteStatus !== 'DECIDED') {
+    return '공동기금 투표 결과를 확정한 뒤 이후 단계로 이동해 주세요.'
+  }
+
+  const currentIndex = ROOM_STAGES.indexOf(current)
+  const targetIndex = ROOM_STAGES.indexOf(target)
+  if (targetIndex < currentIndex) {
+    if (
+      targetIndex < ROOM_STAGES.findIndex((stage) => stage.id === 'DAY1_INCOME_SETTLEMENT')
+      && current.day === 1
+      && day1IncomeSettlementStatus === 'COMPLETED'
+    ) {
+      return '완료된 소득 정산 이전 단계로는 돌아갈 수 없습니다.'
+    }
+    if (voteStatus === 'DECIDED'
+      && targetIndex < ROOM_STAGES.findIndex((stage) => stage.id === 'DAY2_FUND_RESULT')) {
+      return '확정된 공동기금 투표 결과 이전 단계로는 돌아갈 수 없습니다.'
+    }
+    if (voteStatus && voteStatus !== 'READY'
+      && targetIndex < ROOM_STAGES.findIndex((stage) => stage.id === 'DAY2_FUND_VOTE')) {
+      return '투표를 시작한 뒤에는 공동비용 이전 단계로 돌아갈 수 없습니다.'
+    }
+    if ((votePrepared || fundExpenseApplied)
+      && targetIndex < ROOM_STAGES.findIndex((stage) => stage.id === 'DAY2_FUND_COST')) {
+      return '공동기금 처리 후에는 최종 상점 이전 단계로 돌아갈 수 없습니다.'
+    }
+  }
+  return undefined
 }
 
 export function isNextStageDisabled({
