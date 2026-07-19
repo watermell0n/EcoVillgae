@@ -3482,6 +3482,51 @@ button.admin-student-row.is-selected {
   background: white;
 }
 
+.investment-asset-card {
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.investment-asset-card:hover,
+.investment-asset-card:focus-within {
+  border-color: #8167bb;
+  box-shadow: 0 12px 30px rgb(91 72 133 / 14%);
+  transform: translateY(-2px);
+}
+
+.investment-asset-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.investment-asset-card__detail-trigger {
+  min-height: auto;
+  padding: 0.25rem 0;
+  color: #7058a5;
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.investment-asset-card__detail-trigger:hover,
+.investment-asset-card__detail-trigger:focus-visible {
+  color: #4f377f;
+  background: transparent;
+  text-decoration: underline;
+}
+
+.investment-asset-card small {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  background: #f4f0fb;
+}
+
+.investment-asset-card small strong {
+  color: #5f468f;
+}
+
 .investment-asset-grid h3,
 .investment-asset-grid p {
   margin: 0;
@@ -3503,6 +3548,66 @@ button.admin-student-row.is-selected {
 .risk-badge--low { color: #287253; background: #e5f5ec; }
 .risk-badge--medium { color: #946a17; background: #fff1c9; }
 .risk-badge--high { color: #aa492e; background: #ffede5; }
+
+.investment-detail-modal {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 620px);
+  max-height: min(82vh, 760px);
+  padding: 1.5rem;
+  overflow-y: auto;
+  border-radius: 1.25rem;
+  background: #fffdf8;
+  box-shadow: 0 24px 70px rgb(24 28 34 / 30%);
+  text-align: left;
+}
+
+.investment-detail-modal header,
+.investment-detail-modal__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.investment-detail-modal h2 {
+  margin: 0;
+  color: #263449;
+  font-size: 1.6rem;
+}
+
+.investment-detail-modal__close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border-radius: 999px;
+  color: #596477;
+  background: #f0ece5;
+  font-size: 1.45rem;
+}
+
+.investment-detail-modal__meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding: 0.8rem;
+  border-radius: 0.8rem;
+  background: #f4f0fb;
+}
+
+.investment-detail-modal__meta strong {
+  color: #5f468f;
+  font-size: 0.85rem;
+}
+
+.investment-detail-modal__content {
+  margin: 0;
+  color: #576273;
+  line-height: 1.8;
+  white-space: pre-line;
+}
 
 .transaction-list {
   display: grid;

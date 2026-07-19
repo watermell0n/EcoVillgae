@@ -48,6 +48,7 @@ export interface InvestmentAsset {
   code: string
   name: string
   description: string
+  companyInfo: string
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
   minReturnBps: number
   maxReturnBps: number

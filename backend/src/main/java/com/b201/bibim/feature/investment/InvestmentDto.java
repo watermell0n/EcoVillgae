@@ -20,6 +20,7 @@ public final class InvestmentDto {
             String code,
             String name,
             String description,
+            String companyInfo,
             String riskLevel,
             int minReturnBps,
             int maxReturnBps,

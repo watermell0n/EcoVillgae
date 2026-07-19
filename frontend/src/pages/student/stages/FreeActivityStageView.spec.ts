@@ -135,6 +135,7 @@ describe('FreeActivityStageView', () => {
           code: 'SAFE_BOND',
           name: '안심 채권',
           description: '위험이 낮은 투자처예요.',
+          companyInfo: '안심 채권은 꾸준한 수익을 기대하는 상품이에요.',
           riskLevel: 'LOW',
           minReturnBps: -200,
           maxReturnBps: 400,
@@ -307,6 +308,24 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('투자 초안을 저장했어요')
   })
 
+  it('opens the selected company information without changing the investment amount', async () => {
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '투자')
+    await wrapper.get('.investment-asset-card').trigger('click')
+
+    const dialog = wrapper.get('.investment-detail-modal')
+    expect(dialog.attributes('role')).toBe('dialog')
+    expect(dialog.text()).toContain('안심 채권')
+    expect(dialog.text()).toContain('안심 채권은 꾸준한 수익을 기대하는 상품이에요.')
+    expect(dialog.text()).toContain('예상 결과 -2% ~ +4%')
+    expect(wrapper.get('.amount-spinner__value').text()).toBe('0비빔')
+
+    await dialog.get('[aria-label="기업 정보 닫기"]').trigger('click')
+    expect(wrapper.find('.investment-detail-modal').exists()).toBe(false)
+  })
+
   it('allows another investment after a previous investment was confirmed', async () => {
     economyApi.getEconomyOverview.mockResolvedValue({
       walletBalance: 70,
@@ -329,6 +348,7 @@ describe('FreeActivityStageView', () => {
           code: 'SAFE_BOND',
           name: '안심 채권',
           description: '위험이 낮은 투자처예요.',
+          companyInfo: '안심 채권은 꾸준한 수익을 기대하는 상품이에요.',
           riskLevel: 'LOW',
           minReturnBps: -200,
           maxReturnBps: 400,

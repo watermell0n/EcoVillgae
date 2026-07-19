@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 
+import type { InvestmentAsset } from '../../../features/economy/api/economy'
 import type { ShopProduct } from '../../../features/shop/api/shop'
 import { getApiErrorMessage } from '../../../shared/api/errors'
 import { useEconomyStore } from '../../../stores/economy'
@@ -30,6 +31,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const selectedProduct = ref<ShopProduct | null>(null)
+const selectedInvestmentAsset = ref<InvestmentAsset | null>(null)
 const quantity = ref(1)
 const reviewError = ref('')
 const reviewLoading = ref(false)
@@ -100,10 +102,19 @@ onUnmounted(() => {
 
 function openActivity(view: ActivityView) {
   activeView.value = view
+  selectedInvestmentAsset.value = null
   errorMessage.value = ''
   noticeMessage.value = ''
   if (view === 'DEPOSIT') resetDepositPrincipal(depositPrincipal.value)
   if (view === 'INVESTMENT') clampInvestmentAllocations()
+}
+
+function openInvestmentDetail(asset: InvestmentAsset) {
+  selectedInvestmentAsset.value = asset
+}
+
+function closeInvestmentDetail() {
+  selectedInvestmentAsset.value = null
 }
 
 function normalizedAmount(amount: number | undefined) {
@@ -316,7 +327,7 @@ function productEmoji(product: ShopProduct) {
 }
 
 function riskLabel(risk: string) {
-  return { LOW: '낮은 위험', MEDIUM: '중간 위험', HIGH: '높은 위험' }[risk] ?? risk
+  return { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }[risk] ?? risk
 }
 
 function transactionIcon(type: string) {
@@ -475,13 +486,26 @@ function formatPurchasedAt(value: string) {
           <p>1~3개 투자처에 10비빔 단위로 나누어 투자할 수 있어요. 확정한 건의 배분은 고정되지만, 남은 비빔으로 새 투자를 추가할 수 있어요.</p>
         </div>
         <div class="investment-asset-grid">
-          <article v-for="asset in investment.assets" :key="asset.assetId">
-            <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">{{ riskLabel(asset.riskLevel) }}</span>
+          <article
+            v-for="asset in investment.assets"
+            :key="asset.assetId"
+            class="investment-asset-card"
+            @click="openInvestmentDetail(asset)"
+          >
+            <div class="investment-asset-card__header">
+              <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">위험 {{ riskLabel(asset.riskLevel) }}</span>
+              <button
+                class="investment-asset-card__detail-trigger"
+                type="button"
+                :aria-label="`${asset.name} 기업 정보 보기`"
+                @click.stop="openInvestmentDetail(asset)"
+              >기업 정보 보기 →</button>
+            </div>
             <h3>{{ asset.name }}</h3>
             <p>{{ asset.description }}</p>
-            <small>예상 범위 {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
+            <small><strong>예상 결과</strong> {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
             <span :id="`investment-${asset.assetId}-label`" class="amount-stepper-label">투자 금액</span>
-            <div class="amount-spinner" role="group" :aria-labelledby="`investment-${asset.assetId}-label`">
+            <div class="amount-spinner" role="group" :aria-labelledby="`investment-${asset.assetId}-label`" @click.stop @keydown.stop>
               <output class="amount-spinner__value" aria-live="polite">{{ formatBibim(investmentAmount(asset.assetId)) }}</output>
               <div class="amount-spinner__buttons" aria-hidden="false">
                 <button
@@ -574,6 +598,29 @@ function formatPurchasedAt(value: string) {
         <p class="confirm-modal__warning">결제 금액 {{ formatBibim(totalPrice) }} · 결제 후 {{ formatBibim(catalog.walletBalance - totalPrice) }}</p>
         <p>구매한 상품은 환불하거나 교환할 수 없어요. 마지막으로 수량과 금액을 확인해 주세요.</p>
         <div class="confirm-modal__actions"><button class="button-secondary" type="button" :disabled="shopStore.purchasing" @click="closePurchase">취소</button><button type="button" :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance" @click="confirmPurchase">{{ shopStore.purchasing ? '결제 중…' : '구매 확정' }}</button></div>
+      </section>
+    </div>
+
+    <div v-if="selectedInvestmentAsset" class="modal-backdrop" @click.self="closeInvestmentDetail">
+      <section
+        class="investment-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="`investment-detail-${selectedInvestmentAsset.assetId}`"
+      >
+        <header>
+          <div>
+            <p class="eyebrow">기업 정보</p>
+            <h2 :id="`investment-detail-${selectedInvestmentAsset.assetId}`">{{ selectedInvestmentAsset.name }}</h2>
+          </div>
+          <button class="investment-detail-modal__close" type="button" aria-label="기업 정보 닫기" @click="closeInvestmentDetail">×</button>
+        </header>
+        <div class="investment-detail-modal__meta">
+          <span :class="`risk-badge risk-badge--${selectedInvestmentAsset.riskLevel.toLowerCase()}`">위험 {{ riskLabel(selectedInvestmentAsset.riskLevel) }}</span>
+          <strong>예상 결과 {{ formatRate(selectedInvestmentAsset.minReturnBps) }} ~ {{ formatRate(selectedInvestmentAsset.maxReturnBps) }}</strong>
+        </div>
+        <p class="investment-detail-modal__content">{{ selectedInvestmentAsset.companyInfo }}</p>
+        <button type="button" @click="closeInvestmentDetail">확인했어요</button>
       </section>
     </div>
   </div>

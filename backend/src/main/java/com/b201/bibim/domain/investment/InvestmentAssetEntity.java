@@ -27,6 +27,9 @@ public class InvestmentAssetEntity {
     @Column(nullable = false, length = 255)
     private String description;
 
+    @Column(name = "company_info", nullable = false, columnDefinition = "TEXT")
+    private String companyInfo;
+
     @Column(name = "risk_level", nullable = false, length = 20)
     private String riskLevel;
 
@@ -50,6 +53,7 @@ public class InvestmentAssetEntity {
             String code,
             String name,
             String description,
+            String companyInfo,
             String riskLevel,
             int minReturnBps,
             int maxReturnBps,
@@ -61,6 +65,7 @@ public class InvestmentAssetEntity {
         asset.code = code;
         asset.name = name;
         asset.description = description;
+        asset.companyInfo = companyInfo;
         asset.riskLevel = riskLevel;
         asset.minReturnBps = minReturnBps;
         asset.maxReturnBps = maxReturnBps;
@@ -74,6 +79,7 @@ public class InvestmentAssetEntity {
     public String getCode() { return code; }
     public String getName() { return name; }
     public String getDescription() { return description; }
+    public String getCompanyInfo() { return companyInfo; }
     public String getRiskLevel() { return riskLevel; }
     public int getMinReturnBps() { return minReturnBps; }
     public int getMaxReturnBps() { return maxReturnBps; }
