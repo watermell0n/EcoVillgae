@@ -46,6 +46,47 @@ const investment = computed(() => economyStore.investment)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
 const reviewPage = computed(() => learningStore.selectedTopic?.pages[reviewPageIndex.value])
 const expectedDepositInterest = computed(() => Math.round(depositPrincipal.value * 0.05))
+const depositHistorySummary = computed(() => economyStore.depositHistory.reduce(
+  (summary, item) => ({
+    principal: summary.principal + item.principal,
+    expectedInterest: summary.expectedInterest + item.expectedInterest,
+    expectedMaturityAmount: summary.expectedMaturityAmount + item.expectedMaturityAmount,
+  }),
+  { principal: 0, expectedInterest: 0, expectedMaturityAmount: 0 },
+))
+const investmentHistorySummary = computed(() => {
+  const byAsset = new Map<string, {
+    assetId: string
+    assetName: string
+    riskLevel: string
+    amount: number
+  }>()
+
+  for (const item of economyStore.investmentHistory) {
+    for (const allocation of item.allocations) {
+      const current = byAsset.get(allocation.assetId)
+      byAsset.set(allocation.assetId, {
+        assetId: allocation.assetId,
+        assetName: allocation.assetName,
+        riskLevel: allocation.riskLevel,
+        amount: (current?.amount ?? 0) + allocation.amount,
+      })
+    }
+  }
+
+  const displayOrder = new Map(
+    (investment.value?.assets ?? []).map((asset, index) => [asset.assetId, index]),
+  )
+  const assets = [...byAsset.values()].sort((left, right) =>
+    (displayOrder.get(left.assetId) ?? Number.MAX_SAFE_INTEGER)
+      - (displayOrder.get(right.assetId) ?? Number.MAX_SAFE_INTEGER),
+  )
+
+  return {
+    assets,
+    totalAmount: assets.reduce((sum, asset) => sum + asset.amount, 0),
+  }
+})
 const selectedAllocations = computed(() =>
   Object.entries(allocationAmounts)
     .filter(([, amount]) => Number(amount) > 0)
@@ -463,19 +504,32 @@ function formatPurchasedAt(value: string) {
             <strong>{{ economyStore.depositHistory.length }}건</strong>
           </div>
           <p v-if="economyStore.depositHistory.length === 0" class="finance-history-card__empty">아직 확정한 예금이 없어요.</p>
-          <ol v-else class="finance-history-list">
-            <li v-for="item in economyStore.depositHistory" :key="item.depositId">
-              <div class="finance-history-list__title">
-                <strong>{{ formatBibim(item.principal) }} 예금</strong>
-                <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
-              </div>
-              <dl>
-                <div><dt>약속 이자율</dt><dd>{{ formatRate(item.interestRateBps) }}</dd></div>
-                <div><dt>예상 이자</dt><dd>+{{ formatBibim(item.expectedInterest) }}</dd></div>
-                <div><dt>만기 예상</dt><dd>{{ formatBibim(item.expectedMaturityAmount) }}</dd></div>
-              </dl>
-            </li>
-          </ol>
+          <div v-else class="finance-history-card__scroll" tabindex="0" aria-label="예금 확정 내역 목록">
+            <ol class="finance-history-list">
+              <li v-for="item in economyStore.depositHistory" :key="item.depositId">
+                <div class="finance-history-list__title">
+                  <strong>{{ formatBibim(item.principal) }} 예금</strong>
+                  <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
+                </div>
+                <dl>
+                  <div><dt>약속 이자율</dt><dd>{{ formatRate(item.interestRateBps) }}</dd></div>
+                  <div><dt>예상 이자</dt><dd>+{{ formatBibim(item.expectedInterest) }}</dd></div>
+                  <div><dt>만기 예상</dt><dd>{{ formatBibim(item.expectedMaturityAmount) }}</dd></div>
+                </dl>
+              </li>
+            </ol>
+          </div>
+          <section v-if="economyStore.depositHistory.length > 0" class="finance-history-summary" aria-labelledby="deposit-summary-title">
+            <div class="finance-history-summary__header">
+              <div><p class="eyebrow">누적 합계</p><h3 id="deposit-summary-title">예금 전체 보기</h3></div>
+              <span>확정 금액 기준</span>
+            </div>
+            <dl class="finance-history-summary__totals">
+              <div><dt>총예금액</dt><dd>{{ formatBibim(depositHistorySummary.principal) }}</dd></div>
+              <div><dt>예상 이자</dt><dd>+{{ formatBibim(depositHistorySummary.expectedInterest) }}</dd></div>
+              <div><dt>만기 예상</dt><dd>{{ formatBibim(depositHistorySummary.expectedMaturityAmount) }}</dd></div>
+            </dl>
+          </section>
         </section>
       </section>
 
@@ -540,21 +594,37 @@ function formatPurchasedAt(value: string) {
             <strong>{{ economyStore.investmentHistory.length }}건</strong>
           </div>
           <p v-if="economyStore.investmentHistory.length === 0" class="finance-history-card__empty">아직 확정한 투자가 없어요.</p>
-          <ol v-else class="finance-history-list">
-            <li v-for="item in economyStore.investmentHistory" :key="item.orderId">
-              <div class="finance-history-list__title">
-                <strong>총 {{ formatBibim(item.totalAmount) }}</strong>
-                <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
-              </div>
-              <ul class="investment-history-allocations">
-                <li v-for="allocation in item.allocations" :key="allocation.assetId">
-                  <span :class="`risk-badge risk-badge--${allocation.riskLevel.toLowerCase()}`">{{ riskLabel(allocation.riskLevel) }}</span>
-                  <strong>{{ allocation.assetName }}</strong>
-                  <span>{{ formatBibim(allocation.amount) }}</span>
-                </li>
-              </ul>
-            </li>
-          </ol>
+          <div v-else class="finance-history-card__scroll" tabindex="0" aria-label="투자 확정 내역 목록">
+            <ol class="finance-history-list">
+              <li v-for="item in economyStore.investmentHistory" :key="item.orderId">
+                <div class="finance-history-list__title">
+                  <strong>총 {{ formatBibim(item.totalAmount) }}</strong>
+                  <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
+                </div>
+                <ul class="investment-history-allocations">
+                  <li v-for="allocation in item.allocations" :key="allocation.assetId">
+                    <span :class="`risk-badge risk-badge--${allocation.riskLevel.toLowerCase()}`">{{ riskLabel(allocation.riskLevel) }}</span>
+                    <strong>{{ allocation.assetName }}</strong>
+                    <span>{{ formatBibim(allocation.amount) }}</span>
+                  </li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+          <section v-if="economyStore.investmentHistory.length > 0" class="finance-history-summary" aria-labelledby="investment-summary-title">
+            <div class="finance-history-summary__header">
+              <div><p class="eyebrow">누적 합계</p><h3 id="investment-summary-title">종목별 투자금</h3></div>
+              <span>확정 금액 기준</span>
+            </div>
+            <ul class="investment-history-summary-list">
+              <li v-for="asset in investmentHistorySummary.assets" :key="asset.assetId">
+                <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">{{ riskLabel(asset.riskLevel) }}</span>
+                <strong>{{ asset.assetName }}</strong>
+                <span>{{ formatBibim(asset.amount) }}</span>
+              </li>
+            </ul>
+            <div class="investment-history-summary-total"><span>전체 투자금</span><strong>{{ formatBibim(investmentHistorySummary.totalAmount) }}</strong></div>
+          </section>
         </section>
       </section>
 

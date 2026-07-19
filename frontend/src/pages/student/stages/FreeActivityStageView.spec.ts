@@ -421,7 +421,7 @@ describe('FreeActivityStageView', () => {
     expect(increaseButton.attributes('disabled')).toBeDefined()
   })
 
-  it('shows every confirmed deposit and investment allocation', async () => {
+  it('keeps confirmed histories scrollable and shows their accumulated summaries', async () => {
     economyApi.getDepositHistory.mockResolvedValue([
       {
         depositId: 'deposit-1',
@@ -431,6 +431,14 @@ describe('FreeActivityStageView', () => {
         expectedMaturityAmount: 42,
         confirmedAt: '2026-07-16T00:00:00Z',
       },
+      {
+        depositId: 'deposit-2',
+        principal: 60,
+        interestRateBps: 500,
+        expectedInterest: 3,
+        expectedMaturityAmount: 63,
+        confirmedAt: '2026-07-17T00:00:00Z',
+      },
     ])
     economyApi.getInvestmentHistory.mockResolvedValue([
       {
@@ -438,7 +446,17 @@ describe('FreeActivityStageView', () => {
         totalAmount: 30,
         confirmedAt: '2026-07-16T00:00:00Z',
         allocations: [
-          { assetId: 'asset-1', assetName: '튼튼 채권', riskLevel: 'LOW', amount: 30 },
+          { assetId: 'asset-1', assetName: '거북이 상사', riskLevel: 'LOW', amount: 20 },
+          { assetId: 'asset-2', assetName: '독수리 테크', riskLevel: 'MEDIUM', amount: 10 },
+        ],
+      },
+      {
+        orderId: 'order-2',
+        totalAmount: 30,
+        confirmedAt: '2026-07-17T00:00:00Z',
+        allocations: [
+          { assetId: 'asset-1', assetName: '거북이 상사', riskLevel: 'LOW', amount: 20 },
+          { assetId: 'asset-3', assetName: '호랑이 운송', riskLevel: 'HIGH', amount: 10 },
         ],
       },
     ])
@@ -448,12 +466,23 @@ describe('FreeActivityStageView', () => {
     await openTab(wrapper, '예금')
     expect(wrapper.text()).toContain('내가 맡긴 예금')
     expect(wrapper.text()).toContain('40비빔 예금')
+    expect(wrapper.text()).toContain('60비빔 예금')
     expect(wrapper.text()).toContain('만기 예상')
-    expect(wrapper.text()).toContain('42비빔')
+    const depositScroll = wrapper.get('[aria-label="예금 확정 내역 목록"]')
+    expect(depositScroll.attributes('tabindex')).toBe('0')
+    const depositSummary = wrapper.get('[aria-labelledby="deposit-summary-title"]')
+    expect(depositSummary.text()).toContain('총예금액100비빔')
+    expect(depositSummary.text()).toContain('예상 이자+5비빔')
+    expect(depositSummary.text()).toContain('만기 예상105비빔')
 
     await openTab(wrapper, '투자')
     expect(wrapper.text()).toContain('내가 선택한 투자처')
-    expect(wrapper.text()).toContain('튼튼 채권')
-    expect(wrapper.text()).toContain('30비빔')
+    const investmentScroll = wrapper.get('[aria-label="투자 확정 내역 목록"]')
+    expect(investmentScroll.attributes('tabindex')).toBe('0')
+    const investmentSummary = wrapper.get('[aria-labelledby="investment-summary-title"]')
+    expect(investmentSummary.text()).toContain('거북이 상사40비빔')
+    expect(investmentSummary.text()).toContain('독수리 테크10비빔')
+    expect(investmentSummary.text()).toContain('호랑이 운송10비빔')
+    expect(investmentSummary.text()).toContain('전체 투자금60비빔')
   })
 })
