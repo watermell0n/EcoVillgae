@@ -30,7 +30,7 @@ describe('room stages', () => {
   it('provides a Korean label and description for every stage', () => {
     expect(getRoomStage('DAY1_QUIZ')).toMatchObject({
       label: '독서 퀴즈',
-      description: '10문제 독서 퀴즈로 참여수당과 정답수당을 얻습니다.',
+      description: '10문제 독서 퀴즈로 문제당 5비빔의 정답수당을 얻습니다.',
     })
     expect(getRoomStage('DAY2_QUIZ')).toMatchObject({
       label: '경제 퀴즈',

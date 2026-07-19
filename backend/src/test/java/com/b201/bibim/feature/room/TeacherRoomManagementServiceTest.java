@@ -22,6 +22,7 @@ import com.b201.bibim.domain.quiz.QuizRepository;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
+import com.b201.bibim.domain.room.RoomRulesEntity;
 import com.b201.bibim.domain.room.RoomRulesRepository;
 import com.b201.bibim.domain.shop.ProductRepository;
 import com.b201.bibim.domain.shop.ProductEntity;
@@ -120,10 +121,31 @@ class TeacherRoomManagementServiceTest {
         ArgumentCaptor<Iterable<ProductEntity>> productCaptor =
                 ArgumentCaptor.forClass(Iterable.class);
         verify(productRepository).saveAll(productCaptor.capture());
-        assertEquals(3, count(productCaptor.getValue()));
+        List<ProductEntity> products = toList(productCaptor.getValue());
+        assertEquals(8, products.size());
+        assertEquals(
+                List.of(
+                        "말랑카우 빠삐코", "쿠크다스케이크", "마이쭈 딸기", "포도 알맹이",
+                        "카피바라 지우개", "과일말랑이", "왁뿌볼", "배움공책 면제권"
+                ),
+                products.stream().map(ProductEntity::getName).toList()
+        );
+        assertEquals(List.of(35L, 65L, 45L, 80L, 120L, 150L, 200L, 90L),
+                products.stream().map(ProductEntity::getOriginalPrice).toList());
+        assertEquals(List.of(38, 10, 18, 6, 3, 2, 1, 15),
+                products.stream().map(ProductEntity::getInitialStock).toList());
+
+        ArgumentCaptor<RoomRulesEntity> rulesCaptor = ArgumentCaptor.forClass(RoomRulesEntity.class);
+        verify(roomRulesRepository).save(rulesCaptor.capture());
+        RoomRulesEntity rules = rulesCaptor.getValue();
+        assertEquals(150, rules.getRoleIncome());
+        assertEquals(0, rules.getDay1ParticipationReward());
+        assertEquals(5, rules.getDay1CorrectReward());
+        assertEquals(0, rules.getDay2ParticipationReward());
+        assertEquals(5, rules.getDay2CorrectReward());
+        assertEquals(1_000, rules.getIncomeTaxBps());
 
         assertNotNull(response.roomId());
-        verify(roomRulesRepository).save(any());
         verify(sessionRepository).save(any());
     }
 

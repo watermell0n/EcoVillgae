@@ -18,13 +18,13 @@ describe('PayslipStageView', () => {
       nickname: '비빔이',
       quizSubmitted: true,
       correctCount: 3,
-      roleIncome: 100,
-      participationReward: 10,
-      correctReward: 30,
-      grossIncome: 140,
-      incomeTax: 14,
-      netIncome: 126,
-      walletBalance: 126,
+      roleIncome: 150,
+      participationReward: 0,
+      correctReward: 15,
+      grossIncome: 165,
+      incomeTax: 16,
+      netIncome: 149,
+      walletBalance: 149,
       issuedAt: '2026-07-16T00:00:00Z',
     })
   })
@@ -35,9 +35,11 @@ describe('PayslipStageView', () => {
 
     expect(settlementApi.getDay1Payslip).toHaveBeenCalledOnce()
     expect(wrapper.text()).toContain('비빔이님의 소득을 확인해요.')
-    expect(wrapper.text()).toContain('3문제 정답')
-    expect(wrapper.text()).toContain('140비빔')
-    expect(wrapper.text()).toContain('14비빔')
-    expect(wrapper.text()).toContain('126비빔')
+    expect(wrapper.text()).toContain('역할 기본 월급')
+    expect(wrapper.text()).toContain('3문제 × 5비빔')
+    expect(wrapper.text()).not.toContain('퀴즈 참여수당')
+    expect(wrapper.text()).toContain('165비빔')
+    expect(wrapper.text()).toContain('16비빔')
+    expect(wrapper.text()).toContain('149비빔')
   })
 })

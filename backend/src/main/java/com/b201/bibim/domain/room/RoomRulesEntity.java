@@ -51,13 +51,13 @@ public class RoomRulesEntity {
         RoomRulesEntity rules = new RoomRulesEntity();
         rules.id = UUID.randomUUID();
         rules.roomId = roomId;
-        rules.roleIncome = 100;
-        rules.day1ParticipationReward = 10;
-        rules.day1CorrectReward = 10;
+        rules.roleIncome = 150;
+        rules.day1ParticipationReward = 0;
+        rules.day1CorrectReward = 5;
         rules.incomeTaxBps = 1000;
         rules.depositInterestBps = 1000;
         rules.financialTaxBps = 1000;
-        rules.day2ParticipationReward = 10;
+        rules.day2ParticipationReward = 0;
         rules.day2CorrectReward = 5;
         rules.inflationBps = 1000;
         return rules;

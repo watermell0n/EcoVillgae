@@ -113,22 +113,52 @@ public class TeacherRoomManagementService {
 
     private static final List<ProductDefinition> DEFAULT_PRODUCTS = List.of(
             new ProductDefinition(
-                    "연필 세트",
-                    "수업과 일상에서 알차게 사용할 수 있는 연필 세트예요.",
-                    25,
+                    "말랑카우 빠삐코",
+                    "달콤하고 시원하게 즐기는 간식 세트예요.",
+                    35,
+                    38
+            ),
+            new ProductDefinition(
+                    "쿠크다스케이크",
+                    "부드럽고 달콤한 케이크 간식이에요.",
+                    65,
                     10
             ),
             new ProductDefinition(
-                    "간식 꾸러미",
-                    "활동을 마친 뒤 즐길 수 있는 작은 간식 꾸러미예요.",
-                    40,
-                    8
+                    "마이쭈 딸기",
+                    "쫀득하게 즐기는 딸기맛 간식이에요.",
+                    45,
+                    18
             ),
             new ProductDefinition(
-                    "우선 선택권",
-                    "다음 학급 활동에서 순서를 먼저 선택할 수 있어요.",
-                    70,
+                    "포도 알맹이",
+                    "탱글탱글한 포도맛 젤리 간식이에요.",
+                    80,
+                    6
+            ),
+            new ProductDefinition(
+                    "카피바라 지우개",
+                    "귀여운 카피바라 모양 지우개예요.",
+                    120,
                     3
+            ),
+            new ProductDefinition(
+                    "과일말랑이",
+                    "말랑한 과일 모양 촉감 장난감이에요.",
+                    150,
+                    2
+            ),
+            new ProductDefinition(
+                    "왁뿌볼",
+                    "재미있게 가지고 놀 수 있는 말랑한 공이에요.",
+                    200,
+                    1
+            ),
+            new ProductDefinition(
+                    "배움공책 면제권",
+                    "배움공책 활동을 한 번 면제받을 수 있는 이용권이에요.",
+                    90,
+                    15
             )
     );
 

@@ -12,8 +12,8 @@ const loading = ref(true)
 const errorMessage = ref('')
 const rewardMessage = computed(() => {
   if (!reward.value?.submitted) return '퀴즈를 제출하지 않아 이번 보상은 지급되지 않았어요.'
-  if (reward.value.correctCount === 0) return '참여수당을 받았어요. 틀린 문제도 다음 활동을 위한 좋은 연습이에요.'
-  return `${reward.value.correctCount}개의 정답과 참여 보상이 지갑에 반영되었어요.`
+  if (reward.value.correctCount === 0) return '정답수당은 없지만, 틀린 문제도 다음 활동을 위한 좋은 연습이에요.'
+  return `${reward.value.correctCount}개의 정답수당이 세금 없이 지갑에 반영되었어요.`
 })
 
 onMounted(async () => {
@@ -52,22 +52,20 @@ function formatBibim(amount: number) {
       </header>
 
       <div v-if="reward.submitted" class="quiz-reward-equation" aria-label="퀴즈 보상 계산식">
-        <div><span>참여수당</span><strong>{{ formatBibim(reward.participationReward) }}</strong></div>
-        <b aria-hidden="true">+</b>
-        <div><span>{{ reward.correctCount }}문제 정답 보상</span><strong>{{ formatBibim(reward.correctReward) }}</strong></div>
+        <div><span>{{ reward.correctCount }}문제 × 5비빔</span><strong>{{ formatBibim(reward.correctReward) }}</strong></div>
         <b aria-hidden="true">=</b>
         <div class="is-total"><span>내가 받은 총 보상</span><strong>{{ formatBibim(reward.totalReward) }}</strong></div>
       </div>
 
       <dl class="day2-reward-breakdown">
-        <div><dt>참여수당</dt><dd>+{{ formatBibim(reward.participationReward) }}</dd></div>
-        <div><dt>정답 보상</dt><dd>+{{ formatBibim(reward.correctReward) }}</dd></div>
+        <div><dt>퀴즈 정답수당</dt><dd>+{{ formatBibim(reward.correctReward) }}</dd></div>
+        <div><dt>세금</dt><dd>{{ formatBibim(0) }}</dd></div>
         <div class="is-total"><dt>총 보상</dt><dd>+{{ formatBibim(reward.totalReward) }}</dd></div>
         <div><dt>보상 후 지갑</dt><dd>{{ formatBibim(reward.walletAfter) }}</dd></div>
       </dl>
       <aside class="quiz-reward-tip">
         <span aria-hidden="true">💡</span>
-        <p><strong>보상은 한 번만 지급돼요.</strong> 선생님이 정산한 참여수당과 정답 보상이 지갑에 안전하게 반영되었습니다.</p>
+        <p><strong>보상은 한 번만 지급돼요.</strong> 선생님이 정산한 퀴즈 정답수당이 지갑에 안전하게 반영되었습니다.</p>
       </aside>
     </section>
   </div>

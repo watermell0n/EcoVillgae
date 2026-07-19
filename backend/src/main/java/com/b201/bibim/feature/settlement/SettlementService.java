@@ -191,7 +191,7 @@ public class SettlementService {
                     amount.roleIncome(),
                     "ROLE_INCOME",
                     normalizedKey + ":" + student.getId() + ":role",
-                    "역할 소득 지급"
+                    "역할 기본 월급 지급"
             );
             transfer(
                     room,
@@ -328,7 +328,7 @@ public class SettlementService {
         AccountEntity treasury = getOrCreateRoomAccount(room.getId(), "SYSTEM_TREASURY");
         String key = "catchup:day1:" + studentId;
         transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
-                amount.roleIncome(), "ROLE_INCOME", key + ":role", "보충 역할 급여 지급");
+                amount.roleIncome(), "ROLE_INCOME", key + ":role", "보충 역할 기본 월급 지급");
         transfer(room, session, room.getTeacherId(), run, student, treasury, wallet,
                 amount.participationReward(), "QUIZ_PARTICIPATION_REWARD",
                 key + ":participation", "보충 퀴즈 참여수당 지급");

@@ -41,15 +41,11 @@ function formatBibim(amount: number) {
 
       <section class="payslip-sheet" aria-label="소득과 세금 내역">
         <div class="payslip-line">
-          <span>역할 소득</span>
+          <span>역할 기본 월급</span>
           <strong>{{ formatBibim(payslip.roleIncome) }}</strong>
         </div>
         <div class="payslip-line">
-          <span>퀴즈 참여수당</span>
-          <strong>{{ formatBibim(payslip.participationReward) }}</strong>
-        </div>
-        <div class="payslip-line">
-          <span>정답수당 <small>{{ payslip.correctCount }}문제 정답</small></span>
+          <span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제 × 5비빔</small></span>
           <strong>{{ formatBibim(payslip.correctReward) }}</strong>
         </div>
         <div class="payslip-line payslip-line--subtotal">
@@ -71,7 +67,7 @@ function formatBibim(amount: number) {
         <strong>{{ formatBibim(payslip.walletBalance) }}</strong>
       </div>
       <p class="payslip-explanation">
-        <strong>총소득</strong>은 일과 퀴즈로 번 돈을 모두 더한 금액이고,
+        <strong>총소득</strong>은 역할 기본 월급과 퀴즈 정답수당을 더한 금액이고,
         <strong>실수령액</strong>은 총소득에서 공동체를 위한 소득세를 뺀 금액이에요.
       </p>
     </template>

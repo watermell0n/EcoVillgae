@@ -18,10 +18,10 @@ describe('Day2QuizRewardStageView', () => {
       nickname: '비빔이',
       submitted: true,
       correctCount: 2,
-      participationReward: 10,
+      participationReward: 0,
       correctReward: 10,
-      totalReward: 20,
-      walletAfter: 87,
+      totalReward: 10,
+      walletAfter: 77,
     })
   })
 
@@ -31,9 +31,10 @@ describe('Day2QuizRewardStageView', () => {
 
     expect(wrapper.text()).toContain('경제 퀴즈 보상 정산 결과')
     expect(wrapper.text()).toContain('2문제를 맞혔어요!')
-    expect(wrapper.text()).toContain('2문제 정답 보상')
+    expect(wrapper.text()).toContain('2문제 × 5비빔')
     expect(wrapper.text()).toContain('내가 받은 총 보상')
-    expect(wrapper.text()).toContain('20비빔')
+    expect(wrapper.text()).toContain('10비빔')
+    expect(wrapper.text()).not.toContain('참여수당')
     expect(wrapper.text()).toContain('보상은 한 번만 지급돼요.')
   })
 })

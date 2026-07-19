@@ -1319,8 +1319,7 @@ function moduleTone(moduleState: string) {
               />
             </div>
             <div class="day2-reward-rule">
-              <span>제출 참여수당 {{ formatBibim(day2QuizRewardPreview.participationRewardPerStudent) }}</span>
-              <span>정답당 {{ formatBibim(day2QuizRewardPreview.correctRewardPerQuestion) }}</span>
+              <span>정답 1문제당 {{ formatBibim(day2QuizRewardPreview.correctRewardPerQuestion) }}</span>
               <strong>예상 총 보상 {{ formatBibim(day2QuizRewardPreview.totalReward) }}</strong>
             </div>
             <p v-if="day2QuizRewardPreview.notSubmittedCount > 0" class="control-caution">
@@ -1328,13 +1327,13 @@ function moduleTone(moduleState: string) {
             </p>
             <div class="day1-student-table" role="table" aria-label="경제 퀴즈 보상 미리보기">
               <div class="day1-student-table__head" role="row">
-                <span>학생</span><span>제출</span><span>정답</span><span>참여수당</span><span>총 보상</span>
+                <span>학생</span><span>제출</span><span>정답</span><span>정답수당</span><span>총 보상</span>
               </div>
               <div v-for="studentItem in day2QuizRewardPreview.students" :key="studentItem.studentId" role="row">
                 <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
                 <span>{{ studentItem.submitted ? '제출' : '미제출' }}</span>
                 <span>{{ studentItem.correctCount }}개</span>
-                <span>{{ formatBibim(studentItem.participationReward) }}</span>
+                <span>{{ formatBibim(studentItem.correctReward) }}</span>
                 <strong>{{ formatBibim(studentItem.totalReward) }}</strong>
               </div>
             </div>
