@@ -116,3 +116,31 @@ export async function forceAdminStudentToCurrentStage(roomId: string, studentId:
   )
   return response.data.data
 }
+
+export async function forceAdminStudentView(roomId: string, studentId: string, targetStage: string) {
+  const response = await http.post<ApiResponse<unknown>>(
+    `/admin/rooms/${roomId}/students/${studentId}/force-view`,
+    { targetStage },
+  )
+  return response.data.data
+}
+
+export async function adjustAdminStudentWallet(
+  roomId: string,
+  studentId: string,
+  amount: number,
+  reason: string,
+) {
+  const response = await http.post<ApiResponse<{
+    studentId: string
+    balance: number
+    adjustedAmount: number
+    adjustedAt: string
+  }>>(`/admin/rooms/${roomId}/students/${studentId}/wallet-adjustments`, { amount, reason })
+  return response.data.data
+}
+
+export async function deleteAdminRoom(roomId: string) {
+  const response = await http.delete<ApiResponse<AdminRoomMonitoring>>(`/admin/rooms/${roomId}`)
+  return response.data.data
+}

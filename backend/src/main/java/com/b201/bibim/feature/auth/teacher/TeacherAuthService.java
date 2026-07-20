@@ -71,7 +71,7 @@ public class TeacherAuthService {
 
     private TeacherResponse toResponse(UserEntity teacher) {
         List<RoomSummary> rooms = roomRepository
-                .findAllByTeacherIdOrderByUpdatedAtDesc(teacher.getId())
+                .findAllByTeacherIdAndStatusNotOrderByUpdatedAtDesc(teacher.getId(), "ARCHIVED")
                 .stream()
                 .map(this::toRoomSummary)
                 .toList();

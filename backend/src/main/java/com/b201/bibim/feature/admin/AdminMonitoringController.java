@@ -11,6 +11,9 @@ import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationRequest;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationResponse;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.ForceStudentViewRequest;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.WalletAdjustmentRequest;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.WalletAdjustmentResponse;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
 import com.b201.bibim.global.security.AuthenticatedPrincipal;
@@ -22,6 +25,7 @@ import com.b201.bibim.feature.room.RoomSessionService;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,6 +75,44 @@ public class AdminMonitoringController {
                 studentFlowService.forceMoveToCurrentStage(principal.id(), roomId, studentId),
                 requestId(request)
         );
+    }
+
+    @PostMapping("/rooms/{roomId}/students/{studentId}/force-view")
+    ApiResponse<FlowResponse> forceView(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @PathVariable UUID roomId,
+            @PathVariable UUID studentId,
+            @Valid @RequestBody ForceStudentViewRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                studentFlowService.forceMoveToStage(principal.id(), roomId, studentId, body.targetStage()),
+                requestId(request)
+        );
+    }
+
+    @PostMapping("/rooms/{roomId}/students/{studentId}/wallet-adjustments")
+    ApiResponse<WalletAdjustmentResponse> adjustWallet(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @PathVariable UUID roomId,
+            @PathVariable UUID studentId,
+            @Valid @RequestBody WalletAdjustmentRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                adminMonitoringService.adjustWallet(
+                        principal.id(), roomId, studentId, body.amount(), body.reason()
+                ),
+                requestId(request)
+        );
+    }
+
+    @DeleteMapping("/rooms/{roomId}")
+    ApiResponse<RoomMonitoringResponse> archiveRoom(
+            @PathVariable UUID roomId,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(adminMonitoringService.archiveRoom(roomId), requestId(request));
     }
 
     @GetMapping("/rooms")

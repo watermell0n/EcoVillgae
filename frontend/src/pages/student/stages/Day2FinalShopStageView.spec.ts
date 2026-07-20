@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import Day2FinalShopStageView from './Day2FinalShopStageView.vue'
 
@@ -28,6 +28,10 @@ vi.mock('../../../features/shop/api/shop', () => shopApi)
 vi.mock('../../../features/economy/api/economy', () => economyApi)
 
 describe('Day2FinalShopStageView', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
@@ -93,5 +97,38 @@ describe('Day2FinalShopStageView', () => {
 
     expect(wrapper.get('[role="alertdialog"]').text()).toContain('상품이 방금 품절됐어요')
     expect(wrapper.get('[role="alertdialog"] button').text()).toBe('확인')
+  })
+
+  it('shows a purchase notice only in the shop and removes it after three seconds', async () => {
+    vi.useFakeTimers()
+    shopApi.getStudentShopProducts.mockResolvedValue({
+      walletBalance: 100,
+      products: [{
+        productId: 'product-1', name: '마이쭈 딸기', description: '딸기맛 간식', imageUrl: null,
+        originalPrice: 20, price: 20, initialStock: 2, currentStock: 2,
+        status: 'ON_SALE', displayOrder: 1,
+      }],
+    })
+    shopApi.purchaseShopProduct.mockResolvedValue({
+      purchaseId: 'purchase-1', productId: 'product-1', productName: '마이쭈 딸기',
+      quantity: 1, unitPrice: 20, totalPrice: 20, walletBalance: 80,
+      remainingStock: 1, productStatus: 'ON_SALE', purchasedAt: '2026-07-20T00:00:00Z', replayed: false,
+    })
+
+    const wrapper = mount(Day2FinalShopStageView)
+    await flushPromises()
+    await wrapper.get('.shop-product-card button').trigger('click')
+    await flushPromises()
+    await wrapper.get('.confirm-modal__actions button:last-child').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[role="status"]').text()).toContain('마이쭈 딸기 1개를 구매했습니다.')
+    await wrapper.findAll('.economy-module-tabs button')[1]!.trigger('click')
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    await wrapper.findAll('.economy-module-tabs button')[0]!.trigger('click')
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+
+    wrapper.unmount()
   })
 })

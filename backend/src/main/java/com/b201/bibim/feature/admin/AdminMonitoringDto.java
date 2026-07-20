@@ -6,6 +6,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public final class AdminMonitoringDto {
@@ -90,6 +93,30 @@ public final class AdminMonitoringDto {
             UUID studentId,
             int revokedSessionCount,
             Instant terminatedAt
+    ) {
+    }
+
+    public record WalletAdjustmentRequest(
+            @Min(value = -1000000, message = "한 번에 조정할 수 있는 잔액은 -1,000,000 이상이어야 합니다.")
+            @Max(value = 1000000, message = "한 번에 조정할 수 있는 잔액은 1,000,000 이하여야 합니다.")
+            long amount,
+            @NotBlank(message = "잔액 조정 사유를 입력해 주세요.")
+            @Size(max = 200, message = "잔액 조정 사유는 200자 이하여야 합니다.")
+            String reason
+    ) {
+    }
+
+    public record WalletAdjustmentResponse(
+            UUID studentId,
+            long balance,
+            long adjustedAmount,
+            Instant adjustedAt
+    ) {
+    }
+
+    public record ForceStudentViewRequest(
+            @NotNull(message = "이동할 화면을 선택해 주세요.")
+            String targetStage
     ) {
     }
 }

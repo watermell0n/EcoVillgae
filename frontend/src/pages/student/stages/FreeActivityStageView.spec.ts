@@ -334,8 +334,10 @@ describe('FreeActivityStageView', () => {
     const dialog = wrapper.get('.investment-detail-modal')
     expect(dialog.attributes('role')).toBe('dialog')
     expect(dialog.text()).toContain('안심 채권')
+    expect(dialog.text()).toContain('위험 낮음')
     expect(dialog.text()).toContain('안심 채권은 꾸준한 수익을 기대하는 상품이에요.')
-    expect(dialog.text()).toContain('예상 결과 -2% ~ +4%')
+    expect(dialog.text()).not.toContain('예상 결과')
+    expect(dialog.text()).not.toContain('근거가 되는 정보')
     expect((wrapper.get('.amount-spinner__input').element as HTMLInputElement).value).toBe('0')
 
     await dialog.get('[aria-label="기업 정보 닫기"]').trigger('click')
@@ -392,7 +394,7 @@ describe('FreeActivityStageView', () => {
     await flushPromises()
 
     await openTab(wrapper, '투자')
-    expect(wrapper.text()).toContain('지금까지 30비빔을 투자했어요')
+    expect(wrapper.text()).not.toContain('지금까지 30비빔을 투자했어요')
     expect(wrapper.find('.investment-asset-grid input').exists()).toBe(true)
     const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
     await increaseButton.trigger('click')
@@ -403,6 +405,54 @@ describe('FreeActivityStageView', () => {
     expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
       { assetId: 'asset-1', amount: 20 },
     ])
+  })
+
+  it('shows investment confirmation in a popup and accumulates confirmed items below', async () => {
+    economyApi.saveInvestmentDraft.mockResolvedValue({
+      ...(await economyApi.getCurrentInvestment()),
+      orderId: 'order-1',
+      status: 'DRAFT',
+      totalAmount: 20,
+      allocations: [{ assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 20 }],
+    })
+    economyApi.confirmInvestment.mockResolvedValue({
+      ...(await economyApi.getCurrentInvestment()),
+      orderId: 'order-1',
+      status: 'CONFIRMED',
+      totalAmount: 20,
+      walletBalance: 80,
+      scenarioLocked: true,
+      allocations: [{ assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 20 }],
+      confirmedAt: '2026-07-20T00:00:00Z',
+      replayed: false,
+    })
+    const roomSessionStore = useRoomSessionStore()
+    vi.spyOn(roomSessionStore, 'refreshStudent').mockResolvedValue(undefined as never)
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    economyApi.getInvestmentHistory.mockResolvedValue([{
+      orderId: 'order-1',
+      totalAmount: 20,
+      confirmedAt: '2026-07-20T00:00:00Z',
+      allocations: [{ assetId: 'asset-1', assetName: '안심 채권', riskLevel: 'LOW', amount: 20 }],
+    }])
+    await openTab(wrapper, '투자')
+    const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+    const actions = wrapper.findAll('.finance-actions button')
+    await actions[1]!.trigger('click')
+    await flushPromises()
+    await actions[2]!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[role="alertdialog"]').text()).toContain('투자 내역을 저장했어요')
+    expect(wrapper.text()).not.toContain('✓ 지금까지')
+    expect(wrapper.get('#investment-history-title').text()).toBe('누적 투자 내역')
+    expect(wrapper.get('[aria-labelledby="investment-summary-title"]').text()).toContain('안심 채권20비빔')
+    await wrapper.get('[role="alertdialog"] button').trigger('click')
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
   })
 
   it('supports direct investment input and never exceeds the available wallet balance', async () => {
@@ -492,7 +542,7 @@ describe('FreeActivityStageView', () => {
     expect(depositSummary.text()).toContain('만기 예상105비빔')
 
     await openTab(wrapper, '투자')
-    expect(wrapper.text()).toContain('내가 선택한 투자처')
+    expect(wrapper.text()).toContain('누적 투자 내역')
     const investmentScroll = wrapper.get('[aria-label="투자 확정 내역 목록"]')
     expect(investmentScroll.attributes('tabindex')).toBe('0')
     const investmentSummary = wrapper.get('[aria-labelledby="investment-summary-title"]')

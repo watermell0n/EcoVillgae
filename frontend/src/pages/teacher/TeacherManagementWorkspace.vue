@@ -10,6 +10,7 @@ import {
   updateManagedStudent,
   type ClassSettings,
   type ManagedStudent,
+  type ProductSetting,
 } from '../../features/management/api/management'
 import { getApiErrorMessage } from '../../shared/api/errors'
 
@@ -30,6 +31,7 @@ const showSaveConfirm = ref(false)
 const pendingResetStudent = ref<ManagedStudent | null>(null)
 const selectedStudentId = ref<string | null>(null)
 const lockedRoleStudentIds = ref<Set<string>>(new Set())
+const productImageError = ref('')
 
 const selectedQuiz = computed(() => settings.value?.quizzes.find((quiz) => quiz.dayNumber === selectedQuizDay.value))
 const selectedStudent = computed(() => students.value.find((student) => student.studentId === selectedStudentId.value) ?? null)
@@ -132,6 +134,50 @@ async function resetPassword() {
     saving.value = false
   }
 }
+
+function addProduct() {
+  if (!settings.value) return
+  const displayOrder = Math.max(0, ...settings.value.products.map((product) => product.displayOrder)) + 1
+  settings.value.products.push({
+    productId: null,
+    name: '새 상품',
+    description: '상품 설명을 입력해 주세요.',
+    price: 0,
+    imageUrl: null,
+    currentStock: 10,
+    displayOrder,
+  })
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function selectProductImage(product: ProductSetting, event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  productImageError.value = ''
+  if (!file.type.startsWith('image/')) {
+    productImageError.value = '이미지 파일만 선택할 수 있습니다.'
+    return
+  }
+  if (file.size > 2_000_000) {
+    productImageError.value = '이미지는 2MB 이하 파일을 선택해 주세요.'
+    return
+  }
+  try {
+    product.imageUrl = await readFileAsDataUrl(file)
+  } catch {
+    productImageError.value = '이미지 파일을 읽지 못했습니다.'
+  }
+}
 </script>
 
 <template>
@@ -210,7 +256,7 @@ async function resetPassword() {
       <template v-else-if="settings">
         <div v-if="settings.editingLiveClass" class="live-edit-warning">진행 중인 수업입니다. 준비 상태인 퀴즈와 아직 확정되지 않은 경제 값만 신중하게 변경해 주세요.</div>
         <section class="class-identity-settings">
-          <label>수업 제목<input v-model.trim="settings.roomName" maxlength="100" placeholder="예: 6학년 2반 경제교실"></label>
+          <label>수업 제목<input v-model.trim="settings.roomName" maxlength="100" placeholder="예: 햇살반 경제교실"></label>
           <p>저장하면 교사·학생 화면의 수업 이름이 실시간으로 갱신됩니다.</p>
         </section>
         <nav class="management-tabs" aria-label="수업 설정 항목">
@@ -251,7 +297,27 @@ async function resetPassword() {
         </section>
 
         <section v-else class="settings-stack">
-          <article v-for="product in settings.products" :key="product.productId" class="settings-editor-card"><div class="settings-form-grid"><label>상품명<input v-model="product.name"></label><label>가격<input v-model.number="product.price" type="number" min="0"><span>비빔</span></label></div><label>상품 설명<textarea v-model="product.description" rows="2" /></label><label>상품 이미지 URL<input v-model.trim="product.imageUrl" type="url" placeholder="https://example.com/product.jpg"></label><img v-if="product.imageUrl" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`"><small>이미지 주소를 비워 두면 기본 아이콘이 표시됩니다. · 현재 재고 {{ product.currentStock }}개</small></article>
+          <div class="settings-section-actions">
+            <div><strong>상점 상품</strong><small>교사가 새 상품과 재고를 직접 준비할 수 있습니다.</small></div>
+            <button type="button" @click="addProduct">+ 상품 추가</button>
+          </div>
+          <p v-if="productImageError" class="form-error" role="alert">{{ productImageError }}</p>
+          <article v-for="product in settings.products" :key="product.productId ?? `new-${product.displayOrder}`" class="settings-editor-card">
+            <header><strong>{{ product.name }}</strong><span>{{ product.productId ? '등록 상품' : '새 상품' }}</span></header>
+            <div class="settings-form-grid">
+              <label>상품명<input v-model="product.name"></label>
+              <label>가격<input v-model.number="product.price" type="number" min="0"><span>비빔</span></label>
+              <label>재고<input v-model.number="product.currentStock" type="number" min="0" :disabled="Boolean(product.productId)"><span>개</span></label>
+            </div>
+            <label>상품 설명<textarea v-model="product.description" rows="2" /></label>
+            <div class="product-image-inputs">
+              <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg"></label>
+              <label class="product-file-picker">이미지 파일 선택<input type="file" accept="image/*" @change="selectProductImage(product, $event)"></label>
+              <button v-if="product.imageUrl" class="button-secondary" type="button" @click="product.imageUrl = null">이미지 제거</button>
+            </div>
+            <img v-if="product.imageUrl" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`">
+            <small>파일 이미지는 2MB 이하로 선택해 주세요. · 현재 재고 {{ product.currentStock }}개</small>
+          </article>
         </section>
 
         <div class="settings-save-bar"><span>저장 전 값을 다시 확인해 주세요.</span><button type="button" @click="showSaveConfirm = true">변경사항 저장</button></div>

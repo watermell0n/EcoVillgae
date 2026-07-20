@@ -1,29 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-
-import { getHealth } from '../../shared/api/health'
-import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { CURRENCY_UNIT, SERVICE_NAME } from '../../shared/config/brand'
-
-type ConnectionState = 'checking' | 'connected' | 'failed'
-
-const connectionState = ref<ConnectionState>('checking')
-const errorMessage = ref('')
-
-async function checkBackend() {
-  connectionState.value = 'checking'
-  errorMessage.value = ''
-
-  try {
-    await getHealth()
-    connectionState.value = 'connected'
-  } catch {
-    connectionState.value = 'failed'
-    errorMessage.value = '백엔드에 연결할 수 없습니다. Docker Compose 실행 상태를 확인해 주세요.'
-  }
-}
-
-onMounted(checkBackend)
 </script>
 
 <template>
@@ -32,29 +8,10 @@ onMounted(checkBackend)
     <section class="hero-card">
       <div class="hero-card__content">
         <p class="eyebrow">{{ SERVICE_NAME }} · 교실 경제활동 서비스</p>
-        <h1>{{ CURRENCY_UNIT }}으로 배우는<br />우리 반 경제생활</h1>
+        <h1 class="hero-card__title">{{ CURRENCY_UNIT }}으로 배우는 우리 반 경제생활</h1>
         <p class="hero-card__description">
           교사가 수업 단계를 진행하면 학생 화면이 함께 바뀌는 2일 과정 경제교육 서비스입니다.
         </p>
-
-        <div aria-live="polite" aria-atomic="true">
-          <StatusBadge
-          v-if="connectionState === 'connected'"
-          label="백엔드 연결됨"
-          tone="success"
-        />
-        <StatusBadge
-          v-else-if="connectionState === 'checking'"
-          label="연결 확인 중"
-          tone="warning"
-        />
-          <StatusBadge v-else label="연결 실패" tone="danger" />
-        </div>
-
-        <p v-if="errorMessage" class="connection-error" role="alert">{{ errorMessage }}</p>
-        <button v-if="connectionState === 'failed'" type="button" @click="checkBackend">
-          다시 확인
-        </button>
 
         <div class="role-actions">
           <RouterLink class="button-link" to="/student/join">학생으로 참여하기</RouterLink>

@@ -38,7 +38,7 @@ export interface InvestmentSetting {
   displayOrder: number
 }
 export interface ProductSetting {
-  productId: string
+  productId: string | null
   name: string
   description: string
   price: number

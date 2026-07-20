@@ -67,7 +67,7 @@ public final class TeacherClassManagementDto {
             @NotBlank @Size(max = 100) String name,
             @NotBlank @Size(max = 255) String description,
             @Min(0) long price,
-            @Size(max = 2000) String imageUrl,
+            @Size(max = 3000000) String imageUrl,
             int currentStock,
             int displayOrder
     ) {

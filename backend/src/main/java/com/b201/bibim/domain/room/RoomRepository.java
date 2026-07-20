@@ -15,7 +15,11 @@ public interface RoomRepository extends JpaRepository<RoomEntity, UUID> {
 
     List<RoomEntity> findAllByTeacherIdOrderByUpdatedAtDesc(UUID teacherId);
 
+    List<RoomEntity> findAllByTeacherIdAndStatusNotOrderByUpdatedAtDesc(UUID teacherId, String status);
+
     List<RoomEntity> findAllByOrderByUpdatedAtDesc();
+
+    List<RoomEntity> findAllByStatusNotOrderByUpdatedAtDesc(String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select room from RoomEntity room where room.id = :roomId")

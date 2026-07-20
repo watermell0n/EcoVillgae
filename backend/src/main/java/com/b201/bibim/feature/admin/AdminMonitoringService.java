@@ -27,6 +27,7 @@ import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.StudentMonitoringResponse;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.WalletAdjustmentResponse;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
 import com.b201.bibim.global.exception.ApiException;
 
@@ -76,7 +77,7 @@ public class AdminMonitoringService {
     @Transactional(readOnly = true)
     public List<RoomMonitoringResponse> rooms() {
         Instant now = Instant.now();
-        return roomRepository.findAllByOrderByUpdatedAtDesc().stream()
+        return roomRepository.findAllByStatusNotOrderByUpdatedAtDesc("ARCHIVED").stream()
                 .map(room -> toRoomResponse(room, now))
                 .toList();
     }
@@ -153,6 +154,48 @@ public class AdminMonitoringService {
                 )
         );
         return new SessionTerminationResponse(studentId, revokedCount, now);
+    }
+
+    @Transactional
+    public WalletAdjustmentResponse adjustWallet(
+            UUID adminId,
+            UUID roomId,
+            UUID studentId,
+            long amount,
+            String reason
+    ) {
+        if (amount == 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AMOUNT", "조정할 금액은 0이 아니어야 합니다.");
+        }
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(() -> new ApiException(
+                HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "수업 방을 찾을 수 없습니다."
+        ));
+        StudentEntity student = findStudentInRoom(roomId, studentId);
+        AccountEntity wallet = accountRepository
+                .findStudentAccountForUpdate(roomId, studentId, "STUDENT_WALLET")
+                .orElseGet(() -> accountRepository.saveAndFlush(AccountEntity.studentWallet(roomId, studentId)));
+        try {
+            wallet.changeBy(amount);
+        } catch (IllegalStateException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "차감할 잔액이 부족합니다.");
+        }
+        room.markEconomicStateChanged();
+        Instant adjustedAt = Instant.now();
+        activityEventService.record(
+                roomId, student.getId(), "ADMIN", adminId, "STUDENT_WALLET_ADJUSTED",
+                room.getCurrentStage(), "WALLET", "ADMIN_WALLET_ADJUSTMENT",
+                Map.of("amount", amount, "balance", wallet.getBalance(), "reason", reason.trim())
+        );
+        return new WalletAdjustmentResponse(studentId, wallet.getBalance(), amount, adjustedAt);
+    }
+
+    @Transactional
+    public RoomMonitoringResponse archiveRoom(UUID roomId) {
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(() -> new ApiException(
+                HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND", "수업 방을 찾을 수 없습니다."
+        ));
+        room.archive();
+        return toRoomResponse(room, Instant.now());
     }
 
     private RoomMonitoringResponse toRoomResponse(RoomEntity room, Instant now) {

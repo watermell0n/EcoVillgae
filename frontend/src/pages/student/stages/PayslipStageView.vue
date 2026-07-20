@@ -43,7 +43,7 @@ function formatBibim(amount: number) {
             <strong>이코빌리지 급여 명세서</strong>
             <small>1일차 · 학급 경제 수업</small>
           </div>
-          <div class="payslip-line"><span>1인1역 <small v-if="payslip.roleName">{{ payslip.roleName }}</small></span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
+          <div class="payslip-line"><span>{{ payslip.roleName ? `${payslip.roleName} 소득` : '1인1역 소득' }}</span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
           <div class="payslip-line"><span>퀴즈 참여수당</span><strong>+{{ formatBibim(payslip.participationReward) }}</strong></div>
           <div class="payslip-line"><span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제</small></span><strong>+{{ formatBibim(payslip.correctReward) }}</strong></div>
           <div class="payslip-line payslip-line--subtotal"><span>총소득</span><strong>{{ formatBibim(payslip.grossIncome) }}</strong></div>

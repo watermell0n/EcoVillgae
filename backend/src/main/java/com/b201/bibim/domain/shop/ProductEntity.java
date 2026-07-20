@@ -24,7 +24,7 @@ public class ProductEntity {
     @Column(nullable = false, length = 255)
     private String description;
 
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "original_price", nullable = false)
@@ -71,6 +71,20 @@ public class ProductEntity {
         product.status = stock == 0 ? "SOLD_OUT" : "ON_SALE";
         product.displayOrder = displayOrder;
         product.updatedAt = Instant.now();
+        return product;
+    }
+
+    public static ProductEntity forSale(
+            UUID roomId,
+            String name,
+            String description,
+            long price,
+            int stock,
+            int displayOrder,
+            String imageUrl
+    ) {
+        ProductEntity product = forSale(roomId, name, description, price, stock, displayOrder);
+        product.imageUrl = imageUrl == null || imageUrl.isBlank() ? null : imageUrl.trim();
         return product;
     }
 

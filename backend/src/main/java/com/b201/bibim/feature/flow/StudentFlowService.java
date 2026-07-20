@@ -286,6 +286,31 @@ public class StudentFlowService {
     }
 
     @Transactional
+    public FlowResponse forceMoveToStage(UUID actorId, UUID roomId, UUID studentId, String targetStageValue) {
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
+        StudentEntity student = studentInRoom(studentId, roomId);
+        RoomStage targetStage = RoomStage.find(targetStageValue)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STAGE",
+                        "이동할 수 없는 화면입니다."
+                ));
+        if (targetStage.day() > room.getCurrentDay()) {
+            throw conflict("FUTURE_STAGE_NOT_AVAILABLE", "아직 시작하지 않은 일차의 화면으로는 이동할 수 없습니다.");
+        }
+        StudentFlowStateEntity state = flowRepository.findByStudentIdForUpdate(studentId)
+                .orElseGet(() -> initializeExisting(student, room));
+        state.forceViewAt(targetStage.name(), actorId);
+        room.markControlStateChanged();
+        activityEventService.record(
+                roomId, studentId, "ADMIN", actorId, "STUDENT_FORCED_TO_SELECTED_STAGE",
+                room.getCurrentStage(), null, targetStage.name(),
+                Map.of("forced", true, "targetStage", targetStage.name())
+        );
+        return response(student, room, state);
+    }
+
+    @Transactional
     public TeacherFlowListResponse teacherFlows(UUID teacherId, UUID roomId) {
         RoomEntity room = ownedRoom(teacherId, roomId);
         Map<UUID, StudentFlowStateEntity> states = flowRepository

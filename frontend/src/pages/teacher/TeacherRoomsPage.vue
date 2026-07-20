@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { createTeacherRoom } from '../../features/room/api/room'
+import { createTeacherRoom, deleteTeacherRoom } from '../../features/room/api/room'
 import { getRoomStage } from '../../features/room/model/stages'
 import { isUnauthorized, getApiErrorMessage } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
@@ -18,6 +18,7 @@ const roomName = ref('')
 const expectedStudentCount = ref(3)
 const creatingRoom = ref(false)
 const createErrorMessage = ref('')
+const deletingRoomId = ref('')
 const teacher = computed(() => authStore.teacher)
 
 onMounted(async () => {
@@ -85,10 +86,25 @@ async function submitCreateRoom() {
     creatingRoom.value = false
   }
 }
+
+async function removeRoom(roomId: string, name: string) {
+  if (deletingRoomId.value) return
+  if (!window.confirm(`‘${name}’ 방을 학급 목록에서 삭제할까요?`)) return
+  deletingRoomId.value = roomId
+  errorMessage.value = ''
+  try {
+    await deleteTeacherRoom(roomId)
+    await authStore.loadTeacher()
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '수업 방을 삭제하지 못했습니다.')
+  } finally {
+    deletingRoomId.value = ''
+  }
+}
 </script>
 
 <template>
-  <main class="dashboard-page teacher-rooms-page">
+  <main class="dashboard-page teacher-rooms-page student-theme">
     <header class="dashboard-header">
       <div>
         <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
@@ -127,12 +143,20 @@ async function submitCreateRoom() {
             <dd>{{ stageLabel(room.currentStage) }}</dd>
           </div>
         </dl>
-        <RouterLink
-          class="button-link"
-          :to="{ name: 'teacher-room-control', params: { roomId: room.roomId } }"
-        >
-          수업 계속하기
-        </RouterLink>
+        <div class="room-card__actions">
+          <RouterLink
+            class="button-link"
+            :to="{ name: 'teacher-room-control', params: { roomId: room.roomId } }"
+          >
+            수업 계속하기
+          </RouterLink>
+          <button
+            class="button-secondary room-delete-button"
+            type="button"
+            :disabled="deletingRoomId === room.roomId"
+            @click="removeRoom(room.roomId, room.name)"
+          >{{ deletingRoomId === room.roomId ? '삭제 중…' : '방 삭제' }}</button>
+        </div>
       </article>
 
       <p v-if="!teacher?.rooms.length" class="state-message">아직 생성된 방이 없습니다.</p>
@@ -150,7 +174,7 @@ async function submitCreateRoom() {
               v-model.trim="roomName"
               name="roomName"
               maxlength="100"
-              placeholder="예: 6학년 3반 경제교실"
+              placeholder="예: 햇살반 경제교실"
               required
             />
           </label>

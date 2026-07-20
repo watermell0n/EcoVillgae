@@ -145,6 +145,16 @@ public class StudentFlowStateEntity {
         touch();
     }
 
+    public void forceViewAt(String stage, UUID actorId) {
+        this.approvedBy = actorId;
+        this.approvedAt = Instant.now();
+        this.flowMode = "LOCKED";
+        this.joinStatus = "LOCKED";
+        this.effectiveStage = stage;
+        this.rewardRateBps = 10_000;
+        touch();
+    }
+
     public void lock(String roomStage) {
         this.flowMode = "LOCKED";
         this.joinStatus = "LOCKED";

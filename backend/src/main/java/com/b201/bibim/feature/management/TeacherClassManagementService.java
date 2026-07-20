@@ -157,6 +157,19 @@ public class TeacherClassManagementService {
         }
 
         for (var productRequest : request.products()) {
+            if (productRequest.productId() == null) {
+                ProductEntity created = ProductEntity.forSale(
+                        roomId,
+                        productRequest.name().trim(),
+                        productRequest.description().trim(),
+                        productRequest.price(),
+                        Math.max(0, productRequest.currentStock()),
+                        productRequest.displayOrder(),
+                        productRequest.imageUrl()
+                );
+                productRepository.save(created);
+                continue;
+            }
             ProductEntity product = productRepository.findById(productRequest.productId())
                     .filter(item -> item.getRoomId().equals(roomId))
                     .orElseThrow(() -> notFound("상점 상품을 찾을 수 없습니다."));

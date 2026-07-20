@@ -121,7 +121,7 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
                     id, teacher_id, name, expected_student_count, status,
                     current_day, current_stage, mode, version, sync_version
                 )
-                VALUES (?, ?, '6학년 2반 경제교실', 3, 'DAY1_ACTIVE', 1, 'DAY1_LOBBY', 'GUIDED', 0, 0)
+                VALUES (?, ?, '체험용 경제교실', 3, 'DAY1_ACTIVE', 1, 'DAY1_LOBBY', 'GUIDED', 0, 0)
                 ON CONFLICT (id) DO NOTHING
                 """,
                 DEMO_ROOM_ID,

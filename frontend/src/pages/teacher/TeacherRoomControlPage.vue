@@ -21,7 +21,9 @@ import { getApiErrorCode, getApiErrorMessage, isUnauthorized } from '../../share
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import ParticipationCodeDialog from './ParticipationCodeDialog.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
+import TeacherLearningMirror from './TeacherLearningMirror.vue'
 import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
+import TeacherQuizMirror from './TeacherQuizMirror.vue'
 import TeacherManagementWorkspace from './TeacherManagementWorkspace.vue'
 import FreeActivityIntroStageView from '../student/stages/FreeActivityIntroStageView.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
@@ -163,13 +165,6 @@ const nextStageDisabled = computed(() =>
     voteStatus: fundVote.value?.status,
   }),
 )
-const connectionLabel = computed(() =>
-  roomSessionStore.connectionStatus === 'CONNECTED' ? '2초 간격 동기화 중' : '다시 연결하는 중',
-)
-const connectionTone = computed(() =>
-  roomSessionStore.connectionStatus === 'CONNECTED' ? 'success' : 'warning',
-)
-
 function stageNavigationBlockReason(targetStage?: string) {
   return getStageNavigationBlockReason({
     currentStage: state.value?.currentStage,
@@ -973,13 +968,12 @@ function moduleTone(moduleState: string) {
 </script>
 
 <template>
-  <main class="control-page">
+  <main class="control-page student-theme">
     <header class="control-header">
       <div>
         <RouterLink class="brand-link" to="/teacher/rooms">{{ SERVICE_NAME }}</RouterLink>
         <p v-if="teacher">{{ teacher.displayName }}의 수업 진행 대시보드</p>
       </div>
-      <StatusBadge :label="connectionLabel" :tone="connectionTone" />
     </header>
 
     <div class="teacher-operations-shell">
@@ -1030,35 +1024,7 @@ function moduleTone(moduleState: string) {
             <dt>현재 모드</dt>
             <dd>{{ state.mode === 'FREE' ? '자유 활동' : state.mode === 'CLOSED' ? '종료' : '교사 안내' }}</dd>
           </div>
-          <div>
-            <dt>학생 화면 동기화</dt>
-            <dd>{{ roomSessionStore.connectionStatus === 'CONNECTED' ? '2초 이내 반영 중' : '재연결 중' }}</dd>
-          </div>
         </dl>
-        <aside class="student-screen-preview" aria-label="학생 화면 미리보기">
-          <span>학생 실제 화면 구성 · 실시간 동기화</span>
-          <div class="student-screen-preview__viewport">
-            <div class="student-screen-preview__sky" aria-hidden="true"><i /><i /><i /></div>
-            <small>{{ state.currentDay }}일차 · {{ state.mode === 'FREE' ? '자유 활동' : '교사 안내' }}</small>
-            <strong>{{ state.currentStage === 'DAY1_FREE_ACTIVITY_GUIDED' ? `자유활동 · ${state.guidedActivityView ?? 'HOME'}` : guidedLearning?.currentPage.title ?? currentStage?.label ?? state.currentStage }}</strong>
-            <p>{{ guidedLearning?.currentPage.content ?? currentStage?.description }}</p>
-            <div class="student-screen-preview__controls" aria-hidden="true">
-              <span>{{ state.mode === 'FREE' ? '상점' : '이전' }}</span>
-              <span>{{ state.mode === 'FREE' ? '예금' : '다음' }}</span>
-              <span v-if="state.mode === 'FREE'">투자</span>
-            </div>
-          </div>
-        </aside>
-        <button
-          class="teacher-next-action"
-          :class="{ 'is-recommended': shouldHighlightStageAdvance }"
-          type="button"
-          :disabled="nextStageDisabled"
-          @click="requestStageMove(adjacentStages.next?.id)"
-        >
-          <span>다음 행동</span>
-          <strong>{{ adjacentStages.next?.label ?? '진행 완료' }} →</strong>
-        </button>
       </section>
 
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
@@ -1154,41 +1120,15 @@ function moduleTone(moduleState: string) {
             :day-number="state.currentStage === 'DAY1_QUIZ_RESULT' ? 1 : 2"
             :next-stage-label="state.currentStage === 'DAY1_QUIZ_RESULT' ? '소득·세금 정산' : '퀴즈 보상 정산'"
           />
-          <div v-else-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary" class="quiz-control-workspace">
-            <div class="quiz-control-workspace__headline">
-              <div>
-                <span>퀴즈 상태</span>
-                <strong>{{ quizSummary.status === 'READY' ? '시작 전' : quizSummary.status === 'OPEN' ? '진행 중' : '마감 완료' }}</strong>
-              </div>
-              <StatusBadge
-                :label="quizSummary.status"
-                :tone="quizSummary.status === 'OPEN' ? 'success' : quizSummary.status === 'READY' ? 'warning' : 'neutral'"
-              />
-            </div>
-            <p v-if="quizSummary.status === 'READY'">
-              시작 버튼을 누르기 전에는 학생이 문제를 열거나 답안을 제출할 수 없습니다.
-            </p>
-            <p v-else-if="quizSummary.status === 'OPEN'">
-              학생이 답안을 저장하고 있습니다. 모두 제출했거나 시간이 끝나면 마감해 주세요.
-            </p>
-            <p v-else>전체 퀴즈는 마감되었습니다. 미제출 학생은 개인 보충 퀴즈를 계속 진행할 수 있습니다.</p>
-            <button
-              v-if="quizSummary.status === 'READY'"
-              class="teacher-stage-action"
-              type="button"
-              @click="controlQuiz('OPEN_QUIZ')"
-            >퀴즈 시작하기</button>
-            <button
-              v-else-if="quizSummary.status === 'OPEN'"
-              class="button-secondary teacher-stage-action"
-              type="button"
-              @click="requestQuizClose"
-            >퀴즈 마감하기</button>
-          </div>
+          <TeacherQuizMirror
+            v-else-if="['DAY1_QUIZ', 'DAY2_QUIZ'].includes(state.currentStage) && quizSummary"
+            :summary="quizSummary"
+            @open="controlQuiz('OPEN_QUIZ')"
+            @close="requestQuizClose"
+          />
           <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && day1Summary" class="teacher-live-economy">
             <header class="teacher-live-economy__header">
-              <div><p class="eyebrow">학생 화면과 같은 경제활동 현황</p><h2>학생별 선택이 2초 안에 반영돼요</h2></div>
-              <StatusBadge label="실시간 동기화" tone="success" />
+              <div><p class="eyebrow">학생 화면과 같은 경제활동 현황</p><h2>학생별 선택 현황</h2></div>
             </header>
             <div class="teacher-live-economy__summary">
               <span>🏦 예금 <strong>{{ day1Summary.depositConfirmedCount }}명</strong></span>
@@ -1746,38 +1686,12 @@ function moduleTone(moduleState: string) {
               @click="showRoomCompleteConfirm = true"
             >수업 종료하기</button>
           </div>
-          <div v-else-if="learningStages.has(state.currentStage) && guidedLearning" class="learning-control-workspace">
-            <header>
-              <div>
-                <p class="eyebrow">{{ guidedLearning.currentPage.topicTitle }}</p>
-                <h3>{{ guidedLearning.currentPage.title }}</h3>
-              </div>
-              <strong>{{ guidedLearning.currentIndex + 1 }} / {{ guidedLearning.pages.length }}</strong>
-            </header>
-            <p class="learning-control-workspace__content">{{ guidedLearning.currentPage.content }}</p>
-            <ul v-if="guidedLearning.currentPage.keyPoints.length > 0">
-              <li v-for="point in guidedLearning.currentPage.keyPoints" :key="point">{{ point }}</li>
-            </ul>
-            <p v-if="guidedLearning.currentPage.example" class="learning-control-workspace__example">
-              <strong>📌 예시</strong>
-              <span>{{ guidedLearning.currentPage.example }}</span>
-            </p>
-            <div class="learning-control-workspace__navigation">
-              <button
-                class="button-secondary"
-                type="button"
-                :disabled="guidedLearning.currentIndex === 0"
-                @click="moveLearningPage(-1)"
-              >← 이전 페이지</button>
-              <button
-                type="button"
-                :class="{ 'teacher-stage-action is-recommended': guidedLearning.currentIndex < guidedLearning.pages.length - 1 }"
-                :disabled="guidedLearning.currentIndex === guidedLearning.pages.length - 1"
-                @click="moveLearningPage(1)"
-              >다음 페이지 →</button>
-            </div>
-            <small>페이지를 바꾸면 학생 화면에 늦어도 2초 안에 반영됩니다.</small>
-          </div>
+          <TeacherLearningMirror
+            v-else-if="learningStages.has(state.currentStage) && guidedLearning"
+            :learning="guidedLearning"
+            @previous="moveLearningPage(-1)"
+            @next="moveLearningPage(1)"
+          />
           <FreeActivityIntroStageView
             v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY_GUIDED'"
             class="free-activity-intro--teacher"

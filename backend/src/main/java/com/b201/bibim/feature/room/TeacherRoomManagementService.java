@@ -223,6 +223,22 @@ public class TeacherRoomManagementService {
         );
     }
 
+    @Transactional
+    public RoomPreparationResponse archive(UUID teacherId, UUID roomId) {
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId)
+                .filter(item -> item.getTeacherId().equals(teacherId))
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "ROOM_NOT_FOUND",
+                        "수업 방을 찾을 수 없습니다."
+                ));
+        room.archive();
+        return toResponse(
+                room,
+                studentRepository.findAllByRoomIdOrderByParticipantNumber(roomId)
+        );
+    }
+
     private List<StudentEntity> createInvitedStudents(UUID roomId, int studentCount) {
         List<StudentEntity> students = new ArrayList<>(studentCount);
         Set<String> generatedCodes = new HashSet<>();

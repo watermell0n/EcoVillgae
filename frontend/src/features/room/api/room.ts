@@ -94,6 +94,11 @@ export async function createTeacherRoom(name: string, expectedStudentCount: numb
   return response.data.data
 }
 
+export async function deleteTeacherRoom(roomId: string) {
+  const response = await http.delete<ApiResponse<RoomPreparation>>(`/teacher/rooms/${roomId}`)
+  return response.data.data
+}
+
 export async function getTeacherRoomStudents(roomId: string) {
   const response = await http.get<ApiResponse<RoomPreparation>>(
     `/teacher/rooms/${roomId}/students`,

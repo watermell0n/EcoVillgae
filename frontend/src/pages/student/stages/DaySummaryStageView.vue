@@ -54,6 +54,11 @@ function formatBibim(amount: number) {
         </div>
       </header>
 
+      <section v-if="summary.roomStage === 'DAY1_CLOSED'" class="day1-closed-banner" role="status">
+        <span aria-hidden="true">🌙</span>
+        <div><h2>1일차 활동이 모두 끝났어요.</h2><p>오늘의 지갑·예금·투자·구매 결과가 저장됐습니다. 다음 수업에서 이어서 만나요.</p></div>
+      </section>
+
       <section class="day1-assets-grid" aria-label="1일차 자산 요약">
         <article><span>사용 가능 잔액</span><strong>{{ formatBibim(summary.walletBalance) }}</strong></article>
         <article><span>예금 원금</span><strong>{{ formatBibim(summary.depositPrincipal) }}</strong><small>예상 이자 {{ formatBibim(summary.expectedDepositInterest) }}</small></article>

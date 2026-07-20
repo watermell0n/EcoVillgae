@@ -205,4 +205,13 @@ public class RoomEntity {
         syncVersion += 1;
         updatedAt = Instant.now();
     }
+
+    public void archive() {
+        if ("ARCHIVED".equals(status)) return;
+        status = "ARCHIVED";
+        mode = "CLOSED";
+        version += 1;
+        syncVersion += 1;
+        updatedAt = Instant.now();
+    }
 }

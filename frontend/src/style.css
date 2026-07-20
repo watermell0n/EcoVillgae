@@ -6891,3 +6891,385 @@ button.admin-student-row.is-selected {
   .student-fund-cost-options article { grid-template-columns: 32px minmax(0, 1fr); }
   .student-fund-cost-options article b { grid-column: 2; }
 }
+
+/* 2026-07-20 demo feedback: keep messages in the document flow and content contained. */
+.hero-card__title {
+  max-width: none;
+  font-size: clamp(1rem, 3.1vw, 2.15rem);
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.home-page .hero-card {
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, .6fr);
+}
+
+.quiz-complete .quiz-result__notice {
+  min-height: 0;
+  padding: 11px 16px;
+  align-items: center;
+  gap: 10px;
+}
+
+.quiz-complete .quiz-result__notice p strong {
+  display: inline;
+  margin: 0 .3rem 0 0;
+}
+
+.quiz-result-detail li,
+.quiz-result-detail dl > div,
+.quiz-result-detail h3,
+.quiz-result-detail dd {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quiz-result-detail h3,
+.quiz-result-detail dd {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.day1-quiz-result-stage {
+  padding-bottom: 0;
+}
+
+.day1-quiz-result-stage .settlement-wait-card {
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  z-index: auto;
+  width: 100%;
+  margin-top: 0;
+  transform: none;
+  box-shadow: none;
+}
+
+.free-activity-stage-view .economy-header .shop-wallet {
+  width: auto;
+  min-width: 124px;
+  padding: 8px 12px;
+  justify-self: end;
+  border-radius: 12px;
+}
+
+.free-activity-stage-view .economy-header .shop-wallet strong {
+  font-size: 1rem;
+}
+
+.investment-confirmed-modal {
+  width: min(440px, 100%);
+  text-align: center;
+}
+
+.investment-confirmed-modal__icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 10px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #3c936d;
+  font-size: 1.7rem;
+  font-weight: 900;
+}
+
+.investment-confirmed-modal > button {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.day1-closed-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 18px 22px;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #c9d9ef;
+  border-radius: 18px;
+  color: #354d6b;
+  background: #f2f6fc;
+}
+
+.day1-closed-banner > span { font-size: 2rem; }
+.day1-closed-banner h2 { margin: 0; }
+.day1-closed-banner p { margin: 5px 0 0; line-height: 1.55; }
+
+.day2-finance-view .stage-wait-panel {
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.day2-finance-view .stage-wait-panel > div:last-child {
+  max-width: 720px;
+}
+
+.day2-inflation-wait {
+  display: grid;
+  min-height: min(620px, calc(100dvh - 120px));
+  padding: clamp(32px, 6vw, 64px);
+  place-content: center;
+  justify-items: center;
+}
+
+.day2-inflation-wait .page-description {
+  max-width: 760px;
+}
+
+.day2-inflation-wait::after {
+  content: none;
+}
+
+@media (max-width: 760px) {
+  .home-page .hero-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .free-activity-stage-view .economy-header .shop-wallet {
+    grid-column: auto;
+    width: auto;
+    min-width: 116px;
+  }
+
+  .quiz-result-detail dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Feature-improvement safeguards: every changed surface must remain inside its panel. */
+.student-room-page *,
+.teacher-operations-shell *,
+.teacher-management-workspace *,
+.admin-dashboard-page * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.student-room-page p,
+.student-room-page li,
+.teacher-operations-shell p,
+.teacher-operations-shell li,
+.admin-dashboard-page p,
+.admin-dashboard-page li,
+.admin-dashboard-page dd {
+  overflow-wrap: anywhere;
+}
+
+/* Locked free activity uses the real module layout instead of a separate intro screen. */
+.free-activity-stage-view--locked {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.free-activity-stage-view--locked .economy-module-tabs button:disabled,
+.free-activity-stage-view--locked .economy-activity-grid button:disabled {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+.free-activity-stage-view--locked .economy-activity-grid button {
+  display: grid;
+  min-height: 190px;
+  align-content: start;
+  gap: 7px;
+}
+
+.free-activity-stage-view--locked .economy-activity-grid button b {
+  margin-top: auto;
+  color: #8a5a15;
+  font-size: .78rem;
+}
+
+.free-activity-intro__locked {
+  display: flex;
+  width: 100%;
+  padding: 12px 16px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #f0c66e;
+  border-radius: 14px;
+  background: #fff8dd;
+  color: #73511d;
+}
+
+.free-activity-intro__locked strong,
+.free-activity-intro__locked p { display: block; margin: 0; }
+.free-activity-intro__locked p { margin-top: 3px; font-size: .82rem; line-height: 1.5; }
+.free-activity-intro__lock { flex: 0 0 auto; font-size: 1.7rem; }
+.locked-activity-preview { width: 100%; }
+
+/* Bottom actions no longer cover content on short tablet and mobile viewports. */
+.investment-screen {
+  scroll-padding-bottom: calc(124px + env(safe-area-inset-bottom));
+}
+
+.investment-screen__checkout {
+  position: static;
+  margin-bottom: 6px;
+}
+
+.teacher-management-workspace {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+
+.settings-save-bar {
+  position: static;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  margin-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+/* Teacher room and product-management actions. */
+.room-card__actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.room-card__actions > * { width: 100%; }
+.room-delete-button { white-space: nowrap; }
+
+.settings-section-actions {
+  display: flex;
+  padding: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #dce8e4;
+  border-radius: 14px;
+  background: #f8fcfa;
+}
+
+.settings-section-actions > div { display: grid; gap: 3px; }
+.settings-section-actions small { color: var(--teacher-muted); }
+.product-image-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 8px; }
+.product-file-picker { display: grid; gap: 5px; }
+.product-file-picker input[type='file'] { max-width: 250px; padding: 8px; }
+.settings-product-preview { display: block; width: min(100%, 320px); max-height: 190px; object-fit: contain; border: 1px solid #dce8e4; border-radius: 12px; background: #f7faf9; }
+
+/* Student-equivalent teacher learning and quiz surfaces. */
+.teacher-student-mirror {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+}
+
+.teacher-student-mirror__label,
+.teacher-student-mirror__action,
+.teacher-student-mirror__navigation {
+  display: flex;
+  padding: 9px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #cde2da;
+  border-radius: 12px;
+  background: #f2faf7;
+  color: #365b51;
+  font-size: .78rem;
+}
+
+.teacher-student-mirror .learning-stage-view,
+.teacher-student-mirror .quiz-stage-view {
+  width: 100%;
+  height: auto;
+}
+
+.teacher-student-mirror .learning-card,
+.teacher-student-mirror .quiz-player { width: 100%; max-width: none; }
+.teacher-student-mirror__navigation button,
+.teacher-student-mirror__action button { flex: 0 0 auto; }
+.teacher-student-mirror__navigation span { font-weight: 900; }
+.teacher-student-mirror__action p { margin: 0; }
+.teacher-quiz-mirror__option { cursor: default; }
+.teacher-quiz-mirror__option:hover { transform: none; }
+
+/* The removed preview/action columns leave a calm two-part class summary. */
+.teacher-operations-content .control-summary {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .8fr);
+}
+
+.teacher-operations-content .control-summary dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Real-time status uses plain KPIs followed by a separate text list. */
+.teacher-operations-content .progress-panel .student-count-ring {
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 72px;
+  margin: 8px 0;
+  padding: 12px 14px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #cfe4da;
+  border-radius: 12px;
+  background: #f3faf7;
+}
+
+.teacher-operations-content .progress-panel .student-count-ring strong { font-size: 1.8rem; }
+.teacher-operations-content .progress-panel .student-count-ring span { font-size: .8rem; }
+.teacher-operations-content .progress-panel > p { padding: 10px; border-radius: 10px; background: #f8fafc; text-align: left; }
+
+/* Admin detail is always below the live student status, with ten events per page. */
+.admin-monitoring-layout { grid-template-columns: minmax(0, 1fr); }
+.admin-activity-panel { position: static; max-height: none; overflow: visible; }
+.admin-student-card-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.admin-student-card-grid .admin-student-row { min-width: 0; }
+
+.admin-force-view-controls,
+.admin-wallet-controls {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.admin-wallet-controls label { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.admin-wallet-controls label:nth-child(2) { grid-template-columns: auto minmax(0, 1fr); }
+.admin-force-view-controls select,
+.admin-wallet-controls input { width: 100%; }
+.admin-recovery-box h3:not(:first-child) { margin-top: 10px; padding-top: 12px; border-top: 1px solid #f0d6d2; }
+.admin-activity-list ol { max-height: none; overflow: visible; }
+.admin-activity-pagination { display: flex; margin-top: 10px; align-items: center; justify-content: center; gap: 10px; }
+.button-danger { color: #fff; background: #b42318; }
+.button-danger:hover:not(:disabled) { background: #912018; }
+
+@media (max-width: 900px) {
+  .teacher-operations-content .control-summary { grid-template-columns: minmax(0, 1fr); }
+  .product-image-inputs { grid-template-columns: minmax(0, 1fr); }
+  .product-file-picker input[type='file'] { max-width: 100%; }
+  .admin-force-view-controls,
+  .admin-wallet-controls { grid-template-columns: minmax(0, 1fr); }
+  .admin-wallet-controls label,
+  .admin-wallet-controls label:nth-child(2) { grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto; }
+}
+
+@media (max-width: 700px) {
+  .room-card__actions { grid-template-columns: minmax(0, 1fr); }
+  .settings-section-actions,
+  .teacher-student-mirror__label,
+  .teacher-student-mirror__action,
+  .teacher-student-mirror__navigation { align-items: stretch; flex-direction: column; }
+  .teacher-student-mirror__navigation button,
+  .teacher-student-mirror__action button { width: 100%; }
+  .free-activity-stage-view--locked .economy-activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .free-activity-intro__locked { align-items: flex-start; }
+  .settings-save-bar { position: static; margin-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .admin-control-strip { align-items: stretch; flex-direction: column; }
+  .admin-control-strip div { margin-right: 0; }
+}
+
+@media (max-width: 480px) {
+  .free-activity-stage-view--locked .economy-activity-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-student-card-grid { grid-template-columns: minmax(0, 1fr); }
+}

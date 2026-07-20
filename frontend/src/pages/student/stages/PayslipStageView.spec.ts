@@ -36,8 +36,7 @@ describe('PayslipStageView', () => {
 
     expect(settlementApi.getDay1Payslip).toHaveBeenCalledOnce()
     expect(wrapper.text()).toContain('받은 돈과 세금을 확인해요')
-    expect(wrapper.text()).toContain('1인1역')
-    expect(wrapper.text()).toContain('라이츄')
+    expect(wrapper.text()).toContain('라이츄 소득')
     expect(wrapper.text()).toContain('3문제')
     expect(wrapper.text()).toContain('퀴즈 참여수당')
     expect(wrapper.text()).toContain('내 지갑 기록에 저장됐어요')

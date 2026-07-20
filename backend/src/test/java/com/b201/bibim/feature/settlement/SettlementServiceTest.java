@@ -29,7 +29,10 @@ import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentRoleCatalogEntity;
+import com.b201.bibim.domain.student.StudentRoleCatalogRepository;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomeSettlementResponse;
+import com.b201.bibim.feature.settlement.SettlementDto.Day1PayslipResponse;
 import com.b201.bibim.global.exception.ApiException;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
 
@@ -51,6 +54,8 @@ class SettlementServiceTest {
     private DaySessionRepository sessionRepository;
     @Mock
     private StudentRepository studentRepository;
+    @Mock
+    private StudentRoleCatalogRepository studentRoleCatalogRepository;
     @Mock
     private StudentFlowStateRepository studentFlowStateRepository;
     @Mock
@@ -81,9 +86,37 @@ class SettlementServiceTest {
     private SettlementItemEntity item;
     @Mock
     private StudentEntity student;
+    @Mock
+    private StudentRoleCatalogEntity studentRole;
 
     @InjectMocks
     private SettlementService settlementService;
+
+    @Test
+    void usesTheDatabaseRoleCatalogInThePayslipWhenTheStudentHasNoAssignedRole() {
+        UUID roomId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(student.getParticipantNumber()).thenReturn(1);
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getCurrentStage()).thenReturn("DAY1_PAYSLIP_GUIDED");
+        when(room.getId()).thenReturn(roomId);
+        when(settlementRunRepository.findByRoomIdAndSettlementType(roomId, "DAY1_INCOME"))
+                .thenReturn(Optional.of(run));
+        when(run.getStatus()).thenReturn("COMPLETED");
+        when(run.getId()).thenReturn(runId);
+        when(settlementItemRepository.findBySettlementRunIdAndStudentId(runId, studentId))
+                .thenReturn(Optional.of(item));
+        when(studentRoleCatalogRepository.findById(1)).thenReturn(Optional.of(studentRole));
+        when(studentRole.getRoleName()).thenReturn("라이츄");
+
+        Day1PayslipResponse response = settlementService.day1Payslip(studentId);
+
+        assertEquals("라이츄", response.roleName());
+    }
 
     @Test
     void rejectsPreviewOutsideIncomeSettlementStage() {

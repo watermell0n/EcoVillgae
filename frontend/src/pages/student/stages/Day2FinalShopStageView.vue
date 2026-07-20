@@ -20,8 +20,10 @@ const errorMessage = ref('')
 const noticeMessage = ref('')
 const soldOutMessage = ref('')
 const SHOP_SYNC_INTERVAL_MS = 2_000
+const PURCHASE_NOTICE_DURATION_MS = 3_000
 let shopSyncTimer: ReturnType<typeof setInterval> | undefined
 let shopSyncPromise: Promise<void> | null = null
+let noticeTimer: ReturnType<typeof setTimeout> | undefined
 
 const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
@@ -51,6 +53,7 @@ async function refresh() {
 
 onUnmounted(() => {
   stopShopSync()
+  clearNoticeTimer()
   shopStore.clearStudentShop()
   economyStore.clear()
 })
@@ -90,6 +93,22 @@ function stopShopSync() {
   }
 }
 
+function clearNoticeTimer() {
+  if (noticeTimer !== undefined) {
+    clearTimeout(noticeTimer)
+    noticeTimer = undefined
+  }
+}
+
+function showShopNotice(message: string) {
+  clearNoticeTimer()
+  noticeMessage.value = message
+  noticeTimer = setTimeout(() => {
+    noticeMessage.value = ''
+    noticeTimer = undefined
+  }, PURCHASE_NOTICE_DURATION_MS)
+}
+
 async function openPurchase(product: ShopProduct) {
   errorMessage.value = ''
   noticeMessage.value = ''
@@ -101,7 +120,7 @@ async function openPurchase(product: ShopProduct) {
       return
     }
     if (!canBuy(latestProduct)) {
-      noticeMessage.value = '사용 가능한 돈이 바뀌어 지금은 구매할 수 없어요.'
+      showShopNotice('사용 가능한 돈이 바뀌어 지금은 구매할 수 없어요.')
       return
     }
     selectedProduct.value = latestProduct
@@ -130,16 +149,16 @@ async function confirmPurchase() {
       return
     }
     if (latestProduct.price * quantity.value > latestWalletBalance) {
-      noticeMessage.value = '사용 가능한 돈이 바뀌어 구매할 수 없어요.'
+      showShopNotice('사용 가능한 돈이 바뀌어 구매할 수 없어요.')
       closePurchase()
       return
     }
     selectedProduct.value = latestProduct
     const result = await shopStore.buyProduct(selectedProduct.value.productId, quantity.value)
     if (!result) return
-    noticeMessage.value = result.replayed
+    showShopNotice(result.replayed
       ? '이미 완료된 구매 결과를 불러왔습니다.'
-      : `${result.productName} ${result.quantity}개를 구매했습니다.`
+      : `${result.productName} ${result.quantity}개를 구매했습니다.`)
     closePurchase()
     await Promise.all([
       economyStore.refreshOverview(),
@@ -193,9 +212,10 @@ function formatPurchasedAt(value: string) {
         <button type="button" :class="{ 'is-active': activeView === 'WALLET' }" @click="activeView = 'WALLET'">지갑</button>
       </nav>
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
-      <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
 
-      <section v-if="activeView === 'SHOP'" class="shop-product-grid" aria-label="물가상승 적용 상품">
+      <div v-if="activeView === 'SHOP'">
+        <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
+        <section class="shop-product-grid" aria-label="물가상승 적용 상품">
         <article v-for="product in catalog.products" :key="product.productId" class="shop-product-card">
           <img v-if="product.imageUrl" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`">
           <span v-else class="shop-product-card__emoji" aria-hidden="true">🛍️</span>
@@ -211,7 +231,8 @@ function formatPurchasedAt(value: string) {
             {{ product.status === 'SOLD_OUT' ? '품절' : product.price > catalog.walletBalance ? '잔액 부족' : '구매하기' }}
           </button>
         </article>
-      </section>
+        </section>
+      </div>
 
       <section v-else-if="activeView === 'KNOWLEDGE'" class="day2-final-knowledge">
         <h2>오늘 배운 내용을 다시 확인해요</h2>

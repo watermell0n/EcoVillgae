@@ -9,13 +9,16 @@ import {
   terminateAdminStudentSession,
   sendAdminRoomCommand,
   forceAdminStudentToCurrentStage,
+  forceAdminStudentView,
+  adjustAdminStudentWallet,
+  deleteAdminRoom,
   type AdminActivity,
   type AdminRoomMonitoring,
   type AdminRoomStudents,
   type AdminStudentMonitoring,
   type ConnectionStatus,
 } from '../../features/admin/api/admin'
-import { getAdjacentStages, getRoomStage } from '../../features/room/model/stages'
+import { getAdjacentStages, getRoomStage, ROOM_STAGES } from '../../features/room/model/stages'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { copyText } from '../../shared/utils/clipboard'
@@ -36,6 +39,10 @@ const terminationReason = ref('')
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const copiedParticipationCode = ref('')
+const activityPage = ref(1)
+const walletAdjustmentAmount = ref(10)
+const walletAdjustmentReason = ref('관리자 잔액 조정')
+const forceViewStage = ref('')
 let pollingTimer: ReturnType<typeof setInterval> | undefined
 
 const admin = computed(() => authStore.admin)
@@ -57,6 +64,11 @@ const problemStudentCount = computed(
     ).length ?? 0,
 )
 const adjacentStages = computed(() => getAdjacentStages(selectedRoom.value?.currentStage))
+const activityPageCount = computed(() => Math.max(1, Math.ceil(activities.value.length / 10)))
+const pagedActivities = computed(() => {
+  const start = (activityPage.value - 1) * 10
+  return activities.value.slice(start, start + 10)
+})
 
 const connectionLabels: Record<ConnectionStatus, string> = {
   ONLINE: '접속 중',
@@ -76,6 +88,9 @@ const eventLabels: Record<string, string> = {
   QUIZ_SUBMITTED: '퀴즈 제출',
   DAY1_INCOME_SETTLED: '1일차 소득 정산',
   PAYSLIP_VIEWED: '월급명세서 확인',
+  STUDENT_FORCED_TO_SELECTED_STAGE: '관리자가 확인 화면으로 이동',
+  STUDENT_FORCED_TO_CURRENT_STAGE: '관리자가 현재 수업으로 복귀',
+  STUDENT_WALLET_ADJUSTED: '관리자가 잔액 조정',
   STUDENT_SESSION_TERMINATED: '관리자가 세션 종료',
 }
 
@@ -103,11 +118,14 @@ watch(selectedRoomId, async (roomId, previousRoomId) => {
   if (!roomId || roomId === previousRoomId) return
   selectedStudentId.value = ''
   activities.value = []
+  activityPage.value = 1
   await refreshRoomStudents()
 })
 
 watch(selectedStudentId, async (studentId, previousStudentId) => {
   copiedParticipationCode.value = ''
+  activityPage.value = 1
+  forceViewStage.value = selectedStudent.value?.effectiveStage ?? ''
   if (!studentId || studentId === previousStudentId) {
     if (!studentId) activities.value = []
     return
@@ -156,6 +174,7 @@ async function refreshActivities() {
     selectedRoomId.value,
     selectedStudentId.value,
   )
+  if (activityPage.value > activityPageCount.value) activityPage.value = activityPageCount.value
 }
 
 async function terminateSession() {
@@ -218,6 +237,69 @@ async function forceCurrentStage() {
     await refreshRoomStudents()
   } catch (error) {
     await handleError(error, '학생을 현재 위치로 이동하지 못했습니다.')
+  } finally {
+    controlling.value = false
+  }
+}
+
+async function forceSelectedView() {
+  if (!selectedRoomId.value || !selectedStudent.value || !forceViewStage.value || controlling.value) return
+  controlling.value = true
+  errorMessage.value = ''
+  try {
+    await forceAdminStudentView(selectedRoomId.value, selectedStudent.value.studentId, forceViewStage.value)
+    noticeMessage.value = `${selectedStudent.value.nickname ?? `${selectedStudent.value.participantNumber}번`} 학생을 ${getRoomStage(forceViewStage.value)?.label ?? forceViewStage.value} 화면으로 이동했습니다.`
+    await refreshRoomStudents()
+    await refreshActivities()
+  } catch (error) {
+    await handleError(error, '선택한 화면으로 이동하지 못했습니다.')
+  } finally {
+    controlling.value = false
+  }
+}
+
+async function adjustWallet(direction: 1 | -1) {
+  if (!selectedRoomId.value || !selectedStudent.value || controlling.value) return
+  const unit = Math.abs(Math.trunc(walletAdjustmentAmount.value))
+  if (unit < 1) {
+    errorMessage.value = '조정 금액은 1비빔 이상 입력해 주세요.'
+    return
+  }
+  if (!walletAdjustmentReason.value.trim()) {
+    errorMessage.value = '잔액 조정 사유를 입력해 주세요.'
+    return
+  }
+  controlling.value = true
+  errorMessage.value = ''
+  try {
+    const result = await adjustAdminStudentWallet(
+      selectedRoomId.value,
+      selectedStudent.value.studentId,
+      unit * direction,
+      walletAdjustmentReason.value.trim(),
+    )
+    noticeMessage.value = `학생 잔액을 ${direction > 0 ? '추가' : '차감'}했습니다. 현재 잔액은 ${formatBibim(result.balance)}입니다.`
+    await refreshRoomStudents()
+    await refreshActivities()
+  } catch (error) {
+    await handleError(error, '학생 잔액을 조정하지 못했습니다.')
+  } finally {
+    controlling.value = false
+  }
+}
+
+async function removeSelectedRoom() {
+  if (!selectedRoom.value || controlling.value) return
+  if (!window.confirm(`‘${selectedRoom.value.roomName}’ 방을 관리자 권한으로 삭제할까요?`)) return
+  controlling.value = true
+  try {
+    await deleteAdminRoom(selectedRoom.value.roomId)
+    noticeMessage.value = '수업 방을 삭제했습니다.'
+    selectedRoomId.value = ''
+    selectedStudentId.value = ''
+    await refreshDashboard(true)
+  } catch (error) {
+    await handleError(error, '수업 방을 삭제하지 못했습니다.')
   } finally {
     controlling.value = false
   }
@@ -341,6 +423,7 @@ function formatBibim(amount: number) {
           <div><span>현재 진행</span><strong>{{ getRoomStage(selectedRoom.currentStage)?.label ?? selectedRoom.currentStage }}</strong></div>
           <button class="button-secondary" type="button" :disabled="!adjacentStages.previous || controlling" @click="moveRoom(adjacentStages.previous?.id)">← 이전 단계</button>
           <button type="button" :disabled="!adjacentStages.next || controlling" @click="moveRoom(adjacentStages.next?.id)">다음 단계 →</button>
+          <button class="button-danger" type="button" :disabled="controlling" @click="removeSelectedRoom">방 삭제</button>
         </section>
 
         <section class="admin-monitoring-layout">
@@ -403,10 +486,30 @@ function formatBibim(amount: number) {
                 <div><dt>현재 모듈</dt><dd>{{ selectedStudent.currentModule ?? '-' }}</dd></div>
                 <div><dt>재접속 시각</dt><dd>{{ formatTime(selectedStudent.reconnectedAt) }}</dd></div>
                 <div><dt>동기화</dt><dd>{{ syncLabel(selectedStudent) }}</dd></div>
+                <div><dt>현재 잔액</dt><dd><strong>{{ formatBibim(selectedStudent.walletBalance) }}</strong></dd></div>
               </dl>
 
               <section class="admin-recovery-box" aria-labelledby="admin-recovery-title">
-                <button type="button" :disabled="controlling" @click="forceCurrentStage">현재 수업 위치로 강제 이동</button>
+                <h3>학생 화면 강제 이동</h3>
+                <p>현재 수업으로 복귀시키거나, 확인이 필요한 특정 화면을 학생 기기에 표시합니다.</p>
+                <div class="admin-force-view-controls">
+                  <select v-model="forceViewStage" aria-label="강제로 표시할 학생 화면">
+                    <option value="" disabled>화면 선택</option>
+                    <option v-for="stage in ROOM_STAGES.filter((item) => item.day <= (selectedRoom?.currentDay ?? 1))" :key="stage.id" :value="stage.id">{{ stage.day }}일차 · {{ stage.label }}</option>
+                  </select>
+                  <button type="button" :disabled="!forceViewStage || controlling" @click="forceSelectedView">선택 화면으로 이동</button>
+                  <button class="button-secondary" type="button" :disabled="controlling" @click="forceCurrentStage">현재 수업으로 복귀</button>
+                </div>
+
+                <h3>학생 잔액 조정</h3>
+                <p>운영 보정 이력은 학생 활동 타임라인에 관리자 기록으로 남습니다.</p>
+                <div class="admin-wallet-controls">
+                  <label>조정 단위<input v-model.number="walletAdjustmentAmount" type="number" min="1" max="1000000"><span>비빔</span></label>
+                  <label>사유<input v-model.trim="walletAdjustmentReason" maxlength="200"></label>
+                  <button type="button" :disabled="controlling" @click="adjustWallet(1)">잔액 올리기</button>
+                  <button class="button-secondary" type="button" :disabled="controlling" @click="adjustWallet(-1)">잔액 내리기</button>
+                </div>
+
                 <h3 id="admin-recovery-title">문제 세션 종료</h3>
                 <p>자동 재연결이 계속 실패할 때만 사용합니다. 학생은 참여 코드와 비밀번호로 다시 로그인해야 합니다.</p>
                 <input
@@ -421,11 +524,11 @@ function formatBibim(amount: number) {
 
               <section class="admin-activity-list" aria-labelledby="admin-activity-title">
                 <div class="panel-heading">
-                  <p class="eyebrow">최근 100건</p>
+                  <p class="eyebrow">페이지당 최근 10건</p>
                   <h3 id="admin-activity-title">활동 타임라인</h3>
                 </div>
                 <ol>
-                  <li v-for="activity in activities" :key="activity.eventId">
+                  <li v-for="activity in pagedActivities" :key="activity.eventId">
                     <time>{{ formatTime(activity.occurredAt) }}</time>
                     <div>
                       <strong>{{ eventLabels[activity.eventType] ?? activity.eventType }}</strong>
@@ -433,6 +536,11 @@ function formatBibim(amount: number) {
                     </div>
                   </li>
                 </ol>
+                <nav v-if="activities.length > 10" class="admin-activity-pagination" aria-label="활동 타임라인 페이지">
+                  <button class="button-secondary" type="button" :disabled="activityPage === 1" @click="activityPage -= 1">← 이전</button>
+                  <span>{{ activityPage }} / {{ activityPageCount }}</span>
+                  <button class="button-secondary" type="button" :disabled="activityPage === activityPageCount" @click="activityPage += 1">다음 →</button>
+                </nav>
                 <p v-if="!activities.length" class="state-message">아직 기록된 활동이 없습니다.</p>
               </section>
             </template>

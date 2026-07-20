@@ -29,7 +29,7 @@ async function submit() {
 </script>
 
 <template>
-  <main class="auth-page">
+  <main class="auth-page student-theme">
     <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
 
     <section class="auth-card" aria-labelledby="teacher-login-title">

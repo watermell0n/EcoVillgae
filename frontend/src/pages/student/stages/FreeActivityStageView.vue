@@ -31,6 +31,7 @@ const viewHistory = ref<ActivityView[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const investmentConfirmationMessage = ref('')
 const selectedProduct = ref<ShopProduct | null>(null)
 const selectedInvestmentAsset = ref<InvestmentAsset | null>(null)
 const quantity = ref(1)
@@ -366,9 +367,9 @@ async function cancelInvestment() {
 async function confirmInvestment() {
   try {
     const result = await economyStore.finalizeInvestment()
-    noticeMessage.value = result?.replayed
+    investmentConfirmationMessage.value = result?.replayed
       ? '이미 완료된 투자 결과를 불러왔어요.'
-      : '투자를 확정했어요. 이제 금액과 시장 시나리오는 바뀌지 않아요.'
+      : '투자를 확정했어요. 확정한 금액은 아래 누적 투자 내역에 저장됐어요.'
     resetInvestmentAllocations()
     await roomSessionStore.refreshStudent()
   } catch (error) {
@@ -578,7 +579,7 @@ function formatPurchasedAt(value: string) {
 
       <section v-else-if="activeView === 'DEPOSIT'" class="finance-activity-panel">
         <div class="finance-guide-card">
-          <p class="eyebrow">약속 이자율 5%</p>
+          <p class="eyebrow">약속 이자율 {{ deposit.interestRateBps / 100 }}%</p>
           <h2>기다린 만큼 이자를 받아요.</h2>
           <p>20비빔 이상을 10비빔 단위로 맡길 수 있어요. 확정한 건은 취소할 수 없지만, 남은 비빔으로 새 예금을 추가할 수 있어요.</p>
         </div>
@@ -717,12 +718,11 @@ function formatPurchasedAt(value: string) {
             <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">임시 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
-          <p v-if="overview.investmentBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.investmentBalance) }}을 투자했어요. 남은 잔액으로 추가 투자할 수 있어요.</p>
         </div>
         <p class="investment-screen__note">💡 예상 결과는 과거 데이터와 시장 상황을 바탕으로 한 예측 범위예요.</p>
         <section class="finance-history-card investment-screen__history" aria-labelledby="investment-history-title">
           <div class="finance-history-card__header">
-            <div><p class="eyebrow">확정 내역</p><h2 id="investment-history-title">내가 선택한 투자처</h2></div>
+            <div><p class="eyebrow">확정 내역</p><h2 id="investment-history-title">누적 투자 내역</h2></div>
             <strong>{{ economyStore.investmentHistory.length }}건</strong>
           </div>
           <p v-if="economyStore.investmentHistory.length === 0" class="finance-history-card__empty">아직 확정한 투자가 없어요.</p>
@@ -819,23 +819,25 @@ function formatPurchasedAt(value: string) {
         </header>
         <div class="investment-detail-modal__meta">
           <span :class="`risk-badge risk-badge--${selectedInvestmentAsset.riskLevel.toLowerCase()}`">위험 {{ riskLabel(selectedInvestmentAsset.riskLevel) }}</span>
-          <strong>예상 결과 {{ formatRate(selectedInvestmentAsset.minReturnBps) }} ~ {{ formatRate(selectedInvestmentAsset.maxReturnBps) }}</strong>
         </div>
-        <p class="investment-detail-modal__summary">{{ selectedInvestmentAsset.description }}</p>
         <section class="investment-detail-modal__story">
           <h3>📘 투자 이야기</h3>
           <p class="investment-detail-modal__content">{{ selectedInvestmentAsset.companyInfo }}</p>
-          <h3>📊 근거가 되는 정보</h3>
-          <ul>
-            <li>예상 수익 범위: {{ formatRate(selectedInvestmentAsset.minReturnBps) }} ~ {{ formatRate(selectedInvestmentAsset.maxReturnBps) }}</li>
-            <li>위험 수준: {{ riskLabel(selectedInvestmentAsset.riskLevel) }}</li>
-            <li>{{ selectedInvestmentAsset.description }}</li>
-          </ul>
         </section>
         <footer class="investment-detail-modal__actions">
           <button class="button-secondary" type="button" @click="closeInvestmentDetail">닫기</button>
           <button type="button" :disabled="!canIncreaseInvestment() && investmentAmount(selectedInvestmentAsset.assetId) === 0" @click="chooseInvestmentFromDetail">이 상품에 투자하기</button>
         </footer>
+      </section>
+    </div>
+
+    <div v-if="investmentConfirmationMessage" class="modal-backdrop investment-confirmed-backdrop">
+      <section class="confirm-modal investment-confirmed-modal" role="alertdialog" aria-modal="true" aria-labelledby="investment-confirmed-title">
+        <span class="investment-confirmed-modal__icon" aria-hidden="true">✓</span>
+        <p class="eyebrow">투자 확정 완료</p>
+        <h2 id="investment-confirmed-title">투자 내역을 저장했어요</h2>
+        <p>{{ investmentConfirmationMessage }}</p>
+        <button type="button" @click="investmentConfirmationMessage = ''">확인</button>
       </section>
     </div>
   </div>

@@ -30,6 +30,7 @@ import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentRoleCatalogRepository;
 import com.b201.bibim.feature.settlement.Day1IncomeCalculator.Calculation;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomePreviewResponse;
 import com.b201.bibim.feature.settlement.SettlementDto.Day1IncomeSettlementResponse;
@@ -52,6 +53,7 @@ public class SettlementService {
     private final RoomRulesRepository roomRulesRepository;
     private final DaySessionRepository sessionRepository;
     private final StudentRepository studentRepository;
+    private final StudentRoleCatalogRepository studentRoleCatalogRepository;
     private final StudentFlowStateRepository studentFlowStateRepository;
     private final QuizRepository quizRepository;
     private final QuizSubmissionRepository submissionRepository;
@@ -68,6 +70,7 @@ public class SettlementService {
             RoomRulesRepository roomRulesRepository,
             DaySessionRepository sessionRepository,
             StudentRepository studentRepository,
+            StudentRoleCatalogRepository studentRoleCatalogRepository,
             StudentFlowStateRepository studentFlowStateRepository,
             QuizRepository quizRepository,
             QuizSubmissionRepository submissionRepository,
@@ -83,6 +86,7 @@ public class SettlementService {
         this.roomRulesRepository = roomRulesRepository;
         this.sessionRepository = sessionRepository;
         this.studentRepository = studentRepository;
+        this.studentRoleCatalogRepository = studentRoleCatalogRepository;
         this.studentFlowStateRepository = studentFlowStateRepository;
         this.quizRepository = quizRepository;
         this.submissionRepository = submissionRepository;
@@ -395,7 +399,7 @@ public class SettlementService {
                 student.getId(),
                 student.getParticipantNumber(),
                 student.getNickname(),
-                student.getRoleName(),
+                resolveRoleName(student),
                 item.isQuizSubmitted(),
                 item.getCorrectCount(),
                 item.getRoleIncome(),
@@ -407,6 +411,15 @@ public class SettlementService {
                 walletBalance,
                 run.getCompletedAt()
         );
+    }
+
+    private String resolveRoleName(StudentEntity student) {
+        if (student.getRoleName() != null && !student.getRoleName().isBlank()) {
+            return student.getRoleName();
+        }
+        return studentRoleCatalogRepository.findById(student.getParticipantNumber())
+                .map(role -> role.getRoleName())
+                .orElse(null);
     }
 
     private Day1IncomePreviewResponse previewFromCurrentData(RoomEntity room) {
