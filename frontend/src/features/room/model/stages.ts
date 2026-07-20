@@ -43,7 +43,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY2_RESULT_GUIDED', day: 2, label: '금융 결과 교육', description: '개인별 금융 결과를 선생님과 확인합니다.' },
   { id: 'DAY2_QUIZ', day: 2, label: '경제 퀴즈', description: '10문제 경제 퀴즈로 배운 내용을 확인합니다.' },
   { id: 'DAY2_QUIZ_RESULT', day: 2, label: '퀴즈 결과 확인', description: '문항별 정답과 학급 퀴즈 결과를 함께 확인합니다.' },
-  { id: 'DAY2_QUIZ_SETTLEMENT', day: 2, label: '퀴즈 보상 정산', description: '문제당 5비빔의 정답수당을 세금 없이 반영합니다.' },
+  { id: 'DAY2_QUIZ_SETTLEMENT', day: 2, label: '퀴즈 보상 돈 계산', description: '문제당 5비빔의 정답수당에서 소득세 10%를 뺀 금액을 반영합니다.' },
   { id: 'DAY2_TAX_INFLATION_GUIDED', day: 2, label: '금융지식 교육', description: '금융세와 인플레이션을 2페이지로 배웁니다.' },
   { id: 'DAY2_INFLATION_APPLY', day: 2, label: '물가상승 적용', description: '상점 가격에 물가상승률을 반영합니다.' },
   { id: 'DAY2_FINAL_SHOP', day: 2, label: '최종 상점 활동', description: '변경된 가격으로 마지막 소비 활동을 합니다.' },

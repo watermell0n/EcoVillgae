@@ -42,6 +42,11 @@ export interface TeacherStudentDay1Summary {
   investmentConfirmed: boolean
   purchased: boolean
   inactive: boolean
+  depositStatus: 'NONE' | 'DRAFT' | 'CONFIRMED'
+  depositDraftPrincipal: number
+  investmentStatus: 'NONE' | 'DRAFT' | 'CONFIRMED'
+  investmentDraftTotal: number
+  investments: Day1InvestmentSummary[]
 }
 
 export interface TeacherDay1Summary {

@@ -45,6 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class Day1Service {
 
     private static final Set<String> SUMMARY_STAGES = Set.of("DAY1_SUMMARY", "DAY1_CLOSED");
+    private static final Set<String> TEACHER_SUMMARY_STAGES = Set.of(
+            "DAY1_FREE_ACTIVITY", "DAY1_SUMMARY", "DAY1_CLOSED"
+    );
 
     private final RoomRepository roomRepository;
     private final StudentRepository studentRepository;
@@ -100,11 +103,11 @@ public class Day1Service {
     @Transactional(readOnly = true)
     public TeacherDay1SummaryResponse teacherSummary(UUID teacherId, UUID roomId) {
         RoomEntity room = findOwnedRoom(teacherId, roomId);
-        ensureSummaryAvailable(room);
+        ensureTeacherSummaryAvailable(room);
         List<TeacherStudentDay1Response> students = studentRepository
                 .findAllByRoomIdOrderByParticipantNumber(roomId)
                 .stream()
-                .map(student -> toTeacherStudent(buildStudentSummary(room, student)))
+                .map(student -> toTeacherStudent(room, student, buildStudentSummary(room, student)))
                 .toList();
         return new TeacherDay1SummaryResponse(
                 roomId,
@@ -260,15 +263,50 @@ public class Day1Service {
         );
     }
 
-    private TeacherStudentDay1Response toTeacherStudent(StudentDay1SummaryResponse summary) {
+    private TeacherStudentDay1Response toTeacherStudent(
+            RoomEntity room,
+            StudentEntity student,
+            StudentDay1SummaryResponse summary
+    ) {
+        DaySessionEntity session = dayOneSession(room.getId());
+        DepositEntity depositDraft = depositRepository
+                .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                        session.getId(), student.getId(), "DRAFT"
+                )
+                .orElse(null);
+        InvestmentOrderEntity investmentDraft = orderRepository
+                .findFirstBySessionIdAndStudentIdAndStatusOrderByUpdatedAtDesc(
+                        session.getId(), student.getId(), "DRAFT"
+                )
+                .orElse(null);
         boolean depositConfirmed = summary.depositPrincipal() > 0;
         boolean investmentConfirmed = summary.investmentPrincipal() > 0;
         boolean purchased = !summary.purchases().isEmpty();
+        List<InvestmentAllocationSummaryResponse> visibleInvestments = investmentDraft == null
+                ? summary.investments()
+                : allocationRepository.findAllByOrderId(investmentDraft.getId()).stream()
+                        .map(allocation -> {
+                            InvestmentAssetEntity asset = assetRepository.findById(allocation.getAssetId()).orElse(null);
+                            return new InvestmentAllocationSummaryResponse(
+                                    allocation.getAssetId(),
+                                    asset == null ? "알 수 없는 투자처" : asset.getName(),
+                                    asset == null ? "UNKNOWN" : asset.getRiskLevel(),
+                                    allocation.getAmount()
+                            );
+                        })
+                        .toList();
+        String depositStatus = depositDraft != null && depositDraft.getPrincipal() > 0
+                ? "DRAFT" : depositConfirmed ? "CONFIRMED" : "NONE";
+        String investmentStatus = investmentDraft != null && investmentDraft.getTotalAmount() > 0
+                ? "DRAFT" : investmentConfirmed ? "CONFIRMED" : "NONE";
         return new TeacherStudentDay1Response(
                 summary.studentId(), summary.participantNumber(), summary.nickname(),
                 summary.walletBalance(), summary.depositPrincipal(), summary.investmentPrincipal(),
                 summary.purchaseTotal(), depositConfirmed, investmentConfirmed, purchased,
-                !depositConfirmed && !investmentConfirmed && !purchased
+                "NONE".equals(depositStatus) && "NONE".equals(investmentStatus) && !purchased,
+                depositStatus, depositDraft == null ? 0 : depositDraft.getPrincipal(),
+                investmentStatus, investmentDraft == null ? 0 : investmentDraft.getTotalAmount(),
+                visibleInvestments
         );
     }
 
@@ -302,6 +340,16 @@ public class Day1Service {
                     HttpStatus.CONFLICT,
                     "DAY1_SUMMARY_NOT_OPEN",
                     "1일차 요약 또는 마감 단계에서 결과를 확인할 수 있습니다."
+            );
+        }
+    }
+
+    private void ensureTeacherSummaryAvailable(RoomEntity room) {
+        if (!TEACHER_SUMMARY_STAGES.contains(room.getCurrentStage())) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "DAY1_SUMMARY_NOT_OPEN",
+                    "자유 경제활동 이후 학생 현황을 확인할 수 있습니다."
             );
         }
     }

@@ -51,7 +51,12 @@ public final class Day1Dto {
             boolean depositConfirmed,
             boolean investmentConfirmed,
             boolean purchased,
-            boolean inactive
+            boolean inactive,
+            String depositStatus,
+            long depositDraftPrincipal,
+            String investmentStatus,
+            long investmentDraftTotal,
+            List<InvestmentAllocationSummaryResponse> investments
     ) {
     }
 

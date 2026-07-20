@@ -6619,3 +6619,275 @@ button.admin-student-row.is-selected {
 .investment-screen .investment-asset-card .amount-spinner {
   display: grid;
 }
+
+/* 2026-07 UI stabilization: one calm layout system for student and teacher flows. */
+.student-room-page *,
+.student-room-page *::before,
+.student-room-page *::after {
+  animation: none !important;
+}
+
+.student-stage-card {
+  position: relative;
+  padding: clamp(12px, 2vw, 24px);
+  scrollbar-gutter: stable;
+}
+
+.student-context-bar {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 14px auto;
+  padding: 9px 14px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #ead8cc;
+  border-radius: 999px;
+  color: #704d3b;
+  background: #fff7f1;
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
+.student-context-bar span { color: #8c6a58; }
+.student-context-bar strong { color: #563c2f; }
+.waiting-room-name { display: none !important; }
+
+.student-closing-countdown {
+  position: absolute;
+  z-index: 20;
+  top: 62px;
+  right: clamp(12px, 2vw, 24px);
+  width: min(420px, calc(100% - 24px));
+  padding: 14px 18px;
+  border: 1px solid #c5ded4;
+  border-radius: 16px;
+  color: #285c49;
+  background: #f1fbf6;
+  box-shadow: 0 12px 28px rgb(32 79 61 / 14%);
+}
+
+.economy-sticky-controls,
+.investment-screen__checkout {
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+}
+
+.learning-stage-view {
+  display: grid;
+  min-height: calc(100dvh - 120px);
+  padding: clamp(34px, 7vh, 82px) clamp(10px, 3vw, 34px) 34px;
+  place-items: center;
+}
+
+.learning-card {
+  width: min(100%, 1120px);
+  height: auto !important;
+  min-height: 520px;
+  max-height: none !important;
+  padding: clamp(24px, 4vw, 48px);
+  overflow: visible !important;
+  border: 1px solid #dce6e1;
+  border-radius: 28px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 18px 48px rgb(48 75 63 / 10%);
+}
+
+.learning-card--rational {
+  align-content: center;
+  border-color: #cbdcf1;
+  background: linear-gradient(145deg, #fff, #f8fbff);
+}
+
+.learning-card--rational .learning-card__hero { justify-items: center; text-align: center; }
+.learning-card--rational .learning-card__content { max-width: 900px; margin-inline: auto; text-align: center; }
+.learning-card__rational-copy { padding: 20px 24px; border-radius: 18px; background: #f4f7fb; font-size: 1.08rem; line-height: 1.7; }
+.learning-card__activity-guide {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  margin: 4px 0 0;
+  padding: 14px 18px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #c9dcf5;
+  border-radius: 16px;
+  color: #496682;
+  background: #f3f8ff;
+  line-height: 1.55;
+}
+
+.payslip-stage-view { width: min(100%, 1140px); }
+.payslip-header { align-items: center; margin-bottom: 18px; }
+.payslip-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); gap: 28px; align-items: center; }
+.payslip-sheet {
+  padding: clamp(24px, 4vw, 42px);
+  border: 0;
+  border-radius: 4px;
+  background: #fffdf6;
+  box-shadow: 0 18px 46px rgb(83 68 46 / 13%);
+}
+.payslip-sheet__title { display: grid; padding-bottom: 20px; place-items: center; border-bottom: 2px dashed #cfbd83; text-align: center; }
+.payslip-sheet__title > span { font-size: 2.4rem; }
+.payslip-sheet__title strong { margin-top: 4px; color: #263449; font-size: 1.45rem; }
+.payslip-sheet__title small { color: #7b8392; }
+.payslip-line { min-height: 54px; padding: 12px 4px; }
+.payslip-line + .payslip-line { border-top: 0; }
+.payslip-line span { color: #263449; font-weight: 750; }
+.payslip-line strong { color: #57a666; font-size: 1.15rem; }
+.payslip-line--subtotal { margin-top: 8px; border-top: 2px dashed #cfbd83 !important; background: transparent; }
+.payslip-line--tax { margin: 4px 0 12px; padding: 12px 16px; border-radius: 12px; background: #fff0e9; }
+.payslip-line--total { display: grid; min-height: 118px; place-items: center; border: 2px solid #b9d9bd !important; border-radius: 16px; background: #eef8e9; text-align: center; }
+.payslip-line--total span { font-size: .82rem; }
+.payslip-line--total strong { color: #54aa62; font-size: clamp(1.7rem, 3vw, 2.25rem); }
+.payslip-side { display: grid; gap: 16px; }
+.payslip-tax-guide { display: grid; grid-template-columns: auto 1fr; padding: 22px; gap: 16px; border-radius: 22px; background: #fff; box-shadow: 0 14px 34px rgb(57 76 67 / 9%); }
+.payslip-tax-guide > span { font-size: 2.5rem; }
+.payslip-tax-guide strong { color: #263449; font-size: 1.15rem; }
+.payslip-tax-guide p { margin: 8px 0 0; color: #6c7887; line-height: 1.55; }
+.payslip-wallet-card { display: grid; padding: 22px; gap: 10px; border-radius: 22px; background: #eef8e9; }
+.payslip-wallet-card p { margin: 0 0 4px; color: #31584a; font-weight: 900; }
+.payslip-wallet-card span { display: flex; justify-content: space-between; gap: 16px; color: #69778a; }
+.payslip-wallet-card strong { color: #54aa62; font-size: 1.2rem; }
+.payslip-recorded { margin: 0; padding: 14px; border-radius: 14px; color: #fff; background: #e97c3e; text-align: center; font-weight: 900; }
+
+.investment-detail-backdrop { display: flex !important; padding: 20px !important; align-items: center !important; justify-content: center !important; }
+.investment-detail-modal { width: min(920px, calc(100vw - 40px)); margin: auto !important; transform: none !important; }
+
+.day1-quiz-result-stage { padding-bottom: 170px; }
+.day1-quiz-result-stage .settlement-wait-card {
+  position: fixed;
+  right: auto;
+  bottom: 18px;
+  left: 50%;
+  z-index: 40;
+  width: min(1120px, calc(100vw - 48px));
+  transform: translateX(-50%);
+  box-shadow: 0 12px 32px rgb(75 63 43 / 16%);
+}
+.investment-screen__checkout { margin-top: 18px; }
+.investment-screen__checkout .finance-confirmed {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  padding: 10px 14px;
+  color: #376a55;
+  background: #edf7f1;
+  font-size: .86rem;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+.finance-history-card { padding: clamp(16px, 2vw, 24px); }
+.investment-screen__history { max-width: 1120px; margin: 16px auto 0; }
+.finance-history-card__scroll { max-height: 260px; }
+.investment-history-allocations li { grid-template-columns: auto minmax(0, 1fr) auto; }
+
+.transaction-list article,
+.day2-final-shop-view .transaction-list article {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 70px;
+  padding: 14px 16px;
+  gap: 16px;
+}
+.free-activity-stage-view .transaction-list article { grid-template-columns: 42px minmax(0, 1fr) auto; }
+.transaction-list article > div { min-width: 0; }
+.transaction-list article strong { word-break: keep-all; overflow-wrap: normal; }
+.transaction-list article > strong:last-child { white-space: nowrap; }
+.transaction-list small { white-space: nowrap; }
+.wallet-panel { width: min(100%, 1180px); margin-inline: auto; }
+
+.day2-finance-view,
+.day2-reward-view,
+.student-fund-view { width: min(100%, 1180px); margin: 0 auto; }
+.day2-finance-header { padding: clamp(20px, 3vw, 34px); border-radius: 24px; background: linear-gradient(135deg, #f4fbf7, #fffdf8); }
+.day2-balance-grid { gap: 12px; }
+.day2-balance-grid article { min-height: 124px; padding: 20px; border: 1px solid #d9e5df; border-radius: 18px; background: #fff; }
+.day2-balance-grid article.is-highlight { color: #285d48; border-color: #a9cfb9; background: #edf8f1; }
+.day2-result-breakdown { margin-top: 18px; padding: clamp(20px, 3vw, 30px); border-radius: 22px; }
+.day2-allocation-list article dl { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.quiz-reward-result { max-width: 1120px; margin: 0 auto; border-color: #d8e6df; background: linear-gradient(145deg, #fffdf8, #f7fbf8); }
+.quiz-reward-score { color: #39755d; border-color: #cfe8da; background: #f1faf5; }
+.quiz-reward-equation > div { background: #f3f6f4; }
+.quiz-reward-equation > div.is-total,
+.day2-reward-breakdown .is-total { color: #285d48; background: #dff1e6; }
+.quiz-reward-tip { border-color: #eadcaa; background: #fff9df; }
+.quiz-reward-wallet { display: grid; grid-template-columns: auto auto minmax(0, 1fr); margin-top: 14px; padding: 15px 18px; align-items: center; gap: 12px; border: 1px solid #bfdacb; border-radius: 16px; color: #315f4d; background: #edf8f2; }
+.quiz-reward-wallet > span { font-size: 2rem; }
+.quiz-reward-wallet div { display: grid; }
+.quiz-reward-wallet small { color: #678476; }
+.quiz-reward-wallet strong { font-size: 1.25rem; }
+.quiz-reward-wallet p { margin: 0; text-align: right; }
+
+.sold-out-modal { width: min(440px, 100%); text-align: center; }
+.sold-out-modal__icon { font-size: 3rem; }
+.sold-out-modal > button { width: 100%; margin-top: 14px; }
+
+.student-fund-view { display: grid; gap: 18px; }
+.student-fund-balance { width: min(760px, 100%); margin: 0 auto; text-align: center; }
+.fund-wait-card,
+.student-vote-card { width: min(920px, 100%); margin: 0 auto; }
+.fund-wait-card__heading { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px; }
+.fund-wait-card__heading > span { font-size: 2.2rem; }
+.fund-wait-card__heading p { margin: 4px 0 0; }
+.student-fund-cost-options { display: grid; margin-top: 18px; gap: 10px; }
+.student-fund-cost-options article { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #dce7e1; border-radius: 14px; background: #fff; }
+.student-fund-cost-options article div { display: grid; gap: 3px; }
+.student-fund-cost-options small { color: #758176; }
+.student-fund-cost-options b { white-space: nowrap; }
+.student-fund-cost-options .is-applied { border-color: #78b294; background: #edf8f1; }
+.student-fund-cost-options .is-unaffordable { opacity: .55; }
+.student-vote-options { position: relative; display: grid; gap: 10px; }
+.student-vote-options label,
+.student-vote-options article { position: relative; min-height: 92px; }
+
+.teacher-live-economy { display: grid; gap: 16px; }
+.teacher-live-economy__header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.teacher-live-economy__header h2 { margin: 2px 0 0; color: var(--teacher-text); font-size: 1.2rem; }
+.teacher-live-economy__summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.teacher-live-economy__summary span { padding: 11px; border: 1px solid var(--teacher-border); border-radius: 12px; background: #f8fbf9; text-align: center; }
+.teacher-live-student-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: min(520px, 60vh); padding-right: 4px; gap: 12px; overflow-y: auto; }
+.teacher-live-student-grid > article { display: grid; padding: 14px; gap: 8px; border: 1px solid var(--teacher-border); border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgb(31 63 49 / 6%); }
+.teacher-live-student-grid > article > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.teacher-live-student-grid > article > header span { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; color: #fff; background: #4d826a; font-size: .72rem; font-weight: 900; }
+.teacher-live-student-grid > article > header b { color: #386b55; font-size: .82rem; white-space: nowrap; }
+.teacher-live-module { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 11px; background: #f4f5f3; }
+.teacher-live-module div { display: grid; gap: 1px; }
+.teacher-live-module small { color: #7b847f; font-size: .68rem; }
+.teacher-live-module b { font-size: .76rem; white-space: nowrap; }
+.teacher-live-module.is-draft { background: #fff7dc; }
+.teacher-live-module.is-confirmed { background: #eaf7ef; }
+.teacher-live-investments { margin: -2px 2px 0 36px; color: #597367; font-size: .68rem; line-height: 1.4; word-break: keep-all; }
+
+.teacher-stage-action:not(:disabled),
+.teacher-next-action.is-recommended:not(:disabled) {
+  animation: teacher-next-focus 1.25s ease-in-out infinite !important;
+}
+
+@keyframes teacher-next-focus {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(239 137 68 / 15%); filter: brightness(1); }
+  50% { box-shadow: 0 0 0 6px rgb(239 137 68 / 20%); filter: brightness(1.06); }
+}
+
+@media (max-width: 900px) {
+  .payslip-layout { grid-template-columns: 1fr; }
+  .teacher-live-student-grid { grid-template-columns: 1fr; }
+  .teacher-live-economy__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .day2-allocation-list article dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .student-context-bar { margin-right: 0; font-size: .72rem; }
+  .student-context-bar span { display: none; }
+  .learning-stage-view { min-height: auto; padding: 24px 0; }
+  .learning-card { min-height: 0; padding: 20px; }
+  .learning-card__activity-guide { grid-template-columns: auto 1fr; }
+  .learning-card__activity-guide strong { grid-column: 2; }
+  .payslip-header { align-items: flex-start; flex-direction: column; }
+  .payslip-sheet { padding: 20px 16px; }
+  .quiz-reward-result__header { align-items: flex-start; flex-direction: column; }
+  .quiz-reward-score { width: 7rem; height: 7rem; }
+  .quiz-reward-equation { grid-template-columns: 1fr; }
+  .quiz-reward-equation > b { text-align: center; }
+  .student-fund-cost-options article { grid-template-columns: 32px minmax(0, 1fr); }
+  .student-fund-cost-options article b { grid-column: 2; }
+}

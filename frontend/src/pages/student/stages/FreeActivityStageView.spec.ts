@@ -176,6 +176,7 @@ describe('FreeActivityStageView', () => {
     })
     await openTab(wrapper, '상점')
     await wrapper.get('.shop-product-card button').trigger('click')
+    await flushPromises()
     expect(wrapper.text()).toContain('환불하거나 교환할 수 없어요')
     await wrapper.get('.confirm-modal__actions button:not(.button-secondary)').trigger('click')
     await flushPromises()
@@ -320,7 +321,7 @@ describe('FreeActivityStageView', () => {
     expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
       { assetId: 'asset-1', amount: 30 },
     ])
-    expect(wrapper.text()).toContain('투자 금액을 잠시 저장했어요')
+    expect(wrapper.text()).toContain('투자 금액을 임시 저장했어요')
   })
 
   it('opens the selected company information without changing the investment amount', async () => {

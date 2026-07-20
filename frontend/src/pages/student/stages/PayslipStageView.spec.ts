@@ -16,6 +16,7 @@ describe('PayslipStageView', () => {
       studentId: 'student-1',
       participantNumber: 1,
       nickname: '비빔이',
+      roleName: '라이츄',
       quizSubmitted: true,
       correctCount: 3,
       roleIncome: 150,
@@ -34,10 +35,12 @@ describe('PayslipStageView', () => {
     await flushPromises()
 
     expect(settlementApi.getDay1Payslip).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('비빔이님의 소득을 확인해요.')
-    expect(wrapper.text()).toContain('역할 기본 월급')
-    expect(wrapper.text()).toContain('3문제 × 5비빔')
-    expect(wrapper.text()).not.toContain('퀴즈 참여수당')
+    expect(wrapper.text()).toContain('받은 돈과 세금을 확인해요')
+    expect(wrapper.text()).toContain('1인1역')
+    expect(wrapper.text()).toContain('라이츄')
+    expect(wrapper.text()).toContain('3문제')
+    expect(wrapper.text()).toContain('퀴즈 참여수당')
+    expect(wrapper.text()).toContain('내 지갑 기록에 저장됐어요')
     expect(wrapper.text()).toContain('165비빔')
     expect(wrapper.text()).toContain('16비빔')
     expect(wrapper.text()).toContain('149비빔')

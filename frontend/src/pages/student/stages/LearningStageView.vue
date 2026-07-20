@@ -10,6 +10,7 @@ const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
 const learning = computed(() => learningStore.guided)
+const isRationalConsumption = computed(() => learning.value?.currentPage.topicTitle === '합리적인 소비')
 const pageAccent = computed(() => {
   const accents: Record<string, string> = {
     '월급과 실수령액': 'green',
@@ -63,7 +64,11 @@ function displayLearningText(value: string) {
     </div>
     <article
       v-else-if="learning"
-      :class="['learning-card', `learning-card--${pageAccent}`]"
+      :class="[
+        'learning-card',
+        `learning-card--${pageAccent}`,
+        { 'learning-card--rational': isRationalConsumption },
+      ]"
       aria-live="polite"
     >
       <header class="learning-card__progress">
@@ -74,14 +79,19 @@ function displayLearningText(value: string) {
         <span class="learning-card__icon" aria-hidden="true">{{ learning.currentPage.icon ?? '💡' }}</span>
         <h1>{{ learning.currentPage.title }}</h1>
       </div>
-      <p class="learning-card__content">{{ displayLearningText(learning.currentPage.content) }}</p>
-      <ul v-if="learning.currentPage.keyPoints.length > 0">
-        <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ displayLearningText(point) }}</li>
-      </ul>
-      <aside v-if="learning.currentPage.example" class="learning-card__example">
-        <span>📌 예시</span>
-        <strong>{{ displayLearningText(learning.currentPage.example) }}</strong>
-      </aside>
+      <p v-if="isRationalConsumption" class="learning-card__content learning-card__rational-copy">
+        생활에 꼭 필요한 것부터 선택해요. 가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요.
+      </p>
+      <template v-else>
+        <p class="learning-card__content">{{ displayLearningText(learning.currentPage.content) }}</p>
+        <ul v-if="learning.currentPage.keyPoints.length > 0">
+          <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ displayLearningText(point) }}</li>
+        </ul>
+        <aside v-if="learning.currentPage.example" class="learning-card__example">
+          <span>📌 예시</span>
+          <strong>{{ displayLearningText(learning.currentPage.example) }}</strong>
+        </aside>
+      </template>
     </article>
   </div>
 </template>

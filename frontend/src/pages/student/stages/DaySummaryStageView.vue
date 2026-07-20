@@ -61,18 +61,16 @@ function formatBibim(amount: number) {
         <article><span>현재 총자산</span><strong>{{ formatBibim(summary.totalAssets) }}</strong></article>
       </section>
 
-      <section class="day1-result-section">
+      <section v-if="summary.investments.length" class="day1-result-section">
         <div><p class="eyebrow">투자 배분</p><h2>내가 선택한 투자처</h2></div>
-        <p v-if="summary.investments.length === 0" class="state-message">확정한 투자가 없습니다.</p>
-        <ul v-else>
+        <ul>
           <li v-for="item in summary.investments" :key="item.assetId"><span>{{ item.assetName }} · {{ item.riskLevel }}</span><strong>{{ formatBibim(item.amount) }}</strong></li>
         </ul>
       </section>
 
-      <section class="day1-result-section">
+      <section v-if="summary.purchases.length" class="day1-result-section">
         <div><p class="eyebrow">소비 결과</p><h2>내가 구매한 상품</h2></div>
-        <p v-if="summary.purchases.length === 0" class="state-message">구매한 상품이 없습니다.</p>
-        <ul v-else>
+        <ul>
           <li v-for="item in summary.purchases" :key="item.purchaseId"><span>{{ item.productName }} · {{ item.quantity }}개</span><strong>{{ formatBibim(item.totalPrice) }}</strong></li>
         </ul>
         <p class="day1-purchase-total">총소비 {{ formatBibim(summary.purchaseTotal) }}</p>

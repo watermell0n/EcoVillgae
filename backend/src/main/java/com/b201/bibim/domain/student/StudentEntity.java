@@ -27,6 +27,9 @@ public class StudentEntity {
     @Column(length = 50)
     private String nickname;
 
+    @Column(name = "role_name", length = 50)
+    private String roleName;
+
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -98,6 +101,18 @@ public class StudentEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void assignRoleName(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return;
+        }
+        String normalized = roleName.trim();
+        if (this.roleName != null && !this.roleName.equals(normalized)) {
+            throw new IllegalStateException("이미 설정한 1인1역 직업은 변경할 수 없습니다.");
+        }
+        this.roleName = normalized;
+        this.updatedAt = Instant.now();
+    }
+
     public void changeStatus(String status) {
         this.status = status;
         if (!"ACTIVE".equals(status)) {
@@ -130,6 +145,10 @@ public class StudentEntity {
 
     public String getNickname() {
         return nickname;
+    }
+
+    public String getRoleName() {
+        return roleName;
     }
 
     public String getPasswordHash() {

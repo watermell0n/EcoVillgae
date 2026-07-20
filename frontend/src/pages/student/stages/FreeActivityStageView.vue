@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 import type { InvestmentAsset } from '../../../features/economy/api/economy'
 import type { ShopProduct } from '../../../features/shop/api/shop'
@@ -39,6 +39,9 @@ const reviewLoading = ref(false)
 const reviewPageIndex = ref(0)
 const depositPrincipal = ref(0)
 const allocationAmounts = reactive<Record<string, number>>({})
+const SHOP_SYNC_INTERVAL_MS = 2_000
+let shopSyncTimer: ReturnType<typeof setInterval> | undefined
+let shopSyncPromise: Promise<void> | null = null
 
 const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
@@ -139,6 +142,7 @@ onMounted(async () => {
     if (requestedActivity && ['SHOP', 'DEPOSIT', 'INVESTMENT', 'KNOWLEDGE', 'WALLET'].includes(requestedActivity)) {
       openActivity(requestedActivity as ActivityView)
     }
+    if (activeView.value === 'SHOP') startShopSync()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
   } finally {
@@ -147,10 +151,46 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopShopSync()
   shopStore.clearStudentShop()
   economyStore.clear()
   learningStore.clearReview()
 })
+
+watch(activeView, (view) => {
+  if (view === 'SHOP') {
+    startShopSync()
+  } else {
+    stopShopSync()
+  }
+})
+
+async function syncShopAvailability() {
+  if (shopSyncPromise) return shopSyncPromise
+  shopSyncPromise = Promise.all([
+    shopStore.refreshStudentCatalog(),
+    economyStore.refreshOverview(),
+  ]).then(() => undefined)
+  try {
+    await shopSyncPromise
+  } finally {
+    shopSyncPromise = null
+  }
+}
+
+function startShopSync() {
+  stopShopSync()
+  shopSyncTimer = setInterval(() => {
+    void syncShopAvailability().catch(() => undefined)
+  }, SHOP_SYNC_INTERVAL_MS)
+}
+
+function stopShopSync() {
+  if (shopSyncTimer !== undefined) {
+    clearInterval(shopSyncTimer)
+    shopSyncTimer = undefined
+  }
+}
 
 function openActivity(view: ActivityView, remember = true) {
   if (remember && view !== activeView.value) viewHistory.value.push(activeView.value)
@@ -273,9 +313,9 @@ async function saveDeposit() {
   noticeMessage.value = ''
   try {
     await economyStore.updateDepositDraft(depositPrincipal.value)
-    noticeMessage.value = '예금 금액을 잠시 저장했어요. 확정 전에는 금액을 바꿀 수 있어요.'
+    noticeMessage.value = '예금 금액을 임시 저장했어요. 확정 전에는 금액을 바꿀 수 있어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '예금 금액을 잠시 저장하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '예금 금액을 임시 저장하지 못했습니다.')
   }
 }
 
@@ -283,9 +323,9 @@ async function cancelDeposit() {
   try {
     await economyStore.removeDepositDraft()
     resetDepositPrincipal()
-    noticeMessage.value = '잠시 저장한 예금 금액을 취소했어요.'
+    noticeMessage.value = '임시 저장한 예금 금액을 취소했어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '잠시 저장한 예금 금액을 취소하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '임시 저장한 예금 금액을 취소하지 못했습니다.')
   }
 }
 
@@ -307,9 +347,9 @@ async function saveInvestment() {
   noticeMessage.value = ''
   try {
     await economyStore.updateInvestmentDraft(selectedAllocations.value)
-    noticeMessage.value = '투자 금액을 잠시 저장했어요. 확정 전에 배분을 바꿀 수 있어요.'
+    noticeMessage.value = '투자 금액을 임시 저장했어요. 확정 전에 배분을 바꿀 수 있어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '투자 금액을 잠시 저장하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '투자 금액을 임시 저장하지 못했습니다.')
   }
 }
 
@@ -317,9 +357,9 @@ async function cancelInvestment() {
   try {
     await economyStore.removeInvestmentDraft()
     resetInvestmentAllocations()
-    noticeMessage.value = '잠시 저장한 투자 금액을 취소했어요.'
+    noticeMessage.value = '임시 저장한 투자 금액을 취소했어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '잠시 저장한 투자 금액을 취소하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '임시 저장한 투자 금액을 취소하지 못했습니다.')
   }
 }
 
@@ -354,11 +394,21 @@ function closeReview() {
   reviewPageIndex.value = 0
 }
 
-function openPurchase(product: ShopProduct) {
-  selectedProduct.value = product
-  quantity.value = 1
+async function openPurchase(product: ShopProduct) {
   errorMessage.value = ''
   noticeMessage.value = ''
+  try {
+    await syncShopAvailability()
+    const latestProduct = catalog.value?.products.find((item) => item.productId === product.productId)
+    if (!latestProduct || !canBuy(latestProduct)) {
+      noticeMessage.value = '잔액 또는 재고가 바뀌어 지금은 구매할 수 없어요.'
+      return
+    }
+    selectedProduct.value = latestProduct
+    quantity.value = 1
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '구매 가능한 상품을 다시 확인하지 못했습니다.')
+  }
 }
 
 function closePurchase() {
@@ -379,6 +429,20 @@ async function confirmPurchase() {
   errorMessage.value = ''
   noticeMessage.value = ''
   try {
+    await syncShopAvailability()
+    const latestProduct = catalog.value?.products.find(
+      (item) => item.productId === selectedProduct.value?.productId,
+    )
+    const latestWalletBalance = catalog.value?.walletBalance ?? 0
+    if (!latestProduct
+      || latestProduct.status !== 'ON_SALE'
+      || latestProduct.currentStock < quantity.value
+      || latestProduct.price * quantity.value > latestWalletBalance) {
+      closePurchase()
+      noticeMessage.value = '잔액 또는 재고가 바뀌어 구매할 수 없어요. 최신 상품 정보를 확인해 주세요.'
+      return
+    }
+    selectedProduct.value = latestProduct
     const purchase = await shopStore.buyProduct(selectedProduct.value.productId, quantity.value)
     if (!purchase) return
     noticeMessage.value = purchase.replayed
@@ -410,9 +474,12 @@ function riskLabel(risk: string) {
 }
 
 function investmentEmoji(asset: InvestmentAsset) {
-  if (asset.riskLevel === 'LOW') return '🏭'
-  if (asset.riskLevel === 'HIGH') return '🚢'
-  return asset.name.includes('배터리') ? '🔋' : '🌿'
+  if (asset.name.includes('거북')) return '🐢'
+  if (asset.name.includes('독수리')) return '🦅'
+  if (asset.name.includes('호랑')) return '🐯'
+  if (asset.riskLevel === 'LOW') return '🐢'
+  if (asset.riskLevel === 'HIGH') return '🐯'
+  return '🦅'
 }
 
 function transactionIcon(type: string) {
@@ -539,8 +606,8 @@ function formatPurchasedAt(value: string) {
             <div><dt>확정 후 지갑</dt><dd>{{ formatBibim(overview.walletBalance - depositPrincipal) }}</dd></div>
           </dl>
           <div class="finance-actions">
-            <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">임시저장 취소</button>
-            <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">잠시 저장</button>
+            <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">임시 저장 취소</button>
+            <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">임시 저장</button>
             <button type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="confirmDeposit">예금 확정</button>
           </div>
           <p v-if="overview.depositBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.depositBalance) }}을 예금했어요. 남은 잔액으로 추가 예금할 수 있어요.</p>
@@ -646,8 +713,8 @@ function formatPurchasedAt(value: string) {
           <div><span>총투자금</span><strong>{{ formatBibim(investmentTotal) }}</strong></div>
           <div><span>투자 후 지갑</span><strong>{{ formatBibim(overview.walletBalance - investmentTotal) }}</strong></div>
           <div class="finance-actions">
-            <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">임시저장 취소</button>
-            <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">잠시 저장</button>
+            <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">임시 저장 취소</button>
+            <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">임시 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
           <p v-if="overview.investmentBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.investmentBalance) }}을 투자했어요. 남은 잔액으로 추가 투자할 수 있어요.</p>

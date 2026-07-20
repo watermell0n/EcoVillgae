@@ -21,6 +21,7 @@ import com.b201.bibim.domain.shop.ProductEntity;
 import com.b201.bibim.domain.shop.ProductRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentRoleCatalogRepository;
 import com.b201.bibim.feature.management.TeacherClassManagementDto.AddStudentRequest;
 import com.b201.bibim.feature.management.TeacherClassManagementDto.ClassSettingsResponse;
 import com.b201.bibim.feature.management.TeacherClassManagementDto.EconomyRules;
@@ -47,6 +48,7 @@ public class TeacherClassManagementService {
     private final InvestmentAssetRepository investmentRepository;
     private final ProductRepository productRepository;
     private final StudentRepository studentRepository;
+    private final StudentRoleCatalogRepository studentRoleCatalogRepository;
     private final AccountRepository accountRepository;
     private final InvestmentService investmentService;
 
@@ -58,6 +60,7 @@ public class TeacherClassManagementService {
             InvestmentAssetRepository investmentRepository,
             ProductRepository productRepository,
             StudentRepository studentRepository,
+            StudentRoleCatalogRepository studentRoleCatalogRepository,
             AccountRepository accountRepository,
             InvestmentService investmentService
     ) {
@@ -68,6 +71,7 @@ public class TeacherClassManagementService {
         this.investmentRepository = investmentRepository;
         this.productRepository = productRepository;
         this.studentRepository = studentRepository;
+        this.studentRoleCatalogRepository = studentRoleCatalogRepository;
         this.accountRepository = accountRepository;
         this.investmentService = investmentService;
     }
@@ -206,6 +210,13 @@ public class TeacherClassManagementService {
             throw conflict("이미 사용 중인 학생 번호입니다.");
         }
         student.updateProfile(request.participantNumber(), request.nickname());
+        if (request.roleName() != null && !request.roleName().isBlank()) {
+            String normalizedRoleName = request.roleName().trim();
+            if (student.getRoleName() != null && !student.getRoleName().equals(normalizedRoleName)) {
+                throw conflict("이미 설정한 1인1역 직업은 변경할 수 없습니다.");
+            }
+            student.assignRoleName(normalizedRoleName);
+        }
         student.changeStatus(request.status());
         room.markControlStateChanged();
         return managedStudent(student);
@@ -251,10 +262,15 @@ public class TeacherClassManagementService {
                         product.getId(), product.getName(), product.getDescription(),
                         product.getOriginalPrice(), product.getImageUrl(), product.getCurrentStock(), product.getDisplayOrder()
                 )).toList();
+        var roleCatalog = studentRoleCatalogRepository.findAllByOrderByParticipantNumber().stream()
+                .map(role -> new TeacherClassManagementDto.StudentRoleCatalogEntry(
+                        role.getParticipantNumber(), role.getRoleName()
+                ))
+                .toList();
         boolean editingLiveClass = !"PREPARING".equals(room.getStatus());
         return new ClassSettingsResponse(
                 room.getId(), room.getName(), room.getStatus(), editingLiveClass,
-                economy, quizzes, investments, products
+                economy, quizzes, investments, products, roleCatalog
         );
     }
 
@@ -267,7 +283,7 @@ public class TeacherClassManagementService {
     private ManagedStudent managedStudent(StudentEntity student) {
         return new ManagedStudent(
                 student.getId(), student.getParticipantNumber(), student.getParticipationCode(),
-                student.getNickname(), student.getStatus(), student.isOnline(), student.getLastSeenAt()
+                student.getNickname(), student.getRoleName(), student.getStatus(), student.isOnline(), student.getLastSeenAt()
         );
     }
 

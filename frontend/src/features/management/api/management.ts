@@ -46,6 +46,10 @@ export interface ProductSetting {
   currentStock: number
   displayOrder: number
 }
+export interface StudentRoleCatalogEntry {
+  participantNumber: number
+  roleName: string
+}
 export interface ClassSettings {
   roomId: string
   roomName: string
@@ -55,12 +59,14 @@ export interface ClassSettings {
   quizzes: QuizSettings[]
   investments: InvestmentSetting[]
   products: ProductSetting[]
+  roleCatalog: StudentRoleCatalogEntry[]
 }
 export interface ManagedStudent {
   studentId: string
   participantNumber: number
   participationCode: string
   nickname: string | null
+  roleName: string | null
   status: 'INVITED' | 'ACTIVE' | 'ABSENT' | 'DISABLED'
   online: boolean
   lastSeenAt: string | null
@@ -95,7 +101,7 @@ export async function addManagedStudent(roomId: string, participantNumber: numbe
 export async function updateManagedStudent(roomId: string, student: ManagedStudent) {
   const response = await http.patch<ApiResponse<ManagedStudent>>(
     `/teacher/rooms/${roomId}/management/students/${student.studentId}`,
-    { participantNumber: student.participantNumber, nickname: student.nickname, status: student.status },
+    { participantNumber: student.participantNumber, nickname: student.nickname, roleName: student.roleName, status: student.status },
   )
   return response.data.data
 }

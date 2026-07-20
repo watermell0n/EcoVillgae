@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ShopProduct } from '../../../features/shop/api/shop'
-import { getApiErrorMessage } from '../../../shared/api/errors'
+import { getApiErrorCode, getApiErrorMessage } from '../../../shared/api/errors'
 import { useEconomyStore } from '../../../stores/economy'
 import { useRoomSessionStore } from '../../../stores/roomSession'
 import { useShopStore } from '../../../stores/shop'
@@ -18,12 +18,19 @@ const quantity = ref(1)
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const soldOutMessage = ref('')
+const SHOP_SYNC_INTERVAL_MS = 2_000
+let shopSyncTimer: ReturnType<typeof setInterval> | undefined
+let shopSyncPromise: Promise<void> | null = null
 
 const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
 
-onMounted(() => void refresh())
+onMounted(async () => {
+  await refresh()
+  if (activeView.value === 'SHOP') startShopSync()
+})
 
 async function refresh() {
   loading.value = true
@@ -43,13 +50,65 @@ async function refresh() {
 }
 
 onUnmounted(() => {
+  stopShopSync()
   shopStore.clearStudentShop()
   economyStore.clear()
 })
 
-function openPurchase(product: ShopProduct) {
-  selectedProduct.value = product
-  quantity.value = 1
+watch(activeView, (view) => {
+  if (view === 'SHOP') {
+    startShopSync()
+  } else {
+    stopShopSync()
+  }
+})
+
+async function syncShopAvailability() {
+  if (shopSyncPromise) return shopSyncPromise
+  shopSyncPromise = Promise.all([
+    shopStore.refreshStudentCatalog(),
+    economyStore.refreshOverview(),
+  ]).then(() => undefined)
+  try {
+    await shopSyncPromise
+  } finally {
+    shopSyncPromise = null
+  }
+}
+
+function startShopSync() {
+  stopShopSync()
+  shopSyncTimer = setInterval(() => {
+    void syncShopAvailability().catch(() => undefined)
+  }, SHOP_SYNC_INTERVAL_MS)
+}
+
+function stopShopSync() {
+  if (shopSyncTimer !== undefined) {
+    clearInterval(shopSyncTimer)
+    shopSyncTimer = undefined
+  }
+}
+
+async function openPurchase(product: ShopProduct) {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await syncShopAvailability()
+    const latestProduct = catalog.value?.products.find((item) => item.productId === product.productId)
+    if (!latestProduct || latestProduct.status !== 'ON_SALE' || latestProduct.currentStock <= 0) {
+      soldOutMessage.value = '다른 친구가 먼저 구매해 상품이 품절되었어요. 최신 재고를 확인해 주세요.'
+      return
+    }
+    if (!canBuy(latestProduct)) {
+      noticeMessage.value = '사용 가능한 돈이 바뀌어 지금은 구매할 수 없어요.'
+      return
+    }
+    selectedProduct.value = latestProduct
+    quantity.value = 1
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '구매 가능한 상품을 다시 확인하지 못했습니다.')
+  }
 }
 
 function closePurchase() {
@@ -60,6 +119,22 @@ function closePurchase() {
 async function confirmPurchase() {
   if (!selectedProduct.value) return
   try {
+    await syncShopAvailability()
+    const latestProduct = catalog.value?.products.find(
+      (item) => item.productId === selectedProduct.value?.productId,
+    )
+    const latestWalletBalance = catalog.value?.walletBalance ?? 0
+    if (!latestProduct || latestProduct.status !== 'ON_SALE' || latestProduct.currentStock < quantity.value) {
+      soldOutMessage.value = '다른 친구가 먼저 구매해 상품이 품절되었어요. 최신 재고를 확인해 주세요.'
+      closePurchase()
+      return
+    }
+    if (latestProduct.price * quantity.value > latestWalletBalance) {
+      noticeMessage.value = '사용 가능한 돈이 바뀌어 구매할 수 없어요.'
+      closePurchase()
+      return
+    }
+    selectedProduct.value = latestProduct
     const result = await shopStore.buyProduct(selectedProduct.value.productId, quantity.value)
     if (!result) return
     noticeMessage.value = result.replayed
@@ -72,6 +147,12 @@ async function confirmPurchase() {
       roomSessionStore.refreshStudent(),
     ])
   } catch (error) {
+    if (getApiErrorCode(error) === 'OUT_OF_STOCK') {
+      soldOutMessage.value = '다른 친구가 먼저 구매해 상품이 품절됐어요. 최신 재고를 확인해 주세요.'
+      closePurchase()
+      await shopStore.refreshStudentCatalog()
+      return
+    }
     errorMessage.value = getApiErrorMessage(error, '상품을 구매하지 못했습니다.')
   }
 }
@@ -172,6 +253,16 @@ function formatPurchasedAt(value: string) {
           <button class="button-secondary" type="button" @click="closePurchase">취소</button>
           <button type="button" :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance" @click="confirmPurchase">구매 확정</button>
         </div>
+      </section>
+    </div>
+
+    <div v-if="soldOutMessage" class="modal-backdrop sold-out-backdrop">
+      <section class="confirm-modal sold-out-modal" role="alertdialog" aria-modal="true" aria-labelledby="sold-out-title">
+        <span class="sold-out-modal__icon" aria-hidden="true">🛒</span>
+        <p class="eyebrow">재고 안내</p>
+        <h2 id="sold-out-title">상품이 방금 품절됐어요</h2>
+        <p>{{ soldOutMessage }}</p>
+        <button type="button" @click="soldOutMessage = ''">확인</button>
       </section>
     </div>
   </div>

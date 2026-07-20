@@ -395,6 +395,7 @@ public class SettlementService {
                 student.getId(),
                 student.getParticipantNumber(),
                 student.getNickname(),
+                student.getRoleName(),
                 item.isQuizSubmitted(),
                 item.getCorrectCount(),
                 item.getRoleIncome(),

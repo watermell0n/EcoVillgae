@@ -5,6 +5,8 @@ import {
   castStudentVote,
   getStudentCurrentVote,
   getStudentFund,
+  getStudentFundCostOptions,
+  type FundCostOption,
   type FundOverview,
   type VoteSession,
 } from '../../../features/day2/api/fundVote'
@@ -14,6 +16,7 @@ import { useRoomSessionStore } from '../../../stores/roomSession'
 const roomSessionStore = useRoomSessionStore()
 const fund = ref<FundOverview | null>(null)
 const vote = ref<VoteSession | null>(null)
+const costOptions = ref<FundCostOption[]>([])
 const selectedOptionId = ref('')
 const loading = ref(true)
 const submitting = ref(false)
@@ -26,6 +29,9 @@ let pollingTimer: ReturnType<typeof setInterval> | undefined
 async function refresh() {
   try {
     fund.value = await getStudentFund()
+    if (currentStage.value === 'DAY2_FUND_COST') {
+      costOptions.value = await getStudentFundCostOptions()
+    }
     if (['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(currentStage.value ?? '')) {
       vote.value = await getStudentCurrentVote()
       selectedOptionId.value = vote.value.selectedOptionId ?? selectedOptionId.value
@@ -118,8 +124,22 @@ function formatBibim(amount: number) {
       </section>
 
       <section v-if="currentStage === 'DAY2_FUND_COST'" class="fund-wait-card">
-        <strong>공동기금은 공동체를 위해 사용해요</strong>
-        <p>선생님이 공통 비용을 적용하고 투표 선택지를 준비하고 있습니다.</p>
+        <div class="fund-wait-card__heading">
+          <span aria-hidden="true">👀</span>
+          <div><strong>어디에 사용할지 함께 살펴봐요</strong><p>선택은 선생님만 할 수 있어요. 학생은 항목과 금액을 미리 확인합니다.</p></div>
+        </div>
+        <div class="student-fund-cost-options" aria-label="공동기금 사용 후보">
+          <article
+            v-for="option in costOptions"
+            :key="option.optionId"
+            :class="{ 'is-applied': option.applied, 'is-unaffordable': !option.affordable }"
+          >
+            <span aria-hidden="true">{{ option.applied ? '✓' : '🏫' }}</span>
+            <div><strong>{{ option.name }}</strong><small>{{ option.affordable ? '공동기금으로 사용할 수 있어요' : '현재 기금보다 큰 금액이에요' }}</small></div>
+            <b>{{ formatBibim(option.amount) }}</b>
+          </article>
+        </div>
+        <p class="control-caution">선생님이 항목을 선택하면 이 화면에도 바로 표시돼요.</p>
       </section>
 
       <section v-else-if="vote" class="student-vote-card" aria-labelledby="student-vote-title">

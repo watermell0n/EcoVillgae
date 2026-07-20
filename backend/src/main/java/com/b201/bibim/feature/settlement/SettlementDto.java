@@ -49,6 +49,7 @@ public final class SettlementDto {
             UUID studentId,
             int participantNumber,
             String nickname,
+            String roleName,
             boolean quizSubmitted,
             int correctCount,
             long roleIncome,

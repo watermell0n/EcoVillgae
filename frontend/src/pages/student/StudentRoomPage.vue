@@ -21,6 +21,7 @@ const advancingFlow = ref(false)
 const quizActivityCompleted = ref(false)
 const currentPage = ref('CONNECTING')
 const closingCountdown = ref<number | null>(null)
+const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
@@ -103,7 +104,8 @@ watch(
     quizActivityCompleted.value = false
     currentPage.value = stage
     void reportPresence()
-    if (stage === 'DAY2_COMPLETED' && closingCountdown.value === null && !sessionClosed.value) {
+    if (['DAY1_CLOSED', 'DAY2_COMPLETED'].includes(stage) && closingCountdown.value === null && !sessionClosed.value) {
+      closingNoticeKind.value = stage === 'DAY1_CLOSED' ? 'DAY1' : 'DAY2'
       closingCountdown.value = 5
       closingTimer = setInterval(() => {
         if (closingCountdown.value === null) return
@@ -112,9 +114,12 @@ watch(
           if (closingTimer) clearInterval(closingTimer)
           closingTimer = undefined
           closingCountdown.value = null
-          sessionClosed.value = true
-          roomSessionStore.stopPolling()
-          stopPresenceReporting()
+          if (closingNoticeKind.value === 'DAY2') {
+            sessionClosed.value = true
+            roomSessionStore.stopPolling()
+            stopPresenceReporting()
+          }
+          closingNoticeKind.value = null
         }
       }, 1_000)
     }
@@ -196,8 +201,15 @@ async function advanceCatchUp() {
     </section>
     <template v-else-if="student && state">
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
+        <div class="student-context-bar" aria-label="현재 참여 정보">
+          <span>{{ student.roomName }}</span>
+          <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
+        </div>
         <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
-          <strong>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong><span>결과를 저장하고 있어요.</span>
+          <strong v-if="closingNoticeKind === 'DAY1'">1일차 활동이 끝났어요</strong>
+          <strong v-else>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong>
+          <span v-if="closingNoticeKind === 'DAY1'">결과가 저장됐어요. {{ closingCountdown }}초 뒤 안내가 닫혀요.</span>
+          <span v-else>결과를 저장하고 있어요.</span>
         </div>
         <aside v-if="state.flowMode === 'CATCH_UP'" class="catch-up-banner" role="status">
           <div>
@@ -254,9 +266,6 @@ async function advanceCatchUp() {
         >
           {{ advancingFlow ? '확인 중…' : '이 활동을 완료하고 다음으로' }}
         </button>
-        <div class="waiting-room-name">
-          {{ student.roomName }} · {{ student.participantNumber }}번 {{ student.nickname }}
-        </div>
       </section>
     </template>
   </main>

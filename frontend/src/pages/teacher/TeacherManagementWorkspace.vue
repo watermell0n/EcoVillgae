@@ -29,11 +29,15 @@ const newStudentNickname = ref('')
 const showSaveConfirm = ref(false)
 const pendingResetStudent = ref<ManagedStudent | null>(null)
 const selectedStudentId = ref<string | null>(null)
+const lockedRoleStudentIds = ref<Set<string>>(new Set())
 
 const selectedQuiz = computed(() => settings.value?.quizzes.find((quiz) => quiz.dayNumber === selectedQuizDay.value))
 const selectedStudent = computed(() => students.value.find((student) => student.studentId === selectedStudentId.value) ?? null)
 const statusLabel = (status: string) => ({ INVITED: '입장 전', ACTIVE: '참여 중', ABSENT: '결석', DISABLED: '수업 제외' }[status] ?? status)
 const formatRateInput = (bps: number) => bps / 100
+const roleOptions = computed(() => settings.value?.roleCatalog ?? [])
+const suggestedRoleName = (participantNumber: number) =>
+  roleOptions.value.find((role) => role.participantNumber === participantNumber)?.roleName ?? ''
 
 onMounted(load)
 watch(() => props.roomId, () => {
@@ -51,6 +55,9 @@ async function load() {
     ])
     settings.value = structuredClone(nextSettings)
     students.value = structuredClone(nextStudents)
+    lockedRoleStudentIds.value = new Set(
+      nextStudents.filter((student) => Boolean(student.roleName)).map((student) => student.studentId),
+    )
     newStudentNumber.value = Math.max(0, ...students.value.map((student) => student.participantNumber)) + 1
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '관리 정보를 불러오지 못했습니다.')
@@ -98,6 +105,9 @@ async function saveStudent(student: ManagedStudent) {
     const saved = await updateManagedStudent(props.roomId, student)
     const index = students.value.findIndex((item) => item.studentId === saved.studentId)
     if (index >= 0) students.value[index] = saved
+    if (saved.roleName) {
+      lockedRoleStudentIds.value = new Set([...lockedRoleStudentIds.value, saved.studentId])
+    }
     noticeMessage.value = `${saved.participantNumber}번 학생 정보를 저장했습니다.`
     emit('refreshed')
   } catch (error) {
@@ -183,6 +193,8 @@ async function resetPassword() {
           <div class="managed-student-detail__body">
             <label>닉네임<input v-model="selectedStudent.nickname" maxlength="50" placeholder="미설정"></label>
             <label>상태<select v-model="selectedStudent.status"><option value="INVITED">입장 전</option><option value="ACTIVE">참여 중</option><option value="ABSENT">결석</option><option value="DISABLED">수업 제외</option></select></label>
+            <label>1인1역 직업<input v-model.trim="selectedStudent.roleName" list="student-role-options" maxlength="50" :disabled="lockedRoleStudentIds.has(selectedStudent.studentId)" :placeholder="suggestedRoleName(selectedStudent.participantNumber) ? `추천: ${suggestedRoleName(selectedStudent.participantNumber)}` : '직업명을 입력하세요'"><small>{{ lockedRoleStudentIds.has(selectedStudent.studentId) ? '저장된 직업은 변경되지 않습니다.' : '최초 저장 후에는 변경할 수 없습니다.' }}</small></label>
+            <datalist id="student-role-options"><option v-for="role in roleOptions" :key="role.participantNumber" :value="role.roleName">{{ role.participantNumber }}번</option></datalist>
             <dl>
               <div><dt>최근 접속</dt><dd>{{ selectedStudent.lastSeenAt ? new Date(selectedStudent.lastSeenAt).toLocaleString('ko-KR') : '접속 기록 없음' }}</dd></div>
               <div><dt>참여 코드</dt><dd>{{ selectedStudent.participationCode }}</dd></div>

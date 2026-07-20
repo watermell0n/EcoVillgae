@@ -125,7 +125,19 @@ public class FundVoteService {
     @Transactional
     public List<CostOptionResponse> costOptions(UUID teacherId, UUID roomId) {
         RoomEntity room = findOwnedRoom(teacherId, roomId);
-        List<FundCostOptionEntity> options = ensureCostOptions(roomId);
+        return costOptionsForRoom(room);
+    }
+
+    @Transactional
+    public List<CostOptionResponse> studentCostOptions(UUID studentId) {
+        StudentEntity student = activeStudent(studentId);
+        RoomEntity room = roomRepository.findById(student.getRoomId()).orElseThrow(this::roomNotFound);
+        ensureFundVisible(room);
+        return costOptionsForRoom(room);
+    }
+
+    private List<CostOptionResponse> costOptionsForRoom(RoomEntity room) {
+        List<FundCostOptionEntity> options = ensureCostOptions(room.getId());
         FundOverviewResponse fund = fundOverview(room);
         UUID appliedId = fund.appliedExpense() == null ? null : fund.appliedExpense().costOptionId();
         return options.stream()

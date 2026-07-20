@@ -69,6 +69,11 @@ function formatBibim(amount: number) {
         <span aria-hidden="true">💡</span>
         <p><strong>보상은 한 번만 지급돼요.</strong> 소득세를 뺀 퀴즈 정답수당이 내 지갑 기록에 저장됐고, 세금은 학급 공동기금에 더해졌어요.</p>
       </aside>
+      <div class="quiz-reward-wallet" role="status">
+        <span aria-hidden="true">👛</span>
+        <div><small>지갑에 바로 반영됐어요</small><strong>{{ formatBibim(reward.walletAfter) }}</strong></div>
+        <p>다음 활동에서도 이 금액으로 이어서 경제활동을 해요.</p>
+      </div>
     </section>
   </div>
 </template>

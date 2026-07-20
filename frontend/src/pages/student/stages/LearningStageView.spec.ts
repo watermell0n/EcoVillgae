@@ -94,4 +94,22 @@ describe('LearningStageView', () => {
     expect(wrapper.text()).toContain('📌 예시')
     expect(wrapper.text()).toContain('100비빔 예금 → 110비빔')
   })
+
+  it('shows only the requested plain guidance on the rational consumption page', async () => {
+    const rational = learningFixture('필요와 원하는 것을 구분해요', 1)
+    rational.currentPage.topicTitle = '합리적인 소비'
+    rational.currentPage.content = '기존 설명 문구'
+    rational.currentPage.keyPoints = ['기존 목록 문구']
+    rational.currentPage.example = '기존 예시 문구'
+    learningApi.getStudentLearning.mockReset().mockResolvedValue(rational)
+
+    const wrapper = mount(LearningStageView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('생활에 꼭 필요한 것부터 선택해요. 가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요.')
+    expect(wrapper.text()).not.toContain('기존 설명 문구')
+    expect(wrapper.text()).not.toContain('기존 목록 문구')
+    expect(wrapper.text()).not.toContain('기존 예시 문구')
+    expect(wrapper.find('.learning-card ul').exists()).toBe(false)
+  })
 })

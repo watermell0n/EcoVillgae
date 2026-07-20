@@ -53,15 +53,14 @@ function formatBibim(amount: number) {
         <div><dt>총소비</dt><dd>−{{ result.totalPurchaseAmount.toLocaleString('ko-KR') }}비빔</dd></div>
       </dl>
 
-      <section class="final-purchase-list">
+      <section v-if="result.purchases.length" class="final-purchase-list">
         <h2>내가 구매한 상품</h2>
-        <ul v-if="result.purchases.length">
+        <ul>
           <li v-for="purchase in result.purchases" :key="purchase.productId">
             <span>{{ purchase.productName }} × {{ purchase.quantity }}</span>
             <strong>{{ purchase.totalPrice.toLocaleString('ko-KR') }}비빔</strong>
           </li>
         </ul>
-        <p v-else>구매한 상품이 없습니다.</p>
       </section>
 
       <section v-if="result.voteResult" class="final-vote-result">

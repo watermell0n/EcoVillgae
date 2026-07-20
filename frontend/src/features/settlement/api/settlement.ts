@@ -38,6 +38,7 @@ export interface Day1Payslip {
   studentId: string
   participantNumber: number
   nickname: string
+  roleName: string | null
   quizSubmitted: boolean
   correctCount: number
   roleIncome: number

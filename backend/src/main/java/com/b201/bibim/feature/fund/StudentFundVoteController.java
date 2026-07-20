@@ -1,12 +1,14 @@
 package com.b201.bibim.feature.fund;
 
 import java.util.UUID;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import com.b201.bibim.feature.fund.FundVoteDto.CastVoteRequest;
 import com.b201.bibim.feature.fund.FundVoteDto.FundOverviewResponse;
+import com.b201.bibim.feature.fund.FundVoteDto.CostOptionResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.VoteSessionResponse;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
@@ -36,6 +38,14 @@ public class StudentFundVoteController {
             HttpServletRequest request
     ) {
         return ApiResponse.success(service.studentFund(principal.id()), requestId(request));
+    }
+
+    @GetMapping("/fund-cost-options")
+    ApiResponse<List<CostOptionResponse>> costOptions(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(service.studentCostOptions(principal.id()), requestId(request));
     }
 
     @GetMapping("/votes/current")
@@ -69,4 +79,3 @@ public class StudentFundVoteController {
         return (String) request.getAttribute(RequestIdFilter.ATTRIBUTE_NAME);
     }
 }
-

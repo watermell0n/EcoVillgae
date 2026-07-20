@@ -32,44 +32,38 @@ function formatBibim(amount: number) {
     </div>
     <template v-else-if="payslip">
       <header class="payslip-header">
-        <div>
-          <p class="eyebrow">1일차 월급명세서</p>
-          <h1>{{ payslip.nickname }}님의 소득을 확인해요.</h1>
-        </div>
-        <span>{{ payslip.participantNumber }}번</span>
+        <div><p class="eyebrow">1일차 월급명세서</p><h1>받은 돈과 세금을 확인해요</h1></div>
+        <span>{{ payslip.participantNumber }}번 {{ payslip.nickname }}</span>
       </header>
 
-      <section class="payslip-sheet" aria-label="소득과 세금 내역">
-        <div class="payslip-line">
-          <span>역할 기본 월급</span>
-          <strong>{{ formatBibim(payslip.roleIncome) }}</strong>
-        </div>
-        <div class="payslip-line">
-          <span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제 × 5비빔</small></span>
-          <strong>{{ formatBibim(payslip.correctReward) }}</strong>
-        </div>
-        <div class="payslip-line payslip-line--subtotal">
-          <span>총소득</span>
-          <strong>{{ formatBibim(payslip.grossIncome) }}</strong>
-        </div>
-        <div class="payslip-line payslip-line--tax">
-          <span>소득세</span>
-          <strong>− {{ formatBibim(payslip.incomeTax) }}</strong>
-        </div>
-        <div class="payslip-line payslip-line--total">
-          <span>실수령액</span>
-          <strong>{{ formatBibim(payslip.netIncome) }}</strong>
-        </div>
-      </section>
+      <div class="payslip-layout">
+        <section class="payslip-sheet" aria-label="소득과 세금 내역">
+          <div class="payslip-sheet__title">
+            <span aria-hidden="true">💼</span>
+            <strong>이코빌리지 급여 명세서</strong>
+            <small>1일차 · 학급 경제 수업</small>
+          </div>
+          <div class="payslip-line"><span>1인1역 <small v-if="payslip.roleName">{{ payslip.roleName }}</small></span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
+          <div class="payslip-line"><span>퀴즈 참여수당</span><strong>+{{ formatBibim(payslip.participationReward) }}</strong></div>
+          <div class="payslip-line"><span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제</small></span><strong>+{{ formatBibim(payslip.correctReward) }}</strong></div>
+          <div class="payslip-line payslip-line--subtotal"><span>총소득</span><strong>{{ formatBibim(payslip.grossIncome) }}</strong></div>
+          <div class="payslip-line payslip-line--tax"><span>소득세 <small>공동기금으로 이동해요</small></span><strong>−{{ formatBibim(payslip.incomeTax) }}</strong></div>
+          <div class="payslip-line payslip-line--total"><span>내 지갑에 들어온 돈</span><strong>{{ formatBibim(payslip.netIncome) }}</strong></div>
+        </section>
 
-      <div class="payslip-balance">
-        <span>현재 지갑</span>
-        <strong>{{ formatBibim(payslip.walletBalance) }}</strong>
+        <aside class="payslip-side">
+          <section class="payslip-tax-guide">
+            <span aria-hidden="true">🏛️</span>
+            <div><strong>세금은 어디로 가나요?</strong><p>소득세는 우리 반 공동기금으로 모여요. 나중에 함께 투표해 사용할 곳을 정해요.</p></div>
+          </section>
+          <section class="payslip-wallet-card">
+            <p>💰 내 지갑 상태</p>
+            <span><small>이번에 받은 돈</small><strong>+{{ formatBibim(payslip.netIncome) }}</strong></span>
+            <span><small>현재 지갑</small><strong>{{ formatBibim(payslip.walletBalance) }}</strong></span>
+          </section>
+          <p class="payslip-recorded">✓ 내 지갑 기록에 저장됐어요</p>
+        </aside>
       </div>
-      <p class="payslip-explanation">
-        <strong>총소득</strong>은 역할 기본 월급과 퀴즈 정답수당을 더한 금액이고,
-        <strong>실수령액</strong>은 총소득에서 공동체를 위한 소득세를 뺀 금액이에요.
-      </p>
     </template>
   </div>
 </template>

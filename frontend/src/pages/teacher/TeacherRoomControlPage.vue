@@ -431,14 +431,18 @@ watch(
     }
     if (stage === 'DAY1_FREE_ACTIVITY') {
       try {
-        await shopStore.refreshTeacherSummary(roomId.value)
+        await Promise.all([
+          shopStore.refreshTeacherSummary(roomId.value),
+          day1Store.refreshTeacherSummary(roomId.value),
+        ])
         shopStore.startTeacherSummaryPolling(roomId.value)
+        day1Store.startTeacherSummaryPolling(roomId.value)
       } catch (error) {
         if (isUnauthorized(error)) {
           await router.replace({ name: 'teacher-login' })
           return
         }
-        errorMessage.value = getApiErrorMessage(error, '상점 판매 현황을 불러오지 못했습니다.')
+        errorMessage.value = getApiErrorMessage(error, '학생 경제활동 현황을 불러오지 못했습니다.')
       }
       return
     }
@@ -1181,26 +1185,33 @@ function moduleTone(moduleState: string) {
               @click="requestQuizClose"
             >퀴즈 마감하기</button>
           </div>
-          <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary" class="shop-summary-workspace">
-            <div class="shop-summary-headline">
-              <div>
-                <span>누적 판매</span>
-                <strong>{{ shopSummary.totalPurchaseCount }}건</strong>
-              </div>
-              <div>
-                <span>상점 수입</span>
-                <strong>{{ formatBibim(shopSummary.totalRevenue) }}</strong>
-              </div>
+          <div v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && day1Summary" class="teacher-live-economy">
+            <header class="teacher-live-economy__header">
+              <div><p class="eyebrow">학생 화면과 같은 경제활동 현황</p><h2>학생별 선택이 2초 안에 반영돼요</h2></div>
+              <StatusBadge label="실시간 동기화" tone="success" />
+            </header>
+            <div class="teacher-live-economy__summary">
+              <span>🏦 예금 <strong>{{ day1Summary.depositConfirmedCount }}명</strong></span>
+              <span>📈 투자 <strong>{{ day1Summary.investmentConfirmedCount }}명</strong></span>
+              <span>🛒 구매 <strong>{{ day1Summary.purchaseParticipantCount }}명</strong></span>
+              <span>💰 상점 <strong>{{ shopSummary?.totalPurchaseCount ?? 0 }}건</strong></span>
             </div>
-            <div class="teacher-product-list" aria-label="상품별 판매 현황">
-              <article v-for="product in shopSummary.products" :key="product.productId">
-                <div>
-                  <strong>{{ product.name }}</strong>
-                  <span>{{ formatBibim(product.price) }}</span>
+            <div class="teacher-live-student-grid" aria-label="학생별 실시간 경제활동">
+              <article v-for="studentItem in day1Summary.students" :key="studentItem.studentId">
+                <header><span>{{ studentItem.participantNumber }}번</span><strong>{{ studentItem.nickname ?? '이름 미설정' }}</strong><b>{{ formatBibim(studentItem.walletBalance) }}</b></header>
+                <div class="teacher-live-module" :class="`is-${studentItem.depositStatus.toLowerCase()}`">
+                  <span aria-hidden="true">🏦</span><div><strong>예금</strong><small>{{ studentItem.depositStatus === 'DRAFT' ? '잠시 저장' : studentItem.depositConfirmed ? '확정 완료' : '선택 전' }}</small></div>
+                  <b>{{ formatBibim(studentItem.depositStatus === 'DRAFT' ? studentItem.depositDraftPrincipal : studentItem.depositPrincipal) }}</b>
                 </div>
-                <div>
-                  <span>판매 {{ product.initialStock - product.currentStock }}개</span>
-                  <strong>재고 {{ product.currentStock }}개</strong>
+                <div class="teacher-live-module" :class="`is-${studentItem.investmentStatus.toLowerCase()}`">
+                  <span aria-hidden="true">📈</span><div><strong>투자</strong><small>{{ studentItem.investmentStatus === 'DRAFT' ? '잠시 저장' : studentItem.investmentConfirmed ? '확정 완료' : '선택 전' }}</small></div>
+                  <b>{{ formatBibim(studentItem.investmentStatus === 'DRAFT' ? studentItem.investmentDraftTotal : studentItem.investmentPrincipal) }}</b>
+                </div>
+                <p v-if="studentItem.investments.length" class="teacher-live-investments">
+                  {{ studentItem.investments.map((item) => `${item.assetName} ${formatBibim(item.amount)}`).join(' · ') }}
+                </p>
+                <div class="teacher-live-module" :class="{ 'is-confirmed': studentItem.purchased }">
+                  <span aria-hidden="true">🛒</span><div><strong>상점</strong><small>{{ studentItem.purchased ? '구매 완료' : '구매 전' }}</small></div><b>{{ formatBibim(studentItem.purchaseTotal) }}</b>
                 </div>
               </article>
             </div>
@@ -1922,18 +1933,17 @@ function moduleTone(moduleState: string) {
             </dl>
             <p>걷힌 소득세는 학급 공동기금에 적립됩니다.</p>
           </template>
-          <template v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && shopSummary">
+          <template v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && day1Summary">
             <div class="student-count-ring student-count-ring--shop">
-              <strong>{{ shopSummary.totalPurchaseCount }}</strong>
-              <span>건 구매 완료</span>
+              <strong>{{ day1Summary.studentCount - day1Summary.inactiveStudentCount }}</strong>
+              <span>/ {{ day1Summary.studentCount }}명 활동 중</span>
             </div>
-            <ul v-if="shopSummary.recentPurchases.length > 0" class="shop-purchase-list" aria-label="최근 구매 목록">
-              <li v-for="purchase in shopSummary.recentPurchases.slice(0, 6)" :key="purchase.purchaseId">
-                <span>{{ purchase.participantNumber }}번 {{ purchase.nickname ?? '미설정' }}</span>
-                <strong>{{ purchase.productName }} · {{ purchase.quantity }}개</strong>
-              </li>
-            </ul>
-            <p v-else>아직 구매가 발생하지 않았습니다.</p>
+            <dl class="quiz-summary-counts">
+              <div><dt>예금 확정</dt><dd>{{ day1Summary.depositConfirmedCount }}명</dd></div>
+              <div><dt>투자 확정</dt><dd>{{ day1Summary.investmentConfirmedCount }}명</dd></div>
+              <div><dt>구매 참여</dt><dd>{{ day1Summary.purchaseParticipantCount }}명</dd></div>
+              <div><dt>선택 전</dt><dd>{{ day1Summary.inactiveStudentCount }}명</dd></div>
+            </dl>
           </template>
           <template
             v-else-if="(state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED') && day1Summary"

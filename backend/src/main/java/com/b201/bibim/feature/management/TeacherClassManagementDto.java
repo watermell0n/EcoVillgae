@@ -73,6 +73,12 @@ public final class TeacherClassManagementDto {
     ) {
     }
 
+    public record StudentRoleCatalogEntry(
+            int participantNumber,
+            String roleName
+    ) {
+    }
+
     public record ClassSettingsResponse(
             UUID roomId,
             String roomName,
@@ -81,7 +87,8 @@ public final class TeacherClassManagementDto {
             EconomyRules economy,
             List<QuizSettings> quizzes,
             List<InvestmentAsset> investments,
-            List<ShopProduct> products
+            List<ShopProduct> products,
+            List<StudentRoleCatalogEntry> roleCatalog
     ) {
     }
 
@@ -103,6 +110,7 @@ public final class TeacherClassManagementDto {
     public record UpdateStudentRequest(
             @NotNull @Min(1) @Max(99) Integer participantNumber,
             @Size(max = 50) String nickname,
+            @Size(max = 50) String roleName,
             @NotBlank String status
     ) {
     }
@@ -112,6 +120,7 @@ public final class TeacherClassManagementDto {
             int participantNumber,
             String participationCode,
             String nickname,
+            String roleName,
             String status,
             boolean online,
             Instant lastSeenAt

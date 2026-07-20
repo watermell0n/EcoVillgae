@@ -62,4 +62,36 @@ describe('Day2FinalShopStageView', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('최종 상점을 불러오지 못했어요.')
     expect(wrapper.get('[role="alert"] button').text()).toBe('다시 불러오기')
   })
+
+  it('shows a dismissible sold-out notice when another student buys the last item first', async () => {
+    shopApi.getStudentShopProducts.mockResolvedValue({
+      walletBalance: 100,
+      products: [{
+        productId: 'product-1',
+        name: '연필 세트',
+        description: '공부에 필요한 연필이에요.',
+        imageUrl: null,
+        originalPrice: 20,
+        price: 20,
+        initialStock: 1,
+        currentStock: 1,
+        status: 'ON_SALE',
+        displayOrder: 1,
+      }],
+    })
+    shopApi.purchaseShopProduct.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { error: { code: 'OUT_OF_STOCK', message: '상품 재고가 부족합니다.' } } },
+    })
+
+    const wrapper = mount(Day2FinalShopStageView)
+    await flushPromises()
+    await wrapper.get('.shop-product-card button').trigger('click')
+    await flushPromises()
+    await wrapper.get('.confirm-modal__actions button:last-child').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[role="alertdialog"]').text()).toContain('상품이 방금 품절됐어요')
+    expect(wrapper.get('[role="alertdialog"] button').text()).toBe('확인')
+  })
 })
