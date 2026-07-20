@@ -104,7 +104,7 @@ describe('SettlementStageView', () => {
     expect(quizApi.getDayOneQuizResult).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('경제 퀴즈 결과')
     expect(wrapper.text()).toContain('문제당 5비빔의 정답수당')
-    expect(wrapper.text()).toContain('세금 없음')
+    expect(wrapper.text()).toContain('소득세 10%')
     expect(wrapper.text()).toContain('분산투자는 위험을 나누는 방법이에요.')
   })
 })

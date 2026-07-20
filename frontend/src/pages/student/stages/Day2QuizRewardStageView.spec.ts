@@ -20,8 +20,9 @@ describe('Day2QuizRewardStageView', () => {
       correctCount: 2,
       participationReward: 0,
       correctReward: 10,
-      totalReward: 10,
-      walletAfter: 77,
+      incomeTax: 1,
+      totalReward: 9,
+      walletAfter: 76,
     })
   })
 
@@ -29,11 +30,13 @@ describe('Day2QuizRewardStageView', () => {
     const wrapper = mount(Day2QuizRewardStageView)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('경제 퀴즈 보상 정산 결과')
+    expect(wrapper.text()).toContain('경제 퀴즈 보상 결과 확인')
     expect(wrapper.text()).toContain('2문제를 맞혔어요!')
     expect(wrapper.text()).toContain('2문제 × 5비빔')
-    expect(wrapper.text()).toContain('내가 받은 총 보상')
+    expect(wrapper.text()).toContain('소득세 10%')
+    expect(wrapper.text()).toContain('내 지갑에 받은 돈')
     expect(wrapper.text()).toContain('10비빔')
+    expect(wrapper.text()).toContain('9비빔')
     expect(wrapper.text()).not.toContain('참여수당')
     expect(wrapper.text()).toContain('보상은 한 번만 지급돼요.')
   })

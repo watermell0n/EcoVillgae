@@ -6,8 +6,6 @@ import { getRoomStage } from '../../features/room/model/stages'
 import { advanceStudentFlow } from '../../features/flow/api/flow'
 import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
-import StatusBadge from '../../shared/components/StatusBadge.vue'
-import { formatCurrency, SERVICE_NAME } from '../../shared/config/brand'
 import { useAuthStore } from '../../stores/auth'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
@@ -22,16 +20,22 @@ const flowError = ref('')
 const advancingFlow = ref(false)
 const quizActivityCompleted = ref(false)
 const currentPage = ref('CONNECTING')
+const closingCountdown = ref<number | null>(null)
+const sessionClosed = ref(false)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
 const stageDefinition = computed(() => getRoomStage(displayStage.value))
 const stageComponent = computed(() => getStudentStageComponent(displayStage.value))
-const stageComponentProps = computed(() =>
-  isPlaceholderStage(displayStage.value)
-    ? { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
-    : {},
-)
+const stageComponentProps = computed(() => {
+  if (isPlaceholderStage(displayStage.value)) {
+    return { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
+  }
+  if (displayStage.value === 'DAY1_FREE_ACTIVITY_GUIDED') {
+    return { activeView: state.value?.guidedActivityView ?? 'HOME' }
+  }
+  return {}
+})
 const isCatchUpQuiz = computed(() =>
   state.value?.flowMode === 'CATCH_UP'
     && (displayStage.value === 'DAY1_QUIZ' || displayStage.value === 'DAY2_QUIZ'),
@@ -40,14 +44,8 @@ const canAdvanceCatchUp = computed(() => !isCatchUpQuiz.value || quizActivityCom
 const currentModule = computed(
   () => state.value?.modules.find((module) => module.state === 'ACTIVE' || module.state === 'GUIDED')?.type ?? null,
 )
-const connectionLabel = computed(() =>
-  roomSessionStore.connectionStatus === 'CONNECTED' ? '연결됨' : '다시 연결 중',
-)
-const connectionTone = computed(() =>
-  roomSessionStore.connectionStatus === 'CONNECTED' ? 'success' : 'warning',
-)
-
 let presenceTimer: ReturnType<typeof setInterval> | undefined
+let closingTimer: ReturnType<typeof setInterval> | undefined
 let presenceRequestInFlight = false
 
 onMounted(async () => {
@@ -76,6 +74,7 @@ onMounted(async () => {
 onUnmounted(() => {
   roomSessionStore.stopPolling()
   stopPresenceReporting()
+  if (closingTimer) clearInterval(closingTimer)
 })
 
 watch(
@@ -89,12 +88,36 @@ watch(
 )
 
 watch(
+  () => state.value?.syncVersion,
+  async (nextVersion, previousVersion) => {
+    if (nextVersion !== undefined && previousVersion !== undefined && nextVersion !== previousVersion) {
+      await authStore.loadStudent()
+    }
+  },
+)
+
+watch(
   () => displayStage.value,
   (stage) => {
     if (!stage) return
     quizActivityCompleted.value = false
     currentPage.value = stage
     void reportPresence()
+    if (stage === 'DAY2_COMPLETED' && closingCountdown.value === null && !sessionClosed.value) {
+      closingCountdown.value = 5
+      closingTimer = setInterval(() => {
+        if (closingCountdown.value === null) return
+        closingCountdown.value -= 1
+        if (closingCountdown.value <= 0) {
+          if (closingTimer) clearInterval(closingTimer)
+          closingTimer = undefined
+          closingCountdown.value = null
+          sessionClosed.value = true
+          roomSessionStore.stopPolling()
+          stopPresenceReporting()
+        }
+      }, 1_000)
+    }
   },
 )
 
@@ -168,18 +191,14 @@ async function advanceCatchUp() {
     <p v-if="loading" class="state-message">수업에 연결하고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
+    <section v-else-if="sessionClosed" class="student-session-closed" role="status">
+      <span aria-hidden="true">🌿</span><h1>수업이 종료되었습니다</h1><p>활동 결과가 안전하게 저장되었어요. 참여해 줘서 고마워요!</p>
+    </section>
     <template v-else-if="student && state">
-      <header class="student-room-header">
-        <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
-        <div class="student-room-header__info">
-          <span>{{ state.currentDay }}일차</span>
-          <strong>{{ student.nickname }}</strong>
-          <span>{{ formatCurrency(state.walletBalance) }}</span>
-          <StatusBadge :label="connectionLabel" :tone="connectionTone" />
-        </div>
-      </header>
-
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
+        <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
+          <strong>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong><span>결과를 저장하고 있어요.</span>
+        </div>
         <aside v-if="state.flowMode === 'CATCH_UP'" class="catch-up-banner" role="status">
           <div>
             <strong>놓친 활동을 순서대로 진행하고 있어요</strong>
@@ -216,6 +235,8 @@ async function advanceCatchUp() {
         </p>
         <component
           :is="stageComponent"
+          :key="displayStage"
+          class="student-stage-transition"
           v-bind="stageComponentProps"
           @page-change="handlePageChange"
           @completion-change="handleActivityCompletion"
@@ -234,7 +255,7 @@ async function advanceCatchUp() {
           {{ advancingFlow ? '확인 중…' : '이 활동을 완료하고 다음으로' }}
         </button>
         <div class="waiting-room-name">
-          {{ student.roomName }} · {{ student.participantNumber }}번 · sync {{ state.syncVersion }}
+          {{ student.roomName }} · {{ student.participantNumber }}번 {{ student.nickname }}
         </div>
       </section>
     </template>

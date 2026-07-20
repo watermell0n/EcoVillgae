@@ -16,6 +16,8 @@ import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
+import com.b201.bibim.domain.room.RoomRulesEntity;
+import com.b201.bibim.domain.room.RoomRulesRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.deposit.DepositDto.DepositResponse;
@@ -32,14 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DepositService {
 
-    private static final int INTEREST_RATE_BPS = 500;
-    private static final long MINIMUM_PRINCIPAL = 20;
-    private static final long AMOUNT_UNIT = 10;
     private static final String OPEN_STAGE = "DAY1_FREE_ACTIVITY";
 
     private final DepositRepository depositRepository;
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
+    private final RoomRulesRepository rulesRepository;
     private final DaySessionRepository sessionRepository;
     private final AccountRepository accountRepository;
     private final FinancialTransactionRepository transactionRepository;
@@ -50,6 +50,7 @@ public class DepositService {
             DepositRepository depositRepository,
             StudentRepository studentRepository,
             RoomRepository roomRepository,
+            RoomRulesRepository rulesRepository,
             DaySessionRepository sessionRepository,
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
@@ -59,6 +60,7 @@ public class DepositService {
         this.depositRepository = depositRepository;
         this.studentRepository = studentRepository;
         this.roomRepository = roomRepository;
+        this.rulesRepository = rulesRepository;
         this.sessionRepository = sessionRepository;
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
@@ -73,8 +75,8 @@ public class DepositService {
         ensureOpen(room, studentId);
         DaySessionEntity session = dayOneSession(room.getId());
         return currentDeposit(session.getId(), studentId)
-                .map(deposit -> toResponse(deposit, walletBalance(room.getId(), studentId), false))
-                .orElseGet(() -> emptyResponse(walletBalance(room.getId(), studentId)));
+                .map(deposit -> toResponse(deposit, walletBalance(room.getId(), studentId), rules(room.getId()), false))
+                .orElseGet(() -> emptyResponse(walletBalance(room.getId(), studentId), rules(room.getId())));
     }
 
     @Transactional(readOnly = true)
@@ -102,9 +104,10 @@ public class DepositService {
 
     @Transactional
     public DepositResponse saveDraft(UUID studentId, SaveDraftRequest request) {
-        validatePrincipal(request.principal());
         StudentEntity snapshot = findActiveStudent(studentId);
         RoomEntity room = lockRoom(snapshot.getRoomId());
+        RoomRulesEntity rules = rules(room.getId());
+        validatePrincipal(request.principal(), rules);
         StudentEntity student = lockActiveStudent(studentId);
         ensureOpen(room, studentId);
         AccountEntity wallet = walletForUpdate(room.getId(), studentId);
@@ -112,10 +115,10 @@ public class DepositService {
             throw insufficientBalance();
         }
         DaySessionEntity session = dayOneSession(room.getId());
-        long interest = expectedInterest(request.principal());
+        long interest = expectedInterest(request.principal(), rules.getDepositInterestBps());
         DepositEntity deposit = depositRepository.findDraftForUpdate(session.getId(), studentId)
                 .map(existing -> {
-                    existing.changeDraft(request.principal(), INTEREST_RATE_BPS, interest);
+                    existing.changeDraft(request.principal(), rules.getDepositInterestBps(), interest);
                     return existing;
                 })
                 .orElseGet(() -> DepositEntity.draft(
@@ -123,12 +126,12 @@ public class DepositService {
                         session.getId(),
                         studentId,
                         request.principal(),
-                        INTEREST_RATE_BPS,
+                        rules.getDepositInterestBps(),
                         interest
                 ));
         depositRepository.save(deposit);
         room.markEconomicStateChanged();
-        return toResponse(deposit, wallet.getBalance(), false);
+        return toResponse(deposit, wallet.getBalance(), rules, false);
     }
 
     @Transactional
@@ -142,7 +145,7 @@ public class DepositService {
                 .orElseThrow(this::draftNotFound);
         deposit.cancelDraft();
         room.markEconomicStateChanged();
-        return toResponse(deposit, walletBalance(room.getId(), studentId), false);
+        return toResponse(deposit, walletBalance(room.getId(), studentId), rules(room.getId()), false);
     }
 
     @Transactional
@@ -162,7 +165,7 @@ public class DepositService {
             }
             DepositEntity deposit = depositRepository.findByTransactionId(transaction.getId())
                     .orElseThrow(this::idempotencyKeyReused);
-            return toResponse(deposit, walletBalance(room.getId(), studentId), true);
+            return toResponse(deposit, walletBalance(room.getId(), studentId), rules(room.getId()), true);
         }
 
         DaySessionEntity session = dayOneSession(room.getId());
@@ -207,10 +210,10 @@ public class DepositService {
         ));
         deposit.confirm(transaction.getId());
         room.markEconomicStateChanged();
-        return toResponse(deposit, wallet.getBalance(), false);
+        return toResponse(deposit, wallet.getBalance(), rules(room.getId()), false);
     }
 
-    private DepositResponse toResponse(DepositEntity deposit, long walletBalance, boolean replayed) {
+    private DepositResponse toResponse(DepositEntity deposit, long walletBalance, RoomRulesEntity rules, boolean replayed) {
         return new DepositResponse(
                 deposit.getId(),
                 deposit.getStatus(),
@@ -219,16 +222,18 @@ public class DepositService {
                 deposit.getExpectedInterest(),
                 deposit.getPrincipal() + deposit.getExpectedInterest(),
                 walletBalance,
+                rules.getDepositMinAmount(),
+                rules.getDepositUnit(),
                 deposit.getUpdatedAt(),
                 deposit.getConfirmedAt(),
                 replayed
         );
     }
 
-    private DepositResponse emptyResponse(long walletBalance) {
+    private DepositResponse emptyResponse(long walletBalance, RoomRulesEntity rules) {
         return new DepositResponse(
-                null, "NONE", 0, INTEREST_RATE_BPS, 0, 0,
-                walletBalance, null, null, false
+                null, "NONE", 0, rules.getDepositInterestBps(), 0, 0,
+                walletBalance, rules.getDepositMinAmount(), rules.getDepositUnit(), null, null, false
         );
     }
 
@@ -243,18 +248,24 @@ public class DepositService {
                         ));
     }
 
-    private long expectedInterest(long principal) {
+    private long expectedInterest(long principal, int interestRateBps) {
         try {
-            return Math.addExact(Math.multiplyExact(principal, INTEREST_RATE_BPS), 5_000) / 10_000;
+            return Math.addExact(Math.multiplyExact(principal, interestRateBps), 5_000) / 10_000;
         } catch (ArithmeticException exception) {
             throw invalidAmount();
         }
     }
 
-    private void validatePrincipal(long principal) {
-        if (principal < MINIMUM_PRINCIPAL || principal % AMOUNT_UNIT != 0) {
+    private void validatePrincipal(long principal, RoomRulesEntity rules) {
+        if (principal < rules.getDepositMinAmount() || principal % rules.getDepositUnit() != 0) {
             throw invalidAmount();
         }
+    }
+
+    private RoomRulesEntity rules(UUID roomId) {
+        return rulesRepository.findByRoomId(roomId).orElseThrow(() -> new ApiException(
+                HttpStatus.CONFLICT, "ROOM_RULES_NOT_FOUND", "수업 경제 설정을 찾을 수 없습니다."
+        ));
     }
 
     private StudentEntity findActiveStudent(UUID studentId) {

@@ -19,14 +19,14 @@ const investmentLesson = computed(() => {
   const profit = result.value?.investmentProfit ?? 0
   if (profit > 0) return '투자한 자산의 가격이 올라 원금보다 많은 돈을 돌려받았어요.'
   if (profit < 0) return '투자한 자산의 가격이 내려 원금보다 적은 돈을 돌려받았어요.'
-  return '투자 가격의 변화가 정산 금액에 영향을 주지 않았어요.'
+  return '투자 가격의 변화가 결과 금액에 영향을 주지 않았어요.'
 })
 
 const heading = computed(() => {
   if (stage.value === 'DAY2_LOGIN') return '1일차 자산을 다시 불러왔어요.'
   if (stage.value === 'DAY2_SETTLEMENT_WAIT') return '금융 결과를 계산할 준비가 됐어요.'
   if (stage.value === 'DAY2_FINANCE_SETTLEMENT') {
-    return isCompleted.value ? '금융 정산이 완료됐어요.' : '선생님이 금융 결과를 정산하고 있어요.'
+    return isCompleted.value ? '금융 결과 확인이 준비됐어요.' : '선생님이 금융 결과를 계산하고 있어요.'
   }
   if (stage.value === 'DAY2_RESULT_GUIDED') return '숫자 뒤에 숨은 금융 원리를 알아봐요.'
   return '내 예금과 투자 결과를 확인해요.'
@@ -91,10 +91,10 @@ function allocationExplanation(returnBps: number) {
           {{ isCompleted ? '✓' : '↻' }}
         </div>
         <div>
-          <p class="eyebrow">{{ isGuidedLesson ? '2일차 금융 결과 교육' : isCompleted ? '2일차 금융 정산 완료' : '2일차 자산 복구' }}</p>
+          <p class="eyebrow">{{ isGuidedLesson ? '2일차 금융 결과 교육' : isCompleted ? '2일차 금융 결과 확인' : '2일차 자산 복구' }}</p>
           <h1>{{ heading }}</h1>
           <p v-if="stage === 'DAY2_LOGIN'">참여 코드와 비밀번호로 저장된 지갑·예금·투자를 안전하게 복구했습니다.</p>
-          <p v-else-if="!isCompleted">정산 전에는 결과 금액을 공개하지 않아요. 선생님이 정산을 완료하면 확정된 결과를 확인할 수 있어요.</p>
+          <p v-else-if="!isCompleted">계산 전에는 결과 금액을 공개하지 않아요. 선생님이 계산을 끝내면 확정된 결과를 확인할 수 있어요.</p>
           <p v-else-if="isGuidedLesson">내 결과를 따라가며 예금, 투자, 금융세가 어떻게 지갑 금액을 바꾸었는지 알아보세요.</p>
           <p v-else>예금 이자와 투자 손익을 반영하고, 이자와 양수 투자 순이익에 금융세를 적용했습니다.</p>
         </div>
@@ -103,17 +103,17 @@ function allocationExplanation(returnBps: number) {
       <section v-if="!isCompleted" class="stage-wait-panel" aria-live="polite">
         <div class="stage-view__icon stage-view__icon--orange" aria-hidden="true">⏳</div>
         <div>
-          <h2>금융 정산을 기다리고 있어요.</h2>
-          <p>정산이 끝나면 예금 이자, 투자 손익, 금융세가 반영된 확정 금액이 이 화면에 표시됩니다.</p>
+          <h2>금융 결과를 계산하고 있어요.</h2>
+          <p>계산이 끝나면 예금 이자, 투자 손익, 금융세가 반영된 확정 금액이 이 화면에 표시됩니다.</p>
         </div>
       </section>
 
       <template v-else>
         <section class="day2-balance-grid" aria-label="2일차 금융 자산 요약">
-          <article><span>정산 전 지갑</span><strong>{{ formatBibim(result.walletBefore) }}</strong></article>
+          <article><span>계산 전 지갑</span><strong>{{ formatBibim(result.walletBefore) }}</strong></article>
           <article><span>예금 원금</span><strong>{{ formatBibim(result.depositPrincipal) }}</strong><small>이자 +{{ formatBibim(result.depositInterest) }}</small></article>
           <article><span>투자 원금</span><strong>{{ formatBibim(result.investmentPrincipal) }}</strong><small :class="{ 'is-loss': result.investmentProfit < 0 }">손익 {{ result.investmentProfit > 0 ? '+' : '' }}{{ formatBibim(result.investmentProfit) }}</small></article>
-          <article class="is-highlight"><span>정산 후 지갑</span><strong>{{ formatBibim(result.walletAfter) }}</strong><small>금융세 −{{ formatBibim(result.financialTax) }}</small></article>
+          <article class="is-highlight"><span>계산 후 지갑</span><strong>{{ formatBibim(result.walletAfter) }}</strong><small>금융세 −{{ formatBibim(result.financialTax) }}</small></article>
         </section>
 
         <template v-if="isGuidedLesson">
@@ -121,7 +121,7 @@ function allocationExplanation(returnBps: number) {
             <div class="finance-learning-journey__heading">
               <p class="eyebrow">내 결과로 배우기</p>
               <h2 id="finance-learning-title">내 돈은 왜 이렇게 달라졌을까요?</h2>
-              <p>정산 결과를 세 단계로 따라가면 금융 상품의 특징을 쉽게 이해할 수 있어요.</p>
+              <p>돈 계산 결과를 세 단계로 따라가면 금융 상품의 특징을 쉽게 이해할 수 있어요.</p>
             </div>
             <div class="finance-learning-steps">
               <article>

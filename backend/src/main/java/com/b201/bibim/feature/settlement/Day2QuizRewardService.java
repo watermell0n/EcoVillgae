@@ -222,6 +222,8 @@ public class Day2QuizRewardService {
         ));
         AccountEntity treasury = accountRepository.findRoomAccountForUpdate(roomId, "SYSTEM_TREASURY")
                 .orElseGet(() -> accountRepository.saveAndFlush(AccountEntity.systemTreasury(roomId)));
+        AccountEntity classFund = accountRepository.findRoomAccountForUpdate(roomId, "CLASS_FUND")
+                .orElseGet(() -> accountRepository.saveAndFlush(AccountEntity.classFund(roomId)));
         int submittedCount = 0;
         long totalReward = 0;
         for (StudentEntity student : students) {
@@ -239,10 +241,14 @@ public class Day2QuizRewardService {
             itemRepository.save(SettlementItemEntity.create(
                     run.getId(), student.getId(), calculated.submitted(), calculated.correctCount(),
                     0, calculated.participationReward(), calculated.correctReward(),
-                    calculated.totalReward(), 0, calculated.totalReward(),
+                    Math.addExact(calculated.totalReward(), calculated.incomeTax()),
+                    calculated.incomeTax(), calculated.totalReward(),
                     rewardRateBps < 10_000 ? "LATE" : "LIVE", rewardRateBps
             ));
-            transferReward(room, session, teacherId, run, student, treasury, wallet, calculated, key);
+            transferReward(
+                    room, session, teacherId, run, student,
+                    treasury, wallet, classFund, calculated, key
+            );
             if (calculated.submitted()) submittedCount += 1;
             totalReward = Math.addExact(totalReward, calculated.totalReward());
         }
@@ -280,7 +286,8 @@ public class Day2QuizRewardService {
         itemRepository.save(SettlementItemEntity.create(
                 run.getId(), studentId, true, reward.correctCount(),
                 0, reward.participationReward(), reward.correctReward(),
-                reward.totalReward(), 0, reward.totalReward(), "LATE", rewardRateBps
+                Math.addExact(reward.totalReward(), reward.incomeTax()),
+                reward.incomeTax(), reward.totalReward(), "LATE", rewardRateBps
         ));
         DaySessionEntity session = sessionRepository
                 .findByRoomIdAndDayNumber(room.getId(), (short) 2)
@@ -296,9 +303,14 @@ public class Day2QuizRewardService {
                 .orElseGet(() -> accountRepository.saveAndFlush(
                         AccountEntity.studentWallet(room.getId(), studentId)
                 ));
+        AccountEntity classFund = accountRepository
+                .findRoomAccountForUpdate(room.getId(), "CLASS_FUND")
+                .orElseGet(() -> accountRepository.saveAndFlush(
+                        AccountEntity.classFund(room.getId())
+                ));
         transferReward(
                 room, session, room.getTeacherId(), run, student, treasury, wallet,
-                reward, "catchup:day2-quiz:" + studentId
+                classFund, reward, "catchup:day2-quiz:" + studentId
         );
         room.markEconomicStateChanged();
         return true;
@@ -312,10 +324,12 @@ public class Day2QuizRewardService {
             StudentEntity student,
             AccountEntity treasury,
             AccountEntity wallet,
+            AccountEntity classFund,
             StudentRewardResponse reward,
             String key
     ) {
-        if (reward.totalReward() == 0) return;
+        long grossReward = Math.addExact(reward.totalReward(), reward.incomeTax());
+        if (grossReward == 0) return;
         FinancialTransactionEntity transaction = transactionRepository.save(
                 FinancialTransactionEntity.success(
                         room.getId(), session.getId(), student.getId(), teacherId, run.getId(),
@@ -323,18 +337,33 @@ public class Day2QuizRewardService {
                         Map.of(
                                 "participationReward", reward.participationReward(),
                                 "correctReward", reward.correctReward(),
+                                "incomeTax", reward.incomeTax(),
                                 "correctCount", reward.correctCount()
                         )
                 )
         );
         long treasuryBefore = treasury.getBalance();
         long walletBefore = wallet.getBalance();
-        treasury.changeBy(-reward.totalReward());
+        long classFundBefore = classFund.getBalance();
+        treasury.changeBy(-grossReward);
         wallet.changeBy(reward.totalReward());
-        entryRepository.saveAll(List.of(
-                FinancialEntryEntity.create(transaction.getId(), treasury, -reward.totalReward(), treasuryBefore, 1),
-                FinancialEntryEntity.create(transaction.getId(), wallet, reward.totalReward(), walletBefore, 2)
+        classFund.changeBy(reward.incomeTax());
+        List<FinancialEntryEntity> entries = new java.util.ArrayList<>();
+        int entryOrder = 1;
+        entries.add(FinancialEntryEntity.create(
+                transaction.getId(), treasury, -grossReward, treasuryBefore, entryOrder++
         ));
+        if (reward.totalReward() > 0) {
+            entries.add(FinancialEntryEntity.create(
+                    transaction.getId(), wallet, reward.totalReward(), walletBefore, entryOrder++
+            ));
+        }
+        if (reward.incomeTax() > 0) {
+            entries.add(FinancialEntryEntity.create(
+                    transaction.getId(), classFund, reward.incomeTax(), classFundBefore, entryOrder
+            ));
+        }
+        entryRepository.saveAll(entries);
     }
 
     private TeacherRewardPreviewResponse currentPreview(RoomEntity room) {
@@ -403,10 +432,12 @@ public class Day2QuizRewardService {
         long correctReward = Math.floorDiv(
                 Math.multiplyExact(rawCorrectReward, rewardRateBps), 10_000L
         );
-        long total = Math.addExact(participation, correctReward);
+        long grossReward = Math.addExact(participation, correctReward);
+        long incomeTax = calculateAnswerRewardTax(correctReward, rules.getIncomeTaxBps());
+        long total = Math.subtractExact(grossReward, incomeTax);
         return new StudentRewardResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(), submitted,
-                correct, participation, correctReward, total,
+                correct, participation, correctReward, incomeTax, total,
                 Math.addExact(walletBalance(room.getId(), student.getId()), total)
         );
     }
@@ -420,7 +451,8 @@ public class Day2QuizRewardService {
         return new StudentRewardResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(),
                 item.isQuizSubmitted(), item.getCorrectCount(), item.getParticipationReward(),
-                item.getCorrectReward(), item.getNetIncome(), walletBalance(room.getId(), student.getId())
+                item.getCorrectReward(), item.getIncomeTax(), item.getNetIncome(),
+                walletBalance(room.getId(), student.getId())
         );
     }
 
@@ -482,6 +514,10 @@ public class Day2QuizRewardService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "IDEMPOTENCY_KEY_REQUIRED", "100자 이하의 Idempotency-Key가 필요합니다.");
         }
         return key.trim();
+    }
+
+    static long calculateAnswerRewardTax(long correctReward, int incomeTaxBps) {
+        return Math.ceilDiv(Math.multiplyExact(correctReward, incomeTaxBps), 10_000L);
     }
 
     private ApiException rewardNotReady() {

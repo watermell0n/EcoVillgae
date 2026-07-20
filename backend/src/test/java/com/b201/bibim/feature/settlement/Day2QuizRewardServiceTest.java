@@ -86,6 +86,12 @@ class Day2QuizRewardServiceTest {
                         || question.getExplanation().isBlank()));
     }
 
+    @Test
+    void appliesTenPercentIncomeTaxToTheAnswerReward() {
+        assertEquals(1, Day2QuizRewardService.calculateAnswerRewardTax(10, 1_000));
+        assertEquals(1, Day2QuizRewardService.calculateAnswerRewardTax(5, 1_000));
+    }
+
     private <T> List<T> toList(Iterable<T> values) {
         List<T> result = new ArrayList<>();
         values.forEach(result::add);

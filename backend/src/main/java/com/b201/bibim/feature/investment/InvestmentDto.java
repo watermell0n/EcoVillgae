@@ -54,6 +54,8 @@ public final class InvestmentDto {
             String status,
             long totalAmount,
             long walletBalance,
+            long minimumAmount,
+            long amountUnit,
             boolean scenarioLocked,
             List<AssetResponse> assets,
             List<AllocationResponse> allocations,

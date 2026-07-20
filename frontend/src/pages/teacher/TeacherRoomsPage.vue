@@ -88,7 +88,7 @@ async function submitCreateRoom() {
 </script>
 
 <template>
-  <main class="dashboard-page">
+  <main class="dashboard-page teacher-rooms-page">
     <header class="dashboard-header">
       <div>
         <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>

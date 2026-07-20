@@ -46,13 +46,13 @@ async function submit() {
 
     <section v-if="entry" class="auth-card" aria-labelledby="student-setup-title">
       <p class="eyebrow">{{ entry.roomName }} · {{ entry.participantNumber }}번</p>
-      <h1 id="student-setup-title" class="page-title">처음 사용할 이름과 비밀번호</h1>
-      <p class="page-description">닉네임은 수업에서, 비밀번호는 다음 로그인부터 사용합니다.</p>
+      <h1 id="student-setup-title" class="page-title">마을에서 사용할 이름을 정해요</h1>
+      <p class="page-description">닉네임과 나만의 비밀 번호를 정하면 마을 활동을 시작할 수 있어요.</p>
 
       <form class="form-stack" @submit.prevent="submit">
         <label>
-          <span>닉네임</span>
-          <input v-model.trim="nickname" maxlength="20" placeholder="수업에서 사용할 이름" required />
+          <span>마을에서 부를 이름</span>
+          <input v-model.trim="nickname" maxlength="20" placeholder="친구들이 알아볼 이름" required />
         </label>
         <label>
           <span>비밀번호</span>
@@ -79,7 +79,7 @@ async function submit() {
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '설정 중...' : '설정 완료' }}
+          {{ submitting ? '마을을 준비하는 중...' : '마을 생활 시작하기' }}
         </button>
       </form>
 

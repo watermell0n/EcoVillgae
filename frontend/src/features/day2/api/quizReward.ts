@@ -9,6 +9,7 @@ export interface Day2QuizRewardStudent {
   correctCount: number
   participationReward: number
   correctReward: number
+  incomeTax: number
   totalReward: number
   walletAfter: number
 }

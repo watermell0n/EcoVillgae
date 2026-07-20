@@ -54,6 +54,7 @@ public class StudentFlowService {
             "DAY1_KNOWLEDGE_GUIDED",
             "DAY1_FINANCE_GUIDED",
             "DAY1_SHOP_GUIDED",
+            "DAY1_FREE_ACTIVITY_GUIDED",
             "DAY1_FREE_ACTIVITY",
             "DAY1_SUMMARY",
             "DAY2_RESULT_GUIDED",
@@ -267,6 +268,21 @@ public class StudentFlowService {
                 state.joinAt(room.getCurrentStage());
             }
         }
+    }
+
+    @Transactional
+    public FlowResponse forceMoveToCurrentStage(UUID actorId, UUID roomId, UUID studentId) {
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
+        StudentEntity student = studentInRoom(studentId, roomId);
+        StudentFlowStateEntity state = flowRepository.findByStudentIdForUpdate(studentId)
+                .orElseGet(() -> initializeExisting(student, room));
+        state.forceJoinAt(room.getCurrentStage(), actorId);
+        room.markControlStateChanged();
+        activityEventService.record(
+                roomId, studentId, "ADMIN", actorId, "STUDENT_FORCED_TO_CURRENT_STAGE",
+                room.getCurrentStage(), null, room.getCurrentStage(), Map.of("forced", true)
+        );
+        return response(student, room, state);
     }
 
     @Transactional

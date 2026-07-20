@@ -10,7 +10,7 @@ import {
 
 describe('room stages', () => {
   it('keeps the complete two-day stage order from the API specification', () => {
-    expect(ROOM_STAGES).toHaveLength(28)
+    expect(ROOM_STAGES).toHaveLength(29)
     expect(ROOM_STAGES[0]?.id).toBe('DAY1_LOBBY')
     expect(ROOM_STAGES.at(-1)?.id).toBe('DAY2_COMPLETED')
   })

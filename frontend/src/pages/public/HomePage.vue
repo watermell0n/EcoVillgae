@@ -27,7 +27,8 @@ onMounted(checkBackend)
 </script>
 
 <template>
-  <main class="home-page">
+  <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+  <main id="main-content" class="home-page" tabindex="-1">
     <section class="hero-card">
       <div class="hero-card__content">
         <p class="eyebrow">{{ SERVICE_NAME }} · 교실 경제활동 서비스</p>
@@ -36,7 +37,8 @@ onMounted(checkBackend)
           교사가 수업 단계를 진행하면 학생 화면이 함께 바뀌는 2일 과정 경제교육 서비스입니다.
         </p>
 
-        <StatusBadge
+        <div aria-live="polite" aria-atomic="true">
+          <StatusBadge
           v-if="connectionState === 'connected'"
           label="백엔드 연결됨"
           tone="success"
@@ -46,9 +48,10 @@ onMounted(checkBackend)
           label="연결 확인 중"
           tone="warning"
         />
-        <StatusBadge v-else label="연결 실패" tone="danger" />
+          <StatusBadge v-else label="연결 실패" tone="danger" />
+        </div>
 
-        <p v-if="errorMessage" class="connection-error">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="connection-error" role="alert">{{ errorMessage }}</p>
         <button v-if="connectionState === 'failed'" type="button" @click="checkBackend">
           다시 확인
         </button>

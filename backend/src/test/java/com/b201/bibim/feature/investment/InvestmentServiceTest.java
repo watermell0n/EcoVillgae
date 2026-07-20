@@ -24,6 +24,8 @@ import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
+import com.b201.bibim.domain.room.RoomRulesEntity;
+import com.b201.bibim.domain.room.RoomRulesRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.investment.InvestmentDto.AllocationRequest;
@@ -47,6 +49,7 @@ class InvestmentServiceTest {
     @Mock InvestmentAllocationRepository allocationRepository;
     @Mock StudentRepository studentRepository;
     @Mock RoomRepository roomRepository;
+    @Mock RoomRulesRepository rulesRepository;
     @Mock DaySessionRepository sessionRepository;
     @Mock AccountRepository accountRepository;
     @Mock FinancialTransactionRepository transactionRepository;
@@ -74,7 +77,9 @@ class InvestmentServiceTest {
         when(studentRepository.findByIdForUpdate(studentId)).thenReturn(Optional.of(student));
         when(assetRepository.findAllByRoomIdOrderByDisplayOrder(roomId)).thenReturn(List.of(asset));
         when(asset.getId()).thenReturn(assetId);
+        when(asset.getCode()).thenReturn("SAFE_BOND");
         when(scenarioRepository.findByRoomId(roomId)).thenReturn(Optional.of(scenario));
+        when(rulesRepository.findByRoomId(roomId)).thenReturn(Optional.of(RoomRulesEntity.defaults(roomId)));
 
         ApiException exception = assertThrows(ApiException.class, () -> investmentService.saveDraft(
                 studentId,

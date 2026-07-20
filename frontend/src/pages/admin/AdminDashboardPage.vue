@@ -7,13 +7,15 @@ import {
   getAdminRoomStudents,
   getAdminStudentActivities,
   terminateAdminStudentSession,
+  sendAdminRoomCommand,
+  forceAdminStudentToCurrentStage,
   type AdminActivity,
   type AdminRoomMonitoring,
   type AdminRoomStudents,
   type AdminStudentMonitoring,
   type ConnectionStatus,
 } from '../../features/admin/api/admin'
-import { getRoomStage } from '../../features/room/model/stages'
+import { getAdjacentStages, getRoomStage } from '../../features/room/model/stages'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { copyText } from '../../shared/utils/clipboard'
@@ -29,6 +31,7 @@ const selectedStudentId = ref('')
 const loading = ref(true)
 const refreshing = ref(false)
 const terminating = ref(false)
+const controlling = ref(false)
 const terminationReason = ref('')
 const errorMessage = ref('')
 const noticeMessage = ref('')
@@ -53,6 +56,7 @@ const problemStudentCount = computed(
         student.syncStatus === 'DELAYED',
     ).length ?? 0,
 )
+const adjacentStages = computed(() => getAdjacentStages(selectedRoom.value?.currentStage))
 
 const connectionLabels: Record<ConnectionStatus, string> = {
   ONLINE: '접속 중',
@@ -184,6 +188,41 @@ async function terminateSession() {
   }
 }
 
+async function moveRoom(targetStage?: string) {
+  if (!selectedRoom.value || !targetStage || controlling.value) return
+  controlling.value = true
+  errorMessage.value = ''
+  try {
+    await sendAdminRoomCommand(
+      selectedRoom.value.roomId,
+      'SET_STAGE',
+      targetStage,
+      selectedRoom.value.version,
+    )
+    noticeMessage.value = `${getRoomStage(targetStage)?.label ?? targetStage} 단계로 이동했습니다.`
+    await refreshDashboard(true)
+  } catch (error) {
+    await handleError(error, '수업 단계를 변경하지 못했습니다.')
+  } finally {
+    controlling.value = false
+  }
+}
+
+async function forceCurrentStage() {
+  if (!selectedRoomId.value || !selectedStudent.value || controlling.value) return
+  controlling.value = true
+  errorMessage.value = ''
+  try {
+    await forceAdminStudentToCurrentStage(selectedRoomId.value, selectedStudent.value.studentId)
+    noticeMessage.value = `${selectedStudent.value.nickname ?? `${selectedStudent.value.participantNumber}번`} 학생을 현재 수업 위치로 이동했습니다.`
+    await refreshRoomStudents()
+  } catch (error) {
+    await handleError(error, '학생을 현재 위치로 이동하지 못했습니다.')
+  } finally {
+    controlling.value = false
+  }
+}
+
 async function copySelectedParticipationCode() {
   if (!selectedStudent.value) return
   const code = selectedStudent.value.participationCode
@@ -203,13 +242,6 @@ async function handleError(error: unknown, fallback: string, silent = false) {
     return
   }
   if (!silent) errorMessage.value = getApiErrorMessage(error, fallback)
-}
-
-function connectionTone(status: ConnectionStatus) {
-  if (status === 'ONLINE') return 'success'
-  if (status === 'UNSTABLE' || status === 'AWAY') return 'warning'
-  if (status === 'OFFLINE') return 'danger'
-  return 'neutral'
 }
 
 function syncLabel(student: AdminStudentMonitoring) {
@@ -286,7 +318,7 @@ function formatBibim(amount: number) {
           <article>
             <span>현재 수업 단계</span>
             <strong>{{ getRoomStage(selectedRoom.currentStage)?.label ?? selectedRoom.currentStage }}</strong>
-            <small>sync {{ selectedRoom.syncVersion }}</small>
+            <small>학생 화면 동기화 상태</small>
           </article>
           <article>
             <span>정상 접속</span>
@@ -305,6 +337,12 @@ function formatBibim(amount: number) {
           </article>
         </section>
 
+        <section class="admin-control-strip" aria-label="관리자 수업 통제">
+          <div><span>현재 진행</span><strong>{{ getRoomStage(selectedRoom.currentStage)?.label ?? selectedRoom.currentStage }}</strong></div>
+          <button class="button-secondary" type="button" :disabled="!adjacentStages.previous || controlling" @click="moveRoom(adjacentStages.previous?.id)">← 이전 단계</button>
+          <button type="button" :disabled="!adjacentStages.next || controlling" @click="moveRoom(adjacentStages.next?.id)">다음 단계 →</button>
+        </section>
+
         <section class="admin-monitoring-layout">
           <div class="admin-student-panel">
             <div class="panel-heading">
@@ -312,39 +350,27 @@ function formatBibim(amount: number) {
               <h2>{{ selectedRoom.roomName }}</h2>
             </div>
 
-            <div class="admin-student-table" role="table" aria-label="학생별 접속과 페이지 현황">
-              <div class="admin-student-table__head" role="row">
-                <span>학생</span>
-                <span>연결</span>
-                <span>현재 페이지</span>
-                <span>동기화</span>
-                <span>최근 통신</span>
-                <span>잔액</span>
-              </div>
+            <div class="admin-student-table admin-student-card-grid" role="list" aria-label="학생별 접속과 페이지 현황">
               <button
                 v-for="student in roomStudents?.students"
                 :key="student.studentId"
                 type="button"
                 class="admin-student-row"
                 :class="{ 'is-selected': student.studentId === selectedStudentId }"
-                role="row"
+                role="listitem"
                 @click="selectedStudentId = student.studentId"
               >
-                <strong>{{ student.participantNumber }}번 {{ student.nickname ?? '미설정' }}</strong>
-                <StatusBadge
-                  :label="connectionLabels[student.connectionStatus]"
-                  :tone="connectionTone(student.connectionStatus)"
-                />
-                <span>
+                <span class="admin-student-card__top"><strong>{{ student.participantNumber }}번 {{ student.nickname ?? '미설정' }}</strong><i :class="`connection-dot is-${student.connectionStatus.toLowerCase()}`"></i></span>
+                <small>{{ connectionLabels[student.connectionStatus] }} · {{ formatTime(student.lastSeenAt) }}</small>
+                <span class="admin-student-card__page">
                   {{ student.syncStatus === 'PERSONAL_PROGRESS'
                     ? `보충: ${pageLabel(student.effectiveStage)}`
                     : pageLabel(student.currentPage) }}
                 </span>
-                <span :class="{ 'admin-sync-warning': student.syncStatus === 'DELAYED' }">
+                <span class="admin-student-card__footer" :class="{ 'admin-sync-warning': student.syncStatus === 'DELAYED' }">
                   {{ syncLabel(student) }}
+                  <b>{{ formatBibim(student.walletBalance) }}</b>
                 </span>
-                <span>{{ formatTime(student.lastSeenAt) }}</span>
-                <span>{{ formatBibim(student.walletBalance) }}</span>
               </button>
             </div>
             <p v-if="!roomStudents?.students.length" class="state-message">이 방에는 학생이 없습니다.</p>
@@ -380,6 +406,7 @@ function formatBibim(amount: number) {
               </dl>
 
               <section class="admin-recovery-box" aria-labelledby="admin-recovery-title">
+                <button type="button" :disabled="controlling" @click="forceCurrentStage">현재 수업 위치로 강제 이동</button>
                 <h3 id="admin-recovery-title">문제 세션 종료</h3>
                 <p>자동 재연결이 계속 실패할 때만 사용합니다. 학생은 참여 코드와 비밀번호로 다시 로그인해야 합니다.</p>
                 <input

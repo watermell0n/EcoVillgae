@@ -101,7 +101,7 @@ describe('Day2FinanceStageView', () => {
     const wrapper = mount(Day2FinanceStageView)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('금융 정산을 기다리고 있어요.')
+    expect(wrapper.text()).toContain('금융 결과를 계산하고 있어요.')
     expect(wrapper.text()).not.toContain('예상 금액')
     expect(wrapper.text()).not.toContain('예금 원금')
     expect(wrapper.text()).not.toContain('0비빔')

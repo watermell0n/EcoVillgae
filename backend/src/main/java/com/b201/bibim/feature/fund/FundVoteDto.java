@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public final class FundVoteDto {
@@ -32,6 +33,15 @@ public final class FundVoteDto {
             long totalFinancialTax,
             long totalExpenses,
             FundExpenseResponse appliedExpense
+    ) {
+    }
+
+    public record AddFundRequest(
+            @Positive(message = "추가할 공동기금은 1비빔 이상이어야 합니다.")
+            long amount,
+            @NotBlank(message = "공동기금 추가 사유를 입력해 주세요.")
+            @Size(max = 100, message = "추가 사유는 100자 이하여야 합니다.")
+            String reason
     ) {
     }
 

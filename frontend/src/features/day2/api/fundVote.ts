@@ -83,6 +83,15 @@ export async function getStudentFund() {
   return response.data.data
 }
 
+export async function addTeacherFund(roomId: string, amount: number, reason: string, idempotencyKey: string) {
+  const response = await http.post<ApiResponse<FundOverview>>(
+    `/teacher/rooms/${roomId}/class-fund/additions`,
+    { amount, reason },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  )
+  return response.data.data
+}
+
 export async function getTeacherFundCostOptions(roomId: string) {
   const response = await http.get<ApiResponse<FundCostOption[]>>(
     `/teacher/rooms/${roomId}/fund-cost-options`,

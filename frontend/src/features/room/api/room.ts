@@ -6,6 +6,8 @@ export interface ModuleState {
   state: 'LOCKED' | 'GUIDED' | 'ACTIVE' | 'CLOSED'
 }
 
+export type GuidedActivityView = 'HOME' | 'SHOP' | 'DEPOSIT' | 'INVESTMENT' | 'KNOWLEDGE' | 'WALLET'
+
 export interface TeacherRoomState {
   roomId: string
   roomName: string
@@ -13,6 +15,7 @@ export interface TeacherRoomState {
   currentDay: number
   currentStage: string
   mode: string
+  guidedActivityView?: GuidedActivityView
   version: number
   syncVersion: number
   expectedStudentCount: number
@@ -30,6 +33,7 @@ export interface StudentRoomState {
   roomStage?: string
   effectiveStage?: string
   mode: string
+  guidedActivityView?: GuidedActivityView
   walletBalance: number
   modules: ModuleState[]
   syncVersion: number
@@ -99,6 +103,18 @@ export async function getTeacherRoomStudents(roomId: string) {
 
 export async function setRoomStage(roomId: string, targetStage: string, expectedVersion: number) {
   return sendRoomCommand(roomId, 'SET_STAGE', targetStage, expectedVersion)
+}
+
+export async function setTeacherGuidedActivityView(
+  roomId: string,
+  view: GuidedActivityView,
+  expectedVersion: number,
+) {
+  const response = await http.post<ApiResponse<TeacherRoomState>>(
+    `/teacher/rooms/${roomId}/guided-activity`,
+    { view, expectedVersion },
+  )
+  return response.data.data
 }
 
 export async function sendRoomCommand(

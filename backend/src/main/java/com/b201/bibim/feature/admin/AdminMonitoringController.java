@@ -14,6 +14,11 @@ import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationRespons
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
 import com.b201.bibim.global.security.AuthenticatedPrincipal;
+import com.b201.bibim.feature.flow.StudentFlowDto.FlowResponse;
+import com.b201.bibim.feature.flow.StudentFlowService;
+import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
+import com.b201.bibim.feature.room.RoomSessionDto.CommandResponse;
+import com.b201.bibim.feature.room.RoomSessionService;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,9 +34,43 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminMonitoringController {
 
     private final AdminMonitoringService adminMonitoringService;
+    private final RoomSessionService roomSessionService;
+    private final StudentFlowService studentFlowService;
 
-    public AdminMonitoringController(AdminMonitoringService adminMonitoringService) {
+    public AdminMonitoringController(
+            AdminMonitoringService adminMonitoringService,
+            RoomSessionService roomSessionService,
+            StudentFlowService studentFlowService
+    ) {
         this.adminMonitoringService = adminMonitoringService;
+        this.roomSessionService = roomSessionService;
+        this.studentFlowService = studentFlowService;
+    }
+
+    @PostMapping("/rooms/{roomId}/commands")
+    ApiResponse<CommandResponse> command(
+            @PathVariable UUID roomId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CommandRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                roomSessionService.commandAsAdmin(roomId, idempotencyKey, body),
+                requestId(request)
+        );
+    }
+
+    @PostMapping("/rooms/{roomId}/students/{studentId}/force-current-stage")
+    ApiResponse<FlowResponse> forceCurrentStage(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @PathVariable UUID roomId,
+            @PathVariable UUID studentId,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                studentFlowService.forceMoveToCurrentStage(principal.id(), roomId, studentId),
+                requestId(request)
+        );
     }
 
     @GetMapping("/rooms")

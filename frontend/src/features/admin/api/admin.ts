@@ -10,6 +10,7 @@ export interface AdminRoomMonitoring {
   roomStatus: string
   currentDay: number
   currentStage: string
+  version: number
   syncVersion: number
   expectedStudentCount: number
   onlineCount: number
@@ -92,5 +93,26 @@ export async function terminateAdminStudentSession(
   const response = await http.post<
     ApiResponse<{ studentId: string; revokedSessionCount: number; terminatedAt: string }>
   >(`/admin/rooms/${roomId}/students/${studentId}/session-termination`, { reason })
+  return response.data.data
+}
+
+export async function sendAdminRoomCommand(
+  roomId: string,
+  command: string,
+  targetStage: string,
+  expectedVersion: number,
+) {
+  const response = await http.post<ApiResponse<{ state: { version: number; currentStage: string } }>>(
+    `/admin/rooms/${roomId}/commands`,
+    { command, targetStage, expectedVersion },
+    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+  )
+  return response.data.data
+}
+
+export async function forceAdminStudentToCurrentStage(roomId: string, studentId: string) {
+  const response = await http.post<ApiResponse<unknown>>(
+    `/admin/rooms/${roomId}/students/${studentId}/force-current-stage`,
+  )
   return response.data.data
 }

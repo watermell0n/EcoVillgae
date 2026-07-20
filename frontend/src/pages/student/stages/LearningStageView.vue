@@ -45,6 +45,12 @@ async function refresh() {
     loading.value = false
   }
 }
+
+function displayLearningText(value: string) {
+  return learning.value?.currentPage.topicTitle === '합리적인 소비'
+    ? value.replaceAll(':', '')
+    : value
+}
 </script>
 
 <template>
@@ -68,15 +74,14 @@ async function refresh() {
         <span class="learning-card__icon" aria-hidden="true">{{ learning.currentPage.icon ?? '💡' }}</span>
         <h1>{{ learning.currentPage.title }}</h1>
       </div>
-      <p class="learning-card__content">{{ learning.currentPage.content }}</p>
+      <p class="learning-card__content">{{ displayLearningText(learning.currentPage.content) }}</p>
       <ul v-if="learning.currentPage.keyPoints.length > 0">
-        <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ point }}</li>
+        <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ displayLearningText(point) }}</li>
       </ul>
       <aside v-if="learning.currentPage.example" class="learning-card__example">
         <span>📌 예시</span>
-        <strong>{{ learning.currentPage.example }}</strong>
+        <strong>{{ displayLearningText(learning.currentPage.example) }}</strong>
       </aside>
-      <p class="learning-card__sync">선생님이 페이지를 넘기면 이 화면도 자동으로 바뀌어요.</p>
     </article>
   </div>
 </template>

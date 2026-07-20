@@ -19,6 +19,7 @@ public final class AdminMonitoringDto {
             String roomStatus,
             int currentDay,
             String currentStage,
+            int version,
             long syncVersion,
             int expectedStudentCount,
             int onlineCount,

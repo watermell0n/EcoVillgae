@@ -57,11 +57,11 @@ async function submit() {
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '로그인 중...' : '수업으로 돌아가기' }}
+          {{ submitting ? '마을 문을 여는 중...' : '마을로 돌아가기' }}
         </button>
       </form>
 
-      <p class="helper-text">비밀번호를 잊었다면 선생님에게 알려 주세요.</p>
+      <p class="helper-text">비밀 번호를 잊었다면 선생님께 초기화를 요청하세요.</p>
     </section>
   </main>
 </template>

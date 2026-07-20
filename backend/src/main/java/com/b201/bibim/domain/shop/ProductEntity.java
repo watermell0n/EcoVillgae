@@ -93,6 +93,18 @@ public class ProductEntity {
         updatedAt = Instant.now();
     }
 
+    public void updateCatalog(String name, String description, long price, String imageUrl) {
+        if (price < 0) {
+            throw new IllegalArgumentException("상품 가격은 0 이상이어야 합니다.");
+        }
+        this.name = name;
+        this.description = description;
+        this.originalPrice = price;
+        this.currentPrice = price;
+        this.imageUrl = imageUrl == null || imageUrl.isBlank() ? null : imageUrl.trim();
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

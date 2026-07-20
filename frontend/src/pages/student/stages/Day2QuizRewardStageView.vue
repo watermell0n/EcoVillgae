@@ -13,7 +13,7 @@ const errorMessage = ref('')
 const rewardMessage = computed(() => {
   if (!reward.value?.submitted) return '퀴즈를 제출하지 않아 이번 보상은 지급되지 않았어요.'
   if (reward.value.correctCount === 0) return '정답수당은 없지만, 틀린 문제도 다음 활동을 위한 좋은 연습이에요.'
-  return `${reward.value.correctCount}개의 정답수당이 세금 없이 지갑에 반영되었어요.`
+  return `${reward.value.correctCount}개의 정답수당에서 소득세 10%를 뺀 금액이 지갑에 반영됐어요.`
 })
 
 onMounted(async () => {
@@ -38,7 +38,7 @@ function formatBibim(amount: number) {
     <section v-else-if="reward" class="day2-result-card quiz-reward-result" aria-labelledby="day2-reward-title">
       <header class="quiz-reward-result__header">
         <div>
-          <p class="eyebrow">경제 퀴즈 보상 정산 결과</p>
+          <p class="eyebrow">경제 퀴즈 보상 결과 확인</p>
           <h1 id="day2-reward-title" class="page-title">
             {{ reward.submitted ? `${reward.correctCount}문제를 맞혔어요!` : '제출한 답안이 없어요' }}
           </h1>
@@ -53,19 +53,21 @@ function formatBibim(amount: number) {
 
       <div v-if="reward.submitted" class="quiz-reward-equation" aria-label="퀴즈 보상 계산식">
         <div><span>{{ reward.correctCount }}문제 × 5비빔</span><strong>{{ formatBibim(reward.correctReward) }}</strong></div>
+        <b aria-hidden="true">−</b>
+        <div><span>소득세 10%</span><strong>{{ formatBibim(reward.incomeTax) }}</strong></div>
         <b aria-hidden="true">=</b>
-        <div class="is-total"><span>내가 받은 총 보상</span><strong>{{ formatBibim(reward.totalReward) }}</strong></div>
+        <div class="is-total"><span>내 지갑에 받은 돈</span><strong>{{ formatBibim(reward.totalReward) }}</strong></div>
       </div>
 
       <dl class="day2-reward-breakdown">
         <div><dt>퀴즈 정답수당</dt><dd>+{{ formatBibim(reward.correctReward) }}</dd></div>
-        <div><dt>세금</dt><dd>{{ formatBibim(0) }}</dd></div>
-        <div class="is-total"><dt>총 보상</dt><dd>+{{ formatBibim(reward.totalReward) }}</dd></div>
+        <div><dt>소득세</dt><dd>−{{ formatBibim(reward.incomeTax) }}</dd></div>
+        <div class="is-total"><dt>실제로 받은 돈</dt><dd>+{{ formatBibim(reward.totalReward) }}</dd></div>
         <div><dt>보상 후 지갑</dt><dd>{{ formatBibim(reward.walletAfter) }}</dd></div>
       </dl>
       <aside class="quiz-reward-tip">
         <span aria-hidden="true">💡</span>
-        <p><strong>보상은 한 번만 지급돼요.</strong> 선생님이 정산한 퀴즈 정답수당이 지갑에 안전하게 반영되었습니다.</p>
+        <p><strong>보상은 한 번만 지급돼요.</strong> 소득세를 뺀 퀴즈 정답수당이 내 지갑 기록에 저장됐고, 세금은 학급 공동기금에 더해졌어요.</p>
       </aside>
     </section>
   </div>

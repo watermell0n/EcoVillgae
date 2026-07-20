@@ -17,6 +17,8 @@ public interface StudentRepository extends JpaRepository<StudentEntity, UUID> {
 
     boolean existsByParticipationCode(String participationCode);
 
+    boolean existsByRoomIdAndParticipantNumber(UUID roomId, int participantNumber);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select student from StudentEntity student where student.participationCode = :participationCode")
     Optional<StudentEntity> findByParticipationCodeForUpdate(

@@ -40,7 +40,7 @@ function formatBibim(amount: number) {
       <section class="final-result-hero" aria-labelledby="student-final-title">
         <p class="eyebrow">나의 최종 경제 명세서</p>
         <h1 id="student-final-title" class="page-title">최종 지갑 {{ formatBibim(result.finalWalletBalance) }}</h1>
-        <p class="page-description">수입부터 세금, 금융 활동, 소비까지 모두 실제 원장 기록으로 계산했어요.</p>
+        <p class="page-description">수입부터 세금, 금융 활동, 소비까지 모두 내 지갑 기록에 저장됐어요.</p>
       </section>
 
       <dl class="final-result-ledger">

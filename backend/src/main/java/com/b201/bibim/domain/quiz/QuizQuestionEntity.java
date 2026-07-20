@@ -67,6 +67,18 @@ public class QuizQuestionEntity {
         return options.stream().anyMatch(option -> option.id().equals(answer));
     }
 
+    public void updateContent(
+            String prompt,
+            List<QuizOption> options,
+            String correctAnswer,
+            String explanation
+    ) {
+        this.prompt = prompt;
+        this.options = List.copyOf(options);
+        this.correctAnswer = correctAnswer;
+        this.explanation = explanation;
+    }
+
     public boolean isCorrect(String answer) {
         return correctAnswer.equals(answer);
     }

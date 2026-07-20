@@ -92,14 +92,14 @@ class LearningServiceTest {
     }
 
     @Test
-    void returnsFiveFinancialLearningPagesInTheRequestedOrder() {
+    void returnsSixFinancialLearningPagesIncludingInflationInTheRequestedOrder() {
         when(room.getCurrentStage()).thenReturn("DAY1_FINANCE_GUIDED");
 
         GuidedLearningResponse response = service.teacherCurrent(teacherId, roomId);
 
-        assertEquals(5, response.pages().size());
+        assertEquals(6, response.pages().size());
         assertEquals(
-                List.of("소비와 저축", "예금이란?", "이자란?", "투자란?", "위험과 분산투자"),
+                List.of("소비와 저축", "예금이란?", "이자란?", "투자란?", "위험과 분산투자", "인플레이션이 뭐예요?"),
                 response.pages().stream().map(LearningDto.PageResponse::title).toList()
         );
         assertTrue(response.pages().stream().allMatch(page -> !page.icon().isBlank()));

@@ -5,9 +5,11 @@ import {
   getStudentRoomState,
   getTeacherRoomState,
   sendRoomCommand,
+  setTeacherGuidedActivityView as setTeacherGuidedActivityViewApi,
   setRoomStage as setRoomStageApi,
   type StudentRoomState,
   type TeacherRoomState,
+  type GuidedActivityView,
 } from '../features/room/api/room'
 
 export type RoomConnectionStatus = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED'
@@ -127,6 +129,15 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     return result
   }
 
+  async function setGuidedActivityView(roomId: string, view: GuidedActivityView) {
+    if (!teacherState.value || teacherState.value.roomId !== roomId) await refreshTeacher(roomId)
+    const current = teacherState.value
+    if (!current) throw new Error('현재 방 상태를 불러오지 못했습니다.')
+    const next = await setTeacherGuidedActivityViewApi(roomId, view, current.version)
+    applyTeacherState(next)
+    return next
+  }
+
   async function controlQuiz(
     roomId: string,
     command: 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QUIZ',
@@ -208,6 +219,7 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     resetTeacherContext,
     resetStudentContext,
     setStage,
+    setGuidedActivityView,
     controlQuiz,
     closeDayOne,
     startDayTwo,

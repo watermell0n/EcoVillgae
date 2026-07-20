@@ -29,6 +29,8 @@ import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
+import com.b201.bibim.domain.room.RoomRulesEntity;
+import com.b201.bibim.domain.room.RoomRulesRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.investment.InvestmentDto.AllocationRequest;
@@ -49,7 +51,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class InvestmentService {
 
     private static final String OPEN_STAGE = "DAY1_FREE_ACTIVITY";
-    private static final long AMOUNT_UNIT = 10;
+    private static final Set<String> SUPPORTED_ASSET_CODES = Set.of(
+            "SAFE_BOND", "LOCAL_STORE", "FUTURE_TECH"
+    );
 
     private static final List<AssetDefinition> DEFAULT_ASSETS = List.of(
             new AssetDefinition(
@@ -125,6 +129,7 @@ public class InvestmentService {
     private final InvestmentAllocationRepository allocationRepository;
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
+    private final RoomRulesRepository rulesRepository;
     private final DaySessionRepository sessionRepository;
     private final AccountRepository accountRepository;
     private final FinancialTransactionRepository transactionRepository;
@@ -139,6 +144,7 @@ public class InvestmentService {
             InvestmentAllocationRepository allocationRepository,
             StudentRepository studentRepository,
             RoomRepository roomRepository,
+            RoomRulesRepository rulesRepository,
             DaySessionRepository sessionRepository,
             AccountRepository accountRepository,
             FinancialTransactionRepository transactionRepository,
@@ -152,6 +158,7 @@ public class InvestmentService {
         this.allocationRepository = allocationRepository;
         this.studentRepository = studentRepository;
         this.roomRepository = roomRepository;
+        this.rulesRepository = rulesRepository;
         this.sessionRepository = sessionRepository;
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
@@ -207,7 +214,9 @@ public class InvestmentService {
         StudentEntity student = lockActiveStudent(studentId);
         ensureOpen(room, studentId);
         Market market = ensureMarket(room.getId());
-        ValidatedAllocations validated = validateAllocations(request.allocations(), market.assets());
+        ValidatedAllocations validated = validateAllocations(
+                request.allocations(), market.assets(), rules(room.getId())
+        );
         AccountEntity wallet = walletForUpdate(room.getId(), studentId);
         if (wallet.getBalance() < validated.totalAmount()) {
             throw insufficientBalance();
@@ -328,7 +337,9 @@ public class InvestmentService {
 
     private Market ensureMarket(UUID roomId) {
         List<InvestmentAssetEntity> assets = assetRepository
-                .findAllByRoomIdOrderByDisplayOrder(roomId);
+                .findAllByRoomIdOrderByDisplayOrder(roomId).stream()
+                .filter(asset -> isSupportedAssetCode(asset.getCode()))
+                .toList();
         if (assets.isEmpty()) {
             List<InvestmentAssetEntity> created = new ArrayList<>();
             for (int index = 0; index < DEFAULT_ASSETS.size(); index += 1) {
@@ -367,9 +378,19 @@ public class InvestmentService {
         return new Market(marketAssets, scenario);
     }
 
+    public static boolean isSupportedAssetCode(String code) {
+        return SUPPORTED_ASSET_CODES.contains(code);
+    }
+
+    @Transactional
+    public void ensureDefaultAssets(UUID roomId) {
+        ensureMarket(roomId);
+    }
+
     private ValidatedAllocations validateAllocations(
             List<AllocationRequest> requests,
-            List<InvestmentAssetEntity> assets
+            List<InvestmentAssetEntity> assets,
+            RoomRulesEntity rules
     ) {
         if (requests == null || requests.isEmpty() || requests.size() > 3) {
             throw invalidAllocation();
@@ -381,7 +402,8 @@ public class InvestmentService {
         for (AllocationRequest request : requests) {
             if (request.assetId() == null || !assetsById.containsKey(request.assetId())
                     || !selected.add(request.assetId())
-                    || request.amount() <= 0 || request.amount() % AMOUNT_UNIT != 0) {
+                    || request.amount() < rules.getInvestmentMinAmount()
+                    || request.amount() % rules.getInvestmentUnit() != 0) {
                 throw invalidAllocation();
             }
             try {
@@ -403,8 +425,10 @@ public class InvestmentService {
                 .map(this::toAssetResponse)
                 .toList();
         if (order == null) {
+            RoomRulesEntity rules = rules(market.assets().get(0).getRoomId());
             return new InvestmentResponse(
                     null, "NONE", 0, walletBalance,
+                    rules.getInvestmentMinAmount(), rules.getInvestmentUnit(),
                     "LOCKED".equals(market.scenario().getStatus()),
                     assetResponses, List.of(), null, null, replayed
             );
@@ -412,11 +436,19 @@ public class InvestmentService {
         Map<UUID, InvestmentAssetEntity> assetsById = market.assets().stream()
                 .collect(Collectors.toMap(InvestmentAssetEntity::getId, Function.identity()));
         List<AllocationResponse> allocations = allocationResponses(order.getId(), assetsById);
+        RoomRulesEntity rules = rules(order.getRoomId());
         return new InvestmentResponse(
                 order.getId(), order.getStatus(), order.getTotalAmount(), walletBalance,
+                rules.getInvestmentMinAmount(), rules.getInvestmentUnit(),
                 "LOCKED".equals(market.scenario().getStatus()),
                 assetResponses, allocations, order.getUpdatedAt(), order.getConfirmedAt(), replayed
         );
+    }
+
+    private RoomRulesEntity rules(UUID roomId) {
+        return rulesRepository.findByRoomId(roomId).orElseThrow(() -> new ApiException(
+                HttpStatus.CONFLICT, "ROOM_RULES_NOT_FOUND", "수업 경제 설정을 찾을 수 없습니다."
+        ));
     }
 
     private List<AllocationResponse> allocationResponses(

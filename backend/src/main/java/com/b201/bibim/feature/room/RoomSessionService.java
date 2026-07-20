@@ -131,6 +131,7 @@ public class RoomSessionService {
                 RoomStage.find(flow.effectiveStage())
                         .map(RoomStage::mode)
                         .orElse(room.getMode()),
+                room.getGuidedActivityView(),
                 walletBalance(room.getId(), student.getId()),
                 moduleStates(room),
                 room.getSyncVersion(),
@@ -142,6 +143,29 @@ public class RoomSessionService {
                 flow.completedCount(),
                 flow.totalCount()
         );
+    }
+
+    @Transactional
+    public TeacherRoomStateResponse selectGuidedActivityView(
+            UUID teacherId,
+            UUID roomId,
+            RoomSessionDto.GuidedActivityRequest request
+    ) {
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
+        ensureOwner(room, teacherId);
+        if (room.getVersion() != request.expectedVersion()) {
+            throw stateConflict("다른 화면에서 수업 상태가 변경되었습니다. 최신 상태를 확인해 주세요.");
+        }
+        String view = request.view().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("HOME", "SHOP", "DEPOSIT", "INVESTMENT", "KNOWLEDGE", "WALLET").contains(view)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_GUIDED_ACTIVITY_VIEW", "선택할 수 없는 설명 화면입니다.");
+        }
+        try {
+            room.selectGuidedActivityView(view);
+        } catch (IllegalStateException exception) {
+            throw stateConflict(exception.getMessage());
+        }
+        return toTeacherState(room, true);
     }
 
     @Transactional
@@ -306,6 +330,16 @@ public class RoomSessionService {
         return new CommandResponse(toTeacherState(room, true), false);
     }
 
+    @Transactional
+    public CommandResponse commandAsAdmin(
+            UUID roomId,
+            String idempotencyKey,
+            CommandRequest request
+    ) {
+        RoomEntity room = roomRepository.findById(roomId).orElseThrow(this::roomNotFound);
+        return command(room.getTeacherId(), roomId, idempotencyKey, request);
+    }
+
     private void validateStageNavigation(
             RoomEntity room,
             UUID roomId,
@@ -466,6 +500,7 @@ public class RoomSessionService {
                 room.getCurrentDay(),
                 room.getCurrentStage(),
                 room.getMode(),
+                room.getGuidedActivityView(),
                 room.getVersion(),
                 room.getSyncVersion(),
                 room.getExpectedStudentCount(),

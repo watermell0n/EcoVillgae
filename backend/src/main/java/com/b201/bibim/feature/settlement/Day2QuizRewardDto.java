@@ -17,6 +17,7 @@ public final class Day2QuizRewardDto {
             int correctCount,
             long participationReward,
             long correctReward,
+            long incomeTax,
             long totalReward,
             long walletAfter
     ) {

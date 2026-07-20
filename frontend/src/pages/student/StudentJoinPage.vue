@@ -50,13 +50,13 @@ function useExample(code: string) {
     <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
 
     <section class="auth-card" aria-labelledby="student-join-title">
-      <p class="eyebrow">학생용</p>
-      <h1 id="student-join-title" class="page-title">우리 반 수업에 참여하기</h1>
-      <p class="page-description">선생님에게 받은 나만의 참여 코드를 입력해 주세요.</p>
+      <p class="student-auth-mark" aria-hidden="true">🏘️</p>
+      <h1 id="student-join-title" class="page-title">이코빌리지 마을에 입장하기</h1>
+      <p class="page-description">우리 반 경제생활이 시작되는 곳이에요.</p>
 
       <form class="form-stack" @submit.prevent="submit">
         <label>
-          <span>개인 참여 코드</span>
+          <span>선생님이 알려준 입장 코드</span>
           <input
             v-model.trim="participationCode"
             class="code-input"
@@ -71,7 +71,7 @@ function useExample(code: string) {
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '확인 중...' : '입장하기' }}
+          {{ submitting ? '마을 문을 여는 중...' : '마을 입장하기' }}
         </button>
       </form>
 

@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandRequest;
 import com.b201.bibim.feature.room.RoomSessionDto.CommandResponse;
 import com.b201.bibim.feature.room.RoomSessionDto.TeacherRoomStateResponse;
+import com.b201.bibim.feature.room.RoomSessionDto.GuidedActivityRequest;
 import com.b201.bibim.global.config.RequestIdFilter;
 import com.b201.bibim.global.response.ApiResponse;
 import com.b201.bibim.global.security.AuthenticatedPrincipal;
@@ -60,6 +61,19 @@ public class TeacherRoomSessionController {
                         idempotencyKey,
                         commandRequest
                 ),
+                requestId(request)
+        );
+    }
+
+    @PostMapping("/guided-activity")
+    ApiResponse<TeacherRoomStateResponse> guidedActivity(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @PathVariable UUID roomId,
+            @Valid @RequestBody GuidedActivityRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                roomSessionService.selectGuidedActivityView(principal.id(), roomId, body),
                 requestId(request)
         );
     }

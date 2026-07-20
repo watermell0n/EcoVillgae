@@ -36,6 +36,9 @@ public class RoomEntity {
     @Column(nullable = false, length = 20)
     private String mode;
 
+    @Column(name = "guided_activity_view", nullable = false, length = 20)
+    private String guidedActivityView = "HOME";
+
     @Column(nullable = false)
     private int version;
 
@@ -99,6 +102,10 @@ public class RoomEntity {
         return mode;
     }
 
+    public String getGuidedActivityView() {
+        return guidedActivityView;
+    }
+
     public int getVersion() {
         return version;
     }
@@ -115,14 +122,33 @@ public class RoomEntity {
         return inflationAppliedAt;
     }
 
+    public void rename(String nextName) {
+        String normalized = nextName == null ? "" : nextName.trim();
+        if (normalized.isBlank() || normalized.equals(this.name)) return;
+        this.name = normalized;
+        markControlStateChanged();
+    }
+
     public void changeStage(RoomStage targetStage) {
         this.currentDay = (short) targetStage.day();
         this.currentStage = targetStage.name();
         this.status = targetStage.roomStatus();
         this.mode = targetStage.mode();
+        if (targetStage == RoomStage.DAY1_FREE_ACTIVITY_GUIDED) {
+            this.guidedActivityView = "HOME";
+        }
         this.version += 1;
         this.syncVersion += 1;
         this.updatedAt = Instant.now();
+    }
+
+    public void selectGuidedActivityView(String view) {
+        if (!RoomStage.DAY1_FREE_ACTIVITY_GUIDED.name().equals(currentStage)) {
+            throw new IllegalStateException("자유 경제활동 안내 단계에서만 설명 화면을 선택할 수 있습니다.");
+        }
+        if (view.equals(guidedActivityView)) return;
+        guidedActivityView = view;
+        markControlStateChanged();
     }
 
     public void markEconomicStateChanged() {

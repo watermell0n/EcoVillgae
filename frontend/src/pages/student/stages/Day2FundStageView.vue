@@ -54,7 +54,7 @@ watch(currentStage, () => void refresh(), { immediate: true })
 
 onMounted(() => {
   pollingTimer = setInterval(() => {
-    if (currentStage.value === 'DAY2_FUND_VOTE') void refresh()
+    if (['DAY2_FUND_COST', 'DAY2_FUND_VOTE'].includes(currentStage.value ?? '')) void refresh()
   }, 2_000)
 })
 
@@ -77,6 +77,9 @@ function formatBibim(amount: number) {
         class="student-vote-card"
         aria-labelledby="student-vote-result-title"
       >
+        <div class="fund-celebration" aria-hidden="true">
+          <span v-for="index in 12" :key="index" :style="{ '--i': index }" />
+        </div>
         <p class="eyebrow">우리 반 공동기금 투표 결과</p>
         <h1 id="student-vote-result-title" class="page-title">
           {{ decidedOption?.title ?? '최종 선택 결과' }}

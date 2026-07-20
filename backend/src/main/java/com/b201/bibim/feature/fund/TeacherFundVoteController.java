@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import com.b201.bibim.feature.fund.FundVoteDto.ApplyExpenseRequest;
+import com.b201.bibim.feature.fund.FundVoteDto.AddFundRequest;
 import com.b201.bibim.feature.fund.FundVoteDto.ApplyExpenseResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.CostOptionResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.CreateVoteRequest;
@@ -53,6 +54,20 @@ public class TeacherFundVoteController {
             HttpServletRequest request
     ) {
         return ApiResponse.success(service.costOptions(principal.id(), roomId), requestId(request));
+    }
+
+    @PostMapping("/class-fund/additions")
+    ApiResponse<FundOverviewResponse> addFund(
+            @AuthenticationPrincipal AuthenticatedPrincipal principal,
+            @PathVariable UUID roomId,
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody AddFundRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(
+                service.addFund(principal.id(), roomId, idempotencyKey, body),
+                requestId(request)
+        );
     }
 
     @PostMapping("/fund-expenses")

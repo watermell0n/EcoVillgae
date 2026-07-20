@@ -74,6 +74,22 @@ public class InvestmentAssetEntity {
         return asset;
     }
 
+    public void updateDetails(
+            String name,
+            String description,
+            String companyInfo,
+            String riskLevel,
+            int minReturnBps,
+            int maxReturnBps
+    ) {
+        this.name = name;
+        this.description = description;
+        this.companyInfo = companyInfo;
+        this.riskLevel = riskLevel;
+        this.minReturnBps = minReturnBps;
+        this.maxReturnBps = maxReturnBps;
+    }
+
     public UUID getId() { return id; }
     public UUID getRoomId() { return roomId; }
     public String getCode() { return code; }

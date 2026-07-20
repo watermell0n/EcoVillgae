@@ -29,6 +29,8 @@ export interface DepositState {
   expectedInterest: number
   expectedMaturityAmount: number
   walletBalance: number
+  minimumAmount: number
+  amountUnit: number
   updatedAt: string | null
   confirmedAt: string | null
   replayed: boolean
@@ -67,6 +69,8 @@ export interface InvestmentState {
   status: 'NONE' | 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
   totalAmount: number
   walletBalance: number
+  minimumAmount: number
+  amountUnit: number
   scenarioLocked: boolean
   assets: InvestmentAsset[]
   allocations: InvestmentAllocation[]

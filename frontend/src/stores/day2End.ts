@@ -2,6 +2,7 @@ import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 
 import {
+  addTeacherFund,
   applyTeacherFundExpense,
   closeTeacherVote,
   createTeacherVote,
@@ -37,6 +38,7 @@ export const useDay2EndStore = defineStore('day2End', () => {
   const finalSummary = ref<TeacherFinalSummary | null>(null)
   const distribution = ref<ProductDistribution | null>(null)
   const mutating = ref(false)
+  const voteDraft = ref(structuredClone(DEFAULT_VOTE))
   const error = shallowRef<unknown>(null)
   let expenseKey: string | undefined
   let votePollingTimer: ReturnType<typeof setInterval> | undefined
@@ -70,11 +72,34 @@ export const useDay2EndStore = defineStore('day2End', () => {
     }
   }
 
+  async function addFund(roomId: string, amount: number, reason: string) {
+    if (mutating.value) return undefined
+    mutating.value = true
+    try {
+      const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+      fund.value = await addTeacherFund(roomId, amount, reason, key)
+      await refreshFund(roomId)
+      return fund.value
+    } finally {
+      mutating.value = false
+    }
+  }
+
+  function addVoteOption() {
+    if (voteDraft.value.options.length >= 5) return
+    voteDraft.value.options.push({ title: '', description: '', requiredAmount: 0 })
+  }
+
+  function removeVoteOption(index: number) {
+    if (voteDraft.value.options.length <= 2) return
+    voteDraft.value.options.splice(index, 1)
+  }
+
   async function prepareVote(roomId: string) {
     if (mutating.value) return undefined
     mutating.value = true
     try {
-      vote.value = await createTeacherVote(roomId, DEFAULT_VOTE)
+      vote.value = await createTeacherVote(roomId, voteDraft.value)
       return vote.value
     } catch (caughtError) {
       error.value = caughtError
@@ -157,6 +182,10 @@ export const useDay2EndStore = defineStore('day2End', () => {
     finalSummary,
     distribution,
     mutating,
+    voteDraft,
+    addFund,
+    addVoteOption,
+    removeVoteOption,
     error,
     refreshFund,
     applyExpense,

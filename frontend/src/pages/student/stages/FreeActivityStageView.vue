@@ -11,8 +11,7 @@ import { useShopStore } from '../../../stores/shop'
 
 type ActivityView = 'HOME' | 'SHOP' | 'DEPOSIT' | 'INVESTMENT' | 'KNOWLEDGE' | 'WALLET'
 
-const AMOUNT_UNIT = 10
-const MINIMUM_DEPOSIT = 20
+const props = withDefaults(defineProps<{ initialView?: string }>(), { initialView: 'HOME' })
 
 const activityCards: Array<{ id: ActivityView; icon: string; title: string; description: string }> = [
   { id: 'SHOP', icon: '🛒', title: '상점', description: '가격과 재고를 비교해 상품을 구매해요.' },
@@ -26,7 +25,9 @@ const shopStore = useShopStore()
 const economyStore = useEconomyStore()
 const learningStore = useLearningStore()
 const roomSessionStore = useRoomSessionStore()
-const activeView = ref<ActivityView>('HOME')
+const validViews: ActivityView[] = ['HOME', 'SHOP', 'DEPOSIT', 'INVESTMENT', 'KNOWLEDGE', 'WALLET']
+const activeView = ref<ActivityView>(validViews.includes(props.initialView as ActivityView) ? props.initialView as ActivityView : 'HOME')
+const viewHistory = ref<ActivityView[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
@@ -36,16 +37,22 @@ const quantity = ref(1)
 const reviewError = ref('')
 const reviewLoading = ref(false)
 const reviewPageIndex = ref(0)
-const depositPrincipal = ref(MINIMUM_DEPOSIT)
+const depositPrincipal = ref(0)
 const allocationAmounts = reactive<Record<string, number>>({})
 
 const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
 const deposit = computed(() => economyStore.deposit)
 const investment = computed(() => economyStore.investment)
+const depositMinimum = computed(() => deposit.value?.minimumAmount ?? 20)
+const depositUnit = computed(() => deposit.value?.amountUnit ?? 10)
+const investmentMinimum = computed(() => investment.value?.minimumAmount ?? 10)
+const investmentUnit = computed(() => investment.value?.amountUnit ?? 10)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
 const reviewPage = computed(() => learningStore.selectedTopic?.pages[reviewPageIndex.value])
-const expectedDepositInterest = computed(() => Math.round(depositPrincipal.value * 0.05))
+const expectedDepositInterest = computed(() => Math.round(
+  depositPrincipal.value * (deposit.value?.interestRateBps ?? 0) / 10_000,
+))
 const depositHistorySummary = computed(() => economyStore.depositHistory.reduce(
   (summary, item) => ({
     principal: summary.principal + item.principal,
@@ -96,25 +103,25 @@ const investmentTotal = computed(() =>
   selectedAllocations.value.reduce((sum, item) => sum + item.amount, 0),
 )
 const adjustableWalletBalance = computed(() =>
-  Math.floor(Math.max(overview.value?.walletBalance ?? 0, 0) / AMOUNT_UNIT) * AMOUNT_UNIT,
+  Math.floor(Math.max(overview.value?.walletBalance ?? 0, 0) / depositUnit.value) * depositUnit.value,
 )
-const canDecreaseDeposit = computed(() => depositPrincipal.value > MINIMUM_DEPOSIT)
+const canDecreaseDeposit = computed(() => depositPrincipal.value > depositMinimum.value)
 const canIncreaseDeposit = computed(() => {
-  const nextAmount = depositPrincipal.value < MINIMUM_DEPOSIT
-    ? MINIMUM_DEPOSIT
-    : depositPrincipal.value + AMOUNT_UNIT
+  const nextAmount = depositPrincipal.value < depositMinimum.value
+    ? depositMinimum.value
+    : depositPrincipal.value + depositUnit.value
   return nextAmount <= adjustableWalletBalance.value
 })
 const canSaveDeposit = computed(() =>
-  depositPrincipal.value >= MINIMUM_DEPOSIT
-    && depositPrincipal.value % AMOUNT_UNIT === 0
+  depositPrincipal.value >= depositMinimum.value
+    && depositPrincipal.value % depositUnit.value === 0
     && depositPrincipal.value <= (overview.value?.walletBalance ?? 0),
 )
 const canSaveInvestment = computed(() =>
   selectedAllocations.value.length > 0
     && selectedAllocations.value.length <= 3
-    && selectedAllocations.value.every((item) => item.amount % AMOUNT_UNIT === 0)
-    && investmentTotal.value % AMOUNT_UNIT === 0
+    && selectedAllocations.value.every((item) =>
+      item.amount >= investmentMinimum.value && item.amount % investmentUnit.value === 0)
     && investmentTotal.value <= (overview.value?.walletBalance ?? 0),
 )
 
@@ -128,6 +135,10 @@ onMounted(async () => {
     ])
     resetDepositPrincipal(deposit.value?.status === 'DRAFT' ? deposit.value.principal : undefined)
     resetInvestmentAllocations()
+    const requestedActivity = new URLSearchParams(window.location.search).get('activity')?.toUpperCase()
+    if (requestedActivity && ['SHOP', 'DEPOSIT', 'INVESTMENT', 'KNOWLEDGE', 'WALLET'].includes(requestedActivity)) {
+      openActivity(requestedActivity as ActivityView)
+    }
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
   } finally {
@@ -141,13 +152,19 @@ onUnmounted(() => {
   learningStore.clearReview()
 })
 
-function openActivity(view: ActivityView) {
+function openActivity(view: ActivityView, remember = true) {
+  if (remember && view !== activeView.value) viewHistory.value.push(activeView.value)
   activeView.value = view
   selectedInvestmentAsset.value = null
   errorMessage.value = ''
   noticeMessage.value = ''
   if (view === 'DEPOSIT') resetDepositPrincipal(depositPrincipal.value)
   if (view === 'INVESTMENT') clampInvestmentAllocations()
+}
+
+function goBack() {
+  const previous = viewHistory.value.pop()
+  openActivity(previous ?? 'HOME', false)
 }
 
 function openInvestmentDetail(asset: InvestmentAsset) {
@@ -158,19 +175,28 @@ function closeInvestmentDetail() {
   selectedInvestmentAsset.value = null
 }
 
-function normalizedAmount(amount: number | undefined) {
-  if (!Number.isFinite(amount) || !amount || amount < 0) return 0
-  return Math.floor(amount / AMOUNT_UNIT) * AMOUNT_UNIT
+function chooseInvestmentFromDetail() {
+  const asset = selectedInvestmentAsset.value
+  if (!asset) return
+  if (investmentAmount(asset.assetId) === 0 && canIncreaseInvestment()) {
+    allocationAmounts[asset.assetId] = investmentMinimum.value
+  }
+  closeInvestmentDetail()
 }
 
-function resetDepositPrincipal(amount = MINIMUM_DEPOSIT) {
-  if (adjustableWalletBalance.value < MINIMUM_DEPOSIT) {
+function normalizedAmount(amount: number | undefined, unit = depositUnit.value) {
+  if (!Number.isFinite(amount) || !amount || amount < 0) return 0
+  return Math.floor(amount / unit) * unit
+}
+
+function resetDepositPrincipal(amount = depositMinimum.value) {
+  if (adjustableWalletBalance.value < depositMinimum.value) {
     depositPrincipal.value = 0
     return
   }
   depositPrincipal.value = Math.min(
     adjustableWalletBalance.value,
-    Math.max(MINIMUM_DEPOSIT, normalizedAmount(amount)),
+    Math.max(depositMinimum.value, normalizedAmount(amount)),
   )
 }
 
@@ -178,33 +204,45 @@ function changeDepositPrincipal(direction: -1 | 1) {
   if (direction < 0) {
     if (!canDecreaseDeposit.value) return
     depositPrincipal.value = Math.max(
-      MINIMUM_DEPOSIT,
-      depositPrincipal.value - AMOUNT_UNIT,
+      depositMinimum.value,
+      depositPrincipal.value - depositUnit.value,
     )
     return
   }
   if (!canIncreaseDeposit.value) return
-  depositPrincipal.value = depositPrincipal.value < MINIMUM_DEPOSIT
-    ? MINIMUM_DEPOSIT
-    : depositPrincipal.value + AMOUNT_UNIT
+  depositPrincipal.value = depositPrincipal.value < depositMinimum.value
+    ? depositMinimum.value
+    : depositPrincipal.value + depositUnit.value
 }
 
 function investmentAmount(assetId: string) {
-  return normalizedAmount(allocationAmounts[assetId])
+  return normalizedAmount(allocationAmounts[assetId], investmentUnit.value)
 }
 
 function canIncreaseInvestment() {
-  return investmentTotal.value + AMOUNT_UNIT <= adjustableWalletBalance.value
+  return investmentTotal.value + investmentUnit.value <= (overview.value?.walletBalance ?? 0)
 }
 
 function changeInvestmentAmount(assetId: string, direction: -1 | 1) {
   const currentAmount = investmentAmount(assetId)
   if (direction < 0) {
-    allocationAmounts[assetId] = Math.max(0, currentAmount - AMOUNT_UNIT)
+    allocationAmounts[assetId] = Math.max(0, currentAmount - investmentUnit.value)
     return
   }
   if (!canIncreaseInvestment()) return
-  allocationAmounts[assetId] = currentAmount + AMOUNT_UNIT
+  allocationAmounts[assetId] = currentAmount === 0
+    ? investmentMinimum.value
+    : currentAmount + investmentUnit.value
+}
+
+function setInvestmentAmount(assetId: string, rawValue: string | number) {
+  const parsed = typeof rawValue === 'number' ? rawValue : Number(rawValue)
+  const currentAmount = investmentAmount(assetId)
+  const otherInvestments = investmentTotal.value - currentAmount
+  const availableForAsset = Math.max((overview.value?.walletBalance ?? 0) - otherInvestments, 0)
+  const maximum = Math.floor(availableForAsset / investmentUnit.value) * investmentUnit.value
+  const requested = normalizedAmount(parsed, investmentUnit.value)
+  allocationAmounts[assetId] = Math.min(requested, maximum)
 }
 
 function resetInvestmentAllocations() {
@@ -215,7 +253,7 @@ function resetInvestmentAllocations() {
 
   let remainingBalance = adjustableWalletBalance.value
   for (const allocation of investment.value.allocations) {
-    const amount = Math.min(normalizedAmount(allocation.amount), remainingBalance)
+    const amount = Math.min(normalizedAmount(allocation.amount, investmentUnit.value), remainingBalance)
     allocationAmounts[allocation.assetId] = amount
     remainingBalance -= amount
   }
@@ -235,9 +273,9 @@ async function saveDeposit() {
   noticeMessage.value = ''
   try {
     await economyStore.updateDepositDraft(depositPrincipal.value)
-    noticeMessage.value = '예금 초안을 저장했어요. 확정 전에는 금액을 바꿀 수 있어요.'
+    noticeMessage.value = '예금 금액을 잠시 저장했어요. 확정 전에는 금액을 바꿀 수 있어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '예금 초안을 저장하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '예금 금액을 잠시 저장하지 못했습니다.')
   }
 }
 
@@ -245,9 +283,9 @@ async function cancelDeposit() {
   try {
     await economyStore.removeDepositDraft()
     resetDepositPrincipal()
-    noticeMessage.value = '예금 초안을 취소했어요.'
+    noticeMessage.value = '잠시 저장한 예금 금액을 취소했어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '예금 초안을 취소하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '잠시 저장한 예금 금액을 취소하지 못했습니다.')
   }
 }
 
@@ -269,9 +307,9 @@ async function saveInvestment() {
   noticeMessage.value = ''
   try {
     await economyStore.updateInvestmentDraft(selectedAllocations.value)
-    noticeMessage.value = '투자 초안을 저장했어요. 확정 전에 배분을 바꿀 수 있어요.'
+    noticeMessage.value = '투자 금액을 잠시 저장했어요. 확정 전에 배분을 바꿀 수 있어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '투자 초안을 저장하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '투자 금액을 잠시 저장하지 못했습니다.')
   }
 }
 
@@ -279,9 +317,9 @@ async function cancelInvestment() {
   try {
     await economyStore.removeInvestmentDraft()
     resetInvestmentAllocations()
-    noticeMessage.value = '투자 초안을 취소했어요.'
+    noticeMessage.value = '잠시 저장한 투자 금액을 취소했어요.'
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '투자 초안을 취소하지 못했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '잠시 저장한 투자 금액을 취소하지 못했습니다.')
   }
 }
 
@@ -371,6 +409,12 @@ function riskLabel(risk: string) {
   return { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }[risk] ?? risk
 }
 
+function investmentEmoji(asset: InvestmentAsset) {
+  if (asset.riskLevel === 'LOW') return '🏭'
+  if (asset.riskLevel === 'HIGH') return '🚢'
+  return asset.name.includes('배터리') ? '🔋' : '🌿'
+}
+
 function transactionIcon(type: string) {
   return { DAY1_INCOME: '💰', PURCHASE: '🛒', DEPOSIT_CONFIRM: '🏦', INVESTMENT_CONFIRM: '📈' }[type] ?? '↔️'
 }
@@ -399,8 +443,9 @@ function formatPurchasedAt(value: string) {
       <p>{{ errorMessage }}</p>
     </div>
     <template v-else-if="overview && catalog && investment && deposit">
+      <div class="economy-sticky-controls">
       <header class="economy-header">
-        <button v-if="activeView !== 'HOME'" class="button-secondary" type="button" @click="openActivity('HOME')">← 활동 홈</button>
+        <button v-if="activeView !== 'HOME'" class="button-secondary" type="button" @click="goBack">← 이전 화면</button>
         <div>
           <p class="eyebrow">1일차 자유 경제활동</p>
           <h1>{{ activeView === 'HOME' ? '내 비빔을 어떻게 사용할까요?' : activityCards.find((item) => item.id === activeView)?.title }}</h1>
@@ -415,6 +460,7 @@ function formatPurchasedAt(value: string) {
         <button type="button" :class="{ 'is-active': activeView === 'HOME' }" @click="openActivity('HOME')">홈</button>
         <button v-for="card in activityCards" :key="card.id" type="button" :class="{ 'is-active': activeView === card.id }" @click="openActivity(card.id)">{{ card.title }}</button>
       </nav>
+      </div>
 
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
       <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
@@ -438,7 +484,8 @@ function formatPurchasedAt(value: string) {
       <template v-else-if="activeView === 'SHOP'">
         <section class="shop-product-grid" aria-label="판매 상품">
           <article v-for="product in catalog.products" :key="product.productId" class="shop-product-card" :class="{ 'is-sold-out': product.status === 'SOLD_OUT' }">
-            <span class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
+            <img v-if="product.imageUrl" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`">
+            <span v-else class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
             <div>
               <span class="shop-product-card__stock">{{ product.status === 'SOLD_OUT' ? '품절' : `재고 ${product.currentStock}개` }}</span>
               <h2>{{ product.name }}</h2>
@@ -492,8 +539,8 @@ function formatPurchasedAt(value: string) {
             <div><dt>확정 후 지갑</dt><dd>{{ formatBibim(overview.walletBalance - depositPrincipal) }}</dd></div>
           </dl>
           <div class="finance-actions">
-            <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">초안 취소</button>
-            <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">초안 저장</button>
+            <button class="button-secondary" type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="cancelDeposit">임시저장 취소</button>
+            <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">잠시 저장</button>
             <button type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="confirmDeposit">예금 확정</button>
           </div>
           <p v-if="overview.depositBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.depositBalance) }}을 예금했어요. 남은 잔액으로 추가 예금할 수 있어요.</p>
@@ -533,12 +580,15 @@ function formatPurchasedAt(value: string) {
         </section>
       </section>
 
-      <section v-else-if="activeView === 'INVESTMENT'" class="finance-activity-panel">
-        <div class="finance-guide-card">
-          <p class="eyebrow">분산투자</p>
-          <h2>수익뿐 아니라 손실 가능성도 비교해요.</h2>
-          <p>1~3개 투자처에 10비빔 단위로 나누어 투자할 수 있어요. 확정한 건의 배분은 고정되지만, 남은 비빔으로 새 투자를 추가할 수 있어요.</p>
-        </div>
+      <section v-else-if="activeView === 'INVESTMENT'" class="finance-activity-panel investment-screen">
+        <header class="investment-screen__intro">
+          <div>
+            <span class="investment-screen__title-icon" aria-hidden="true">📈</span>
+            <div><h2>투자 은행</h2><p>다양한 회사에 투자해 보고, 미래 가치를 예측하며 똑똑한 투자자가 되어 봐요!</p></div>
+          </div>
+          <aside class="investment-screen__balance"><span>보유 투자금</span><strong>🪙 {{ formatBibim(overview.walletBalance) }}</strong></aside>
+        </header>
+        <div class="investment-screen__section-title"><span aria-hidden="true">🌱</span><strong>투자 가능한 상품</strong><small>ⓘ</small></div>
         <div class="investment-asset-grid">
           <article
             v-for="asset in investment.assets"
@@ -546,6 +596,7 @@ function formatPurchasedAt(value: string) {
             class="investment-asset-card"
             @click="openInvestmentDetail(asset)"
           >
+            <span class="investment-asset-card__icon" aria-hidden="true">{{ investmentEmoji(asset) }}</span>
             <div class="investment-asset-card__header">
               <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">위험 {{ riskLabel(asset.riskLevel) }}</span>
               <button
@@ -553,42 +604,56 @@ function formatPurchasedAt(value: string) {
                 type="button"
                 :aria-label="`${asset.name} 기업 정보 보기`"
                 @click.stop="openInvestmentDetail(asset)"
-              >기업 정보 보기 →</button>
+              >투자 이야기 자세히 보기</button>
             </div>
             <h3>{{ asset.name }}</h3>
             <p>{{ asset.description }}</p>
             <small><strong>예상 결과</strong> {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
             <span :id="`investment-${asset.assetId}-label`" class="amount-stepper-label">투자 금액</span>
             <div class="amount-spinner" role="group" :aria-labelledby="`investment-${asset.assetId}-label`" @click.stop @keydown.stop>
-              <output class="amount-spinner__value" aria-live="polite">{{ formatBibim(investmentAmount(asset.assetId)) }}</output>
+              <input
+                :id="`investment-${asset.assetId}-input`"
+                class="amount-spinner__input"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                :step="investmentUnit"
+                :value="investmentAmount(asset.assetId)"
+                :aria-label="`${asset.name} 투자 금액 직접 입력`"
+                :disabled="economyStore.saving"
+                @change="setInvestmentAmount(asset.assetId, ($event.target as HTMLInputElement).value)"
+                @blur="setInvestmentAmount(asset.assetId, ($event.target as HTMLInputElement).value)"
+              >
+              <span class="amount-spinner__unit">비빔</span>
               <div class="amount-spinner__buttons" aria-hidden="false">
                 <button
                   type="button"
                   :aria-label="`${asset.name} 투자 금액 10비빔 늘리기`"
                   :disabled="!canIncreaseInvestment() || economyStore.saving"
                   @click="changeInvestmentAmount(asset.assetId, 1)"
-                ><span aria-hidden="true">▲</span></button>
+                ><span aria-hidden="true">+10</span></button>
                 <button
                   type="button"
                   :aria-label="`${asset.name} 투자 금액 10비빔 줄이기`"
                   :disabled="investmentAmount(asset.assetId) === 0 || economyStore.saving"
                   @click="changeInvestmentAmount(asset.assetId, -1)"
-                ><span aria-hidden="true">▼</span></button>
+                ><span aria-hidden="true">−10</span></button>
               </div>
             </div>
           </article>
         </div>
-        <div class="investment-total-card">
+        <div class="investment-total-card investment-screen__checkout">
           <div><span>총투자금</span><strong>{{ formatBibim(investmentTotal) }}</strong></div>
           <div><span>투자 후 지갑</span><strong>{{ formatBibim(overview.walletBalance - investmentTotal) }}</strong></div>
           <div class="finance-actions">
-            <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">초안 취소</button>
-            <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">초안 저장</button>
+            <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">임시저장 취소</button>
+            <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">잠시 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
           <p v-if="overview.investmentBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.investmentBalance) }}을 투자했어요. 남은 잔액으로 추가 투자할 수 있어요.</p>
         </div>
-        <section class="finance-history-card" aria-labelledby="investment-history-title">
+        <p class="investment-screen__note">💡 예상 결과는 과거 데이터와 시장 상황을 바탕으로 한 예측 범위예요.</p>
+        <section class="finance-history-card investment-screen__history" aria-labelledby="investment-history-title">
           <div class="finance-history-card__header">
             <div><p class="eyebrow">확정 내역</p><h2 id="investment-history-title">내가 선택한 투자처</h2></div>
             <strong>{{ economyStore.investmentHistory.length }}건</strong>
@@ -671,7 +736,7 @@ function formatPurchasedAt(value: string) {
       </section>
     </div>
 
-    <div v-if="selectedInvestmentAsset" class="modal-backdrop" @click.self="closeInvestmentDetail">
+    <div v-if="selectedInvestmentAsset" class="modal-backdrop investment-detail-backdrop" @click.self="closeInvestmentDetail">
       <section
         class="investment-detail-modal"
         role="dialog"
@@ -679,8 +744,8 @@ function formatPurchasedAt(value: string) {
         :aria-labelledby="`investment-detail-${selectedInvestmentAsset.assetId}`"
       >
         <header>
+          <span class="investment-detail-modal__icon" aria-hidden="true">{{ investmentEmoji(selectedInvestmentAsset) }}</span>
           <div>
-            <p class="eyebrow">기업 정보</p>
             <h2 :id="`investment-detail-${selectedInvestmentAsset.assetId}`">{{ selectedInvestmentAsset.name }}</h2>
           </div>
           <button class="investment-detail-modal__close" type="button" aria-label="기업 정보 닫기" @click="closeInvestmentDetail">×</button>
@@ -689,8 +754,21 @@ function formatPurchasedAt(value: string) {
           <span :class="`risk-badge risk-badge--${selectedInvestmentAsset.riskLevel.toLowerCase()}`">위험 {{ riskLabel(selectedInvestmentAsset.riskLevel) }}</span>
           <strong>예상 결과 {{ formatRate(selectedInvestmentAsset.minReturnBps) }} ~ {{ formatRate(selectedInvestmentAsset.maxReturnBps) }}</strong>
         </div>
-        <p class="investment-detail-modal__content">{{ selectedInvestmentAsset.companyInfo }}</p>
-        <button type="button" @click="closeInvestmentDetail">확인했어요</button>
+        <p class="investment-detail-modal__summary">{{ selectedInvestmentAsset.description }}</p>
+        <section class="investment-detail-modal__story">
+          <h3>📘 투자 이야기</h3>
+          <p class="investment-detail-modal__content">{{ selectedInvestmentAsset.companyInfo }}</p>
+          <h3>📊 근거가 되는 정보</h3>
+          <ul>
+            <li>예상 수익 범위: {{ formatRate(selectedInvestmentAsset.minReturnBps) }} ~ {{ formatRate(selectedInvestmentAsset.maxReturnBps) }}</li>
+            <li>위험 수준: {{ riskLabel(selectedInvestmentAsset.riskLevel) }}</li>
+            <li>{{ selectedInvestmentAsset.description }}</li>
+          </ul>
+        </section>
+        <footer class="investment-detail-modal__actions">
+          <button class="button-secondary" type="button" @click="closeInvestmentDetail">닫기</button>
+          <button type="button" :disabled="!canIncreaseInvestment() && investmentAmount(selectedInvestmentAsset.assetId) === 0" @click="chooseInvestmentFromDetail">이 상품에 투자하기</button>
+        </footer>
       </section>
     </div>
   </div>

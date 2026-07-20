@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import {
   getTeacherRoomStudents,
+  type GuidedActivityView,
   type RoomPreparation,
   type TeacherRoomStudent,
 } from '../../features/room/api/room'
@@ -21,6 +22,8 @@ import StatusBadge from '../../shared/components/StatusBadge.vue'
 import ParticipationCodeDialog from './ParticipationCodeDialog.vue'
 import StudentFlowPanel from './StudentFlowPanel.vue'
 import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
+import TeacherManagementWorkspace from './TeacherManagementWorkspace.vue'
+import FreeActivityIntroStageView from '../student/stages/FreeActivityIntroStageView.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
 import { copyText } from '../../shared/utils/clipboard'
 import { useAuthStore } from '../../stores/auth'
@@ -69,6 +72,7 @@ const shopStore = useShopStore()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const changingStage = ref(false)
+const changingGuidedActivity = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const copiedParticipationCode = ref<string | null>(null)
@@ -83,6 +87,9 @@ const showDay2SettlementConfirm = ref(false)
 const showFundVotePrepareConfirm = ref(false)
 const showRoomCompleteConfirm = ref(false)
 const showParticipationCodes = ref(false)
+const fundAdditionAmount = ref(0)
+const fundAdditionReason = ref('학급 활동 지원금')
+const managementView = ref<'PROGRESS' | 'STUDENTS' | 'SETTINGS'>('PROGRESS')
 const pendingStageTarget = ref<string | null>(null)
 const pendingLobbyExitTarget = ref<string | null>(null)
 let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
@@ -122,6 +129,13 @@ const currentStageIndex = computed(() =>
   ROOM_STAGES.findIndex((stage) => stage.id === state.value?.currentStage),
 )
 const adjacentStages = computed(() => getAdjacentStages(state.value?.currentStage))
+const hasMoreLearningPages = computed(() => Boolean(
+  state.value?.currentStage
+  && learningStages.has(state.value.currentStage)
+  && guidedLearning.value
+  && guidedLearning.value.currentIndex < guidedLearning.value.pages.length - 1,
+))
+const shouldHighlightStageAdvance = computed(() => !hasMoreLearningPages.value)
 const pendingStageDefinition = computed(() => getRoomStage(pendingStageTarget.value ?? undefined))
 const pendingLobbyExitDefinition = computed(() => getRoomStage(pendingLobbyExitTarget.value ?? undefined))
 const lobbyAttendance = computed(() => getLobbyAttendance(preparation.value?.students ?? []))
@@ -559,6 +573,21 @@ async function moveToStage(targetStage?: string) {
   }
 }
 
+async function selectGuidedActivity(view: GuidedActivityView) {
+  if (changingGuidedActivity.value || state.value?.guidedActivityView === view) return
+  changingGuidedActivity.value = true
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await roomSessionStore.setGuidedActivityView(roomId.value, view)
+    noticeMessage.value = '학생 설명 화면을 변경했습니다.'
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '학생 설명 화면을 변경하지 못했습니다.')
+  } finally {
+    changingGuidedActivity.value = false
+  }
+}
+
 async function controlQuiz(command: 'OPEN_QUIZ' | 'CLOSE_QUIZ' | 'FORCE_CLOSE_QUIZ') {
   errorMessage.value = ''
   noticeMessage.value = ''
@@ -706,6 +735,19 @@ async function applyFundExpense(optionId: string) {
     if (result) noticeMessage.value = result.replayed ? '기존 공동비용 결과를 불러왔습니다.' : '공동비용을 적용했습니다.'
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '공동비용을 적용하지 못했습니다.')
+  }
+}
+
+async function addClassFund() {
+  if (fundAdditionAmount.value < 1 || !fundAdditionReason.value.trim()) return
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  try {
+    await day2EndStore.addFund(roomId.value, fundAdditionAmount.value, fundAdditionReason.value.trim())
+    noticeMessage.value = `공동기금에 ${formatBibim(fundAdditionAmount.value)}을 추가했습니다.`
+    fundAdditionAmount.value = 0
+  } catch (error) {
+    errorMessage.value = getApiErrorMessage(error, '공동기금을 추가하지 못했습니다.')
   }
 }
 
@@ -936,10 +978,40 @@ function moduleTone(moduleState: string) {
       <StatusBadge :label="connectionLabel" :tone="connectionTone" />
     </header>
 
+    <div class="teacher-operations-shell">
+      <aside class="teacher-primary-nav" aria-label="교사 메뉴">
+        <div class="teacher-primary-nav__room">
+          <span>{{ state?.currentDay ?? 1 }}일차</span>
+          <strong>{{ state?.roomName ?? '우리 반 경제교실' }}</strong>
+        </div>
+        <nav>
+          <RouterLink to="/teacher/rooms"><span aria-hidden="true">⌂</span>학급 목록</RouterLink>
+          <button type="button" :class="{ 'is-active': managementView === 'PROGRESS' }" @click="managementView = 'PROGRESS'"><span aria-hidden="true">▶</span>수업 진행</button>
+          <button type="button" :class="{ 'is-active': managementView === 'STUDENTS' }" @click="managementView = 'STUDENTS'"><span aria-hidden="true">♙</span>학생 계정</button>
+          <button type="button" :class="{ 'is-active': managementView === 'SETTINGS' }" @click="managementView = 'SETTINGS'"><span aria-hidden="true">⚙</span>수업 설정</button>
+        </nav>
+        <div class="teacher-primary-nav__tip">
+          <strong>교사 팁</strong>
+          <p>다음 활동을 열면 학생들의 마을 화면이 자동으로 바뀝니다.</p>
+        </div>
+      </aside>
+
+      <div class="teacher-operations-content">
+        <TeacherManagementWorkspace
+          v-if="managementView !== 'PROGRESS'"
+          :room-id="roomId"
+          :view="managementView"
+          @refreshed="roomSessionStore.refreshTeacher(roomId)"
+        />
+
+        <template v-else>
+
     <p v-if="loading" class="state-message">수업 상태를 불러오고 있습니다.</p>
     <p v-else-if="errorMessage && !state" class="form-error" role="alert">{{ errorMessage }}</p>
 
     <template v-else-if="state">
+      <StudentFlowPanel :room-id="roomId" />
+
       <section class="control-summary" aria-label="수업 상태 요약">
         <div>
           <p class="eyebrow">{{ state.currentDay }}일차 수업</p>
@@ -955,10 +1027,34 @@ function moduleTone(moduleState: string) {
             <dd>{{ state.mode === 'FREE' ? '자유 활동' : state.mode === 'CLOSED' ? '종료' : '교사 안내' }}</dd>
           </div>
           <div>
-            <dt>상태 버전</dt>
-            <dd>v{{ state.version }} · sync {{ state.syncVersion }}</dd>
+            <dt>학생 화면 동기화</dt>
+            <dd>{{ roomSessionStore.connectionStatus === 'CONNECTED' ? '2초 이내 반영 중' : '재연결 중' }}</dd>
           </div>
         </dl>
+        <aside class="student-screen-preview" aria-label="학생 화면 미리보기">
+          <span>학생 실제 화면 구성 · 실시간 동기화</span>
+          <div class="student-screen-preview__viewport">
+            <div class="student-screen-preview__sky" aria-hidden="true"><i /><i /><i /></div>
+            <small>{{ state.currentDay }}일차 · {{ state.mode === 'FREE' ? '자유 활동' : '교사 안내' }}</small>
+            <strong>{{ state.currentStage === 'DAY1_FREE_ACTIVITY_GUIDED' ? `자유활동 · ${state.guidedActivityView ?? 'HOME'}` : guidedLearning?.currentPage.title ?? currentStage?.label ?? state.currentStage }}</strong>
+            <p>{{ guidedLearning?.currentPage.content ?? currentStage?.description }}</p>
+            <div class="student-screen-preview__controls" aria-hidden="true">
+              <span>{{ state.mode === 'FREE' ? '상점' : '이전' }}</span>
+              <span>{{ state.mode === 'FREE' ? '예금' : '다음' }}</span>
+              <span v-if="state.mode === 'FREE'">투자</span>
+            </div>
+          </div>
+        </aside>
+        <button
+          class="teacher-next-action"
+          :class="{ 'is-recommended': shouldHighlightStageAdvance }"
+          type="button"
+          :disabled="nextStageDisabled"
+          @click="requestStageMove(adjacentStages.next?.id)"
+        >
+          <span>다음 행동</span>
+          <strong>{{ adjacentStages.next?.label ?? '진행 완료' }} →</strong>
+        </button>
       </section>
 
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
@@ -1074,12 +1170,13 @@ function moduleTone(moduleState: string) {
             <p v-else>전체 퀴즈는 마감되었습니다. 미제출 학생은 개인 보충 퀴즈를 계속 진행할 수 있습니다.</p>
             <button
               v-if="quizSummary.status === 'READY'"
+              class="teacher-stage-action"
               type="button"
               @click="controlQuiz('OPEN_QUIZ')"
             >퀴즈 시작하기</button>
             <button
               v-else-if="quizSummary.status === 'OPEN'"
-              class="button-secondary"
+              class="button-secondary teacher-stage-action"
               type="button"
               @click="requestQuizClose"
             >퀴즈 마감하기</button>
@@ -1147,7 +1244,7 @@ function moduleTone(moduleState: string) {
               </div>
             </div>
             <button
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="settlementPreview.settlementStatus === 'COMPLETED' || settlementStore.executing"
               @click="showSettlementConfirm = true"
@@ -1194,7 +1291,7 @@ function moduleTone(moduleState: string) {
                 <li v-for="warning in day1ClosePreview.warnings" :key="warning">{{ warning }}</li>
               </ul>
               <button
-                class="day1-close-action"
+                class="day1-close-action teacher-stage-action"
                 type="button"
                 :disabled="!day1ClosePreview.canClose || changingStage"
                 @click="showDay1CloseConfirm = true"
@@ -1207,7 +1304,7 @@ function moduleTone(moduleState: string) {
             </p>
             <button
               v-if="state.currentStage === 'DAY1_CLOSED'"
-              class="day1-close-action"
+              class="day1-close-action teacher-stage-action"
               type="button"
               :disabled="changingStage"
               @click="startDayTwo"
@@ -1320,20 +1417,22 @@ function moduleTone(moduleState: string) {
             </div>
             <div class="day2-reward-rule">
               <span>정답 1문제당 {{ formatBibim(day2QuizRewardPreview.correctRewardPerQuestion) }}</span>
-              <strong>예상 총 보상 {{ formatBibim(day2QuizRewardPreview.totalReward) }}</strong>
+              <span>정답수당 소득세 10%</span>
+              <strong>예상 실제 지급액 {{ formatBibim(day2QuizRewardPreview.totalReward) }}</strong>
             </div>
             <p v-if="day2QuizRewardPreview.notSubmittedCount > 0" class="control-caution">
               미제출 학생 {{ day2QuizRewardPreview.notSubmittedCount }}명은 보상을 받지 않습니다.
             </p>
-            <div class="day1-student-table" role="table" aria-label="경제 퀴즈 보상 미리보기">
+            <div class="day1-student-table day2-reward-table" role="table" aria-label="경제 퀴즈 보상 미리보기">
               <div class="day1-student-table__head" role="row">
-                <span>학생</span><span>제출</span><span>정답</span><span>정답수당</span><span>총 보상</span>
+                <span>학생</span><span>제출</span><span>정답</span><span>정답수당</span><span>소득세</span><span>실제 지급</span>
               </div>
               <div v-for="studentItem in day2QuizRewardPreview.students" :key="studentItem.studentId" role="row">
                 <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
                 <span>{{ studentItem.submitted ? '제출' : '미제출' }}</span>
                 <span>{{ studentItem.correctCount }}개</span>
                 <span>{{ formatBibim(studentItem.correctReward) }}</span>
+                <span>−{{ formatBibim(studentItem.incomeTax) }}</span>
                 <strong>{{ formatBibim(studentItem.totalReward) }}</strong>
               </div>
             </div>
@@ -1411,6 +1510,12 @@ function moduleTone(moduleState: string) {
               <div><dt>금융세 적립</dt><dd>+{{ formatBibim(fundOverview.totalFinancialTax) }}</dd></div>
               <div><dt>공동비용</dt><dd>−{{ formatBibim(fundOverview.totalExpenses) }}</dd></div>
             </dl>
+            <form v-if="!fundVote" class="fund-live-add" @submit.prevent="addClassFund">
+              <div><strong>공동기금 실시간 추가</strong><small>추가 즉시 교사·학생 잔액에 반영됩니다.</small></div>
+              <label>금액<input v-model.number="fundAdditionAmount" type="number" min="1" placeholder="예: 50"></label>
+              <label>사유<input v-model.trim="fundAdditionReason" maxlength="100" placeholder="예: 학급 활동 지원금"></label>
+              <button type="submit" :disabled="fundAdditionAmount < 1 || !fundAdditionReason.trim() || day2EndStore.mutating">추가</button>
+            </form>
             <div class="fund-cost-option-grid">
               <article v-for="option in fundCostOptions" :key="option.optionId">
                 <div>
@@ -1429,12 +1534,27 @@ function moduleTone(moduleState: string) {
             <p v-if="!fundOverview.appliedExpense && !fundVote" class="control-caution">
               공동비용을 선택하지 않고 기금을 그대로 보존한 채 학생 투표를 준비할 수도 있습니다.
             </p>
+            <section v-if="!fundVote" class="fund-vote-builder" aria-labelledby="fund-vote-builder-title">
+              <div class="fund-vote-builder__head">
+                <div><strong id="fund-vote-builder-title">투표 항목 실시간 구성</strong><small>2~5개 항목을 직접 입력할 수 있습니다.</small></div>
+                <button class="button-secondary" type="button" :disabled="day2EndStore.voteDraft.options.length >= 5" @click="day2EndStore.addVoteOption">+ 항목 추가</button>
+              </div>
+              <label>투표 질문<input v-model.trim="day2EndStore.voteDraft.question" maxlength="200"></label>
+              <div class="fund-vote-builder__options">
+                <article v-for="(option, index) in day2EndStore.voteDraft.options" :key="index">
+                  <label>항목명<input v-model.trim="option.title" maxlength="100" placeholder="예: 학급 간식 시간"></label>
+                  <label>설명<input v-model.trim="option.description" maxlength="255" placeholder="어떻게 사용할지 설명해 주세요"></label>
+                  <label>필요 금액<input v-model.number="option.requiredAmount" type="number" min="0"></label>
+                  <button class="button-secondary" type="button" :disabled="day2EndStore.voteDraft.options.length <= 2" @click="day2EndStore.removeVoteOption(index)">삭제</button>
+                </article>
+              </div>
+            </section>
             <p v-else-if="!fundOverview.appliedExpense && fundVote" class="control-notice">
               공동비용을 사용하지 않기로 확정했습니다. 현재 공동기금 전액을 기준으로 투표가 준비되었습니다.
             </p>
             <button
               v-if="canPrepareFundVote"
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="Boolean(fundVote) || day2EndStore.mutating"
               @click="requestFundVotePreparation"
@@ -1484,14 +1604,14 @@ function moduleTone(moduleState: string) {
             </div>
             <button
               v-if="fundVote.status === 'READY'"
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="day2EndStore.mutating"
               @click="controlFundVote('OPEN')"
             >투표 시작하기</button>
             <button
               v-else-if="fundVote.status === 'OPEN'"
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="day2EndStore.mutating"
               @click="requestFundVoteClose"
@@ -1640,12 +1760,20 @@ function moduleTone(moduleState: string) {
               >← 이전 페이지</button>
               <button
                 type="button"
+                :class="{ 'teacher-stage-action is-recommended': guidedLearning.currentIndex < guidedLearning.pages.length - 1 }"
                 :disabled="guidedLearning.currentIndex === guidedLearning.pages.length - 1"
                 @click="moveLearningPage(1)"
               >다음 페이지 →</button>
             </div>
             <small>페이지를 바꾸면 학생 화면에 늦어도 2초 안에 반영됩니다.</small>
           </div>
+          <FreeActivityIntroStageView
+            v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY_GUIDED'"
+            class="free-activity-intro--teacher"
+            :active-view="state.guidedActivityView ?? 'HOME'"
+            teacher-control
+            @select="selectGuidedActivity"
+          />
           <div v-else-if="state.currentStage !== 'DAY1_INCOME_SETTLEMENT' && state.currentStage !== 'DAY1_FREE_ACTIVITY'" class="stage-control-panel__preview">
             <span>{{ state.currentDay }}일차</span>
             <strong>{{ currentStage?.label ?? state.currentStage }}</strong>
@@ -1670,6 +1798,7 @@ function moduleTone(moduleState: string) {
             </button>
             <button
               type="button"
+              :class="{ 'is-recommended': shouldHighlightStageAdvance }"
               :disabled="nextStageDisabled"
               @click="requestStageMove(adjacentStages.next?.id)"
             >
@@ -1679,7 +1808,9 @@ function moduleTone(moduleState: string) {
                   ? '퀴즈 결과 확인 완료 · 소득·세금 정산 →'
                   : state.currentStage === 'DAY2_QUIZ_RESULT'
                     ? '퀴즈 결과 확인 완료 · 보상 정산 →'
-                  : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
+                  : state.currentStage === 'DAY1_FREE_ACTIVITY_GUIDED'
+                    ? '활동 시작 · 학생 화면 열기 →'
+                    : `${adjacentStages.next?.label ?? '다음 단계 없음'} →` }}
             </button>
           </div>
           <p class="control-caution">
@@ -1872,8 +2003,6 @@ function moduleTone(moduleState: string) {
           >학생별 입장 코드 보기</button>
         </aside>
       </section>
-
-      <StudentFlowPanel :room-id="roomId" />
 
       <section class="module-status-panel" aria-labelledby="module-status-title">
         <div class="panel-heading">
@@ -2094,5 +2223,8 @@ function moduleTone(moduleState: string) {
         </section>
       </div>
     </template>
+        </template>
+      </div>
+    </div>
   </main>
 </template>

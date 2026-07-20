@@ -27,6 +27,7 @@ public final class RoomSessionDto {
             int currentDay,
             String currentStage,
             String mode,
+            String guidedActivityView,
             int version,
             long syncVersion,
             int expectedStudentCount,
@@ -45,6 +46,7 @@ public final class RoomSessionDto {
             String roomStage,
             String effectiveStage,
             String mode,
+            String guidedActivityView,
             long walletBalance,
             List<ModuleStateResponse> modules,
             long syncVersion,
@@ -55,6 +57,16 @@ public final class RoomSessionDto {
             int rewardRateBps,
             int completedActivityCount,
             int totalActivityCount
+    ) {
+    }
+
+    public record GuidedActivityRequest(
+            @NotBlank(message = "설명할 활동 화면을 선택해 주세요.")
+            @Size(max = 20, message = "활동 화면 값이 너무 깁니다.")
+            String view,
+            @NotNull(message = "현재 방 버전이 필요합니다.")
+            @Min(value = 0, message = "방 버전은 0 이상이어야 합니다.")
+            Integer expectedVersion
     ) {
     }
 

@@ -204,6 +204,21 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('돈을 맡기고 이자를 받아요.')
   })
 
+  it('returns to the immediately previous activity instead of resetting every back action', async () => {
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '상점')
+    expect(wrapper.find('.shop-product-grid').exists()).toBe(true)
+    await openTab(wrapper, '예금')
+    expect(wrapper.find('.finance-activity-panel').exists()).toBe(true)
+
+    await wrapper.get('.economy-header > button').trigger('click')
+
+    expect(wrapper.find('.shop-product-grid').exists()).toBe(true)
+    expect(wrapper.find('.finance-activity-panel').exists()).toBe(false)
+  })
+
   it('saves and confirms a deposit draft', async () => {
     economyApi.saveDepositDraft.mockResolvedValue({
       ...(await economyApi.getCurrentDeposit()),
@@ -305,7 +320,7 @@ describe('FreeActivityStageView', () => {
     expect(economyApi.saveInvestmentDraft).toHaveBeenCalledWith([
       { assetId: 'asset-1', amount: 30 },
     ])
-    expect(wrapper.text()).toContain('투자 초안을 저장했어요')
+    expect(wrapper.text()).toContain('투자 금액을 잠시 저장했어요')
   })
 
   it('opens the selected company information without changing the investment amount', async () => {
@@ -320,7 +335,7 @@ describe('FreeActivityStageView', () => {
     expect(dialog.text()).toContain('안심 채권')
     expect(dialog.text()).toContain('안심 채권은 꾸준한 수익을 기대하는 상품이에요.')
     expect(dialog.text()).toContain('예상 결과 -2% ~ +4%')
-    expect(wrapper.get('.amount-spinner__value').text()).toBe('0비빔')
+    expect((wrapper.get('.amount-spinner__input').element as HTMLInputElement).value).toBe('0')
 
     await dialog.get('[aria-label="기업 정보 닫기"]').trigger('click')
     expect(wrapper.find('.investment-detail-modal').exists()).toBe(false)
@@ -377,7 +392,7 @@ describe('FreeActivityStageView', () => {
 
     await openTab(wrapper, '투자')
     expect(wrapper.text()).toContain('지금까지 30비빔을 투자했어요')
-    expect(wrapper.find('.investment-asset-grid input').exists()).toBe(false)
+    expect(wrapper.find('.investment-asset-grid input').exists()).toBe(true)
     const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
     await increaseButton.trigger('click')
     await increaseButton.trigger('click')
@@ -389,7 +404,7 @@ describe('FreeActivityStageView', () => {
     ])
   })
 
-  it('uses button-only amount controls and never exceeds the available wallet balance', async () => {
+  it('supports direct investment input and never exceeds the available wallet balance', async () => {
     economyApi.getEconomyOverview.mockResolvedValue({
       walletBalance: 25,
       depositBalance: 0,
@@ -411,10 +426,10 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('5비빔')
 
     await openTab(wrapper, '투자')
-    expect(wrapper.find('.investment-asset-grid input').exists()).toBe(false)
+    const directInput = wrapper.get('[aria-label="안심 채권 투자 금액 직접 입력"]')
+    await directInput.setValue('25')
+    expect((directInput.element as HTMLInputElement).value).toBe('20')
     const increaseButton = wrapper.get('[aria-label="안심 채권 투자 금액 10비빔 늘리기"]')
-    await increaseButton.trigger('click')
-    await increaseButton.trigger('click')
 
     expect(wrapper.text()).toContain('총투자금')
     expect(wrapper.text()).toContain('20비빔')

@@ -17,6 +17,8 @@ import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
+import com.b201.bibim.domain.room.RoomRulesEntity;
+import com.b201.bibim.domain.room.RoomRulesRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.deposit.DepositDto.SaveDraftRequest;
@@ -35,6 +37,7 @@ class DepositServiceTest {
     @Mock DepositRepository depositRepository;
     @Mock StudentRepository studentRepository;
     @Mock RoomRepository roomRepository;
+    @Mock RoomRulesRepository rulesRepository;
     @Mock DaySessionRepository sessionRepository;
     @Mock AccountRepository accountRepository;
     @Mock FinancialTransactionRepository transactionRepository;
@@ -48,9 +51,18 @@ class DepositServiceTest {
 
     @Test
     void rejectsDepositThatIsNotInTenBibimUnits() {
+        UUID studentId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(student.getStatus()).thenReturn("ACTIVE");
+        when(student.getRoomId()).thenReturn(roomId);
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(rulesRepository.findByRoomId(roomId)).thenReturn(Optional.of(RoomRulesEntity.defaults(roomId)));
+
         ApiException exception = assertThrows(
                 ApiException.class,
-                () -> depositService.saveDraft(java.util.UUID.randomUUID(), new SaveDraftRequest(25))
+                () -> depositService.saveDraft(studentId, new SaveDraftRequest(25))
         );
 
         assertEquals("INVALID_DEPOSIT_AMOUNT", exception.getCode());

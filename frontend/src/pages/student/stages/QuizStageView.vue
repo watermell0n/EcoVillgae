@@ -221,7 +221,7 @@ async function confirmSubmit() {
 
       <aside class="quiz-result__notice">
         <span aria-hidden="true">🔒</span>
-        <p><strong>정답 수와 보상은 퀴즈 마감 후 공개돼요.</strong> 아직 문제를 풀고 있는 친구가 있어 채점 결과는 다음 화면에서 확인할 수 있어요.</p>
+        <p><strong>아직 문제를 풀고 있는 친구가 있어요.</strong> 정답 수와 보상은 퀴즈가 끝난 뒤 함께 확인해요.</p>
       </aside>
     </section>
 

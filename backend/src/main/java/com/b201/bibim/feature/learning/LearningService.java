@@ -33,6 +33,7 @@ public class LearningService {
     private static final UUID DEPOSIT_TOPIC_ID = id(103);
     private static final UUID INVESTMENT_TOPIC_ID = id(104);
     private static final UUID DAY2_FINANCE_TOPIC_ID = id(105);
+    private static final UUID INFLATION_TOPIC_ID = id(106);
 
     private static final List<TopicDefinition> TOPICS = List.of(
             new TopicDefinition(
@@ -66,9 +67,16 @@ public class LearningService {
             new TopicDefinition(
                     DAY2_FINANCE_TOPIC_ID,
                     "DAY2_FINANCIAL_KNOWLEDGE",
-                    "금융지식 교육",
-                    "금융세와 인플레이션이 내 돈에 미치는 영향을 알아봐요.",
+                    "금융세 알아보기",
+                    "이자와 투자 이익에 붙는 금융세를 알아봐요.",
                     2
+            ),
+            new TopicDefinition(
+                    INFLATION_TOPIC_ID,
+                    "INFLATION",
+                    "인플레이션 알아보기",
+                    "물건값이 오르면 같은 돈으로 살 수 있는 것이 어떻게 달라지는지 알아봐요.",
+                    1
             )
     );
 
@@ -83,12 +91,12 @@ public class LearningService {
                     "세금은 모두를 위해 쓰이는 돈이에요.\n학교, 도로, 공원처럼 함께 사용하는 곳에 쓰여요.\n우리 교실에서는 공동기금처럼 사용할 수 있어요!",
                     "모은 세금 → 공용 물품 구입 또는 학급 행사 준비"),
             page(121, "SMART_SPENDING", "🛒", "필요와 원하는 것을 구분해요",
-                    "구매 전 꼭 필요한지, 가격은 알맞은지, 사고 난 뒤 돈이 얼마나 남는지 확인해요.",
-                    "필요한 물건부터 고르고 남은 돈을 확인해요.",
-                    "필요한 것부터 선택해요.", "가격과 내 지갑 잔액을 함께 비교해요."),
+                    "물건을 사기 전에는 지금 꼭 필요한지, 가격이 알맞은지, 사고 난 뒤에도 필요한 돈이 남는지 차례로 생각해요.",
+                    "준비물인 공책을 먼저 사고, 남은 돈을 확인한 뒤 간식을 살지 결정해요.",
+                    "생활에 꼭 필요한 것부터 선택해요.", "가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요."),
             page(122, "SMART_SPENDING", "🏷️", "가격과 재고를 확인해요",
-                    "상품의 가격과 남은 수량은 한정되어 있으므로 구매 전에 정보를 살펴봐요.",
-                    "가격과 재고를 확인한 뒤 구매를 확정해요.",
+                    "같은 물건이라도 가격과 남은 수량은 달라질 수 있어요. 구매 버튼을 누르기 전에 가격, 재고, 수량을 다시 확인하면 실수를 줄일 수 있어요.",
+                    "연필 2자루의 총가격과 남은 재고를 확인한 뒤 구매를 확정해요.",
                     "재고가 없으면 살 수 없어요.", "한 번의 선택이 다음 소비 기회에 영향을 줘요."),
             page(131, "DEPOSIT", "🐷", "소비와 저축",
                     "소비는 필요한 물건이나 서비스를 사는 거예요.\n저축은 나중을 위해 돈을 모아 두는 거예요.\n쓰기와 모으기를 잘 나누는 것이 중요해요!",
@@ -108,7 +116,7 @@ public class LearningService {
             page(151, "DAY2_FINANCIAL_KNOWLEDGE", "🧾", "금융세가 뭐예요?",
                     "금융세는 예금 이자나 투자 수익처럼 금융 활동으로 번 돈에 붙는 세금이에요.\n이코빌리지에서는 금융 이익의 10%를 금융세로 내요.\n모인 금융세는 학급 공동기금에 더해져요!",
                     "금융 이익 20비빔 → 금융세 2비빔\n실제로 받는 금융 이익은 18비빔"),
-            page(152, "DAY2_FINANCIAL_KNOWLEDGE", "📈", "인플레이션이 뭐예요?",
+            page(152, "INFLATION", "📈", "인플레이션이 뭐예요?",
                     "인플레이션은 물건값이 점점 오르는 거예요.\n그래서 같은 돈으로 살 수 있는 것이 줄어들어요.\n쉽게 말해, 돈의 힘이 조금 약해지는 거예요!",
                     "어제 사탕 1개 10비빔 → 오늘 12비빔\n같은 돈으로는 전보다 덜 살 수 있어요")
     );
@@ -116,8 +124,8 @@ public class LearningService {
     private static final Map<String, Set<String>> STAGE_TOPICS = Map.of(
             "DAY1_KNOWLEDGE_GUIDED", Set.of("INCOME_AND_TAX"),
             "DAY1_SHOP_GUIDED", Set.of("SMART_SPENDING"),
-            "DAY1_FINANCE_GUIDED", Set.of("DEPOSIT", "INVESTMENT"),
-            "DAY2_TAX_INFLATION_GUIDED", Set.of("DAY2_FINANCIAL_KNOWLEDGE")
+            "DAY1_FINANCE_GUIDED", Set.of("DEPOSIT", "INVESTMENT", "INFLATION"),
+            "DAY2_TAX_INFLATION_GUIDED", Set.of("DAY2_FINANCIAL_KNOWLEDGE", "INFLATION")
     );
 
     private final RoomRepository roomRepository;

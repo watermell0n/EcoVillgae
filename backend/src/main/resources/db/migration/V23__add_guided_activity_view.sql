@@ -1,0 +1,2 @@
+ALTER TABLE rooms
+    ADD COLUMN guided_activity_view VARCHAR(20) NOT NULL DEFAULT 'HOME';

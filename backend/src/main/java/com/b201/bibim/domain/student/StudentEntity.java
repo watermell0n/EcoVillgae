@@ -92,6 +92,26 @@ public class StudentEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void updateProfile(int participantNumber, String nickname) {
+        this.participantNumber = participantNumber;
+        this.nickname = nickname == null || nickname.isBlank() ? null : nickname.trim();
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeStatus(String status) {
+        this.status = status;
+        if (!"ACTIVE".equals(status)) {
+            this.online = false;
+        }
+        this.updatedAt = Instant.now();
+    }
+
+    public void resetPassword() {
+        this.passwordHash = null;
+        this.status = "INVITED";
+        forceLogout();
+    }
+
     public UUID getId() {
         return id;
     }

@@ -44,6 +44,21 @@ public class RoomRulesEntity {
     @Column(name = "inflation_bps", nullable = false)
     private int inflationBps;
 
+    @Column(name = "deposit_min_amount", nullable = false)
+    private long depositMinAmount;
+
+    @Column(name = "deposit_unit", nullable = false)
+    private long depositUnit;
+
+    @Column(name = "investment_min_amount", nullable = false)
+    private long investmentMinAmount;
+
+    @Column(name = "investment_unit", nullable = false)
+    private long investmentUnit;
+
+    @Column(name = "initial_fund_amount", nullable = false)
+    private long initialFundAmount;
+
     protected RoomRulesEntity() {
     }
 
@@ -60,7 +75,38 @@ public class RoomRulesEntity {
         rules.day2ParticipationReward = 0;
         rules.day2CorrectReward = 5;
         rules.inflationBps = 1000;
+        rules.depositMinAmount = 20;
+        rules.depositUnit = 10;
+        rules.investmentMinAmount = 10;
+        rules.investmentUnit = 10;
+        rules.initialFundAmount = 0;
         return rules;
+    }
+
+    public void updateEconomyRules(
+            long roleIncome,
+            long day1CorrectReward,
+            int incomeTaxBps,
+            int depositInterestBps,
+            int financialTaxBps,
+            long day2CorrectReward,
+            int inflationBps,
+            long depositMinAmount,
+            long depositUnit,
+            long investmentMinAmount,
+            long investmentUnit
+    ) {
+        this.roleIncome = roleIncome;
+        this.day1CorrectReward = day1CorrectReward;
+        this.incomeTaxBps = incomeTaxBps;
+        this.depositInterestBps = depositInterestBps;
+        this.financialTaxBps = financialTaxBps;
+        this.day2CorrectReward = day2CorrectReward;
+        this.inflationBps = inflationBps;
+        this.depositMinAmount = depositMinAmount;
+        this.depositUnit = depositUnit;
+        this.investmentMinAmount = investmentMinAmount;
+        this.investmentUnit = investmentUnit;
     }
 
     public UUID getRoomId() {
@@ -102,4 +148,11 @@ public class RoomRulesEntity {
     public int getInflationBps() {
         return inflationBps;
     }
+
+    public long getDepositMinAmount() { return depositMinAmount; }
+    public long getDepositUnit() { return depositUnit; }
+    public long getInvestmentMinAmount() { return investmentMinAmount; }
+    public long getInvestmentUnit() { return investmentUnit; }
+    public long getInitialFundAmount() { return initialFundAmount; }
+    public void updateInitialFundAmount(long amount) { this.initialFundAmount = amount; }
 }

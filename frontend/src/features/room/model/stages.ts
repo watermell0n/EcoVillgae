@@ -33,6 +33,7 @@ export const ROOM_STAGES: readonly RoomStageDefinition[] = [
   { id: 'DAY1_KNOWLEDGE_GUIDED', day: 1, label: '월급명세서 학습', description: '월급과 실수령액, 세금과 활용 방법을 3페이지로 배웁니다.' },
   { id: 'DAY1_FINANCE_GUIDED', day: 1, label: '금융지식 교육', description: '소비와 저축부터 투자와 분산투자까지 5페이지로 배웁니다.' },
   { id: 'DAY1_SHOP_GUIDED', day: 1, label: '상점 안내', description: '상품 가격과 재고, 구매 방법을 확인합니다.' },
+  { id: 'DAY1_FREE_ACTIVITY_GUIDED', day: 1, label: '자유 경제활동 안내', description: '학생 화면을 잠근 상태에서 상점·예금·투자 이용 방법을 함께 살펴봅니다.' },
   { id: 'DAY1_FREE_ACTIVITY', day: 1, label: '자유 경제활동', description: '상점, 예금, 투자를 자유롭게 이용합니다.' },
   { id: 'DAY1_SUMMARY', day: 1, label: '1일차 요약', description: '오늘의 활동과 자산 변화를 정리합니다.' },
   { id: 'DAY1_CLOSED', day: 1, label: '1일차 마감', description: '1일차 거래를 종료하고 결과를 저장합니다.' },

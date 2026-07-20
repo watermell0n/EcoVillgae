@@ -171,6 +171,7 @@ public class AdminMonitoringService {
                 room.getStatus(),
                 room.getCurrentDay(),
                 room.getCurrentStage(),
+                room.getVersion(),
                 room.getSyncVersion(),
                 room.getExpectedStudentCount(),
                 count(statuses, "ONLINE"),

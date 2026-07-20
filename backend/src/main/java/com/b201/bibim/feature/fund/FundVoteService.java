@@ -39,6 +39,7 @@ import com.b201.bibim.domain.vote.VoteRepository;
 import com.b201.bibim.domain.vote.VoteSessionEntity;
 import com.b201.bibim.domain.vote.VoteSessionRepository;
 import com.b201.bibim.feature.fund.FundVoteDto.ApplyExpenseResponse;
+import com.b201.bibim.feature.fund.FundVoteDto.AddFundRequest;
 import com.b201.bibim.feature.fund.FundVoteDto.CastVoteRequest;
 import com.b201.bibim.feature.fund.FundVoteDto.CostOptionResponse;
 import com.b201.bibim.feature.fund.FundVoteDto.CreateVoteRequest;
@@ -133,6 +134,55 @@ public class FundVoteService {
                         option.getAmount() <= fund.balance(), option.getId().equals(appliedId)
                 ))
                 .toList();
+    }
+
+    @Transactional
+    public FundOverviewResponse addFund(
+            UUID teacherId,
+            UUID roomId,
+            String idempotencyKey,
+            AddFundRequest request
+    ) {
+        String key = normalizeKey(idempotencyKey);
+        RoomEntity room = roomRepository.findByIdForUpdate(roomId).orElseThrow(this::roomNotFound);
+        ensureOwner(room, teacherId);
+        ensureRoomWritable(room);
+        if (!"DAY2_FUND_COST".equals(room.getCurrentStage())) {
+            throw conflict("CLASS_FUND_ADDITION_NOT_OPEN", "공동기금 비용 확인 단계에서만 기금을 추가할 수 있습니다.");
+        }
+        var previous = transactionRepository.findByIdempotencyKey(key);
+        if (previous.isPresent()) {
+            FinancialTransactionEntity transaction = previous.get();
+            if (!roomId.equals(transaction.getRoomId()) || !"CLASS_FUND_ADDITION".equals(transaction.getTransactionType())) {
+                throw conflict("IDEMPOTENCY_KEY_REUSED", "같은 요청 키를 다른 요청에 사용할 수 없습니다.");
+            }
+            return fundOverview(room);
+        }
+        if (voteSessionRepository.findByRoomId(roomId).isPresent()) {
+            throw conflict("FUND_VOTE_ALREADY_PREPARED", "투표를 준비한 뒤에는 공동기금을 추가할 수 없습니다.");
+        }
+
+        AccountEntity fund = accountRepository.findRoomAccountForUpdate(roomId, "CLASS_FUND")
+                .orElseGet(() -> accountRepository.saveAndFlush(AccountEntity.classFund(roomId)));
+        AccountEntity treasury = accountRepository.findRoomAccountForUpdate(roomId, "SYSTEM_TREASURY")
+                .orElseGet(() -> accountRepository.saveAndFlush(AccountEntity.systemTreasury(roomId)));
+        DaySessionEntity session = dayTwoSession(roomId);
+        FinancialTransactionEntity transaction = transactionRepository.save(
+                FinancialTransactionEntity.success(
+                        roomId, session.getId(), null, teacherId, null, "CLASS_FUND_ADDITION", key,
+                        request.reason().trim(), Map.of("amount", request.amount(), "reason", request.reason().trim())
+                )
+        );
+        long treasuryBefore = treasury.getBalance();
+        long fundBefore = fund.getBalance();
+        treasury.changeBy(-request.amount());
+        fund.changeBy(request.amount());
+        entryRepository.saveAll(List.of(
+                FinancialEntryEntity.create(transaction.getId(), treasury, -request.amount(), treasuryBefore, 1),
+                FinancialEntryEntity.create(transaction.getId(), fund, request.amount(), fundBefore, 2)
+        ));
+        room.markEconomicStateChanged();
+        return fundOverview(room);
     }
 
     @Transactional
