@@ -1,5 +1,6 @@
 package com.b201.bibim.global.config;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -73,8 +74,9 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
                 UUID.class,
                 teacherLoginId
         );
-        seedRoom(teacherId);
-        seedStudents();
+        List<DemoStudent> demoStudents = loadDemoStudents();
+        seedRoom(teacherId, demoStudents.size());
+        seedStudents(demoStudents);
         seedRoomRules();
         seedDayOneSession();
         seedDayOneQuiz();
@@ -115,35 +117,55 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
         );
     }
 
-    private void seedRoom(UUID teacherId) {
+    private List<DemoStudent> loadDemoStudents() {
+        return jdbcTemplate.query("""
+                SELECT participant_number, role_name
+                FROM student_role_catalog
+                ORDER BY participant_number
+                """, (resultSet, rowNumber) -> new DemoStudent(
+                resultSet.getInt("participant_number"),
+                resultSet.getString("role_name")
+        ));
+    }
+
+    private void seedRoom(UUID teacherId, int expectedStudentCount) {
         jdbcTemplate.update("""
                 INSERT INTO rooms (
                     id, teacher_id, name, expected_student_count, status,
                     current_day, current_stage, mode, version, sync_version
                 )
-                VALUES (?, ?, '체험용 경제교실', 3, 'DAY1_ACTIVE', 1, 'DAY1_LOBBY', 'GUIDED', 0, 0)
-                ON CONFLICT (id) DO NOTHING
+                VALUES (?, ?, '체험용 경제교실', ?, 'DAY1_ACTIVE', 1, 'DAY1_LOBBY', 'GUIDED', 0, 0)
+                ON CONFLICT (id) DO UPDATE SET
+                    expected_student_count = EXCLUDED.expected_student_count,
+                    updated_at = CURRENT_TIMESTAMP
                 """,
                 DEMO_ROOM_ID,
-                teacherId
+                teacherId,
+                expectedStudentCount
         );
     }
 
-    private void seedStudents() {
-        for (int number = 1; number <= 3; number += 1) {
-            UUID studentId = UUID.fromString("30000000-0000-0000-0000-00000000000" + number);
-            String participationCode = "ECO-0" + number;
+    private void seedStudents(List<DemoStudent> demoStudents) {
+        for (DemoStudent student : demoStudents) {
+            int number = student.participantNumber();
+            UUID studentId = UUID.fromString("30000000-0000-0000-0000-%012d".formatted(number));
+            String participationCode = "ECO-%02d".formatted(number);
             jdbcTemplate.update("""
                     INSERT INTO students (
-                        id, room_id, participant_number, participation_code, status
+                        id, room_id, participant_number, participation_code, role_name, status
                     )
-                    VALUES (?, ?, ?, ?, 'INVITED')
-                    ON CONFLICT (participation_code) DO NOTHING
+                    VALUES (?, ?, ?, ?, ?, 'INVITED')
+                    ON CONFLICT (participation_code) DO UPDATE SET
+                        role_name = COALESCE(students.role_name, EXCLUDED.role_name),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE students.room_id = EXCLUDED.room_id
+                      AND students.participant_number = EXCLUDED.participant_number
                     """,
                     studentId,
                     DEMO_ROOM_ID,
                     number,
-                    participationCode
+                    participationCode,
+                    student.roleName()
             );
         }
     }
@@ -358,6 +380,9 @@ public class LocalDemoDataInitializer implements ApplicationRunner {
             String correctAnswer,
             String explanation
     ) {
+    }
+
+    private record DemoStudent(int participantNumber, String roleName) {
     }
 
     private record DemoProduct(String name, String description, long price, int stock) {

@@ -36,12 +36,39 @@ describe('PayslipStageView', () => {
 
     expect(settlementApi.getDay1Payslip).toHaveBeenCalledOnce()
     expect(wrapper.text()).toContain('받은 돈과 세금을 확인해요')
-    expect(wrapper.text()).toContain('라이츄 소득')
+    expect(wrapper.text()).toContain('라이츄 월급')
+    expect(wrapper.text()).not.toContain('라이츄 소득')
     expect(wrapper.text()).toContain('3문제')
     expect(wrapper.text()).not.toContain('퀴즈 참여수당')
     expect(wrapper.text()).toContain('내 지갑 기록에 저장됐어요')
     expect(wrapper.text()).toContain('165비빔')
     expect(wrapper.text()).toContain('16비빔')
     expect(wrapper.text()).toContain('149비빔')
+  })
+
+  it('shows a salary fallback when no role name is assigned', async () => {
+    settlementApi.getDay1Payslip.mockResolvedValueOnce({
+      settlementRunId: 'run-1',
+      studentId: 'student-1',
+      participantNumber: 18,
+      nickname: '비빔이',
+      roleName: null,
+      quizSubmitted: true,
+      correctCount: 3,
+      roleIncome: 150,
+      participationReward: 0,
+      correctReward: 15,
+      grossIncome: 165,
+      incomeTax: 16,
+      netIncome: 149,
+      walletBalance: 149,
+      issuedAt: '2026-07-16T00:00:00Z',
+    })
+
+    const wrapper = mount(PayslipStageView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1인1역 월급')
+    expect(wrapper.text()).not.toContain('1인1역 소득')
   })
 })
