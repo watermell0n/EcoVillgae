@@ -63,6 +63,12 @@ describe('SettlementStageView', () => {
     expect(wrapper.text()).not.toContain('해설')
     expect(wrapper.text()).not.toContain('소득이 생기면 소득세를 내요.')
     expect(wrapper.text()).toContain('퀴즈 결과를 함께 확인하는 시간이에요.')
+    expect(wrapper.get('.day1-quiz-result-stage').classes()).toContain('has-fixed-notice')
+
+    await wrapper.get('button[aria-label="안내 닫기"]').trigger('click')
+
+    expect(wrapper.find('.settlement-wait-card').exists()).toBe(false)
+    expect(wrapper.get('.day1-quiz-result-stage').classes()).not.toContain('has-fixed-notice')
   })
 
   it('offers retry when the result cannot be loaded', async () => {
@@ -77,6 +83,36 @@ describe('SettlementStageView', () => {
     expect(quizApi.getDayOneQuizResult).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('정답 확인')
     expect(wrapper.text()).not.toContain('해설')
+  })
+
+  it('renders all ten question cards inside the result detail section', async () => {
+    quizApi.getDayOneQuizResult.mockResolvedValueOnce({
+      quizId: 'quiz-10',
+      title: '열 문제 퀴즈',
+      questionCount: 10,
+      answeredCount: 10,
+      correctCount: 5,
+      questions: Array.from({ length: 10 }, (_, index) => ({
+        questionId: `question-${index + 1}`,
+        orderNo: index + 1,
+        prompt: `${index + 1}번째 문제입니다.`,
+        options: [
+          { id: 'A', text: '첫 번째 답' },
+          { id: 'B', text: '두 번째 답' },
+        ],
+        selectedAnswer: 'A',
+        correctAnswer: index % 2 === 0 ? 'A' : 'B',
+        correct: index % 2 === 0,
+        explanation: '',
+      })),
+    })
+    const wrapper = mount(SettlementStageView)
+    await flushPromises()
+
+    const detail = wrapper.get('.quiz-result-detail')
+    expect(detail.findAll('ol > li')).toHaveLength(10)
+    expect(detail.text()).toContain('문제 10')
+    expect(detail.text()).toContain('10번째 문제입니다.')
   })
 
   it('loads day two results before showing the reward settlement', async () => {

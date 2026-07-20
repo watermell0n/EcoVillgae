@@ -162,7 +162,6 @@ async function confirmSubmit() {
       <p class="eyebrow">퀴즈 준비</p>
       <h1 id="quiz-waiting-title" class="page-title">선생님이 퀴즈를 시작할 때까지 기다려 주세요.</h1>
       <p class="page-description">시작 신호가 오면 이 화면에 문제가 자동으로 나타나요.</p>
-      <button type="button" @click="loadQuiz">지금 확인하기</button>
     </section>
 
     <section v-else-if="closedByTeacher" class="quiz-complete" aria-labelledby="quiz-closed-title">

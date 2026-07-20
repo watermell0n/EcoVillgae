@@ -8,6 +8,7 @@ import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import { useAuthStore } from '../../stores/auth'
 import { useRoomSessionStore } from '../../stores/roomSession'
+import StudentSessionClosedView from './StudentSessionClosedView.vue'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
 
 const route = useRoute()
@@ -23,6 +24,7 @@ const currentPage = ref('CONNECTING')
 const closingCountdown = ref<number | null>(null)
 const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
+const closedDay = ref<1 | 2 | null>(null)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
@@ -111,15 +113,7 @@ watch(
         if (closingCountdown.value === null) return
         closingCountdown.value -= 1
         if (closingCountdown.value <= 0) {
-          if (closingTimer) clearInterval(closingTimer)
-          closingTimer = undefined
-          closingCountdown.value = null
-          if (closingNoticeKind.value === 'DAY2') {
-            sessionClosed.value = true
-            roomSessionStore.stopPolling()
-            stopPresenceReporting()
-          }
-          closingNoticeKind.value = null
+          finishSessionClosing()
         }
       }, 1_000)
     }
@@ -147,6 +141,18 @@ function stopPresenceReporting() {
   }
   document.removeEventListener('visibilitychange', reportPresence)
   presenceRequestInFlight = false
+}
+
+function finishSessionClosing() {
+  const noticeKind = closingNoticeKind.value
+  if (closingTimer) clearInterval(closingTimer)
+  closingTimer = undefined
+  closingCountdown.value = null
+  closedDay.value = noticeKind === 'DAY1' ? 1 : 2
+  sessionClosed.value = true
+  closingNoticeKind.value = null
+  roomSessionStore.stopPolling()
+  stopPresenceReporting()
 }
 
 async function reportPresence() {
@@ -196,9 +202,7 @@ async function advanceCatchUp() {
     <p v-if="loading" class="state-message">수업에 연결하고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
-    <section v-else-if="sessionClosed" class="student-session-closed" role="status">
-      <span aria-hidden="true">🌿</span><h1>수업이 종료되었습니다</h1><p>활동 결과가 안전하게 저장되었어요. 참여해 줘서 고마워요!</p>
-    </section>
+    <StudentSessionClosedView v-else-if="sessionClosed" :day-number="closedDay ?? 2" />
     <template v-else-if="student && state">
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
         <div class="student-context-bar" aria-label="현재 참여 정보">
@@ -206,10 +210,13 @@ async function advanceCatchUp() {
           <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
         </div>
         <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
-          <strong v-if="closingNoticeKind === 'DAY1'">1일차 활동이 끝났어요</strong>
-          <strong v-else>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong>
-          <span v-if="closingNoticeKind === 'DAY1'">결과가 저장됐어요. {{ closingCountdown }}초 뒤 안내가 닫혀요.</span>
-          <span v-else>결과를 저장하고 있어요.</span>
+          <div>
+            <strong v-if="closingNoticeKind === 'DAY1'">1일차 활동이 끝났어요.</strong>
+            <strong v-else>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong>
+            <span v-if="closingNoticeKind === 'DAY1'">{{ closingCountdown }}초 뒤 닫혀요.</span>
+            <span v-else>결과를 저장하고 있어요.</span>
+          </div>
+          <button v-if="closingNoticeKind === 'DAY1'" type="button" aria-label="1일차 종료 안내 닫기" @click="finishSessionClosing">×</button>
         </div>
         <aside v-if="state.flowMode === 'CATCH_UP'" class="catch-up-banner" role="status">
           <div>

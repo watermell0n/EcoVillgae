@@ -27,10 +27,10 @@ const learningStore = useLearningStore()
 const roomSessionStore = useRoomSessionStore()
 const validViews: ActivityView[] = ['HOME', 'SHOP', 'DEPOSIT', 'INVESTMENT', 'KNOWLEDGE', 'WALLET']
 const activeView = ref<ActivityView>(validViews.includes(props.initialView as ActivityView) ? props.initialView as ActivityView : 'HOME')
-const viewHistory = ref<ActivityView[]>([])
 const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
+const depositConfirmationMessage = ref('')
 const investmentConfirmationMessage = ref('')
 const selectedProduct = ref<ShopProduct | null>(null)
 const selectedInvestmentAsset = ref<InvestmentAsset | null>(null)
@@ -53,6 +53,15 @@ const depositUnit = computed(() => deposit.value?.amountUnit ?? 10)
 const investmentMinimum = computed(() => investment.value?.minimumAmount ?? 10)
 const investmentUnit = computed(() => investment.value?.amountUnit ?? 10)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
+const maxPurchasableQuantity = computed(() => {
+  const product = selectedProduct.value
+  if (!product) return 0
+  const walletBalance = catalog.value?.walletBalance ?? 0
+  const walletLimit = product.price > 0
+    ? Math.floor(walletBalance / product.price)
+    : product.currentStock
+  return Math.max(0, Math.min(product.currentStock, walletLimit))
+})
 const reviewPage = computed(() => learningStore.selectedTopic?.pages[reviewPageIndex.value])
 const expectedDepositInterest = computed(() => Math.round(
   depositPrincipal.value * (deposit.value?.interestRateBps ?? 0) / 10_000,
@@ -193,19 +202,13 @@ function stopShopSync() {
   }
 }
 
-function openActivity(view: ActivityView, remember = true) {
-  if (remember && view !== activeView.value) viewHistory.value.push(activeView.value)
+function openActivity(view: ActivityView) {
   activeView.value = view
   selectedInvestmentAsset.value = null
   errorMessage.value = ''
   noticeMessage.value = ''
   if (view === 'DEPOSIT') resetDepositPrincipal(depositPrincipal.value)
   if (view === 'INVESTMENT') clampInvestmentAllocations()
-}
-
-function goBack() {
-  const previous = viewHistory.value.pop()
-  openActivity(previous ?? 'HOME', false)
 }
 
 function openInvestmentDetail(asset: InvestmentAsset) {
@@ -333,7 +336,8 @@ async function cancelDeposit() {
 async function confirmDeposit() {
   try {
     const result = await economyStore.finalizeDeposit()
-    noticeMessage.value = result?.replayed
+    noticeMessage.value = ''
+    depositConfirmationMessage.value = result?.replayed
       ? '이미 완료된 예금 결과를 불러왔어요.'
       : '예금을 확정했어요. 원금이 예금 계정으로 이동했습니다.'
     resetDepositPrincipal()
@@ -419,8 +423,10 @@ function closePurchase() {
 
 function changeQuantity(amount: number) {
   if (!selectedProduct.value) return
+  const maximum = maxPurchasableQuantity.value
+  if (maximum < 1) return
   quantity.value = Math.min(
-    selectedProduct.value.currentStock,
+    maximum,
     Math.max(1, quantity.value + amount),
   )
 }
@@ -513,7 +519,6 @@ function formatPurchasedAt(value: string) {
     <template v-else-if="overview && catalog && investment && deposit">
       <div class="economy-sticky-controls">
       <header class="economy-header">
-        <button v-if="activeView !== 'HOME'" class="button-secondary" type="button" @click="goBack">← 이전 화면</button>
         <div>
           <p class="eyebrow">1일차 자유 경제활동</p>
           <h1>{{ activeView === 'HOME' ? '내 비빔을 어떻게 사용할까요?' : activityCards.find((item) => item.id === activeView)?.title }}</h1>
@@ -720,43 +725,14 @@ function formatPurchasedAt(value: string) {
           </div>
         </div>
         <p class="investment-screen__note">💡 예상 결과는 과거 데이터와 시장 상황을 바탕으로 한 예측 범위예요.</p>
-        <section class="finance-history-card investment-screen__history" aria-labelledby="investment-history-title">
-          <div class="finance-history-card__header">
-            <div><p class="eyebrow">확정 내역</p><h2 id="investment-history-title">누적 투자 내역</h2></div>
-            <strong>{{ economyStore.investmentHistory.length }}건</strong>
-          </div>
+        <section class="investment-confirmed-history" aria-label="투자 확정 내역">
+          <p class="eyebrow">확정 내역</p>
           <p v-if="economyStore.investmentHistory.length === 0" class="finance-history-card__empty">아직 확정한 투자가 없어요.</p>
-          <div v-else class="finance-history-card__scroll" tabindex="0" aria-label="투자 확정 내역 목록">
-            <ol class="finance-history-list">
-              <li v-for="item in economyStore.investmentHistory" :key="item.orderId">
-                <div class="finance-history-list__title">
-                  <strong>총 {{ formatBibim(item.totalAmount) }}</strong>
-                  <time :datetime="item.confirmedAt">{{ formatPurchasedAt(item.confirmedAt) }}</time>
-                </div>
-                <ul class="investment-history-allocations">
-                  <li v-for="allocation in item.allocations" :key="allocation.assetId">
-                    <span :class="`risk-badge risk-badge--${allocation.riskLevel.toLowerCase()}`">{{ riskLabel(allocation.riskLevel) }}</span>
-                    <strong>{{ allocation.assetName }}</strong>
-                    <span>{{ formatBibim(allocation.amount) }}</span>
-                  </li>
-                </ul>
-              </li>
-            </ol>
+          <div v-else class="investment-confirmed-history__line">
+            <strong>✓ 누적 투자 {{ economyStore.investmentHistory.length }}건</strong>
+            <span v-for="asset in investmentHistorySummary.assets" :key="asset.assetId">{{ asset.assetName }} {{ formatBibim(asset.amount) }}</span>
+            <b>전체 {{ formatBibim(investmentHistorySummary.totalAmount) }}</b>
           </div>
-          <section v-if="economyStore.investmentHistory.length > 0" class="finance-history-summary" aria-labelledby="investment-summary-title">
-            <div class="finance-history-summary__header">
-              <div><p class="eyebrow">누적 합계</p><h3 id="investment-summary-title">종목별 투자금</h3></div>
-              <span>확정 금액 기준</span>
-            </div>
-            <ul class="investment-history-summary-list">
-              <li v-for="asset in investmentHistorySummary.assets" :key="asset.assetId">
-                <span :class="`risk-badge risk-badge--${asset.riskLevel.toLowerCase()}`">{{ riskLabel(asset.riskLevel) }}</span>
-                <strong>{{ asset.assetName }}</strong>
-                <span>{{ formatBibim(asset.amount) }}</span>
-              </li>
-            </ul>
-            <div class="investment-history-summary-total"><span>전체 투자금</span><strong>{{ formatBibim(investmentHistorySummary.totalAmount) }}</strong></div>
-          </section>
         </section>
       </section>
 
@@ -796,7 +772,7 @@ function formatPurchasedAt(value: string) {
     <div v-if="selectedProduct && catalog" class="modal-backdrop">
       <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
         <p class="eyebrow">상품 구매 확인</p><h2 id="purchase-title">{{ selectedProduct.name }} 상품을 구매할까요?</h2>
-        <div class="shop-quantity"><button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button><strong>{{ quantity }}개</strong><button type="button" aria-label="수량 늘리기" :disabled="quantity >= selectedProduct.currentStock" @click="changeQuantity(1)">+</button></div>
+        <div class="shop-quantity"><button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button><strong>{{ quantity }}개</strong><button type="button" aria-label="수량 늘리기" :disabled="quantity >= maxPurchasableQuantity" @click="changeQuantity(1)">+</button></div>
         <p class="confirm-modal__warning">결제 금액 {{ formatBibim(totalPrice) }} · 결제 후 {{ formatBibim(catalog.walletBalance - totalPrice) }}</p>
         <p>구매한 상품은 환불하거나 교환할 수 없어요. 마지막으로 수량과 금액을 확인해 주세요.</p>
         <div class="confirm-modal__actions"><button class="button-secondary" type="button" :disabled="shopStore.purchasing" @click="closePurchase">취소</button><button type="button" :disabled="shopStore.purchasing || totalPrice > catalog.walletBalance" @click="confirmPurchase">{{ shopStore.purchasing ? '결제 중…' : '구매 확정' }}</button></div>
@@ -828,6 +804,16 @@ function formatPurchasedAt(value: string) {
           <button class="button-secondary" type="button" @click="closeInvestmentDetail">닫기</button>
           <button type="button" :disabled="!canIncreaseInvestment() && investmentAmount(selectedInvestmentAsset.assetId) === 0" @click="chooseInvestmentFromDetail">이 상품에 투자하기</button>
         </footer>
+      </section>
+    </div>
+
+    <div v-if="depositConfirmationMessage" class="modal-backdrop investment-confirmed-backdrop">
+      <section class="confirm-modal investment-confirmed-modal" role="alertdialog" aria-modal="true" aria-labelledby="deposit-confirmed-title">
+        <span class="investment-confirmed-modal__icon" aria-hidden="true">✓</span>
+        <p class="eyebrow">예금 확정 완료</p>
+        <h2 id="deposit-confirmed-title">예금 내역을 저장했어요</h2>
+        <p>{{ depositConfirmationMessage }}</p>
+        <button type="button" @click="depositConfirmationMessage = ''">확인</button>
       </section>
     </div>
 

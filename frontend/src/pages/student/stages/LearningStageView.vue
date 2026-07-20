@@ -47,11 +47,6 @@ async function refresh() {
   }
 }
 
-function displayLearningText(value: string) {
-  return learning.value?.currentPage.topicTitle === '합리적인 소비'
-    ? value.replaceAll(':', '')
-    : value
-}
 </script>
 
 <template>
@@ -79,19 +74,14 @@ function displayLearningText(value: string) {
         <span class="learning-card__icon" aria-hidden="true">{{ learning.currentPage.icon ?? '💡' }}</span>
         <h1>{{ learning.currentPage.title }}</h1>
       </div>
-      <p v-if="isRationalConsumption" class="learning-card__content learning-card__rational-copy">
-        생활에 꼭 필요한 것부터 선택해요. 가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요.
-      </p>
-      <template v-else>
-        <p class="learning-card__content">{{ displayLearningText(learning.currentPage.content) }}</p>
-        <ul v-if="learning.currentPage.keyPoints.length > 0">
-          <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ displayLearningText(point) }}</li>
-        </ul>
-        <aside v-if="learning.currentPage.example" class="learning-card__example">
-          <span>📌 예시</span>
-          <strong>{{ displayLearningText(learning.currentPage.example) }}</strong>
-        </aside>
-      </template>
+      <p class="learning-card__content">{{ learning.currentPage.content }}</p>
+      <ul v-if="learning.currentPage.keyPoints.length > 0">
+        <li v-for="point in learning.currentPage.keyPoints" :key="point">{{ point }}</li>
+      </ul>
+      <aside v-if="learning.currentPage.example" class="learning-card__example">
+        <span>📌 예시</span>
+        <strong>{{ learning.currentPage.example }}</strong>
+      </aside>
     </article>
   </div>
 </template>

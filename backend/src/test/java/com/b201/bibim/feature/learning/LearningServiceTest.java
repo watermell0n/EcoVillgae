@@ -92,6 +92,31 @@ class LearningServiceTest {
     }
 
     @Test
+    void returnsBothSmartSpendingPagesWithTheRequestedCopy() {
+        when(room.getCurrentStage()).thenReturn("DAY1_SHOP_GUIDED");
+
+        GuidedLearningResponse response = service.teacherCurrent(teacherId, roomId);
+
+        assertEquals(2, response.pages().size());
+        assertEquals(
+                List.of("필요와 원하는 것을 구분해요", "가격과 재고를 확인해요"),
+                response.pages().stream().map(LearningDto.PageResponse::title).toList()
+        );
+        assertEquals(
+                List.of("생활에 꼭 필요한 것부터 선택해요.", "가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요."),
+                response.pages().get(0).keyPoints()
+        );
+        assertEquals(
+                List.of("재고가 없으면 살 수 없어요.", "한 번의 선택이 다음 소비 기회에 영향을 줘요."),
+                response.pages().get(1).keyPoints()
+        );
+        assertEquals(
+                "연필 2자루의 총가격과 남은 재고를 확인한 뒤 구매를 확정해요.",
+                response.pages().get(1).example()
+        );
+    }
+
+    @Test
     void returnsSixFinancialLearningPagesIncludingInflationInTheRequestedOrder() {
         when(room.getCurrentStage()).thenReturn("DAY1_FINANCE_GUIDED");
 

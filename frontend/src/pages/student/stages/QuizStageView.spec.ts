@@ -97,6 +97,19 @@ describe('QuizStageView', () => {
     expect(wrapper.emitted('completionChange')?.at(-1)).toEqual([false])
   })
 
+  it('waits for the teacher without a manual check button', async () => {
+    quizApi.getCurrentQuiz.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'QUIZ_NOT_OPEN' } } },
+    })
+    const wrapper = mount(QuizStageView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('선생님이 퀴즈를 시작할 때까지 기다려 주세요.')
+    expect(wrapper.text()).not.toContain('지금 확인하기')
+    expect(wrapper.find('.quiz-complete button').exists()).toBe(false)
+  })
+
   it('shows the closed state when the teacher closes an open quiz', async () => {
     const roomSessionStore = useRoomSessionStore()
     roomSessionStore.studentState = {

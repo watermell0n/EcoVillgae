@@ -99,6 +99,29 @@ describe('Day2FinalShopStageView', () => {
     expect(wrapper.get('[role="alertdialog"] button').text()).toBe('확인')
   })
 
+  it('disables quantity increase at the wallet-based purchase limit', async () => {
+    shopApi.getStudentShopProducts.mockResolvedValue({
+      walletBalance: 100,
+      products: [{
+        productId: 'product-1', name: '필통', description: '튼튼한 필통', imageUrl: null,
+        originalPrice: 30, price: 30, initialStock: 10, currentStock: 10,
+        status: 'ON_SALE', displayOrder: 1,
+      }],
+    })
+
+    const wrapper = mount(Day2FinalShopStageView)
+    await flushPromises()
+    await wrapper.get('.shop-product-card button').trigger('click')
+    await flushPromises()
+
+    const increaseButton = wrapper.get('button[aria-label="수량 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+
+    expect(wrapper.get('.shop-quantity strong').text()).toBe('3개')
+    expect(increaseButton.attributes('disabled')).toBeDefined()
+  })
+
   it('shows a purchase notice only in the shop and removes it after three seconds', async () => {
     vi.useFakeTimers()
     shopApi.getStudentShopProducts.mockResolvedValue({

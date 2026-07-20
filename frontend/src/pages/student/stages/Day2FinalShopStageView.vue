@@ -28,6 +28,15 @@ let noticeTimer: ReturnType<typeof setTimeout> | undefined
 const catalog = computed(() => shopStore.studentCatalog)
 const overview = computed(() => economyStore.overview)
 const totalPrice = computed(() => (selectedProduct.value?.price ?? 0) * quantity.value)
+const maxPurchasableQuantity = computed(() => {
+  const product = selectedProduct.value
+  if (!product) return 0
+  const walletBalance = catalog.value?.walletBalance ?? 0
+  const walletLimit = product.price > 0
+    ? Math.floor(walletBalance / product.price)
+    : product.currentStock
+  return Math.max(0, Math.min(product.currentStock, walletLimit))
+})
 
 onMounted(async () => {
   await refresh()
@@ -133,6 +142,12 @@ async function openPurchase(product: ShopProduct) {
 function closePurchase() {
   selectedProduct.value = null
   quantity.value = 1
+}
+
+function changeQuantity(amount: number) {
+  const maximum = maxPurchasableQuantity.value
+  if (!selectedProduct.value || maximum < 1) return
+  quantity.value = Math.min(maximum, Math.max(1, quantity.value + amount))
 }
 
 async function confirmPurchase() {
@@ -265,9 +280,9 @@ function formatPurchasedAt(value: string) {
         <p class="eyebrow">최종 구매 확인</p>
         <h2 id="day2-purchase-title">{{ selectedProduct.name }}을 구매할까요?</h2>
         <div class="shop-quantity">
-          <button type="button" :disabled="quantity <= 1" @click="quantity -= 1">−</button>
+          <button type="button" aria-label="수량 줄이기" :disabled="quantity <= 1" @click="changeQuantity(-1)">−</button>
           <strong>{{ quantity }}개</strong>
-          <button type="button" :disabled="quantity >= selectedProduct.currentStock" @click="quantity += 1">+</button>
+          <button type="button" aria-label="수량 늘리기" :disabled="quantity >= maxPurchasableQuantity" @click="changeQuantity(1)">+</button>
         </div>
         <p class="confirm-modal__warning">결제 {{ formatBibim(totalPrice) }} · 남은 돈 {{ formatBibim(catalog.walletBalance - totalPrice) }}</p>
         <div class="confirm-modal__actions">

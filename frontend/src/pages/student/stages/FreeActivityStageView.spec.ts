@@ -205,7 +205,7 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.text()).toContain('돈을 맡기고 이자를 받아요.')
   })
 
-  it('returns to the immediately previous activity instead of resetting every back action', async () => {
+  it('navigates activities without rendering a previous-screen button', async () => {
     const wrapper = mount(FreeActivityStageView)
     await flushPromises()
 
@@ -213,11 +213,25 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.find('.shop-product-grid').exists()).toBe(true)
     await openTab(wrapper, '예금')
     expect(wrapper.find('.finance-activity-panel').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('이전 화면')
+    expect(wrapper.find('.economy-header > button').exists()).toBe(false)
+  })
 
-    await wrapper.get('.economy-header > button').trigger('click')
+  it('disables quantity increase at the wallet-based purchase limit', async () => {
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
 
-    expect(wrapper.find('.shop-product-grid').exists()).toBe(true)
-    expect(wrapper.find('.finance-activity-panel').exists()).toBe(false)
+    await openTab(wrapper, '상점')
+    await wrapper.get('.shop-product-card button').trigger('click')
+    await flushPromises()
+
+    const increaseButton = wrapper.get('button[aria-label="수량 늘리기"]')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+    await increaseButton.trigger('click')
+
+    expect(wrapper.get('.shop-quantity strong').text()).toBe('4개')
+    expect(increaseButton.attributes('disabled')).toBeDefined()
   })
 
   it('saves and confirms a deposit draft', async () => {
@@ -253,7 +267,11 @@ describe('FreeActivityStageView', () => {
     await flushPromises()
 
     expect(economyApi.confirmDeposit).toHaveBeenCalledWith(expect.any(String))
-    expect(wrapper.text()).toContain('예금을 확정했어요')
+    const confirmation = wrapper.get('[role="alertdialog"]')
+    expect(confirmation.text()).toContain('예금 내역을 저장했어요')
+    expect(confirmation.text()).toContain('예금을 확정했어요')
+    await confirmation.get('button').trigger('click')
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
   })
 
   it('allows another deposit after a previous deposit was confirmed', async () => {
@@ -449,8 +467,11 @@ describe('FreeActivityStageView', () => {
 
     expect(wrapper.get('[role="alertdialog"]').text()).toContain('투자 내역을 저장했어요')
     expect(wrapper.text()).not.toContain('✓ 지금까지')
-    expect(wrapper.get('#investment-history-title').text()).toBe('누적 투자 내역')
-    expect(wrapper.get('[aria-labelledby="investment-summary-title"]').text()).toContain('안심 채권20비빔')
+    const history = wrapper.get('.investment-confirmed-history')
+    expect(history.text()).toContain('누적 투자 1건')
+    expect(history.text()).toContain('안심 채권 20비빔')
+    expect(history.text()).toContain('전체 20비빔')
+    expect(wrapper.find('.investment-history-summary-list').exists()).toBe(false)
     await wrapper.get('[role="alertdialog"] button').trigger('click')
     expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
   })
@@ -487,7 +508,7 @@ describe('FreeActivityStageView', () => {
     expect(increaseButton.attributes('disabled')).toBeDefined()
   })
 
-  it('keeps confirmed histories scrollable and shows their accumulated summaries', async () => {
+  it('keeps deposit history detailed and renders investment history as one flat summary line', async () => {
     economyApi.getDepositHistory.mockResolvedValue([
       {
         depositId: 'deposit-1',
@@ -542,13 +563,13 @@ describe('FreeActivityStageView', () => {
     expect(depositSummary.text()).toContain('만기 예상105비빔')
 
     await openTab(wrapper, '투자')
-    expect(wrapper.text()).toContain('누적 투자 내역')
-    const investmentScroll = wrapper.get('[aria-label="투자 확정 내역 목록"]')
-    expect(investmentScroll.attributes('tabindex')).toBe('0')
-    const investmentSummary = wrapper.get('[aria-labelledby="investment-summary-title"]')
-    expect(investmentSummary.text()).toContain('거북이 상사40비빔')
-    expect(investmentSummary.text()).toContain('독수리 테크10비빔')
-    expect(investmentSummary.text()).toContain('호랑이 운송10비빔')
-    expect(investmentSummary.text()).toContain('전체 투자금60비빔')
+    const investmentHistory = wrapper.get('.investment-confirmed-history')
+    expect(investmentHistory.text()).toContain('누적 투자 2건')
+    expect(investmentHistory.text()).toContain('거북이 상사 40비빔')
+    expect(investmentHistory.text()).toContain('독수리 테크 10비빔')
+    expect(investmentHistory.text()).toContain('호랑이 운송 10비빔')
+    expect(investmentHistory.text()).toContain('전체 60비빔')
+    expect(wrapper.find('[aria-label="투자 확정 내역 목록"]').exists()).toBe(false)
+    expect(wrapper.find('.investment-history-summary-list').exists()).toBe(false)
   })
 })

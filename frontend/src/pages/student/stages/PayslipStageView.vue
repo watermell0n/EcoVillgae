@@ -44,7 +44,6 @@ function formatBibim(amount: number) {
             <small>1일차 · 학급 경제 수업</small>
           </div>
           <div class="payslip-line"><span>{{ payslip.roleName ? `${payslip.roleName} 소득` : '1인1역 소득' }}</span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
-          <div class="payslip-line"><span>퀴즈 참여수당</span><strong>+{{ formatBibim(payslip.participationReward) }}</strong></div>
           <div class="payslip-line"><span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제</small></span><strong>+{{ formatBibim(payslip.correctReward) }}</strong></div>
           <div class="payslip-line payslip-line--subtotal"><span>총소득</span><strong>{{ formatBibim(payslip.grossIncome) }}</strong></div>
           <div class="payslip-line payslip-line--tax"><span>소득세 <small>공동기금으로 이동해요</small></span><strong>−{{ formatBibim(payslip.incomeTax) }}</strong></div>

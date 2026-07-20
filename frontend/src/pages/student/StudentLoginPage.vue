@@ -13,6 +13,21 @@ const password = ref('')
 const submitting = ref(false)
 const errorMessage = ref('')
 
+function removePasswordWhitespace(value: string) {
+  return value.replace(/\s/g, '')
+}
+
+function handlePasswordInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const sanitizedPassword = removePasswordWhitespace(input.value)
+  input.value = sanitizedPassword
+  password.value = sanitizedPassword
+}
+
+function preventSpaceInput(event: KeyboardEvent) {
+  if (event.key === ' ') event.preventDefault()
+}
+
 onMounted(async () => {
   if (!entry.value || entry.value.requiredAction !== 'LOGIN') {
     await router.replace({ name: 'student-join' })
@@ -22,6 +37,7 @@ onMounted(async () => {
 async function submit() {
   submitting.value = true
   errorMessage.value = ''
+  password.value = removePasswordWhitespace(password.value)
 
   try {
     const student = await authStore.loginStudent(password.value)
@@ -47,11 +63,13 @@ async function submit() {
         <label>
           <span>비밀번호</span>
           <input
-            v-model="password"
+            :value="password"
             type="password"
             maxlength="30"
             autocomplete="current-password"
             required
+            @input="handlePasswordInput"
+            @keydown="preventSpaceInput"
           />
         </label>
 

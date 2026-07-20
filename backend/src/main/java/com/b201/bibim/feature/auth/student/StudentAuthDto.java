@@ -27,6 +27,7 @@ public final class StudentAuthDto {
             String nickname,
             @NotBlank(message = "비밀번호를 입력해 주세요.")
             @Size(min = 4, max = 30, message = "비밀번호는 4~30자로 입력해 주세요.")
+            @Pattern(regexp = "\\S+", message = "비밀번호에는 공백을 사용할 수 없습니다.")
             String password
     ) {
     }
@@ -37,6 +38,7 @@ public final class StudentAuthDto {
             String participationCode,
             @NotBlank(message = "비밀번호를 입력해 주세요.")
             @Size(max = 30, message = "비밀번호가 너무 깁니다.")
+            @Pattern(regexp = "\\S+", message = "비밀번호에는 공백을 사용할 수 없습니다.")
             String password
     ) {
     }

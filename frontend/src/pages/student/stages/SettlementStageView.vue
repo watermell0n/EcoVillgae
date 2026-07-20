@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<{
 const result = ref<StudentQuizResult | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const showWaitNotice = ref(true)
 
 const incorrectCount = computed(() => {
   if (!result.value) return 0
@@ -59,7 +60,7 @@ function resultLabel(question: QuizResultQuestion) {
 </script>
 
 <template>
-  <div class="day1-quiz-result-stage">
+  <div class="day1-quiz-result-stage" :class="{ 'has-fixed-notice': showWaitNotice }">
     <p v-if="loading" class="state-message">퀴즈 결과를 채점하고 있습니다.</p>
 
     <div v-else-if="errorMessage || !result" class="quiz-load-error" role="alert">
@@ -126,13 +127,14 @@ function resultLabel(question: QuizResultQuestion) {
         </ol>
       </section>
 
-      <aside class="settlement-wait-card">
+      <aside v-if="showWaitNotice" class="settlement-wait-card" role="status">
         <span aria-hidden="true">⌛</span>
         <div>
           <strong>지금은 퀴즈 결과를 함께 확인하는 시간이에요.</strong>
           <p v-if="props.dayNumber === 1">결과 확인이 끝나면 선생님이 역할 기본 월급, 퀴즈 정답수당과 소득세 10%를 계산해요.</p>
           <p v-else>결과 확인이 끝나면 선생님이 문제당 5비빔의 정답수당과 소득세 10%를 계산해요.</p>
         </div>
+        <button class="settlement-wait-card__close" type="button" aria-label="안내 닫기" @click="showWaitNotice = false">×</button>
         <div v-if="props.dayNumber === 1" class="settlement-formula" aria-label="실수령액 계산식">
           <span>역할 기본 월급 + 퀴즈 정답수당</span>
           <strong>− 소득세</strong>

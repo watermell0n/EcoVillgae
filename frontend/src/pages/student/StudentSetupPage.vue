@@ -15,6 +15,29 @@ const passwordConfirmation = ref('')
 const submitting = ref(false)
 const errorMessage = ref('')
 
+function removePasswordWhitespace(value: string) {
+  return value.replace(/\s/g, '')
+}
+
+function sanitizePasswordInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const sanitizedPassword = removePasswordWhitespace(input.value)
+  input.value = sanitizedPassword
+  return sanitizedPassword
+}
+
+function handlePasswordInput(event: Event) {
+  password.value = sanitizePasswordInput(event)
+}
+
+function handlePasswordConfirmationInput(event: Event) {
+  passwordConfirmation.value = sanitizePasswordInput(event)
+}
+
+function preventSpaceInput(event: KeyboardEvent) {
+  if (event.key === ' ') event.preventDefault()
+}
+
 onMounted(async () => {
   if (!entry.value || entry.value.requiredAction !== 'SETUP') {
     await router.replace({ name: 'student-join' })
@@ -23,6 +46,12 @@ onMounted(async () => {
 
 async function submit() {
   errorMessage.value = ''
+  password.value = removePasswordWhitespace(password.value)
+  passwordConfirmation.value = removePasswordWhitespace(passwordConfirmation.value)
+  if (password.value.length < 4) {
+    errorMessage.value = '비밀번호는 공백을 제외하고 4자 이상 입력해 주세요.'
+    return
+  }
   if (password.value !== passwordConfirmation.value) {
     errorMessage.value = '비밀번호 확인이 일치하지 않습니다.'
     return
@@ -57,23 +86,27 @@ async function submit() {
         <label>
           <span>비밀번호</span>
           <input
-            v-model="password"
+            :value="password"
             type="password"
             minlength="4"
             maxlength="30"
             autocomplete="new-password"
             required
+            @input="handlePasswordInput"
+            @keydown="preventSpaceInput"
           />
         </label>
         <label>
           <span>비밀번호 확인</span>
           <input
-            v-model="passwordConfirmation"
+            :value="passwordConfirmation"
             type="password"
             minlength="4"
             maxlength="30"
             autocomplete="new-password"
             required
+            @input="handlePasswordConfirmationInput"
+            @keydown="preventSpaceInput"
           />
         </label>
 

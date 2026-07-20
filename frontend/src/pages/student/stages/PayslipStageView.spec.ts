@@ -38,7 +38,7 @@ describe('PayslipStageView', () => {
     expect(wrapper.text()).toContain('받은 돈과 세금을 확인해요')
     expect(wrapper.text()).toContain('라이츄 소득')
     expect(wrapper.text()).toContain('3문제')
-    expect(wrapper.text()).toContain('퀴즈 참여수당')
+    expect(wrapper.text()).not.toContain('퀴즈 참여수당')
     expect(wrapper.text()).toContain('내 지갑 기록에 저장됐어요')
     expect(wrapper.text()).toContain('165비빔')
     expect(wrapper.text()).toContain('16비빔')
