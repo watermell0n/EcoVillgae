@@ -178,6 +178,13 @@ public class TeacherClassManagementService {
             );
         }
 
+        for (UUID productId : request.discontinuedProductIds()) {
+            ProductEntity product = productRepository.findById(productId)
+                    .filter(item -> item.getRoomId().equals(roomId))
+                    .orElseThrow(() -> notFound("상점 상품을 찾을 수 없습니다."));
+            product.discontinue();
+        }
+
         room.markEconomicStateChanged();
         return response(room, rules);
     }
@@ -271,6 +278,7 @@ public class TeacherClassManagementService {
                         asset.getMaxReturnBps(), asset.getDisplayOrder()
                 )).toList();
         var products = productRepository.findAllByRoomIdOrderByDisplayOrder(room.getId()).stream()
+                .filter(product -> !"DISCONTINUED".equals(product.getStatus()))
                 .map(product -> new TeacherClassManagementDto.ShopProduct(
                         product.getId(), product.getName(), product.getDescription(),
                         product.getOriginalPrice(), product.getImageUrl(), product.getCurrentStock(), product.getDisplayOrder()

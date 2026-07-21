@@ -55,12 +55,29 @@ async function refresh() {
 }
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
 }
 
-function formatRate(bps: number) {
-  const rate = bps / 100
-  return `${rate > 0 ? '+' : ''}${rate}%`
+function formatSignedBibim(amount: number) {
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  if (normalized === 0) return '0비빔'
+  return `${normalized > 0 ? '+' : '−'}${formatBibim(Math.abs(normalized))}`
+}
+
+function formatDebitBibim(amount: number) {
+  const normalized = Math.abs(Object.is(amount, -0) ? 0 : amount)
+  return normalized === 0 ? '0비빔' : `−${formatBibim(normalized)}`
+}
+
+function allocationResultSentence(allocation: { principal: number; finalValue: number; profit: number }) {
+  if (allocation.profit > 0) {
+    return `${formatBibim(allocation.principal)} 투자 → ${formatBibim(allocation.finalValue)}, ${formatBibim(allocation.profit)} 벌었어요.`
+  }
+  if (allocation.profit < 0) {
+    return `${formatBibim(allocation.principal)} 투자 → ${formatBibim(allocation.finalValue)}, ${formatBibim(Math.abs(allocation.profit))} 줄었어요.`
+  }
+  return `${formatBibim(allocation.principal)} 투자 → ${formatBibim(allocation.finalValue)}, 그대로예요.`
 }
 
 function riskLabel(riskLevel: string) {
@@ -113,7 +130,7 @@ function allocationExplanation(returnBps: number) {
           <article><span>계산 전 지갑</span><strong>{{ formatBibim(result.walletBefore) }}</strong></article>
           <article><span>예금 원금</span><strong>{{ formatBibim(result.depositPrincipal) }}</strong><small>이자 +{{ formatBibim(result.depositInterest) }}</small></article>
           <article><span>투자 원금</span><strong>{{ formatBibim(result.investmentPrincipal) }}</strong><small :class="{ 'is-loss': result.investmentProfit < 0 }">손익 {{ result.investmentProfit > 0 ? '+' : '' }}{{ formatBibim(result.investmentProfit) }}</small></article>
-          <article class="is-highlight"><span>계산 후 지갑</span><strong>{{ formatBibim(result.walletAfter) }}</strong><small>금융세 −{{ formatBibim(result.financialTax) }}</small></article>
+          <article class="is-highlight"><span>계산 후 지갑</span><strong>{{ formatBibim(result.walletAfter) }}</strong><small>금융세 {{ formatDebitBibim(result.financialTax) }}</small></article>
         </section>
 
         <template v-if="isGuidedLesson">
@@ -151,8 +168,8 @@ function allocationExplanation(returnBps: number) {
                 <div>
                   <p class="eyebrow">금융세</p>
                   <h3>수익의 일부는 공동체에 기여해요.</h3>
-                  <p>예금 이자와 이익이 난 투자 수익을 합친 금액이 금융세를 계산하는 기준이에요.</p>
-                  <strong>{{ formatBibim(result.taxableProfit) }} 수익 − {{ formatBibim(result.financialTax) }} 세금</strong>
+                  <p>예금에서 생긴 이자와 투자에서 번 돈은 각각 나누어 세금을 계산해요.</p>
+                  <strong>예금 {{ formatBibim(result.depositFinancialTax ?? 0) }} + 투자 {{ formatBibim(result.investmentFinancialTax ?? 0) }}</strong>
                 </div>
               </article>
             </div>
@@ -173,9 +190,10 @@ function allocationExplanation(returnBps: number) {
                   <span>{{ riskLabel(allocation.riskLevel) }}</span>
                 </div>
                 <p>{{ allocationExplanation(allocation.returnBps) }}</p>
+                <strong class="finance-investment-cards__result">{{ allocationResultSentence(allocation) }}</strong>
                 <dl>
-                  <div><dt>수익률</dt><dd :class="{ 'is-loss': allocation.returnBps < 0 }">{{ formatRate(allocation.returnBps) }}</dd></div>
-                  <div><dt>내 손익</dt><dd :class="{ 'is-loss': allocation.profit < 0 }">{{ allocation.profit > 0 ? '+' : '' }}{{ formatBibim(allocation.profit) }}</dd></div>
+                  <div><dt>내 손익</dt><dd :class="{ 'is-loss': allocation.profit < 0 }">{{ formatSignedBibim(allocation.profit) }}</dd></div>
+                  <div><dt>돌려받은 돈</dt><dd>{{ formatBibim(allocation.finalValue) }}</dd></div>
                 </dl>
               </article>
             </div>
@@ -186,36 +204,42 @@ function allocationExplanation(returnBps: number) {
             <ul>
               <li>예금은 약속한 이자를 받기 때문에 결과를 비교적 쉽게 예상할 수 있어요.</li>
               <li>투자는 가격 변화에 따라 이익도, 손실도 생길 수 있어요.</li>
-              <li>수익과 세금을 함께 생각해야 실제로 남는 돈을 알 수 있어요.</li>
+              <li>예금 이자와 투자 이익은 따로 세금을 계산해요.</li>
             </ul>
           </aside>
         </template>
 
         <template v-else>
           <section class="day2-result-breakdown">
-            <div><p class="eyebrow">예금 결과</p><h2>원금과 이자</h2></div>
+            <div><p class="eyebrow">예금 결과</p><h2>맡긴 돈과 받은 이자</h2></div>
             <dl>
               <div><dt>예금 원금</dt><dd>{{ formatBibim(result.depositPrincipal) }}</dd></div>
               <div><dt>받은 이자</dt><dd>+{{ formatBibim(result.depositInterest) }}</dd></div>
-              <div><dt>과세 대상 수익</dt><dd>{{ formatBibim(result.taxableProfit) }}</dd></div>
-              <div><dt>금융세</dt><dd>−{{ formatBibim(result.financialTax) }}</dd></div>
+              <div><dt>예금 금융세</dt><dd>{{ formatDebitBibim(result.depositFinancialTax ?? 0) }}</dd></div>
+              <div><dt>예금으로 늘어난 돈</dt><dd>{{ formatSignedBibim(result.depositInterest - (result.depositFinancialTax ?? 0)) }}</dd></div>
             </dl>
           </section>
 
           <section class="day2-result-breakdown">
-            <div><p class="eyebrow">투자 결과</p><h2>투자처별 수익률과 손익</h2></div>
+            <div><p class="eyebrow">투자 결과</p><h2>투자한 돈이 어떻게 달라졌을까요?</h2></div>
             <p v-if="result.allocations.length === 0" class="state-message">1일차에 확정한 투자가 없습니다.</p>
             <div v-else class="day2-allocation-list">
               <article v-for="allocation in result.allocations" :key="allocation.assetId">
                 <div><strong>{{ allocation.assetName }}</strong><span>{{ riskLabel(allocation.riskLevel) }}</span></div>
+                <p>{{ allocationResultSentence(allocation) }}</p>
                 <dl>
                   <div><dt>원금</dt><dd>{{ formatBibim(allocation.principal) }}</dd></div>
-                  <div><dt>수익률</dt><dd :class="{ 'is-loss': allocation.returnBps < 0 }">{{ formatRate(allocation.returnBps) }}</dd></div>
-                  <div><dt>손익</dt><dd :class="{ 'is-loss': allocation.profit < 0 }">{{ allocation.profit > 0 ? '+' : '' }}{{ formatBibim(allocation.profit) }}</dd></div>
+                  <div><dt>손익</dt><dd :class="{ 'is-loss': allocation.profit < 0 }">{{ formatSignedBibim(allocation.profit) }}</dd></div>
                   <div><dt>평가액</dt><dd>{{ formatBibim(allocation.finalValue) }}</dd></div>
                 </dl>
               </article>
             </div>
+          </section>
+
+          <section class="finance-tax-summary" aria-label="금융세 합계">
+            <div><span>예금 금융세</span><strong>{{ formatBibim(result.depositFinancialTax ?? 0) }}</strong></div>
+            <div><span>투자 금융세</span><strong>{{ formatBibim(result.investmentFinancialTax ?? 0) }}</strong></div>
+            <div class="is-total"><span>전체 금융세</span><strong>{{ formatBibim(result.financialTax) }}</strong></div>
           </section>
         </template>
       </template>

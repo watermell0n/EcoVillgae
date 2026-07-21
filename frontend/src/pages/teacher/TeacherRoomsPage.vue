@@ -15,7 +15,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const showCreateRoom = ref(false)
 const roomName = ref('')
-const expectedStudentCount = ref(3)
+const expectedStudentCount = 24
 const creatingRoom = ref(false)
 const createErrorMessage = ref('')
 const deletingRoomId = ref('')
@@ -54,7 +54,6 @@ function roomStatusTone(status: string): 'success' | 'warning' | 'neutral' {
 
 function openCreateRoom() {
   roomName.value = ''
-  expectedStudentCount.value = 3
   createErrorMessage.value = ''
   showCreateRoom.value = true
 }
@@ -69,7 +68,7 @@ async function submitCreateRoom() {
   creatingRoom.value = true
   createErrorMessage.value = ''
   try {
-    const createdRoom = await createTeacherRoom(roomName.value, expectedStudentCount.value)
+    const createdRoom = await createTeacherRoom(roomName.value, expectedStudentCount)
     await authStore.loadTeacher()
     showCreateRoom.value = false
     await router.push({
@@ -166,7 +165,7 @@ async function removeRoom(roomId: string, name: string) {
       <section class="confirm-modal room-create-modal" role="dialog" aria-modal="true" aria-labelledby="room-create-title">
         <p class="eyebrow">새로운 수업</p>
         <h2 id="room-create-title">수업 방을 만들어요.</h2>
-        <p>방을 만들면 학생 수만큼 개인 참여 코드가 자동으로 생성됩니다.</p>
+          <p>24명의 개인 참여 코드와 번호별 1인1역이 자동으로 생성됩니다.</p>
         <form class="form-stack" @submit.prevent="submitCreateRoom">
           <label>
             <span>방 이름</span>
@@ -178,17 +177,11 @@ async function removeRoom(roomId: string, name: string) {
               required
             />
           </label>
-          <label>
+          <div class="fixed-student-count" role="status">
             <span>학생 인원</span>
-            <input
-              v-model.number="expectedStudentCount"
-              name="expectedStudentCount"
-              type="number"
-              min="1"
-              max="50"
-              required
-            />
-          </label>
+            <strong>24명</strong>
+            <small>등록된 1인1역 명단과 자동으로 연결됩니다.</small>
+          </div>
           <p v-if="createErrorMessage" class="form-error" role="alert">{{ createErrorMessage }}</p>
           <div class="confirm-modal__actions">
             <button class="button-secondary" type="button" :disabled="creatingRoom" @click="closeCreateRoom">

@@ -82,6 +82,73 @@ public final class AdminMonitoringDto {
     ) {
     }
 
+    public record FinanceReportDeposit(
+            UUID depositId,
+            long principal,
+            long expectedInterest,
+            Instant confirmedAt
+    ) {
+    }
+
+    public record FinanceReportInvestmentAllocation(
+            UUID assetId,
+            String assetName,
+            long amount
+    ) {
+    }
+
+    public record FinanceReportInvestment(
+            UUID orderId,
+            long totalAmount,
+            List<FinanceReportInvestmentAllocation> allocations,
+            Instant confirmedAt
+    ) {
+    }
+
+    public record FinanceReportPurchase(
+            UUID purchaseId,
+            UUID productId,
+            String productName,
+            int quantity,
+            long unitPrice,
+            long totalPrice,
+            Instant purchasedAt
+    ) {
+    }
+
+    public record FinanceReportTransaction(
+            UUID transactionId,
+            String transactionType,
+            String description,
+            long walletAmount,
+            Long walletBalanceAfter,
+            Map<String, Object> metadata,
+            Instant occurredAt
+    ) {
+    }
+
+    public record StudentFinanceReport(
+            UUID studentId,
+            int participantNumber,
+            String nickname,
+            long walletBalance,
+            long depositBalance,
+            long investmentBalance,
+            List<FinanceReportDeposit> deposits,
+            List<FinanceReportInvestment> investments,
+            List<FinanceReportPurchase> purchases,
+            List<FinanceReportTransaction> transactions
+    ) {
+    }
+
+    public record RoomFinanceReportResponse(
+            UUID roomId,
+            String roomName,
+            Instant generatedAt,
+            List<StudentFinanceReport> students
+    ) {
+    }
+
     public record SessionTerminationRequest(
             @NotBlank(message = "세션 종료 사유를 입력해 주세요.")
             @Size(max = 200, message = "세션 종료 사유는 200자 이하여야 합니다.")

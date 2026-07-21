@@ -42,6 +42,12 @@ public class FinancialSettlementItemEntity {
     @Column(name = "taxable_profit", nullable = false)
     private long taxableProfit;
 
+    @Column(name = "deposit_financial_tax", nullable = false)
+    private long depositFinancialTax;
+
+    @Column(name = "investment_financial_tax", nullable = false)
+    private long investmentFinancialTax;
+
     @Column(name = "financial_tax", nullable = false)
     private long financialTax;
 
@@ -70,13 +76,16 @@ public class FinancialSettlementItemEntity {
             long investmentProfit,
             long investmentValue,
             long taxableProfit,
+            long depositFinancialTax,
+            long investmentFinancialTax,
             long financialTax,
             long walletAfter
     ) {
         return create(
                 settlementRunId, studentId, walletBefore, depositPrincipal,
                 depositInterest, investmentPrincipal, investmentProfit,
-                investmentValue, taxableProfit, financialTax, walletAfter,
+                investmentValue, taxableProfit, depositFinancialTax,
+                investmentFinancialTax, financialTax, walletAfter,
                 "LIVE", 10_000
         );
     }
@@ -91,6 +100,8 @@ public class FinancialSettlementItemEntity {
             long investmentProfit,
             long investmentValue,
             long taxableProfit,
+            long depositFinancialTax,
+            long investmentFinancialTax,
             long financialTax,
             long walletAfter,
             String attemptType,
@@ -107,6 +118,8 @@ public class FinancialSettlementItemEntity {
         item.investmentProfit = investmentProfit;
         item.investmentValue = investmentValue;
         item.taxableProfit = taxableProfit;
+        item.depositFinancialTax = depositFinancialTax;
+        item.investmentFinancialTax = investmentFinancialTax;
         item.financialTax = financialTax;
         item.walletAfter = walletAfter;
         item.attemptType = attemptType;
@@ -124,6 +137,8 @@ public class FinancialSettlementItemEntity {
     public long getInvestmentProfit() { return investmentProfit; }
     public long getInvestmentValue() { return investmentValue; }
     public long getTaxableProfit() { return taxableProfit; }
+    public long getDepositFinancialTax() { return depositFinancialTax; }
+    public long getInvestmentFinancialTax() { return investmentFinancialTax; }
     public long getFinancialTax() { return financialTax; }
     public long getWalletAfter() { return walletAfter; }
     public String getAttemptType() { return attemptType; }

@@ -69,7 +69,8 @@ onUnmounted(() => {
 })
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
 }
 </script>
 
@@ -116,7 +117,7 @@ function formatBibim(amount: number) {
         <p class="eyebrow">우리 반 공동기금</p>
         <h1 id="student-fund-title" class="page-title">{{ formatBibim(fund.balance) }}</h1>
         <p class="page-description">
-          소득세 {{ formatBibim(fund.totalIncomeTax) }}와 금융세 {{ formatBibim(fund.totalFinancialTax) }}가 모였어요.
+          소득세와 금융세를 합친 {{ formatBibim(fund.totalIncomeTax + fund.totalFinancialTax) }}이 공동기금으로 모였어요.
         </p>
         <p v-if="fund.appliedExpense" class="control-caution">
           {{ fund.appliedExpense.name }} 비용으로 {{ formatBibim(fund.appliedExpense.amount) }}을 함께 사용했습니다.

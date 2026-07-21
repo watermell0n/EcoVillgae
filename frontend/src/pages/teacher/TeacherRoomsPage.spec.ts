@@ -69,11 +69,11 @@ describe('TeacherRoomsPage', () => {
 
     await wrapper.get('.dashboard-title-row button').trigger('click')
     await wrapper.get('input[name="roomName"]').setValue('6학년 3반 경제교실')
-    await wrapper.get('input[name="expectedStudentCount"]').setValue('4')
+    expect(wrapper.text()).toContain('24명의 개인 참여 코드')
     await wrapper.get('.room-create-modal form').trigger('submit')
     await flushPromises()
 
-    expect(roomApi.createTeacherRoom).toHaveBeenCalledWith('6학년 3반 경제교실', 4)
+    expect(roomApi.createTeacherRoom).toHaveBeenCalledWith('6학년 3반 경제교실', 24)
     expect(authApi.getTeacherMe).toHaveBeenCalledTimes(2)
     expect(router.currentRoute.value).toMatchObject({
       name: 'teacher-room-control',

@@ -8,6 +8,7 @@ import AdminDashboardPage from './AdminDashboardPage.vue'
 const adminApi = vi.hoisted(() => ({
   getAdminRooms: vi.fn(),
   getAdminRoomStudents: vi.fn(),
+  getAdminRoomFinanceReport: vi.fn(),
   getAdminStudentActivities: vi.fn(),
   terminateAdminStudentSession: vi.fn(),
 }))
@@ -68,6 +69,16 @@ describe('AdminDashboardPage', () => {
       ],
     })
     adminApi.getAdminStudentActivities.mockResolvedValue([])
+    adminApi.getAdminRoomFinanceReport.mockResolvedValue({
+      roomId: 'room-1',
+      roomName: '6학년 2반',
+      generatedAt: '2026-07-16T00:02:00Z',
+      students: [{
+        studentId: 'student-1', participantNumber: 1, nickname: '비빔이',
+        walletBalance: 120, depositBalance: 30, investmentBalance: 20,
+        deposits: [], investments: [], purchases: [], transactions: [],
+      }],
+    })
   })
 
   it('shows each student connection, current page, and synchronization status', async () => {
@@ -109,6 +120,10 @@ describe('AdminDashboardPage', () => {
     expect(wrapper.text()).toContain('개인 참여 코드')
     expect(wrapper.text()).toContain('ECO-TEST-01')
     expect(wrapper.get('[aria-label="ECO-TEST-01 참여 코드 복사"]').text()).toContain('ECO-TEST-01')
+
+    await rows[0]!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('개인 참여 코드')
 
     wrapper.unmount()
   })

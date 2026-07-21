@@ -30,6 +30,8 @@ class Day2FinanceCalculatorTest {
         assertEquals(1, result.depositInterest());
         assertEquals(1, result.investmentProfit());
         assertEquals(2, result.taxableProfit());
+        assertEquals(0, result.depositFinancialTax());
+        assertEquals(0, result.investmentFinancialTax());
         assertEquals(0, result.financialTax());
         assertEquals(67, result.walletAfter());
     }
@@ -47,6 +49,8 @@ class Day2FinanceCalculatorTest {
         assertEquals(10, result.depositInterest());
         assertEquals(-6, result.investmentProfit());
         assertEquals(10, result.taxableProfit());
+        assertEquals(1, result.depositFinancialTax());
+        assertEquals(0, result.investmentFinancialTax());
         assertEquals(1, result.financialTax());
         assertEquals(233, result.walletAfter());
     }
@@ -95,5 +99,22 @@ class Day2FinanceCalculatorTest {
         assertEquals(4, result.allocations().get(0).profit());
         assertEquals(-5, result.allocations().get(1).profit());
         assertEquals(-1, result.investmentProfit());
+    }
+
+    @Test
+    void calculatesDepositAndInvestmentTaxSeparatelyBeforeAddingThem() {
+        Calculation result = calculator.calculateWithDepositInterest(
+                0,
+                0,
+                5,
+                List.of(new AllocationInput(UUID.randomUUID(), 100, 500)),
+                1_000
+        );
+
+        assertEquals(5, result.depositInterest());
+        assertEquals(5, result.investmentProfit());
+        assertEquals(0, result.depositFinancialTax());
+        assertEquals(0, result.investmentFinancialTax());
+        assertEquals(0, result.financialTax());
     }
 }

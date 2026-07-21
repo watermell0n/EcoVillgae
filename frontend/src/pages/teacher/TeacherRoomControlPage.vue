@@ -96,6 +96,7 @@ const managementView = ref<'PROGRESS' | 'STUDENTS' | 'SETTINGS'>('PROGRESS')
 const pendingStageTarget = ref<string | null>(null)
 const pendingLobbyExitTarget = ref<string | null>(null)
 let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
+let preparationPollingTimer: ReturnType<typeof setInterval> | undefined
 const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
@@ -228,6 +229,7 @@ async function confirmStageMove() {
 }
 
 async function loadTeacherRoom(targetRoomId: string) {
+  stopPreparationPolling()
   roomSessionStore.resetTeacherContext()
   loading.value = true
   errorMessage.value = ''
@@ -239,6 +241,8 @@ async function loadTeacherRoom(targetRoomId: string) {
     await roomSessionStore.refreshTeacher(targetRoomId)
     if (roomId.value !== targetRoomId) return
     roomSessionStore.startTeacherPolling(targetRoomId)
+    await refreshPreparation()
+    startPreparationPolling()
   } catch (error) {
     if (roomId.value !== targetRoomId) return
     if (isUnauthorized(error)) {
@@ -260,6 +264,7 @@ watch(
 )
 
 onUnmounted(() => {
+  stopPreparationPolling()
   roomSessionStore.resetTeacherContext()
   quizStore.stopTeacherSummaryPolling()
   shopStore.stopTeacherSummaryPolling()
@@ -274,12 +279,7 @@ onUnmounted(() => {
 
 watch(
   () => [state.value?.currentStage, state.value?.connectedStudentCount] as const,
-  async ([stage]) => {
-    if (stage !== 'DAY1_LOBBY') {
-      if (!showParticipationCodes.value) preparation.value = null
-      preparationError.value = ''
-      return
-    }
+  async () => {
     await refreshPreparation()
   },
   { immediate: true },
@@ -672,6 +672,20 @@ async function refreshPreparation() {
   return request.promise
 }
 
+function startPreparationPolling() {
+  stopPreparationPolling()
+  preparationPollingTimer = setInterval(() => {
+    void refreshPreparation()
+  }, 5_000)
+}
+
+function stopPreparationPolling() {
+  if (preparationPollingTimer !== undefined) {
+    clearInterval(preparationPollingTimer)
+    preparationPollingTimer = undefined
+  }
+}
+
 async function copyParticipationCode(code: string) {
   const copied = await copyText(code)
   copiedParticipationCode.value = copied ? code : null
@@ -692,7 +706,20 @@ async function openParticipationCodes() {
 function closeParticipationCodes() {
   showParticipationCodes.value = false
   copiedParticipationCode.value = null
-  if (state.value?.currentStage !== 'DAY1_LOBBY') preparation.value = null
+}
+
+function connectionStatusLabel(status: TeacherRoomStudent['connectionStatus']) {
+  if (status === 'ONLINE') return '접속'
+  if (status === 'UNSTABLE') return '불안정'
+  if (status === 'AWAY') return '화면 이탈'
+  if (status === 'OFFLINE') return '끊김'
+  return '미접속'
+}
+
+function connectionStatusTone(status: TeacherRoomStudent['connectionStatus']) {
+  if (status === 'ONLINE') return 'online'
+  if (status === 'UNSTABLE' || status === 'AWAY') return 'warning'
+  return 'offline'
 }
 
 function studentStatusLabel(student: TeacherRoomStudent) {
@@ -1299,14 +1326,15 @@ function moduleTone(moduleState: string) {
                   </li>
                   <li>
                     <span>3</span>
-                    <div><strong>금융 수익에는 세금이 적용됩니다.</strong><small>과세 대상 수익과 실제로 남은 돈을 확인합니다.</small></div>
+                    <div><strong>금융 수익에는 세금이 적용됩니다.</strong><small>예금 금융세와 투자 금융세를 따로 확인합니다.</small></div>
                   </li>
                 </ol>
               </div>
               <dl class="day1-close-totals teacher-finance-lesson__totals">
                 <div><dt>전체 예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
                 <div><dt>전체 투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
-                <div><dt>금융세율</dt><dd>{{ day2FinancePreview.financialTaxBps / 100 }}%</dd></div>
+                <div><dt>예금 금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositFinancialTax ?? 0) }}</dd></div>
+                <div><dt>투자 금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalInvestmentFinancialTax ?? 0) }}</dd></div>
                 <div><dt>정산 후 지갑 합계</dt><dd>{{ formatBibim(day2FinancePreview.totalWalletAfter) }}</dd></div>
               </dl>
             </template>
@@ -1315,7 +1343,9 @@ function moduleTone(moduleState: string) {
                 <div><dt>예금 원금</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositPrincipal) }}</dd></div>
                 <div><dt>예금 이자</dt><dd>+{{ formatBibim(day2FinancePreview.totalDepositInterest) }}</dd></div>
                 <div><dt>투자 손익</dt><dd>{{ day2FinancePreview.totalInvestmentProfit > 0 ? '+' : '' }}{{ formatBibim(day2FinancePreview.totalInvestmentProfit) }}</dd></div>
-                <div><dt>금융세</dt><dd>−{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
+                <div><dt>예금 금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalDepositFinancialTax ?? 0) }}</dd></div>
+                <div><dt>투자 금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalInvestmentFinancialTax ?? 0) }}</dd></div>
+                <div><dt>전체 금융세</dt><dd>{{ formatBibim(day2FinancePreview.totalFinancialTax) }}</dd></div>
               </dl>
               <div class="day2-finance-summary-strip">
                 <span>금융세율 {{ day2FinancePreview.financialTaxBps / 100 }}%</span>
@@ -1926,6 +1956,24 @@ function moduleTone(moduleState: string) {
             </div>
             <p>로그인한 학생이 현재 수업 단계와 동기화됩니다.</p>
           </template>
+          <section v-if="preparation?.students.length" class="teacher-connection-status" aria-label="학생별 접속 상태">
+            <header>
+              <strong>학생 접속 상태</strong>
+              <span>5초마다 갱신</span>
+            </header>
+            <div class="teacher-connection-grid">
+              <article
+                v-for="studentItem in preparation.students"
+                :key="studentItem.studentId"
+                :class="`is-${connectionStatusTone(studentItem.connectionStatus)}`"
+                :title="`${studentItem.participantNumber}번 ${studentItem.nickname ?? '미설정'} · ${connectionStatusLabel(studentItem.connectionStatus)}`"
+              >
+                <b>{{ studentItem.participantNumber }}</b>
+                <span>{{ studentItem.nickname ?? '미설정' }}</span>
+                <small>{{ connectionStatusLabel(studentItem.connectionStatus) }}</small>
+              </article>
+            </div>
+          </section>
           <button
             class="button-secondary participation-code-directory-trigger"
             type="button"

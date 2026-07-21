@@ -53,6 +53,7 @@ export interface TeacherRoomStudent {
   nickname: string | null
   status: string
   online: boolean
+  connectionStatus: 'ONLINE' | 'UNSTABLE' | 'AWAY' | 'OFFLINE' | 'NEVER_CONNECTED'
   lastSeenAt: string | null
 }
 

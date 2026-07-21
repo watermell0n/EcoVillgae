@@ -97,7 +97,8 @@ public final class TeacherClassManagementDto {
             @NotNull @Valid EconomyRules economy,
             @NotNull List<@Valid QuizSettings> quizzes,
             @NotNull List<@Valid InvestmentAsset> investments,
-            @NotNull List<@Valid ShopProduct> products
+            @NotNull List<@Valid ShopProduct> products,
+            @NotNull List<UUID> discontinuedProductIds
     ) {
     }
 

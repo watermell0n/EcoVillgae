@@ -87,6 +87,7 @@ public class ShopService {
                 walletBalance(room.getId(), studentId),
                 productRepository.findAllByRoomIdOrderByDisplayOrder(room.getId())
                         .stream()
+                        .filter(product -> !"DISCONTINUED".equals(product.getStatus()))
                         .map(this::toProductResponse)
                         .toList()
         );

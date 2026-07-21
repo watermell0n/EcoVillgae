@@ -1,17 +1,24 @@
 package com.b201.bibim.feature.room;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizQuestionEntity;
 import com.b201.bibim.domain.quiz.QuizQuestionEntity.QuizOption;
 import com.b201.bibim.domain.quiz.QuizQuestionRepository;
 import com.b201.bibim.domain.quiz.QuizRepository;
+import com.b201.bibim.domain.monitoring.StudentPresenceEntity;
+import com.b201.bibim.domain.monitoring.StudentPresenceRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
@@ -22,6 +29,8 @@ import com.b201.bibim.domain.shop.ProductEntity;
 import com.b201.bibim.domain.shop.ProductRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentRoleCatalogEntity;
+import com.b201.bibim.domain.student.StudentRoleCatalogRepository;
 import com.b201.bibim.feature.room.TeacherRoomManagementDto.CreateRoomRequest;
 import com.b201.bibim.feature.room.TeacherRoomManagementDto.RoomPreparationResponse;
 import com.b201.bibim.feature.room.TeacherRoomManagementDto.StudentPreparationResponse;
@@ -34,9 +43,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TeacherRoomManagementService {
 
+    private static final int FIXED_STUDENT_COUNT = 24;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final char[] CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
     private static final int CODE_RANDOM_LENGTH = 5;
+    private static final Duration ONLINE_THRESHOLD = Duration.ofSeconds(10);
+    private static final Duration OFFLINE_THRESHOLD = Duration.ofSeconds(30);
 
     private static final List<QuestionDefinition> DAY_ONE_QUESTIONS = List.of(
             question(
@@ -169,6 +182,8 @@ public class TeacherRoomManagementService {
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository questionRepository;
     private final ProductRepository productRepository;
+    private final StudentPresenceRepository presenceRepository;
+    private final StudentRoleCatalogRepository studentRoleCatalogRepository;
 
     public TeacherRoomManagementService(
             RoomRepository roomRepository,
@@ -177,7 +192,9 @@ public class TeacherRoomManagementService {
             StudentRepository studentRepository,
             QuizRepository quizRepository,
             QuizQuestionRepository questionRepository,
-            ProductRepository productRepository
+            ProductRepository productRepository,
+            StudentPresenceRepository presenceRepository,
+            StudentRoleCatalogRepository studentRoleCatalogRepository
     ) {
         this.roomRepository = roomRepository;
         this.roomRulesRepository = roomRulesRepository;
@@ -186,22 +203,30 @@ public class TeacherRoomManagementService {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
         this.productRepository = productRepository;
+        this.presenceRepository = presenceRepository;
+        this.studentRoleCatalogRepository = studentRoleCatalogRepository;
     }
 
     @Transactional
     public RoomPreparationResponse create(UUID teacherId, CreateRoomRequest request) {
+        List<StudentRoleCatalogEntity> roleCatalog = studentRoleCatalogRepository
+                .findAllByOrderByParticipantNumber();
+        if (roleCatalog.size() != FIXED_STUDENT_COUNT) {
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "STUDENT_ROLE_CATALOG_INVALID",
+                    "24명의 1인1역 목록을 확인할 수 없습니다."
+            );
+        }
         RoomEntity room = roomRepository.save(RoomEntity.preparing(
                 teacherId,
                 request.name().trim(),
-                request.expectedStudentCount()
+                FIXED_STUDENT_COUNT
         ));
         roomRulesRepository.save(RoomRulesEntity.defaults(room.getId()));
         sessionRepository.save(DaySessionEntity.dayOneReady(room.getId()));
 
-        List<StudentEntity> students = createInvitedStudents(
-                room.getId(),
-                request.expectedStudentCount()
-        );
+        List<StudentEntity> students = createInvitedStudents(room.getId(), roleCatalog);
         studentRepository.saveAll(students);
 
         QuizEntity quiz = quizRepository.save(QuizEntity.dayOneReady(
@@ -239,15 +264,20 @@ public class TeacherRoomManagementService {
         );
     }
 
-    private List<StudentEntity> createInvitedStudents(UUID roomId, int studentCount) {
-        List<StudentEntity> students = new ArrayList<>(studentCount);
+    private List<StudentEntity> createInvitedStudents(
+            UUID roomId,
+            List<StudentRoleCatalogEntity> roleCatalog
+    ) {
+        List<StudentEntity> students = new ArrayList<>(roleCatalog.size());
         Set<String> generatedCodes = new HashSet<>();
-        for (int participantNumber = 1; participantNumber <= studentCount; participantNumber += 1) {
-            students.add(StudentEntity.invited(
+        for (StudentRoleCatalogEntity role : roleCatalog) {
+            StudentEntity student = StudentEntity.invited(
                     roomId,
-                    participantNumber,
+                    role.getParticipantNumber(),
                     nextParticipationCode(generatedCodes)
-            ));
+            );
+            student.assignRoleName(role.getRoleName());
+            students.add(student);
         }
         return students;
     }
@@ -317,6 +347,11 @@ public class TeacherRoomManagementService {
             RoomEntity room,
             List<StudentEntity> students
     ) {
+        Map<UUID, StudentPresenceEntity> presenceByStudent = presenceRepository
+                .findAllByRoomId(room.getId())
+                .stream()
+                .collect(Collectors.toMap(StudentPresenceEntity::getStudentId, Function.identity()));
+        Instant now = Instant.now();
         List<StudentPreparationResponse> studentResponses = students.stream()
                 .map(student -> new StudentPreparationResponse(
                         student.getId(),
@@ -324,12 +359,15 @@ public class TeacherRoomManagementService {
                         student.getParticipationCode(),
                         student.getNickname(),
                         student.getStatus(),
-                        student.isOnline(),
-                        student.getLastSeenAt()
+                        "ONLINE".equals(connectionStatus(presenceByStudent.get(student.getId()), now)),
+                        connectionStatus(presenceByStudent.get(student.getId()), now),
+                        presenceByStudent.containsKey(student.getId())
+                                ? presenceByStudent.get(student.getId()).getLastSeenAt()
+                                : student.getLastSeenAt()
                 ))
                 .toList();
-        long connectedStudentCount = students.stream()
-                .filter(StudentEntity::isOnline)
+        long connectedStudentCount = studentResponses.stream()
+                .filter(student -> "ONLINE".equals(student.connectionStatus()))
                 .count();
         return new RoomPreparationResponse(
                 room.getId(),
@@ -340,6 +378,16 @@ public class TeacherRoomManagementService {
                 room.getCurrentStage(),
                 studentResponses
         );
+    }
+
+    private String connectionStatus(StudentPresenceEntity presence, Instant now) {
+        if (presence == null) return "NEVER_CONNECTED";
+        if (presence.getForcedOfflineAt() != null) return "OFFLINE";
+        Duration elapsed = Duration.between(presence.getLastSeenAt(), now);
+        if (elapsed.compareTo(OFFLINE_THRESHOLD) > 0) return "OFFLINE";
+        if ("HIDDEN".equals(presence.getVisibility())) return "AWAY";
+        if (elapsed.compareTo(ONLINE_THRESHOLD) <= 0) return "ONLINE";
+        return "UNSTABLE";
     }
 
     private static QuestionDefinition question(

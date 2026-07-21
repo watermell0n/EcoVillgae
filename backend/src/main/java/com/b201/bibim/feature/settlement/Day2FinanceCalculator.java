@@ -88,11 +88,17 @@ public class Day2FinanceCalculator {
             investmentProfit = Math.addExact(investmentProfit, result.profit());
         }
         long investmentValue = Math.addExact(investmentPrincipal, investmentProfit);
-        long taxableProfit = Math.addExact(depositInterest, Math.max(investmentProfit, 0));
-        long financialTax = Math.floorDiv(
-                Math.multiplyExact(taxableProfit, financialTaxBps),
+        long investmentTaxableProfit = Math.max(investmentProfit, 0);
+        long taxableProfit = Math.addExact(depositInterest, investmentTaxableProfit);
+        long depositFinancialTax = Math.floorDiv(
+                Math.multiplyExact(depositInterest, financialTaxBps),
                 BASIS_POINTS_DIVISOR
         );
+        long investmentFinancialTax = Math.floorDiv(
+                Math.multiplyExact(investmentTaxableProfit, financialTaxBps),
+                BASIS_POINTS_DIVISOR
+        );
+        long financialTax = Math.addExact(depositFinancialTax, investmentFinancialTax);
         long walletAfter = Math.addExact(
                 walletBefore,
                 Math.subtractExact(
@@ -112,6 +118,8 @@ public class Day2FinanceCalculator {
                 investmentProfit,
                 investmentValue,
                 taxableProfit,
+                depositFinancialTax,
+                investmentFinancialTax,
                 financialTax,
                 walletAfter,
                 allocationResults
@@ -147,6 +155,8 @@ public class Day2FinanceCalculator {
             long investmentProfit,
             long investmentValue,
             long taxableProfit,
+            long depositFinancialTax,
+            long investmentFinancialTax,
             long financialTax,
             long walletAfter,
             List<AllocationResult> allocations

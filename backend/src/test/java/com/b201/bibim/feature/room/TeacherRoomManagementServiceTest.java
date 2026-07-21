@@ -19,6 +19,7 @@ import com.b201.bibim.domain.quiz.QuizEntity;
 import com.b201.bibim.domain.quiz.QuizQuestionEntity;
 import com.b201.bibim.domain.quiz.QuizQuestionRepository;
 import com.b201.bibim.domain.quiz.QuizRepository;
+import com.b201.bibim.domain.monitoring.StudentPresenceRepository;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
@@ -28,6 +29,8 @@ import com.b201.bibim.domain.shop.ProductRepository;
 import com.b201.bibim.domain.shop.ProductEntity;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
+import com.b201.bibim.domain.student.StudentRoleCatalogEntity;
+import com.b201.bibim.domain.student.StudentRoleCatalogRepository;
 import com.b201.bibim.feature.room.TeacherRoomManagementDto.CreateRoomRequest;
 import com.b201.bibim.global.exception.ApiException;
 
@@ -62,6 +65,12 @@ class TeacherRoomManagementServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private StudentPresenceRepository presenceRepository;
+
+    @Mock
+    private StudentRoleCatalogRepository studentRoleCatalogRepository;
+
     @Test
     void createsRoomWithUniqueCodesAndDefaultContent() {
         UUID teacherId = UUID.randomUUID();
@@ -70,6 +79,12 @@ class TeacherRoomManagementServiceTest {
         when(quizRepository.save(any(QuizEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(studentRepository.existsByParticipationCode(anyString())).thenReturn(false);
+        when(studentRoleCatalogRepository.findAllByOrderByParticipantNumber())
+                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 24)
+                        .mapToObj(number -> StudentRoleCatalogEntity.predefined(
+                                number, "1인1역 " + number
+                        ))
+                        .toList());
 
         TeacherRoomManagementService service = service();
         var response = service.create(
@@ -78,13 +93,13 @@ class TeacherRoomManagementServiceTest {
         );
 
         assertEquals("6학년 3반 경제교실", response.name());
-        assertEquals(3, response.expectedStudentCount());
+        assertEquals(24, response.expectedStudentCount());
         assertEquals("PREPARING", response.status());
         assertEquals("DAY1_LOBBY", response.currentStage());
-        assertEquals(3, response.students().size());
+        assertEquals(24, response.students().size());
         assertEquals(0, response.connectedStudentCount());
         assertEquals(
-                3,
+                24,
                 new HashSet<>(response.students().stream()
                         .map(item -> item.participationCode())
                         .toList()).size()
@@ -96,7 +111,10 @@ class TeacherRoomManagementServiceTest {
         ArgumentCaptor<Iterable<StudentEntity>> studentCaptor =
                 ArgumentCaptor.forClass(Iterable.class);
         verify(studentRepository).saveAll(studentCaptor.capture());
-        assertEquals(3, count(studentCaptor.getValue()));
+        assertEquals(24, count(studentCaptor.getValue()));
+        assertTrue(toList(studentCaptor.getValue()).stream()
+                .map(StudentEntity.class::cast)
+                .allMatch(student -> student.getRoleName() != null));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Iterable<QuizQuestionEntity>> questionCaptor =
@@ -199,7 +217,9 @@ class TeacherRoomManagementServiceTest {
                 studentRepository,
                 quizRepository,
                 questionRepository,
-                productRepository
+                productRepository,
+                presenceRepository,
+                studentRoleCatalogRepository
         );
     }
 

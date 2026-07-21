@@ -27,7 +27,8 @@ onMounted(async () => {
 })
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
 }
 </script>
 

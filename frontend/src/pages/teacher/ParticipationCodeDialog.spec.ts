@@ -11,6 +11,7 @@ const students = [
     nickname: '비빔이',
     status: 'ACTIVE',
     online: true,
+    connectionStatus: 'ONLINE' as const,
     lastSeenAt: '2026-07-18T00:00:00Z',
   },
 ]

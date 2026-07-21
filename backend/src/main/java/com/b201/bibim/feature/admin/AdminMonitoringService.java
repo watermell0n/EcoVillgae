@@ -2,6 +2,7 @@ package com.b201.bibim.feature.admin;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -11,6 +12,15 @@ import java.util.stream.Collectors;
 import com.b201.bibim.domain.auth.AuthSessionRepository;
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.finance.FinancialEntryEntity;
+import com.b201.bibim.domain.finance.FinancialEntryRepository;
+import com.b201.bibim.domain.finance.FinancialTransactionEntity;
+import com.b201.bibim.domain.finance.FinancialTransactionRepository;
+import com.b201.bibim.domain.deposit.DepositRepository;
+import com.b201.bibim.domain.investment.InvestmentAllocationRepository;
+import com.b201.bibim.domain.investment.InvestmentAssetEntity;
+import com.b201.bibim.domain.investment.InvestmentAssetRepository;
+import com.b201.bibim.domain.investment.InvestmentOrderRepository;
 import com.b201.bibim.domain.monitoring.ActivityEventEntity;
 import com.b201.bibim.domain.monitoring.ActivityEventRepository;
 import com.b201.bibim.domain.monitoring.StudentPresenceEntity;
@@ -22,9 +32,19 @@ import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.domain.student.StudentFlowStateEntity;
 import com.b201.bibim.domain.student.StudentFlowStateRepository;
 import com.b201.bibim.domain.student.StudentActivityProgressRepository;
+import com.b201.bibim.domain.shop.ProductEntity;
+import com.b201.bibim.domain.shop.ProductRepository;
+import com.b201.bibim.domain.shop.PurchaseRepository;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.ActivityResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomFinanceReportResponse;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.StudentFinanceReport;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.FinanceReportDeposit;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.FinanceReportInvestment;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.FinanceReportInvestmentAllocation;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.FinanceReportPurchase;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.FinanceReportTransaction;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.StudentMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.WalletAdjustmentResponse;
@@ -51,6 +71,14 @@ public class AdminMonitoringService {
     private final AuthSessionRepository authSessionRepository;
     private final StudentFlowStateRepository flowStateRepository;
     private final StudentActivityProgressRepository progressRepository;
+    private final DepositRepository depositRepository;
+    private final InvestmentOrderRepository investmentOrderRepository;
+    private final InvestmentAllocationRepository investmentAllocationRepository;
+    private final InvestmentAssetRepository investmentAssetRepository;
+    private final PurchaseRepository purchaseRepository;
+    private final ProductRepository productRepository;
+    private final FinancialTransactionRepository transactionRepository;
+    private final FinancialEntryRepository entryRepository;
 
     public AdminMonitoringService(
             RoomRepository roomRepository,
@@ -61,7 +89,15 @@ public class AdminMonitoringService {
             AccountRepository accountRepository,
             AuthSessionRepository authSessionRepository,
             StudentFlowStateRepository flowStateRepository,
-            StudentActivityProgressRepository progressRepository
+            StudentActivityProgressRepository progressRepository,
+            DepositRepository depositRepository,
+            InvestmentOrderRepository investmentOrderRepository,
+            InvestmentAllocationRepository investmentAllocationRepository,
+            InvestmentAssetRepository investmentAssetRepository,
+            PurchaseRepository purchaseRepository,
+            ProductRepository productRepository,
+            FinancialTransactionRepository transactionRepository,
+            FinancialEntryRepository entryRepository
     ) {
         this.roomRepository = roomRepository;
         this.studentRepository = studentRepository;
@@ -72,6 +108,14 @@ public class AdminMonitoringService {
         this.authSessionRepository = authSessionRepository;
         this.flowStateRepository = flowStateRepository;
         this.progressRepository = progressRepository;
+        this.depositRepository = depositRepository;
+        this.investmentOrderRepository = investmentOrderRepository;
+        this.investmentAllocationRepository = investmentAllocationRepository;
+        this.investmentAssetRepository = investmentAssetRepository;
+        this.purchaseRepository = purchaseRepository;
+        this.productRepository = productRepository;
+        this.transactionRepository = transactionRepository;
+        this.entryRepository = entryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -121,6 +165,113 @@ public class AdminMonitoringService {
                 .stream()
                 .map(this::toActivityResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public RoomFinanceReportResponse financeReport(UUID roomId) {
+        RoomEntity room = findRoom(roomId);
+        Map<UUID, InvestmentAssetEntity> assets = investmentAssetRepository
+                .findAllByRoomIdOrderByDisplayOrder(roomId)
+                .stream()
+                .collect(Collectors.toMap(InvestmentAssetEntity::getId, Function.identity()));
+        Map<UUID, ProductEntity> products = productRepository
+                .findAllByRoomIdOrderByDisplayOrder(roomId)
+                .stream()
+                .collect(Collectors.toMap(ProductEntity::getId, Function.identity()));
+
+        List<StudentFinanceReport> students = studentRepository
+                .findAllByRoomIdOrderByParticipantNumber(roomId)
+                .stream()
+                .map(student -> studentFinanceReport(room, student, assets, products))
+                .toList();
+        return new RoomFinanceReportResponse(roomId, room.getName(), Instant.now(), students);
+    }
+
+    private StudentFinanceReport studentFinanceReport(
+            RoomEntity room,
+            StudentEntity student,
+            Map<UUID, InvestmentAssetEntity> assets,
+            Map<UUID, ProductEntity> products
+    ) {
+        List<FinanceReportDeposit> deposits = depositRepository.findAllByRoomId(room.getId()).stream()
+                .filter(item -> student.getId().equals(item.getStudentId()))
+                .filter(item -> "CONFIRMED".equals(item.getStatus()))
+                .sorted(Comparator.comparing(item -> item.getConfirmedAt(), Comparator.reverseOrder()))
+                .map(item -> new FinanceReportDeposit(
+                        item.getId(), item.getPrincipal(), item.getExpectedInterest(), item.getConfirmedAt()
+                ))
+                .toList();
+        List<FinanceReportInvestment> investments = investmentOrderRepository
+                .findAllByRoomId(room.getId())
+                .stream()
+                .filter(item -> student.getId().equals(item.getStudentId()))
+                .filter(item -> "CONFIRMED".equals(item.getStatus()))
+                .sorted(Comparator.comparing(item -> item.getConfirmedAt(), Comparator.reverseOrder()))
+                .map(order -> new FinanceReportInvestment(
+                        order.getId(),
+                        order.getTotalAmount(),
+                        investmentAllocationRepository.findAllByOrderId(order.getId()).stream()
+                                .map(allocation -> {
+                                    InvestmentAssetEntity asset = assets.get(allocation.getAssetId());
+                                    return new FinanceReportInvestmentAllocation(
+                                            allocation.getAssetId(),
+                                            asset == null ? "알 수 없는 투자처" : asset.getName(),
+                                            allocation.getAmount()
+                                    );
+                                })
+                                .toList(),
+                        order.getConfirmedAt()
+                ))
+                .toList();
+        List<FinanceReportPurchase> purchases = purchaseRepository
+                .findAllByStudentIdOrderByCreatedAtDesc(student.getId())
+                .stream()
+                .filter(item -> "SUCCESS".equals(item.getStatus()))
+                .map(item -> {
+                    ProductEntity product = products.get(item.getProductId());
+                    return new FinanceReportPurchase(
+                            item.getId(), item.getProductId(),
+                            product == null ? "알 수 없는 상품" : product.getName(),
+                            item.getQuantity(), item.getUnitPrice(), item.getTotalPrice(), item.getCreatedAt()
+                    );
+                })
+                .toList();
+        List<FinanceReportTransaction> transactions = financeTransactions(room.getId(), student.getId());
+
+        return new StudentFinanceReport(
+                student.getId(), student.getParticipantNumber(), student.getNickname(),
+                accountBalance(room.getId(), student.getId(), "STUDENT_WALLET"),
+                accountBalance(room.getId(), student.getId(), "STUDENT_DEPOSIT"),
+                accountBalance(room.getId(), student.getId(), "STUDENT_INVESTMENT"),
+                deposits, investments, purchases, transactions
+        );
+    }
+
+    private List<FinanceReportTransaction> financeTransactions(UUID roomId, UUID studentId) {
+        AccountEntity wallet = accountRepository
+                .findByRoomIdAndStudentIdAndAccountType(roomId, studentId, "STUDENT_WALLET")
+                .orElse(null);
+        return transactionRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream()
+                .map(transaction -> transactionReport(transaction, wallet))
+                .toList();
+    }
+
+    private FinanceReportTransaction transactionReport(
+            FinancialTransactionEntity transaction,
+            AccountEntity wallet
+    ) {
+        List<FinancialEntryEntity> entries = entryRepository
+                .findAllByTransactionIdOrderByEntryOrder(transaction.getId());
+        FinancialEntryEntity walletEntry = wallet == null ? null : entries.stream()
+                .filter(entry -> wallet.getId().equals(entry.getAccountId()))
+                .findFirst()
+                .orElse(null);
+        return new FinanceReportTransaction(
+                transaction.getId(), transaction.getTransactionType(), transaction.getDescription(),
+                walletEntry == null ? 0 : walletEntry.getAmount(),
+                walletEntry == null ? null : walletEntry.getBalanceAfter(),
+                transaction.getMetadata(), transaction.getCreatedAt()
+        );
     }
 
     @Transactional
@@ -312,8 +463,12 @@ public class AdminMonitoringService {
     }
 
     private long walletBalance(UUID roomId, UUID studentId) {
+        return accountBalance(roomId, studentId, "STUDENT_WALLET");
+    }
+
+    private long accountBalance(UUID roomId, UUID studentId, String accountType) {
         return accountRepository
-                .findByRoomIdAndStudentIdAndAccountType(roomId, studentId, "STUDENT_WALLET")
+                .findByRoomIdAndStudentIdAndAccountType(roomId, studentId, accountType)
                 .map(AccountEntity::getBalance)
                 .orElse(0L);
     }

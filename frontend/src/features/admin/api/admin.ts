@@ -66,6 +66,66 @@ export interface AdminActivity {
   occurredAt: string
 }
 
+export interface AdminFinanceDeposit {
+  depositId: string
+  principal: number
+  expectedInterest: number
+  confirmedAt: string
+}
+
+export interface AdminFinanceInvestmentAllocation {
+  assetId: string
+  assetName: string
+  amount: number
+}
+
+export interface AdminFinanceInvestment {
+  orderId: string
+  totalAmount: number
+  allocations: AdminFinanceInvestmentAllocation[]
+  confirmedAt: string
+}
+
+export interface AdminFinancePurchase {
+  purchaseId: string
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  purchasedAt: string
+}
+
+export interface AdminFinanceTransaction {
+  transactionId: string
+  transactionType: string
+  description: string
+  walletAmount: number
+  walletBalanceAfter: number | null
+  metadata: Record<string, unknown>
+  occurredAt: string
+}
+
+export interface AdminStudentFinanceReport {
+  studentId: string
+  participantNumber: number
+  nickname: string | null
+  walletBalance: number
+  depositBalance: number
+  investmentBalance: number
+  deposits: AdminFinanceDeposit[]
+  investments: AdminFinanceInvestment[]
+  purchases: AdminFinancePurchase[]
+  transactions: AdminFinanceTransaction[]
+}
+
+export interface AdminRoomFinanceReport {
+  roomId: string
+  roomName: string
+  generatedAt: string
+  students: AdminStudentFinanceReport[]
+}
+
 export async function getAdminRooms() {
   const response = await http.get<ApiResponse<AdminRoomMonitoring[]>>('/admin/rooms')
   return response.data.data
@@ -81,6 +141,13 @@ export async function getAdminRoomStudents(roomId: string) {
 export async function getAdminStudentActivities(roomId: string, studentId: string) {
   const response = await http.get<ApiResponse<AdminActivity[]>>(
     `/admin/rooms/${roomId}/students/${studentId}/activities`,
+  )
+  return response.data.data
+}
+
+export async function getAdminRoomFinanceReport(roomId: string) {
+  const response = await http.get<ApiResponse<AdminRoomFinanceReport>>(
+    `/admin/rooms/${roomId}/finance-report`,
   )
   return response.data.data
 }

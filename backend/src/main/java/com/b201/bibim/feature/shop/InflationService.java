@@ -42,7 +42,7 @@ public class InflationService {
     public PreviewResponse preview(UUID teacherId, UUID roomId) {
         RoomEntity room = findOwnedRoom(teacherId, roomId);
         ensurePreviewStage(room);
-        return buildPreview(room, rules(roomId), productRepository.findAllByRoomIdOrderByDisplayOrder(roomId));
+        return buildPreview(room, rules(roomId), activeProducts(roomId));
     }
 
     @Transactional
@@ -55,11 +55,13 @@ public class InflationService {
         RoomRulesEntity rules = rules(roomId);
         if (room.getInflationAppliedAt() != null) {
             return new ApplyResponse(
-                    buildPreview(room, rules, productRepository.findAllByRoomIdOrderByDisplayOrder(roomId)),
+                    buildPreview(room, rules, activeProducts(roomId)),
                     true
             );
         }
-        List<ProductEntity> products = productRepository.findAllByRoomIdForUpdate(roomId);
+        List<ProductEntity> products = productRepository.findAllByRoomIdForUpdate(roomId).stream()
+                .filter(product -> !"DISCONTINUED".equals(product.getStatus()))
+                .toList();
         if (products.isEmpty()) {
             throw conflict("PRODUCT_NOT_FOUND", "물가상승을 적용할 상품이 없습니다.");
         }
@@ -94,6 +96,12 @@ public class InflationService {
         return new PreviewResponse(
                 room.getId(), rules.getInflationBps(), applied, room.getInflationAppliedAt(), prices
         );
+    }
+
+    private List<ProductEntity> activeProducts(UUID roomId) {
+        return productRepository.findAllByRoomIdOrderByDisplayOrder(roomId).stream()
+                .filter(product -> !"DISCONTINUED".equals(product.getStatus()))
+                .toList();
     }
 
     private RoomRulesEntity rules(UUID roomId) {

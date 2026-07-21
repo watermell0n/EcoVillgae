@@ -19,7 +19,13 @@ onMounted(async () => {
 })
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
+}
+
+function formatDebitBibim(amount: number) {
+  const normalized = Math.abs(Object.is(amount, -0) ? 0 : amount)
+  return normalized === 0 ? '0비빔' : `−${formatBibim(normalized)}`
 }
 </script>
 
@@ -33,7 +39,6 @@ function formatBibim(amount: number) {
     <template v-else-if="payslip">
       <header class="payslip-header">
         <div><p class="eyebrow">1일차 월급명세서</p><h1>받은 돈과 세금을 확인해요</h1></div>
-        <span>{{ payslip.participantNumber }}번 {{ payslip.nickname }}</span>
       </header>
 
       <div class="payslip-layout">
@@ -46,7 +51,7 @@ function formatBibim(amount: number) {
           <div class="payslip-line"><span>{{ payslip.roleName ? `${payslip.roleName} 월급` : '1인1역 월급' }}</span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
           <div class="payslip-line"><span>퀴즈 정답수당 <small>{{ payslip.correctCount }}문제</small></span><strong>+{{ formatBibim(payslip.correctReward) }}</strong></div>
           <div class="payslip-line payslip-line--subtotal"><span>총소득</span><strong>{{ formatBibim(payslip.grossIncome) }}</strong></div>
-          <div class="payslip-line payslip-line--tax"><span>소득세 <small>공동기금으로 이동해요</small></span><strong>−{{ formatBibim(payslip.incomeTax) }}</strong></div>
+          <div class="payslip-line payslip-line--tax"><span>소득세 <small>공동기금으로 이동해요</small></span><strong>{{ formatDebitBibim(payslip.incomeTax) }}</strong></div>
           <div class="payslip-line payslip-line--total"><span>내 지갑에 들어온 돈</span><strong>{{ formatBibim(payslip.netIncome) }}</strong></div>
         </section>
 

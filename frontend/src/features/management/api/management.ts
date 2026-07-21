@@ -77,10 +77,21 @@ export async function getClassSettings(roomId: string) {
   return response.data.data
 }
 
-export async function saveClassSettings(roomId: string, settings: ClassSettings) {
+export async function saveClassSettings(
+  roomId: string,
+  settings: ClassSettings,
+  discontinuedProductIds: string[] = [],
+) {
   const response = await http.put<ApiResponse<ClassSettings>>(
     `/teacher/rooms/${roomId}/management/settings`,
-    { roomName: settings.roomName, economy: settings.economy, quizzes: settings.quizzes, investments: settings.investments, products: settings.products },
+    {
+      roomName: settings.roomName,
+      economy: settings.economy,
+      quizzes: settings.quizzes,
+      investments: settings.investments,
+      products: settings.products,
+      discontinuedProductIds,
+    },
   )
   return response.data.data
 }

@@ -44,6 +44,7 @@ public final class TeacherRoomManagementDto {
             String nickname,
             String status,
             boolean online,
+            String connectionStatus,
             Instant lastSeenAt
     ) {
     }

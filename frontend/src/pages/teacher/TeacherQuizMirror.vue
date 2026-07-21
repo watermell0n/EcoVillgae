@@ -81,8 +81,8 @@ function moveQuestion(index: number) {
       <p v-if="summary.status === 'READY'" class="teacher-quiz-ready-message">학생 화면은 잠겨 있습니다. 설명을 마쳤다면 퀴즈를 시작하세요.</p>
       <p v-else-if="summary.status === 'OPEN'">접속 학생 기준 · {{ liveCounts.submitted }}명 제출 · {{ liveCounts.inProgress }}명 풀이 중</p>
       <p v-else>퀴즈가 마감되었습니다. 다음 단계로 이동할 수 있습니다.</p>
-      <button v-if="summary.status === 'READY'" class="teacher-quiz-start-button" type="button" @click="emit('open')">퀴즈 시작하기</button>
-      <button v-else-if="summary.status === 'OPEN'" class="button-secondary teacher-quiz-close-button" type="button" @click="emit('close')">퀴즈 마감하기</button>
+      <button v-if="summary.status === 'READY'" class="teacher-quiz-start-button teacher-stage-action" type="button" @click="emit('open')">퀴즈 시작하기</button>
+      <button v-else-if="summary.status === 'OPEN'" class="button-secondary teacher-quiz-close-button teacher-stage-action" type="button" @click="emit('close')">퀴즈 마감하기</button>
     </div>
   </div>
 </template>

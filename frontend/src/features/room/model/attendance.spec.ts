@@ -15,6 +15,7 @@ function student(
     nickname: status === 'ACTIVE' ? `학생${participantNumber}` : null,
     status,
     online,
+    connectionStatus: online ? 'ONLINE' : 'OFFLINE',
     lastSeenAt: null,
   }
 }

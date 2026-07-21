@@ -32,6 +32,7 @@ const errorMessage = ref('')
 const noticeMessage = ref('')
 const depositConfirmationMessage = ref('')
 const investmentConfirmationMessage = ref('')
+const failedProductImageIds = ref(new Set<string>())
 const selectedProduct = ref<ShopProduct | null>(null)
 const selectedInvestmentAsset = ref<InvestmentAsset | null>(null)
 const quantity = ref(1)
@@ -139,6 +140,7 @@ const canSaveInvestment = computed(() =>
 )
 
 onMounted(async () => {
+  window.addEventListener('popstate', handleBrowserBack)
   try {
     await Promise.all([
       economyStore.refreshAll(),
@@ -150,8 +152,9 @@ onMounted(async () => {
     resetInvestmentAllocations()
     const requestedActivity = new URLSearchParams(window.location.search).get('activity')?.toUpperCase()
     if (requestedActivity && ['SHOP', 'DEPOSIT', 'INVESTMENT', 'KNOWLEDGE', 'WALLET'].includes(requestedActivity)) {
-      openActivity(requestedActivity as ActivityView)
+      openActivity(requestedActivity as ActivityView, false)
     }
+    replaceActivityHistory(activeView.value)
     if (activeView.value === 'SHOP') startShopSync()
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '자유 경제활동 정보를 불러오지 못했습니다.')
@@ -161,7 +164,12 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('popstate', handleBrowserBack)
   stopShopSync()
+  selectedProduct.value = null
+  selectedInvestmentAsset.value = null
+  depositConfirmationMessage.value = ''
+  investmentConfirmationMessage.value = ''
   shopStore.clearStudentShop()
   economyStore.clear()
   learningStore.clearReview()
@@ -174,6 +182,17 @@ watch(activeView, (view) => {
     stopShopSync()
   }
 })
+
+watch(
+  () => roomSessionStore.studentState?.syncVersion,
+  (next, previous) => {
+    if (previous === undefined || next === previous) return
+    activeView.value = 'HOME'
+    selectedProduct.value = null
+    selectedInvestmentAsset.value = null
+    replaceActivityHistory('HOME')
+  },
+)
 
 async function syncShopAvailability() {
   if (shopSyncPromise) return shopSyncPromise
@@ -202,13 +221,47 @@ function stopShopSync() {
   }
 }
 
-function openActivity(view: ActivityView) {
+function openActivity(view: ActivityView, recordHistory = true) {
+  if (activeView.value === view) return
   activeView.value = view
   selectedInvestmentAsset.value = null
   errorMessage.value = ''
   noticeMessage.value = ''
   if (view === 'DEPOSIT') resetDepositPrincipal(depositPrincipal.value)
   if (view === 'INVESTMENT') clampInvestmentAllocations()
+  if (recordHistory) pushActivityHistory(view)
+}
+
+function activityHistoryState(view: ActivityView) {
+  return {
+    ...window.history.state,
+    studentRoomView: 'FREE_ACTIVITY',
+    studentRoomStage: roomSessionStore.studentState?.effectiveStage
+      ?? roomSessionStore.studentState?.currentStage,
+    studentRoomSyncVersion: roomSessionStore.studentState?.syncVersion,
+    freeActivityView: view,
+  }
+}
+
+function replaceActivityHistory(view: ActivityView) {
+  window.history.replaceState(activityHistoryState(view), '', window.location.href)
+}
+
+function pushActivityHistory(view: ActivityView) {
+  window.history.pushState(activityHistoryState(view), '', window.location.href)
+}
+
+function handleBrowserBack(event: PopStateEvent) {
+  const historyState = event.state as Record<string, unknown> | null
+  const activeStage = roomSessionStore.studentState?.effectiveStage
+    ?? roomSessionStore.studentState?.currentStage
+  const view = historyState?.freeActivityView
+  if (historyState?.studentRoomView !== 'FREE_ACTIVITY'
+    || historyState.studentRoomStage !== activeStage
+    || historyState.studentRoomSyncVersion !== roomSessionStore.studentState?.syncVersion
+    || typeof view !== 'string'
+    || !validViews.includes(view as ActivityView)) return
+  openActivity(view as ActivityView, false)
 }
 
 function openInvestmentDetail(asset: InvestmentAsset) {
@@ -499,7 +552,25 @@ function formatRate(bps: number) {
 }
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
+}
+
+function markProductImageFailed(productId: string) {
+  failedProductImageIds.value = new Set([...failedProductImageIds.value, productId])
+}
+
+function expectedInvestmentRange(asset: InvestmentAsset) {
+  const amount = investmentAmount(asset.assetId)
+  if (amount === 0) return '금액을 선택하면 예상 손익을 알려드려요.'
+  const minimum = Math.round(amount * asset.minReturnBps / 10_000)
+  const maximum = Math.round(amount * asset.maxReturnBps / 10_000)
+  const signed = (value: number) => {
+    const normalized = Object.is(value, -0) ? 0 : value
+    if (normalized === 0) return '0비빔'
+    return `${normalized > 0 ? '+' : '−'}${formatBibim(Math.abs(normalized))}`
+  }
+  return `${signed(minimum)} ~ ${signed(maximum)}`
 }
 
 function formatPurchasedAt(value: string) {
@@ -557,7 +628,7 @@ function formatPurchasedAt(value: string) {
       <template v-else-if="activeView === 'SHOP'">
         <section class="shop-product-grid" aria-label="판매 상품">
           <article v-for="product in catalog.products" :key="product.productId" class="shop-product-card" :class="{ 'is-sold-out': product.status === 'SOLD_OUT' }">
-            <img v-if="product.imageUrl" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`">
+            <img v-if="product.imageUrl && !failedProductImageIds.has(product.productId)" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`" @error="markProductImageFailed(product.productId)">
             <span v-else class="shop-product-card__emoji" aria-hidden="true">{{ productEmoji(product) }}</span>
             <div>
               <span class="shop-product-card__stock">{{ product.status === 'SOLD_OUT' ? '품절' : `재고 ${product.currentStock}개` }}</span>
@@ -616,6 +687,7 @@ function formatPurchasedAt(value: string) {
             <button type="button" :disabled="!canSaveDeposit || economyStore.saving" @click="saveDeposit">임시 저장</button>
             <button type="button" :disabled="deposit.status !== 'DRAFT' || economyStore.saving" @click="confirmDeposit">예금 확정</button>
           </div>
+          <p class="draft-balance-note">임시 저장만으로는 지갑에서 돈이 빠지지 않아요. ‘예금 확정’을 눌렀을 때만 이동합니다.</p>
           <p v-if="overview.depositBalance > 0" class="finance-confirmed">✓ 지금까지 {{ formatBibim(overview.depositBalance) }}을 예금했어요. 남은 잔액으로 추가 예금할 수 있어요.</p>
         </div>
         <section class="finance-history-card" aria-labelledby="deposit-history-title">
@@ -681,7 +753,7 @@ function formatPurchasedAt(value: string) {
             </div>
             <h3>{{ asset.name }}</h3>
             <p>{{ asset.description }}</p>
-            <small><strong>예상 결과</strong> {{ formatRate(asset.minReturnBps) }} ~ {{ formatRate(asset.maxReturnBps) }}</small>
+            <small><strong>이 금액의 예상 손익</strong> {{ expectedInvestmentRange(asset) }}</small>
             <span :id="`investment-${asset.assetId}-label`" class="amount-stepper-label">투자 금액</span>
             <div class="amount-spinner" role="group" :aria-labelledby="`investment-${asset.assetId}-label`" @click.stop @keydown.stop>
               <input
@@ -723,6 +795,7 @@ function formatPurchasedAt(value: string) {
             <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">임시 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
+          <p class="draft-balance-note">임시 저장만으로는 지갑에서 돈이 빠지지 않아요. ‘투자 확정’을 눌렀을 때만 이동합니다.</p>
         </div>
         <p class="investment-screen__note">💡 예상 결과는 과거 데이터와 시장 상황을 바탕으로 한 예측 범위예요.</p>
         <section class="investment-confirmed-history" aria-label="투자 확정 내역">

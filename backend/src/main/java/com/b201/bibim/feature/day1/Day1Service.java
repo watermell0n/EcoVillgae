@@ -158,15 +158,19 @@ public class Day1Service {
                     "필수 정산이나 처리 중인 거래를 먼저 확인해 주세요."
             );
         }
-        depositRepository.findAllByRoomId(room.getId()).stream()
-                .filter(deposit -> "DRAFT".equals(deposit.getStatus()))
-                .forEach(DepositEntity::cancelDraft);
-        orderRepository.findAllByRoomId(room.getId()).stream()
-                .filter(order -> "DRAFT".equals(order.getStatus()))
-                .forEach(InvestmentOrderEntity::cancelDraft);
+        cancelUnconfirmedDrafts(room.getId());
         DaySessionEntity session = dayOneSession(room.getId());
         session.closeDayOne();
         room.closeDayOne();
+    }
+
+    public void cancelUnconfirmedDrafts(UUID roomId) {
+        depositRepository.findAllByRoomId(roomId).stream()
+                .filter(deposit -> "DRAFT".equals(deposit.getStatus()))
+                .forEach(DepositEntity::cancelDraft);
+        orderRepository.findAllByRoomId(roomId).stream()
+                .filter(order -> "DRAFT".equals(order.getStatus()))
+                .forEach(InvestmentOrderEntity::cancelDraft);
     }
 
     private ClosePreviewResponse buildClosePreview(RoomEntity room) {

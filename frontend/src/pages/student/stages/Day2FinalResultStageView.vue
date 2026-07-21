@@ -27,8 +27,14 @@ onMounted(async () => {
 })
 
 function formatBibim(amount: number) {
-  const sign = amount > 0 ? '+' : ''
-  return `${sign}${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  const sign = normalized > 0 ? '+' : ''
+  return `${sign}${normalized.toLocaleString('ko-KR')}비빔`
+}
+
+function formatDebit(amount: number) {
+  const normalized = Math.abs(Object.is(amount, -0) ? 0 : amount)
+  return normalized === 0 ? '0비빔' : `−${normalized.toLocaleString('ko-KR')}비빔`
 }
 </script>
 
@@ -45,12 +51,12 @@ function formatBibim(amount: number) {
 
       <dl class="final-result-ledger">
         <div><dt>총소득</dt><dd>{{ formatBibim(result.grossIncome) }}</dd></div>
-        <div><dt>소득세</dt><dd>−{{ Math.abs(result.incomeTax).toLocaleString('ko-KR') }}비빔</dd></div>
+        <div><dt>소득세</dt><dd>{{ formatDebit(result.incomeTax) }}</dd></div>
         <div><dt>예금 이자</dt><dd>{{ formatBibim(result.depositInterest) }}</dd></div>
         <div><dt>투자 손익</dt><dd>{{ formatBibim(result.investmentProfit) }}</dd></div>
-        <div><dt>금융세</dt><dd>−{{ Math.abs(result.financialTax).toLocaleString('ko-KR') }}비빔</dd></div>
+        <div><dt>금융세</dt><dd>{{ formatDebit(result.financialTax) }}</dd></div>
         <div><dt>경제 퀴즈 보상</dt><dd>{{ formatBibim(result.day2QuizReward) }}</dd></div>
-        <div><dt>총소비</dt><dd>−{{ result.totalPurchaseAmount.toLocaleString('ko-KR') }}비빔</dd></div>
+        <div><dt>총소비</dt><dd>{{ formatDebit(result.totalPurchaseAmount) }}</dd></div>
       </dl>
 
       <section v-if="result.purchases.length" class="final-purchase-list">

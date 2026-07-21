@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import {
   addManagedStudent,
@@ -32,6 +32,8 @@ const pendingResetStudent = ref<ManagedStudent | null>(null)
 const selectedStudentId = ref<string | null>(null)
 const lockedRoleStudentIds = ref<Set<string>>(new Set())
 const productImageError = ref('')
+const discontinuedProductIds = ref<string[]>([])
+const failedProductImages = ref(new Set<ProductSetting>())
 
 const selectedQuiz = computed(() => settings.value?.quizzes.find((quiz) => quiz.dayNumber === selectedQuizDay.value))
 const selectedStudent = computed(() => students.value.find((student) => student.studentId === selectedStudentId.value) ?? null)
@@ -56,6 +58,8 @@ async function load() {
       getManagedStudents(props.roomId),
     ])
     settings.value = structuredClone(nextSettings)
+    failedProductImages.value = new Set()
+    discontinuedProductIds.value = []
     students.value = structuredClone(nextStudents)
     lockedRoleStudentIds.value = new Set(
       nextStudents.filter((student) => Boolean(student.roleName)).map((student) => student.studentId),
@@ -73,7 +77,12 @@ async function confirmSaveSettings() {
   saving.value = true
   errorMessage.value = ''
   try {
-    settings.value = structuredClone(await saveClassSettings(props.roomId, settings.value))
+    settings.value = structuredClone(await saveClassSettings(
+      props.roomId,
+      settings.value,
+      discontinuedProductIds.value,
+    ))
+    discontinuedProductIds.value = []
     noticeMessage.value = '수업 설정을 저장했습니다. 학생 화면에도 최신 값이 반영됩니다.'
     showSaveConfirm.value = false
     emit('refreshed')
@@ -137,8 +146,8 @@ async function resetPassword() {
 
 function addProduct() {
   if (!settings.value) return
-  const displayOrder = Math.max(0, ...settings.value.products.map((product) => product.displayOrder)) + 1
-  settings.value.products.push({
+  const displayOrder = Math.min(1, ...settings.value.products.map((product) => product.displayOrder)) - 1
+  settings.value.products.unshift({
     productId: null,
     name: '새 상품',
     description: '상품 설명을 입력해 주세요.',
@@ -147,6 +156,22 @@ function addProduct() {
     currentStock: 10,
     displayOrder,
   })
+  void nextTick(() => {
+    const editor = document.querySelector<HTMLElement>('[data-new-product="true"]')
+    editor?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    editor?.querySelector<HTMLInputElement>('input')?.focus()
+  })
+}
+
+function removeProduct(product: ProductSetting) {
+  if (!settings.value) return
+  if (product.productId && !window.confirm(`‘${product.name}’ 상품을 판매 종료할까요? 기존 구매내역은 보존됩니다.`)) {
+    return
+  }
+  if (product.productId && !discontinuedProductIds.value.includes(product.productId)) {
+    discontinuedProductIds.value.push(product.productId)
+  }
+  settings.value.products = settings.value.products.filter((item) => item !== product)
 }
 
 function readFileAsDataUrl(file: File) {
@@ -174,9 +199,20 @@ async function selectProductImage(product: ProductSetting, event: Event) {
   }
   try {
     product.imageUrl = await readFileAsDataUrl(file)
+    clearProductImageError(product)
   } catch {
     productImageError.value = '이미지 파일을 읽지 못했습니다.'
   }
+}
+
+function markProductImageFailed(product: ProductSetting) {
+  failedProductImages.value = new Set([...failedProductImages.value, product])
+}
+
+function clearProductImageError(product: ProductSetting) {
+  const next = new Set(failedProductImages.value)
+  next.delete(product)
+  failedProductImages.value = next
 }
 </script>
 
@@ -302,8 +338,21 @@ async function selectProductImage(product: ProductSetting, event: Event) {
             <button type="button" @click="addProduct">+ 상품 추가</button>
           </div>
           <p v-if="productImageError" class="form-error" role="alert">{{ productImageError }}</p>
-          <article v-for="product in settings.products" :key="product.productId ?? `new-${product.displayOrder}`" class="settings-editor-card">
-            <header><strong>{{ product.name }}</strong><span>{{ product.productId ? '등록 상품' : '새 상품' }}</span></header>
+          <article
+            v-for="product in settings.products"
+            :key="product.productId ?? `new-${product.displayOrder}`"
+            class="settings-editor-card"
+            :data-new-product="product.productId ? undefined : 'true'"
+          >
+            <header>
+              <strong>{{ product.name }}</strong>
+              <div class="settings-product-card__actions">
+                <span>{{ product.productId ? '등록 상품' : '새 상품' }}</span>
+                <button class="button-secondary" type="button" @click="removeProduct(product)">
+                  {{ product.productId ? '판매 종료' : '추가 취소' }}
+                </button>
+              </div>
+            </header>
             <div class="settings-form-grid">
               <label>상품명<input v-model="product.name"></label>
               <label>가격<input v-model.number="product.price" type="number" min="0"><span>비빔</span></label>
@@ -312,10 +361,11 @@ async function selectProductImage(product: ProductSetting, event: Event) {
             <label>상품 설명<textarea v-model="product.description" rows="2" /></label>
             <div class="product-image-inputs">
               <label class="product-file-picker">이미지 파일 선택<input type="file" accept="image/*" @change="selectProductImage(product, $event)"></label>
-              <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg"></label>
+              <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg" @input="clearProductImageError(product)"></label>
               <button v-if="product.imageUrl" class="button-secondary" type="button" @click="product.imageUrl = null">이미지 제거</button>
             </div>
-            <img v-if="product.imageUrl" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`">
+            <img v-if="product.imageUrl && !failedProductImages.has(product)" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`" @error="markProductImageFailed(product)">
+            <p v-else-if="product.imageUrl" class="product-image-fallback" role="status">이미지를 불러올 수 없어요. 파일 또는 주소를 다시 확인해 주세요.</p>
             <small>파일 이미지는 2MB 이하로 선택해 주세요. · 현재 재고 {{ product.currentStock }}개</small>
           </article>
         </section>

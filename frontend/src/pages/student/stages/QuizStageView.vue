@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import {
   getCurrentQuiz,
@@ -27,6 +27,7 @@ const showSubmitConfirm = ref(false)
 const errorMessage = ref('')
 const waitingForOpen = ref(false)
 const closedByTeacher = ref(false)
+let applyingBrowserHistory = false
 
 const currentQuestion = computed(() => quiz.value?.questions[currentIndex.value])
 const unansweredCount = computed(
@@ -42,13 +43,18 @@ const progressWidth = computed(() => {
 })
 
 watch(currentQuestion, (question) => {
-  if (question) {
+  if (question && !isSubmitted.value) {
     emit('pageChange', `QUIZ_QUESTION_${question.orderNo}`)
   }
 })
 
 onMounted(() => {
+  window.addEventListener('popstate', handleBrowserBack)
   void loadQuiz()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('popstate', handleBrowserBack)
 })
 
 watch(
@@ -67,8 +73,10 @@ async function loadQuiz() {
   try {
     quiz.value = await getCurrentQuiz()
     emit('completionChange', quiz.value.submissionStatus === 'SUBMITTED')
+    if (quiz.value.submissionStatus === 'SUBMITTED') emit('pageChange', 'QUIZ_SUBMITTED')
     const firstUnansweredIndex = quiz.value.questions.findIndex((question) => !question.savedAnswer)
     currentIndex.value = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0
+    replaceQuestionHistory(currentIndex.value)
   } catch (error) {
     if (isUnauthorized(error)) {
       window.location.assign('/student/join')
@@ -115,6 +123,44 @@ function moveQuestion(index: number) {
   if (!quiz.value || index < 0 || index >= quiz.value.questionCount) return
   currentIndex.value = index
   errorMessage.value = ''
+  pushQuestionHistory(index)
+}
+
+function quizHistoryState(index: number) {
+  return {
+    ...window.history.state,
+    studentRoomView: 'QUIZ',
+    studentRoomStage: roomSessionStore.studentState?.effectiveStage
+      ?? roomSessionStore.studentState?.currentStage,
+    studentRoomSyncVersion: roomSessionStore.studentState?.syncVersion,
+    quizQuestionIndex: index,
+  }
+}
+
+function replaceQuestionHistory(index: number) {
+  window.history.replaceState(quizHistoryState(index), '', window.location.href)
+}
+
+function pushQuestionHistory(index: number) {
+  if (applyingBrowserHistory) return
+  window.history.pushState(quizHistoryState(index), '', window.location.href)
+}
+
+function handleBrowserBack(event: PopStateEvent) {
+  if (!quiz.value || isSubmitted.value) return
+  const historyState = event.state as Record<string, unknown> | null
+  const activeStage = roomSessionStore.studentState?.effectiveStage
+    ?? roomSessionStore.studentState?.currentStage
+  if (historyState?.studentRoomView !== 'QUIZ'
+    || historyState.studentRoomStage !== activeStage
+    || historyState.studentRoomSyncVersion !== roomSessionStore.studentState?.syncVersion
+    || typeof historyState.quizQuestionIndex !== 'number') return
+  const index = historyState.quizQuestionIndex
+  if (index < 0 || index >= quiz.value.questionCount) return
+  applyingBrowserHistory = true
+  currentIndex.value = index
+  errorMessage.value = ''
+  applyingBrowserHistory = false
 }
 
 function selectedOptionText(question: StudentQuiz['questions'][number]) {
@@ -142,6 +188,7 @@ async function confirmSubmit() {
     quiz.value.submittedAt = result.submittedAt
     quiz.value.answeredCount = result.answeredCount
     showSubmitConfirm.value = false
+    replaceQuestionHistory(currentIndex.value)
     emit('pageChange', 'QUIZ_SUBMITTED')
     emit('completionChange', true)
   } catch (error) {

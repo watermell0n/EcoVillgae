@@ -257,6 +257,7 @@ public class Day2FinanceService {
                             amount.depositPrincipal(), amount.depositInterest(),
                             amount.investmentPrincipal(), amount.investmentProfit(),
                             amount.investmentValue(), amount.taxableProfit(),
+                            amount.depositFinancialTax(), amount.investmentFinancialTax(),
                             amount.financialTax(), amount.walletAfter(),
                             value.rewardRateBps() < 10_000 ? "LATE" : "LIVE",
                             value.rewardRateBps()
@@ -359,6 +360,7 @@ public class Day2FinanceService {
                         amount.depositPrincipal(), amount.depositInterest(),
                         amount.investmentPrincipal(), amount.investmentProfit(),
                         amount.investmentValue(), amount.taxableProfit(),
+                        amount.depositFinancialTax(), amount.investmentFinancialTax(),
                         amount.financialTax(), amount.walletAfter(), "LATE", rewardRateBps
                 )
         );
@@ -439,6 +441,8 @@ public class Day2FinanceService {
                 sum(students, StudentFinanceResponse::depositInterest),
                 sum(students, StudentFinanceResponse::investmentPrincipal),
                 sum(students, StudentFinanceResponse::investmentProfit),
+                sum(students, StudentFinanceResponse::depositFinancialTax),
+                sum(students, StudentFinanceResponse::investmentFinancialTax),
                 sum(students, StudentFinanceResponse::financialTax),
                 sum(students, StudentFinanceResponse::walletAfter),
                 balance(room.getId(), null, "CLASS_FUND"),
@@ -574,7 +578,8 @@ public class Day2FinanceService {
                 COMPLETED, true, item.getWalletBefore(), item.getDepositPrincipal(),
                 item.getDepositInterest(), item.getInvestmentPrincipal(),
                 item.getInvestmentProfit(), item.getInvestmentValue(),
-                item.getTaxableProfit(), item.getFinancialTax(), item.getWalletAfter(),
+                item.getTaxableProfit(), item.getDepositFinancialTax(),
+                item.getInvestmentFinancialTax(), item.getFinancialTax(), item.getWalletAfter(),
                 allocations, run.getCompletedAt()
         );
     }
@@ -601,7 +606,8 @@ public class Day2FinanceService {
                 status, COMPLETED.equals(status), amount.walletBefore(), amount.depositPrincipal(),
                 amount.depositInterest(), amount.investmentPrincipal(),
                 amount.investmentProfit(), amount.investmentValue(),
-                amount.taxableProfit(), amount.financialTax(), amount.walletAfter(),
+                amount.taxableProfit(), amount.depositFinancialTax(),
+                amount.investmentFinancialTax(), amount.financialTax(), amount.walletAfter(),
                 allocations, completedAt
         );
     }
@@ -610,7 +616,7 @@ public class Day2FinanceService {
         return new StudentFinanceResponse(
                 student.getId(), student.getParticipantNumber(), student.getNickname(),
                 "NOT_STARTED", false,
-                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 List.of(), null
         );
     }

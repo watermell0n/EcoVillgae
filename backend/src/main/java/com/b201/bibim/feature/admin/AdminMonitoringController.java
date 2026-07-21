@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.ActivityResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomMonitoringResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomStudentsResponse;
+import com.b201.bibim.feature.admin.AdminMonitoringDto.RoomFinanceReportResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationRequest;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.SessionTerminationResponse;
 import com.b201.bibim.feature.admin.AdminMonitoringDto.ForceStudentViewRequest;
@@ -126,6 +127,14 @@ public class AdminMonitoringController {
             HttpServletRequest request
     ) {
         return ApiResponse.success(adminMonitoringService.students(roomId), requestId(request));
+    }
+
+    @GetMapping("/rooms/{roomId}/finance-report")
+    ApiResponse<RoomFinanceReportResponse> financeReport(
+            @PathVariable UUID roomId,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success(adminMonitoringService.financeReport(roomId), requestId(request));
     }
 
     @GetMapping("/rooms/{roomId}/students/{studentId}/activities")

@@ -119,6 +119,11 @@ public class ProductEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void discontinue() {
+        this.status = "DISCONTINUED";
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

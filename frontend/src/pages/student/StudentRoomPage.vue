@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { getRoomStage } from '../../features/room/model/stages'
 import { advanceStudentFlow } from '../../features/flow/api/flow'
@@ -26,11 +26,17 @@ const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
 const closedDay = ref<1 | 2 | null>(null)
 const catchUpQuizNoticeVisible = ref(false)
+const allowRouteExit = ref(false)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
 const stageDefinition = computed(() => getRoomStage(displayStage.value))
 const stageComponent = computed(() => getStudentStageComponent(displayStage.value))
+const contextAtPageBottom = computed(() => (
+  currentPage.value === 'QUIZ_SUBMITTED'
+    || displayStage.value === 'DAY1_QUIZ_RESULT'
+    || displayStage.value === 'DAY2_QUIZ_RESULT'
+))
 const stageComponentProps = computed(() => {
   if (isPlaceholderStage(displayStage.value)) {
     return { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
@@ -53,6 +59,11 @@ let closingTimer: ReturnType<typeof setInterval> | undefined
 let catchUpQuizNoticeTimer: ReturnType<typeof setTimeout> | undefined
 let presenceRequestInFlight = false
 
+onBeforeRouteLeave(() => {
+  if (allowRouteExit.value || !student.value || !state.value) return true
+  return false
+})
+
 onMounted(async () => {
   try {
     const loadedStudent = await authStore.loadStudent()
@@ -67,6 +78,7 @@ onMounted(async () => {
     startPresenceReporting()
   } catch (error) {
     if (isUnauthorized(error)) {
+      allowRouteExit.value = true
       await router.replace({ name: 'student-join' })
       return
     }
@@ -88,6 +100,7 @@ watch(
   async (error) => {
     if (error && isUnauthorized(error)) {
       roomSessionStore.stopPolling()
+      allowRouteExit.value = true
       await router.replace({ name: 'student-join' })
     }
   },
@@ -186,6 +199,7 @@ async function reportPresence() {
   } catch (error) {
     if (isUnauthorized(error)) {
       stopPresenceReporting()
+      allowRouteExit.value = true
       await router.replace({ name: 'student-join' })
     }
   } finally {
@@ -228,7 +242,7 @@ async function advanceCatchUp() {
     <StudentSessionClosedView v-else-if="sessionClosed" :day-number="closedDay ?? 2" />
     <template v-else-if="student && state">
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
-        <div class="student-context-bar" aria-label="현재 참여 정보">
+        <div v-if="!contextAtPageBottom" class="student-context-bar" aria-label="현재 참여 정보">
           <span>{{ student.roomName }}</span>
           <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
         </div>
@@ -283,6 +297,10 @@ async function advanceCatchUp() {
           @page-change="handlePageChange"
           @completion-change="handleActivityCompletion"
         />
+        <div v-if="contextAtPageBottom" class="student-context-bar student-context-bar--page-bottom" aria-label="현재 참여 정보">
+          <span>{{ student.roomName }}</span>
+          <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
+        </div>
         <p v-if="flowError" class="form-error" role="alert">{{ flowError }}</p>
         <div
           v-if="isCatchUpQuiz && !canAdvanceCatchUp && catchUpQuizNoticeVisible"

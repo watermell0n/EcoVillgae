@@ -315,6 +315,9 @@ public class RoomSessionService {
             day2QuizRewardService.ensureQuiz(roomId);
         }
         if (targetStage.ordinal() > currentStage.ordinal()) {
+            if (currentStage == RoomStage.DAY1_FREE_ACTIVITY) {
+                day1Service.cancelUnconfirmedDrafts(roomId);
+            }
             studentFlowService.captureStageCompletion(room, currentStage.name());
         }
         room.changeStage(targetStage);

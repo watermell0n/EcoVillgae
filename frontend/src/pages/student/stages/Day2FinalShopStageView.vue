@@ -19,6 +19,7 @@ const loading = ref(true)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const soldOutMessage = ref('')
+const failedProductImageIds = ref(new Set<string>())
 const SHOP_SYNC_INTERVAL_MS = 2_000
 const PURCHASE_NOTICE_DURATION_MS = 3_000
 let shopSyncTimer: ReturnType<typeof setInterval> | undefined
@@ -198,7 +199,12 @@ function canBuy(product: ShopProduct) {
 }
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
+}
+
+function markProductImageFailed(productId: string) {
+  failedProductImageIds.value = new Set([...failedProductImageIds.value, productId])
 }
 
 function formatPurchasedAt(value: string) {
@@ -232,7 +238,7 @@ function formatPurchasedAt(value: string) {
         <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
         <section class="shop-product-grid" aria-label="물가상승 적용 상품">
         <article v-for="product in catalog.products" :key="product.productId" class="shop-product-card">
-          <img v-if="product.imageUrl" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`">
+          <img v-if="product.imageUrl && !failedProductImageIds.has(product.productId)" class="shop-product-card__image" :src="product.imageUrl" :alt="`${product.name} 상품 이미지`" @error="markProductImageFailed(product.productId)">
           <span v-else class="shop-product-card__emoji" aria-hidden="true">🛍️</span>
           <span class="shop-product-card__stock">재고 {{ product.currentStock }}개</span>
           <h2>{{ product.name }}</h2>

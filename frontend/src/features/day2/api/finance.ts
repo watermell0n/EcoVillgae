@@ -24,6 +24,8 @@ export interface StudentDay2FinanceResult {
   investmentProfit: number
   investmentValue: number
   taxableProfit: number
+  depositFinancialTax: number
+  investmentFinancialTax: number
   financialTax: number
   walletAfter: number
   allocations: Day2AllocationResult[]
@@ -39,6 +41,8 @@ export interface TeacherDay2FinancePreview {
   totalDepositInterest: number
   totalInvestmentPrincipal: number
   totalInvestmentProfit: number
+  totalDepositFinancialTax: number
+  totalInvestmentFinancialTax: number
   totalFinancialTax: number
   totalWalletAfter: number
   classFundBalance: number

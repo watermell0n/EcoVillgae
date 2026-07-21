@@ -115,6 +115,28 @@ class RoomSessionServiceTest {
     }
 
     @Test
+    void cancelsUnconfirmedFinanceDraftsBeforeLeavingFreeActivity() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        when(roomRepository.findByIdForUpdate(roomId)).thenReturn(Optional.of(room));
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(room.getVersion()).thenReturn(4);
+        when(room.getCurrentStage()).thenReturn("DAY1_FREE_ACTIVITY");
+        when(commandRequestRepository.findByRoomIdAndIdempotencyKey(roomId, "request-drafts"))
+                .thenReturn(Optional.empty());
+
+        roomSessionService.command(
+                teacherId,
+                roomId,
+                "request-drafts",
+                new CommandRequest("SET_STAGE", "DAY1_SUMMARY", 4)
+        );
+
+        verify(day1Service).cancelUnconfirmedDrafts(roomId);
+        verify(room).changeStage(RoomStage.DAY1_SUMMARY);
+    }
+
+    @Test
     void rejectsSkippingPastIncompleteIncomeSettlement() {
         UUID teacherId = UUID.randomUUID();
         UUID roomId = UUID.randomUUID();

@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import {
   getAdminRooms,
   getAdminRoomStudents,
+  getAdminRoomFinanceReport,
   getAdminStudentActivities,
   terminateAdminStudentSession,
   sendAdminRoomCommand,
@@ -14,6 +15,7 @@ import {
   deleteAdminRoom,
   type AdminActivity,
   type AdminRoomMonitoring,
+  type AdminRoomFinanceReport,
   type AdminRoomStudents,
   type AdminStudentMonitoring,
   type ConnectionStatus,
@@ -29,6 +31,8 @@ const authStore = useAuthStore()
 const rooms = ref<AdminRoomMonitoring[]>([])
 const roomStudents = ref<AdminRoomStudents | null>(null)
 const activities = ref<AdminActivity[]>([])
+const financeReport = ref<AdminRoomFinanceReport | null>(null)
+const financeReportLoading = ref(false)
 const selectedRoomId = ref('')
 const selectedStudentId = ref('')
 const loading = ref(true)
@@ -53,6 +57,11 @@ const selectedStudent = computed(
   () =>
     roomStudents.value?.students.find((student) => student.studentId === selectedStudentId.value) ??
     null,
+)
+const selectedStudentFinance = computed(
+  () => financeReport.value?.students.find(
+    (student) => student.studentId === selectedStudentId.value,
+  ) ?? null,
 )
 const problemStudentCount = computed(
   () =>
@@ -118,8 +127,10 @@ watch(selectedRoomId, async (roomId, previousRoomId) => {
   if (!roomId || roomId === previousRoomId) return
   selectedStudentId.value = ''
   activities.value = []
+  financeReport.value = null
   activityPage.value = 1
   await refreshRoomStudents()
+  await refreshFinanceReport()
 })
 
 watch(selectedStudentId, async (studentId, previousStudentId) => {
@@ -130,6 +141,7 @@ watch(selectedStudentId, async (studentId, previousStudentId) => {
     if (!studentId) activities.value = []
     return
   }
+  if (!financeReport.value) await refreshFinanceReport()
   await refreshActivities()
 })
 
@@ -175,6 +187,48 @@ async function refreshActivities() {
     selectedStudentId.value,
   )
   if (activityPage.value > activityPageCount.value) activityPage.value = activityPageCount.value
+}
+
+async function refreshFinanceReport() {
+  if (!selectedRoomId.value || financeReportLoading.value) return
+  financeReportLoading.value = true
+  try {
+    financeReport.value = await getAdminRoomFinanceReport(selectedRoomId.value)
+  } catch (error) {
+    await handleError(error, '학생 금융·거래 내역을 불러오지 못했습니다.')
+  } finally {
+    financeReportLoading.value = false
+  }
+}
+
+function toggleSelectedStudent(studentId: string) {
+  selectedStudentId.value = selectedStudentId.value === studentId ? '' : studentId
+}
+
+async function copyFinanceReportJson() {
+  await refreshFinanceReport()
+  if (!financeReport.value) return
+  const copied = await copyText(JSON.stringify(financeReport.value, null, 2))
+  noticeMessage.value = copied ? 'GPT 분석용 거래 JSON을 복사했습니다.' : ''
+  errorMessage.value = copied ? '' : 'JSON을 자동으로 복사하지 못했습니다.'
+}
+
+async function downloadFinanceReportJson() {
+  await refreshFinanceReport()
+  if (!financeReport.value) return
+  const blob = new Blob([JSON.stringify(financeReport.value, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  })
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  const safeRoomName = financeReport.value.roomName.replace(/[^0-9A-Za-z가-힣_-]+/g, '-')
+  anchor.href = objectUrl
+  anchor.download = `${safeRoomName || 'class'}-finance-report.json`
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
+  noticeMessage.value = 'GPT 분석용 거래 JSON을 다운로드했습니다.'
 }
 
 async function terminateSession() {
@@ -355,7 +409,8 @@ function formatTime(value: string | null) {
 }
 
 function formatBibim(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}비빔`
+  const normalized = Object.is(amount, -0) ? 0 : amount
+  return `${normalized.toLocaleString('ko-KR')}비빔`
 }
 </script>
 
@@ -421,6 +476,10 @@ function formatBibim(amount: number) {
 
         <section class="admin-control-strip" aria-label="관리자 수업 통제">
           <div><span>현재 진행</span><strong>{{ getRoomStage(selectedRoom.currentStage)?.label ?? selectedRoom.currentStage }}</strong></div>
+          <button class="button-secondary" type="button" :disabled="financeReportLoading" @click="copyFinanceReportJson">
+            {{ financeReportLoading ? '준비 중…' : '거래 JSON 복사' }}
+          </button>
+          <button class="button-secondary" type="button" :disabled="financeReportLoading" @click="downloadFinanceReportJson">JSON 다운로드</button>
           <button class="button-secondary" type="button" :disabled="!adjacentStages.previous || controlling" @click="moveRoom(adjacentStages.previous?.id)">← 이전 단계</button>
           <button type="button" :disabled="!adjacentStages.next || controlling" @click="moveRoom(adjacentStages.next?.id)">다음 단계 →</button>
           <button class="button-danger" type="button" :disabled="controlling" @click="removeSelectedRoom">방 삭제</button>
@@ -441,7 +500,8 @@ function formatBibim(amount: number) {
                 class="admin-student-row"
                 :class="{ 'is-selected': student.studentId === selectedStudentId }"
                 role="listitem"
-                @click="selectedStudentId = student.studentId"
+                :aria-pressed="student.studentId === selectedStudentId"
+                @click="toggleSelectedStudent(student.studentId)"
               >
                 <span class="admin-student-card__top"><strong>{{ student.participantNumber }}번 {{ student.nickname ?? '미설정' }}</strong><i :class="`connection-dot is-${student.connectionStatus.toLowerCase()}`"></i></span>
                 <small>{{ connectionLabels[student.connectionStatus] }} · {{ formatTime(student.lastSeenAt) }}</small>
@@ -488,6 +548,53 @@ function formatBibim(amount: number) {
                 <div><dt>동기화</dt><dd>{{ syncLabel(selectedStudent) }}</dd></div>
                 <div><dt>현재 잔액</dt><dd><strong>{{ formatBibim(selectedStudent.walletBalance) }}</strong></dd></div>
               </dl>
+
+              <section v-if="selectedStudentFinance" class="admin-finance-detail" aria-labelledby="admin-finance-detail-title">
+                <div class="panel-heading">
+                  <p class="eyebrow">확정 거래 기준</p>
+                  <h3 id="admin-finance-detail-title">금융·구매 내역</h3>
+                </div>
+                <dl class="admin-finance-balances">
+                  <div><dt>지갑</dt><dd>{{ formatBibim(selectedStudentFinance.walletBalance) }}</dd></div>
+                  <div><dt>예금</dt><dd>{{ formatBibim(selectedStudentFinance.depositBalance) }}</dd></div>
+                  <div><dt>투자</dt><dd>{{ formatBibim(selectedStudentFinance.investmentBalance) }}</dd></div>
+                </dl>
+                <div class="admin-finance-columns">
+                  <section>
+                    <h4>예금 {{ selectedStudentFinance.deposits.length }}건</h4>
+                    <ul>
+                      <li v-for="deposit in selectedStudentFinance.deposits" :key="deposit.depositId">
+                        <span>{{ formatTime(deposit.confirmedAt) }}</span>
+                        <strong>{{ formatBibim(deposit.principal) }}</strong>
+                        <small>예상 이자 {{ formatBibim(deposit.expectedInterest) }}</small>
+                      </li>
+                    </ul>
+                    <p v-if="!selectedStudentFinance.deposits.length">확정 예금 없음</p>
+                  </section>
+                  <section>
+                    <h4>투자 {{ selectedStudentFinance.investments.length }}건</h4>
+                    <ul>
+                      <li v-for="investment in selectedStudentFinance.investments" :key="investment.orderId">
+                        <span>{{ formatTime(investment.confirmedAt) }}</span>
+                        <strong>{{ formatBibim(investment.totalAmount) }}</strong>
+                        <small>{{ investment.allocations.map((item) => `${item.assetName} ${formatBibim(item.amount)}`).join(' · ') }}</small>
+                      </li>
+                    </ul>
+                    <p v-if="!selectedStudentFinance.investments.length">확정 투자 없음</p>
+                  </section>
+                  <section>
+                    <h4>상품 구매 {{ selectedStudentFinance.purchases.length }}건</h4>
+                    <ul>
+                      <li v-for="purchase in selectedStudentFinance.purchases" :key="purchase.purchaseId">
+                        <span>{{ formatTime(purchase.purchasedAt) }}</span>
+                        <strong>{{ purchase.productName }} × {{ purchase.quantity }}</strong>
+                        <small>{{ formatBibim(purchase.totalPrice) }}</small>
+                      </li>
+                    </ul>
+                    <p v-if="!selectedStudentFinance.purchases.length">구매 내역 없음</p>
+                  </section>
+                </div>
+              </section>
 
               <section class="admin-recovery-box" aria-labelledby="admin-recovery-title">
                 <h3>학생 화면 강제 이동</h3>

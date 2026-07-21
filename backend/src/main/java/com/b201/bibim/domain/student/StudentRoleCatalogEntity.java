@@ -19,6 +19,13 @@ public class StudentRoleCatalogEntity {
     protected StudentRoleCatalogEntity() {
     }
 
+    public static StudentRoleCatalogEntity predefined(int participantNumber, String roleName) {
+        StudentRoleCatalogEntity entry = new StudentRoleCatalogEntity();
+        entry.participantNumber = participantNumber;
+        entry.roleName = roleName;
+        return entry;
+    }
+
     public int getParticipantNumber() {
         return participantNumber;
     }

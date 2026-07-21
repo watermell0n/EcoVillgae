@@ -9,6 +9,7 @@ import StudentRoomPage from './StudentRoomPage.vue'
 const router = vi.hoisted(() => ({ replace: vi.fn() }))
 
 vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: vi.fn(),
   useRoute: () => ({ params: { roomId: 'room-1' } }),
   useRouter: () => router,
 }))
