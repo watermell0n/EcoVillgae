@@ -57,7 +57,8 @@ public final class Day1Dto {
             long depositDraftPrincipal,
             String investmentStatus,
             long investmentDraftTotal,
-            List<InvestmentAllocationSummaryResponse> investments
+            List<InvestmentAllocationSummaryResponse> investments,
+            List<PurchaseSummaryResponse> purchases
     ) {
     }
 

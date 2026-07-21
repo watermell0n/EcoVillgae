@@ -126,7 +126,7 @@ class LearningServiceTest {
                 response.pages().stream().map(LearningDto.PageResponse::title).toList()
         );
         assertTrue(response.pages().stream().allMatch(page -> !page.icon().isBlank()));
-        assertEquals("100비빔 예금 + 이자 10비빔 => 110비빔", response.pages().get(1).example());
+        assertEquals("100비빔 예금 + 이자 10비빔 → 110비빔", response.pages().get(1).example());
     }
 
     @Test

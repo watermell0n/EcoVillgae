@@ -143,4 +143,42 @@ describe('Day2FundStageView', () => {
     expect((wrapper.get('input[type="radio"]').element as HTMLInputElement).checked).toBe(false)
     wrapper.unmount()
   })
+
+  it('keeps an unsubmitted radio selection while the same vote is polled', async () => {
+    vi.useFakeTimers()
+    fundApi.getStudentCurrentVote.mockResolvedValue({
+      voteSessionId: 'vote-1',
+      roomId: 'room-1',
+      question: '어디에 사용할까요?',
+      fundBalanceSnapshot: 50,
+      status: 'OPEN',
+      eligibleStudentCount: 3,
+      submittedCount: 0,
+      eligible: true,
+      hasVoted: false,
+      selectedOptionId: null,
+      decidedOptionId: null,
+      openedAt: '2026-07-17T00:00:00Z',
+      closedAt: null,
+      pendingStudents: [],
+      options: [{
+        optionId: 'option-1', title: '간식', description: '함께 나눠요.',
+        requiredAmount: 40, affordable: true, voteCount: null, tiedForFirst: false, decided: false,
+      }],
+    })
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = { currentStage: 'DAY2_FUND_VOTE', syncVersion: 1 } as never
+    const wrapper = mount(Day2FundStageView)
+    await flushPromises()
+
+    const option = wrapper.get('input[type="radio"]')
+    await option.setValue(true)
+    await vi.advanceTimersByTimeAsync(2_000)
+    await flushPromises()
+
+    expect(fundApi.getStudentCurrentVote).toHaveBeenCalledTimes(2)
+    expect((option.element as HTMLInputElement).checked).toBe(true)
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
 })

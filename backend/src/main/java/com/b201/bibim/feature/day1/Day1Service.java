@@ -311,7 +311,7 @@ public class Day1Service {
                 "NONE".equals(depositStatus) && "NONE".equals(investmentStatus) && !purchased,
                 depositStatus, depositDraft == null ? 0 : depositDraft.getPrincipal(),
                 investmentStatus, investmentDraft == null ? 0 : investmentDraft.getTotalAmount(),
-                visibleInvestments
+                visibleInvestments, summary.purchases()
         );
     }
 

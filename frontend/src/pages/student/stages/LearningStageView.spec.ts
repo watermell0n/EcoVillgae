@@ -25,7 +25,7 @@ function learningFixture(title: string, syncVersion: number) {
     content: '예금의 원리를 알아봐요.',
     keyPoints: ['원금과 이자를 확인해요.'],
     icon: '🏦',
-    example: '100비빔 예금 + 이자 10비빔 => 110비빔',
+    example: '100비빔 예금 + 이자 10비빔 → 110비빔',
   }
   return {
     stage: 'DAY1_FINANCE_GUIDED',
@@ -92,7 +92,7 @@ describe('LearningStageView', () => {
 
     expect(wrapper.text()).toContain('🏦')
     expect(wrapper.text()).toContain('📌 예시')
-    expect(wrapper.text()).toContain('100비빔 예금 + 이자 10비빔 => 110비빔')
+    expect(wrapper.text()).toContain('100비빔 예금 + 이자 10비빔 → 110비빔')
   })
 
   it('shows line-separated rational consumption guidance without the gray key-point panel', async () => {

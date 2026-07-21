@@ -48,6 +48,7 @@ export interface TeacherStudentDay1Summary {
   investmentStatus: 'NONE' | 'DRAFT' | 'CONFIRMED'
   investmentDraftTotal: number
   investments: Day1InvestmentSummary[]
+  purchases: Day1PurchaseSummary[]
 }
 
 export interface TeacherDay1Summary {

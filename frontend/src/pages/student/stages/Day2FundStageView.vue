@@ -33,8 +33,18 @@ async function refresh() {
       costOptions.value = await getStudentFundCostOptions()
     }
     if (['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(currentStage.value ?? '')) {
-      vote.value = await getStudentCurrentVote()
-      selectedOptionId.value = vote.value.selectedOptionId ?? ''
+      const previousVoteId = vote.value?.voteSessionId
+      const nextVote = await getStudentCurrentVote()
+      const sameVote = previousVoteId === nextVote.voteSessionId
+      const draftStillAvailable = nextVote.options.some((option) => (
+        option.optionId === selectedOptionId.value && option.affordable
+      ))
+      vote.value = nextVote
+      if (nextVote.selectedOptionId) {
+        selectedOptionId.value = nextVote.selectedOptionId
+      } else if (!sameVote || !draftStillAvailable) {
+        selectedOptionId.value = ''
+      }
     }
     errorMessage.value = ''
   } catch (error) {

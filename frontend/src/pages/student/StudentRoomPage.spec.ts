@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { StudentRoomState } from '../../features/room/api/room'
+import { useDay1Store } from '../../stores/day1'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import StudentRoomPage from './StudentRoomPage.vue'
 
@@ -167,11 +168,23 @@ describe('StudentRoomPage day-one closing', () => {
 
   it('automatically opens the day-one closing page after five seconds', async () => {
     const { wrapper, stopPolling } = await mountAtDayOneClose()
+    const day1Store = useDay1Store()
+    day1Store.studentSummary = {
+      studentId: 'student-1', participantNumber: 3, nickname: '비비', roomStage: 'DAY1_CLOSED',
+      walletBalance: 10, depositPrincipal: 0, expectedDepositInterest: 0,
+      investmentPrincipal: 0, purchaseTotal: 90, totalAssets: 10, investments: [],
+      purchases: [{
+        purchaseId: 'purchase-1', productName: '말랑카우 빠삐코', quantity: 2, totalPrice: 90,
+      }],
+    }
 
     await vi.advanceTimersByTimeAsync(5_000)
     await flushPromises()
 
     expect(wrapper.text()).toContain('1일차 활동이 마감되었습니다')
+    expect(wrapper.text()).toContain('말랑카우 빠삐코')
+    expect(wrapper.text()).toContain('2개')
+    expect(wrapper.text()).toContain('총소비90비빔')
     expect(wrapper.find('.student-closing-countdown').exists()).toBe(false)
     expect(stopPolling).not.toHaveBeenCalled()
     wrapper.unmount()

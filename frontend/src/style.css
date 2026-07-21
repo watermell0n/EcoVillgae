@@ -3947,6 +3947,38 @@ button.admin-student-row.is-selected {
 .day1-student-table > div:last-child { border-bottom: 0; }
 .day1-student-table__head { color: #737b87; background: #f7f3ea; font-weight: 900; }
 
+.day1-student-table > .day1-student-purchase-row {
+  grid-template-columns: minmax(100px, 0.45fr) minmax(400px, 2fr);
+  align-items: start;
+  padding-top: 0;
+  color: #55645e;
+  background: #fbfaf6;
+}
+
+.day1-student-purchase-row ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day1-student-purchase-row li {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: #eef7f2;
+}
+
+.day1-student-purchase-row li em {
+  color: #507166;
+  font-style: normal;
+}
+
+.day1-no-purchase { color: #8a918e; }
+
 .day1-student-table.day2-reward-table > div {
   grid-template-columns: minmax(135px, 1.3fr) repeat(5, minmax(82px, 1fr));
   min-width: 650px;
@@ -6647,6 +6679,31 @@ button.admin-student-row.is-selected {
 .student-session-closed > span { font-size: clamp(2.4rem, 5vw, 3.2rem); }
 .student-session-closed h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.15; word-break: keep-all; }
 .student-session-closed p { font-size: clamp(.88rem, 1.5vw, 1.05rem); line-height: 1.6; }
+
+.student-session-closed.is-day-one {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.student-day1-closed-purchases {
+  display: grid;
+  width: min(100%, 620px);
+  gap: 10px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #cde6dd;
+  border-radius: 18px;
+  background: #f5fbf8;
+  text-align: left;
+}
+
+.student-day1-closed-purchases h2 { margin: 0; font-size: 1.1rem; }
+.student-day1-closed-purchases ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.student-day1-closed-purchases li,
+.student-day1-closed-purchases > div { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; }
+.student-day1-closed-purchases li { padding: 9px 11px; border-radius: 10px; background: #fff; }
+.student-day1-closed-purchases > div { padding-top: 10px; border-top: 1px solid #dcebe5; }
+.student-day1-closed-purchases > div strong { color: #17694d; }
 
 /* Shared teacher/student guided activity surface. */
 .free-activity-intro { min-height: 0; padding: clamp(12px, 2.3vw, 24px); align-content: start; gap: 12px; }

@@ -1298,13 +1298,30 @@ function formatBibim(amount: number) {
               <div class="day1-student-table__head" role="row">
                 <span>학생</span><span>잔액</span><span>예금</span><span>투자</span><span>소비</span>
               </div>
-              <div v-for="studentItem in day1Summary.students" :key="studentItem.studentId" role="row">
-                <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
-                <span>{{ formatBibim(studentItem.walletBalance) }}</span>
-                <span>{{ formatBibim(studentItem.depositPrincipal) }}</span>
-                <span>{{ formatBibim(studentItem.investmentPrincipal) }}</span>
-                <span>{{ formatBibim(studentItem.purchaseTotal) }}</span>
-              </div>
+              <template v-for="studentItem in day1Summary.students" :key="studentItem.studentId">
+                <div role="row">
+                  <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</strong>
+                  <span>{{ formatBibim(studentItem.walletBalance) }}</span>
+                  <span>{{ formatBibim(studentItem.depositPrincipal) }}</span>
+                  <span>{{ formatBibim(studentItem.investmentPrincipal) }}</span>
+                  <span>{{ formatBibim(studentItem.purchaseTotal) }}</span>
+                </div>
+                <div
+                  class="day1-student-purchase-row"
+                  role="row"
+                  :aria-label="`${studentItem.participantNumber}번 학생 구매 내역`"
+                >
+                  <strong>구매 상품</strong>
+                  <ul v-if="studentItem.purchases.length">
+                    <li v-for="purchase in studentItem.purchases" :key="purchase.purchaseId">
+                      <span>{{ purchase.productName }}</span>
+                      <b>{{ purchase.quantity }}개</b>
+                      <em>{{ formatBibim(purchase.totalPrice) }}</em>
+                    </li>
+                  </ul>
+                  <span v-else class="day1-no-purchase">구매한 상품 없음</span>
+                </div>
+              </template>
             </div>
             <template v-if="state.currentStage === 'DAY1_SUMMARY' && day1ClosePreview">
               <ul v-if="day1ClosePreview.warnings.length > 0" class="day1-close-warnings">

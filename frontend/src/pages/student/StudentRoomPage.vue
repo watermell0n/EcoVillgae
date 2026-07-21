@@ -7,6 +7,7 @@ import { advanceStudentFlow } from '../../features/flow/api/flow'
 import { sendPresenceHeartbeat } from '../../features/monitoring/api/presence'
 import { getApiErrorMessage, isUnauthorized } from '../../shared/api/errors'
 import { useAuthStore } from '../../stores/auth'
+import { useDay1Store } from '../../stores/day1'
 import { useRoomSessionStore } from '../../stores/roomSession'
 import StudentSessionClosedView from './StudentSessionClosedView.vue'
 import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComponents'
@@ -14,6 +15,7 @@ import { getStudentStageComponent, isPlaceholderStage } from './stages/stageComp
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const day1Store = useDay1Store()
 const roomSessionStore = useRoomSessionStore()
 const loading = ref(true)
 const errorMessage = ref('')
@@ -270,7 +272,12 @@ async function advanceCatchUp() {
     <p v-if="loading" class="state-message state-message--plain">수업에 연결하고 있습니다</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
-    <StudentSessionClosedView v-else-if="sessionClosed" :day-number="closedDay ?? 2" />
+    <StudentSessionClosedView
+      v-else-if="sessionClosed"
+      :day-number="closedDay ?? 2"
+      :purchases="day1Store.studentSummary?.purchases ?? []"
+      :purchase-total="day1Store.studentSummary?.purchaseTotal ?? 0"
+    />
     <template v-else-if="student && state">
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
         <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
