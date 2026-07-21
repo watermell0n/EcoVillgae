@@ -1,0 +1,91 @@
+name: ecovillage-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecovillage}
+      POSTGRES_USER: ${POSTGRES_USER:-ecovillage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: UTC
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,demo
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecovillage}
+      DB_USERNAME: ${POSTGRES_USER:-ecovillage}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms128m -Xmx512m -XX:+UseSerialGC}
+      DEMO_TEACHER_LOGIN_ID: ${DEMO_TEACHER_LOGIN_ID:?DEMO_TEACHER_LOGIN_ID is required}
+      DEMO_TEACHER_PASSWORD: ${DEMO_TEACHER_PASSWORD:?DEMO_TEACHER_PASSWORD is required}
+      DEMO_TEACHER_DISPLAY_NAME: ${DEMO_TEACHER_DISPLAY_NAME:-EcoVillage Teacher}
+      DEMO_ADMIN_LOGIN_ID: ${DEMO_ADMIN_LOGIN_ID:?DEMO_ADMIN_LOGIN_ID is required}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?DEMO_ADMIN_PASSWORD is required}
+      DEMO_ADMIN_DISPLAY_NAME: ${DEMO_ADMIN_DISPLAY_NAME:-EcoVillage Admin}
+      SURVEY_URL: ${SURVEY_URL:-https://docs.google.com/forms/}
+      LOG_PATH: /app/logs/ecovillage.log
+      PRODUCT_IMAGE_DIR: /app/data/product-images
+      TZ: UTC
+    expose:
+      - "8080"
+    volumes:
+      - backend-logs:/app/logs
+      - product-image-data:/app/data/product-images
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${APP_BIND_ADDRESS:-0.0.0.0}:${APP_PORT:-80}:80"
+    networks:
+      - internal
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+networks:
+  internal:
+    name: ecovillage-prod-internal
+
+volumes:
+  postgres-data:
+    name: ecovillage-prod-postgres-data
+  backend-logs:
+    name: ecovillage-prod-backend-logs
+  product-image-data:
+    name: ecovillage-prod-product-image-data
