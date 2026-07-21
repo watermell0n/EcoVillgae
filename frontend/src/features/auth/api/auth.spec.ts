@@ -43,4 +43,17 @@ describe('student auth API', () => {
       participantNumber: 1,
     })
   })
+
+  it('does not silently turn an unscoped student number into an old demo code', async () => {
+    httpModule.post.mockResolvedValue({
+      data: { data: { participationCode: '01', participantNumber: 1 } },
+      headers: {},
+    })
+
+    await enterStudent('01')
+
+    expect(httpModule.post).toHaveBeenCalledWith('/student/auth/enter', {
+      participationCode: '01',
+    })
+  })
 })

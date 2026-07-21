@@ -86,12 +86,9 @@ export async function enterStudent(studentEntry: string, roomId?: string) {
   const participantNumber = /^\d{1,2}$/.test(normalizedEntry)
     ? Number(normalizedEntry)
     : undefined
-  const participationCode = !roomId && participantNumber !== undefined
-    ? `ECO-${String(participantNumber).padStart(2, '0')}`
-    : normalizedEntry
   const response = await http.post<ApiResponse<StudentEntry>>('/student/auth/enter', roomId
     ? { roomId, participantNumber }
-    : { participationCode })
+    : { participationCode: normalizedEntry })
   clearStudentSessionToken()
   return response.data.data
 }

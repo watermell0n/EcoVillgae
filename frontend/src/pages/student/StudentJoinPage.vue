@@ -16,6 +16,11 @@ const roomId = computed(() => typeof route.query.roomId === 'string' ? route.que
 const usesStudentNumber = computed(() => Boolean(roomId.value))
 
 async function submit() {
+  if (!roomId.value && /^\d{1,2}$/.test(studentEntry.value.trim())) {
+    errorMessage.value = '이 주소에는 교실 정보가 없어요. 선생님이 복사한 학생 입장 주소를 열어 주세요.'
+    return
+  }
+
   submitting.value = true
   errorMessage.value = ''
 
@@ -57,24 +62,24 @@ async function submit() {
       <p class="page-description">
         {{ usesStudentNumber
           ? '출석부에서 사용하는 자기 번호만 입력하면 돼요.'
-          : '선생님에게 받은 교실 입장 주소를 열면 자기 번호로 더 간단히 들어갈 수 있어요.' }}
+          : '두 자리 학생 번호는 선생님이 복사한 교실별 학생 입장 주소에서 사용할 수 있어요.' }}
       </p>
 
       <form class="form-stack" @submit.prevent="submit">
         <label>
-          <span>{{ usesStudentNumber ? '내 학생 번호' : '학생 번호 또는 입장 코드' }}</span>
+          <span>{{ usesStudentNumber ? '내 학생 번호' : '개인 입장 코드' }}</span>
           <input
             v-model.trim="studentEntry"
             class="code-input"
             name="studentEntry"
             :inputmode="usesStudentNumber ? 'numeric' : 'text'"
             autocomplete="off"
-            placeholder="예: 01"
+            :placeholder="usesStudentNumber ? '예: 01' : '예: ECO-ABCDE'"
             maxlength="20"
             required
           />
           <small v-if="usesStudentNumber" class="field-help">1번은 01, 12번은 12처럼 두 자리 번호로 입력하세요.</small>
-          <small v-else class="field-help">공용 시연 교실에서는 01, 02처럼 두 자리 학생 번호를 입력하세요.</small>
+          <small v-else class="field-help">두 자리 번호로 입장하려면 선생님에게 받은 학생 입장 주소가 필요해요.</small>
         </label>
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>

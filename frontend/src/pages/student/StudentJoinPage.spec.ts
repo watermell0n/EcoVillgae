@@ -41,4 +41,17 @@ describe('StudentJoinPage', () => {
     expect(router.push).toHaveBeenCalledWith({ name: 'student-setup' })
     expect(wrapper.text()).toContain('자기 번호만 입력')
   })
+
+  it('explains that a classroom link is required for a bare student number', async () => {
+    route.query = {}
+    const authStore = useAuthStore()
+    const enterStudent = vi.spyOn(authStore, 'enterStudent')
+    const wrapper = mount(StudentJoinPage)
+
+    await wrapper.get('input[name="studentEntry"]').setValue('01')
+    await wrapper.get('form').trigger('submit')
+
+    expect(enterStudent).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('선생님이 복사한 학생 입장 주소')
+  })
 })

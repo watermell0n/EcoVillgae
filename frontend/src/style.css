@@ -1117,6 +1117,51 @@ h1 {
   margin-top: 1.25rem;
 }
 
+.class-join-link-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid #b9dccd;
+  border-radius: 14px;
+  background: #f1fbf6;
+}
+
+.class-join-link-panel > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.class-join-link-panel span,
+.class-join-link-panel small {
+  color: #51695f;
+}
+
+.class-join-link-panel a {
+  overflow-wrap: anywhere;
+  color: #17694d;
+  font-weight: 700;
+}
+
+.class-join-link-panel button {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 700px) {
+  .class-join-link-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .class-join-link-panel button {
+    width: 100%;
+  }
+}
+
 .room-preparation-heading {
   display: flex;
   align-items: center;

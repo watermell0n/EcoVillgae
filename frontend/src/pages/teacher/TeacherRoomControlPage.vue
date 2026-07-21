@@ -88,6 +88,9 @@ const pendingArrivalStudents = ref<TeacherStudentFlow[]>([])
 let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
 let preparationPollingTimer: ReturnType<typeof setInterval> | undefined
 const roomId = computed(() => String(route.params.roomId))
+const classJoinUrl = computed(() => (
+  `${window.location.origin}/student/join?roomId=${encodeURIComponent(roomId.value)}`
+))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
@@ -719,8 +722,7 @@ function studentNumberCode(participantNumber: number) {
 }
 
 async function copyClassJoinLink() {
-  const url = `${window.location.origin}/student/join?roomId=${encodeURIComponent(roomId.value)}`
-  classJoinLinkCopied.value = await copyText(url)
+  classJoinLinkCopied.value = await copyText(classJoinUrl.value)
   if (classJoinLinkCopied.value) {
     noticeMessage.value = '학생 입장 주소를 복사했습니다. 학생들은 이 주소에서 자기 번호만 입력하면 됩니다.'
     errorMessage.value = ''
@@ -1126,6 +1128,16 @@ function formatBibim(amount: number) {
             {{ currentStage?.description ?? '현재 수업 활동을 진행합니다.' }}
           </p>
           <div v-if="state.currentStage === 'DAY1_LOBBY' && preparation" class="room-preparation-workspace">
+            <div class="class-join-link-panel">
+              <div>
+                <span>이 방의 학생 입장 주소</span>
+                <a :href="classJoinUrl" target="_blank" rel="noopener noreferrer">{{ classJoinUrl }}</a>
+                <small>학생은 반드시 이 주소를 연 뒤 01, 02처럼 자기 번호를 입력해야 합니다.</small>
+              </div>
+              <button type="button" @click="copyClassJoinLink">
+                {{ classJoinLinkCopied ? '주소 복사됨' : '학생 입장 주소 복사' }}
+              </button>
+            </div>
             <div class="room-preparation-heading">
               <div>
                 <span>개인 참여 코드</span>
