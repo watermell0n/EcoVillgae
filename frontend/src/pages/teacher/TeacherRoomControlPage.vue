@@ -48,27 +48,6 @@ import { useRoomSessionStore } from '../../stores/roomSession'
 import { useSettlementStore } from '../../stores/settlement'
 import { useShopStore } from '../../stores/shop'
 
-const moduleLabels: Record<string, string> = {
-  QUIZ: '퀴즈',
-  PAYSLIP: '월급명세서',
-  KNOWLEDGE: '학습 자료',
-  SHOP: '상점',
-  DEPOSIT: '예금',
-  INVESTMENT: '투자',
-  WALLET: '지갑',
-  INVESTMENT_RESULT: '투자 결과',
-  FUND_VOTE: '공동기금 투표',
-  FINAL_RESULT: '최종 결과',
-  SURVEY: '설문',
-}
-
-const moduleStateLabels: Record<string, string> = {
-  LOCKED: '잠김',
-  GUIDED: '교육 중',
-  ACTIVE: '이용 가능',
-  CLOSED: '종료',
-}
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -727,12 +706,16 @@ async function copyParticipationCode(code: string) {
   const copied = await copyText(code)
   copiedParticipationCode.value = copied ? code : null
   if (copied) {
-    noticeMessage.value = `${code} 코드를 복사했습니다.`
+    noticeMessage.value = `${code} 학생 번호를 복사했습니다.`
     errorMessage.value = ''
   } else {
     noticeMessage.value = ''
-    errorMessage.value = `${code} 코드를 자동으로 복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.`
+    errorMessage.value = `${code} 학생 번호를 자동으로 복사하지 못했습니다. 번호를 직접 선택해 복사해 주세요.`
   }
+}
+
+function studentNumberCode(participantNumber: number) {
+  return String(participantNumber).padStart(2, '0')
 }
 
 async function copyClassJoinLink() {
@@ -1039,11 +1022,6 @@ function formatBibim(amount: number) {
   return `${amount.toLocaleString('ko-KR')}비빔`
 }
 
-function moduleTone(moduleState: string) {
-  if (moduleState === 'ACTIVE') return 'success'
-  if (moduleState === 'GUIDED') return 'warning'
-  return 'neutral'
-}
 </script>
 
 <template>
@@ -1158,10 +1136,10 @@ function moduleTone(moduleState: string) {
               </button>
             </div>
             <p v-if="preparationError" class="form-error" role="alert">{{ preparationError }}</p>
-            <div class="participation-code-list" role="table" aria-label="학생 참여 코드와 접속 현황">
+            <div class="participation-code-list" role="table" aria-label="학생 번호와 접속 현황">
               <div class="participation-code-list__head" role="row">
                 <span>번호</span>
-                <span>개인 코드</span>
+                <span>학생 번호</span>
                 <span>닉네임</span>
                 <span>상태</span>
               </div>
@@ -1170,12 +1148,12 @@ function moduleTone(moduleState: string) {
                 <button
                   type="button"
                   class="participation-code-button"
-                  :class="{ 'is-copied': copiedParticipationCode === studentItem.participationCode }"
-                  :aria-label="`${studentItem.participationCode} 참여 코드 복사`"
-                  @click="copyParticipationCode(studentItem.participationCode)"
+                  :class="{ 'is-copied': copiedParticipationCode === studentNumberCode(studentItem.participantNumber) }"
+                  :aria-label="`${studentNumberCode(studentItem.participantNumber)} 학생 번호 복사`"
+                  @click="copyParticipationCode(studentNumberCode(studentItem.participantNumber))"
                 >
-                  <span>{{ studentItem.participationCode }}</span>
-                  <small>{{ copiedParticipationCode === studentItem.participationCode ? '복사됨' : '복사' }}</small>
+                  <span>{{ studentNumberCode(studentItem.participantNumber) }}</span>
+                  <small>{{ copiedParticipationCode === studentNumberCode(studentItem.participantNumber) ? '복사됨' : '복사' }}</small>
                 </button>
                 <span>{{ studentItem.nickname ?? '미설정' }}</span>
                 <StatusBadge
@@ -1184,7 +1162,7 @@ function moduleTone(moduleState: string) {
                 />
               </div>
             </div>
-            <p class="control-caution">참여 코드를 학생별로 전달하세요. 코드는 한 학생만 사용할 수 있습니다.</p>
+            <p class="control-caution">학생 입장 주소와 두 자리 학생 번호를 함께 전달하세요.</p>
           </div>
           <p
             v-else-if="state.currentStage === 'DAY1_LOBBY'"
@@ -2033,25 +2011,9 @@ function moduleTone(moduleState: string) {
               class="button-secondary participation-code-directory-trigger"
               type="button"
               @click="openParticipationCodes"
-            >재접속용 개인 코드 보기</button>
+            >학생 번호 보기</button>
           </div>
         </aside>
-      </section>
-
-      <section class="module-status-panel" aria-labelledby="module-status-title">
-        <div class="panel-heading">
-          <p class="eyebrow">현재 접근 권한</p>
-          <h2 id="module-status-title">모듈별 상태</h2>
-        </div>
-        <div class="module-status-grid">
-          <article v-for="module in state.modules" :key="module.type">
-            <strong>{{ moduleLabels[module.type] ?? module.type }}</strong>
-            <StatusBadge
-              :label="moduleStateLabels[module.state] ?? module.state"
-              :tone="moduleTone(module.state)"
-            />
-          </article>
-        </div>
       </section>
 
       <ParticipationCodeDialog

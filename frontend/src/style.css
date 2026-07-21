@@ -6441,10 +6441,8 @@ button.admin-student-row.is-selected {
 @media (max-width: 760px) { .day2-final-shop-view .wallet-panel { grid-template-columns: 1fr; } .day2-final-knowledge ul { grid-template-columns: 1fr; } .participation-code-dialog .participation-code-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .student-room-page .state-message, .student-closing-countdown, .fund-celebration span, .free-activity-intro__locked { animation: none !important; } }
 .settings-product-preview { width: 100%; max-width: 220px; height: 108px; object-fit: cover; border: 1px solid #dbe7e2; border-radius: 12px; background: #f4f8f6; }
-.catch-up-banner--waiting,
 .fund-wait-card,
 .day2-inflation-wait { position: relative; overflow: hidden; background-image: linear-gradient(105deg, rgb(238 250 246 / 96%) 15%, rgb(255 255 255 / 98%) 38%, rgb(224 247 240 / 96%) 52%, rgb(255 255 255 / 98%) 68%, rgb(238 250 246 / 96%) 85%); background-size: 240% 100%; animation: waiting-shimmer 2.6s linear infinite; }
-.catch-up-banner--waiting::after,
 .fund-wait-card::after,
 .day2-inflation-wait::after { position: absolute; inset: auto 14px 10px auto; color: #278b78; content: '●  실시간 대기 중'; font-size: .7rem; font-weight: 800; animation: waiting-live 1.2s ease-in-out infinite; }
 @media (max-width: 760px) { .managed-student-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -7621,6 +7619,38 @@ button.admin-student-row.is-selected {
 .teacher-connection-grid article.is-online { color: #236148; border-color: #b9dec9; background: #eaf7ef; }
 .teacher-connection-grid article.is-warning { color: #825d12; border-color: #ead28d; background: #fff7d8; }
 .teacher-connection-grid article.is-offline { color: #8c3f37; border-color: #edc4be; background: #fff0ed; }
+
+/* Keep recovery notices aligned without turning them into fixed overlays. */
+.student-stage-card > .catch-up-banner {
+  width: 100%;
+  max-width: none;
+  margin: 0 0 12px;
+  align-self: stretch;
+  text-align: left;
+}
+.student-stage-card > .catch-up-banner > div { align-items: center; }
+.student-stage-card > .catch-up-banner > div strong { flex: 1 1 260px; }
+.student-stage-card > .catch-up-banner--waiting { display: grid; gap: 8px; }
+.student-stage-card > .catch-up-banner--waiting > strong { font-size: 1rem; line-height: 1.5; }
+.student-stage-card > .catch-up-banner--waiting::after { display: none !important; content: none !important; }
+
+/* Match the live-status column to the current-stage panel and separate entry actions. */
+.teacher-operations-content .control-grid { align-items: stretch; }
+.teacher-operations-content .progress-panel { height: 100%; max-height: none; }
+.teacher-operations-content .progress-panel > .teacher-connection-status {
+  flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.teacher-operations-content .progress-panel .teacher-connection-grid {
+  min-height: 210px;
+  max-height: none;
+}
+.teacher-entry-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e3ebe7;
+  gap: 10px;
+}
 
 .settings-product-card__actions { display: flex; align-items: center; gap: 8px; }
 .settings-product-card__actions button { min-height: 38px; }

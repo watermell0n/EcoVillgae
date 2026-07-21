@@ -13,4 +13,4 @@ logging:
 
 app:
   auth:
-    cookie-secure: true
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}

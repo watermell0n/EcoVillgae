@@ -69,12 +69,12 @@ async function submit() {
             name="studentEntry"
             :inputmode="usesStudentNumber ? 'numeric' : 'text'"
             autocomplete="off"
-            :placeholder="usesStudentNumber ? '예: 7' : '예: 7 또는 ECO-07'"
+            placeholder="예: 01"
             maxlength="20"
             required
           />
-          <small v-if="usesStudentNumber" class="field-help">1번은 1, 12번은 12처럼 숫자만 입력하세요.</small>
-          <small v-else class="field-help">공용 시연 교실에서는 자기 번호만 입력해도 돼요.</small>
+          <small v-if="usesStudentNumber" class="field-help">1번은 01, 12번은 12처럼 두 자리 번호로 입력하세요.</small>
+          <small v-else class="field-help">공용 시연 교실에서는 01, 02처럼 두 자리 학생 번호를 입력하세요.</small>
         </label>
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>

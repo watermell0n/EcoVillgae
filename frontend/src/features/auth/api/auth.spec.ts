@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { loginStudent } from './auth'
+import { enterStudent, loginStudent } from './auth'
 
 const httpModule = vi.hoisted(() => ({
   post: vi.fn(),
@@ -28,5 +28,19 @@ describe('student auth API', () => {
     await loginStudent('ECO-01', '1234')
 
     expect(httpModule.setStudentSessionToken).toHaveBeenCalledWith('window-token-1')
+  })
+
+  it('sends a two-digit classroom code as the student number without changing the stored code', async () => {
+    httpModule.post.mockResolvedValue({
+      data: { data: { participationCode: 'ECO-ROOM-01', participantNumber: 1 } },
+      headers: {},
+    })
+
+    await enterStudent('01', 'room-1')
+
+    expect(httpModule.post).toHaveBeenCalledWith('/student/auth/enter', {
+      roomId: 'room-1',
+      participantNumber: 1,
+    })
   })
 })

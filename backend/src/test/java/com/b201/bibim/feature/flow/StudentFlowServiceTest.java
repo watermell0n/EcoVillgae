@@ -51,7 +51,6 @@ class StudentFlowServiceTest {
     @Mock ActivityEventService activityEventService;
     @Mock StudentEntity student;
     @Mock RoomEntity room;
-    @Mock StudentPresenceEntity presence;
     @Mock QuizEntity quiz;
 
     @InjectMocks StudentFlowService service;
@@ -79,7 +78,7 @@ class StudentFlowServiceTest {
     }
 
     @Test
-    void recordsLiveCompletionWhenHeartbeatIsCurrent() {
+    void recordsLiveCompletionWhenStudentReachedTheStageBeforeABriefDisconnect() {
         UUID roomId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
         StudentFlowStateEntity state = StudentFlowStateEntity.live(
@@ -88,11 +87,18 @@ class StudentFlowServiceTest {
         StudentActivityProgressEntity progress = StudentActivityProgressEntity.available(
                 roomId, studentId, "DAY1_KNOWLEDGE_GUIDED", "LIVE", 10_000
         );
+        StudentPresenceEntity stalePresence = StudentPresenceEntity.firstSeen(
+                roomId,
+                studentId,
+                "DAY1_KNOWLEDGE_GUIDED",
+                "KNOWLEDGE",
+                "DAY1_KNOWLEDGE_GUIDED",
+                1L,
+                "VISIBLE",
+                Instant.now().minusSeconds(120)
+        );
         prepare(roomId, studentId, state);
-        when(presenceRepository.findAllByRoomId(roomId)).thenReturn(List.of(presence));
-        when(presence.getStudentId()).thenReturn(studentId);
-        when(presence.getReportedStage()).thenReturn("DAY1_KNOWLEDGE_GUIDED");
-        when(presence.getLastSeenAt()).thenReturn(Instant.now());
+        when(presenceRepository.findAllByRoomId(roomId)).thenReturn(List.of(stalePresence));
         when(progressRepository.findByStudentIdAndActivityCode(
                 studentId, "DAY1_KNOWLEDGE_GUIDED"
         )).thenReturn(Optional.of(progress));

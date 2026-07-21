@@ -117,6 +117,19 @@ describe('StudentRoomPage day-one closing', () => {
     return wrapper
   }
 
+  async function mountAwaitingJoin(joinStatus: 'PENDING' | 'APPROVED_PENDING_BOUNDARY') {
+    roomApi.getStudentRoomState.mockResolvedValue({
+      ...structuredClone(liveState),
+      flowMode: 'AWAITING_JOIN',
+      joinStatus,
+    })
+    const roomSessionStore = useRoomSessionStore()
+    vi.spyOn(roomSessionStore, 'startStudentPolling').mockImplementation(() => undefined)
+    const wrapper = mount(StudentRoomPage)
+    await flushPromises()
+    return wrapper
+  }
+
   it('shows a large non-dismissible five-second closing notice without stopping day-one polling', async () => {
     const { wrapper, stopPolling } = await mountAtDayOneClose()
 
@@ -204,6 +217,31 @@ describe('StudentRoomPage day-one closing', () => {
     await flushPromises()
 
     expect(wrapper.find('.catch-up-quiz-notice').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('briefly shows the completed catch-up notice without live-waiting labels', async () => {
+    const wrapper = await mountAwaitingJoin('PENDING')
+
+    expect(wrapper.text()).toContain('필수 활동을 모두 마쳤어요')
+    expect(wrapper.text()).not.toContain('실시간 대기')
+    expect(wrapper.text()).not.toContain('현재 수업 단계 마무리 대기')
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+
+    expect(wrapper.find('.catch-up-banner--waiting').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('briefly shows the teacher approval notice at the same size', async () => {
+    const wrapper = await mountAwaitingJoin('APPROVED_PENDING_BOUNDARY')
+
+    expect(wrapper.text()).toContain('선생님 승인이 완료됐어요')
+    expect(wrapper.get('.catch-up-banner--waiting').find('span').exists()).toBe(false)
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+
+    expect(wrapper.find('.catch-up-banner--waiting').exists()).toBe(false)
     wrapper.unmount()
   })
 })

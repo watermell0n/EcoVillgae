@@ -26,6 +26,7 @@ const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
 const closedDay = ref<1 | 2 | null>(null)
 const catchUpQuizNoticeVisible = ref(false)
+const awaitingJoinNoticeVisible = ref(false)
 const catchUpNextVisible = ref(true)
 const allowRouteExit = ref(false)
 const student = computed(() => authStore.student)
@@ -53,6 +54,7 @@ const currentModule = computed(
 let presenceTimer: ReturnType<typeof setInterval> | undefined
 let closingTimer: ReturnType<typeof setInterval> | undefined
 let catchUpQuizNoticeTimer: ReturnType<typeof setTimeout> | undefined
+let awaitingJoinNoticeTimer: ReturnType<typeof setTimeout> | undefined
 let presenceRequestInFlight = false
 
 onBeforeRouteLeave(() => {
@@ -89,6 +91,7 @@ onUnmounted(() => {
   stopPresenceReporting()
   if (closingTimer) clearInterval(closingTimer)
   if (catchUpQuizNoticeTimer) clearTimeout(catchUpQuizNoticeTimer)
+  if (awaitingJoinNoticeTimer) clearTimeout(awaitingJoinNoticeTimer)
 })
 
 watch(
@@ -153,6 +156,21 @@ watch(
     catchUpQuizNoticeTimer = setTimeout(() => {
       catchUpQuizNoticeVisible.value = false
       catchUpQuizNoticeTimer = undefined
+    }, 5_000)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => state.value?.flowMode === 'AWAITING_JOIN' ? state.value.joinStatus : null,
+  (joinStatus) => {
+    if (awaitingJoinNoticeTimer) clearTimeout(awaitingJoinNoticeTimer)
+    awaitingJoinNoticeTimer = undefined
+    awaitingJoinNoticeVisible.value = Boolean(joinStatus)
+    if (!joinStatus) return
+    awaitingJoinNoticeTimer = setTimeout(() => {
+      awaitingJoinNoticeVisible.value = false
+      awaitingJoinNoticeTimer = undefined
     }, 5_000)
   },
   { immediate: true },
@@ -276,18 +294,13 @@ async function advanceCatchUp() {
           </p>
         </aside>
         <aside
-          v-else-if="state.flowMode === 'AWAITING_JOIN'"
+          v-else-if="state.flowMode === 'AWAITING_JOIN' && awaitingJoinNoticeVisible"
           class="catch-up-banner catch-up-banner--waiting"
           role="status"
         >
-          <div>
-            <strong>{{ state.joinStatus === 'APPROVED_PENDING_BOUNDARY'
-              ? '선생님 승인이 완료됐어요'
-              : '필수 활동을 모두 마쳤어요' }}</strong>
-            <span>{{ state.joinStatus === 'APPROVED_PENDING_BOUNDARY'
-              ? '현재 수업 단계 마무리 대기'
-              : '선생님 합류 승인 대기' }}</span>
-          </div>
+          <strong>{{ state.joinStatus === 'APPROVED_PENDING_BOUNDARY'
+            ? '선생님 승인이 완료됐어요'
+            : '필수 활동을 모두 마쳤어요' }}</strong>
           <p v-if="state.joinStatus === 'APPROVED_PENDING_BOUNDARY'">
             현재 수업 화면으로 이동했습니다. 선생님이 다음 단계로 진행하면 자동으로 정상 합류해요.
           </p>

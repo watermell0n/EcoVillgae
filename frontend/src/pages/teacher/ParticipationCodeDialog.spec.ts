@@ -27,13 +27,14 @@ describe('ParticipationCodeDialog', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('재접속용 개인 코드')
-    expect(wrapper.text()).toContain('ECO-TEST-01')
+    expect(wrapper.text()).toContain('학생 번호')
+    expect(wrapper.text()).toContain('01')
+    expect(wrapper.text()).not.toContain('ECO-TEST-01')
     expect(wrapper.text()).toContain('1번')
     expect(wrapper.text()).toContain('비빔이')
 
-    await wrapper.get('[aria-label="ECO-TEST-01 입장 코드 복사"]').trigger('click')
-    expect(wrapper.emitted('copy')).toEqual([['ECO-TEST-01']])
+    await wrapper.get('[aria-label="01 학생 번호 복사"]').trigger('click')
+    expect(wrapper.emitted('copy')).toEqual([['01']])
 
     const closeButtons = wrapper.findAll('.confirm-modal__actions button')
     expect(closeButtons).toHaveLength(1)

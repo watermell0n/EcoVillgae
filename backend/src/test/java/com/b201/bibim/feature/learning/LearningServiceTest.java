@@ -147,5 +147,9 @@ class LearningServiceTest {
                 response.pages().get(1).example()
         );
         assertTrue(response.pages().get(0).content().indexOf('%') < 0);
+        assertEquals(
+                "금융 활동으로 번 돈 - 금융세 → 실제로 받은 돈",
+                response.pages().get(0).example()
+        );
     }
 }

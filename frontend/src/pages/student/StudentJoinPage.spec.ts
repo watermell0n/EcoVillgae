@@ -32,11 +32,12 @@ describe('StudentJoinPage', () => {
     })
     const wrapper = mount(StudentJoinPage)
 
-    await wrapper.get('input[name="studentEntry"]').setValue('7')
+    expect(wrapper.get('input[name="studentEntry"]').attributes('placeholder')).toBe('예: 01')
+    await wrapper.get('input[name="studentEntry"]').setValue('07')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(enterStudent).toHaveBeenCalledWith('7', 'room-1')
+    expect(enterStudent).toHaveBeenCalledWith('07', 'room-1')
     expect(router.push).toHaveBeenCalledWith({ name: 'student-setup' })
     expect(wrapper.text()).toContain('자기 번호만 입력')
   })

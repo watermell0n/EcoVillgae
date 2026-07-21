@@ -2,8 +2,6 @@ package com.b201.bibim.feature.flow;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,8 +41,6 @@ public class StudentFlowService {
 
     private static final int LIVE_REWARD_RATE = 10_000;
     private static final int LATE_REWARD_RATE = 8_000;
-    private static final Duration ACTIVE_PRESENCE_WINDOW = Duration.ofSeconds(30);
-
     private static final List<String> CATCH_UP_STAGES = List.of(
             "DAY1_PROFILE",
             "DAY1_QUIZ",
@@ -228,7 +224,6 @@ public class StudentFlowService {
             return;
         }
 
-        Instant activeSince = Instant.now().minus(ACTIVE_PRESENCE_WINDOW);
         Map<UUID, StudentPresenceEntity> presenceByStudent = presenceRepository
                 .findAllByRoomId(room.getId()).stream()
                 .collect(Collectors.toMap(StudentPresenceEntity::getStudentId, Function.identity()));
@@ -240,10 +235,12 @@ public class StudentFlowService {
             if (!"LIVE".equals(state.getFlowMode())) continue;
 
             StudentPresenceEntity presence = presenceByStudent.get(student.getId());
+            // A stale heartbeat can mean a brief network drop. Reaching this stage is the
+            // durable evidence that the student participated; students who never reached it
+            // still enter the late catch-up flow below.
             boolean completedLive = presence != null
                     && presence.getForcedOfflineAt() == null
-                    && leavingStage.equals(presence.getReportedStage())
-                    && !presence.getLastSeenAt().isBefore(activeSince);
+                    && leavingStage.equals(presence.getReportedStage());
             if (completedLive) {
                 ensureProgress(state, leavingStage, "LIVE", LIVE_REWARD_RATE).complete();
                 continue;
