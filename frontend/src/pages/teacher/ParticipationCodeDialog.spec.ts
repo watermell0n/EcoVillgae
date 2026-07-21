@@ -27,7 +27,7 @@ describe('ParticipationCodeDialog', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('학생별 입장 코드')
+    expect(wrapper.text()).toContain('재접속용 개인 코드')
     expect(wrapper.text()).toContain('ECO-TEST-01')
     expect(wrapper.text()).toContain('1번')
     expect(wrapper.text()).toContain('비빔이')

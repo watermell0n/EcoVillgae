@@ -209,6 +209,20 @@ class TeacherRoomManagementServiceTest {
         assertTrue(response.students().stream().allMatch(item -> "INVITED".equals(item.status())));
     }
 
+    @Test
+    void archivesDeletedRoomSoItDisappearsFromTheTeacherList() {
+        UUID teacherId = UUID.randomUUID();
+        RoomEntity room = RoomEntity.preparing(teacherId, "삭제할 반", 24);
+        when(roomRepository.findByIdForUpdate(room.getId())).thenReturn(Optional.of(room));
+        when(studentRepository.findAllByRoomIdOrderByParticipantNumber(room.getId()))
+                .thenReturn(List.of());
+
+        var response = service().archive(teacherId, room.getId());
+
+        assertEquals("ARCHIVED", response.status());
+        assertEquals("ARCHIVED", room.getStatus());
+    }
+
     private TeacherRoomManagementService service() {
         return new TeacherRoomManagementService(
                 roomRepository,

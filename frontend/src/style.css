@@ -2797,6 +2797,9 @@ button.admin-student-row.is-selected {
 
 .catch-up-banner {
   display: grid;
+  width: min(100%, 960px);
+  align-self: stretch;
+  box-sizing: border-box;
   gap: 0.65rem;
   margin-bottom: 1rem;
   padding: 1rem 1.1rem;
@@ -3000,6 +3003,7 @@ button.admin-student-row.is-selected {
   width: 1.1rem;
   height: 1.1rem;
   flex: 0 0 auto;
+  accent-color: #15977f;
 }
 
 .student-vote-options small,
@@ -3803,6 +3807,7 @@ button.admin-student-row.is-selected {
 
 .transaction-list small { color: #737b87; }
 .transaction-list .is-positive { color: #287253; }
+.transaction-list .is-negative { color: #c23f32; }
 
 .day1-result-header {
   justify-content: flex-start;
@@ -5090,6 +5095,12 @@ button.admin-student-row.is-selected {
   min-height: auto;
   resize: vertical;
   line-height: 1.55;
+}
+
+.catch-up-banner > div strong,
+.catch-up-banner > div span,
+.catch-up-banner p {
+  overflow-wrap: anywhere;
 }
 
 .investment-result-rate {
@@ -6393,6 +6404,7 @@ button.admin-student-row.is-selected {
 @keyframes fund-confetti { 0% { opacity: 1; transform: translate(-50%,-50%) rotate(0) scale(.6); } 70%,100% { opacity: 0; transform: translate(calc(-50% + cos(var(--angle)) * 260px), calc(-50% + sin(var(--angle)) * 190px)) rotate(540deg) scale(1); } }
 
 .participation-code-dialog { width: min(94vw, 920px); max-height: min(86vh, 760px); padding: 20px; overflow: hidden; }
+.teacher-entry-actions { display: grid; width: 100%; gap: 8px; }
 .participation-code-dialog .participation-code-list { grid-template-columns: repeat(4, minmax(0, 1fr)); max-height: min(58vh, 520px); padding: 2px 4px 4px 2px; }
 .participation-code-dialog .participation-code-list > div:not(.participation-code-list__head) { min-height: 92px; padding: 10px; border-color: #dbe7e2; box-shadow: 0 5px 14px rgb(35 70 60 / 5%); }
 .participation-code-dialog .participation-code-button { width: 100%; }
@@ -6775,6 +6787,7 @@ button.admin-student-row.is-selected {
 .payslip-line strong { color: #57a666; font-size: 1.15rem; }
 .payslip-line--subtotal { margin-top: 8px; border-top: 2px dashed #cfbd83 !important; background: transparent; }
 .payslip-line--tax { margin: 4px 0 12px; padding: 12px 16px; border-radius: 12px; background: #fff0e9; }
+.payslip-line--tax strong { color: #c23f32; }
 .payslip-line--total { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 118px; padding: 18px 4px 10px; align-content: center; justify-content: stretch; place-items: center; gap: 6px; border: 2px solid #b9d9bd !important; border-radius: 16px; background: #eef8e9; text-align: center; }
 .payslip-line--total span { font-size: .95rem; }
 .payslip-line--total strong { width: 100%; color: #54aa62; font-size: clamp(1.7rem, 3vw, 2.25rem); text-align: center; }
@@ -6903,7 +6916,7 @@ button.admin-student-row.is-selected {
 .sold-out-modal__icon { font-size: 3rem; }
 .sold-out-modal > button { width: 100%; margin-top: 14px; }
 
-.student-fund-view { display: grid; gap: 18px; }
+.student-fund-view { display: grid; padding-bottom: clamp(28px, 6vh, 56px); gap: 18px; }
 .student-fund-balance { width: min(760px, 100%); margin: 0 auto; text-align: center; }
 .fund-wait-card,
 .student-vote-card { width: min(920px, 100%); margin: 0 auto; }
@@ -7289,12 +7302,13 @@ button.admin-student-row.is-selected {
 /* Teacher room and product-management actions. */
 .room-card__actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: stretch;
 }
 
 .room-card__actions > * { width: 100%; }
+.room-join-link-button,
 .room-delete-button { white-space: nowrap; }
 
 .settings-section-actions {

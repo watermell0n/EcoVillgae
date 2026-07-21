@@ -57,7 +57,7 @@ public class StudentAuthService {
 
     @Transactional(readOnly = true)
     public EnterResponse enter(EnterRequest request) {
-        StudentEntity student = findByCode(request.participationCode());
+        StudentEntity student = findForEntry(request);
         RoomEntity room = findRoom(student.getRoomId());
 
         RequiredAction requiredAction;
@@ -77,6 +77,7 @@ public class StudentAuthService {
         }
 
         return new EnterResponse(
+                student.getParticipationCode(),
                 room.getId(),
                 room.getName(),
                 student.getParticipantNumber(),
@@ -163,6 +164,26 @@ public class StudentAuthService {
                 .orElseThrow(this::invalidParticipationCode);
     }
 
+    private StudentEntity findForEntry(EnterRequest request) {
+        if (request.roomId() != null && request.participantNumber() != null) {
+            return studentRepository
+                    .findByRoomIdAndParticipantNumber(request.roomId(), request.participantNumber())
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "INVALID_STUDENT_NUMBER",
+                            "이 교실에서 해당 학생 번호를 찾지 못했어요. 자기 번호를 다시 확인해 주세요."
+                    ));
+        }
+        if (request.participationCode() == null || request.participationCode().isBlank()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "STUDENT_ENTRY_REQUIRED",
+                    "학생 번호를 입력해 주세요. 선생님이 알려 준 교실 주소로 접속하면 자기 번호만 입력할 수 있어요."
+            );
+        }
+        return findByCode(request.participationCode());
+    }
+
     private StudentEntity findByCodeForUpdate(String code) {
         return studentRepository.findByParticipationCodeForUpdate(normalizeCode(code))
                 .orElseThrow(this::invalidParticipationCode);
@@ -239,7 +260,7 @@ public class StudentAuthService {
         return new ApiException(
                 HttpStatus.NOT_FOUND,
                 "INVALID_PARTICIPATION_CODE",
-                "참여 코드를 확인해 주세요."
+                "학생 번호 또는 입장 코드를 다시 확인해 주세요."
         );
     }
 

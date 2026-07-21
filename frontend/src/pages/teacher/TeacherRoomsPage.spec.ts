@@ -16,6 +16,7 @@ const authApi = vi.hoisted(() => ({
 
 const roomApi = vi.hoisted(() => ({
   createTeacherRoom: vi.fn(),
+  deleteTeacherRoom: vi.fn(),
 }))
 
 vi.mock('../../features/auth/api/auth', () => authApi)
@@ -43,6 +44,7 @@ describe('TeacherRoomsPage', () => {
     vi.clearAllMocks()
     authApi.getTeacherMe.mockResolvedValue(structuredClone(teacher))
     roomApi.createTeacherRoom.mockResolvedValue(structuredClone(createdRoom))
+    roomApi.deleteTeacherRoom.mockResolvedValue(structuredClone(createdRoom))
   })
 
   it('creates a room and moves to its waiting room', async () => {
@@ -69,7 +71,7 @@ describe('TeacherRoomsPage', () => {
 
     await wrapper.get('.dashboard-title-row button').trigger('click')
     await wrapper.get('input[name="roomName"]').setValue('6학년 3반 경제교실')
-    expect(wrapper.text()).toContain('24명의 개인 참여 코드')
+    expect(wrapper.text()).toContain('24명의 학생 번호')
     await wrapper.get('.room-create-modal form').trigger('submit')
     await flushPromises()
 
@@ -79,5 +81,33 @@ describe('TeacherRoomsPage', () => {
       name: 'teacher-room-control',
       params: { roomId: 'room-new' },
     })
+  })
+
+  it('removes a deleted room from the list immediately', async () => {
+    authApi.getTeacherMe.mockReset()
+    authApi.getTeacherMe
+      .mockResolvedValueOnce({ ...structuredClone(teacher), rooms: [structuredClone(createdRoom)] })
+      .mockResolvedValueOnce(structuredClone(teacher))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/teacher/rooms', name: 'teacher-rooms', component: { template: '<div />' } },
+        { path: '/teacher/rooms/:roomId/control', name: 'teacher-room-control', component: { template: '<div />' } },
+        { path: '/teacher/login', name: 'teacher-login', component: { template: '<div />' } },
+        { path: '/', name: 'home', component: { template: '<div />' } },
+      ],
+    })
+    await router.push({ name: 'teacher-rooms' })
+    await router.isReady()
+    const wrapper = mount(TeacherRoomsPage, { global: { plugins: [router] } })
+    await flushPromises()
+
+    await wrapper.get('.room-delete-button').trigger('click')
+    await flushPromises()
+
+    expect(roomApi.deleteTeacherRoom).toHaveBeenCalledWith('room-new')
+    expect(wrapper.find('.room-card').exists()).toBe(false)
+    expect(wrapper.text()).toContain('학급 목록에서 삭제했습니다')
   })
 })

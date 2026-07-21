@@ -30,6 +30,20 @@ function teacherState(roomId: string, roomName: string, syncVersion: number) {
   }
 }
 
+function studentState(roomId: string, syncVersion: number) {
+  return {
+    roomId,
+    roomStatus: 'DAY1_ACTIVE',
+    currentDay: 1,
+    currentStage: 'DAY1_PROFILE',
+    mode: 'GUIDED',
+    walletBalance: 100,
+    modules: [],
+    syncVersion,
+    changed: true,
+  }
+}
+
 describe('roomSession store teacher room context', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -70,5 +84,25 @@ describe('roomSession store teacher room context', () => {
 
     expect(store.teacherState?.roomId).toBe('room-current')
     expect(store.teacherState?.roomName).toBe('현재 교실')
+  })
+
+  it('ignores an old student response after a reconnect starts a new session context', async () => {
+    let resolveOldStudent!: (state: ReturnType<typeof studentState>) => void
+    const oldStudentResponse = new Promise<ReturnType<typeof studentState>>((resolve) => {
+      resolveOldStudent = resolve
+    })
+    roomApi.getStudentRoomState
+      .mockReturnValueOnce(oldStudentResponse)
+      .mockResolvedValueOnce(studentState('room-current', 1))
+    const store = useRoomSessionStore()
+
+    const oldRequest = store.refreshStudent(undefined, 'room-old')
+    store.resetStudentContext()
+    await store.refreshStudent(undefined, 'room-current')
+    resolveOldStudent(studentState('room-old', 100))
+    await oldRequest
+
+    expect(store.studentState?.roomId).toBe('room-current')
+    expect(store.studentState?.syncVersion).toBe(1)
   })
 })

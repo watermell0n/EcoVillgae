@@ -47,24 +47,29 @@ onMounted(async () => {
 
 async function submit() {
   errorMessage.value = ''
+  const normalizedNickname = nickname.value.trim()
   password.value = removePasswordWhitespace(password.value)
   passwordConfirmation.value = removePasswordWhitespace(passwordConfirmation.value)
+  if (!isPasswordReset.value && (normalizedNickname.length < 1 || normalizedNickname.length > 20)) {
+    errorMessage.value = '이름은 앞뒤 공백을 빼고 1~20글자로 입력해 주세요. 한 글자 이름도 사용할 수 있어요.'
+    return
+  }
   if (password.value.length < 4) {
     errorMessage.value = '비밀번호는 공백을 제외하고 4자 이상 입력해 주세요.'
     return
   }
   if (password.value !== passwordConfirmation.value) {
-    errorMessage.value = '비밀번호 확인이 일치하지 않습니다.'
+    errorMessage.value = '두 비밀번호가 같지 않아요. 다시 확인해 주세요.'
     return
   }
 
   submitting.value = true
   try {
-    const setupNickname = isPasswordReset.value ? (entry.value?.nickname ?? '') : nickname.value
+    const setupNickname = isPasswordReset.value ? (entry.value?.nickname ?? '') : normalizedNickname
     const student = await authStore.setupStudent(setupNickname, password.value)
     await router.push({ name: 'student-room', params: { roomId: student.roomId } })
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '계정 설정 중 오류가 발생했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '계정 설정 중 문제가 생겼어요. 입력한 내용을 다시 확인해 주세요.')
   } finally {
     submitting.value = false
   }
@@ -82,14 +87,21 @@ async function submit() {
       </h1>
       <p class="page-description">
         {{ isPasswordReset
-          ? `${entry.nickname ?? '기존 닉네임'} 이름은 그대로 사용하고 비밀번호만 새로 정해요.`
-          : '닉네임과 나만의 비밀 번호를 정하면 마을 활동을 시작할 수 있어요.' }}
+          ? `${entry.nickname ?? '기존'} 이름은 그대로 사용하고 비밀번호만 새로 정해요.`
+          : '친구들이 알아볼 이름과 나만의 비밀번호를 정하면 바로 시작할 수 있어요.' }}
       </p>
 
       <form class="form-stack" @submit.prevent="submit">
         <label v-if="!isPasswordReset">
           <span>마을에서 부를 이름</span>
-          <input v-model.trim="nickname" maxlength="20" placeholder="친구들이 알아볼 이름" required />
+          <input
+            v-model="nickname"
+            minlength="1"
+            maxlength="20"
+            placeholder="친구들이 알아볼 이름"
+            required
+          />
+          <small class="field-help">앞뒤 공백을 빼고 1~20글자까지 쓸 수 있어요. 한 글자 이름도 괜찮아요.</small>
         </label>
         <label>
           <span>비밀번호</span>
@@ -103,6 +115,7 @@ async function submit() {
             @input="handlePasswordInput"
             @keydown="preventSpaceInput"
           />
+          <small class="field-help">공백 없이 4~30글자로 정해요.</small>
         </label>
         <label>
           <span>비밀번호 확인</span>
@@ -120,11 +133,11 @@ async function submit() {
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '마을을 준비하는 중...' : isPasswordReset ? '새 비밀번호로 시작하기' : '마을 생활 시작하기' }}
+          {{ submitting ? '시작을 준비하고 있어요…' : isPasswordReset ? '새 비밀번호로 시작하기' : '마을 생활 시작하기' }}
         </button>
       </form>
 
-      <p class="helper-text">비밀번호를 잊으면 선생님에게 초기화를 요청해 주세요.</p>
+      <p class="helper-text">비밀번호를 잊으면 선생님에게 초기화를 부탁하세요.</p>
     </section>
   </main>
 </template>

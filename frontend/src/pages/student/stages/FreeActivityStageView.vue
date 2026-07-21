@@ -116,6 +116,13 @@ const selectedAllocations = computed(() =>
 const investmentTotal = computed(() =>
   selectedAllocations.value.reduce((sum, item) => sum + item.amount, 0),
 )
+const displayedWalletBalance = computed(() => Math.max(
+  (overview.value?.walletBalance ?? 0) - investmentTotal.value,
+  0,
+))
+const displayedInvestmentBalance = computed(() =>
+  (overview.value?.investmentBalance ?? 0) + investmentTotal.value,
+)
 const adjustableWalletBalance = computed(() =>
   Math.floor(Math.max(overview.value?.walletBalance ?? 0, 0) / depositUnit.value) * depositUnit.value,
 )
@@ -583,7 +590,7 @@ function formatPurchasedAt(value: string) {
         </div>
         <div class="shop-wallet" aria-label="현재 사용 가능 잔액">
           <span>사용 가능</span>
-          <strong>{{ formatBibim(overview.walletBalance) }}</strong>
+          <strong>{{ formatBibim(displayedWalletBalance) }}</strong>
         </div>
       </header>
 
@@ -598,9 +605,9 @@ function formatPurchasedAt(value: string) {
 
       <section v-if="activeView === 'HOME'" class="economy-home">
         <div class="economy-balance-grid">
-          <article><span>지갑</span><strong>{{ formatBibim(overview.walletBalance) }}</strong></article>
+          <article><span>지갑</span><strong>{{ formatBibim(displayedWalletBalance) }}</strong></article>
           <article><span>예금</span><strong>{{ formatBibim(overview.depositBalance) }}</strong></article>
-          <article><span>투자</span><strong>{{ formatBibim(overview.investmentBalance) }}</strong></article>
+          <article><span>투자</span><strong>{{ formatBibim(displayedInvestmentBalance) }}</strong></article>
           <article><span>구매</span><strong>{{ overview.purchaseCount }}건</strong></article>
         </div>
         <div class="economy-activity-grid">
@@ -718,7 +725,7 @@ function formatPurchasedAt(value: string) {
             <span class="investment-screen__title-icon" aria-hidden="true">📈</span>
             <div><h2>투자 은행</h2><p>다양한 회사에 투자해 보고, 미래 가치를 예측하며 똑똑한 투자자가 되어 봐요!</p></div>
           </div>
-          <aside class="investment-screen__balance"><span>보유 투자금</span><strong>🪙 {{ formatBibim(overview.walletBalance) }}</strong></aside>
+          <aside class="investment-screen__balance"><span>지금 지갑 잔액</span><strong>🪙 {{ formatBibim(displayedWalletBalance) }}</strong></aside>
         </header>
         <div class="investment-screen__section-title"><span aria-hidden="true">🌱</span><strong>투자 가능한 상품</strong><small>ⓘ</small></div>
         <div class="investment-asset-grid">
@@ -776,13 +783,13 @@ function formatPurchasedAt(value: string) {
         </div>
         <div class="investment-total-card investment-screen__checkout">
           <div><span>총투자금</span><strong>{{ formatBibim(investmentTotal) }}</strong></div>
-          <div><span>투자 후 지갑</span><strong>{{ formatBibim(overview.walletBalance - investmentTotal) }}</strong></div>
+          <div><span>지금 지갑 잔액</span><strong>{{ formatBibim(displayedWalletBalance) }}</strong></div>
           <div class="finance-actions">
             <button class="button-secondary" type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="cancelInvestment">임시 저장 취소</button>
             <button type="button" :disabled="!canSaveInvestment || economyStore.saving" @click="saveInvestment">임시 저장</button>
             <button type="button" :disabled="investment.status !== 'DRAFT' || economyStore.saving" @click="confirmInvestment">투자 확정</button>
           </div>
-          <p class="draft-balance-note">임시 저장만으로는 지갑에서 돈이 빠지지 않아요. ‘투자 확정’을 눌렀을 때만 이동합니다.</p>
+          <p class="draft-balance-note">투자 금액을 고르면 지갑 잔액에서 바로 빠져 보여요. 실제 기록은 ‘투자 확정’을 눌렀을 때 저장돼요.</p>
         </div>
         <p class="investment-screen__note">💡 예상 결과는 과거 데이터와 시장 상황을 바탕으로 한 예측 범위예요.</p>
         <section class="investment-confirmed-history" aria-label="투자 확정 내역">
@@ -812,9 +819,9 @@ function formatPurchasedAt(value: string) {
 
       <section v-else-if="activeView === 'WALLET'" class="wallet-panel">
         <div class="economy-balance-grid">
-          <article><span>사용 가능 잔액</span><strong>{{ formatBibim(overview.walletBalance) }}</strong></article>
+          <article><span>사용 가능 잔액</span><strong>{{ formatBibim(displayedWalletBalance) }}</strong></article>
           <article><span>예금 원금</span><strong>{{ formatBibim(overview.depositBalance) }}</strong></article>
-          <article><span>투자 원금</span><strong>{{ formatBibim(overview.investmentBalance) }}</strong></article>
+          <article><span>투자 원금</span><strong>{{ formatBibim(displayedInvestmentBalance) }}</strong></article>
           <article><span>총자산</span><strong>{{ formatBibim(overview.totalAssets) }}</strong></article>
         </div>
         <div class="transaction-list">
@@ -823,7 +830,7 @@ function formatPurchasedAt(value: string) {
           <article v-for="transaction in economyStore.transactions" :key="transaction.transactionId">
             <span aria-hidden="true">{{ transactionIcon(transaction.transactionType) }}</span>
             <div><strong>{{ transaction.description }}</strong><small>{{ formatPurchasedAt(transaction.createdAt) }}</small></div>
-            <strong :class="{ 'is-positive': transaction.walletAmount > 0 }">{{ transaction.walletAmount > 0 ? '+' : '' }}{{ formatBibim(transaction.walletAmount) }}</strong>
+            <strong :class="{ 'is-positive': transaction.walletAmount > 0, 'is-negative': transaction.walletAmount < 0 }">{{ transaction.walletAmount > 0 ? '+' : '' }}{{ formatBibim(transaction.walletAmount) }}</strong>
           </article>
         </div>
       </section>

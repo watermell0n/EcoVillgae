@@ -57,4 +57,9 @@ class StudentAuthDtoValidationTest {
         assertTrue(validator.validate(new SetupRequest("ECO-01", "비빔이", "1234")).isEmpty());
         assertTrue(validator.validate(new LoginRequest("ECO-01", "1234")).isEmpty());
     }
+
+    @Test
+    void acceptsAOneCharacterStudentName() {
+        assertTrue(validator.validate(new SetupRequest("ECO-01", "봄", "1234")).isEmpty());
+    }
 }

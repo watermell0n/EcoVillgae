@@ -34,7 +34,7 @@ async function refresh() {
     }
     if (['DAY2_FUND_VOTE', 'DAY2_FUND_RESULT'].includes(currentStage.value ?? '')) {
       vote.value = await getStudentCurrentVote()
-      selectedOptionId.value = vote.value.selectedOptionId ?? selectedOptionId.value
+      selectedOptionId.value = vote.value.selectedOptionId ?? ''
     }
     errorMessage.value = ''
   } catch (error) {
@@ -56,7 +56,13 @@ async function submitVote() {
   }
 }
 
-watch(currentStage, () => void refresh(), { immediate: true })
+watch(currentStage, () => {
+  vote.value = null
+  costOptions.value = []
+  selectedOptionId.value = ''
+  loading.value = true
+  void refresh()
+}, { immediate: true })
 
 onMounted(() => {
   pollingTimer = setInterval(() => {

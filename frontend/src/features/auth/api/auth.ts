@@ -81,14 +81,19 @@ export async function getAdminMe() {
   return response.data.data
 }
 
-export async function enterStudent(participationCode: string) {
-  const normalizedCode = participationCode.trim().toUpperCase()
-  const response = await http.post<ApiResponse<Omit<StudentEntry, 'participationCode'>>>(
-    '/student/auth/enter',
-    { participationCode: normalizedCode },
-  )
+export async function enterStudent(studentEntry: string, roomId?: string) {
+  const normalizedEntry = studentEntry.trim().toUpperCase()
+  const participantNumber = /^\d{1,2}$/.test(normalizedEntry)
+    ? Number(normalizedEntry)
+    : undefined
+  const participationCode = !roomId && participantNumber !== undefined
+    ? `ECO-${String(participantNumber).padStart(2, '0')}`
+    : normalizedEntry
+  const response = await http.post<ApiResponse<StudentEntry>>('/student/auth/enter', roomId
+    ? { roomId, participantNumber }
+    : { participationCode })
   clearStudentSessionToken()
-  return { participationCode: normalizedCode, ...response.data.data }
+  return response.data.data
 }
 
 export async function setupStudent(

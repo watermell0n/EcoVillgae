@@ -36,7 +36,8 @@ docker compose --env-file .env -f infra/docker-compose.local.yml up -d --build
 
 - 교사 로그인: `teacher` / `teacher1234`
 - 관리자 로그인: `admin` / `admin1234`
-- 학생 참여 코드: `ECO-01`, `ECO-02`, `ECO-03`
+- 학생 로그인: 공용 시연 교실에서는 자기 번호 `1`, `2`, `3` 또는 기존 코드 `ECO-01`, `ECO-02`, `ECO-03`
+- 새 교실: 교사 방 목록의 `학생 입장 주소 복사`로 주소를 공유하면 학생은 자기 번호만 입력
 - 교사 페이지: http://localhost:5173/teacher/login
 - 관리자 페이지: http://localhost:5173/admin/login
 - 학생 페이지: http://localhost:5173/student/join

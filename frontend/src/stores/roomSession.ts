@@ -25,6 +25,8 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
   let pollingTimer: ReturnType<typeof setInterval> | undefined
   let requestInFlight = false
   let activeTeacherRoomId: string | undefined
+  let activeStudentRoomId: string | undefined
+  let studentContextVersion = 0
 
   function applyTeacherState(nextState: TeacherRoomState) {
     if (activeTeacherRoomId && nextState.roomId !== activeTeacherRoomId) return
@@ -38,7 +40,12 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
   }
 
   function applyStudentState(nextState: StudentRoomState) {
-    if (!studentState.value || nextState.syncVersion >= studentState.value.syncVersion) {
+    if (activeStudentRoomId && nextState.roomId !== activeStudentRoomId) return
+    if (
+      !studentState.value
+      || studentState.value.roomId !== nextState.roomId
+      || nextState.syncVersion >= studentState.value.syncVersion
+    ) {
       studentState.value = nextState
     }
   }
@@ -55,8 +62,17 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     return state
   }
 
-  async function refreshStudent(initialSyncVersion?: number) {
-    const state = await getStudentRoomState(studentState.value?.syncVersion ?? initialSyncVersion)
+  async function refreshStudent(initialSyncVersion?: number, roomId?: string) {
+    if (roomId) activeStudentRoomId = roomId
+    const requestContextVersion = studentContextVersion
+    const currentStudentState = studentState.value
+    const currentSyncVersion = currentStudentState && currentStudentState.roomId === activeStudentRoomId
+      ? currentStudentState.syncVersion
+      : initialSyncVersion
+    const state = await getStudentRoomState(currentSyncVersion)
+    if (requestContextVersion !== studentContextVersion) return state
+    if (activeStudentRoomId && state.roomId !== activeStudentRoomId) return state
+    activeStudentRoomId ??= state.roomId
     applyStudentState(state)
     connectionStatus.value = 'CONNECTED'
     pollError.value = null
@@ -85,8 +101,9 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
     }, POLLING_INTERVAL_MS)
   }
 
-  function startStudentPolling() {
+  function startStudentPolling(roomId?: string) {
     stopPolling()
+    if (roomId) activeStudentRoomId = roomId
     connectionStatus.value = 'CONNECTED'
     pollingTimer = setInterval(() => {
       void runPollingRequest(() => refreshStudent())
@@ -111,6 +128,8 @@ export const useRoomSessionStore = defineStore('roomSession', () => {
 
   function resetStudentContext() {
     stopPolling()
+    studentContextVersion += 1
+    activeStudentRoomId = undefined
     studentState.value = null
     pollError.value = null
   }

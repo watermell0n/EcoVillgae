@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TeacherStudentDay1Summary } from '../../features/day1/api/day1'
+import type { TeacherStudentFlow } from '../../features/flow/api/teacherFlow'
 import type { TeacherQuizStudent } from '../../features/quiz/api/quiz'
-import { getConnectedDay1Counts, getConnectedQuizCounts } from './liveParticipation'
+import {
+  getConnectedDay1Counts,
+  getConnectedQuizCounts,
+  getStudentsNotAtCurrentActivity,
+} from './liveParticipation'
 
 describe('live participation counts', () => {
   it('counts quiz progress using only currently connected students', () => {
@@ -36,5 +41,16 @@ describe('live participation counts', () => {
       purchaseParticipants: 1,
       inactive: 1,
     })
+  })
+
+  it('finds active students who have not reached the teacher activity', () => {
+    const students = [
+      { studentId: 'live', studentStatus: 'ACTIVE', flow: { flowMode: 'LIVE', effectiveStage: 'DAY1_SUMMARY' } },
+      { studentId: 'late', studentStatus: 'ACTIVE', flow: { flowMode: 'CATCH_UP', effectiveStage: 'DAY1_QUIZ' } },
+      { studentId: 'absent', studentStatus: 'ABSENT', flow: { flowMode: 'CATCH_UP', effectiveStage: 'DAY1_PROFILE' } },
+    ] as TeacherStudentFlow[]
+
+    expect(getStudentsNotAtCurrentActivity(students, 'DAY1_SUMMARY').map((student) => student.studentId))
+      .toEqual(['late'])
   })
 })

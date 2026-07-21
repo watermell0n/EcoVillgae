@@ -26,16 +26,13 @@ const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
 const closedDay = ref<1 | 2 | null>(null)
 const catchUpQuizNoticeVisible = ref(false)
+const catchUpNextVisible = ref(true)
 const allowRouteExit = ref(false)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
 const stageDefinition = computed(() => getRoomStage(displayStage.value))
 const stageComponent = computed(() => getStudentStageComponent(displayStage.value))
-const contextAtPageBottom = computed(() => (
-  displayStage.value === 'DAY1_QUIZ_RESULT'
-    || displayStage.value === 'DAY2_QUIZ_RESULT'
-))
 const stageComponentProps = computed(() => {
   if (isPlaceholderStage(displayStage.value)) {
     return { stageLabel: stageDefinition.value?.label ?? displayStage.value ?? '대기 중' }
@@ -69,8 +66,8 @@ onMounted(async () => {
     if (route.params.roomId !== loadedStudent.roomId) {
       await router.replace({ name: 'student-room', params: { roomId: loadedStudent.roomId } })
     }
-    await roomSessionStore.refreshStudent(loadedStudent.syncVersion)
-    roomSessionStore.startStudentPolling()
+    await roomSessionStore.refreshStudent(loadedStudent.syncVersion, loadedStudent.roomId)
+    roomSessionStore.startStudentPolling(loadedStudent.roomId)
     currentPage.value = roomSessionStore.studentState?.effectiveStage
       ?? roomSessionStore.studentState?.currentStage
       ?? 'WAITING'
@@ -119,6 +116,7 @@ watch(
   (stage) => {
     if (!stage) return
     quizActivityCompleted.value = false
+    catchUpNextVisible.value = true
     currentPage.value = stage
     void reportPresence()
     const closingStage = ['DAY1_CLOSED', 'DAY2_COMPLETED'].includes(stage)
@@ -234,12 +232,14 @@ function dismissCatchUpQuizNotice() {
 async function advanceCatchUp() {
   if (advancingFlow.value) return
   advancingFlow.value = true
+  catchUpNextVisible.value = false
   flowError.value = ''
   try {
     await advanceStudentFlow()
     await roomSessionStore.refreshStudent()
     currentPage.value = displayStage.value ?? 'WAITING'
   } catch (error) {
+    catchUpNextVisible.value = true
     flowError.value = getApiErrorMessage(error, '현재 활동을 완료한 뒤 다음 단계로 이동해 주세요.')
   } finally {
     advancingFlow.value = false
@@ -255,10 +255,6 @@ async function advanceCatchUp() {
     <StudentSessionClosedView v-else-if="sessionClosed" :day-number="closedDay ?? 2" />
     <template v-else-if="student && state">
       <section class="student-stage-card" :aria-label="stageDefinition?.label ?? displayStage">
-        <div v-if="!contextAtPageBottom" class="student-context-bar" aria-label="현재 참여 정보">
-          <span>{{ student.roomName }}</span>
-          <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
-        </div>
         <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
           <div>
             <strong>{{ closingCountdown }}초 뒤에 종료됩니다.</strong>
@@ -308,10 +304,6 @@ async function advanceCatchUp() {
           @page-change="handlePageChange"
           @completion-change="handleActivityCompletion"
         />
-        <div v-if="contextAtPageBottom" class="student-context-bar student-context-bar--page-bottom" aria-label="현재 참여 정보">
-          <span>{{ student.roomName }}</span>
-          <strong>{{ student.participantNumber }}번 {{ student.nickname }}</strong>
-        </div>
         <p v-if="flowError" class="form-error" role="alert">{{ flowError }}</p>
         <div
           v-if="isCatchUpQuiz && !canAdvanceCatchUp && catchUpQuizNoticeVisible"
@@ -322,7 +314,7 @@ async function advanceCatchUp() {
           <button type="button" aria-label="퀴즈 제출 안내 닫기" @click="dismissCatchUpQuizNotice">×</button>
         </div>
         <button
-          v-if="state.flowMode === 'CATCH_UP' && canAdvanceCatchUp"
+          v-if="state.flowMode === 'CATCH_UP' && canAdvanceCatchUp && catchUpNextVisible"
           class="settlement-action catch-up-next"
           type="button"
           :disabled="advancingFlow"

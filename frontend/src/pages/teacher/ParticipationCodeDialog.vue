@@ -40,13 +40,13 @@ function studentStatusTone(student: TeacherRoomStudent): 'success' | 'warning' |
       <div class="room-preparation-heading">
         <div>
           <p class="eyebrow">학생 재접속 지원</p>
-          <h2 id="participation-code-dialog-title">학생별 입장 코드</h2>
+          <h2 id="participation-code-dialog-title">재접속용 개인 코드</h2>
         </div>
         <button class="button-secondary" type="button" :disabled="loading" @click="emit('refresh')">
           {{ loading ? '새로고침 중…' : '현황 새로고침' }}
         </button>
       </div>
-      <p class="control-caution">코드는 해당 학생에게만 전달해 주세요. 코드를 누르면 바로 복사됩니다.</p>
+      <p class="control-caution">평소에는 학생 입장 주소에서 자기 번호로 로그인합니다. 재접속에 문제가 있을 때만 아래 개인 코드를 해당 학생에게 전달해 주세요.</p>
       <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
       <p v-else-if="loading && !students.length" class="state-message">학생별 코드를 불러오고 있습니다.</p>
       <div v-else class="participation-code-list" role="table" aria-label="학생별 입장 코드">

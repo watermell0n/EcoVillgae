@@ -83,6 +83,20 @@ describe('StudentSetupPage', () => {
     expect(setupStudent).not.toHaveBeenCalled()
   })
 
+  it('accepts a one-character student name and explains the rule', async () => {
+    const { setupStudent, wrapper } = mountSetupPage()
+    const passwordInputs = wrapper.findAll('input[type="password"]')
+
+    expect(wrapper.text()).toContain('한 글자 이름도 괜찮아요')
+    await wrapper.get('input[placeholder="친구들이 알아볼 이름"]').setValue('봄')
+    await passwordInputs[0]!.setValue('1234')
+    await passwordInputs[1]!.setValue('1234')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(setupStudent).toHaveBeenCalledWith('봄', '1234')
+  })
+
   it('keeps the nickname and asks only for a new password after a reset', async () => {
     const { setupStudent, wrapper } = mountSetupPage('RESET_PASSWORD')
     const passwordInputs = wrapper.findAll('input[type="password"]')

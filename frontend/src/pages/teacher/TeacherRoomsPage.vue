@@ -7,6 +7,7 @@ import { getRoomStage } from '../../features/room/model/stages'
 import { isUnauthorized, getApiErrorMessage } from '../../shared/api/errors'
 import StatusBadge from '../../shared/components/StatusBadge.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
+import { copyText } from '../../shared/utils/clipboard'
 import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
@@ -19,6 +20,8 @@ const expectedStudentCount = 24
 const creatingRoom = ref(false)
 const createErrorMessage = ref('')
 const deletingRoomId = ref('')
+const copiedJoinRoomId = ref('')
+const noticeMessage = ref('')
 const teacher = computed(() => authStore.teacher)
 
 onMounted(async () => {
@@ -93,12 +96,32 @@ async function removeRoom(roomId: string, name: string) {
   errorMessage.value = ''
   try {
     await deleteTeacherRoom(roomId)
+    if (authStore.teacher) {
+      authStore.teacher.rooms = authStore.teacher.rooms.filter((room) => room.roomId !== roomId)
+    }
+    noticeMessage.value = `‘${name}’ 방을 학급 목록에서 삭제했습니다.`
     await authStore.loadTeacher()
   } catch (error) {
+    if (isUnauthorized(error)) {
+      await router.replace({ name: 'teacher-login' })
+      return
+    }
     errorMessage.value = getApiErrorMessage(error, '수업 방을 삭제하지 못했습니다.')
   } finally {
     deletingRoomId.value = ''
   }
+}
+
+async function copyStudentJoinLink(roomId: string) {
+  const url = `${window.location.origin}/student/join?roomId=${encodeURIComponent(roomId)}`
+  if (await copyText(url)) {
+    copiedJoinRoomId.value = roomId
+    noticeMessage.value = '학생 입장 주소를 복사했습니다. 학생들은 이 주소에서 자기 번호만 입력하면 됩니다.'
+    errorMessage.value = ''
+    return
+  }
+  copiedJoinRoomId.value = ''
+  errorMessage.value = '학생 입장 주소를 복사하지 못했습니다. 다시 시도해 주세요.'
 }
 </script>
 
@@ -124,6 +147,7 @@ async function removeRoom(roomId: string, name: string) {
 
     <p v-if="loading" class="state-message">방 목록을 불러오고 있습니다.</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
+    <p v-if="noticeMessage" class="control-notice" role="status">{{ noticeMessage }}</p>
 
     <section v-else class="room-list" aria-label="수업 방 목록">
       <article v-for="room in teacher?.rooms" :key="room.roomId" class="room-card">
@@ -150,6 +174,11 @@ async function removeRoom(roomId: string, name: string) {
             수업 계속하기
           </RouterLink>
           <button
+            class="button-secondary room-join-link-button"
+            type="button"
+            @click="copyStudentJoinLink(room.roomId)"
+          >{{ copiedJoinRoomId === room.roomId ? '입장 주소 복사됨' : '학생 입장 주소 복사' }}</button>
+          <button
             class="button-secondary room-delete-button"
             type="button"
             :disabled="deletingRoomId === room.roomId"
@@ -165,7 +194,7 @@ async function removeRoom(roomId: string, name: string) {
       <section class="confirm-modal room-create-modal" role="dialog" aria-modal="true" aria-labelledby="room-create-title">
         <p class="eyebrow">새로운 수업</p>
         <h2 id="room-create-title">수업 방을 만들어요.</h2>
-          <p>24명의 개인 참여 코드와 번호별 1인1역이 자동으로 생성됩니다.</p>
+          <p>24명의 학생 번호와 번호별 1인1역이 자동으로 생성됩니다.</p>
         <form class="form-stack" @submit.prevent="submitCreateRoom">
           <label>
             <span>방 이름</span>

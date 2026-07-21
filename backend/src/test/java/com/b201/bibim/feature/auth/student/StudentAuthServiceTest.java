@@ -101,6 +101,22 @@ class StudentAuthServiceTest {
     }
 
     @Test
+    void entersRoomWithOnlyTheStudentNumberFromAClassLink() {
+        RoomEntity room = RoomEntity.preparing(UUID.randomUUID(), "햇살반", 24);
+        UUID roomId = room.getId();
+        StudentEntity student = StudentEntity.invited(roomId, 7, "ECO-ROOM-07");
+        when(studentRepository.findByRoomIdAndParticipantNumber(roomId, 7))
+                .thenReturn(Optional.of(student));
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+
+        var response = studentAuthService.enter(new EnterRequest(null, roomId, 7));
+
+        assertEquals("ECO-ROOM-07", response.participationCode());
+        assertEquals(7, response.participantNumber());
+        assertEquals(RequiredAction.SETUP, response.requiredAction());
+    }
+
+    @Test
     void resetStudentKeepsNicknameAndSetsOnlyANewPassword() {
         UUID roomId = UUID.randomUUID();
         StudentEntity student = StudentEntity.invited(roomId, 2, "ECO-02");

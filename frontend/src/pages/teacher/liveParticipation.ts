@@ -1,4 +1,5 @@
 import type { TeacherStudentDay1Summary } from '../../features/day1/api/day1'
+import type { TeacherStudentFlow } from '../../features/flow/api/teacherFlow'
 import type { TeacherQuizStudent } from '../../features/quiz/api/quiz'
 
 export function getConnectedQuizCounts(students: TeacherQuizStudent[]) {
@@ -22,4 +23,16 @@ export function getConnectedDay1Counts(students: TeacherStudentDay1Summary[]) {
     purchaseParticipants: connected.filter((student) => student.purchased).length,
     inactive: connected.filter((student) => student.inactive).length,
   }
+}
+
+export function getStudentsNotAtCurrentActivity(
+  students: TeacherStudentFlow[],
+  currentStage: string,
+) {
+  return students.filter((student) => (
+    student.studentStatus === 'ACTIVE'
+    && student.flow !== null
+    && student.flow.flowMode !== 'LOCKED'
+    && student.flow.effectiveStage !== currentStage
+  ))
 }

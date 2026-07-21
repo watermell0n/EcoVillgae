@@ -29,7 +29,8 @@ vi.mock('../../features/room/api/room', async (importOriginal) => ({
 const presenceApi = vi.hoisted(() => ({ sendPresenceHeartbeat: vi.fn() }))
 vi.mock('../../features/monitoring/api/presence', () => presenceApi)
 
-vi.mock('../../features/flow/api/flow', () => ({ advanceStudentFlow: vi.fn() }))
+const flowApi = vi.hoisted(() => ({ advanceStudentFlow: vi.fn() }))
+vi.mock('../../features/flow/api/flow', () => flowApi)
 vi.mock('./stages/stageComponents', () => ({
   getStudentStageComponent: () => ({ template: '<div class="stub-stage">활동 화면</div>' }),
   isPlaceholderStage: () => false,
@@ -71,6 +72,7 @@ describe('StudentRoomPage day-one closing', () => {
     })
     roomApi.getStudentRoomState.mockResolvedValue(structuredClone(liveState))
     presenceApi.sendPresenceHeartbeat.mockResolvedValue(undefined)
+    flowApi.advanceStudentFlow.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -121,7 +123,32 @@ describe('StudentRoomPage day-one closing', () => {
     const notice = wrapper.get('.student-closing-countdown')
     expect(notice.text()).toContain('5초 뒤에 종료됩니다.')
     expect(notice.find('button').exists()).toBe(false)
+    expect(wrapper.find('.student-context-bar').exists()).toBe(false)
     expect(stopPolling).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('hides the fixed catch-up action as soon as it is clicked', async () => {
+    roomApi.getStudentRoomState.mockResolvedValue({
+      ...structuredClone(liveState),
+      currentStage: 'DAY1_PROFILE',
+      roomStage: 'DAY1_SUMMARY',
+      effectiveStage: 'DAY1_PROFILE',
+      flowMode: 'CATCH_UP',
+      totalActivityCount: 3,
+      completedActivityCount: 0,
+    })
+    const roomSessionStore = useRoomSessionStore()
+    vi.spyOn(roomSessionStore, 'startStudentPolling').mockImplementation(() => undefined)
+    const wrapper = mount(StudentRoomPage)
+    await flushPromises()
+
+    const action = wrapper.get('.catch-up-next')
+    await action.trigger('click')
+    await flushPromises()
+
+    expect(flowApi.advanceStudentFlow).toHaveBeenCalledOnce()
+    expect(wrapper.find('.catch-up-next').exists()).toBe(false)
     wrapper.unmount()
   })
 

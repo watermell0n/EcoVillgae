@@ -61,8 +61,8 @@ export const useAuthStore = defineStore('auth', () => {
     return admin.value
   }
 
-  async function enterStudent(participationCode: string) {
-    const entry = await enterStudentApi(participationCode)
+  async function enterStudent(studentEntry: string, roomId?: string) {
+    const entry = await enterStudentApi(studentEntry, roomId)
     student.value = null
     useRoomSessionStore().resetStudentContext()
     pendingStudentEntry.value = entry

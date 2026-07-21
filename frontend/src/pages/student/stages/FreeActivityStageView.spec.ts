@@ -533,7 +533,12 @@ describe('FreeActivityStageView', () => {
 
     expect(wrapper.text()).toContain('총투자금')
     expect(wrapper.text()).toContain('20비빔')
+    expect(wrapper.get('.investment-screen__balance').text()).toContain('5비빔')
     expect(increaseButton.attributes('disabled')).toBeDefined()
+
+    await openTab(wrapper, '지갑')
+    expect(wrapper.get('.wallet-panel').text()).toContain('사용 가능 잔액5비빔')
+    expect(wrapper.get('.wallet-panel').text()).toContain('투자 원금20비빔')
   })
 
   it('keeps deposit history detailed and renders investment history as one flat summary line', async () => {

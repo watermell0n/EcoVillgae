@@ -43,7 +43,7 @@ async function submit() {
     const student = await authStore.loginStudent(password.value)
     await router.push({ name: 'student-room', params: { roomId: student.roomId } })
   } catch (error) {
-    errorMessage.value = getApiErrorMessage(error, '로그인 중 오류가 발생했습니다.')
+    errorMessage.value = getApiErrorMessage(error, '비밀번호를 확인하지 못했어요. 다시 입력해 주세요.')
   } finally {
     submitting.value = false
   }
@@ -57,7 +57,7 @@ async function submit() {
     <section v-if="entry" class="auth-card" aria-labelledby="student-login-title">
       <p class="eyebrow">{{ entry.roomName }} · {{ entry.participantNumber }}번</p>
       <h1 id="student-login-title" class="page-title">다시 만나서 반가워요!</h1>
-      <p class="page-description">{{ entry.participationCode }}에 설정한 비밀번호를 입력해 주세요.</p>
+      <p class="page-description">{{ entry.nickname ?? `${entry.participantNumber}번 학생` }}이 정한 비밀번호를 입력해 주세요.</p>
 
       <form class="form-stack" @submit.prevent="submit">
         <label>
@@ -75,11 +75,11 @@ async function submit() {
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
         <button type="submit" :disabled="submitting">
-          {{ submitting ? '마을 문을 여는 중...' : '마을로 돌아가기' }}
+          {{ submitting ? '교실로 들어가고 있어요…' : '내 교실로 돌아가기' }}
         </button>
       </form>
 
-      <p class="helper-text">비밀 번호를 잊었다면 선생님께 초기화를 요청하세요.</p>
+      <p class="helper-text">비밀번호를 잊으면 선생님에게 비밀번호 초기화를 부탁하세요.</p>
     </section>
   </main>
 </template>

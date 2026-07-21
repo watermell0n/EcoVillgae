@@ -25,7 +25,15 @@ import TeacherLearningMirror from './TeacherLearningMirror.vue'
 import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
 import TeacherQuizMirror from './TeacherQuizMirror.vue'
 import TeacherManagementWorkspace from './TeacherManagementWorkspace.vue'
-import { getConnectedDay1Counts, getConnectedQuizCounts } from './liveParticipation'
+import {
+  getConnectedDay1Counts,
+  getConnectedQuizCounts,
+  getStudentsNotAtCurrentActivity,
+} from './liveParticipation'
+import {
+  getTeacherStudentFlows,
+  type TeacherStudentFlow,
+} from '../../features/flow/api/teacherFlow'
 import FreeActivityIntroStageView from '../student/stages/FreeActivityIntroStageView.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
 import { copyText } from '../../shared/utils/clipboard'
@@ -79,6 +87,7 @@ const changingGuidedActivity = ref(false)
 const errorMessage = ref('')
 const noticeMessage = ref('')
 const copiedParticipationCode = ref<string | null>(null)
+const classJoinLinkCopied = ref(false)
 const preparation = ref<RoomPreparation | null>(null)
 const preparationLoading = ref(false)
 const preparationError = ref('')
@@ -95,6 +104,8 @@ const fundAdditionReason = ref('학급 활동 지원금')
 const managementView = ref<'PROGRESS' | 'STUDENTS' | 'SETTINGS'>('PROGRESS')
 const pendingStageTarget = ref<string | null>(null)
 const pendingLobbyExitTarget = ref<string | null>(null)
+const pendingArrivalTarget = ref<string | null>(null)
+const pendingArrivalStudents = ref<TeacherStudentFlow[]>([])
 let preparationRequest: { roomId: string; promise: Promise<RoomPreparation | null> } | undefined
 let preparationPollingTimer: ReturnType<typeof setInterval> | undefined
 const roomId = computed(() => String(route.params.roomId))
@@ -144,6 +155,7 @@ const hasMoreLearningPages = computed(() => Boolean(
 const shouldHighlightStageAdvance = computed(() => !hasMoreLearningPages.value)
 const pendingStageDefinition = computed(() => getRoomStage(pendingStageTarget.value ?? undefined))
 const pendingLobbyExitDefinition = computed(() => getRoomStage(pendingLobbyExitTarget.value ?? undefined))
+const pendingArrivalDefinition = computed(() => getRoomStage(pendingArrivalTarget.value ?? undefined))
 const lobbyAttendance = computed(() => getLobbyAttendance(preparation.value?.students ?? []))
 const lobbyWarningCount = computed(() => (
   lobbyAttendance.value.notJoined.length + lobbyAttendance.value.disconnected.length
@@ -204,6 +216,24 @@ async function requestStageMove(targetStage?: string) {
       return
     }
   }
+  if (targetIndex > currentStageIndex.value && state.value?.currentStage !== 'DAY1_LOBBY') {
+    try {
+      const flows = await getTeacherStudentFlows(roomId.value)
+      const currentRoomStage = state.value?.currentStage
+      const studentsNotAtCurrentActivity = getStudentsNotAtCurrentActivity(
+        flows.students,
+        currentRoomStage ?? '',
+      )
+      if (studentsNotAtCurrentActivity.length > 0) {
+        pendingArrivalStudents.value = studentsNotAtCurrentActivity
+        pendingArrivalTarget.value = targetStage
+        return
+      }
+    } catch (error) {
+      errorMessage.value = getApiErrorMessage(error, '학생들이 현재 활동에 도착했는지 확인하지 못했습니다.')
+      return
+    }
+  }
   continueStageMove(targetStage)
 }
 
@@ -220,6 +250,13 @@ async function confirmLobbyExit() {
   const targetStage = pendingLobbyExitTarget.value
   pendingLobbyExitTarget.value = null
   if (targetStage) await moveToStage(targetStage)
+}
+
+function confirmArrivalStageMove() {
+  const targetStage = pendingArrivalTarget.value
+  pendingArrivalTarget.value = null
+  pendingArrivalStudents.value = []
+  if (targetStage) continueStageMove(targetStage)
 }
 
 async function confirmStageMove() {
@@ -696,6 +733,18 @@ async function copyParticipationCode(code: string) {
     noticeMessage.value = ''
     errorMessage.value = `${code} 코드를 자동으로 복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.`
   }
+}
+
+async function copyClassJoinLink() {
+  const url = `${window.location.origin}/student/join?roomId=${encodeURIComponent(roomId.value)}`
+  classJoinLinkCopied.value = await copyText(url)
+  if (classJoinLinkCopied.value) {
+    noticeMessage.value = '학생 입장 주소를 복사했습니다. 학생들은 이 주소에서 자기 번호만 입력하면 됩니다.'
+    errorMessage.value = ''
+    return
+  }
+  noticeMessage.value = ''
+  errorMessage.value = '학생 입장 주소를 복사하지 못했습니다. 다시 시도해 주세요.'
 }
 
 async function openParticipationCodes() {
@@ -1976,11 +2025,16 @@ function moduleTone(moduleState: string) {
               </article>
             </div>
           </section>
-          <button
-            class="button-secondary participation-code-directory-trigger"
-            type="button"
-            @click="openParticipationCodes"
-          >학생별 입장 코드 보기</button>
+          <div class="teacher-entry-actions">
+            <button class="button-secondary" type="button" @click="copyClassJoinLink">
+              {{ classJoinLinkCopied ? '학생 입장 주소 복사됨' : '학생 입장 주소 복사' }}
+            </button>
+            <button
+              class="button-secondary participation-code-directory-trigger"
+              type="button"
+              @click="openParticipationCodes"
+            >재접속용 개인 코드 보기</button>
+          </div>
         </aside>
       </section>
 
@@ -2164,6 +2218,28 @@ function moduleTone(moduleState: string) {
             <button class="button-secondary" type="button" @click="pendingLobbyExitTarget = null">입장 대기 계속하기</button>
             <button type="button" :disabled="changingStage" @click="confirmLobbyExit">
               {{ changingStage ? '이동 중…' : '그래도 시작하기' }}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="pendingArrivalTarget && pendingArrivalDefinition" class="modal-backdrop">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="student-arrival-warning-title">
+          <p class="eyebrow">학생 진행 위치 확인</p>
+          <h2 id="student-arrival-warning-title">현재 활동에 아직 도착하지 못한 학생이 {{ pendingArrivalStudents.length }}명 있습니다.</h2>
+          <p class="confirm-modal__warning">
+            지금 {{ pendingArrivalDefinition.label }} 단계로 진행하면 아래 학생들은 놓친 활동을 개인 보충 화면에서 계속 진행합니다.
+          </p>
+          <ul class="close-warning-list" aria-label="현재 활동 미도착 학생">
+            <li v-for="studentItem in pendingArrivalStudents" :key="studentItem.studentId">
+              <strong>{{ studentItem.participantNumber }}번 {{ studentItem.nickname || '학생' }}</strong>
+              <span>{{ studentItem.flow ? (getRoomStage(studentItem.flow.effectiveStage)?.label ?? studentItem.flow.effectiveStage) : '위치 확인 중' }}</span>
+            </li>
+          </ul>
+          <div class="confirm-modal__actions">
+            <button class="button-secondary" type="button" @click="pendingArrivalTarget = null; pendingArrivalStudents = []">학생 도착 기다리기</button>
+            <button type="button" :disabled="changingStage" @click="confirmArrivalStageMove">
+              {{ changingStage ? '이동 중…' : '그래도 다음 단계로' }}
             </button>
           </div>
         </section>
