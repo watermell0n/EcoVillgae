@@ -15,6 +15,7 @@ defineProps<{
 <style scoped>
 .status-badge {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.45rem;
   width: fit-content;
@@ -22,6 +23,7 @@ defineProps<{
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .status-badge__dot {

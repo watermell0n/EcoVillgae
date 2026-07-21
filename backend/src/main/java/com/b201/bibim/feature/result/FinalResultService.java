@@ -1,5 +1,6 @@
 package com.b201.bibim.feature.result;
 
+import java.net.URI;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -103,7 +104,29 @@ public class FinalResultService {
         this.voteSessionRepository = voteSessionRepository;
         this.voteOptionRepository = voteOptionRepository;
         this.voteRepository = voteRepository;
-        this.surveyUrl = surveyUrl;
+        this.surveyUrl = normalizeExternalSurveyUrl(surveyUrl);
+    }
+
+    static String normalizeExternalSurveyUrl(String rawSurveyUrl) {
+        if (rawSurveyUrl == null || rawSurveyUrl.isBlank()) {
+            throw new IllegalArgumentException("SURVEY_URL에 외부 설문 주소를 입력해 주세요.");
+        }
+        String candidate = rawSurveyUrl.trim();
+        if (!candidate.matches("(?i)^https?://.*")) {
+            candidate = "https://" + candidate;
+        }
+        URI uri;
+        try {
+            uri = URI.create(candidate);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("SURVEY_URL에 올바른 외부 설문 주소를 입력해 주세요.", exception);
+        }
+        if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                || uri.getHost() == null
+                || uri.getHost().isBlank()) {
+            throw new IllegalArgumentException("SURVEY_URL은 http 또는 https 외부 주소여야 합니다.");
+        }
+        return uri.toString();
     }
 
     @Transactional(readOnly = true)

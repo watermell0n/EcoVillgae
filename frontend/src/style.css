@@ -2820,6 +2820,35 @@ button.admin-student-row.is-selected {
   margin: 0;
 }
 
+.day1-activity-intro__steps {
+  display: grid;
+  width: min(100%, 720px);
+  margin: 1rem auto;
+  padding: 0;
+  gap: 0.75rem;
+  list-style: none;
+}
+
+.day1-activity-intro__steps li {
+  display: grid;
+  padding: 0.9rem 1rem;
+  border: 1px solid #dce9e3;
+  border-radius: 14px;
+  gap: 0.25rem;
+  background: #f7fbf9;
+  text-align: left;
+}
+
+.day1-activity-intro__steps span {
+  color: #5f6f68;
+}
+
+.day1-activity-intro__ready {
+  margin: 0.75rem 0 0;
+  color: #28735b;
+  font-weight: 800;
+}
+
 .catch-up-banner--waiting {
   border-color: #7fc8a1;
   background: #eefaf3;
@@ -5692,6 +5721,7 @@ button.admin-student-row.is-selected {
 .teacher-operations-content > .student-flow-panel h2 { font-size: 1rem; }
 .teacher-operations-content > .student-flow-panel .student-flow-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .teacher-operations-content > .student-flow-panel .student-flow-item { padding: 8px; border-radius: 9px; }
+.teacher-operations-content > .student-flow-panel .student-flow-item header { flex-wrap: wrap; align-items: flex-start; }
 .teacher-operations-content .control-summary { grid-template-columns: minmax(180px, .75fr) minmax(280px, 1.1fr) minmax(210px, .85fr) 165px; gap: 10px; padding: 12px 14px; }
 .student-screen-preview { border: 1px solid #cddff8; border-radius: 10px; background: #f7fbff; overflow: hidden; }
 .student-screen-preview > span { display: block; padding: 5px 8px; color: #3567a9; background: #eaf3ff; font-size: .68rem; font-weight: 700; }
@@ -7328,7 +7358,9 @@ button.admin-student-row.is-selected {
 .product-image-inputs > label { min-width: 0; }
 .product-image-inputs input { box-sizing: border-box; width: 100%; min-height: 44px; }
 .product-file-picker { display: grid; gap: 5px; }
+.product-file-picker.is-uploading { color: #386b55; }
 .product-file-picker input[type='file'] { max-width: none; padding: 8px; }
+.product-file-picker input[type='file']:disabled { background: #eef4f1; cursor: wait; }
 .settings-product-preview { display: block; width: min(100%, 320px); max-height: 190px; object-fit: contain; border: 1px solid #dce8e4; border-radius: 12px; background: #f7faf9; }
 
 /* Student-equivalent teacher learning and quiz surfaces. */

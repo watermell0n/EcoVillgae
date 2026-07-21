@@ -44,6 +44,10 @@ docker compose --env-file .env -f infra/docker-compose.local.yml up -d --build
 
 교사·관리자 자격 증명은 `.env`의 `DEMO_TEACHER_*`, `DEMO_ADMIN_*` 값으로 변경할 수 있습니다. 로컬 프로필에서만 데모 사용자·방·참여 코드가 생성됩니다.
 
+외부 설문은 `.env.example`의 `SURVEY_URL`에 전체 주소를 입력하면 됩니다. Google Forms뿐 아니라 Microsoft Forms, Tally 등 `http`/`https` 주소를 사용할 수 있습니다. 값을 바꾼 뒤에는 백엔드 컨테이너를 다시 생성해 주세요.
+
+상점에서 업로드한 상품 이미지는 Docker의 `product-image-data` 볼륨에 저장되므로 일반 재시작 후에도 유지됩니다.
+
 관리자 콘솔은 학생의 마지막 통신 시각, 현재 페이지, 수업 동기화 상태와 활동 타임라인을 5초 간격으로 갱신합니다. 자동 복구가 계속 실패하는 학생은 사유를 남기고 기존 로그인 세션을 종료할 수 있습니다.
 
 종료:

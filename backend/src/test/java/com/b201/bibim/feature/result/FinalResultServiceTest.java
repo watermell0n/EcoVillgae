@@ -1,6 +1,7 @@
 package com.b201.bibim.feature.result;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -56,6 +57,28 @@ class FinalResultServiceTest {
     @Mock VoteRepository voteRepository;
 
     FinalResultService service;
+
+    @Test
+    void acceptsAnyHttpExternalSurveyAndAddsHttpsWhenMissing() {
+        assertEquals(
+                "https://survey.example.org/forms/class-5?source=ecovillage",
+                FinalResultService.normalizeExternalSurveyUrl(
+                        "survey.example.org/forms/class-5?source=ecovillage"
+                )
+        );
+        assertEquals(
+                "https://forms.office.com/r/example",
+                FinalResultService.normalizeExternalSurveyUrl("https://forms.office.com/r/example")
+        );
+    }
+
+    @Test
+    void rejectsNonWebSurveyUrl() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FinalResultService.normalizeExternalSurveyUrl("javascript:alert(1)")
+        );
+    }
 
     @BeforeEach
     void setUp() {

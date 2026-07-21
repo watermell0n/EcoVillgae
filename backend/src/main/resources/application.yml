@@ -17,6 +17,10 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
 
 server:
   shutdown: graceful
@@ -39,4 +43,6 @@ app:
     student-session-hours: 48
     admin-session-hours: 8
   survey:
-    url: ${SURVEY_URL:https://docs.google.com/forms/}
+    url: ${SURVEY_URL:https://example.com/survey}
+  product-images:
+    directory: ${PRODUCT_IMAGE_DIR:./data/product-images}

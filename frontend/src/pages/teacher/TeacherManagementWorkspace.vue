@@ -7,6 +7,7 @@ import {
   getManagedStudents,
   resetManagedStudentPassword,
   saveClassSettings,
+  uploadProductImage,
   updateManagedStudent,
   type ClassSettings,
   type FundCostOptionSetting,
@@ -33,6 +34,7 @@ const pendingResetStudent = ref<ManagedStudent | null>(null)
 const selectedStudentId = ref<string | null>(null)
 const lockedRoleStudentIds = ref<Set<string>>(new Set())
 const productImageError = ref('')
+const uploadingProductImages = ref(new Set<ProductSetting>())
 const discontinuedProductIds = ref<string[]>([])
 const failedProductImages = ref(new Set<ProductSetting>())
 
@@ -101,6 +103,10 @@ async function confirmSaveSettings() {
     emit('refreshed')
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '수업 설정을 저장하지 못했습니다.')
+    showSaveConfirm.value = false
+    await nextTick()
+    document.querySelector<HTMLElement>('.teacher-management-workspace .form-error')
+      ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
   } finally {
     saving.value = false
   }
@@ -205,15 +211,6 @@ function addFundCostOption() {
   })
 }
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
-
 async function selectProductImage(product: ProductSetting, event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -224,11 +221,17 @@ async function selectProductImage(product: ProductSetting, event: Event) {
     productImageError.value = '이미지 파일만 선택할 수 있습니다.'
     return
   }
+  if (uploadingProductImages.value.has(product)) return
+  uploadingProductImages.value = new Set([...uploadingProductImages.value, product])
   try {
-    product.imageUrl = await readFileAsDataUrl(file)
+    product.imageUrl = await uploadProductImage(props.roomId, file)
     clearProductImageError(product)
-  } catch {
-    productImageError.value = '이미지 파일을 읽지 못했습니다.'
+  } catch (error) {
+    productImageError.value = getApiErrorMessage(error, '이미지 파일을 업로드하지 못했습니다.')
+  } finally {
+    const next = new Set(uploadingProductImages.value)
+    next.delete(product)
+    uploadingProductImages.value = next
   }
 }
 
@@ -404,13 +407,16 @@ function clearProductImageError(product: ProductSetting) {
             </div>
             <label>상품 설명<textarea v-model="product.description" rows="2" /></label>
             <div class="product-image-inputs">
-              <label class="product-file-picker">이미지 파일 선택<input type="file" accept="image/*" @change="selectProductImage(product, $event)"></label>
+              <label :class="['product-file-picker', { 'is-uploading': uploadingProductImages.has(product) }]">
+                {{ uploadingProductImages.has(product) ? '이미지 업로드 중…' : '이미지 파일 선택' }}
+                <input type="file" accept="image/*" :disabled="uploadingProductImages.has(product)" @change="selectProductImage(product, $event)">
+              </label>
               <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg" @input="clearProductImageError(product)"></label>
               <button v-if="product.imageUrl" class="button-secondary" type="button" @click="product.imageUrl = null">이미지 제거</button>
             </div>
             <img v-if="product.imageUrl && !failedProductImages.has(product)" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`" @error="markProductImageFailed(product)">
             <p v-else-if="product.imageUrl" class="product-image-fallback" role="status">이미지를 불러올 수 없어요. 파일 또는 주소를 다시 확인해 주세요.</p>
-            <small>이미지 파일은 용량 제한 없이 선택할 수 있어요. · 현재 재고 {{ product.currentStock }}개</small>
+            <small>JPG, PNG, GIF, WEBP 등 50MB 이하 이미지를 등록할 수 있어요. · 현재 재고 {{ product.currentStock }}개</small>
           </article>
         </section>
 
@@ -434,11 +440,11 @@ function clearProductImageError(product: ProductSetting) {
           </article>
         </section>
 
-        <div class="settings-save-bar"><span>저장 전 값을 다시 확인해 주세요.</span><button type="button" @click="showSaveConfirm = true">변경사항 저장</button></div>
+        <div class="settings-save-bar"><span>저장 전 값을 다시 확인해 주세요.</span><button type="button" :disabled="saving || uploadingProductImages.size > 0" @click="showSaveConfirm = true">{{ uploadingProductImages.size > 0 ? '이미지 업로드 중…' : '변경사항 저장' }}</button></div>
       </template>
     </template>
   </section>
 
-  <div v-if="showSaveConfirm" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title"><h2 id="settings-confirm-title">수업 설정을 저장할까요?</h2><p>저장한 내용은 학생 화면에 바로 반영될 수 있습니다.</p><p v-if="settings?.editingLiveClass" class="confirm-modal__warning">진행 중인 수업이므로 일부 학생의 화면이 바뀔 수 있어요.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" @click="showSaveConfirm = false">취소</button><button type="button" :disabled="saving" @click="confirmSaveSettings">저장하기</button></div></section></div>
+  <div v-if="showSaveConfirm" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title"><h2 id="settings-confirm-title">수업 설정을 저장할까요?</h2><p>저장한 내용은 학생 화면에 바로 반영될 수 있습니다.</p><p v-if="settings?.editingLiveClass" class="confirm-modal__warning">진행 중인 수업이므로 일부 학생의 화면이 바뀔 수 있어요.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" :disabled="saving" @click="showSaveConfirm = false">취소</button><button type="button" :disabled="saving || uploadingProductImages.size > 0" @click="confirmSaveSettings">{{ saving ? '저장 중…' : '저장하기' }}</button></div></section></div>
   <div v-if="pendingResetStudent" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true"><h2>비밀번호를 초기화할까요?</h2><p>{{ pendingResetStudent.participantNumber }}번 학생은 닉네임을 그대로 유지하고 다음 입장 때 새 비밀번호만 설정합니다.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" @click="pendingResetStudent = null">취소</button><button type="button" :disabled="saving" @click="resetPassword">초기화</button></div></section></div>
 </template>

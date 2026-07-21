@@ -108,6 +108,17 @@ export async function saveClassSettings(
   return response.data.data
 }
 
+export async function uploadProductImage(roomId: string, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  const response = await http.post<ApiResponse<{ imageUrl: string }>>(
+    `/teacher/rooms/${roomId}/management/product-images`,
+    body,
+    { timeout: 120_000 },
+  )
+  return response.data.data.imageUrl
+}
+
 export async function getManagedStudents(roomId: string) {
   const response = await http.get<ApiResponse<ManagedStudent[]>>(`/teacher/rooms/${roomId}/management/students`)
   return response.data.data

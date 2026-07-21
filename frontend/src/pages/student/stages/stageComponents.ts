@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 
+import Day1ActivityIntroStageView from './Day1ActivityIntroStageView.vue'
 import DaySummaryStageView from './DaySummaryStageView.vue'
 import Day2FinanceStageView from './Day2FinanceStageView.vue'
 import Day2FinalShopStageView from './Day2FinalShopStageView.vue'
@@ -20,6 +21,7 @@ import WaitingStageView from './WaitingStageView.vue'
 
 const stageComponents: Record<string, Component> = {
   DAY1_LOBBY: WaitingStageView,
+  DAY1_PROFILE: Day1ActivityIntroStageView,
   DAY1_QUIZ: QuizStageView,
   DAY1_QUIZ_RESULT: SettlementStageView,
   DAY1_INCOME_SETTLEMENT: IncomeSettlementStageView,

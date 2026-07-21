@@ -80,6 +80,9 @@ public final class TeacherClassManagementDto {
     ) {
     }
 
+    public record ProductImageUploadResponse(String imageUrl) {
+    }
+
     public record FundCostOption(
             UUID optionId,
             @NotBlank @Size(max = 100) String name,

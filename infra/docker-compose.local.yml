@@ -23,6 +23,9 @@ services:
     build:
       context: ../backend
     restart: unless-stopped
+    env_file:
+      - path: ../.env.example
+        required: true
     environment:
       SPRING_PROFILES_ACTIVE: local
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecovillage}
@@ -34,10 +37,12 @@ services:
       DEMO_ADMIN_LOGIN_ID: ${DEMO_ADMIN_LOGIN_ID:-admin}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin1234}
       DEMO_ADMIN_DISPLAY_NAME: ${DEMO_ADMIN_DISPLAY_NAME:-비빔 운영자}
-      SURVEY_URL: ${SURVEY_URL:-https://docs.google.com/forms/}
+      PRODUCT_IMAGE_DIR: /app/data/product-images
       TZ: UTC
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - product-image-data:/app/data/product-images
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +66,4 @@ services:
 
 volumes:
   postgres-data:
+  product-image-data:
