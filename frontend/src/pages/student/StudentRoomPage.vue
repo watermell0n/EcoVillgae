@@ -33,8 +33,7 @@ const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.
 const stageDefinition = computed(() => getRoomStage(displayStage.value))
 const stageComponent = computed(() => getStudentStageComponent(displayStage.value))
 const contextAtPageBottom = computed(() => (
-  currentPage.value === 'QUIZ_SUBMITTED'
-    || displayStage.value === 'DAY1_QUIZ_RESULT'
+  displayStage.value === 'DAY1_QUIZ_RESULT'
     || displayStage.value === 'DAY2_QUIZ_RESULT'
 ))
 const stageComponentProps = computed(() => {
@@ -122,7 +121,18 @@ watch(
     quizActivityCompleted.value = false
     currentPage.value = stage
     void reportPresence()
-    if (['DAY1_CLOSED', 'DAY2_COMPLETED'].includes(stage) && closingCountdown.value === null && !sessionClosed.value) {
+    const closingStage = ['DAY1_CLOSED', 'DAY2_COMPLETED'].includes(stage)
+    if (!closingStage) {
+      if (closingTimer) clearInterval(closingTimer)
+      closingTimer = undefined
+      closingCountdown.value = null
+      closingNoticeKind.value = null
+      if (sessionClosed.value && closedDay.value === 1) {
+        sessionClosed.value = false
+        closedDay.value = null
+      }
+    }
+    if (closingStage && closingCountdown.value === null && !sessionClosed.value) {
       closingNoticeKind.value = stage === 'DAY1_CLOSED' ? 'DAY1' : 'DAY2'
       closingCountdown.value = 5
       closingTimer = setInterval(() => {
@@ -175,14 +185,17 @@ function stopPresenceReporting() {
 
 function finishSessionClosing() {
   const noticeKind = closingNoticeKind.value
+  const isDayOneClose = noticeKind === 'DAY1'
   if (closingTimer) clearInterval(closingTimer)
   closingTimer = undefined
   closingCountdown.value = null
   closedDay.value = noticeKind === 'DAY1' ? 1 : 2
   sessionClosed.value = true
   closingNoticeKind.value = null
-  roomSessionStore.stopPolling()
-  stopPresenceReporting()
+  if (!isDayOneClose) {
+    roomSessionStore.stopPolling()
+    stopPresenceReporting()
+  }
 }
 
 async function reportPresence() {
@@ -236,7 +249,7 @@ async function advanceCatchUp() {
 
 <template>
   <main class="student-room-page">
-    <p v-if="loading" class="state-message">수업에 연결하고 있습니다.</p>
+    <p v-if="loading" class="state-message state-message--plain">수업에 연결하고 있습니다</p>
     <p v-else-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
     <StudentSessionClosedView v-else-if="sessionClosed" :day-number="closedDay ?? 2" />
@@ -248,12 +261,10 @@ async function advanceCatchUp() {
         </div>
         <div v-if="closingCountdown !== null" class="student-closing-countdown" role="alert">
           <div>
-            <strong v-if="closingNoticeKind === 'DAY1'">1일차 활동이 끝났어요.</strong>
-            <strong v-else>{{ closingCountdown }}초 후 학생 화면이 종료됩니다</strong>
-            <span v-if="closingNoticeKind === 'DAY1'">{{ closingCountdown }}초 뒤 닫혀요.</span>
+            <strong>{{ closingCountdown }}초 뒤에 종료됩니다.</strong>
+            <span v-if="closingNoticeKind === 'DAY1'">1일차 결과를 저장한 뒤, 2일차가 시작되면 자동으로 연결돼요.</span>
             <span v-else>결과를 저장하고 있어요.</span>
           </div>
-          <button v-if="closingNoticeKind === 'DAY1'" type="button" aria-label="1일차 종료 안내 닫기" @click="finishSessionClosing">×</button>
         </div>
         <aside v-if="state.flowMode === 'CATCH_UP'" class="catch-up-banner" role="status">
           <div>

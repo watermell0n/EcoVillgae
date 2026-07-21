@@ -102,13 +102,11 @@ class LearningServiceTest {
                 List.of("필요와 원하는 것을 구분해요", "가격과 재고를 확인해요"),
                 response.pages().stream().map(LearningDto.PageResponse::title).toList()
         );
+        assertTrue(response.pages().get(0).keyPoints().isEmpty());
+        assertTrue(response.pages().get(1).keyPoints().isEmpty());
         assertEquals(
-                List.of("생활에 꼭 필요한 것부터 선택해요.", "가격과 지갑 잔액, 앞으로 쓸 돈을 함께 비교해요."),
-                response.pages().get(0).keyPoints()
-        );
-        assertEquals(
-                List.of("재고가 없으면 살 수 없어요.", "한 번의 선택이 다음 소비 기회에 영향을 줘요."),
-                response.pages().get(1).keyPoints()
+                "물건을 사기 전에는 지금 꼭 필요한지 생각해요.\n가격이 알맞은지 확인해요.\n사고 난 뒤에도 필요한 돈이 남는지 살펴봐요.",
+                response.pages().get(0).content()
         );
         assertEquals(
                 "연필 2자루의 총가격과 남은 재고를 확인한 뒤 구매를 확정해요.",
@@ -128,6 +126,7 @@ class LearningServiceTest {
                 response.pages().stream().map(LearningDto.PageResponse::title).toList()
         );
         assertTrue(response.pages().stream().allMatch(page -> !page.icon().isBlank()));
+        assertEquals("100비빔 예금 + 이자 10비빔 => 110비빔", response.pages().get(1).example());
     }
 
     @Test
@@ -144,8 +143,9 @@ class LearningServiceTest {
                 response.pages().stream().map(LearningDto.PageResponse::title).toList()
         );
         assertEquals(
-                "어제 사탕 1개 10비빔 → 오늘 12비빔\n같은 돈으로는 전보다 덜 살 수 있어요",
+                "같은 돈으로는 전보다 살 수 있는 게 줄어요",
                 response.pages().get(1).example()
         );
+        assertTrue(response.pages().get(0).content().indexOf('%') < 0);
     }
 }

@@ -52,7 +52,7 @@ async function submit() {
 
 <template>
   <main class="auth-page student-theme">
-    <RouterLink class="brand-link" to="/student/join">{{ SERVICE_NAME }}</RouterLink>
+    <span class="brand-link brand-link--static" aria-label="서비스 이름">{{ SERVICE_NAME }}</span>
 
     <section v-if="entry" class="auth-card" aria-labelledby="student-login-title">
       <p class="eyebrow">{{ entry.roomName }} · {{ entry.participantNumber }}번</p>

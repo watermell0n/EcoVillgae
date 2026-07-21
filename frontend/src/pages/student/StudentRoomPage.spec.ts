@@ -94,7 +94,7 @@ describe('StudentRoomPage day-one closing', () => {
       syncVersion: 2,
     }
     await flushPromises()
-    return { wrapper, stopPolling }
+    return { roomSessionStore, wrapper, stopPolling }
   }
 
   async function mountAtCatchUpQuiz() {
@@ -115,28 +115,46 @@ describe('StudentRoomPage day-one closing', () => {
     return wrapper
   }
 
-  it('lets the student dismiss the countdown and immediately opens the closing page', async () => {
+  it('shows a large non-dismissible five-second closing notice without stopping day-one polling', async () => {
     const { wrapper, stopPolling } = await mountAtDayOneClose()
 
     const notice = wrapper.get('.student-closing-countdown')
-    expect(notice.text()).toContain('1일차 활동이 끝났어요')
-    expect(notice.text()).toContain('5초 뒤 닫혀요')
-    await notice.get('[aria-label="1일차 종료 안내 닫기"]').trigger('click')
-
-    expect(wrapper.text()).toContain('1일차 활동이 마감되었습니다')
-    expect(wrapper.find('.student-context-bar').exists()).toBe(false)
-    expect(stopPolling).toHaveBeenCalled()
+    expect(notice.text()).toContain('5초 뒤에 종료됩니다.')
+    expect(notice.find('button').exists()).toBe(false)
+    expect(stopPolling).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
   it('automatically opens the day-one closing page after five seconds', async () => {
-    const { wrapper } = await mountAtDayOneClose()
+    const { wrapper, stopPolling } = await mountAtDayOneClose()
 
     await vi.advanceTimersByTimeAsync(5_000)
     await flushPromises()
 
     expect(wrapper.text()).toContain('1일차 활동이 마감되었습니다')
     expect(wrapper.find('.student-closing-countdown').exists()).toBe(false)
+    expect(stopPolling).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('automatically opens day two when the teacher starts it after the day-one close', async () => {
+    const { roomSessionStore, wrapper, stopPolling } = await mountAtDayOneClose()
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+    roomSessionStore.studentState = {
+      ...structuredClone(liveState),
+      currentDay: 2,
+      currentStage: 'DAY2_LOGIN',
+      roomStage: 'DAY2_LOGIN',
+      effectiveStage: 'DAY2_LOGIN',
+      syncVersion: 3,
+    }
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('1일차 활동이 마감되었습니다')
+    expect(wrapper.find('.stub-stage').exists()).toBe(true)
+    expect(stopPolling).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

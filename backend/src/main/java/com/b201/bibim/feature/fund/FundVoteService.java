@@ -443,12 +443,34 @@ public class FundVoteService {
                         item.getAmount(), item.getAppliedAt()
                 ))
                 .orElse(null);
-        long incomeTax = settlementTotal(room.getId(), "DAY1_INCOME", false);
+        long incomeTax = Math.addExact(
+                settlementTotal(room.getId(), "DAY1_INCOME", false),
+                settlementTotal(room.getId(), "DAY2_QUIZ_REWARD", false)
+        );
         long financialTax = settlementTotal(room.getId(), "DAY2_FINANCE", true);
+        long additions = transactionRepository
+                .findAllByRoomIdAndTransactionTypeAndStatus(
+                        room.getId(), "CLASS_FUND_ADDITION", "SUCCESS"
+                ).stream()
+                .mapToLong(this::fundAdditionAmount)
+                .reduce(0L, Math::addExact);
         return new FundOverviewResponse(
-                room.getId(), balance, incomeTax, financialTax,
+                room.getId(), balance, incomeTax, financialTax, additions,
                 expense == null ? 0 : expense.amount(), expense
         );
+    }
+
+    private long fundAdditionAmount(FinancialTransactionEntity transaction) {
+        Object amount = transaction.getMetadata().get("amount");
+        if (amount instanceof Number number) return number.longValue();
+        if (amount instanceof String text) {
+            try {
+                return Long.parseLong(text);
+            } catch (NumberFormatException ignored) {
+                return 0L;
+            }
+        }
+        return 0L;
     }
 
     private long settlementTotal(UUID roomId, String type, boolean financial) {

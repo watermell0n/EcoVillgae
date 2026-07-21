@@ -183,17 +183,6 @@ watch(activeView, (view) => {
   }
 })
 
-watch(
-  () => roomSessionStore.studentState?.syncVersion,
-  (next, previous) => {
-    if (previous === undefined || next === previous) return
-    activeView.value = 'HOME'
-    selectedProduct.value = null
-    selectedInvestmentAsset.value = null
-    replaceActivityHistory('HOME')
-  },
-)
-
 async function syncShopAvailability() {
   if (shopSyncPromise) return shopSyncPromise
   shopSyncPromise = Promise.all([
@@ -238,7 +227,6 @@ function activityHistoryState(view: ActivityView) {
     studentRoomView: 'FREE_ACTIVITY',
     studentRoomStage: roomSessionStore.studentState?.effectiveStage
       ?? roomSessionStore.studentState?.currentStage,
-    studentRoomSyncVersion: roomSessionStore.studentState?.syncVersion,
     freeActivityView: view,
   }
 }
@@ -258,7 +246,6 @@ function handleBrowserBack(event: PopStateEvent) {
   const view = historyState?.freeActivityView
   if (historyState?.studentRoomView !== 'FREE_ACTIVITY'
     || historyState.studentRoomStage !== activeStage
-    || historyState.studentRoomSyncVersion !== roomSessionStore.studentState?.syncVersion
     || typeof view !== 'string'
     || !validViews.includes(view as ActivityView)) return
   openActivity(view as ActivityView, false)

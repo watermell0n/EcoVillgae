@@ -36,6 +36,7 @@ export interface Day1IncomeSettlementResponse {
 export interface Day1Payslip {
   settlementRunId: string
   studentId: string
+  roomName: string
   participantNumber: number
   nickname: string
   roleName: string | null

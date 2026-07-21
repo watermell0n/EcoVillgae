@@ -35,6 +35,7 @@ export interface InvestmentSetting {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
   minReturnBps: number
   maxReturnBps: number
+  actualReturnBps: number
   displayOrder: number
 }
 export interface ProductSetting {
@@ -50,15 +51,24 @@ export interface StudentRoleCatalogEntry {
   participantNumber: number
   roleName: string
 }
+export interface FundCostOptionSetting {
+  optionId: string | null
+  name: string
+  amount: number
+  enabled: boolean
+  displayOrder: number
+}
 export interface ClassSettings {
   roomId: string
   roomName: string
   roomStatus: string
   editingLiveClass: boolean
+  investmentResultsLocked: boolean
   economy: EconomyRules
   quizzes: QuizSettings[]
   investments: InvestmentSetting[]
   products: ProductSetting[]
+  fundCostOptions: FundCostOptionSetting[]
   roleCatalog: StudentRoleCatalogEntry[]
 }
 export interface ManagedStudent {
@@ -68,6 +78,7 @@ export interface ManagedStudent {
   nickname: string | null
   roleName: string | null
   status: 'INVITED' | 'ACTIVE' | 'ABSENT' | 'DISABLED'
+  passwordConfigured: boolean
   online: boolean
   lastSeenAt: string | null
 }
@@ -90,6 +101,7 @@ export async function saveClassSettings(
       quizzes: settings.quizzes,
       investments: settings.investments,
       products: settings.products,
+      fundCostOptions: settings.fundCostOptions,
       discontinuedProductIds,
     },
   )

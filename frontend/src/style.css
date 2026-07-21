@@ -117,6 +117,11 @@ input:focus {
   text-decoration: none;
 }
 
+.brand-link--static {
+  cursor: default;
+  user-select: none;
+}
+
 .page-title {
   margin: 0;
   font-size: clamp(2rem, 5vw, 3.2rem);
@@ -5087,6 +5092,35 @@ button.admin-student-row.is-selected {
   line-height: 1.55;
 }
 
+.investment-result-rate {
+  padding: 12px;
+  border: 1px solid #f0ba75;
+  border-radius: 12px;
+  background: #fff8ec;
+}
+
+.investment-result-preview {
+  display: grid;
+  padding: 12px 14px;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid #a9d8ca;
+  border-radius: 12px;
+  background: #edf9f5;
+}
+
+.investment-result-preview small,
+.investment-result-preview span { color: var(--teacher-muted); }
+.investment-result-preview strong { color: #176b57; }
+.investment-result-lock-notice {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  color: #87561b;
+  border-radius: 10px;
+  background: #fff5df;
+  font-size: .82rem;
+}
+
 .quiz-option-editors {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6311,7 +6345,7 @@ button.admin-student-row.is-selected {
 .fund-live-add > div { display: grid; gap: 2px; align-self: center; }
 .fund-live-add small, .fund-vote-builder small { color: #667b75; font-size: .7rem; }
 .fund-live-add label, .fund-vote-builder label { display: grid; gap: 3px; color: #52645f; font-size: .7rem; font-weight: 800; }
-.fund-live-add input, .fund-vote-builder input { min-height: 35px; padding: 6px 8px; border: 1px solid #cddbd6; border-radius: 8px; background: #fff; }
+.fund-live-add input, .fund-vote-builder input { min-height: 35px; padding: 6px 8px; border: 1px solid #cddbd6; border-radius: 8px; background: #fff; text-align: left; }
 .fund-vote-builder { display: grid; gap: 8px; padding: 11px; border: 1px solid #dbe7e2; border-radius: 12px; background: #fff; }
 .fund-vote-builder__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fund-vote-builder__head > div { display: grid; gap: 2px; }
@@ -6326,12 +6360,14 @@ button.admin-student-row.is-selected {
 .student-session-closed { display: grid; width: min(92vw, 620px); min-height: 320px; margin: calc((100vh - 320px) / 2) auto 0; padding: 34px; place-content: center; gap: 9px; border: 1px solid #b8ddd3; border-radius: 28px; background: rgb(255 255 255 / 94%); box-shadow: 0 24px 70px rgb(31 82 69 / 16%); text-align: center; }
 .student-session-closed > span { font-size: 3.4rem; }
 .student-session-closed h1, .student-session-closed p { margin: 0; }
-.student-closing-countdown { position: sticky; z-index: 12; top: 0; display: flex; margin: -10px -10px 10px; padding: 10px 16px; align-items: center; justify-content: center; gap: 12px; color: #78350f; background: linear-gradient(90deg, #fff7d6, #ffedb0, #fff7d6); background-size: 200% 100%; animation: waiting-water 1.8s ease infinite; }
-.student-closing-countdown span { font-size: .78rem; }
+.student-closing-countdown { position: fixed; z-index: 1000; top: 50%; left: 50%; display: flex; width: min(88vw, 560px); min-height: 190px; margin: 0; padding: 32px; align-items: center; justify-content: center; gap: 16px; border: 2px solid #efc869; border-radius: 28px; color: #78350f; background: linear-gradient(90deg, #fff7d6, #ffedb0, #fff7d6); background-size: 200% 100%; box-shadow: 0 0 0 100vmax rgb(31 42 38 / 48%), 0 24px 70px rgb(78 53 18 / 28%); text-align: center; transform: translate(-50%, -50%); animation: waiting-water 1.8s ease infinite; }
+.student-closing-countdown > div { display: grid; gap: 14px; }
+.student-closing-countdown strong { font-size: clamp(1.55rem, 4vw, 2.2rem); }
+.student-closing-countdown span { font-size: clamp(.95rem, 2vw, 1.1rem); line-height: 1.6; }
 
 /* Every loading state has visible motion while preserving reduced-motion preference. */
 .student-room-page .state-message:not(.form-error) { position: relative; overflow: hidden; min-height: 92px; padding: 34px 24px; border: 1px solid #c7e4dc; border-radius: 18px; color: #356b61; background: linear-gradient(105deg, #f1fbf8 15%, #fff 35%, #e6f8f3 50%, #fff 65%, #f1fbf8 85%); background-size: 240% 100%; font-weight: 800; text-align: center; animation: waiting-shimmer 2.2s linear infinite; }
-.student-room-page .state-message:not(.form-error)::after { display: inline-block; width: 1.2em; content: '•••'; overflow: hidden; vertical-align: bottom; animation: waiting-ellipsis 1.2s steps(4,end) infinite; }
+.student-room-page .state-message:not(.form-error, .state-message--plain)::after { display: inline-block; width: 1.2em; content: '•••'; overflow: hidden; vertical-align: bottom; animation: waiting-ellipsis 1.2s steps(4,end) infinite; }
 @keyframes waiting-shimmer { to { background-position: -240% 0; } }
 @keyframes waiting-ellipsis { 0% { width: 0; } 100% { width: 1.2em; } }
 
@@ -6341,7 +6377,7 @@ button.admin-student-row.is-selected {
 .day2-final-shop-view .wallet-panel { display: grid; grid-template-columns: minmax(200px, .55fr) minmax(0, 1.45fr); gap: 12px; }
 .day2-final-shop-view .wallet-panel .economy-balance-grid { grid-template-columns: 1fr; align-content: start; }
 .day2-final-shop-view .transaction-list { max-height: 410px; overflow-y: auto; }
-.day2-final-knowledge ul { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.day2-final-knowledge ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .day2-final-knowledge li { align-items: flex-start; flex-direction: column; gap: 8px; padding: 16px; line-height: 1.55; }
 
 .investment-detail-modal { width: min(94vw, 920px); max-height: min(90vh, 820px); }
@@ -6654,43 +6690,6 @@ button.admin-student-row.is-selected {
 .student-context-bar--page-bottom { margin: 14px 0 0 auto; }
 .waiting-room-name { display: none !important; }
 
-.student-closing-countdown {
-  position: absolute;
-  z-index: 20;
-  top: 78px;
-  right: clamp(12px, 2vw, 24px);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  width: min(420px, calc(100% - 24px));
-  margin: 0;
-  padding: 14px 18px;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid #c5ded4;
-  border-radius: 16px;
-  color: #285c49;
-  background: #f1fbf6;
-  box-shadow: 0 12px 28px rgb(32 79 61 / 14%);
-}
-
-.student-closing-countdown > div {
-  display: grid;
-  gap: 2px;
-}
-
-.student-closing-countdown > button {
-  width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: #285c49;
-  background: rgb(40 92 73 / 9%);
-  box-shadow: none;
-  font-size: 1.35rem;
-  line-height: 1;
-}
-
 .economy-sticky-controls,
 .investment-screen__checkout {
   position: relative !important;
@@ -6941,13 +6940,35 @@ button.admin-student-row.is-selected {
 .teacher-live-investments { margin: -2px 2px 0 36px; color: #597367; font-size: .68rem; line-height: 1.4; word-break: keep-all; }
 
 .teacher-stage-action:not(:disabled),
-.teacher-next-action.is-recommended:not(:disabled) {
+.teacher-next-action.is-recommended:not(:disabled),
+.teacher-next-step-action.is-recommended:not(:disabled) {
+  position: relative;
+  z-index: 1;
   animation: teacher-next-focus 1.25s ease-in-out infinite !important;
 }
 
+.teacher-stage-action:not(:disabled)::after,
+.teacher-next-step-action.is-recommended:not(:disabled)::after {
+  position: absolute;
+  top: -13px;
+  right: 12px;
+  padding: 4px 9px;
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #e56d22;
+  box-shadow: 0 4px 10px rgb(125 66 24 / 24%);
+  content: '다음 행동';
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1;
+  pointer-events: none;
+}
+
 @keyframes teacher-next-focus {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(239 137 68 / 15%); filter: brightness(1); }
-  50% { box-shadow: 0 0 0 6px rgb(239 137 68 / 20%); filter: brightness(1.06); }
+  0%, 100% { box-shadow: 0 0 0 2px rgb(239 137 68 / 18%), 0 0 0 0 rgb(239 137 68 / 8%); filter: brightness(1); transform: translateY(0); }
+  50% { box-shadow: 0 0 0 4px rgb(239 137 68 / 36%), 0 0 24px 7px rgb(239 137 68 / 24%); filter: brightness(1.12); transform: translateY(-2px); }
 }
 
 @media (max-width: 900px) {
@@ -7076,6 +7097,26 @@ button.admin-student-row.is-selected {
 
 .free-activity-stage-view .economy-header .shop-wallet strong {
   font-size: 1rem;
+}
+
+.free-activity-stage-view--locked .economy-header .shop-wallet {
+  min-width: 104px;
+  padding-inline: 10px;
+}
+
+.free-activity-stage-view .shop-product-grid .shop-product-card footer button {
+  width: calc(100% - 8px);
+  margin-left: 8px;
+}
+
+.fund-option-editor .settings-checkbox {
+  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.fund-option-editor .settings-checkbox input {
+  width: 20px;
+  min-height: 20px;
 }
 
 .investment-confirmed-modal {
@@ -7588,7 +7629,10 @@ button.admin-student-row.is-selected {
 
 @media (prefers-reduced-motion: reduce) {
   .teacher-stage-action:not(:disabled),
-  .teacher-next-action.is-recommended:not(:disabled) {
+  .teacher-next-action.is-recommended:not(:disabled),
+  .teacher-next-step-action.is-recommended:not(:disabled) {
     animation: none !important;
+    outline: 3px solid rgb(229 109 34 / 45%);
+    outline-offset: 2px;
   }
 }

@@ -22,7 +22,6 @@ public final class StudentAuthDto {
             @NotBlank(message = "참여 코드를 입력해 주세요.")
             @Size(max = 20, message = "참여 코드가 너무 깁니다.")
             String participationCode,
-            @NotBlank(message = "닉네임을 입력해 주세요.")
             @Size(min = 2, max = 20, message = "닉네임은 2~20자로 입력해 주세요.")
             String nickname,
             @NotBlank(message = "비밀번호를 입력해 주세요.")
@@ -45,6 +44,7 @@ public final class StudentAuthDto {
 
     public enum RequiredAction {
         SETUP,
+        RESET_PASSWORD,
         LOGIN,
         WAIT,
         ROOM_CLOSED
@@ -54,6 +54,7 @@ public final class StudentAuthDto {
             UUID roomId,
             String roomName,
             int participantNumber,
+            String nickname,
             RequiredAction requiredAction
     ) {
     }

@@ -58,6 +58,7 @@ public final class TeacherClassManagementDto {
             @NotBlank String riskLevel,
             int minReturnBps,
             int maxReturnBps,
+            @Min(-10000) @Max(100000) int actualReturnBps,
             int displayOrder
     ) {
     }
@@ -67,7 +68,7 @@ public final class TeacherClassManagementDto {
             @NotBlank @Size(max = 100) String name,
             @NotBlank @Size(max = 255) String description,
             @Min(0) long price,
-            @Size(max = 3000000) String imageUrl,
+            String imageUrl,
             int currentStock,
             int displayOrder
     ) {
@@ -79,15 +80,26 @@ public final class TeacherClassManagementDto {
     ) {
     }
 
+    public record FundCostOption(
+            UUID optionId,
+            @NotBlank @Size(max = 100) String name,
+            @Min(1) long amount,
+            boolean enabled,
+            int displayOrder
+    ) {
+    }
+
     public record ClassSettingsResponse(
             UUID roomId,
             String roomName,
             String roomStatus,
             boolean editingLiveClass,
+            boolean investmentResultsLocked,
             EconomyRules economy,
             List<QuizSettings> quizzes,
             List<InvestmentAsset> investments,
             List<ShopProduct> products,
+            List<FundCostOption> fundCostOptions,
             List<StudentRoleCatalogEntry> roleCatalog
     ) {
     }
@@ -98,6 +110,7 @@ public final class TeacherClassManagementDto {
             @NotNull List<@Valid QuizSettings> quizzes,
             @NotNull List<@Valid InvestmentAsset> investments,
             @NotNull List<@Valid ShopProduct> products,
+            @NotNull List<@Valid FundCostOption> fundCostOptions,
             @NotNull List<UUID> discontinuedProductIds
     ) {
     }
@@ -123,6 +136,7 @@ public final class TeacherClassManagementDto {
             String nickname,
             String roleName,
             String status,
+            boolean passwordConfigured,
             boolean online,
             Instant lastSeenAt
     ) {

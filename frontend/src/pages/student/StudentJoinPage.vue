@@ -19,7 +19,7 @@ async function submit() {
 
   try {
     const entry = await authStore.enterStudent(participationCode.value)
-    if (entry.requiredAction === 'SETUP') {
+    if (entry.requiredAction === 'SETUP' || entry.requiredAction === 'RESET_PASSWORD') {
       await router.push({ name: 'student-setup' })
       return
     }
@@ -47,7 +47,7 @@ function useExample(code: string) {
 
 <template>
   <main class="auth-page student-theme">
-    <RouterLink class="brand-link" to="/">{{ SERVICE_NAME }}</RouterLink>
+    <span class="brand-link brand-link--static" aria-label="서비스 이름">{{ SERVICE_NAME }}</span>
 
     <section class="auth-card" aria-labelledby="student-join-title">
       <p class="student-auth-mark" aria-hidden="true">🏘️</p>

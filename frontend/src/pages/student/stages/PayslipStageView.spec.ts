@@ -14,6 +14,7 @@ describe('PayslipStageView', () => {
     settlementApi.getDay1Payslip.mockResolvedValue({
       settlementRunId: 'run-1',
       studentId: 'student-1',
+      roomName: '푸른반',
       participantNumber: 1,
       nickname: '비빔이',
       roleName: '라이츄',
@@ -35,12 +36,13 @@ describe('PayslipStageView', () => {
     await flushPromises()
 
     expect(settlementApi.getDay1Payslip).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('푸른반 급여 명세서')
     expect(wrapper.text()).toContain('받은 돈과 세금을 확인해요')
     expect(wrapper.text()).toContain('라이츄 월급')
     expect(wrapper.text()).not.toContain('라이츄 소득')
     expect(wrapper.text()).toContain('3문제')
     expect(wrapper.text()).not.toContain('퀴즈 참여수당')
-    expect(wrapper.text()).toContain('내 지갑 기록에 저장됐어요')
+    expect(wrapper.text()).toContain('내 지갑에 비빔이 들어왔어요')
     expect(wrapper.text()).toContain('165비빔')
     expect(wrapper.text()).toContain('16비빔')
     expect(wrapper.text()).toContain('149비빔')
@@ -50,6 +52,7 @@ describe('PayslipStageView', () => {
     settlementApi.getDay1Payslip.mockResolvedValueOnce({
       settlementRunId: 'run-1',
       studentId: 'student-1',
+      roomName: '푸른반',
       participantNumber: 18,
       nickname: '비빔이',
       roleName: null,

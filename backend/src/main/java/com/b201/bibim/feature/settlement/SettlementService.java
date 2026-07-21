@@ -397,6 +397,7 @@ public class SettlementService {
         return new Day1PayslipResponse(
                 run.getId(),
                 student.getId(),
+                room.getName(),
                 student.getParticipantNumber(),
                 student.getNickname(),
                 resolveRoleName(student),

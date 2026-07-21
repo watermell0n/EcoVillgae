@@ -27,6 +27,7 @@ describe('StudentLoginPage', () => {
       roomId: 'room-1',
       roomName: '비빔마을',
       participantNumber: 1,
+      nickname: '비빔이',
       requiredAction: 'LOGIN',
     }
     const loginStudent = vi.spyOn(authStore, 'loginStudent').mockResolvedValue({

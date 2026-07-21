@@ -13,5 +13,11 @@ public interface FinancialTransactionRepository
 
     List<FinancialTransactionEntity> findAllByStudentIdOrderByCreatedAtDesc(UUID studentId);
 
+    List<FinancialTransactionEntity> findAllByRoomIdAndTransactionTypeAndStatus(
+            UUID roomId,
+            String transactionType,
+            String status
+    );
+
     boolean existsByRoomIdAndStatus(UUID roomId, String status);
 }

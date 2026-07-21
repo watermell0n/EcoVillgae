@@ -57,6 +57,17 @@ describe('Day2FinalShopStageView', () => {
     expect(wrapper.text()).toContain('100비빔')
   })
 
+  it('keeps only financial tax and inflation in the financial knowledge tab', async () => {
+    const wrapper = mount(Day2FinalShopStageView)
+    await flushPromises()
+    await wrapper.findAll('.economy-module-tabs button')[1]!.trigger('click')
+
+    expect(wrapper.text()).toContain('금융세')
+    expect(wrapper.text()).toContain('인플레이션')
+    expect(wrapper.text()).not.toContain('분산투자')
+    expect(wrapper.text()).not.toContain('%')
+  })
+
   it('shows a retry action instead of a blank screen when a partial request fails', async () => {
     economyApi.getEconomyOverview.mockRejectedValueOnce(new Error('network error'))
 

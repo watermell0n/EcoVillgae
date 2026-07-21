@@ -258,8 +258,7 @@ function formatPurchasedAt(value: string) {
       <section v-else-if="activeView === 'KNOWLEDGE'" class="day2-final-knowledge">
         <h2>오늘 배운 내용을 다시 확인해요</h2>
         <ul>
-          <li><strong>금융세</strong><span>예금 이자나 투자 수익처럼 금융 활동으로 얻은 이익의 일부를 공동체를 위해 내는 세금이에요. 이코빌리지에서는 금융 이익의 10%가 공동기금에 더해집니다.</span></li>
-          <li><strong>분산투자</strong><span>돈을 한 회사에 모두 넣지 않고 여러 회사에 나누면, 한 곳에서 손실이 나더라도 전체 손실 위험을 줄일 수 있어요.</span></li>
+          <li><strong>금융세</strong><span>예금 이자나 투자 수익처럼 금융 활동으로 번 돈의 일부를 함께 모으는 세금이에요. 모인 금융세는 우리 반 공동기금에 더해져요.</span></li>
           <li><strong>인플레이션</strong><span>물건 가격이 전반적으로 오르면 같은 돈으로 살 수 있는 양이 줄어요. 그래서 가격뿐 아니라 내 돈의 구매력도 함께 비교해야 합니다.</span></li>
         </ul>
       </section>

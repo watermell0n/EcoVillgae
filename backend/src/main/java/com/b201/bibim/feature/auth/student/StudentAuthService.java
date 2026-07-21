@@ -67,6 +67,9 @@ public class StudentAuthService {
             requiredAction = isCompleted(room)
                     ? RequiredAction.ROOM_CLOSED
                     : RequiredAction.SETUP;
+        } else if (("ACTIVE".equals(student.getStatus()) || "ABSENT".equals(student.getStatus()))
+                && student.getPasswordHash() == null) {
+            requiredAction = RequiredAction.RESET_PASSWORD;
         } else if ("ACTIVE".equals(student.getStatus()) || "ABSENT".equals(student.getStatus())) {
             requiredAction = RequiredAction.LOGIN;
         } else {
@@ -77,6 +80,7 @@ public class StudentAuthService {
                 room.getId(),
                 room.getName(),
                 student.getParticipantNumber(),
+                student.getNickname(),
                 requiredAction
         );
     }
@@ -84,7 +88,10 @@ public class StudentAuthService {
     @Transactional
     public LoginResult setup(SetupRequest request) {
         StudentEntity student = findByCodeForUpdate(request.participationCode());
-        if (!"INVITED".equals(student.getStatus())) {
+        boolean firstSetup = "INVITED".equals(student.getStatus());
+        boolean passwordReset = ("ACTIVE".equals(student.getStatus()) || "ABSENT".equals(student.getStatus()))
+                && student.getPasswordHash() == null;
+        if (!firstSetup && !passwordReset) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "PARTICIPATION_CODE_ALREADY_REGISTERED",
@@ -93,14 +100,21 @@ public class StudentAuthService {
         }
 
         RoomEntity room = findRoom(student.getRoomId());
-        if (isClosed(room)) {
+        if (isArchived(room) || (firstSetup && isCompleted(room))) {
             throw new ApiException(HttpStatus.CONFLICT, "ROOM_CLOSED", "이미 종료된 수업입니다.");
         }
 
-        student.completeSetup(request.nickname().trim(), passwordEncoder.encode(request.password()));
-        studentFlowService.initialize(student, room);
+        if (firstSetup) {
+            if (request.nickname() == null || request.nickname().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "NICKNAME_REQUIRED", "닉네임을 입력해 주세요.");
+            }
+            student.completeSetup(request.nickname().trim(), passwordEncoder.encode(request.password()));
+            studentFlowService.initialize(student, room);
+        } else {
+            student.completePasswordReset(passwordEncoder.encode(request.password()));
+        }
         String token = authSessionService.createStudentSession(student);
-        recordAuthEvent(student, room, "STUDENT_SETUP_COMPLETED");
+        recordAuthEvent(student, room, firstSetup ? "STUDENT_SETUP_COMPLETED" : "STUDENT_PASSWORD_RESET_COMPLETED");
         return new LoginResult(toResponse(student, room), token);
     }
 

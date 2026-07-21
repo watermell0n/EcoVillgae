@@ -387,6 +387,74 @@ public class InvestmentService {
         ensureMarket(roomId);
     }
 
+    @Transactional
+    public InvestmentResultSettings investmentResultSettings(UUID roomId) {
+        Market market = ensureMarket(roomId);
+        Map<UUID, Integer> returnBpsByAssetId = scenarioReturnRepository
+                .findAllByScenarioId(market.scenario().getId())
+                .stream()
+                .collect(Collectors.toMap(
+                        InvestmentScenarioReturnEntity::getAssetId,
+                        InvestmentScenarioReturnEntity::getReturnBps
+                ));
+        return new InvestmentResultSettings(
+                Map.copyOf(returnBpsByAssetId),
+                "LOCKED".equals(market.scenario().getStatus())
+        );
+    }
+
+    @Transactional
+    public void updateInvestmentResults(UUID roomId, Map<UUID, Integer> requestedReturns) {
+        Market market = ensureMarket(roomId);
+        InvestmentScenarioEntity scenario = scenarioRepository.findByRoomIdForUpdate(roomId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.CONFLICT,
+                        "INVESTMENT_SCENARIO_NOT_FOUND",
+                        "투자 결과 설정을 찾을 수 없습니다."
+                ));
+        Map<UUID, InvestmentScenarioReturnEntity> savedReturns = scenarioReturnRepository
+                .findAllByScenarioId(scenario.getId())
+                .stream()
+                .collect(Collectors.toMap(
+                        InvestmentScenarioReturnEntity::getAssetId,
+                        Function.identity()
+                ));
+        Set<UUID> marketAssetIds = market.assets().stream()
+                .map(InvestmentAssetEntity::getId)
+                .collect(Collectors.toSet());
+        if (!requestedReturns.keySet().equals(marketAssetIds)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_INVESTMENT_RESULTS",
+                    "모든 투자 상품의 결과 수익률을 입력해 주세요."
+            );
+        }
+
+        boolean resultChanged = requestedReturns.entrySet().stream().anyMatch(entry -> {
+            InvestmentScenarioReturnEntity saved = savedReturns.get(entry.getKey());
+            return saved == null || saved.getReturnBps() != entry.getValue();
+        });
+        if ("LOCKED".equals(scenario.getStatus()) && resultChanged) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "INVESTMENT_RESULTS_LOCKED",
+                    "학생이 투자를 확정한 뒤에는 투자 결과를 바꿀 수 없습니다."
+            );
+        }
+
+        requestedReturns.forEach((assetId, returnBps) -> {
+            InvestmentScenarioReturnEntity saved = savedReturns.get(assetId);
+            if (saved == null) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "INVESTMENT_RESULT_NOT_FOUND",
+                        "투자 상품의 결과 설정을 찾을 수 없습니다."
+                );
+            }
+            saved.updateReturnBps(returnBps);
+        });
+    }
+
     private ValidatedAllocations validateAllocations(
             List<AllocationRequest> requests,
             List<InvestmentAssetEntity> assets,
@@ -593,6 +661,12 @@ public class InvestmentService {
     private record Market(
             List<InvestmentAssetEntity> assets,
             InvestmentScenarioEntity scenario
+    ) {
+    }
+
+    public record InvestmentResultSettings(
+            Map<UUID, Integer> returnBpsByAssetId,
+            boolean locked
     ) {
     }
 

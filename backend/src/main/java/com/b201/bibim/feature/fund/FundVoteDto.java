@@ -31,6 +31,7 @@ public final class FundVoteDto {
             long balance,
             long totalIncomeTax,
             long totalFinancialTax,
+            long totalAdditions,
             long totalExpenses,
             FundExpenseResponse appliedExpense
     ) {

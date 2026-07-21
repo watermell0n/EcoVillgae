@@ -21,6 +21,7 @@ const entry: authApi.StudentEntry = {
   roomId: 'room-1',
   roomName: '6학년 2반 경제교실',
   participantNumber: 2,
+  nickname: null,
   requiredAction: 'SETUP',
 }
 

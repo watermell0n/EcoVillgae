@@ -14,6 +14,7 @@ export interface FundOverview {
   balance: number
   totalIncomeTax: number
   totalFinancialTax: number
+  totalAdditions: number
   totalExpenses: number
   appliedExpense: FundExpense | null
 }

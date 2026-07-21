@@ -45,7 +45,7 @@ function formatDebitBibim(amount: number) {
         <section class="payslip-sheet" aria-label="소득과 세금 내역">
           <div class="payslip-sheet__title">
             <span aria-hidden="true">💼</span>
-            <strong>이코빌리지 급여 명세서</strong>
+            <strong>{{ payslip.roomName }} 급여 명세서</strong>
             <small>1일차 · 학급 경제 수업</small>
           </div>
           <div class="payslip-line"><span>{{ payslip.roleName ? `${payslip.roleName} 월급` : '1인1역 월급' }}</span><strong>+{{ formatBibim(payslip.roleIncome) }}</strong></div>
@@ -65,7 +65,7 @@ function formatDebitBibim(amount: number) {
             <span><small>이번에 받은 돈</small><strong>+{{ formatBibim(payslip.netIncome) }}</strong></span>
             <span><small>현재 지갑</small><strong>{{ formatBibim(payslip.walletBalance) }}</strong></span>
           </section>
-          <p class="payslip-recorded">✓ 내 지갑 기록에 저장됐어요</p>
+          <p class="payslip-recorded">✓ 내 지갑에 비빔이 들어왔어요</p>
         </aside>
       </div>
     </template>

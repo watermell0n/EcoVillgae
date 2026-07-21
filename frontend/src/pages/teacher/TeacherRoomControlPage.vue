@@ -1372,7 +1372,7 @@ function moduleTone(moduleState: string) {
             </p>
             <button
               v-else-if="state.currentStage === 'DAY2_FINANCE_SETTLEMENT'"
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="day2FinancePreview.settlementStatus === 'COMPLETED' || day2FinanceStore.settling"
               @click="showDay2SettlementConfirm = true"
@@ -1421,7 +1421,7 @@ function moduleTone(moduleState: string) {
               </div>
             </div>
             <button
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="day2QuizRewardPreview.settlementStatus === 'COMPLETED' || day2FlowStore.settlingQuizReward"
               @click="settleDay2QuizReward"
@@ -1459,7 +1459,7 @@ function moduleTone(moduleState: string) {
             </div>
             <button
               v-if="state.currentStage === 'DAY2_INFLATION_APPLY'"
-              class="settlement-action"
+              class="settlement-action teacher-stage-action"
               type="button"
               :disabled="inflationPreview.applied || day2FlowStore.applyingInflation"
               @click="applyInflation"
@@ -1492,6 +1492,7 @@ function moduleTone(moduleState: string) {
             <dl class="fund-source-grid">
               <div><dt>소득세 적립</dt><dd>+{{ formatBibim(fundOverview.totalIncomeTax) }}</dd></div>
               <div><dt>금융세 적립</dt><dd>+{{ formatBibim(fundOverview.totalFinancialTax) }}</dd></div>
+              <div><dt>추가 기금</dt><dd>+{{ formatBibim(fundOverview.totalAdditions) }}</dd></div>
               <div><dt>공동비용</dt><dd>−{{ formatBibim(fundOverview.totalExpenses) }}</dd></div>
             </dl>
             <form v-if="!fundVote" class="fund-live-add" @submit.prevent="addClassFund">
@@ -1713,7 +1714,7 @@ function moduleTone(moduleState: string) {
             >외부 설문 새 탭에서 열기 ↗</a>
             <button
               v-if="state.currentStage === 'DAY2_SURVEY'"
-              class="settlement-action room-complete-button"
+              class="settlement-action room-complete-button teacher-stage-action"
               type="button"
               :disabled="changingStage"
               @click="showRoomCompleteConfirm = true"
@@ -1755,6 +1756,7 @@ function moduleTone(moduleState: string) {
               ← {{ adjacentStages.previous?.label ?? '이전 단계 없음' }}
             </button>
             <button
+              class="teacher-next-step-action"
               type="button"
               :class="{ 'is-recommended': shouldHighlightStageAdvance }"
               :disabled="nextStageDisabled"

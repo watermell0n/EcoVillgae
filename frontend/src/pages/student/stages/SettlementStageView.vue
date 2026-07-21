@@ -131,8 +131,8 @@ function resultLabel(question: QuizResultQuestion) {
         <span aria-hidden="true">⌛</span>
         <div>
           <strong>지금은 퀴즈 결과를 함께 확인하는 시간이에요.</strong>
-          <p v-if="props.dayNumber === 1">결과 확인이 끝나면 선생님이 역할 기본 월급, 퀴즈 정답수당과 소득세 10%를 계산해요.</p>
-          <p v-else>결과 확인이 끝나면 선생님이 문제당 5비빔의 정답수당과 소득세 10%를 계산해요.</p>
+          <p v-if="props.dayNumber === 1">결과 확인이 끝나면 선생님이 역할 월급과 퀴즈 정답수당을 더하고, 우리 반 공동기금으로 모을 소득세를 계산해요.</p>
+          <p v-else>결과 확인이 끝나면 선생님이 맞힌 문제로 받을 돈과 우리 반 공동기금으로 모을 소득세를 계산해요.</p>
         </div>
         <button class="settlement-wait-card__close" type="button" aria-label="안내 닫기" @click="showWaitNotice = false">×</button>
         <div v-if="props.dayNumber === 1" class="settlement-formula" aria-label="실수령액 계산식">
@@ -142,7 +142,7 @@ function resultLabel(question: QuizResultQuestion) {
         </div>
         <div v-else class="settlement-formula" aria-label="퀴즈 보상 계산식">
           <span>정답 수 × 5비빔</span>
-          <strong>− 소득세 10%</strong>
+          <strong>− 소득세</strong>
           <span>= 실제로 받는 돈</span>
         </div>
       </aside>

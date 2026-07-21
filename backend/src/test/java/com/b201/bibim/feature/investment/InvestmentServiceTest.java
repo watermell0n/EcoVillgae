@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ import com.b201.bibim.domain.investment.InvestmentOrderRepository;
 import com.b201.bibim.domain.investment.InvestmentOrderEntity;
 import com.b201.bibim.domain.investment.InvestmentScenarioEntity;
 import com.b201.bibim.domain.investment.InvestmentScenarioRepository;
+import com.b201.bibim.domain.investment.InvestmentScenarioReturnEntity;
 import com.b201.bibim.domain.investment.InvestmentScenarioReturnRepository;
 import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.DaySessionEntity;
@@ -126,5 +128,55 @@ class InvestmentServiceTest {
         assertEquals(1, result.investments().size());
         assertEquals(30, result.investments().getFirst().totalAmount());
         assertEquals("튼튼 채권", result.investments().getFirst().allocations().getFirst().assetName());
+    }
+
+    @Test
+    void updatesConfiguredInvestmentResultBeforeAnyStudentConfirms() {
+        UUID roomId = UUID.randomUUID();
+        InvestmentAssetEntity configuredAsset = InvestmentAssetEntity.create(
+                roomId, "SAFE_BOND", "튼튼 채권", "설명", "회사 정보",
+                "LOW", -1_500, 2_500, 1
+        );
+        InvestmentScenarioEntity configuredScenario = InvestmentScenarioEntity.ready(roomId);
+        InvestmentScenarioReturnEntity configuredReturn = InvestmentScenarioReturnEntity.create(
+                configuredScenario.getId(), configuredAsset.getId(), 200
+        );
+        when(assetRepository.findAllByRoomIdOrderByDisplayOrder(roomId))
+                .thenReturn(List.of(configuredAsset));
+        when(scenarioRepository.findByRoomId(roomId)).thenReturn(Optional.of(configuredScenario));
+        when(scenarioRepository.findByRoomIdForUpdate(roomId)).thenReturn(Optional.of(configuredScenario));
+        when(scenarioReturnRepository.findAllByScenarioId(configuredScenario.getId()))
+                .thenReturn(List.of(configuredReturn));
+
+        investmentService.updateInvestmentResults(roomId, Map.of(configuredAsset.getId(), 1_250));
+
+        assertEquals(1_250, configuredReturn.getReturnBps());
+    }
+
+    @Test
+    void rejectsInvestmentResultChangeAfterAStudentConfirms() {
+        UUID roomId = UUID.randomUUID();
+        InvestmentAssetEntity configuredAsset = InvestmentAssetEntity.create(
+                roomId, "SAFE_BOND", "튼튼 채권", "설명", "회사 정보",
+                "LOW", -1_500, 2_500, 1
+        );
+        InvestmentScenarioEntity configuredScenario = InvestmentScenarioEntity.ready(roomId);
+        configuredScenario.lock();
+        InvestmentScenarioReturnEntity configuredReturn = InvestmentScenarioReturnEntity.create(
+                configuredScenario.getId(), configuredAsset.getId(), 200
+        );
+        when(assetRepository.findAllByRoomIdOrderByDisplayOrder(roomId))
+                .thenReturn(List.of(configuredAsset));
+        when(scenarioRepository.findByRoomId(roomId)).thenReturn(Optional.of(configuredScenario));
+        when(scenarioRepository.findByRoomIdForUpdate(roomId)).thenReturn(Optional.of(configuredScenario));
+        when(scenarioReturnRepository.findAllByScenarioId(configuredScenario.getId()))
+                .thenReturn(List.of(configuredReturn));
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                investmentService.updateInvestmentResults(roomId, Map.of(configuredAsset.getId(), 700))
+        );
+
+        assertEquals("INVESTMENT_RESULTS_LOCKED", exception.getCode());
+        assertEquals(200, configuredReturn.getReturnBps());
     }
 }

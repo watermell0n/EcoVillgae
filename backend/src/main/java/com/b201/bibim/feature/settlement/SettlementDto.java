@@ -47,6 +47,7 @@ public final class SettlementDto {
     public record Day1PayslipResponse(
             UUID settlementRunId,
             UUID studentId,
+            String roomName,
             int participantNumber,
             String nickname,
             String roleName,

@@ -43,6 +43,12 @@ public class FundCostOptionEntity {
         return option;
     }
 
+    public void update(String name, long amount, boolean enabled) {
+        this.name = name.trim();
+        this.amount = amount;
+        this.enabled = enabled;
+    }
+
     public UUID getId() { return id; }
     public UUID getRoomId() { return roomId; }
     public String getName() { return name; }

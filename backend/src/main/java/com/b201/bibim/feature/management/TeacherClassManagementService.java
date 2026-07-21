@@ -1,13 +1,18 @@
 package com.b201.bibim.feature.management;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import com.b201.bibim.domain.investment.InvestmentAssetEntity;
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
+import com.b201.bibim.domain.fund.FundCostOptionEntity;
+import com.b201.bibim.domain.fund.FundCostOptionRepository;
 import com.b201.bibim.domain.investment.InvestmentAssetRepository;
 import com.b201.bibim.feature.investment.InvestmentService;
 import com.b201.bibim.domain.quiz.QuizQuestionEntity;
@@ -50,6 +55,7 @@ public class TeacherClassManagementService {
     private final StudentRepository studentRepository;
     private final StudentRoleCatalogRepository studentRoleCatalogRepository;
     private final AccountRepository accountRepository;
+    private final FundCostOptionRepository fundCostOptionRepository;
     private final InvestmentService investmentService;
 
     public TeacherClassManagementService(
@@ -62,6 +68,7 @@ public class TeacherClassManagementService {
             StudentRepository studentRepository,
             StudentRoleCatalogRepository studentRoleCatalogRepository,
             AccountRepository accountRepository,
+            FundCostOptionRepository fundCostOptionRepository,
             InvestmentService investmentService
     ) {
         this.roomRepository = roomRepository;
@@ -73,6 +80,7 @@ public class TeacherClassManagementService {
         this.studentRepository = studentRepository;
         this.studentRoleCatalogRepository = studentRoleCatalogRepository;
         this.accountRepository = accountRepository;
+        this.fundCostOptionRepository = fundCostOptionRepository;
         this.investmentService = investmentService;
     }
 
@@ -80,6 +88,7 @@ public class TeacherClassManagementService {
     public ClassSettingsResponse settings(UUID teacherId, UUID roomId) {
         RoomEntity room = ownedRoom(teacherId, roomId);
         investmentService.ensureDefaultAssets(roomId);
+        ensureDefaultFundCostOptions(roomId);
         RoomRulesEntity rules = rulesRepository.findByRoomId(roomId)
                 .orElseThrow(() -> notFound("수업 규칙을 찾을 수 없습니다."));
         return response(room, rules);
@@ -96,6 +105,7 @@ public class TeacherClassManagementService {
             throw conflict("종료된 수업의 설정은 변경할 수 없습니다.");
         }
         investmentService.ensureDefaultAssets(roomId);
+        ensureDefaultFundCostOptions(roomId);
 
         EconomyRules economy = request.economy();
         room.rename(request.roomName());
@@ -140,6 +150,7 @@ public class TeacherClassManagementService {
             }
         }
 
+        Map<UUID, Integer> requestedInvestmentResults = new HashMap<>();
         for (var assetRequest : request.investments()) {
             InvestmentAssetEntity asset = investmentRepository.findById(assetRequest.assetId())
                     .filter(item -> item.getRoomId().equals(roomId))
@@ -150,11 +161,27 @@ public class TeacherClassManagementService {
             if (assetRequest.minReturnBps() > assetRequest.maxReturnBps()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_RETURN_RANGE", "최소 수익률은 최대 수익률보다 클 수 없습니다.");
             }
+            if (assetRequest.actualReturnBps() < assetRequest.minReturnBps()
+                    || assetRequest.actualReturnBps() > assetRequest.maxReturnBps()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ACTUAL_RETURN",
+                        "결과 수익률은 최소·최대 예상 수익률 사이로 입력해 주세요."
+                );
+            }
             asset.updateDetails(
                     assetRequest.name(), assetRequest.description(), assetRequest.companyInfo(),
                     assetRequest.riskLevel(), assetRequest.minReturnBps(), assetRequest.maxReturnBps()
             );
+            if (requestedInvestmentResults.put(assetRequest.assetId(), assetRequest.actualReturnBps()) != null) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "DUPLICATE_INVESTMENT_ASSET",
+                        "같은 투자 상품을 중복해서 저장할 수 없습니다."
+                );
+            }
         }
+        investmentService.updateInvestmentResults(roomId, requestedInvestmentResults);
 
         for (var productRequest : request.products()) {
             if (productRequest.productId() == null) {
@@ -183,6 +210,31 @@ public class TeacherClassManagementService {
                     .filter(item -> item.getRoomId().equals(roomId))
                     .orElseThrow(() -> notFound("상점 상품을 찾을 수 없습니다."));
             product.discontinue();
+        }
+
+        Set<String> fundOptionNames = new HashSet<>();
+        for (var optionRequest : request.fundCostOptions()) {
+            String normalizedName = optionRequest.name().trim();
+            if (!fundOptionNames.add(normalizedName)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_FUND_OPTION", "공동기금 사용 내역의 이름은 서로 달라야 합니다.");
+            }
+            if (optionRequest.optionId() == null) continue;
+            FundCostOptionEntity option = fundCostOptionRepository.findById(optionRequest.optionId())
+                    .filter(item -> item.getRoomId().equals(roomId))
+                    .orElseThrow(() -> notFound("공동기금 사용 내역을 찾을 수 없습니다."));
+            option.update(normalizedName, optionRequest.amount(), optionRequest.enabled());
+        }
+        int nextFundOptionOrder = fundCostOptionRepository.findAllByRoomIdOrderByDisplayOrder(roomId).stream()
+                .mapToInt(FundCostOptionEntity::getDisplayOrder)
+                .max()
+                .orElse(0) + 1;
+        for (var optionRequest : request.fundCostOptions()) {
+            if (optionRequest.optionId() != null) continue;
+            FundCostOptionEntity option = FundCostOptionEntity.create(
+                    roomId, optionRequest.name().trim(), optionRequest.amount(), nextFundOptionOrder++
+            );
+            option.update(optionRequest.name(), optionRequest.amount(), optionRequest.enabled());
+            fundCostOptionRepository.save(option);
         }
 
         room.markEconomicStateChanged();
@@ -251,6 +303,7 @@ public class TeacherClassManagementService {
     }
 
     private ClassSettingsResponse response(RoomEntity room, RoomRulesEntity rules) {
+        var investmentResultSettings = investmentService.investmentResultSettings(room.getId());
         EconomyRules economy = new EconomyRules(
                 rules.getRoleIncome(), rules.getDay1CorrectReward(), rules.getIncomeTaxBps(),
                 rules.getDepositInterestBps(), rules.getFinancialTaxBps(), rules.getDay2CorrectReward(),
@@ -275,13 +328,20 @@ public class TeacherClassManagementService {
                 .map(asset -> new TeacherClassManagementDto.InvestmentAsset(
                         asset.getId(), asset.getCode(), asset.getName(), asset.getDescription(),
                         asset.getCompanyInfo(), asset.getRiskLevel(), asset.getMinReturnBps(),
-                        asset.getMaxReturnBps(), asset.getDisplayOrder()
+                        asset.getMaxReturnBps(),
+                        investmentResultSettings.returnBpsByAssetId().getOrDefault(asset.getId(), 0),
+                        asset.getDisplayOrder()
                 )).toList();
         var products = productRepository.findAllByRoomIdOrderByDisplayOrder(room.getId()).stream()
                 .filter(product -> !"DISCONTINUED".equals(product.getStatus()))
                 .map(product -> new TeacherClassManagementDto.ShopProduct(
                         product.getId(), product.getName(), product.getDescription(),
                         product.getOriginalPrice(), product.getImageUrl(), product.getCurrentStock(), product.getDisplayOrder()
+                )).toList();
+        var fundCostOptions = fundCostOptionRepository.findAllByRoomIdOrderByDisplayOrder(room.getId()).stream()
+                .map(option -> new TeacherClassManagementDto.FundCostOption(
+                        option.getId(), option.getName(), option.getAmount(),
+                        option.isEnabled(), option.getDisplayOrder()
                 )).toList();
         var roleCatalog = studentRoleCatalogRepository.findAllByOrderByParticipantNumber().stream()
                 .map(role -> new TeacherClassManagementDto.StudentRoleCatalogEntry(
@@ -291,7 +351,8 @@ public class TeacherClassManagementService {
         boolean editingLiveClass = !"PREPARING".equals(room.getStatus());
         return new ClassSettingsResponse(
                 room.getId(), room.getName(), room.getStatus(), editingLiveClass,
-                economy, quizzes, investments, products, roleCatalog
+                investmentResultSettings.locked(),
+                economy, quizzes, investments, products, fundCostOptions, roleCatalog
         );
     }
 
@@ -304,8 +365,18 @@ public class TeacherClassManagementService {
     private ManagedStudent managedStudent(StudentEntity student) {
         return new ManagedStudent(
                 student.getId(), student.getParticipantNumber(), student.getParticipationCode(),
-                student.getNickname(), student.getRoleName(), student.getStatus(), student.isOnline(), student.getLastSeenAt()
+                student.getNickname(), student.getRoleName(), student.getStatus(),
+                student.getPasswordHash() != null, student.isOnline(), student.getLastSeenAt()
         );
+    }
+
+    private void ensureDefaultFundCostOptions(UUID roomId) {
+        if (!fundCostOptionRepository.findAllByRoomIdOrderByDisplayOrder(roomId).isEmpty()) return;
+        fundCostOptionRepository.saveAll(List.of(
+                FundCostOptionEntity.create(roomId, "에어컨 사용료", 50, 1),
+                FundCostOptionEntity.create(roomId, "보드마카 구입", 30, 2),
+                FundCostOptionEntity.create(roomId, "학급 공동활동", 100, 3)
+        ));
     }
 
     private String uniqueParticipationCode(int participantNumber) {

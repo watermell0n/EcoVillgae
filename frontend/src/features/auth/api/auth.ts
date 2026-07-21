@@ -29,13 +29,14 @@ export interface AdminSession {
   displayName: string
 }
 
-export type StudentRequiredAction = 'SETUP' | 'LOGIN' | 'WAIT' | 'ROOM_CLOSED'
+export type StudentRequiredAction = 'SETUP' | 'RESET_PASSWORD' | 'LOGIN' | 'WAIT' | 'ROOM_CLOSED'
 
 export interface StudentEntry {
   participationCode: string
   roomId: string
   roomName: string
   participantNumber: number
+  nickname: string | null
   requiredAction: StudentRequiredAction
 }
 

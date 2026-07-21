@@ -20,14 +20,15 @@ describe('StudentSetupPage', () => {
     vi.clearAllMocks()
   })
 
-  function mountSetupPage() {
+  function mountSetupPage(requiredAction: 'SETUP' | 'RESET_PASSWORD' = 'SETUP') {
     const authStore = useAuthStore()
     authStore.pendingStudentEntry = {
       participationCode: 'ROOM-01',
       roomId: 'room-1',
       roomName: '비빔마을',
       participantNumber: 1,
-      requiredAction: 'SETUP',
+      nickname: requiredAction === 'RESET_PASSWORD' ? '기존비빔이' : null,
+      requiredAction,
     }
     const setupStudent = vi.spyOn(authStore, 'setupStudent').mockResolvedValue({
       studentId: 'student-1',
@@ -80,5 +81,19 @@ describe('StudentSetupPage', () => {
     expect((passwordInputs[1]!.element as HTMLInputElement).value).toBe('a')
     expect(wrapper.get('[role="alert"]').text()).toContain('공백을 제외하고 4자 이상')
     expect(setupStudent).not.toHaveBeenCalled()
+  })
+
+  it('keeps the nickname and asks only for a new password after a reset', async () => {
+    const { setupStudent, wrapper } = mountSetupPage('RESET_PASSWORD')
+    const passwordInputs = wrapper.findAll('input[type="password"]')
+
+    expect(wrapper.text()).toContain('기존비빔이 이름은 그대로 사용')
+    expect(wrapper.find('input[placeholder="친구들이 알아볼 이름"]').exists()).toBe(false)
+    await passwordInputs[0]!.setValue('1234')
+    await passwordInputs[1]!.setValue('1234')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(setupStudent).toHaveBeenCalledWith('기존비빔이', '1234')
   })
 })

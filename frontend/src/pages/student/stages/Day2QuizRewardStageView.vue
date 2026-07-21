@@ -13,7 +13,7 @@ const errorMessage = ref('')
 const rewardMessage = computed(() => {
   if (!reward.value?.submitted) return '퀴즈를 제출하지 않아 이번 보상은 지급되지 않았어요.'
   if (reward.value.correctCount === 0) return '정답수당은 없지만, 틀린 문제도 다음 활동을 위한 좋은 연습이에요.'
-  return `${reward.value.correctCount}개의 정답수당에서 소득세 10%를 뺀 금액이 지갑에 반영됐어요.`
+  return `${reward.value.correctCount}개의 정답수당에서 우리 반이 함께 쓸 소득세를 빼고, 남은 비빔을 지갑에 넣었어요.`
 })
 
 onMounted(async () => {
@@ -55,7 +55,7 @@ function formatBibim(amount: number) {
       <div v-if="reward.submitted" class="quiz-reward-equation" aria-label="퀴즈 보상 계산식">
         <div><span>{{ reward.correctCount }}문제 × 5비빔</span><strong>{{ formatBibim(reward.correctReward) }}</strong></div>
         <b aria-hidden="true">−</b>
-        <div><span>소득세 10%</span><strong>{{ formatBibim(reward.incomeTax) }}</strong></div>
+        <div><span>우리 반 공동기금으로 모은 소득세</span><strong>{{ formatBibim(reward.incomeTax) }}</strong></div>
         <b aria-hidden="true">=</b>
         <div class="is-total"><span>내 지갑에 받은 돈</span><strong>{{ formatBibim(reward.totalReward) }}</strong></div>
       </div>
@@ -68,7 +68,7 @@ function formatBibim(amount: number) {
       </dl>
       <aside class="quiz-reward-tip">
         <span aria-hidden="true">💡</span>
-        <p><strong>보상은 한 번만 지급돼요.</strong> 소득세를 뺀 퀴즈 정답수당이 내 지갑 기록에 저장됐고, 세금은 학급 공동기금에 더해졌어요.</p>
+        <p><strong>보상은 한 번만 받아요.</strong> 맞힌 문제로 받은 돈에서 소득세를 빼고 내 지갑에 넣었어요. 소득세는 우리 반 공동기금에 모였어요.</p>
       </aside>
       <div class="quiz-reward-wallet" role="status">
         <span aria-hidden="true">👛</span>

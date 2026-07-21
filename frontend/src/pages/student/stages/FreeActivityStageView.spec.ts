@@ -217,6 +217,34 @@ describe('FreeActivityStageView', () => {
     expect(wrapper.find('.economy-header > button').exists()).toBe(false)
   })
 
+  it('keeps the selected activity when the polled room sync version changes', async () => {
+    const roomSessionStore = useRoomSessionStore()
+    roomSessionStore.studentState = {
+      roomId: 'room-1',
+      roomStatus: 'DAY1_ACTIVE',
+      currentDay: 1,
+      currentStage: 'DAY1_FREE_ACTIVITY',
+      mode: 'FREE',
+      walletBalance: 100,
+      modules: [],
+      syncVersion: 1,
+      changed: false,
+    }
+    const wrapper = mount(FreeActivityStageView)
+    await flushPromises()
+
+    await openTab(wrapper, '예금')
+    roomSessionStore.studentState = {
+      ...roomSessionStore.studentState,
+      syncVersion: 2,
+      walletBalance: 80,
+    }
+    await flushPromises()
+
+    expect(wrapper.get('.economy-module-tabs button.is-active').text()).toBe('예금')
+    expect(wrapper.find('.finance-activity-panel').exists()).toBe(true)
+  })
+
   it('disables quantity increase at the wallet-based purchase limit', async () => {
     const wrapper = mount(FreeActivityStageView)
     await flushPromises()

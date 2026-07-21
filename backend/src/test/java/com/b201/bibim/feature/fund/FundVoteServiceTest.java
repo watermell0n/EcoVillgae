@@ -8,12 +8,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.b201.bibim.domain.finance.AccountEntity;
 import com.b201.bibim.domain.finance.AccountRepository;
 import com.b201.bibim.domain.finance.FinancialEntryRepository;
+import com.b201.bibim.domain.finance.FinancialTransactionEntity;
 import com.b201.bibim.domain.finance.FinancialTransactionRepository;
 import com.b201.bibim.domain.fund.FundCostOptionEntity;
 import com.b201.bibim.domain.fund.FundCostOptionRepository;
@@ -23,7 +26,10 @@ import com.b201.bibim.domain.room.DaySessionRepository;
 import com.b201.bibim.domain.room.RoomEntity;
 import com.b201.bibim.domain.room.RoomRepository;
 import com.b201.bibim.domain.settlement.FinancialSettlementItemRepository;
+import com.b201.bibim.domain.settlement.FinancialSettlementItemEntity;
+import com.b201.bibim.domain.settlement.SettlementItemEntity;
 import com.b201.bibim.domain.settlement.SettlementItemRepository;
+import com.b201.bibim.domain.settlement.SettlementRunEntity;
 import com.b201.bibim.domain.settlement.SettlementRunRepository;
 import com.b201.bibim.domain.student.StudentEntity;
 import com.b201.bibim.domain.student.StudentRepository;
@@ -63,6 +69,66 @@ class FundVoteServiceTest {
     @Mock FinancialSettlementItemRepository financialItemRepository;
     @Mock VoteEligibleStudentRepository voteEligibleStudentRepository;
     @InjectMocks FundVoteService service;
+
+    @Test
+    void explainsTheFundBalanceWithEveryIncomeTaxAndManualAddition() {
+        UUID teacherId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        UUID day1RunId = UUID.randomUUID();
+        UUID quizRunId = UUID.randomUUID();
+        UUID financeRunId = UUID.randomUUID();
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+        AccountEntity fund = org.mockito.Mockito.mock(AccountEntity.class);
+        SettlementRunEntity day1Run = org.mockito.Mockito.mock(SettlementRunEntity.class);
+        SettlementRunEntity quizRun = org.mockito.Mockito.mock(SettlementRunEntity.class);
+        SettlementRunEntity financeRun = org.mockito.Mockito.mock(SettlementRunEntity.class);
+        SettlementItemEntity day1Item = org.mockito.Mockito.mock(SettlementItemEntity.class);
+        SettlementItemEntity quizItem = org.mockito.Mockito.mock(SettlementItemEntity.class);
+        FinancialSettlementItemEntity financeItem = org.mockito.Mockito.mock(FinancialSettlementItemEntity.class);
+        FinancialTransactionEntity addition = org.mockito.Mockito.mock(FinancialTransactionEntity.class);
+
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getTeacherId()).thenReturn(teacherId);
+        when(accountRepository.findByRoomIdAndStudentIdIsNullAndAccountType(roomId, "CLASS_FUND"))
+                .thenReturn(Optional.of(fund));
+        when(fund.getBalance()).thenReturn(90L);
+        when(expenseRepository.findByRoomId(roomId)).thenReturn(Optional.empty());
+
+        when(settlementRunRepository.findByRoomIdAndSettlementType(roomId, "DAY1_INCOME"))
+                .thenReturn(Optional.of(day1Run));
+        when(day1Run.getId()).thenReturn(day1RunId);
+        when(day1Run.getStatus()).thenReturn("COMPLETED");
+        when(settlementItemRepository.findAllBySettlementRunId(day1RunId)).thenReturn(List.of(day1Item));
+        when(day1Item.getIncomeTax()).thenReturn(40L);
+
+        when(settlementRunRepository.findByRoomIdAndSettlementType(roomId, "DAY2_QUIZ_REWARD"))
+                .thenReturn(Optional.of(quizRun));
+        when(quizRun.getId()).thenReturn(quizRunId);
+        when(quizRun.getStatus()).thenReturn("COMPLETED");
+        when(settlementItemRepository.findAllBySettlementRunId(quizRunId)).thenReturn(List.of(quizItem));
+        when(quizItem.getIncomeTax()).thenReturn(5L);
+
+        when(settlementRunRepository.findByRoomIdAndSettlementType(roomId, "DAY2_FINANCE"))
+                .thenReturn(Optional.of(financeRun));
+        when(financeRun.getId()).thenReturn(financeRunId);
+        when(financeRun.getStatus()).thenReturn("COMPLETED");
+        when(financialItemRepository.findAllBySettlementRunId(financeRunId)).thenReturn(List.of(financeItem));
+        when(financeItem.getFinancialTax()).thenReturn(20L);
+
+        when(transactionRepository.findAllByRoomIdAndTransactionTypeAndStatus(
+                roomId, "CLASS_FUND_ADDITION", "SUCCESS"
+        )).thenReturn(List.of(addition));
+        when(addition.getMetadata()).thenReturn(Map.of("amount", 25));
+
+        var response = service.teacherFund(teacherId, roomId);
+
+        assertEquals(90L, response.balance());
+        assertEquals(45L, response.totalIncomeTax());
+        assertEquals(20L, response.totalFinancialTax());
+        assertEquals(25L, response.totalAdditions());
+        assertEquals(0L, response.totalExpenses());
+    }
 
     @Test
     void rejectsDuplicateVoteFromSameStudent() {

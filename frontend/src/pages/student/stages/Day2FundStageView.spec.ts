@@ -22,6 +22,7 @@ describe('Day2FundStageView', () => {
       balance: 50,
       totalIncomeTax: 40,
       totalFinancialTax: 20,
+      totalAdditions: 10,
       totalExpenses: 10,
       appliedExpense: null,
     })
@@ -93,6 +94,9 @@ describe('Day2FundStageView', () => {
     const wrapper = mount(Day2FundStageView)
     await flushPromises()
 
+    expect(wrapper.text()).toContain(
+      '소득세 40비빔 + 금융세 20비빔 + 추가 기금 10비빔 − 공동비용 10비빔',
+    )
     expect(wrapper.find('#student-vote-result-title').exists()).toBe(false)
     expect(wrapper.find('.student-vote-options b').exists()).toBe(false)
     expect(wrapper.find('.student-vote-options .is-decided').exists()).toBe(false)

@@ -9,6 +9,7 @@ import {
   saveClassSettings,
   updateManagedStudent,
   type ClassSettings,
+  type FundCostOptionSetting,
   type ManagedStudent,
   type ProductSetting,
 } from '../../features/management/api/management'
@@ -23,7 +24,7 @@ const errorMessage = ref('')
 const noticeMessage = ref('')
 const settings = ref<ClassSettings | null>(null)
 const students = ref<ManagedStudent[]>([])
-const settingsTab = ref<'ECONOMY' | 'QUIZ' | 'INVESTMENT' | 'SHOP'>('ECONOMY')
+const settingsTab = ref<'ECONOMY' | 'QUIZ' | 'INVESTMENT' | 'SHOP' | 'FUND'>('ECONOMY')
 const selectedQuizDay = ref(1)
 const newStudentNumber = ref(1)
 const newStudentNickname = ref('')
@@ -38,7 +39,19 @@ const failedProductImages = ref(new Set<ProductSetting>())
 const selectedQuiz = computed(() => settings.value?.quizzes.find((quiz) => quiz.dayNumber === selectedQuizDay.value))
 const selectedStudent = computed(() => students.value.find((student) => student.studentId === selectedStudentId.value) ?? null)
 const statusLabel = (status: string) => ({ INVITED: '입장 전', ACTIVE: '참여 중', ABSENT: '결석', DISABLED: '수업 제외' }[status] ?? status)
+const passwordStatusLabel = (student: ManagedStudent) => {
+  if (student.passwordConfigured) return '비밀번호 설정됨 · 원문은 안전하게 보호됨'
+  return student.status === 'INVITED' ? '비밀번호 미설정' : '비밀번호 재설정 필요'
+}
 const formatRateInput = (bps: number) => bps / 100
+const investmentExamplePrincipal = 100
+const investmentExampleProfit = (bps: number) => {
+  const multiplied = investmentExamplePrincipal * bps
+  if (multiplied === 0) return 0
+  const rounded = Math.floor((Math.abs(multiplied) + 5_000) / 10_000)
+  return multiplied < 0 ? -rounded : rounded
+}
+const signedBibim = (amount: number) => `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${Math.abs(amount)}비빔`
 const roleOptions = computed(() => settings.value?.roleCatalog ?? [])
 const suggestedRoleName = (participantNumber: number) =>
   roleOptions.value.find((role) => role.participantNumber === participantNumber)?.roleName ?? ''
@@ -135,7 +148,7 @@ async function resetPassword() {
     const saved = await resetManagedStudentPassword(props.roomId, pendingResetStudent.value.studentId)
     const index = students.value.findIndex((item) => item.studentId === saved.studentId)
     if (index >= 0) students.value[index] = saved
-    noticeMessage.value = `${saved.participantNumber}번 학생이 다음 입장 때 새 비밀번호를 설정합니다.`
+    noticeMessage.value = `${saved.participantNumber}번 학생이 다음 입장 때 닉네임은 그대로 두고 새 비밀번호만 설정합니다.`
     pendingResetStudent.value = null
   } catch (error) {
     errorMessage.value = getApiErrorMessage(error, '비밀번호를 초기화하지 못했습니다.')
@@ -174,6 +187,24 @@ function removeProduct(product: ProductSetting) {
   settings.value.products = settings.value.products.filter((item) => item !== product)
 }
 
+function addFundCostOption() {
+  if (!settings.value) return
+  const displayOrder = Math.max(0, ...settings.value.fundCostOptions.map((option) => option.displayOrder)) + 1
+  const option: FundCostOptionSetting = {
+    optionId: null,
+    name: '새 공동기금 내역',
+    amount: 1,
+    enabled: true,
+    displayOrder,
+  }
+  settings.value.fundCostOptions.push(option)
+  void nextTick(() => {
+    const editor = document.querySelector<HTMLElement>('[data-new-fund-option="true"]')
+    editor?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    editor?.querySelector<HTMLInputElement>('input')?.focus()
+  })
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -191,10 +222,6 @@ async function selectProductImage(product: ProductSetting, event: Event) {
   productImageError.value = ''
   if (!file.type.startsWith('image/')) {
     productImageError.value = '이미지 파일만 선택할 수 있습니다.'
-    return
-  }
-  if (file.size > 2_000_000) {
-    productImageError.value = '이미지는 2MB 이하 파일을 선택해 주세요.'
     return
   }
   try {
@@ -254,6 +281,7 @@ function clearProductImageError(product: ProductSetting) {
             </span>
             <strong class="managed-student-card__name">{{ student.nickname || '닉네임 미설정' }}</strong>
             <code>{{ student.participationCode }}</code>
+            <small>{{ passwordStatusLabel(student) }}</small>
             <small>{{ student.lastSeenAt ? new Date(student.lastSeenAt).toLocaleString('ko-KR') : '접속 기록 없음' }}</small>
             <span class="managed-student-card__open">상세 설정 →</span>
           </button>
@@ -280,6 +308,7 @@ function clearProductImageError(product: ProductSetting) {
             <dl>
               <div><dt>최근 접속</dt><dd>{{ selectedStudent.lastSeenAt ? new Date(selectedStudent.lastSeenAt).toLocaleString('ko-KR') : '접속 기록 없음' }}</dd></div>
               <div><dt>참여 코드</dt><dd>{{ selectedStudent.participationCode }}</dd></div>
+              <div><dt>비밀번호</dt><dd>{{ selectedStudent.passwordConfigured ? '설정됨 (암호화 보호)' : selectedStudent.status === 'INVITED' ? '미설정' : '재설정 필요' }}</dd></div>
             </dl>
           </div>
           <footer>
@@ -296,7 +325,7 @@ function clearProductImageError(product: ProductSetting) {
           <p>저장하면 교사·학생 화면의 수업 이름이 실시간으로 갱신됩니다.</p>
         </section>
         <nav class="management-tabs" aria-label="수업 설정 항목">
-          <button v-for="tab in ([['ECONOMY','은행·경제'],['QUIZ','퀴즈'],['INVESTMENT','투자 상품'],['SHOP','상점 상품']] as const)" :key="tab[0]" type="button" :class="{ 'is-active': settingsTab === tab[0] }" @click="settingsTab = tab[0]">{{ tab[1] }}</button>
+          <button v-for="tab in ([['ECONOMY','은행·경제'],['QUIZ','퀴즈'],['INVESTMENT','투자 상품'],['SHOP','상점 상품'],['FUND','공동기금']] as const)" :key="tab[0]" type="button" :class="{ 'is-active': settingsTab === tab[0] }" @click="settingsTab = tab[0]">{{ tab[1] }}</button>
         </nav>
 
         <section v-if="settingsTab === 'ECONOMY'" class="settings-form-grid">
@@ -325,14 +354,29 @@ function clearProductImageError(product: ProductSetting) {
 
         <section v-else-if="settingsTab === 'INVESTMENT'" class="settings-stack">
           <article v-for="asset in settings.investments" :key="asset.assetId" class="settings-editor-card investment-editor">
-            <header><strong>{{ asset.name }}</strong><span>학생 카드 미리보기와 동일한 데이터</span></header>
-            <div class="settings-form-grid"><label>상품명<input v-model="asset.name"></label><label>위험도<select v-model="asset.riskLevel"><option value="LOW">낮음</option><option value="MEDIUM">보통</option><option value="HIGH">높음</option></select></label><label>최소 예상 수익률<input :value="asset.minReturnBps / 100" type="number" step="0.1" @input="asset.minReturnBps = Number(($event.target as HTMLInputElement).value) * 100"><span>%</span></label><label>최대 예상 수익률<input :value="asset.maxReturnBps / 100" type="number" step="0.1" @input="asset.maxReturnBps = Number(($event.target as HTMLInputElement).value) * 100"><span>%</span></label></div>
+            <header>
+              <strong>{{ asset.name }}</strong>
+              <span>{{ settings.investmentResultsLocked ? '학생 투자 확정으로 결과 잠김' : '학생 카드와 실제 정산에 반영' }}</span>
+            </header>
+            <div class="settings-form-grid">
+              <label>상품명<input v-model="asset.name"></label>
+              <label>위험도<select v-model="asset.riskLevel"><option value="LOW">낮음</option><option value="MEDIUM">보통</option><option value="HIGH">높음</option></select></label>
+              <label>최소 예상 수익률<input :value="asset.minReturnBps / 100" type="number" step="0.1" @input="asset.minReturnBps = Number(($event.target as HTMLInputElement).value) * 100"><span>%</span></label>
+              <label>최대 예상 수익률<input :value="asset.maxReturnBps / 100" type="number" step="0.1" @input="asset.maxReturnBps = Number(($event.target as HTMLInputElement).value) * 100"><span>%</span></label>
+              <label class="investment-result-rate">결과 수익률<input :value="asset.actualReturnBps / 100" type="number" min="-100" max="1000" step="0.1" :disabled="settings.investmentResultsLocked" @input="asset.actualReturnBps = Number(($event.target as HTMLInputElement).value) * 100"><span>%</span></label>
+              <div class="investment-result-preview" aria-live="polite">
+                <small>결과값 미리보기</small>
+                <strong>{{ investmentExamplePrincipal }}비빔 투자 → {{ investmentExamplePrincipal + investmentExampleProfit(asset.actualReturnBps) }}비빔</strong>
+                <span>수익·손실 {{ signedBibim(investmentExampleProfit(asset.actualReturnBps)) }}</span>
+              </div>
+            </div>
+            <p v-if="settings.investmentResultsLocked" class="investment-result-lock-notice">학생이 투자 금액을 확정해 결과 수익률은 더 이상 바꿀 수 없습니다.</p>
             <label>카드 요약<textarea v-model="asset.description" rows="2" /></label>
             <label>상세 투자 이야기<textarea v-model="asset.companyInfo" rows="8" /></label>
           </article>
         </section>
 
-        <section v-else class="settings-stack">
+        <section v-else-if="settingsTab === 'SHOP'" class="settings-stack">
           <div class="settings-section-actions">
             <div><strong>상점 상품</strong><small>교사가 새 상품과 재고를 직접 준비할 수 있습니다.</small></div>
             <button type="button" @click="addProduct">+ 상품 추가</button>
@@ -366,7 +410,27 @@ function clearProductImageError(product: ProductSetting) {
             </div>
             <img v-if="product.imageUrl && !failedProductImages.has(product)" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`" @error="markProductImageFailed(product)">
             <p v-else-if="product.imageUrl" class="product-image-fallback" role="status">이미지를 불러올 수 없어요. 파일 또는 주소를 다시 확인해 주세요.</p>
-            <small>파일 이미지는 2MB 이하로 선택해 주세요. · 현재 재고 {{ product.currentStock }}개</small>
+            <small>이미지 파일은 용량 제한 없이 선택할 수 있어요. · 현재 재고 {{ product.currentStock }}개</small>
+          </article>
+        </section>
+
+        <section v-else class="settings-stack">
+          <div class="settings-section-actions">
+            <div><strong>공동기금 사용 내역</strong><small>2일차 공동기금 사용 단계에서 고를 내역과 금액을 준비합니다.</small></div>
+            <button type="button" @click="addFundCostOption">+ 내역 추가</button>
+          </div>
+          <article
+            v-for="option in settings.fundCostOptions"
+            :key="option.optionId ?? `new-fund-${option.displayOrder}`"
+            class="settings-editor-card fund-option-editor"
+            :data-new-fund-option="option.optionId ? undefined : 'true'"
+          >
+            <header><strong>{{ option.name }}</strong><span>{{ option.enabled ? '사용 중' : '사용 안 함' }}</span></header>
+            <div class="settings-form-grid">
+              <label>내역 이름<input v-model.trim="option.name" maxlength="100" required></label>
+              <label>필요 금액<input v-model.number="option.amount" type="number" min="1" required><span>비빔</span></label>
+              <label class="settings-checkbox"><input v-model="option.enabled" type="checkbox"><span>학생 투표 준비 화면에서 사용</span></label>
+            </div>
           </article>
         </section>
 
@@ -376,5 +440,5 @@ function clearProductImageError(product: ProductSetting) {
   </section>
 
   <div v-if="showSaveConfirm" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title"><h2 id="settings-confirm-title">수업 설정을 저장할까요?</h2><p>저장한 내용은 학생 화면에 바로 반영될 수 있습니다.</p><p v-if="settings?.editingLiveClass" class="confirm-modal__warning">진행 중인 수업이므로 일부 학생의 화면이 바뀔 수 있어요.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" @click="showSaveConfirm = false">취소</button><button type="button" :disabled="saving" @click="confirmSaveSettings">저장하기</button></div></section></div>
-  <div v-if="pendingResetStudent" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true"><h2>비밀번호를 초기화할까요?</h2><p>{{ pendingResetStudent.participantNumber }}번 학생은 다음 입장 때 새 비밀번호를 설정해야 합니다.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" @click="pendingResetStudent = null">취소</button><button type="button" :disabled="saving" @click="resetPassword">초기화</button></div></section></div>
+  <div v-if="pendingResetStudent" class="modal-backdrop"><section class="confirm-modal" role="dialog" aria-modal="true"><h2>비밀번호를 초기화할까요?</h2><p>{{ pendingResetStudent.participantNumber }}번 학생은 닉네임을 그대로 유지하고 다음 입장 때 새 비밀번호만 설정합니다.</p><div class="confirm-modal__actions"><button class="button-secondary" type="button" @click="pendingResetStudent = null">취소</button><button type="button" :disabled="saving" @click="resetPassword">초기화</button></div></section></div>
 </template>

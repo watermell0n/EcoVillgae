@@ -1,6 +1,8 @@
 package com.b201.bibim.feature.auth.student;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +17,7 @@ import com.b201.bibim.domain.student.StudentRepository;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.EnterRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.LoginRequest;
 import com.b201.bibim.feature.auth.student.StudentAuthDto.RequiredAction;
+import com.b201.bibim.feature.auth.student.StudentAuthDto.SetupRequest;
 import com.b201.bibim.feature.monitoring.ActivityEventService;
 import com.b201.bibim.feature.flow.StudentFlowService;
 import com.b201.bibim.global.security.AuthSessionService;
@@ -95,5 +98,39 @@ class StudentAuthServiceTest {
                 RequiredAction.ROOM_CLOSED,
                 studentAuthService.enter(new EnterRequest("eco-02")).requiredAction()
         );
+    }
+
+    @Test
+    void resetStudentKeepsNicknameAndSetsOnlyANewPassword() {
+        UUID roomId = UUID.randomUUID();
+        StudentEntity student = StudentEntity.invited(roomId, 2, "ECO-02");
+        student.completeSetup("비빔이", "old-password");
+        student.resetPassword();
+        RoomEntity room = org.mockito.Mockito.mock(RoomEntity.class);
+
+        when(studentRepository.findByParticipationCode("ECO-02")).thenReturn(Optional.of(student));
+        when(studentRepository.findByParticipationCodeForUpdate("ECO-02")).thenReturn(Optional.of(student));
+        when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
+        when(room.getId()).thenReturn(roomId);
+        when(room.getName()).thenReturn("푸른반");
+        when(room.getStatus()).thenReturn("ACTIVE");
+        when(passwordEncoder.encode("5678")).thenReturn("new-password");
+        when(authSessionService.createStudentSession(student)).thenReturn("session-token");
+        when(accountRepository.findByRoomIdAndStudentIdAndAccountType(
+                roomId, student.getId(), "STUDENT_WALLET"
+        )).thenReturn(Optional.empty());
+
+        assertEquals(
+                RequiredAction.RESET_PASSWORD,
+                studentAuthService.enter(new EnterRequest("eco-02")).requiredAction()
+        );
+        StudentAuthService.LoginResult result = studentAuthService.setup(
+                new SetupRequest("eco-02", null, "5678")
+        );
+
+        assertEquals("비빔이", result.response().nickname());
+        assertEquals("new-password", student.getPasswordHash());
+        assertEquals("ACTIVE", student.getStatus());
+        verify(studentFlowService, never()).initialize(any(), any());
     }
 }

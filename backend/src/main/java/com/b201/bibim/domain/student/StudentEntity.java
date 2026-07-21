@@ -123,8 +123,13 @@ public class StudentEntity {
 
     public void resetPassword() {
         this.passwordHash = null;
-        this.status = "INVITED";
         forceLogout();
+    }
+
+    public void completePasswordReset(String passwordHash) {
+        this.passwordHash = passwordHash;
+        this.status = "ACTIVE";
+        recordLogin();
     }
 
     public UUID getId() {
