@@ -7268,9 +7268,11 @@ button.admin-student-row.is-selected {
 
 .settings-section-actions > div { display: grid; gap: 3px; }
 .settings-section-actions small { color: var(--teacher-muted); }
-.product-image-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 8px; }
+.product-image-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 8px; }
+.product-image-inputs > label { min-width: 0; }
+.product-image-inputs input { box-sizing: border-box; width: 100%; min-height: 44px; }
 .product-file-picker { display: grid; gap: 5px; }
-.product-file-picker input[type='file'] { max-width: 250px; padding: 8px; }
+.product-file-picker input[type='file'] { max-width: none; padding: 8px; }
 .settings-product-preview { display: block; width: min(100%, 320px); max-height: 190px; object-fit: contain; border: 1px solid #dce8e4; border-radius: 12px; background: #f7faf9; }
 
 /* Student-equivalent teacher learning and quiz surfaces. */
@@ -7307,8 +7309,55 @@ button.admin-student-row.is-selected {
 .teacher-student-mirror__action button { flex: 0 0 auto; }
 .teacher-student-mirror__navigation span { font-weight: 900; }
 .teacher-student-mirror__action p { margin: 0; }
+.teacher-quiz-ready-message { font-size: .9rem; font-weight: 800; }
+.teacher-quiz-start-button,
+.teacher-quiz-close-button {
+  min-width: 190px;
+  min-height: 56px;
+  padding: 14px 24px;
+  box-shadow: 0 10px 24px rgb(232 95 61 / 25%);
+  font-size: 1.05rem;
+}
+.teacher-quiz-close-button { box-shadow: 0 10px 24px rgb(54 91 81 / 18%); }
+.teacher-quiz-mirror .quiz-player__footer .teacher-quiz-step-button {
+  border: 1px solid #cfded8;
+  color: #536b62;
+  background: #f2f7f5;
+  box-shadow: none;
+}
+.teacher-quiz-mirror .quiz-player__footer .teacher-quiz-step-button:hover:not(:disabled) {
+  border-color: #b8cec5;
+  background: #e7f0ec;
+}
 .teacher-quiz-mirror__option { cursor: default; }
 .teacher-quiz-mirror__option:hover { transform: none; }
+.live-count-basis { margin: 8px 0 0; color: var(--teacher-muted); font-size: .72rem; font-weight: 700; }
+.participation-code-dialog__actions { grid-template-columns: minmax(160px, 220px); justify-content: center; }
+.participation-code-dialog__actions button { width: 100%; }
+
+.catch-up-quiz-notice {
+  position: relative;
+  display: flex;
+  min-height: 0 !important;
+  padding: 18px 58px 18px 24px !important;
+  align-items: center;
+  justify-content: center;
+}
+.student-room-page .catch-up-quiz-notice::after { display: none !important; content: none !important; }
+.catch-up-quiz-notice > button {
+  position: absolute;
+  right: 14px;
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #285c49;
+  background: rgb(40 92 73 / 9%);
+  box-shadow: none;
+  font-size: 1.35rem;
+  line-height: 1;
+}
 
 /* The removed preview/action columns leave a calm two-part class summary. */
 .teacher-operations-content .control-summary {

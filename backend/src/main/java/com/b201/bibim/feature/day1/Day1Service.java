@@ -301,6 +301,7 @@ public class Day1Service {
                 ? "DRAFT" : investmentConfirmed ? "CONFIRMED" : "NONE";
         return new TeacherStudentDay1Response(
                 summary.studentId(), summary.participantNumber(), summary.nickname(),
+                student.isOnline(),
                 summary.walletBalance(), summary.depositPrincipal(), summary.investmentPrincipal(),
                 summary.purchaseTotal(), depositConfirmed, investmentConfirmed, purchased,
                 "NONE".equals(depositStatus) && "NONE".equals(investmentStatus) && !purchased,

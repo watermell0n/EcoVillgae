@@ -75,7 +75,7 @@ function studentStatusTone(student: TeacherRoomStudent): 'success' | 'warning' |
           />
         </div>
       </div>
-      <div class="confirm-modal__actions">
+      <div class="confirm-modal__actions participation-code-dialog__actions">
         <button class="button-secondary" type="button" @click="emit('close')">닫기</button>
       </div>
     </section>

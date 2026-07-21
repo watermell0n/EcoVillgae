@@ -311,8 +311,8 @@ async function selectProductImage(product: ProductSetting, event: Event) {
             </div>
             <label>상품 설명<textarea v-model="product.description" rows="2" /></label>
             <div class="product-image-inputs">
-              <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg"></label>
               <label class="product-file-picker">이미지 파일 선택<input type="file" accept="image/*" @change="selectProductImage(product, $event)"></label>
+              <label>상품 이미지 주소<input v-model.trim="product.imageUrl" type="text" placeholder="https://example.com/product.jpg"></label>
               <button v-if="product.imageUrl" class="button-secondary" type="button" @click="product.imageUrl = null">이미지 제거</button>
             </div>
             <img v-if="product.imageUrl" class="settings-product-preview" :src="product.imageUrl" :alt="`${product.name} 미리보기`">

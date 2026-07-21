@@ -25,6 +25,7 @@ import TeacherLearningMirror from './TeacherLearningMirror.vue'
 import TeacherQuizResultPanel from './TeacherQuizResultPanel.vue'
 import TeacherQuizMirror from './TeacherQuizMirror.vue'
 import TeacherManagementWorkspace from './TeacherManagementWorkspace.vue'
+import { getConnectedDay1Counts, getConnectedQuizCounts } from './liveParticipation'
 import FreeActivityIntroStageView from '../student/stages/FreeActivityIntroStageView.vue'
 import { SERVICE_NAME } from '../../shared/config/brand'
 import { copyText } from '../../shared/utils/clipboard'
@@ -99,12 +100,14 @@ const roomId = computed(() => String(route.params.roomId))
 const state = computed(() => roomSessionStore.teacherState)
 const teacher = computed(() => authStore.teacher)
 const quizSummary = computed(() => quizStore.teacherSummary)
+const connectedQuizCounts = computed(() => getConnectedQuizCounts(quizSummary.value?.students ?? []))
 const incompleteQuizStudents = computed(() => (
   quizSummary.value?.students.filter((student) => student.submissionStatus !== 'SUBMITTED') ?? []
 ))
 const settlementPreview = computed(() => settlementStore.day1IncomePreview)
 const shopSummary = computed(() => shopStore.teacherSummary)
 const day1Summary = computed(() => day1Store.teacherSummary)
+const connectedDay1Counts = computed(() => getConnectedDay1Counts(day1Summary.value?.students ?? []))
 const day1ClosePreview = computed(() => day1Store.closePreview)
 const day2FinancePreview = computed(() => day2FinanceStore.teacherPreview)
 const day2QuizRewardPreview = computed(() => day2FlowStore.quizRewardPreview)
@@ -1415,7 +1418,7 @@ function moduleTone(moduleState: string) {
                 :tone="inflationPreview.applied ? 'success' : 'warning'"
               />
             </div>
-            <div class="inflation-product-table" role="table" aria-label="상품 가격 상승 미리보기">
+            <div v-if="state.currentStage === 'DAY2_INFLATION_APPLY'" class="inflation-product-table" role="table" aria-label="상품 가격 상승 미리보기">
               <div role="row"><strong>상품</strong><strong>기존 가격</strong><strong>상승 후</strong><strong>증가액</strong></div>
               <div v-for="product in inflationPreview.products" :key="product.productId" role="row">
                 <span>{{ product.name }}</span>
@@ -1806,21 +1809,22 @@ function moduleTone(moduleState: string) {
             'DAY2_QUIZ_RESULT',
           ].includes(state.currentStage) && quizSummary">
             <div class="student-count-ring student-count-ring--quiz">
-              <strong>{{ quizSummary.submittedCount }}</strong>
-              <span>/ {{ quizSummary.eligibleStudentCount }}명 제출</span>
+              <strong>{{ connectedQuizCounts.submitted }}</strong>
+              <span>/ {{ connectedQuizCounts.total }}명 제출</span>
             </div>
             <dl class="quiz-summary-counts">
               <div>
                 <dt>풀이 중</dt>
-                <dd>{{ quizSummary.inProgressCount }}명</dd>
+                <dd>{{ connectedQuizCounts.inProgress }}명</dd>
               </div>
               <div>
                 <dt>미시작</dt>
-                <dd>{{ quizSummary.notStartedCount }}명</dd>
+                <dd>{{ connectedQuizCounts.notStarted }}명</dd>
               </div>
             </dl>
+            <p class="live-count-basis">현재 접속 중인 학생만 집계합니다.</p>
             <ul class="quiz-student-list" aria-label="학생별 퀴즈 현황">
-              <li v-for="studentItem in quizSummary.students" :key="studentItem.studentId">
+              <li v-for="studentItem in connectedQuizCounts.students" :key="studentItem.studentId">
                 <span>{{ studentItem.participantNumber }}번 {{ studentItem.nickname ?? '미설정' }}</span>
                 <strong v-if="studentItem.submissionStatus === 'SUBMITTED'">
                   제출 · {{ studentItem.correctCount }} / {{ quizSummary.questionCount }}
@@ -1829,6 +1833,7 @@ function moduleTone(moduleState: string) {
                 <strong v-else>미시작</strong>
               </li>
             </ul>
+            <p v-if="connectedQuizCounts.total === 0" class="state-message">현재 접속 중인 학생이 없습니다.</p>
           </template>
           <template v-else-if="state.currentStage === 'DAY1_INCOME_SETTLEMENT' && settlementPreview">
             <div class="student-count-ring student-count-ring--settlement">
@@ -1849,15 +1854,16 @@ function moduleTone(moduleState: string) {
           </template>
           <template v-else-if="state.currentStage === 'DAY1_FREE_ACTIVITY' && day1Summary">
             <div class="student-count-ring student-count-ring--shop">
-              <strong>{{ day1Summary.studentCount - day1Summary.inactiveStudentCount }}</strong>
-              <span>/ {{ day1Summary.studentCount }}명 활동 중</span>
+              <strong>{{ connectedDay1Counts.active }}</strong>
+              <span>/ {{ connectedDay1Counts.total }}명 활동 중</span>
             </div>
             <dl class="quiz-summary-counts">
-              <div><dt>예금 확정</dt><dd>{{ day1Summary.depositConfirmedCount }}명</dd></div>
-              <div><dt>투자 확정</dt><dd>{{ day1Summary.investmentConfirmedCount }}명</dd></div>
-              <div><dt>구매 참여</dt><dd>{{ day1Summary.purchaseParticipantCount }}명</dd></div>
-              <div><dt>선택 전</dt><dd>{{ day1Summary.inactiveStudentCount }}명</dd></div>
+              <div><dt>예금 확정</dt><dd>{{ connectedDay1Counts.depositConfirmed }}명</dd></div>
+              <div><dt>투자 확정</dt><dd>{{ connectedDay1Counts.investmentConfirmed }}명</dd></div>
+              <div><dt>구매 참여</dt><dd>{{ connectedDay1Counts.purchaseParticipants }}명</dd></div>
+              <div><dt>선택 전</dt><dd>{{ connectedDay1Counts.inactive }}명</dd></div>
             </dl>
+            <p class="live-count-basis">현재 접속 중인 학생만 집계합니다.</p>
           </template>
           <template
             v-else-if="(state.currentStage === 'DAY1_SUMMARY' || state.currentStage === 'DAY1_CLOSED') && day1Summary"

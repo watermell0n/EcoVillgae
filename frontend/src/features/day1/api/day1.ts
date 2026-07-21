@@ -34,6 +34,7 @@ export interface TeacherStudentDay1Summary {
   studentId: string
   participantNumber: number
   nickname: string | null
+  online: boolean
   walletBalance: number
   depositPrincipal: number
   investmentPrincipal: number

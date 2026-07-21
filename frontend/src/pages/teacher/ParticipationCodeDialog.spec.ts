@@ -36,6 +36,7 @@ describe('ParticipationCodeDialog', () => {
 
     const closeButtons = wrapper.findAll('.confirm-modal__actions button')
     expect(closeButtons).toHaveLength(1)
+    expect(wrapper.find('.participation-code-dialog__actions').exists()).toBe(true)
     await closeButtons[0]!.trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
   })

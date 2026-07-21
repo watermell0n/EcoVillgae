@@ -10,6 +10,7 @@ const emit = defineEmits<{
   next: []
 }>()
 
+const isRationalConsumption = computed(() => props.learning.currentPage.topicTitle === '합리적인 소비')
 const pageAccent = computed(() => {
   const accents: Record<string, string> = {
     '월급과 실수령액': 'green',
@@ -41,7 +42,14 @@ function displayLearningText(value: string) {
     </div>
 
     <div class="learning-stage-view">
-      <article :class="['learning-card', `learning-card--${pageAccent}`]" aria-live="polite">
+      <article
+        :class="[
+          'learning-card',
+          `learning-card--${pageAccent}`,
+          { 'learning-card--rational': isRationalConsumption },
+        ]"
+        aria-live="polite"
+      >
         <header class="learning-card__progress">
           <p class="eyebrow">{{ learning.currentPage.topicTitle }}</p>
           <strong>{{ learning.currentIndex + 1 }} / {{ learning.pages.length }}</strong>

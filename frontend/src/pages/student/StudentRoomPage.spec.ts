@@ -96,6 +96,24 @@ describe('StudentRoomPage day-one closing', () => {
     return { wrapper, stopPolling }
   }
 
+  async function mountAtCatchUpQuiz() {
+    roomApi.getStudentRoomState.mockResolvedValue({
+      ...structuredClone(liveState),
+      currentStage: 'DAY1_QUIZ',
+      roomStage: 'DAY1_SUMMARY',
+      effectiveStage: 'DAY1_QUIZ',
+      flowMode: 'CATCH_UP',
+      totalActivityCount: 3,
+      completedActivityCount: 1,
+      rewardRateBps: 8000,
+    })
+    const roomSessionStore = useRoomSessionStore()
+    vi.spyOn(roomSessionStore, 'startStudentPolling').mockImplementation(() => undefined)
+    const wrapper = mount(StudentRoomPage)
+    await flushPromises()
+    return wrapper
+  }
+
   it('lets the student dismiss the countdown and immediately opens the closing page', async () => {
     const { wrapper, stopPolling } = await mountAtDayOneClose()
 
@@ -118,6 +136,28 @@ describe('StudentRoomPage day-one closing', () => {
 
     expect(wrapper.text()).toContain('1일차 활동이 마감되었습니다')
     expect(wrapper.find('.student-closing-countdown').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('lets a late student dismiss the catch-up quiz notice', async () => {
+    const wrapper = await mountAtCatchUpQuiz()
+
+    const notice = wrapper.get('.catch-up-quiz-notice')
+    expect(notice.text()).toContain('퀴즈 제출을 완료하면 다음 활동으로 이동할 수 있어요.')
+    await notice.get('[aria-label="퀴즈 제출 안내 닫기"]').trigger('click')
+
+    expect(wrapper.find('.catch-up-quiz-notice').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('automatically hides the catch-up quiz notice after five seconds', async () => {
+    const wrapper = await mountAtCatchUpQuiz()
+
+    expect(wrapper.find('.catch-up-quiz-notice').exists()).toBe(true)
+    await vi.advanceTimersByTimeAsync(5_000)
+    await flushPromises()
+
+    expect(wrapper.find('.catch-up-quiz-notice').exists()).toBe(false)
     wrapper.unmount()
   })
 })

@@ -25,6 +25,7 @@ const closingCountdown = ref<number | null>(null)
 const closingNoticeKind = ref<'DAY1' | 'DAY2' | null>(null)
 const sessionClosed = ref(false)
 const closedDay = ref<1 | 2 | null>(null)
+const catchUpQuizNoticeVisible = ref(false)
 const student = computed(() => authStore.student)
 const state = computed(() => roomSessionStore.studentState)
 const displayStage = computed(() => state.value?.effectiveStage ?? state.value?.currentStage)
@@ -49,6 +50,7 @@ const currentModule = computed(
 )
 let presenceTimer: ReturnType<typeof setInterval> | undefined
 let closingTimer: ReturnType<typeof setInterval> | undefined
+let catchUpQuizNoticeTimer: ReturnType<typeof setTimeout> | undefined
 let presenceRequestInFlight = false
 
 onMounted(async () => {
@@ -78,6 +80,7 @@ onUnmounted(() => {
   roomSessionStore.stopPolling()
   stopPresenceReporting()
   if (closingTimer) clearInterval(closingTimer)
+  if (catchUpQuizNoticeTimer) clearTimeout(catchUpQuizNoticeTimer)
 })
 
 watch(
@@ -118,6 +121,20 @@ watch(
       }, 1_000)
     }
   },
+)
+
+watch(
+  () => isCatchUpQuiz.value && !canAdvanceCatchUp.value,
+  (shouldShow) => {
+    dismissCatchUpQuizNotice()
+    if (!shouldShow) return
+    catchUpQuizNoticeVisible.value = true
+    catchUpQuizNoticeTimer = setTimeout(() => {
+      catchUpQuizNoticeVisible.value = false
+      catchUpQuizNoticeTimer = undefined
+    }, 5_000)
+  },
+  { immediate: true },
 )
 
 function handlePageChange(page: string) {
@@ -179,6 +196,12 @@ async function reportPresence() {
 function handleActivityCompletion(completed: boolean) {
   quizActivityCompleted.value = completed
   if (completed) flowError.value = ''
+}
+
+function dismissCatchUpQuizNotice() {
+  if (catchUpQuizNoticeTimer) clearTimeout(catchUpQuizNoticeTimer)
+  catchUpQuizNoticeTimer = undefined
+  catchUpQuizNoticeVisible.value = false
 }
 
 async function advanceCatchUp() {
@@ -261,9 +284,14 @@ async function advanceCatchUp() {
           @completion-change="handleActivityCompletion"
         />
         <p v-if="flowError" class="form-error" role="alert">{{ flowError }}</p>
-        <p v-if="isCatchUpQuiz && !canAdvanceCatchUp" class="state-message">
-          퀴즈 제출을 완료하면 다음 활동으로 이동할 수 있어요.
-        </p>
+        <div
+          v-if="isCatchUpQuiz && !canAdvanceCatchUp && catchUpQuizNoticeVisible"
+          class="state-message catch-up-quiz-notice"
+          role="status"
+        >
+          <span>퀴즈 제출을 완료하면 다음 활동으로 이동할 수 있어요.</span>
+          <button type="button" aria-label="퀴즈 제출 안내 닫기" @click="dismissCatchUpQuizNotice">×</button>
+        </div>
         <button
           v-if="state.flowMode === 'CATCH_UP' && canAdvanceCatchUp"
           class="settlement-action catch-up-next"

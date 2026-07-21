@@ -44,6 +44,7 @@ public final class Day1Dto {
             UUID studentId,
             int participantNumber,
             String nickname,
+            boolean online,
             long walletBalance,
             long depositPrincipal,
             long investmentPrincipal,
