@@ -128,50 +128,58 @@ public class TeacherRoomManagementService {
             new ProductDefinition(
                     "말랑카우 빠삐코",
                     "달콤하고 시원하게 즐기는 간식 세트예요.",
-                    35,
-                    38
+                    45,
+                    38,
+                    "/api/v1/product-images/b6fbfc5e-5580-42f3-82da-45caf5bc2b27.png"
             ),
             new ProductDefinition(
                     "쿠크다스케이크",
                     "부드럽고 달콤한 케이크 간식이에요.",
-                    65,
-                    10
+                    80,
+                    10,
+                    "/api/v1/product-images/61466d81-4880-4f87-9113-4d4cf27b7547.png"
             ),
             new ProductDefinition(
                     "마이쭈 딸기",
                     "쫀득하게 즐기는 딸기맛 간식이에요.",
-                    45,
-                    18
+                    40,
+                    18,
+                    "/api/v1/product-images/4e97e1d8-008f-4c63-95e9-1b8553349120.png"
             ),
             new ProductDefinition(
                     "포도 알맹이",
                     "탱글탱글한 포도맛 젤리 간식이에요.",
-                    80,
-                    6
+                    100,
+                    6,
+                    "/api/v1/product-images/74ff9a68-1a71-4cfe-b1f4-71c64f54aa17.png"
             ),
             new ProductDefinition(
                     "카피바라 지우개",
                     "귀여운 카피바라 모양 지우개예요.",
-                    120,
-                    3
+                    145,
+                    3,
+                    "/api/v1/product-images/73aa1e91-9296-4035-b5c0-4850a4c45c8a.png"
             ),
             new ProductDefinition(
                     "과일말랑이",
                     "말랑한 과일 모양 촉감 장난감이에요.",
-                    150,
-                    2
+                    180,
+                    2,
+                    "/api/v1/product-images/3c617161-dea7-4530-ae31-76d15dd3b7b9.png"
             ),
             new ProductDefinition(
                     "왁뿌볼",
                     "재미있게 가지고 놀 수 있는 말랑한 공이에요.",
-                    200,
-                    1
+                    250,
+                    1,
+                    "/api/v1/product-images/03a642cb-f92e-45ee-b0ac-a02cc303327d.png"
             ),
             new ProductDefinition(
                     "배움공책 면제권",
                     "배움공책 활동을 한 번 면제받을 수 있는 이용권이에요.",
-                    90,
-                    15
+                    110,
+                    15,
+                    "/api/v1/product-images/2a6df38e-e054-41c7-9716-15e0e321ff2d.png"
             )
     );
 
@@ -327,7 +335,8 @@ public class TeacherRoomManagementService {
                     definition.description(),
                     definition.price(),
                     definition.stock(),
-                    index + 1
+                    index + 1,
+                    definition.imageUrl()
             ));
         }
         return products;
@@ -420,7 +429,8 @@ public class TeacherRoomManagementService {
             String name,
             String description,
             long price,
-            int stock
+            int stock,
+            String imageUrl
     ) {
     }
 }

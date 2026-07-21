@@ -43,6 +43,6 @@ app:
     student-session-hours: 48
     admin-session-hours: 8
   survey:
-    url: ${SURVEY_URL:https://example.com/survey}
+    url: ${SURVEY_URL:https://docs.google.com/forms/d/e/1FAIpQLSdqlAqDfuPHCifn0vVM1J82dPpYxoOWj1qzBrwPzXUKN99YsQ/viewform?usp=header}
   product-images:
     directory: ${PRODUCT_IMAGE_DIR:./data/product-images}

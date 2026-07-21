@@ -73,7 +73,7 @@ public class InvestmentService {
                     이번 달 거북이상사의 회사 가치는 어떻게 변할까요?
                     자료를 보고 직접 예상해보세요.
                     """.strip(),
-                    "LOW", -1_500, 2_500, 200
+                    "LOW", -1_500, 2_500, 1_500
             ),
             new AssetDefinition(
                     "LOCAL_STORE",
@@ -94,7 +94,7 @@ public class InvestmentService {
                     이번 달 독수리테크의 회사 가치는 어떻게 변할까요?
                     좋은 소식과 걱정되는 소식을 함께 보고 예상해보세요.
                     """.strip(),
-                    "MEDIUM", -3_000, 3_000, 700
+                    "MEDIUM", -3_000, 3_000, -2_000
             ),
             new AssetDefinition(
                     "FUTURE_TECH",
@@ -118,7 +118,7 @@ public class InvestmentService {
                     두 회사의 직접 대결은 호랑이운송이 5번 이기고 4번 졌어요.
                     조금 앞서지만 차이가 크지 않아요.
                     """.strip(),
-                    "HIGH", -3_000, 3_000, -600
+                    "HIGH", -3_000, 3_000, 2_000
             )
     );
 

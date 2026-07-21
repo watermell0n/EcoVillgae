@@ -73,7 +73,7 @@ public class RoomRulesEntity {
         rules.depositInterestBps = 1000;
         rules.financialTaxBps = 1000;
         rules.day2ParticipationReward = 0;
-        rules.day2CorrectReward = 5;
+        rules.day2CorrectReward = 10;
         rules.inflationBps = 1000;
         rules.depositMinAmount = 20;
         rules.depositUnit = 10;

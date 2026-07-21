@@ -38,7 +38,7 @@ services:
       DEMO_ADMIN_LOGIN_ID: ${DEMO_ADMIN_LOGIN_ID:?DEMO_ADMIN_LOGIN_ID is required}
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?DEMO_ADMIN_PASSWORD is required}
       DEMO_ADMIN_DISPLAY_NAME: ${DEMO_ADMIN_DISPLAY_NAME:-EcoVillage Admin}
-      SURVEY_URL: ${SURVEY_URL:-https://docs.google.com/forms/}
+      SURVEY_URL: ${SURVEY_URL:-https://docs.google.com/forms/d/e/1FAIpQLSdqlAqDfuPHCifn0vVM1J82dPpYxoOWj1qzBrwPzXUKN99YsQ/viewform?usp=header}
       LOG_PATH: /app/logs/ecovillage.log
       PRODUCT_IMAGE_DIR: /app/data/product-images
       TZ: UTC

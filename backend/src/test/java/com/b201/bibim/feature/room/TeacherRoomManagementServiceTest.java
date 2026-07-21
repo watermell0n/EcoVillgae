@@ -148,10 +148,11 @@ class TeacherRoomManagementServiceTest {
                 ),
                 products.stream().map(ProductEntity::getName).toList()
         );
-        assertEquals(List.of(35L, 65L, 45L, 80L, 120L, 150L, 200L, 90L),
+        assertEquals(List.of(45L, 80L, 40L, 100L, 145L, 180L, 250L, 110L),
                 products.stream().map(ProductEntity::getOriginalPrice).toList());
         assertEquals(List.of(38, 10, 18, 6, 3, 2, 1, 15),
                 products.stream().map(ProductEntity::getInitialStock).toList());
+        assertEquals(8L, products.stream().filter(product -> product.getImageUrl() != null).count());
 
         ArgumentCaptor<RoomRulesEntity> rulesCaptor = ArgumentCaptor.forClass(RoomRulesEntity.class);
         verify(roomRulesRepository).save(rulesCaptor.capture());
@@ -160,7 +161,7 @@ class TeacherRoomManagementServiceTest {
         assertEquals(0, rules.getDay1ParticipationReward());
         assertEquals(5, rules.getDay1CorrectReward());
         assertEquals(0, rules.getDay2ParticipationReward());
-        assertEquals(5, rules.getDay2CorrectReward());
+        assertEquals(10, rules.getDay2CorrectReward());
         assertEquals(1_000, rules.getIncomeTaxBps());
 
         assertNotNull(response.roomId());

@@ -27,7 +27,7 @@ const classSettings = {
     incomeTaxBps: 1000,
     depositInterestBps: 1000,
     financialTaxBps: 1000,
-    day2CorrectReward: 5,
+    day2CorrectReward: 10,
     inflationBps: 1000,
     depositMinAmount: 20,
     depositUnit: 10,
