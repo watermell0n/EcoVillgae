@@ -194,8 +194,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-008: policy snapshots and ledger entries are immutable")
-    void immutableFinancialEvidenceCannotBeChanged() throws SQLException {
+    @DisplayName("DBT-008: policy snapshot calculated values are immutable")
+    void policySnapshotCalculatedValuesCannotBeChanged() throws SQLException {
         Seed seed = seed(false);
         UUID snapshot = uuid();
         try (Connection connection = connection()) {
@@ -298,8 +298,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-012: negative stock and invalid domain quantities are rejected")
-    void negativeDomainQuantityIsRejected() throws SQLException {
+    @DisplayName("DBT-012: negative store stock is rejected")
+    void negativeStoreStockIsRejected() throws SQLException {
         Seed seed = seed(false);
         UUID product = createStoreProduct(seed);
         assertSqlFailure(() -> {
@@ -314,8 +314,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-013: published product versions keep business fields immutable")
-    void publishedVersionBusinessFieldsAreImmutable() throws SQLException {
+    @DisplayName("DBT-013: a published store product unit price is immutable")
+    void publishedStoreProductUnitPriceIsImmutable() throws SQLException {
         Seed seed = seed(false);
         UUID product = createStoreProduct(seed);
         UUID version = uuid();

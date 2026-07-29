@@ -1,6 +1,6 @@
 # 이코빌리지 API 공통 규칙
 
-- 버전: v0.3
+- 버전: v0.4
 - 기준일: 2026-07-29
 - 상태: 공통 계약 확정
 - 범위: 학생·교사용 앱, 교사·관리자 웹, 핵심 API, AI 내부 API, 실시간 연결
@@ -299,8 +299,8 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 계약과 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
+화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 물리 제약·원장 지연 제약 트리거는 Flyway `V1_1`~`V1_10`, 핵심 DB 검증은 DBT-001~018에 반영했습니다.
 
-1. [물리 스키마](PHYSICAL_SCHEMA.md) 기준 Flyway DDL과 원장 지연 제약 트리거 작성
+1. OpenAPI·AsyncAPI 필드와 저장·공개 projection 필드 매핑
 2. 계약 기반 클라이언트·서버 인터페이스 생성
-3. 계약·인수 테스트 연결
+3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결

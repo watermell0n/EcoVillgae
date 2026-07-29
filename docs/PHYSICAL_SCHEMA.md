@@ -1,9 +1,9 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.3
+- 버전: v0.4
 - 기준일: 2026-07-29
-- 설계 기준 Git 커밋: `139cd6e`
-- 입력: [논리 데이터 모델 v0.2](DATA_MODEL.md)
+- 기준 브랜치: `master`
+- 입력: [논리 데이터 모델 v0.3](DATA_MODEL.md)
 - 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
 - 대상: PostgreSQL 17, Flyway migration
 
@@ -263,7 +263,7 @@ ON DELETE RESTRICT
 
 | ID | 테이블 | 정의 | 이유 |
 | --- | --- | --- | --- |
-| UK-001 | `classroom_teachers` | `UNIQUE (classroom_id) WHERE role='OWNER' AND ended_at IS NULL` | 소유 교사 정확히 1명 |
+| UK-001 | `classroom_teachers` | `UNIQUE (classroom_id) WHERE role='OWNER' AND ended_at IS NULL` | 활성 소유 교사 최대 1명; 생성·위임 서비스가 정확히 1명을 보장 |
 | UK-002 | `classroom_teachers` | `UNIQUE (classroom_id,user_id,role) WHERE ended_at IS NULL` | 활성 역할 중복 방지 |
 | UK-003 | `classroom_students` | `UNIQUE (classroom_id,roster_number) WHERE retired_at IS NULL` | 활성 출석번호 중복 방지 |
 | UK-004 | `classroom_students` | `UNIQUE (classroom_id,lower(nickname)) WHERE retired_at IS NULL` | 활성 닉네임 대소문자 중복 방지 |
@@ -273,8 +273,13 @@ ON DELETE RESTRICT
 | UK-008 | `investment_markets` | `UNIQUE (classroom_id) WHERE status <> 'CLOSED'` | 활성 투자시장 1개 |
 | UK-009 | `classroom_policy_versions` | `UNIQUE (classroom_id,policy_area) WHERE superseded_at IS NULL` | 영역별 현재 적용 정책 1개 |
 | UK-010 | `ai_decisions` | `UNIQUE (ai_proposal_id)` | 제안 최종 결정 1개 |
+| UK-011 | `school_memberships` | `UNIQUE (school_id,user_id,role) WHERE status='ACTIVE' AND ended_at IS NULL` | 활성 학교 역할 중복 방지 |
+| UK-012 | `salary_roles` | `UNIQUE (classroom_id,lower(name))` | 학급 내 역할·급여명 중복 방지 |
+| UK-013 | `store_products` | `UNIQUE (classroom_id,lower(name),product_kind)` | 학급 상점의 유형별 상품명 중복 방지 |
+| UK-014 | `financial_products` | `UNIQUE (classroom_id,product_type,lower(name))` | 학급 금융상품의 유형별 이름 중복 방지 |
+| UK-015 | `realtime_streams` | `UNIQUE (classroom_id,stream_type,coalesce(resource_id,zero_uuid))` | 같은 리소스의 활성 실시간 stream 중복 방지 |
 
-부분 유일 인덱스는 PostgreSQL `CREATE UNIQUE INDEX`로 구현합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
+UK-001~009·UK-011~015의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
 
 ## 6. 검사 제약조건
 
@@ -488,16 +493,16 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | DBT-005 | 학생 지갑 음수 잔액 커밋이 실패 |
 | DBT-006 | 불균형 원장 거래의 `COMMITTED` 커밋이 지연 트리거에서 실패 |
 | DBT-007 | 원장 전후 잔액 산식과 계정 sequence 불일치가 실패 |
-| DBT-008 | 완료 거래·원장 항목·정책 스냅샷 수정·삭제가 실패 |
+| DBT-008 | 정책 스냅샷의 계산값 수정이 실패 |
 | DBT-009 | 복구 거래가 원거래와 root를 보존하고 원거래를 바꾸지 않음 |
-| DBT-010 | 동일 멱등성 키·동일 hash는 기존 결과, 다른 hash는 충돌 |
+| DBT-010 | 같은 학급·실행자·경로·멱등성 키를 두 번 저장하면 중복 제약에서 실패 |
 | DBT-011 | 같은 아이템을 두 활성 거래에 잠그면 한쪽이 실패 |
-| DBT-012 | 재고·투자 포지션·대출 잔액이 음수가 되면 실패 |
-| DBT-013 | 게시 상품·금융상품·퀴즈 버전의 핵심 필드 수정이 실패 |
+| DBT-012 | 상점 재고 수량을 음수로 삽입하면 실패 |
+| DBT-013 | 게시된 상점 상품 버전의 단가를 수정하면 실패 |
 | DBT-014 | 동일 투표 자격 토큰으로 두 번 투표하면 실패 |
 | DBT-015 | outbox payload는 바뀌지 않고 발행 메타데이터만 갱신 가능 |
 | DBT-016 | 공개 퀴즈 View는 교사가 공개한 GAME 1~3위의 닉네임·장착 캐릭터만 내보내고 점수·정답 수·응답 시간·TEST 결과를 제외 |
-| DBT-017 | READ_ONLY 학급에서 신규 운영 데이터 생성이 서비스 인수 테스트에서 실패 |
+| DBT-017 | `classroom_accepts_new_operations()`가 READ_ONLY 학급에 대해 `false`를 반환 |
 | DBT-018 | 학급 코드가 전역에서 유일하고 형식이 유효하며, 화폐 단위명 형식과 생성 후 불변성이 강제됨 |
 
 ## 13. 애플리케이션 책임
@@ -535,5 +540,6 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 
 1. Docker 사용 가능 Jenkins 에이전트에서 DBT 전체 실행
 2. OpenAPI 요청·응답 필드와 저장·projection 필드 매핑
-3. 서비스 계층에서 OWNER 0명 방지, 멱등 키 hash 비교, READ_ONLY 명령 차단 인수 테스트
-4. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정
+3. 서비스 계층에서 OWNER 0명 방지, 같은 멱등 키의 요청 hash 비교·기존 응답 반환, READ_ONLY 명령 차단 인수 테스트
+4. 금융·퀴즈 버전 불변성과 투자·대출 음수 값 거부를 포함한 서비스·DB 통합 테스트 보강
+5. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정

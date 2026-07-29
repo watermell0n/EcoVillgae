@@ -1,6 +1,6 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.3
+- 버전: v0.4
 - 기준일: 2026-07-29
 - 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1 계약 연결 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
@@ -164,7 +164,7 @@
 | API-QZ-004 · UIA-QZ-004 | `POST /classrooms/{C}/quiz-sessions/{R}/commands` | OWN·COT | `command=START\|CLOSE_SUBMISSIONS`, 문제 버전·참가자·보상·공개범위 → `OPEN` 또는 `SCORING` | PM-QZ-002 · SM-QZS-001·SM-ACT-001 | `QUESTION_NOT_PUBLISHED`, `INVALID_REWARD_POLICY`, `INVALID_STATE_TRANSITION` | QZ-001·QZ-003·QZ-004·QZ-005 |
 | API-QZ-005 · UIA-QZ-005 | `POST /classrooms/{C}/quiz-sessions/{R}/game-answers` | STU | `question_id, option_id, client_answered_at` → 서버 접수시각·답안 상태 | PM-QZ-002 · SM-QZS-001 | `SUBMISSION_CLOSED`, `NOT_PARTICIPANT`, `ANSWER_ALREADY_SUBMITTED` | QZ-003 |
 | API-QZ-006 · UIA-QZ-006 | `PUT /classrooms/{C}/quiz-sessions/{R}/test-answer-sheet` | STU | 문항별 답안과 저장 버전 → 개인 답안지 버전·제출 상태 | PM-QZ-002 · SM-QZS-001 | `SUBMISSION_CLOSED`, `NOT_EXAMINEE`, `STATE_VERSION_CONFLICT` | QZ-004 |
-| API-QZ-007 · UIA-QZ-007 | `POST /classrooms/{C}/quiz-sessions/{R}/result-commands` | OWN·COT | `command=CONFIRM\|PUBLISH\|CLOSE, leaderboard_public?` → 결과 버전·보상 원장·공개 상태 | PM-QZ-002 · SM-QZS-001·SM-TXN-001 | `SCORING_NOT_FINISHED`, `INVALID_STATE_TRANSITION`, `PUBLIC_DATA_ONLY` | QZ-003·QZ-004·QZ-005 |
+| API-QZ-007 · UIA-QZ-007 | `POST /classrooms/{C}/quiz-sessions/{R}/result-commands` | OWN·COT | `command=CONFIRM\|PUBLISH\|CLOSE, leaderboard_public?` → 결과 버전·보상 원장·공개 상태. `leaderboard_public=true`는 GAME에서만 허용하고 TEST는 항상 `false` | PM-QZ-002 · SM-QZS-001·SM-TXN-001 | `SCORING_NOT_FINISHED`, `INVALID_STATE_TRANSITION`, `PUBLIC_DATA_ONLY` | QZ-003·QZ-004·QZ-005 |
 | API-QZ-008 · UIA-QZ-008 | `POST /classrooms/{C}/quiz-sessions/{R}/question-issue-reports` | STU | `question_id, reason_code, description` → `UNDER_REVIEW` 신고 | PM-QZ-003 · SM-QAD-001 | `NOT_EXAMINEE`, `DUPLICATE_REPORT`, `VALIDATION_ERROR` | QZ-009 |
 | API-QZ-009 · UIA-QZ-009 | `POST /classrooms/{C}/quiz-sessions/{R}/regrade-operations` | OWN·COT | 무효 문항, 판정 사유 → `202 operation_id`, 새 결과 버전·복구 거래 | PM-QZ-002·PM-QZ-003·PM-TXN-003 · SM-QAD-001·SM-QZS-001·SM-TXN-001 | `QUESTION_NOT_UNDER_REVIEW`, `REGRADING_ALREADY_RUNNING` | QZ-009 |
 | API-VOT-001 · UIA-VOT-001 | `POST /classrooms/{C}/votes/{R}/commands` | OWN·COT | `command=CLOSE\|CONFIRM_RESULT, selected_use?` → 익명 집계·활동 완료 | PM-ACT-002 · SM-ACT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `VOTE_COUNT_MISMATCH` | ECO-008 |
@@ -286,6 +286,8 @@
 }
 ```
 
+`status`, `state_version`, `status_changed_at`은 집계의 현재 상태 필드입니다. `status_changed_by`와 `status_reason_code`는 필요한 응답에서 최신 `state_transitions`를 조회해 제공하며 모든 집계 테이블에 별도 컬럼으로 중복 저장하지 않습니다.
+
 ### 12.3 비동기 작업
 
 ```json
@@ -321,8 +323,8 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v1.1](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결은 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v1.2](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
 
 1. OpenAPI 요청·응답과 저장·projection 필드 매핑
-2. Flyway DDL·Testcontainers 무결성 테스트
-3. OpenAPI 기반 TypeScript 클라이언트·Spring 인터페이스 생성
+2. OpenAPI 기반 TypeScript 클라이언트·Spring 인터페이스 생성
+3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결

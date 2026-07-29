@@ -114,6 +114,7 @@ cd backend
 
 ```bash
 node scripts/validate-contract-coverage.mjs
+node scripts/validate-document-consistency.mjs
 node scripts/validate-data-model.mjs
 node scripts/validate-physical-schema.mjs
 node scripts/validate-database-implementation.mjs

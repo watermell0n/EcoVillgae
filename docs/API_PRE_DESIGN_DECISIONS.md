@@ -237,16 +237,18 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 - AWS 서울 리전, ECS Fargate, RDS, ElastiCache
 - Jenkins, EAS, Terraform, Sentry·OpenTelemetry·CloudWatch
 
-## 9. 후속 순서
+## 9. 구현 상태와 후속 순서
 
 화면과 행동 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)를 따릅니다.
 인증·응답·오류·멱등성·동시성·시간·금액 계약은 [API 공통 규칙](API_COMMON_RULES.md)을 따릅니다.
 
 화면 행동별 HTTP API는 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 확정했습니다.
 
-1. [물리 스키마](PHYSICAL_SCHEMA.md) 기준 Flyway DDL·DB 무결성 테스트
-2. 계약 기반 클라이언트·서버 인터페이스
-3. 인수 테스트와 개발 백로그
+PostgreSQL 물리 스키마, Flyway `V1_1`~`V1_10`, DBT-001~018은 구현했습니다.
+
+1. OpenAPI·AsyncAPI와 저장·projection 필드 매핑
+2. 계약 기반 클라이언트·서버 인터페이스 생성
+3. 서비스·E2E 인수 테스트와 개발 백로그 연결
 
 논리 ERD와 PostgreSQL 물리 스키마는 역할·권한·화면·API 경계를 기준으로 완료했습니다.
 

@@ -4149,8 +4149,8 @@ paths:
         - "QZ-005"
       tags:
         - "Quiz"
-      summary: "command=CONFIRM|PUBLISH|CLOSE, leaderboard_public? → 결과 버전, 보상 원장, 공개 상태"
-      description: "사람이 검토하는 원문 기준: `API-QZ-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CONFIRM|PUBLISH|CLOSE, leaderboard_public? → 결과 버전, 보상 원장, 공개 상태."
+      summary: "command=CONFIRM|PUBLISH|CLOSE, leaderboard_public? → 결과 버전, 보상 원장, 공개 상태. leaderboard_public=true는 GAME에서만 허용하고 TEST는 항상 false"
+      description: "사람이 검토하는 원문 기준: `API-QZ-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CONFIRM|PUBLISH|CLOSE, leaderboard_public? → 결과 버전, 보상 원장, 공개 상태. leaderboard_public=true는 GAME에서만 허용하고 TEST는 항상 false."
       security:
         - bearerAuth: []
         - cookieAuth: []

@@ -74,7 +74,7 @@ function validateSequentialIds(prefix, expectedCount) {
   }
 }
 
-validateSequentialIds("UK", 10);
+validateSequentialIds("UK", 15);
 validateSequentialIds("CK", 36);
 validateSequentialIds("IX", 36);
 validateSequentialIds("DBT", 18);
@@ -115,5 +115,5 @@ if (errors.length > 0) {
 
 console.log(
   `Physical schema validation PASS: ${physicalTables.length} tables, ` +
-    "10 unique constraints, 36 checks, 36 indexes, 18 DB tests",
+    "15 core uniqueness rules, 36 checks, 36 indexes, 18 DB tests",
 );
