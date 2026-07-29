@@ -12,8 +12,9 @@ observability/ OpenTelemetry·Sentry·CloudWatch 연결 골격
 - 실제 비밀번호, 토큰, 인증서와 Terraform 상태 파일은 커밋하지 않습니다.
 - 운영 배포와 EAS 업데이트에는 승인 단계를 둡니다.
 - Flyway 마이그레이션은 애플리케이션 배포와 분리해 검증합니다.
-- 루트 `compose.dev.yml`은 PostgreSQL 17, Redis와 OpenTelemetry Collector의
-  로컬 개발용 구성입니다.
+- 루트 `compose.yaml`은 PostgreSQL 17, Redis와 OpenTelemetry Collector의
+  기본 로컬 개발 구성입니다. 운영 환경은 이 파일을 그대로 사용하지 않고
+  별도 배포 명세로 관리합니다.
 
 범위와 구축 순서는 [인프라 기준선](../docs/INFRASTRUCTURE_BASELINE.md)을
 따릅니다.

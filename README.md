@@ -1,6 +1,6 @@
 # 이코빌리지 MVP
 
-- 기준일: 2026-07-29
+- 기준일: 2026-07-30
 - 상태: API·이벤트 계약, MVP 데이터 설계, Flyway DDL·DB 무결성 테스트 코드 완료
 - 대상: 초등학교 4~6학년
 
@@ -211,7 +211,7 @@ scripts/              문서·계약·스키마 정적 검사
 실행합니다.
 
 ```bash
-docker compose -f compose.dev.yml up -d
+docker compose up -d
 ```
 
 학교 태블릿에서 앱을 실행할 때는 `EXPO_PUBLIC_API_BASE_URL`의 `localhost`를
@@ -225,30 +225,34 @@ docker compose -f compose.dev.yml up -d
 ## 11. 다음 단계
 
 1. Docker 사용 가능 CI에서 PostgreSQL 17 Testcontainers 무결성 테스트 전체 실행
-2. OpenAPI 요청·응답 필드와 저장·공개 projection 필드 매핑
-3. OpenAPI·AsyncAPI 기반 클라이언트·서버 인터페이스 생성
+2. OpenAPI·AsyncAPI·[API 필드 매핑](contracts/api-field-mapping.json) 기반 클라이언트·서버 인터페이스 생성
+3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
 4. 실제 서비스 쿼리의 `EXPLAIN ANALYZE` 결과로 보조 인덱스 조정
 
-논리 ERD는 [논리 데이터 모델 v0.3](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마 v0.4](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
+논리 ERD는 [논리 데이터 모델 v0.4](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
 
 ## 12. 관련 문서
 
+- [문서 안내·권장 읽기 순서](docs/README.md)
 - [팀 일정·협업 방식](docs/TEAM_SCHEDULE_AND_WORKFLOW.md)
 - [인프라 기준선](docs/INFRASTRUCTURE_BASELINE.md)
-- [문서 충돌 검사](docs/DOCUMENT_CONSISTENCY_AUDIT.md)
+- [문서 충돌 검사](docs/reviews/DOCUMENT_CONSISTENCY_AUDIT.md)
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
-- [API 공통 규칙 v0.4](docs/API_COMMON_RULES.md)
-- [HTTP API 명세 v0.4](docs/HTTP_API_SPEC.md)
+- [API 공통 규칙 v0.5](docs/API_COMMON_RULES.md)
+- [HTTP API 명세 v0.5](docs/HTTP_API_SPEC.md)
 - [WebSocket 명세 v0.3](docs/WEBSOCKET_SPEC.md)
 - [요구사항 기준선·용어집 v0.6](docs/REQUIREMENTS_BASELINE.md)
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)
 - [AsyncAPI 3.1 WebSocket 계약](contracts/asyncapi.yaml)
+- [API 필드·저장 경계 매핑](contracts/api-field-mapping.json)
 - [API 계약 사용 안내](contracts/README.md)
-- [논리 데이터 모델·ERD v0.3](docs/DATA_MODEL.md)
-- [PostgreSQL 물리 스키마 v0.4](docs/PHYSICAL_SCHEMA.md)
+- [API·스키마 필드 정합성 검토](docs/reviews/API_SCHEMA_FIELD_AUDIT.md)
+- [임시 인증정보 저장 계약](docs/EPHEMERAL_AUTH_STORAGE.md)
+- [논리 데이터 모델·ERD v0.4](docs/DATA_MODEL.md)
+- [PostgreSQL 물리 스키마 v0.5](docs/PHYSICAL_SCHEMA.md)
 - [Flyway·Testcontainers 실행 안내](backend/README.md)
-- [RTM v1.2](docs/RTM.md)
+- [RTM v1.3](docs/RTM.md)
 - [핵심 상태 머신 v0.4](docs/STATE_MACHINES.md)
 - [역할·권한 매트릭스 v0.5](docs/PERMISSION_MATRIX.md)
 - [화면 ID·행동 명세 v0.4](docs/SCREEN_SPEC.md)
