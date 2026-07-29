@@ -35,6 +35,16 @@ requirePattern(
   "compose: pinned OpenTelemetry Collector image missing",
 );
 
+if (existsSync(resolve(root, "backend/src/main/java/com/b201/ecovillage/EcoVillageApplication.java"))) {
+  requirePattern(compose, /^\s{2}backend:\s*$/m, "compose: backend service missing");
+  requirePattern(compose, /dockerfile:\s+backend\/Dockerfile/, "compose: backend Dockerfile missing");
+
+  const dockerfile = read("backend/Dockerfile");
+  requirePattern(dockerfile, /eclipse-temurin:21-jdk/, "backend image: Java 21 build image missing");
+  requirePattern(dockerfile, /eclipse-temurin:21-jre/, "backend image: Java 21 runtime image missing");
+  requirePattern(dockerfile, /USER spring:spring/, "backend image: non-root runtime user missing");
+}
+
 const env = read(".env.example");
 for (const key of [
   "POSTGRES_DB",

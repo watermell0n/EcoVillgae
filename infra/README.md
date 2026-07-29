@@ -14,6 +14,8 @@ observability/ OpenTelemetry·Sentry·CloudWatch 연결 골격
 - Flyway 마이그레이션은 애플리케이션 배포와 분리해 검증합니다.
 - 루트 `compose.dev.yml`은 PostgreSQL 17, Redis와 OpenTelemetry Collector의
   로컬 개발용 구성입니다.
+- 백엔드까지 실행할 때는 `docker compose -f compose.dev.yml --profile app up
+  -d --build`를 사용합니다.
 
 범위와 구축 순서는 [인프라 기준선](../docs/INFRASTRUCTURE_BASELINE.md)을
 따릅니다.

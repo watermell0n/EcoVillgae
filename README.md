@@ -203,11 +203,17 @@ docs/                 제품·API·데이터·UX·AI·디자인 문서
 scripts/              문서·계약·스키마 정적 검사
 ```
 
-로컬 PostgreSQL 17과 Redis는 `.env.example`을 `.env`로 복사한 뒤 다음과 같이
-실행합니다.
+로컬 PostgreSQL 17, Redis와 OpenTelemetry Collector는 `.env.example`을
+`.env`로 복사한 뒤 다음과 같이 실행합니다.
 
 ```bash
 docker compose -f compose.dev.yml up -d
+```
+
+백엔드까지 컨테이너로 함께 실행할 때는 `app` 프로필을 사용합니다.
+
+```bash
+docker compose -f compose.dev.yml --profile app up -d --build
 ```
 
 학교 태블릿에서 앱을 실행할 때는 `EXPO_PUBLIC_API_BASE_URL`의 `localhost`를
