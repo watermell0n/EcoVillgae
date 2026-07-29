@@ -1,0 +1,5 @@
+project_name       = "ecovillage"
+environment        = "dev"
+aws_region         = "ap-northeast-2"
+owner              = "b201"
+monthly_budget_usd = 100
