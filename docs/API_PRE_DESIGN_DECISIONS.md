@@ -234,7 +234,9 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 9. 후속 순서
 
-1. 화면·API·WebSocket 이벤트
+화면과 행동 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)를 따릅니다.
+
+1. HTTP API·WebSocket 이벤트
 2. 데이터 설계
 3. 인수 테스트와 개발 백로그
 
