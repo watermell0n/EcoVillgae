@@ -1,0 +1,2679 @@
+asyncapi: "3.1.0"
+id: "urn:ecovillage:realtime-api"
+info:
+  title: "이코빌리지 Realtime WebSocket API"
+  version: "0.1.0"
+  description: "WEBSOCKET_SPEC.md의 논리 채널 10개와 도메인 이벤트 48개를 기계 판독 계약으로 고정합니다. 변경 명령은 HTTP로만 받고 WebSocket은 커밋된 상태를 최소 1회 전달합니다."
+defaultContentType: "application/json"
+servers:
+  production:
+    host: "api.ecovillage.kr"
+    pathname: "/ws/v1"
+    protocol: "wss"
+    description: "운영 WebSocket Gateway"
+    security:
+      - $ref: "#/components/securitySchemes/realtimeTicket"
+    bindings:
+      ws:
+        query:
+          type: "object"
+          required:
+            - "ticket"
+          properties:
+            ticket:
+              type: "string"
+              minLength: 20
+              description: "API-AUTH-007 또는 API-DSP-001에서 발급한 60초·1회용 티켓"
+          additionalProperties: false
+        bindingVersion: "0.1.0"
+  local:
+    host: "localhost:8080"
+    pathname: "/ws/v1"
+    protocol: "ws"
+    description: "로컬 개발 WebSocket Gateway"
+    security:
+      - $ref: "#/components/securitySchemes/realtimeTicket"
+channels:
+  wsCls001:
+    address: "/ws/v1"
+    title: "WS-CLS-001"
+    summary: "앱 모드, 학급 종료, 모듈, 정책 버전"
+    description: "논리 구독 주소: `classrooms/{C}/lifecycle`.\n\n허용 역할: STU, OWN, COT.\n\n권한 조건: 학급 소속, PM-RBAC-001."
+    x-channel-id: "WS-CLS-001"
+    x-logical-address: "classrooms/{C}/lifecycle"
+    messages:
+      EvtCls001:
+        $ref: "#/components/messages/EvtCls001"
+      EvtCls002:
+        $ref: "#/components/messages/EvtCls002"
+      EvtMod001:
+        $ref: "#/components/messages/EvtMod001"
+      EvtPol001:
+        $ref: "#/components/messages/EvtPol001"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsStu001:
+    address: "/ws/v1"
+    title: "WS-STU-001"
+    summary: "잔액, 주문, 거래, 금융, 개인 퀴즈 결과"
+    description: "논리 구독 주소: `classrooms/{C}/students/{S}/private`.\n\n허용 역할: 해당 STU.\n\n권한 조건: SELF, PM-DAT-001."
+    x-channel-id: "WS-STU-001"
+    x-logical-address: "classrooms/{C}/students/{S}/private"
+    messages:
+      EvtAuth001:
+        $ref: "#/components/messages/EvtAuth001"
+      EvtNoti001:
+        $ref: "#/components/messages/EvtNoti001"
+      EvtTxn001:
+        $ref: "#/components/messages/EvtTxn001"
+      EvtShp002:
+        $ref: "#/components/messages/EvtShp002"
+      EvtTrd001:
+        $ref: "#/components/messages/EvtTrd001"
+      EvtFin001:
+        $ref: "#/components/messages/EvtFin001"
+      EvtFin002:
+        $ref: "#/components/messages/EvtFin002"
+      EvtFin003:
+        $ref: "#/components/messages/EvtFin003"
+      EvtFin004:
+        $ref: "#/components/messages/EvtFin004"
+      EvtQz004:
+        $ref: "#/components/messages/EvtQz004"
+      EvtQz007:
+        $ref: "#/components/messages/EvtQz007"
+      EvtQz008:
+        $ref: "#/components/messages/EvtQz008"
+      EvtIvt003:
+        $ref: "#/components/messages/EvtIvt003"
+      EvtIvt004:
+        $ref: "#/components/messages/EvtIvt004"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsTch001:
+    address: "/ws/v1"
+    title: "WS-TCH-001"
+    summary: "승인, 수령, 참가, 정산, 진행 알림"
+    description: "논리 구독 주소: `classrooms/{C}/teachers/control`.\n\n허용 역할: OWN, COT.\n\n권한 조건: 담당 학급."
+    x-channel-id: "WS-TCH-001"
+    x-logical-address: "classrooms/{C}/teachers/control"
+    messages:
+      EvtCls002:
+        $ref: "#/components/messages/EvtCls002"
+      EvtPol001:
+        $ref: "#/components/messages/EvtPol001"
+      EvtNoti001:
+        $ref: "#/components/messages/EvtNoti001"
+      EvtShp002:
+        $ref: "#/components/messages/EvtShp002"
+      EvtTrd001:
+        $ref: "#/components/messages/EvtTrd001"
+      EvtFin003:
+        $ref: "#/components/messages/EvtFin003"
+      EvtAct004:
+        $ref: "#/components/messages/EvtAct004"
+      EvtIvt005:
+        $ref: "#/components/messages/EvtIvt005"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsEco001:
+    address: "/ws/v1"
+    title: "WS-ECO-001"
+    summary: "공개 가격, 재고, 경제 이벤트"
+    description: "논리 구독 주소: `classrooms/{C}/economy`.\n\n허용 역할: STU, OWN, COT.\n\n권한 조건: 학급 소속, 선택 모듈."
+    x-channel-id: "WS-ECO-001"
+    x-logical-address: "classrooms/{C}/economy"
+    messages:
+      EvtShp001:
+        $ref: "#/components/messages/EvtShp001"
+      EvtAct007:
+        $ref: "#/components/messages/EvtAct007"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsAct001:
+    address: "/ws/v1"
+    title: "WS-ACT-001"
+    summary: "GUIDED 전환, 단계, 타이머"
+    description: "논리 구독 주소: `classrooms/{C}/activities/{R}`.\n\n허용 역할: 참여 STU, OWN, COT.\n\n권한 조건: 참여자 또는 담당, PM-ACT-001."
+    x-channel-id: "WS-ACT-001"
+    x-logical-address: "classrooms/{C}/activities/{R}"
+    messages:
+      EvtAct001:
+        $ref: "#/components/messages/EvtAct001"
+      EvtAct002:
+        $ref: "#/components/messages/EvtAct002"
+      EvtAct003:
+        $ref: "#/components/messages/EvtAct003"
+      EvtAct005:
+        $ref: "#/components/messages/EvtAct005"
+      EvtAct006:
+        $ref: "#/components/messages/EvtAct006"
+      EvtAct007:
+        $ref: "#/components/messages/EvtAct007"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsQz001:
+    address: "/ws/v1"
+    title: "WS-QZ-001"
+    summary: "GAME, TEST 진행, 집계, 결과"
+    description: "논리 구독 주소: `classrooms/{C}/quiz-sessions/{R}`.\n\n허용 역할: 참여 STU, OWN, COT.\n\n권한 조건: 참가자 또는 담당, PM-QZ-002."
+    x-channel-id: "WS-QZ-001"
+    x-logical-address: "classrooms/{C}/quiz-sessions/{R}"
+    messages:
+      EvtQz001:
+        $ref: "#/components/messages/EvtQz001"
+      EvtQz002:
+        $ref: "#/components/messages/EvtQz002"
+      EvtQz003:
+        $ref: "#/components/messages/EvtQz003"
+      EvtQz005:
+        $ref: "#/components/messages/EvtQz005"
+      EvtQz006:
+        $ref: "#/components/messages/EvtQz006"
+      EvtQz007:
+        $ref: "#/components/messages/EvtQz007"
+      EvtQz008:
+        $ref: "#/components/messages/EvtQz008"
+      EvtQz009:
+        $ref: "#/components/messages/EvtQz009"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsVot001:
+    address: "/ws/v1"
+    title: "WS-VOT-001"
+    summary: "투표 시작, 익명 집계, 결과"
+    description: "논리 구독 주소: `classrooms/{C}/votes/{R}`.\n\n허용 역할: 참여 STU, OWN, COT.\n\n권한 조건: 참가자 또는 담당, PM-ACT-001."
+    x-channel-id: "WS-VOT-001"
+    x-logical-address: "classrooms/{C}/votes/{R}"
+    messages:
+      EvtVot001:
+        $ref: "#/components/messages/EvtVot001"
+      EvtVot002:
+        $ref: "#/components/messages/EvtVot002"
+      EvtVot003:
+        $ref: "#/components/messages/EvtVot003"
+      EvtVot004:
+        $ref: "#/components/messages/EvtVot004"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsIvt001:
+    address: "/ws/v1"
+    title: "WS-IVT-001"
+    summary: "시장 상태, 가격 단계"
+    description: "논리 구독 주소: `classrooms/{C}/investment-market`.\n\n허용 역할: STU, OWN, COT.\n\n권한 조건: 투자 모듈 ACTIVE, PM-FIN-003/004."
+    x-channel-id: "WS-IVT-001"
+    x-logical-address: "classrooms/{C}/investment-market"
+    messages:
+      EvtIvt001:
+        $ref: "#/components/messages/EvtIvt001"
+      EvtIvt002:
+        $ref: "#/components/messages/EvtIvt002"
+      EvtIvt005:
+        $ref: "#/components/messages/EvtIvt005"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsDsp001:
+    address: "/ws/v1"
+    title: "WS-DSP-001"
+    summary: "공개 장면, 문제, 타이머, 익명 집계, 승인 결과"
+    description: "논리 구독 주소: `display-sessions/{display_session_id}/public`.\n\n허용 역할: DSP.\n\n권한 조건: 단일 활동, PM-DSP-001."
+    x-channel-id: "WS-DSP-001"
+    x-logical-address: "display-sessions/{display_session_id}/public"
+    messages:
+      EvtDsp001:
+        $ref: "#/components/messages/EvtDsp001"
+      EvtDsp002:
+        $ref: "#/components/messages/EvtDsp002"
+      EvtDsp003:
+        $ref: "#/components/messages/EvtDsp003"
+      EvtDsp004:
+        $ref: "#/components/messages/EvtDsp004"
+      EvtDsp005:
+        $ref: "#/components/messages/EvtDsp005"
+      EvtDsp006:
+        $ref: "#/components/messages/EvtDsp006"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+  wsOps001:
+    address: "/ws/v1"
+    title: "WS-OPS-001"
+    summary: "AI, 내보내기, 재채점, 종료 정산 진행률"
+    description: "논리 구독 주소: `operations/{R}`.\n\n허용 역할: 요청자, 허용 담당자.\n\n권한 조건: 작업 소유, 담당 범위."
+    x-channel-id: "WS-OPS-001"
+    x-logical-address: "operations/{R}"
+    messages:
+      EvtOps001:
+        $ref: "#/components/messages/EvtOps001"
+      EvtOps002:
+        $ref: "#/components/messages/EvtOps002"
+      EvtOps003:
+        $ref: "#/components/messages/EvtOps003"
+      SubscriptionSubscribe:
+        $ref: "#/components/messages/SubscriptionSubscribe"
+      SubscriptionUnsubscribe:
+        $ref: "#/components/messages/SubscriptionUnsubscribe"
+      ConnectionPing:
+        $ref: "#/components/messages/ConnectionPing"
+      EventAck:
+        $ref: "#/components/messages/EventAck"
+operations:
+  sendWsCls001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsCls001"
+    summary: "WS-CLS-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsCls001/messages/EvtCls001"
+      - $ref: "#/channels/wsCls001/messages/EvtCls002"
+      - $ref: "#/channels/wsCls001/messages/EvtMod001"
+      - $ref: "#/channels/wsCls001/messages/EvtPol001"
+  receiveWsCls001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsCls001"
+    summary: "WS-CLS-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsCls001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsCls001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsCls001/messages/ConnectionPing"
+      - $ref: "#/channels/wsCls001/messages/EventAck"
+  sendWsStu001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsStu001"
+    summary: "WS-STU-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsStu001/messages/EvtAuth001"
+      - $ref: "#/channels/wsStu001/messages/EvtNoti001"
+      - $ref: "#/channels/wsStu001/messages/EvtTxn001"
+      - $ref: "#/channels/wsStu001/messages/EvtShp002"
+      - $ref: "#/channels/wsStu001/messages/EvtTrd001"
+      - $ref: "#/channels/wsStu001/messages/EvtFin001"
+      - $ref: "#/channels/wsStu001/messages/EvtFin002"
+      - $ref: "#/channels/wsStu001/messages/EvtFin003"
+      - $ref: "#/channels/wsStu001/messages/EvtFin004"
+      - $ref: "#/channels/wsStu001/messages/EvtQz004"
+      - $ref: "#/channels/wsStu001/messages/EvtQz007"
+      - $ref: "#/channels/wsStu001/messages/EvtQz008"
+      - $ref: "#/channels/wsStu001/messages/EvtIvt003"
+      - $ref: "#/channels/wsStu001/messages/EvtIvt004"
+  receiveWsStu001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsStu001"
+    summary: "WS-STU-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsStu001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsStu001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsStu001/messages/ConnectionPing"
+      - $ref: "#/channels/wsStu001/messages/EventAck"
+  sendWsTch001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsTch001"
+    summary: "WS-TCH-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsTch001/messages/EvtCls002"
+      - $ref: "#/channels/wsTch001/messages/EvtPol001"
+      - $ref: "#/channels/wsTch001/messages/EvtNoti001"
+      - $ref: "#/channels/wsTch001/messages/EvtShp002"
+      - $ref: "#/channels/wsTch001/messages/EvtTrd001"
+      - $ref: "#/channels/wsTch001/messages/EvtFin003"
+      - $ref: "#/channels/wsTch001/messages/EvtAct004"
+      - $ref: "#/channels/wsTch001/messages/EvtIvt005"
+  receiveWsTch001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsTch001"
+    summary: "WS-TCH-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsTch001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsTch001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsTch001/messages/ConnectionPing"
+      - $ref: "#/channels/wsTch001/messages/EventAck"
+  sendWsEco001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsEco001"
+    summary: "WS-ECO-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsEco001/messages/EvtShp001"
+      - $ref: "#/channels/wsEco001/messages/EvtAct007"
+  receiveWsEco001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsEco001"
+    summary: "WS-ECO-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsEco001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsEco001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsEco001/messages/ConnectionPing"
+      - $ref: "#/channels/wsEco001/messages/EventAck"
+  sendWsAct001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsAct001"
+    summary: "WS-ACT-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsAct001/messages/EvtAct001"
+      - $ref: "#/channels/wsAct001/messages/EvtAct002"
+      - $ref: "#/channels/wsAct001/messages/EvtAct003"
+      - $ref: "#/channels/wsAct001/messages/EvtAct005"
+      - $ref: "#/channels/wsAct001/messages/EvtAct006"
+      - $ref: "#/channels/wsAct001/messages/EvtAct007"
+  receiveWsAct001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsAct001"
+    summary: "WS-ACT-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsAct001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsAct001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsAct001/messages/ConnectionPing"
+      - $ref: "#/channels/wsAct001/messages/EventAck"
+  sendWsQz001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsQz001"
+    summary: "WS-QZ-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsQz001/messages/EvtQz001"
+      - $ref: "#/channels/wsQz001/messages/EvtQz002"
+      - $ref: "#/channels/wsQz001/messages/EvtQz003"
+      - $ref: "#/channels/wsQz001/messages/EvtQz005"
+      - $ref: "#/channels/wsQz001/messages/EvtQz006"
+      - $ref: "#/channels/wsQz001/messages/EvtQz007"
+      - $ref: "#/channels/wsQz001/messages/EvtQz008"
+      - $ref: "#/channels/wsQz001/messages/EvtQz009"
+  receiveWsQz001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsQz001"
+    summary: "WS-QZ-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsQz001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsQz001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsQz001/messages/ConnectionPing"
+      - $ref: "#/channels/wsQz001/messages/EventAck"
+  sendWsVot001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsVot001"
+    summary: "WS-VOT-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsVot001/messages/EvtVot001"
+      - $ref: "#/channels/wsVot001/messages/EvtVot002"
+      - $ref: "#/channels/wsVot001/messages/EvtVot003"
+      - $ref: "#/channels/wsVot001/messages/EvtVot004"
+  receiveWsVot001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsVot001"
+    summary: "WS-VOT-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsVot001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsVot001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsVot001/messages/ConnectionPing"
+      - $ref: "#/channels/wsVot001/messages/EventAck"
+  sendWsIvt001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsIvt001"
+    summary: "WS-IVT-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsIvt001/messages/EvtIvt001"
+      - $ref: "#/channels/wsIvt001/messages/EvtIvt002"
+      - $ref: "#/channels/wsIvt001/messages/EvtIvt005"
+  receiveWsIvt001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsIvt001"
+    summary: "WS-IVT-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsIvt001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsIvt001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsIvt001/messages/ConnectionPing"
+      - $ref: "#/channels/wsIvt001/messages/EventAck"
+  sendWsDsp001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsDsp001"
+    summary: "WS-DSP-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp001"
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp002"
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp003"
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp004"
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp005"
+      - $ref: "#/channels/wsDsp001/messages/EvtDsp006"
+  receiveWsDsp001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsDsp001"
+    summary: "WS-DSP-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsDsp001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsDsp001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsDsp001/messages/ConnectionPing"
+      - $ref: "#/channels/wsDsp001/messages/EventAck"
+  sendWsOps001Events:
+    action: "send"
+    channel:
+      $ref: "#/channels/wsOps001"
+    summary: "WS-OPS-001에서 커밋된 서버 이벤트 전송"
+    messages:
+      - $ref: "#/channels/wsOps001/messages/EvtOps001"
+      - $ref: "#/channels/wsOps001/messages/EvtOps002"
+      - $ref: "#/channels/wsOps001/messages/EvtOps003"
+  receiveWsOps001Control:
+    action: "receive"
+    channel:
+      $ref: "#/channels/wsOps001"
+    summary: "WS-OPS-001 구독·해제·진단 제어 메시지 수신"
+    messages:
+      - $ref: "#/channels/wsOps001/messages/SubscriptionSubscribe"
+      - $ref: "#/channels/wsOps001/messages/SubscriptionUnsubscribe"
+      - $ref: "#/channels/wsOps001/messages/ConnectionPing"
+      - $ref: "#/channels/wsOps001/messages/EventAck"
+components:
+  securitySchemes:
+    realtimeTicket:
+      type: "httpApiKey"
+      name: "ticket"
+      in: "query"
+      description: "60초 만료·1회 사용·역할 및 리소스 범위 바인딩 접속 티켓"
+  correlationIds:
+    correlationId:
+      description: "HTTP 요청부터 outbox, Redis와 Gateway까지 연결하는 상관관계 ID"
+      location: "$message.payload#/correlation_id"
+  schemas:
+    EventEnvelope:
+      type: "object"
+      required:
+        - "event_id"
+        - "event_type"
+        - "occurred_at"
+        - "classroom_id"
+        - "resource_id"
+        - "state_version"
+        - "sequence"
+        - "correlation_id"
+        - "payload"
+      properties:
+        event_id:
+          type: "string"
+          format: "uuid"
+        event_type:
+          type: "string"
+        occurred_at:
+          type: "string"
+          format: "date-time"
+        classroom_id:
+          type: "string"
+          format: "uuid"
+        resource_id:
+          type: "string"
+          format: "uuid"
+        state_version:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        sequence:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        correlation_id:
+          type: "string"
+          format: "uuid"
+        originating_request_id:
+          type: "string"
+          format: "uuid"
+        payload:
+          type: "object"
+      additionalProperties: false
+  messages:
+    EvtCls001:
+      name: "classroom.app_mode.changed"
+      title: "EVT-CLS-001"
+      summary: "mode, source, starts_at, ends_at, active_activity_id?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-CLS-001"
+      x-channel-ids:
+        - "WS-CLS-001"
+      x-origin-api-ids:
+        - "API-CLS-006"
+        - "API-CLS-007"
+      x-state-machine-ids:
+        - "SM-APP-001"
+      x-rtm-ids:
+        - "CLS-003"
+        - "CLS-004"
+        - "CLS-005"
+        - "CLS-006"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "classroom.app_mode.changed"
+              payload:
+                type: "object"
+                properties:
+                  mode:
+                    type: "string"
+                  source:
+                    type: "string"
+                  starts_at:
+                    type: "string"
+                    format: "date-time"
+                  ends_at:
+                    type: "string"
+                    format: "date-time"
+                  active_activity_id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - "mode"
+                  - "source"
+                  - "starts_at"
+                  - "ends_at"
+                additionalProperties: false
+    EvtCls002:
+      name: "classroom.closure.progress_changed"
+      title: "EVT-CLS-002"
+      summary: "classroom_status, step, progress_percent, blocking_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-CLS-002"
+      x-channel-ids:
+        - "WS-CLS-001"
+        - "WS-TCH-001"
+      x-origin-api-ids:
+        - "API-CLS-008"
+      x-state-machine-ids:
+        - "SM-CLS-001"
+      x-rtm-ids:
+        - "CLS-007"
+        - "CLS-008"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "classroom.closure.progress_changed"
+              payload:
+                type: "object"
+                properties:
+                  classroom_status:
+                    type: "string"
+                  step:
+                    type: "string"
+                  progress_percent:
+                    type: "integer"
+                    format: "int64"
+                  blocking_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "classroom_status"
+                  - "step"
+                  - "progress_percent"
+                  - "blocking_count"
+                additionalProperties: false
+    EvtMod001:
+      name: "classroom.module.status_changed"
+      title: "EVT-MOD-001"
+      summary: "module_code, status, available_actions"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-MOD-001"
+      x-channel-ids:
+        - "WS-CLS-001"
+      x-origin-api-ids:
+        - "API-MOD-001"
+        - "API-MOD-002"
+      x-state-machine-ids:
+        - "SM-MOD-001"
+      x-rtm-ids:
+        - "CLS-002"
+        - "CRS-006"
+        - "TRD-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "classroom.module.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  module_code:
+                    type: "string"
+                  status:
+                    type: "string"
+                  available_actions:
+                    type: "array"
+                    items:
+                      type: "string"
+                required:
+                  - "module_code"
+                  - "status"
+                  - "available_actions"
+                additionalProperties: false
+    EvtPol001:
+      name: "classroom.policy.version_changed"
+      title: "EVT-POL-001"
+      summary: "policy_area, policy_version, effective_from"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-POL-001"
+      x-channel-ids:
+        - "WS-CLS-001"
+        - "WS-TCH-001"
+      x-origin-api-ids:
+        - "API-POL-001"
+        - "API-POL-002"
+        - "API-AI-003"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-003"
+        - "FIN-011"
+        - "AI-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "classroom.policy.version_changed"
+              payload:
+                type: "object"
+                properties:
+                  policy_area:
+                    type: "string"
+                  policy_version:
+                    type: "integer"
+                    format: "int64"
+                  effective_from:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "policy_area"
+                  - "policy_version"
+                  - "effective_from"
+                additionalProperties: false
+    EvtAuth001:
+      name: "session.revoked"
+      title: "EVT-AUTH-001"
+      summary: "reason_code, effective_at"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-AUTH-001"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-AUTH-001"
+        - "API-AUTH-005"
+        - "API-ADM-002"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AUTH-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "session.revoked"
+              payload:
+                type: "object"
+                properties:
+                  reason_code:
+                    type: "string"
+                  effective_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "reason_code"
+                  - "effective_at"
+                additionalProperties: false
+    EvtNoti001:
+      name: "notification.created"
+      title: "EVT-NOTI-001"
+      summary: "notification_id, category, title, resource_id, action_url?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-NOTI-001"
+      x-channel-ids:
+        - "WS-STU-001"
+        - "WS-TCH-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "DAT-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "notification.created"
+              payload:
+                type: "object"
+                properties:
+                  notification_id:
+                    type: "string"
+                    format: "uuid"
+                  category:
+                    type: "string"
+                  title:
+                    type: "string"
+                  resource_id:
+                    type: "string"
+                    format: "uuid"
+                  action_url:
+                    type: "string"
+                    format: "uri-reference"
+                required:
+                  - "notification_id"
+                  - "category"
+                  - "title"
+                  - "resource_id"
+                additionalProperties: false
+    EvtTxn001:
+      name: "wallet.balance.changed"
+      title: "EVT-TXN-001"
+      summary: "balance, delta, transaction_id, transaction_type"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-TXN-001"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-TXN-001"
+        - "API-TXN-002"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-001"
+        - "ECO-002"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "wallet.balance.changed"
+              payload:
+                type: "object"
+                properties:
+                  balance:
+                    type: "integer"
+                    format: "int64"
+                  delta:
+                    type: "integer"
+                    format: "int64"
+                  transaction_id:
+                    type: "string"
+                    format: "uuid"
+                  transaction_type:
+                    type: "string"
+                required:
+                  - "balance"
+                  - "delta"
+                  - "transaction_id"
+                  - "transaction_type"
+                additionalProperties: false
+    EvtShp001:
+      name: "store.stock.changed"
+      title: "EVT-SHP-001"
+      summary: "product_id, stock_status, available_quantity?, product_version"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-SHP-001"
+      x-channel-ids:
+        - "WS-ECO-001"
+      x-origin-api-ids:
+        - "API-SHP-001"
+        - "API-SHP-002"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-005"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "store.stock.changed"
+              payload:
+                type: "object"
+                properties:
+                  product_id:
+                    type: "string"
+                    format: "uuid"
+                  stock_status:
+                    type: "string"
+                  available_quantity:
+                    type: "integer"
+                    format: "int64"
+                  product_version:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "product_id"
+                  - "stock_status"
+                  - "product_version"
+                additionalProperties: false
+    EvtShp002:
+      name: "store.order.status_changed"
+      title: "EVT-SHP-002"
+      summary: "order_id, status, pickup_message?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-SHP-002"
+      x-channel-ids:
+        - "WS-STU-001"
+        - "WS-TCH-001"
+      x-origin-api-ids:
+        - "API-SHP-002"
+        - "API-SHP-003"
+        - "API-SHP-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-005"
+        - "ECO-006"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "store.order.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  order_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  pickup_message:
+                    type: "string"
+                required:
+                  - "order_id"
+                  - "status"
+                additionalProperties: false
+    EvtTrd001:
+      name: "trade.status_changed"
+      title: "EVT-TRD-001"
+      summary: "trade_id, status, required_actor, completed_at?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-TRD-001"
+      x-channel-ids:
+        - "WS-STU-001"
+        - "WS-TCH-001"
+      x-origin-api-ids:
+        - "API-TRD-001"
+        - "API-TRD-002"
+        - "API-TRD-003"
+        - "API-TRD-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "TRD-001"
+        - "TRD-002"
+        - "TRD-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "trade.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  trade_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  required_actor:
+                    type: "string"
+                  completed_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "trade_id"
+                  - "status"
+                  - "required_actor"
+                additionalProperties: false
+    EvtFin001:
+      name: "deposit.account.changed"
+      title: "EVT-FIN-001"
+      summary: "account_id, status, principal, payout_amount?, maturity_at"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-FIN-001"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-FIN-002"
+        - "API-FIN-003"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-001"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "deposit.account.changed"
+              payload:
+                type: "object"
+                properties:
+                  account_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  principal:
+                    type: "integer"
+                    format: "int64"
+                  payout_amount:
+                    type: "integer"
+                    format: "int64"
+                  maturity_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "account_id"
+                  - "status"
+                  - "principal"
+                  - "maturity_at"
+                additionalProperties: false
+    EvtFin002:
+      name: "savings.account.changed"
+      title: "EVT-FIN-002"
+      summary: "account_id, status, installment_status?, retryable_until?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-FIN-002"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-FIN-004"
+        - "API-FIN-005"
+        - "API-FIN-006"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-002"
+        - "FIN-003"
+        - "FIN-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "savings.account.changed"
+              payload:
+                type: "object"
+                properties:
+                  account_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  installment_status:
+                    type: "string"
+                  retryable_until:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "account_id"
+                  - "status"
+                additionalProperties: false
+    EvtFin003:
+      name: "loan.application.status_changed"
+      title: "EVT-FIN-003"
+      summary: "application_id, status, decision_reason?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-FIN-003"
+      x-channel-ids:
+        - "WS-STU-001"
+        - "WS-TCH-001"
+      x-origin-api-ids:
+        - "API-FIN-011"
+        - "API-FIN-012"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-008"
+        - "FIN-010"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "loan.application.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  application_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  decision_reason:
+                    type: "string"
+                required:
+                  - "application_id"
+                  - "status"
+                additionalProperties: false
+    EvtFin004:
+      name: "loan.repayment.status_changed"
+      title: "EVT-FIN-004"
+      summary: "loan_id, status, next_due_at?, remaining_amount, credit_status"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-FIN-004"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-FIN-013"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-009"
+        - "FIN-010"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "loan.repayment.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  loan_id:
+                    type: "string"
+                    format: "uuid"
+                  status:
+                    type: "string"
+                  next_due_at:
+                    type: "string"
+                    format: "date-time"
+                  remaining_amount:
+                    type: "integer"
+                    format: "int64"
+                  credit_status:
+                    type: "string"
+                required:
+                  - "loan_id"
+                  - "status"
+                  - "remaining_amount"
+                  - "credit_status"
+                additionalProperties: false
+    EvtAct001:
+      name: "activity.started"
+      title: "EVT-ACT-001"
+      summary: "activity_id, activity_type, starts_at, phase, screen_id"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-001"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids:
+        - "API-ACT-001"
+      x-state-machine-ids:
+        - "SM-ACT-001"
+      x-rtm-ids:
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.started"
+              payload:
+                type: "object"
+                properties:
+                  activity_id:
+                    type: "string"
+                    format: "uuid"
+                  activity_type:
+                    type: "string"
+                  starts_at:
+                    type: "string"
+                    format: "date-time"
+                  phase:
+                    type: "string"
+                  screen_id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - "activity_id"
+                  - "activity_type"
+                  - "starts_at"
+                  - "phase"
+                  - "screen_id"
+                additionalProperties: false
+    EvtAct002:
+      name: "activity.phase.changed"
+      title: "EVT-ACT-002"
+      summary: "phase, phase_version, starts_at, ends_at, screen_id"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-002"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.phase.changed"
+              payload:
+                type: "object"
+                properties:
+                  phase:
+                    type: "string"
+                  phase_version:
+                    type: "integer"
+                    format: "int64"
+                  starts_at:
+                    type: "string"
+                    format: "date-time"
+                  ends_at:
+                    type: "string"
+                    format: "date-time"
+                  screen_id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - "phase"
+                  - "phase_version"
+                  - "starts_at"
+                  - "ends_at"
+                  - "screen_id"
+                additionalProperties: false
+    EvtAct003:
+      name: "activity.timer.synced"
+      title: "EVT-ACT-003"
+      summary: "server_time, ends_at, paused"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-003"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "CLS-009"
+        - "SYS-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.timer.synced"
+              payload:
+                type: "object"
+                properties:
+                  server_time:
+                    type: "string"
+                    format: "date-time"
+                  ends_at:
+                    type: "string"
+                    format: "date-time"
+                  paused:
+                    type: "boolean"
+                required:
+                  - "server_time"
+                  - "ends_at"
+                  - "paused"
+                additionalProperties: false
+    EvtAct004:
+      name: "activity.participation.updated"
+      title: "EVT-ACT-004"
+      summary: "activity_id, joined_count, submitted_count, total_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-004"
+      x-channel-ids:
+        - "WS-TCH-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.participation.updated"
+              payload:
+                type: "object"
+                properties:
+                  activity_id:
+                    type: "string"
+                    format: "uuid"
+                  joined_count:
+                    type: "integer"
+                    format: "int64"
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "activity_id"
+                  - "joined_count"
+                  - "submitted_count"
+                  - "total_count"
+                additionalProperties: false
+    EvtAct005:
+      name: "activity.finished"
+      title: "EVT-ACT-005"
+      summary: "result_status, next_app_mode, summary_url?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-005"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids:
+        - "API-ACT-002"
+      x-state-machine-ids:
+        - "SM-ACT-001"
+      x-rtm-ids:
+        - "CLS-004"
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.finished"
+              payload:
+                type: "object"
+                properties:
+                  result_status:
+                    type: "string"
+                  next_app_mode:
+                    type: "string"
+                  summary_url:
+                    type: "string"
+                    format: "uri-reference"
+                required:
+                  - "result_status"
+                  - "next_app_mode"
+                additionalProperties: false
+    EvtAct006:
+      name: "activity.canceled"
+      title: "EVT-ACT-006"
+      summary: "reason_code, next_app_mode"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-006"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids:
+        - "API-ACT-002"
+      x-state-machine-ids:
+        - "SM-ACT-001"
+      x-rtm-ids:
+        - "CLS-004"
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.canceled"
+              payload:
+                type: "object"
+                properties:
+                  reason_code:
+                    type: "string"
+                  next_app_mode:
+                    type: "string"
+                required:
+                  - "reason_code"
+                  - "next_app_mode"
+                additionalProperties: false
+    EvtAct007:
+      name: "economic_event.published"
+      title: "EVT-ACT-007"
+      summary: "event_id, template_type, title, description, effective_from"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-007"
+      x-channel-ids:
+        - "WS-ACT-001"
+        - "WS-ECO-001"
+      x-origin-api-ids:
+        - "API-AI-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AI-007"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "economic_event.published"
+              payload:
+                type: "object"
+                properties:
+                  event_id:
+                    type: "string"
+                    format: "uuid"
+                  template_type:
+                    type: "string"
+                  title:
+                    type: "string"
+                  description:
+                    type: "string"
+                  effective_from:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "event_id"
+                  - "template_type"
+                  - "title"
+                  - "description"
+                  - "effective_from"
+                additionalProperties: false
+    EvtQz001:
+      name: "quiz.session.started"
+      title: "EVT-QZ-001"
+      summary: "mode, content_type, question_count, reward_policy_public"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-001"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids:
+        - "API-QZ-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-001"
+        - "QZ-003"
+        - "QZ-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.session.started"
+              payload:
+                type: "object"
+                properties:
+                  mode:
+                    type: "string"
+                  content_type:
+                    type: "string"
+                  question_count:
+                    type: "integer"
+                    format: "int64"
+                  reward_policy_public:
+                    type: "object"
+                    additionalProperties: true
+                required:
+                  - "mode"
+                  - "content_type"
+                  - "question_count"
+                  - "reward_policy_public"
+                additionalProperties: false
+    EvtQz002:
+      name: "quiz.question.opened"
+      title: "EVT-QZ-002"
+      summary: "question_id, number, prompt, options, opens_at, closes_at"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-002"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.question.opened"
+              payload:
+                type: "object"
+                properties:
+                  question_id:
+                    type: "string"
+                    format: "uuid"
+                  number:
+                    type: "integer"
+                    format: "int64"
+                  prompt:
+                    type: "string"
+                  options:
+                    type: "array"
+                    items:
+                      type: "string"
+                  opens_at:
+                    type: "string"
+                    format: "date-time"
+                  closes_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "question_id"
+                  - "number"
+                  - "prompt"
+                  - "options"
+                  - "opens_at"
+                  - "closes_at"
+                additionalProperties: false
+    EvtQz003:
+      name: "quiz.response.aggregate_changed"
+      title: "EVT-QZ-003"
+      summary: "submitted_count, total_count, option_counts?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-003"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.response.aggregate_changed"
+              payload:
+                type: "object"
+                properties:
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                  option_counts:
+                    type: "object"
+                    additionalProperties: true
+                required:
+                  - "submitted_count"
+                  - "total_count"
+                additionalProperties: false
+    EvtQz004:
+      name: "quiz.submission.acknowledged"
+      title: "EVT-QZ-004"
+      summary: "quiz_session_id, question_id?, answer_sheet_version?, accepted_at"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-004"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-QZ-005"
+        - "API-QZ-006"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+        - "DAT-006"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.submission.acknowledged"
+              payload:
+                type: "object"
+                properties:
+                  quiz_session_id:
+                    type: "string"
+                    format: "uuid"
+                  question_id:
+                    type: "string"
+                    format: "uuid"
+                  answer_sheet_version:
+                    type: "integer"
+                    format: "int64"
+                  accepted_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "quiz_session_id"
+                  - "accepted_at"
+                additionalProperties: false
+    EvtQz005:
+      name: "quiz.submissions.closed"
+      title: "EVT-QZ-005"
+      summary: "closed_at, submitted_count, total_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-005"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids:
+        - "API-QZ-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.submissions.closed"
+              payload:
+                type: "object"
+                properties:
+                  closed_at:
+                    type: "string"
+                    format: "date-time"
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "closed_at"
+                  - "submitted_count"
+                  - "total_count"
+                additionalProperties: false
+    EvtQz006:
+      name: "quiz.scoring.started"
+      title: "EVT-QZ-006"
+      summary: "result_version, invalidated_question_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-006"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids: []
+      x-state-machine-ids:
+        - "SM-QZS-001"
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.scoring.started"
+              payload:
+                type: "object"
+                properties:
+                  result_version:
+                    type: "integer"
+                    format: "int64"
+                  invalidated_question_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "result_version"
+                  - "invalidated_question_count"
+                additionalProperties: false
+    EvtQz007:
+      name: "quiz.result.published"
+      title: "EVT-QZ-007"
+      summary: "GAME 공개 요약 또는 TEST 본인 결과 DTO"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-007"
+      x-channel-ids:
+        - "WS-QZ-001"
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-QZ-007"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+        - "QZ-005"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.result.published"
+              payload:
+                type: "object"
+                properties:
+                  result_type:
+                    type: "string"
+                    enum:
+                      - "GAME_PUBLIC"
+                      - "TEST_PRIVATE"
+                  result_version:
+                    type: "integer"
+                    format: "int64"
+                  score:
+                    type: "integer"
+                    minimum: 0
+                  rank:
+                    type: "integer"
+                    minimum: 1
+                required:
+                  - "result_type"
+                  - "result_version"
+                  - "score"
+                additionalProperties: false
+    EvtQz008:
+      name: "quiz.result.revised"
+      title: "EVT-QZ-008"
+      summary: "result_version, affected_question_ids, recovery_status"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-008"
+      x-channel-ids:
+        - "WS-QZ-001"
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-QZ-009"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.result.revised"
+              payload:
+                type: "object"
+                properties:
+                  result_version:
+                    type: "integer"
+                    format: "int64"
+                  affected_question_ids:
+                    type: "array"
+                    items:
+                      type: "string"
+                      format: "uuid"
+                    uniqueItems: true
+                  recovery_status:
+                    type: "string"
+                required:
+                  - "result_version"
+                  - "affected_question_ids"
+                  - "recovery_status"
+                additionalProperties: false
+    EvtQz009:
+      name: "quiz.session.closed"
+      title: "EVT-QZ-009"
+      summary: "closed_at, final_result_version, next_app_mode"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-QZ-009"
+      x-channel-ids:
+        - "WS-QZ-001"
+      x-origin-api-ids:
+        - "API-QZ-007"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "QZ-003"
+        - "QZ-004"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "quiz.session.closed"
+              payload:
+                type: "object"
+                properties:
+                  closed_at:
+                    type: "string"
+                    format: "date-time"
+                  final_result_version:
+                    type: "integer"
+                    format: "int64"
+                  next_app_mode:
+                    type: "string"
+                required:
+                  - "closed_at"
+                  - "final_result_version"
+                  - "next_app_mode"
+                additionalProperties: false
+    EvtVot001:
+      name: "vote.started"
+      title: "EVT-VOT-001"
+      summary: "vote_id, question, options, closes_at, multiple_choice=false"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-VOT-001"
+      x-channel-ids:
+        - "WS-VOT-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-008"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "vote.started"
+              payload:
+                type: "object"
+                properties:
+                  vote_id:
+                    type: "string"
+                    format: "uuid"
+                  question:
+                    type: "string"
+                  options:
+                    type: "array"
+                    items:
+                      type: "string"
+                  closes_at:
+                    type: "string"
+                    format: "date-time"
+                  multiple_choice:
+                    type: "boolean"
+                    enum:
+                      - false
+                required:
+                  - "vote_id"
+                  - "question"
+                  - "options"
+                  - "closes_at"
+                  - "multiple_choice"
+                additionalProperties: false
+    EvtVot002:
+      name: "vote.ballot.aggregate_changed"
+      title: "EVT-VOT-002"
+      summary: "submitted_count, total_count, option_counts?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-VOT-002"
+      x-channel-ids:
+        - "WS-VOT-001"
+      x-origin-api-ids:
+        - "API-VOT-002"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-008"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "vote.ballot.aggregate_changed"
+              payload:
+                type: "object"
+                properties:
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                  option_counts:
+                    type: "object"
+                    additionalProperties: true
+                required:
+                  - "submitted_count"
+                  - "total_count"
+                additionalProperties: false
+    EvtVot003:
+      name: "vote.closed"
+      title: "EVT-VOT-003"
+      summary: "closed_at, submitted_count, total_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-VOT-003"
+      x-channel-ids:
+        - "WS-VOT-001"
+      x-origin-api-ids:
+        - "API-VOT-001"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-008"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "vote.closed"
+              payload:
+                type: "object"
+                properties:
+                  closed_at:
+                    type: "string"
+                    format: "date-time"
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "closed_at"
+                  - "submitted_count"
+                  - "total_count"
+                additionalProperties: false
+    EvtVot004:
+      name: "vote.result.published"
+      title: "EVT-VOT-004"
+      summary: "option_counts, selected_option_id, fund_use_summary?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-VOT-004"
+      x-channel-ids:
+        - "WS-VOT-001"
+      x-origin-api-ids:
+        - "API-VOT-001"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "ECO-008"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "vote.result.published"
+              payload:
+                type: "object"
+                properties:
+                  option_counts:
+                    type: "object"
+                    additionalProperties: true
+                  selected_option_id:
+                    type: "string"
+                    format: "uuid"
+                  fund_use_summary:
+                    type: "string"
+                required:
+                  - "option_counts"
+                  - "selected_option_id"
+                additionalProperties: false
+    EvtIvt001:
+      name: "investment.market.status_changed"
+      title: "EVT-IVT-001"
+      summary: "status, price_version, next_step_at?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-IVT-001"
+      x-channel-ids:
+        - "WS-IVT-001"
+      x-origin-api-ids:
+        - "API-FIN-008"
+      x-state-machine-ids:
+        - "SM-IVT-001"
+      x-rtm-ids:
+        - "FIN-005"
+        - "FIN-007"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "investment.market.status_changed"
+              payload:
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                  price_version:
+                    type: "integer"
+                    format: "int64"
+                  next_step_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "status"
+                  - "price_version"
+                additionalProperties: false
+    EvtIvt002:
+      name: "investment.price.changed"
+      title: "EVT-IVT-002"
+      summary: "asset_id, price, change_rate_bps, price_version, occurred_at"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-IVT-002"
+      x-channel-ids:
+        - "WS-IVT-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-005"
+        - "FIN-007"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "investment.price.changed"
+              payload:
+                type: "object"
+                properties:
+                  asset_id:
+                    type: "string"
+                    format: "uuid"
+                  price:
+                    type: "integer"
+                    format: "int64"
+                  change_rate_bps:
+                    type: "integer"
+                    format: "int64"
+                  price_version:
+                    type: "integer"
+                    format: "int64"
+                  occurred_at:
+                    type: "string"
+                    format: "date-time"
+                required:
+                  - "asset_id"
+                  - "price"
+                  - "change_rate_bps"
+                  - "price_version"
+                  - "occurred_at"
+                additionalProperties: false
+    EvtIvt003:
+      name: "investment.order.executed"
+      title: "EVT-IVT-003"
+      summary: "order_id, side, asset_id, quantity, executed_price, transaction_id"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-IVT-003"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-FIN-009"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-006"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "investment.order.executed"
+              payload:
+                type: "object"
+                properties:
+                  order_id:
+                    type: "string"
+                    format: "uuid"
+                  side:
+                    type: "string"
+                  asset_id:
+                    type: "string"
+                    format: "uuid"
+                  quantity:
+                    type: "integer"
+                    format: "int64"
+                  executed_price:
+                    type: "integer"
+                    format: "int64"
+                  transaction_id:
+                    type: "string"
+                    format: "uuid"
+                required:
+                  - "order_id"
+                  - "side"
+                  - "asset_id"
+                  - "quantity"
+                  - "executed_price"
+                  - "transaction_id"
+                additionalProperties: false
+    EvtIvt004:
+      name: "investment.portfolio.changed"
+      title: "EVT-IVT-004"
+      summary: "portfolio_version, total_cost, current_value, realized_profit"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-IVT-004"
+      x-channel-ids:
+        - "WS-STU-001"
+      x-origin-api-ids:
+        - "API-FIN-009"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-006"
+        - "FIN-007"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "investment.portfolio.changed"
+              payload:
+                type: "object"
+                properties:
+                  portfolio_version:
+                    type: "integer"
+                    format: "int64"
+                  total_cost:
+                    type: "string"
+                  current_value:
+                    type: "string"
+                  realized_profit:
+                    type: "string"
+                required:
+                  - "portfolio_version"
+                  - "total_cost"
+                  - "current_value"
+                  - "realized_profit"
+                additionalProperties: false
+    EvtIvt005:
+      name: "investment.market.settlement_progress"
+      title: "EVT-IVT-005"
+      summary: "status, processed_count, total_count, failed_count"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-IVT-005"
+      x-channel-ids:
+        - "WS-IVT-001"
+        - "WS-TCH-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "FIN-007"
+        - "FIN-012"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "investment.market.settlement_progress"
+              payload:
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                  processed_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                  failed_count:
+                    type: "integer"
+                    format: "int64"
+                required:
+                  - "status"
+                  - "processed_count"
+                  - "total_count"
+                  - "failed_count"
+                additionalProperties: false
+    EvtDsp001:
+      name: "display.scene.changed"
+      title: "EVT-DSP-001"
+      summary: "scene=WAITING|QUIZ|VOTE|EVENT|RESULT, title?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-001"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.scene.changed"
+              payload:
+                type: "object"
+                properties:
+                  scene:
+                    type: "string"
+                    enum:
+                      - "WAITING"
+                      - "QUIZ"
+                      - "VOTE"
+                      - "EVENT"
+                      - "RESULT"
+                  title:
+                    type: "string"
+                required:
+                  - "scene"
+                additionalProperties: false
+    EvtDsp002:
+      name: "display.timer.synced"
+      title: "EVT-DSP-002"
+      summary: "server_time, ends_at, paused"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-002"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.timer.synced"
+              payload:
+                type: "object"
+                properties:
+                  server_time:
+                    type: "string"
+                    format: "date-time"
+                  ends_at:
+                    type: "string"
+                    format: "date-time"
+                  paused:
+                    type: "boolean"
+                required:
+                  - "server_time"
+                  - "ends_at"
+                  - "paused"
+                additionalProperties: false
+    EvtDsp003:
+      name: "display.question.presented"
+      title: "EVT-DSP-003"
+      summary: "문제, 선택지, 문항 번호"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-003"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.question.presented"
+              payload:
+                type: "object"
+                properties:
+                  question_id:
+                    type: "string"
+                    format: "uuid"
+                  number:
+                    type: "integer"
+                    format: "int64"
+                  prompt:
+                    type: "string"
+                  options:
+                    type: "array"
+                    minItems: 2
+                    items:
+                      type: "object"
+                      required:
+                        - "option_id"
+                        - "label"
+                      properties:
+                        option_id:
+                          type: "string"
+                          format: "uuid"
+                        label:
+                          type: "string"
+                      additionalProperties: false
+                required:
+                  - "question_id"
+                  - "number"
+                  - "prompt"
+                  - "options"
+                additionalProperties: false
+    EvtDsp004:
+      name: "display.aggregate.updated"
+      title: "EVT-DSP-004"
+      summary: "익명 제출 수, 선택지별 집계"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-004"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.aggregate.updated"
+              payload:
+                type: "object"
+                properties:
+                  submitted_count:
+                    type: "integer"
+                    format: "int64"
+                  total_count:
+                    type: "integer"
+                    format: "int64"
+                  option_counts:
+                    type: "object"
+                    additionalProperties: true
+                required:
+                  - "submitted_count"
+                  - "total_count"
+                  - "option_counts"
+                additionalProperties: false
+    EvtDsp005:
+      name: "display.result.presented"
+      title: "EVT-DSP-005"
+      summary: "공개 승인 결과, 선택 시 GAME 1~3위 닉네임, 장착 캐릭터"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-005"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.result.presented"
+              payload:
+                type: "object"
+                properties:
+                  result_type:
+                    type: "string"
+                    enum:
+                      - "GAME"
+                      - "VOTE"
+                      - "EVENT"
+                  title:
+                    type: "string"
+                  winners:
+                    type: "array"
+                    maxItems: 3
+                    items:
+                      type: "object"
+                      required:
+                        - "rank"
+                        - "nickname"
+                      properties:
+                        rank:
+                          type: "integer"
+                          minimum: 1
+                          maximum: 3
+                        nickname:
+                          type: "string"
+                        equipped_character_id:
+                          type: "string"
+                          format: "uuid"
+                      additionalProperties: false
+                  result_summary:
+                    type: "object"
+                    description: "교사가 공개 승인한 투표·경제 이벤트 결과 요약"
+                    additionalProperties: true
+                required:
+                  - "result_type"
+                  - "title"
+                additionalProperties: false
+    EvtDsp006:
+      name: "display.cleared"
+      title: "EVT-DSP-006"
+      summary: "대기 화면 전환 사유"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-DSP-006"
+      x-channel-ids:
+        - "WS-DSP-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids: []
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "display.cleared"
+              payload:
+                type: "object"
+                properties:
+                  reason_code:
+                    type: "string"
+                required:
+                  - "reason_code"
+                additionalProperties: false
+    EvtOps001:
+      name: "operation.progress_changed"
+      title: "EVT-OPS-001"
+      summary: "operation_id, status, progress_percent, current_step"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-OPS-001"
+      x-channel-ids:
+        - "WS-OPS-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AI-006"
+        - "DAT-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "operation.progress_changed"
+              payload:
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                  progress_percent:
+                    type: "integer"
+                    format: "int64"
+                  current_step:
+                    type: "string"
+                required:
+                  - "status"
+                  - "progress_percent"
+                  - "current_step"
+                additionalProperties: false
+    EvtOps002:
+      name: "operation.succeeded"
+      title: "EVT-OPS-002"
+      summary: "operation_id, result_url?, result_resource_id?, expires_at?"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-OPS-002"
+      x-channel-ids:
+        - "WS-OPS-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AI-006"
+        - "DAT-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "operation.succeeded"
+              payload:
+                type: "object"
+                properties:
+                  result_url:
+                    type: "string"
+                    format: "uri-reference"
+                  result_resource_id:
+                    type: "string"
+                    format: "uuid"
+                  expires_at:
+                    type: "string"
+                    format: "date-time"
+                additionalProperties: false
+    EvtOps003:
+      name: "operation.failed"
+      title: "EVT-OPS-003"
+      summary: "operation_id, error_code, retryable, fallback_action"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-OPS-003"
+      x-channel-ids:
+        - "WS-OPS-001"
+      x-origin-api-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AI-006"
+        - "DAT-003"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "operation.failed"
+              payload:
+                type: "object"
+                properties:
+                  error_code:
+                    type: "string"
+                  retryable:
+                    type: "boolean"
+                  fallback_action:
+                    type: "string"
+                required:
+                  - "error_code"
+                  - "retryable"
+                  - "fallback_action"
+                additionalProperties: false
+    SubscriptionSubscribe:
+      name: "subscription.subscribe"
+      title: "채널 구독"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "request_id"
+          - "channel_id"
+        properties:
+          type:
+            const: "subscription.subscribe"
+          request_id:
+            type: "string"
+            format: "uuid"
+          channel_id:
+            type: "string"
+            pattern: "^WS-[A-Z]+-\\d{3}$"
+          resource_id:
+            type: "string"
+            format: "uuid"
+          last_sequence:
+            type: "integer"
+            format: "int64"
+            minimum: 0
+        additionalProperties: false
+    SubscriptionUnsubscribe:
+      name: "subscription.unsubscribe"
+      title: "채널 구독 해제"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "request_id"
+          - "subscription_id"
+        properties:
+          type:
+            const: "subscription.unsubscribe"
+          request_id:
+            type: "string"
+            format: "uuid"
+          subscription_id:
+            type: "string"
+            format: "uuid"
+        additionalProperties: false
+    ConnectionPing:
+      name: "connection.ping"
+      title: "애플리케이션 연결 확인"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "client_time"
+        properties:
+          type:
+            const: "connection.ping"
+          client_time:
+            type: "string"
+            format: "date-time"
+        additionalProperties: false
+    EventAck:
+      name: "event.ack"
+      title: "마지막 적용 sequence 진단"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "subscription_id"
+          - "sequence"
+        properties:
+          type:
+            const: "event.ack"
+          subscription_id:
+            type: "string"
+            format: "uuid"
+          sequence:
+            type: "integer"
+            format: "int64"
+            minimum: 0
+        additionalProperties: false

@@ -1,8 +1,8 @@
 # 이코빌리지 WebSocket 명세
 
-- 버전: v0.1
+- 버전: v0.2
 - 기준일: 2026-07-29
-- 상태: 채널·이벤트·권한·재연결 계약 확정
+- 상태: 채널·이벤트·권한·재연결·AsyncAPI 3.1 계약 확정
 - 범위: 학생·교사용 앱, 교사 관리 웹, 교실 공용 화면, 핵심 API 실시간 게이트웨이
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [HTTP API 명세](HTTP_API_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
@@ -421,8 +421,8 @@ Gateway가 다음 제어 메시지를 보내고 해당 구독의 도메인 이�
 
 다음 작업:
 
-WebSocket ID의 요구사항 역방향 연결은 [RTM v0.6](RTM.md)에서 완료했습니다.
+WebSocket ID의 요구사항 역방향 연결은 [RTM v0.8](RTM.md)에서 완료했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
-1. OpenAPI 3.1 HTTP 계약과 AsyncAPI 초안 생성
-2. API·이벤트 경계 기준으로 ERD 작성
+1. API·이벤트 경계 기준으로 ERD 작성
+2. AsyncAPI 기반 이벤트 타입·Gateway 인터페이스 생성
 3. 인수 테스트 ID와 개발 백로그 연결
