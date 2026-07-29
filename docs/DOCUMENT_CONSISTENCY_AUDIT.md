@@ -13,6 +13,9 @@
 5. `FUTURE_MODULES_AND_ROADMAP.md`: MVP 이후 후보
 6. `REQUIREMENTS_BASELINE.md`와 `RTM.md`: 추적 기준
 7. `STATE_MACHINES.md`, `PERMISSION_MATRIX.md`, `SCREEN_SPEC.md`: 상태·권한·화면 설계 기준
+8. `API_COMMON_RULES.md`: 인증·응답·오류·멱등성·동시성·시간·금액 구현 계약
+9. `HTTP_API_SPEC.md`: 화면 행동별 HTTP 명령·조회·오류 계약
+10. `WEBSOCKET_SPEC.md`: 실시간 채널·이벤트·공개 projection·재연결 계약
 
 같은 주제의 내용이 다르면 위 순서의 상세 문서를 우선하고 README를 함께 수정합니다.
 
@@ -46,6 +49,7 @@
 | C-24 | AI 결과의 공용 화면 권한 | PM-AI-002의 DSP 표기 `공개후`가 미정의이며 명령 권한으로 오해 가능 | DSP의 AI 초안 명령은 금지하고 승인된 활동의 공개 스키마만 구독 | PM-AI-002·PM-DSP-001 경계 명확화 |
 | C-25 | 보존기간 기준 시점 | 학생·교사 조회와 기록 보관의 시작 시점이 혼재 | READ_ONLY 전환 시각을 학급 데이터 보존 기준으로 통일, 삭제 후 백업 최대 30일 | 데이터·상태·권한·화면 문서 통일 |
 | C-26 | AI 데이터 충분성 문구 | 상태 머신에서 학생 수 기준의 `미만` 누락 | 학생 5명 미만 또는 관련 거래 10건 미만 | 상태 머신 문구 수정 |
+| C-27 | 세션 적용 대상 | RTM에서 다른 기기 로그인 시 기존 세션 종료를 학생·교사 모두에 적용 | 기준 요구사항대로 학생 태블릿 세션에 적용하고 교사는 앱·웹 동시 사용 허용 | RTM AUTH-003·API 공통 규칙 통일 |
 
 ## 3. 의도적으로 유지한 차이
 
@@ -59,7 +63,7 @@
 
 다음은 제품 정책 충돌이 아니라 후속 설계 작업입니다.
 
-- HTTP API와 WebSocket 이벤트
+- OpenAPI 3.1·AsyncAPI 계약
 - 데이터 모델과 마이그레이션
 - 인수 테스트와 백로그
 
@@ -70,3 +74,9 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 역할·리소스·상태별 권한은 [역할·권한 매트릭스](PERMISSION_MATRIX.md)에서 관리합니다.
 
 역할·상태별 화면·행동과 공개 화면 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)에서 관리합니다.
+
+인증·응답·오류·멱등성·동시성·시간·금액 계약은 [API 공통 규칙](API_COMMON_RULES.md)에서 관리합니다.
+
+화면 행동별 HTTP 명령·조회·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 관리합니다.
+
+실시간 채널·이벤트·공개 projection·재연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 관리합니다.

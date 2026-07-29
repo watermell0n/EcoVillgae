@@ -399,7 +399,7 @@ flowchart LR
 | --- | --- |
 | `screen_id` | 요청이 발생한 화면 추적 |
 | `ui_action_id` | 주요 버튼·행동 추적 |
-| `request_id` | 멱등성·중복 탭 통제 |
+| `request_id` | 변경 요청의 `Idempotency-Key`로 전달해 멱등성·중복 탭 통제 |
 | `classroom_id` | 학급 범위 판정 |
 | `resource_id` | 거래·상품·금융·퀴즈·활동 대상 |
 | `expected_state_version` | 상태 충돌 감지 |
@@ -407,12 +407,14 @@ flowchart LR
 
 `screen_id`와 `ui_action_id`는 권한 증명이 아니며 변조돼도 권한이 상승하지 않아야 합니다.
 
+공통 헤더·응답·오류·시간·금액 형식은 [API 공통 규칙](API_COMMON_RULES.md)을 따릅니다.
+
 ## 10. 후속 설계 순서
 
-1. 각 `UIA-*`에 HTTP 명령 API·응답·오류 코드를 연결합니다.
-2. `GUIDED`, 퀴즈·투표·시장 상태에 WebSocket 채널·이벤트 ID를 연결합니다.
-3. 조회 화면별 공개 DTO와 역할별 필드 마스킹을 정의합니다.
-4. 화면·권한·상태 조합의 인수 테스트 ID를 RTM에 연결합니다.
-5. 그다음 엔티티·원장·상태 이력 데이터 구조를 설계합니다.
+각 `UIA-*`의 HTTP 명령·응답·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md), `GUIDED`·퀴즈·투표·시장 실시간 연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
+
+1. OpenAPI·AsyncAPI 계약을 생성합니다.
+2. 화면·권한·상태 조합의 인수 테스트 ID를 RTM에 연결합니다.
+3. 그다음 엔티티·원장·상태 이력 데이터 구조를 설계합니다.
 
 ERD는 화면·API 경계를 확정한 뒤 진행합니다.
