@@ -421,7 +421,7 @@ Gateway가 다음 제어 메시지를 보내고 해당 구독의 도메인 이�
 
 다음 작업:
 
-WebSocket ID의 요구사항 역방향 연결은 [RTM v1.2](RTM.md), 이벤트 저장 구조와 outbox·stream DDL은 [논리 데이터 모델](DATA_MODEL.md), [물리 스키마](PHYSICAL_SCHEMA.md), Flyway에 반영했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
+WebSocket ID의 요구사항 역방향 연결은 [RTM v1.3](RTM.md), 이벤트 저장 구조와 outbox·stream DDL은 [논리 데이터 모델](DATA_MODEL.md), [물리 스키마](PHYSICAL_SCHEMA.md), Flyway에 반영했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
 1. outbox publisher의 미발행 재시도·replay·Gateway 통합 테스트
 2. AsyncAPI 기반 이벤트 타입·Gateway 인터페이스 생성

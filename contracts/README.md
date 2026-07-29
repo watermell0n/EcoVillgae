@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [openapi.yaml](openapi.yaml) | 106개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
 | [asyncapi.yaml](asyncapi.yaml) | 10개 논리 채널·48개 서버 이벤트·4개 연결 제어 메시지 계약 | [WebSocket 명세](../docs/WEBSOCKET_SPEC.md) |
+| [api-field-mapping.json](api-field-mapping.json) | 106개 작업의 MVP/후속 분류와 요청·응답 필드·저장 경계 | [API·스키마 정합성 검토](../docs/reviews/API_SCHEMA_FIELD_AUDIT.md) |
 
 ## 적용 순서
 
@@ -22,6 +23,7 @@
 ```powershell
 node scripts/generate-contracts.mjs
 node scripts/validate-contract-coverage.mjs
+node scripts/validate-api-schema-consistency.mjs
 pnpm --package=@redocly/cli dlx redocly lint contracts/openapi.yaml
 pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 ```
@@ -31,6 +33,8 @@ pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 - OpenAPI 작업 106건, API ID·메서드·경로 중복 0건
 - AsyncAPI 논리 채널 10건, 이벤트 ID·`event_type` 중복 0건
 - 사람이 읽는 명세와 계약 파일 사이 API·채널·이벤트 ID 누락 0건
+- MVP·필수 지원 API 65건의 명시적 strict DTO와 저장·조회 경계
+- 후속 API 41건의 `planned` 상태
 
 ## 구현 경계
 

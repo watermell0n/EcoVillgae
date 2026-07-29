@@ -6,9 +6,9 @@
 
 ## 1. 현재 진행상황
 
-저장소 기준으로 공통 환경 설정, OpenAPI·AsyncAPI 계약, 83개 테이블의 Flyway
-`V1_1`~`V1_10`, DBT-001~018 구현이 완료되었습니다. Docker 사용 Jenkins의
-Testcontainers 19개 전체 실행, 계약 필드와 저장·projection 매핑, 앱·웹·AI
+저장소 기준으로 공통 환경 설정, OpenAPI·AsyncAPI 계약, API 필드 매핑, 85개 테이블의 Flyway
+`V1_1`~`V1_11`, DBT-001~019 구현이 완료되었습니다. Docker 사용 Jenkins의
+Testcontainers 20개 전체 실행, 계약 기반 인터페이스 생성, 앱·웹·AI
 서비스 구현과 서비스·E2E 인수 테스트가 남아 있습니다.
 
 Jira 상태와 작업 수는 수시로 바뀌므로 이 문서에 고정하지 않습니다. 담당자는 작업

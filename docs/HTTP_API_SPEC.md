@@ -1,8 +1,8 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.4
-- 기준일: 2026-07-29
-- 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1 계약 연결 완료
+- 버전: v0.5
+- 기준일: 2026-07-30
+- 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1·API 필드 저장 매핑 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
@@ -63,7 +63,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
-| API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, reason` → 일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST` | AUTH-006 |
+| API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
 
 ### 3.1 세션 지원 API
 
@@ -319,12 +319,13 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 - 세션 지원 API: 4개
 - 조회 API: 34개
 - 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 106개 작업
-- 아직 남은 항목: 저장·projection 필드 매핑, 인수 테스트 ID
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) PASS, MVP 65개 strict·후속 41개 planned
+- 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v1.2](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v1.3](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [API 필드 매핑](../contracts/api-field-mapping.json)입니다.
 
-1. OpenAPI 요청·응답과 저장·projection 필드 매핑
-2. OpenAPI 기반 TypeScript 클라이언트·Spring 인터페이스 생성
-3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
+1. OpenAPI·[필드 매핑](../contracts/api-field-mapping.json) 기반 TypeScript 클라이언트·Spring 인터페이스 생성
+2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
+3. 후속 작업을 MVP로 승격할 때 `planned` 계약을 strict DTO로 전환

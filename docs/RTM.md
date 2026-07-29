@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v1.2
-- 기준일: 2026-07-29
+- 버전: v1.3
+- 기준일: 2026-07-30
 - 상태: 요구사항·계약·논리·물리 설계와 Flyway·DB 무결성 테스트 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v1.2는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_10`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_11`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -293,41 +293,42 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 요구사항 영역 | 논리 집계 루트 | 핵심 엔티티 |
 | --- | --- | --- |
 | 플랫폼·인증 | `classrooms` | 전역 `classroom_code`, `users`, `school_memberships`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links` |
-| 경제교실·코스 | `classrooms` | `course_template_versions`, `classroom_modules`, `classroom_policy_versions`, `autonomous_schedules`, `activity_sessions` |
+| 경제교실·코스 | `classrooms` | `course_template_versions`, `classroom_modules`, `classroom_policy_versions`, `autonomous_schedules`, `autonomous_schedule_modules`, `salary_roles`, `activity_sessions` |
 | 경제·개인거래 | `transaction_groups`, `store_orders`, `trades` | `ledger_accounts`, `ledger_entries`, `policy_snapshots`, `store_*`, `inventory_items`, `trade_*` |
 | 금융 | `deposit_accounts`, `savings_accounts`, `investment_markets`, `loans` | `financial_product_versions`, `savings_installments`, `investment_*`, `loan_*`, `credit_profiles`, `credit_events` |
 | 퀴즈·투표 | `activity_sessions` | `quiz_*`, `votes`, `vote_options`, `vote_eligibilities`, `vote_ballots` |
-| AI | `ai_runs` | `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts` |
+| AI | `ai_runs` | `school_ai_setting_versions`, `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts` |
 | 데이터·운영 | `audit_events`, `async_operations` | `report_snapshots`, `export_operations`, `idempotency_records`, `outbox_events`, `state_transitions` |
 
-세부 관계와 불변 규칙은 DM-001~DM-013 및 6개 ERD로 정의했습니다. 모든 78개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
+세부 관계와 불변 규칙은 DM-001~DM-014 및 6개 ERD로 정의했습니다. 모든 78개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
 
 ## 13. 물리 데이터 모델 커버리지
 
 | 항목 | 결과 | 검증 |
 | --- | ---: | --- |
-| 논리 엔티티 | 83 | 6개 ERD에서 추출 |
-| 물리 테이블 | 83 | 논리 엔티티와 1:1 매핑 |
-| 부분·핵심 유일성 | 15 | UK-001~015와 `classroom_code` 전역 UQ |
-| 검사 제약 | 36 | CK-001~036 |
-| 조회 인덱스 | 36 | IX-001~036 |
-| DB 인수 기준 | 18 | DBT-001~018 |
+| 논리 엔티티 | 85 | 6개 ERD에서 추출 |
+| 물리 테이블 | 85 | 논리 엔티티와 1:1 매핑 |
+| 부분·핵심 유일성 | 18 | UK-001~018과 `classroom_code` 전역 UQ |
+| 검사 제약 | 39 | CK-001~039 |
+| 조회 인덱스 | 37 | IX-001~037 |
+| DB 인수 기준 | 19 | DBT-001~019 |
 
-물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 83개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
+물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 85개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
 ### 13.1 실행 구현 연결
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P10 | `backend/src/main/resources/db/migration/V1_1~V1_10` | 83개 테이블과 학급 식별·공개 순위 보강 |
-| 기준 조회 인덱스 | `V1_9__indexes.sql` | IX-001~036 |
+| Flyway P1~P11 | `backend/src/main/resources/db/migration/V1_1~V1_11` | 85개 테이블과 학급 식별·공개 순위·MVP 필드 보강 |
+| 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
-| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~018 + 테이블 수 검사 |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~019 + 테이블 수 검사 |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 65개 strict, 후속 41개 planned |
 
-Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_10`
-직접 적용·제약 검증은 성공했습니다. Testcontainers 19개 전체 실행은 Docker 사용
+Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_11`
+직접 적용·제약 검증은 성공했습니다. Testcontainers 20개 전체 실행은 Docker 사용
 가능 Jenkins 에이전트의 결과를 최종 PASS 기준으로 삼습니다.
 
 ## 14. 커버리지 요약
@@ -348,9 +349,10 @@ Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_1
 ## 15. 다음 갱신
 
 1. Jenkins PostgreSQL 17 Testcontainers 전체 실행 결과 연결
-2. OpenAPI 필드·저장·projection 매핑 연결
+2. [API 필드 매핑](../contracts/api-field-mapping.json) 기반 인터페이스 생성
 3. 서비스 인수 테스트 ID 연결
-4. 개발 백로그·구현 커밋 연결
+4. `planned` API 승격 시 저장 모델·strict DTO 추가
+5. 개발 백로그·구현 커밋 연결
 
 논리 ERD·물리 스키마·Flyway·DB 무결성 테스트 코드는 역할·권한·화면·API 경계를
 기준으로 완료했습니다.

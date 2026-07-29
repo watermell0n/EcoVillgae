@@ -74,10 +74,10 @@ function validateSequentialIds(prefix, expectedCount) {
   }
 }
 
-validateSequentialIds("UK", 15);
-validateSequentialIds("CK", 36);
-validateSequentialIds("IX", 36);
-validateSequentialIds("DBT", 18);
+validateSequentialIds("UK", 18);
+validateSequentialIds("CK", 39);
+validateSequentialIds("IX", 37);
+validateSequentialIds("DBT", 19);
 
 const requiredRules = [
   "UNIQUE (classroom_id, id)",
@@ -89,7 +89,7 @@ const requiredRules = [
   "policy_snapshots",
   "published_at IS NULL",
   "UUID v7",
-  "DBT-018",
+  "DBT-019",
 ];
 for (const rule of requiredRules) {
   if (!physical.includes(rule)) {
@@ -115,5 +115,5 @@ if (errors.length > 0) {
 
 console.log(
   `Physical schema validation PASS: ${physicalTables.length} tables, ` +
-    "15 core uniqueness rules, 36 checks, 36 indexes, 18 DB tests",
+    "18 core uniqueness rules, 39 checks, 37 indexes, 19 DB tests",
 );
