@@ -43,7 +43,6 @@ MVP 범위는 초등학교 4~6학년이며 상점·캐릭터·개인거래·예�
 
 ```mermaid
 erDiagram
-    SCHOOLS ||--o{ USERS : has
     USERS ||--o{ SCHOOL_MEMBERSHIPS : receives
     SCHOOLS ||--o{ SCHOOL_MEMBERSHIPS : scopes
     SCHOOLS ||--o{ CLASSROOMS : operates
@@ -672,20 +671,17 @@ erDiagram
 | DAT-001~006 | `report_snapshots`, `export_operations`, `audit_events`, `idempotency_records`, 보관기한 컬럼 |
 | SYS-003 | `realtime_streams`, `outbox_events`, `async_operations` |
 
-## 11. 물리 스키마로 넘길 검증 항목
+## 11. 물리 스키마 검증 결과
 
-1. 모든 학급 범위 외래키가 동일 `classroom_id`를 강제하는지 확인합니다.
-2. 소유 교사 1명, 학생 번호·닉네임, 활성 학생 세션, 지갑, 투표권의 유일성을 확인합니다.
-3. 거래 그룹 합계 0, 전후 잔액, 계정 sequence와 완료 후 불변성을 DB 제약·트리거로 강제합니다.
-4. 상태 머신별 허용 전이를 애플리케이션과 DB 검사 함수 중 어디에서 강제할지 구분합니다.
-5. 상품·정책·금융·퀴즈 버전이 실행 기록에서 불변 참조되는지 확인합니다.
-6. API 응답 필드가 어느 기준 테이블 또는 projection에서 생성되는지 매핑합니다.
-7. 공용 화면 projection이 개인 테이블을 직접 조회하지 않도록 별도 query 경계를 정의합니다.
-8. 보관기간 종료 시 식별 연결 삭제와 원장·감사 보존이 동시에 만족되는지 확인합니다.
+1. 83개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 83개 테이블에 1:1 매핑했습니다.
+2. 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
+3. 거래 그룹 합계 0, 전후 잔액, 계정 sequence와 완료 후 불변성을 지연 제약 트리거로 설계했습니다.
+4. 상태 전이는 서비스가 판정하고 DB는 상태 집합·결과 무결성·불변성을 강제하도록 책임을 구분했습니다.
+5. 상품·정책·금융·퀴즈·투자 버전의 불변 참조와 공개 projection 경계를 정의했습니다.
+6. 보관기한·식별 연결 제거와 원장·감사 보존 기준을 확정했습니다.
 
 ## 12. 후속 작업
 
-1. [물리 스키마](PHYSICAL_SCHEMA.md)에 PostgreSQL 테이블·컬럼·자료형·NULL·기본값을 확정합니다.
-2. 인덱스·복합 외래키·부분 유일 인덱스·불변 원장 트리거를 정의합니다.
+1. [물리 스키마](PHYSICAL_SCHEMA.md) 기준 Flyway `V1_1`~`V1_9` DDL을 작성합니다.
+2. DBT-001~017 Testcontainers 무결성 테스트를 자동화합니다.
 3. OpenAPI 요청·응답 필드와 실제 저장·projection 필드를 교차 검증합니다.
-4. Flyway 초기 migration과 Testcontainers 기반 무결성 테스트를 작성합니다.

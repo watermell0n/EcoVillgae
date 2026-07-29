@@ -1,99 +1,530 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.1-draft
+- 버전: v0.1
 - 기준일: 2026-07-29
+- 기준 Git 커밋: `a71f80d`
 - 입력: [논리 데이터 모델 v0.1](DATA_MODEL.md)
-- 상태: 논리 ERD 완료 후 물리 설계 진행 예정
+- 상태: MVP 물리 테이블·인덱스·제약조건 기준선
 - 대상: PostgreSQL 17, Flyway migration
 
-## 1. 이 문서의 현재 범위
+## 1. 목적과 범위
 
-이 문서는 논리 ERD를 실제 테이블로 변환할 때 사용할 공통 규칙과 작업 순서를 먼저 고정합니다. 테이블별 전체 컬럼·인덱스·DDL은 논리 ERD 검토가 끝난 뒤 이 문서에 추가합니다.
+이 문서는 논리 ERD의 83개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-## 2. 공통 자료형
+이 단계에서는 실제 Flyway DDL 파일을 만들지 않습니다. 후속 구현은 이 문서의 식별자와 제약조건을 그대로 사용하여 `V1_1`~`V1_9` migration과 Testcontainers 무결성 테스트를 작성합니다.
 
-| 논리 값 | PostgreSQL 자료형 | 규칙 |
+MVP 밖의 중학생 코스, 자리·부동산, 보험, 주거·청약 테이블은 만들지 않습니다.
+
+## 2. 명명·자료형·시간 규칙
+
+### 2.1 명명
+
+- 스키마: 기본 `public`, 운영 분리가 필요하면 `ecovillage`
+- 테이블·컬럼·인덱스·제약조건: `snake_case`
+- 기본키: `id`
+- 외래키: `{참조 단수명}_id`
+- 유일 제약: `uq_{table}_{핵심컬럼}`
+- 외래키: `fk_{child}_{parent}`
+- 검사 제약: `ck_{table}_{rule}`
+- 일반 인덱스: `ix_{table}_{핵심컬럼}`
+- 부분 유일 인덱스: `ux_{table}_{핵심컬럼}_{조건}`
+- 트리거: `trg_{table}_{purpose}`
+
+### 2.2 자료형
+
+| 의미 | PostgreSQL 자료형 | 규칙 |
 | --- | --- | --- |
-| 식별자 | `uuid` | 애플리케이션에서 생성, 외부 노출 가능 |
-| 금액 | `bigint` | 최소 화폐 단위 정수, 학생 지갑 음수 금지 |
-| 세율·금리·비율 | `integer` | basis point, 허용 범위 `CHECK` 적용 |
-| 수량·순번 | `integer` 또는 `bigint` | 음수 금지, 원장 sequence는 `bigint` |
-| 상태 | `varchar(40)` | 애플리케이션 enum과 DB `CHECK`를 함께 관리 |
-| 서버 시각 | `timestamptz` | UTC 저장 |
-| 운영 날짜 | `date` | 실제 학급 시작일·종료일 |
-| 유연한 정책·스냅샷 | `jsonb` | `schema_version`과 해시를 함께 저장 |
-| 비밀번호 | `text` | 단방향 해시만 저장 |
-| 이벤트·요청 해시 | `varchar(128)` | 원문 비밀값을 저장하지 않음 |
+| 식별자 | `uuid` | 애플리케이션에서 UUID v7 생성 |
+| 금액 | `bigint` | 최소 화폐 단위 정수, 부동소수점 금지 |
+| 세율·금리·비율 | `integer` | basis point, `100=1%`, `10000=100%` |
+| 수량·횟수 | `integer` | 음수 금지 |
+| 원장·이벤트 순번 | `bigint` | 1부터 단조 증가 |
+| 상태·종류·코드 | `varchar(40)` | 대문자 `SNAKE_CASE`, `CHECK` 적용 |
+| 이름·표시 문자열 | `varchar(120)` | 닉네임은 `varchar(40)` |
+| 긴 설명 | `text` | 길이 제한이 필요한 입력은 애플리케이션도 검증 |
+| 서버 시각 | `timestamptz` | UTC 저장, API에서 ISO 8601 출력 |
+| 운영 날짜 | `date` | 학급 실제 시작일·종료일 |
+| 현지 시각 | `time` | 자율 이용 반복 일정에만 사용 |
+| 정책·스냅샷 | `jsonb` | `schema_version` 또는 해시와 함께 저장 |
+| 해시 | `varchar(128)` | SHA-256은 64자 hex, 공급자 확장 고려 |
+| 비밀번호 | `text` | Argon2id 등 단방향 해시만 저장 |
+| 외부 파일 키 | `varchar(512)` | S3 object key, 공개 URL 저장 금지 |
 
-## 3. 공통 컬럼
+### 2.3 공통 컬럼 집합
 
-상태 보유 테이블:
+아래 표의 `G`, `S`, `I`는 4장의 테이블 사전에서 반복 컬럼을 생략하기 위한 표기입니다. `추가 컬럼`과 합친 결과가 해당 테이블의 전체 컬럼입니다.
 
-```text
-id uuid primary key
-classroom_id uuid not null
-status varchar(40) not null
-state_version bigint not null default 0
-status_changed_at timestamptz not null
-created_at timestamptz not null
-updated_at timestamptz not null
+#### `G`: 일반 변경 엔티티
+
+| 컬럼 | 자료형 | NULL | 기본값 |
+| --- | --- | --- | --- |
+| `id` | `uuid` | N | 없음, PK |
+| `created_at` | `timestamptz` | N | `now()` |
+| `updated_at` | `timestamptz` | N | `now()` |
+
+#### `S`: 학급 범위 상태 엔티티
+
+| 컬럼 | 자료형 | NULL | 기본값 |
+| --- | --- | --- | --- |
+| `id` | `uuid` | N | 없음, PK |
+| `classroom_id` | `uuid` | N | 없음 |
+| `status` | `varchar(40)` | N | 없음 |
+| `state_version` | `bigint` | N | `0` |
+| `status_changed_at` | `timestamptz` | N | `now()` |
+| `created_at` | `timestamptz` | N | `now()` |
+| `updated_at` | `timestamptz` | N | `now()` |
+
+#### `I`: 학급 범위 불변 이력
+
+| 컬럼 | 자료형 | NULL | 기본값 |
+| --- | --- | --- | --- |
+| `id` | `uuid` | N | 없음, PK |
+| `classroom_id` | `uuid` | N | 없음 |
+| `created_at` | `timestamptz` | N | `now()` |
+
+### 2.4 NULL·삭제·갱신 원칙
+
+- `N`은 `NOT NULL`, `Y`는 NULL 허용입니다.
+- PK는 항상 `NOT NULL`입니다.
+- `created_at`은 수정하지 않습니다.
+- 상태 엔티티의 갱신 시 `updated_at`과 `state_version`을 함께 증가시킵니다.
+- 불변 이력 `I`에는 `updated_at`을 두지 않습니다.
+- 운영 데이터는 기본적으로 물리 삭제하지 않고 상태와 보관기한을 사용합니다.
+- `ON DELETE CASCADE`는 게시 전 구성요소와 아직 커밋되지 않은 종속 초안에만 허용합니다.
+- 거래·원장·감사·게시 버전은 `ON DELETE RESTRICT`를 사용합니다.
+
+## 3. 학급 격리와 외래키 패턴
+
+### 3.1 학급 범위 복합키
+
+모든 `S`·`I` 테이블과 별도로 `classroom_id`를 갖는 테이블은 다음 키를 추가합니다.
+
+```sql
+UNIQUE (classroom_id, id)
 ```
 
-불변 이력 테이블:
+학급 범위 부모를 참조하는 자식은 단일 FK 대신 다음 복합 FK를 사용합니다.
 
-```text
-id uuid primary key
-classroom_id uuid not null
-created_at timestamptz not null
+```sql
+FOREIGN KEY (classroom_id, parent_id)
+REFERENCES parent_table (classroom_id, id)
+ON DELETE RESTRICT
 ```
 
-불변 이력 테이블에는 일반적인 `updated_at`을 두지 않습니다.
+이 규칙으로 다른 학급의 학생·거래·상품·금융계좌·활동을 참조하는 오류를 DB에서 차단합니다.
 
-## 4. 테이블 구현 순서
+### 3.2 전역 참조
 
-| 단계 | 테이블 묶음 | 선행 조건 |
+다음 테이블은 학급 밖의 전역 기준정보이므로 단일 UUID FK를 허용합니다.
+
+- `schools`
+- `users`
+- `course_templates`
+- `course_template_versions`
+- `character_catalog`
+
+### 3.3 다형 참조
+
+`audit_events.target_id`, `state_transitions.aggregate_id`, `transaction_business_refs.ref_id`처럼 여러 테이블을 가리키는 감사·추적용 참조에는 물리 FK를 만들지 않습니다. 대신 `{type, id}`를 함께 저장하고 서비스·감사 검증 작업에서 존재 여부를 확인합니다.
+
+금액·소유권의 기준 참조에는 다형 FK를 사용하지 않습니다. 예를 들어 `ledger_accounts`는 학생 계정과 시스템 계정을 별도 컬럼과 XOR `CHECK`로 구분합니다.
+
+## 4. 테이블·컬럼 데이터 사전
+
+표기:
+
+- `G`, `S`, `I`: 2.3의 공통 컬럼 전체 포함
+- `FK(table)`: 참조 테이블
+- `UQ`: 유일성
+- `D=value`: 기본값
+- 컬럼 뒤 `?`: NULL 허용
+- 별도 표시가 없으면 추가 컬럼은 `NOT NULL`
+
+<!-- TABLES:START -->
+
+### 4.1 학교·사용자·학급·인증
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `schools` | G | `school_code varchar(40)`, `name varchar(120)`, `status varchar(40) D=ACTIVE` | `school_code UQ`, 상태 `ACTIVE·INACTIVE` |
+| `users` | G | `external_subject varchar(128)`, `display_name varchar(120)`, `user_type varchar(40)`, `status varchar(40) D=ACTIVE` | `external_subject UQ`, 학생 계정은 저장하지 않음 |
+| `school_memberships` | G | `school_id uuid FK(schools)`, `user_id uuid FK(users)`, `role varchar(40)`, `status varchar(40) D=ACTIVE`, `assigned_at timestamptz D=now()`, `ended_at timestamptz?` | 활성 `(school_id,user_id,role)` UQ |
+| `course_templates` | G | `template_code varchar(40)`, `name varchar(120)`, `grade_min smallint`, `grade_max smallint`, `scale_label varchar(20)`, `status varchar(40) D=DRAFT` | `template_code UQ`, 학년 4~6 |
+| `course_template_versions` | G | `course_template_id uuid FK(course_templates)`, `version integer`, `difficulty_profile jsonb D={}`, `status varchar(40)`, `published_at timestamptz?`, `retired_at timestamptz?` | `(course_template_id,version) UQ`, 게시 후 불변 |
+| `course_template_modules` | G | `course_template_version_id uuid FK(course_template_versions)`, `module_code varchar(40)`, `recommendation_level varchar(40)`, `sort_order integer D=0`, `config_json jsonb D={}` | `(course_template_version_id,module_code) UQ` |
+| `classrooms` | S | `school_id uuid FK(schools)`, `course_template_version_id uuid? FK(course_template_versions)`, `classroom_code varchar(40)`, `grade smallint`, `scale_label varchar(20)`, `actual_starts_on date?`, `actual_ends_on date?`, `app_mode_override varchar(40)?`, `time_zone varchar(60) D=Asia/Seoul` | `(school_id,classroom_code) UQ`, SM-CLS-001 |
+| `classroom_teachers` | I | `user_id uuid FK(users)`, `role varchar(40)`, `assigned_at timestamptz D=now()`, `ended_at timestamptz?` | 활성 OWNER 1명, 활성 `(classroom_id,user_id,role)` UQ |
+| `classroom_students` | S | `salary_role_id uuid? FK(salary_roles)`, `roster_number integer`, `nickname varchar(40)`, `joined_at timestamptz D=now()`, `retired_at timestamptz?` | `(classroom_id,roster_number) UQ`, `(classroom_id,lower(nickname)) UQ` |
+| `student_credentials` | 없음 | `classroom_student_id uuid PK FK(classroom_students)`, `classroom_id uuid`, `password_hash text`, `credential_version bigint D=1`, `changed_at timestamptz D=now()` | 학급 복합 FK, 로그인 실패 횟수·잠금 컬럼 없음 |
+| `student_sessions` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `device_link_id uuid? FK(device_links)`, `token_hash varchar(128)`, `status varchar(40)`, `expires_at timestamptz`, `revoked_at timestamptz?` | `token_hash UQ`, 학생별 ACTIVE 1개 |
+| `device_links` | S | `classroom_student_id uuid FK(classroom_students)`, `device_fingerprint_hash varchar(128)`, `device_name varchar(120)?`, `linked_at timestamptz D=now()`, `last_seen_at timestamptz?`, `revoked_at timestamptz?` | `(classroom_student_id,device_fingerprint_hash) UQ` |
+| `classroom_modules` | S | `module_code varchar(40)`, `config_json jsonb D={}`, `enabled_at timestamptz?`, `stopped_at timestamptz?` | `(classroom_id,module_code) UQ`, SM-MOD-001 |
+| `classroom_policy_versions` | I | `policy_area varchar(40)`, `version integer`, `values jsonb`, `schema_version varchar(20)`, `source varchar(40)`, `status varchar(40)`, `effective_from timestamptz`, `superseded_at timestamptz?` | `(classroom_id,policy_area,version) UQ`, 적용 후 불변 |
+| `autonomous_schedules` | S | `day_of_week smallint`, `local_start_time time`, `local_end_time time`, `time_zone varchar(60) D=Asia/Seoul`, `enabled boolean D=true` | `(classroom_id,day_of_week,local_start_time) UQ`, 종료>시작 |
+| `salary_roles` | S | `name varchar(80)`, `gross_amount bigint`, `deductions_json jsonb D={}`, `sort_order integer D=0` | `(classroom_id,lower(name)) UQ`, 금액 0 이상 |
+| `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
+
+### 4.2 거래 원장·멱등성·상태·이벤트·감사
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `ledger_accounts` | S | `owner_type varchar(40)`, `classroom_student_id uuid? FK(classroom_students)`, `system_owner_key varchar(80)?`, `account_type varchar(40)`, `current_balance bigint D=0`, `next_entry_sequence bigint D=1` | 학생/시스템 소유 XOR, 학생 지갑·공동기금 부분 UQ |
+| `transaction_groups` | S | `transaction_type varchar(40)`, `actor_type varchar(40)`, `actor_id uuid?`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `recovery_of_group_id uuid? FK(transaction_groups)`, `root_transaction_group_id uuid? FK(transaction_groups)`, `request_id varchar(128)`, `correlation_id varchar(128)`, `reason text?`, `committed_at timestamptz?`, `rejected_at timestamptz?` | SM-TXN-001, 복구 관계 순환 금지 |
+| `ledger_entries` | I | `transaction_group_id uuid FK(transaction_groups)`, `ledger_account_id uuid FK(ledger_accounts)`, `account_sequence bigint`, `amount bigint`, `balance_before bigint`, `balance_after bigint` | `(ledger_account_id,account_sequence) UQ`, 전후 잔액 산식 |
+| `policy_snapshots` | I | `snapshot_hash varchar(128)`, `schema_version varchar(20)`, `calculated_values jsonb`, `rounding_rule varchar(40)` | `(classroom_id,snapshot_hash) UQ`, 생성 후 불변 |
+| `policy_snapshot_sources` | I | `policy_snapshot_id uuid FK(policy_snapshots)`, `source_type varchar(40)`, `source_id uuid`, `source_version integer`, `source_hash varchar(128)` | `(policy_snapshot_id,source_type,source_id) UQ` |
+| `transaction_business_refs` | I | `transaction_group_id uuid FK(transaction_groups)`, `ref_type varchar(40)`, `ref_id uuid` | `(transaction_group_id,ref_type,ref_id) UQ` |
+| `transaction_inquiries` | S | `transaction_group_id uuid FK(transaction_groups)`, `classroom_student_id uuid FK(classroom_students)`, `question text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | 상태 `OPEN·ANSWERED·CLOSED` |
+| `idempotency_records` | I | `actor_id uuid`, `route_key varchar(160)`, `idempotency_key varchar(128)`, `request_hash varchar(128)`, `response_status integer`, `response_body jsonb`, `transaction_group_id uuid? FK(transaction_groups)`, `expires_at timestamptz` | `(classroom_id,actor_id,route_key,idempotency_key) UQ` |
+| `state_transitions` | I | `aggregate_type varchar(40)`, `aggregate_id uuid`, `previous_status varchar(40)?`, `next_status varchar(40)`, `command varchar(80)`, `actor_type varchar(40)`, `actor_id uuid?`, `state_version bigint`, `reason_code varchar(80)?`, `reason text?`, `transaction_group_id uuid? FK(transaction_groups)`, `occurred_at timestamptz D=now()` | `(classroom_id,aggregate_type,aggregate_id,state_version) UQ` |
+| `realtime_streams` | S | `stream_type varchar(40)`, `resource_id uuid?`, `next_sequence bigint D=1`, `retention_from_sequence bigint D=1` | `(classroom_id,stream_type,resource_id) UQ |
+| `outbox_events` | 없음 | `event_id uuid PK`, `classroom_id uuid`, `realtime_stream_id uuid FK(realtime_streams)`, `channel_sequence bigint`, `event_type varchar(120)`, `aggregate_type varchar(40)`, `aggregate_id uuid`, `state_version bigint`, `payload jsonb`, `occurred_at timestamptz D=now()`, `published_at timestamptz?`, `publish_attempts integer D=0`, `last_error text?` | `(realtime_stream_id,channel_sequence) UQ`, payload 불변 |
+| `audit_events` | 없음 | `id uuid PK`, `classroom_id uuid? FK(classrooms)`, `transaction_group_id uuid? FK(transaction_groups)`, `actor_type varchar(40)`, `actor_id uuid?`, `action varchar(120)`, `target_type varchar(40)`, `target_id uuid?`, `request_id varchar(128)?`, `correlation_id varchar(128)?`, `before_summary jsonb?`, `after_summary jsonb?`, `occurred_at timestamptz D=now()`, `retention_until timestamptz` | append-only, 비밀값·정답 원문 금지 |
+
+### 4.3 상점·캐릭터·재고·개인거래
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `store_products` | S | `name varchar(120)`, `description text?`, `product_kind varchar(40)`, `created_by_user_id uuid FK(users)` | `(classroom_id,lower(name),product_kind) UQ` |
+| `store_product_versions` | I | `store_product_id uuid FK(store_products)`, `version integer`, `product_kind varchar(40)`, `unit_price bigint`, `vat_rate_bps integer`, `purchasable boolean D=true`, `metadata jsonb D={}`, `published_at timestamptz`, `retired_at timestamptz?` | `(store_product_id,version) UQ`, 게시 후 불변 |
+| `store_stocks` | 없음 | `store_product_id uuid PK FK(store_products)`, `classroom_id uuid`, `available_quantity integer D=0`, `reserved_quantity integer D=0`, `state_version bigint D=0`, `updated_at timestamptz D=now()` | 수량 0 이상 |
+| `store_orders` | S | `classroom_student_id uuid FK(classroom_students)`, `subtotal_amount bigint`, `tax_amount bigint`, `total_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid? FK(transaction_groups)`, `received_at timestamptz?`, `operation_canceled_at timestamptz?` | SM-SHP-001, 금액 산식 |
+| `store_order_items` | I | `store_order_id uuid FK(store_orders)`, `store_product_version_id uuid FK(store_product_versions)`, `quantity integer`, `unit_price bigint`, `vat_rate_bps integer`, `subtotal_amount bigint`, `tax_amount bigint`, `total_amount bigint` | `(store_order_id,store_product_version_id) UQ`, 수량>0 |
+| `character_catalog` | G | `character_code varchar(80)`, `name varchar(120)`, `source_title varchar(200)`, `source_url text`, `rights_status varchar(40)`, `rights_evidence_key varchar(512)`, `reviewed_at timestamptz?`, `status varchar(40)` | `character_code UQ`, 승인 전 판매 금지 |
+| `classroom_characters` | S | `character_catalog_id uuid FK(character_catalog)`, `store_product_id uuid? FK(store_products)`, `display_name varchar(120)`, `sort_order integer D=0` | `(classroom_id,character_catalog_id) UQ` |
+| `inventory_items` | S | `classroom_student_id uuid FK(classroom_students)`, `character_catalog_id uuid FK(character_catalog)`, `source_order_item_id uuid? FK(store_order_items)`, `locked_trade_id uuid? FK(trades)`, `equipped_at timestamptz?`, `acquired_at timestamptz D=now()` | SM-ITM-001, 잠금·장착 일관성 |
+| `trades` | S | `proposer_student_id uuid FK(classroom_students)`, `counterpart_student_id uuid FK(classroom_students)`, `description text?`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `transaction_group_id uuid? FK(transaction_groups)`, `counterpart_decided_at timestamptz?`, `teacher_decided_at timestamptz?`, `expires_at timestamptz?` | SM-TRD-001, 자기거래 금지 |
+| `trade_money_legs` | I | `trade_id uuid FK(trades)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)`, `amount bigint` | `(trade_id,from_student_id,to_student_id) UQ`, 금액>0 |
+| `trade_item_legs` | I | `trade_id uuid FK(trades)`, `inventory_item_id uuid FK(inventory_items)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)` | `(trade_id,inventory_item_id) UQ`, 동일 학생 금지 |
+| `trade_decisions` | I | `trade_id uuid FK(trades)`, `decision_type varchar(40)`, `actor_type varchar(40)`, `actor_id uuid`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | `(trade_id,decision_type) UQ` |
+
+### 4.4 예금·적금·투자·교육용 대출·신용
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `financial_products` | S | `product_type varchar(40)`, `name varchar(120)`, `description text?` | `(classroom_id,product_type,lower(name)) UQ` |
+| `financial_product_versions` | I | `financial_product_id uuid FK(financial_products)`, `version integer`, `product_type varchar(40)`, `term_units integer`, `interest_rate_bps integer`, `early_termination_rate_bps integer`, `installment_count integer?`, `installment_amount bigint?`, `minimum_amount bigint`, `maximum_amount bigint`, `status varchar(40)`, `published_at timestamptz`, `retired_at timestamptz?` | `(financial_product_id,version) UQ`, 게시 후 불변 |
+| `deposit_accounts` | S | `classroom_student_id uuid FK(classroom_students)`, `product_version_id uuid FK(financial_product_versions)`, `principal_amount bigint`, `expected_interest_amount bigint`, `opened_at timestamptz D=now()`, `matures_at timestamptz`, `closed_at timestamptz?`, `opening_transaction_group_id uuid FK(transaction_groups)`, `closing_transaction_group_id uuid? FK(transaction_groups)` | SM-DEP-001 |
+| `savings_accounts` | S | `classroom_student_id uuid FK(classroom_students)`, `product_version_id uuid FK(financial_product_versions)`, `installment_amount bigint`, `installment_count integer`, `paid_installment_count integer D=0`, `principal_balance bigint D=0`, `expected_interest_amount bigint`, `opened_at timestamptz D=now()`, `matures_at timestamptz`, `closed_at timestamptz?`, `opening_transaction_group_id uuid? FK(transaction_groups)`, `closing_transaction_group_id uuid? FK(transaction_groups)` | SM-SAV-001 |
+| `savings_installments` | S | `savings_account_id uuid FK(savings_accounts)`, `installment_number integer`, `scheduled_amount bigint`, `due_at timestamptz`, `retryable_until timestamptz`, `paid_at timestamptz?`, `transaction_group_id uuid? FK(transaction_groups)` | `(savings_account_id,installment_number) UQ`, SM-SAV-002 |
+| `investment_markets` | S | `active_scenario_version_id uuid? FK(investment_scenario_versions)`, `current_step integer D=0`, `opened_at timestamptz?`, `closed_at timestamptz?` | 학급당 1개 UQ, SM-IVT-001 |
+| `investment_scenario_versions` | I | `investment_market_id uuid FK(investment_markets)`, `version integer`, `name varchar(120)`, `scenario_seed varchar(128)?`, `status varchar(40)`, `published_at timestamptz?` | `(investment_market_id,version) UQ`, 게시 후 불변 |
+| `investment_assets` | S | `scenario_version_id uuid FK(investment_scenario_versions)`, `symbol varchar(20)`, `name varchar(120)`, `display_order integer D=0` | `(scenario_version_id,symbol) UQ` |
+| `investment_price_steps` | I | `investment_asset_id uuid FK(investment_assets)`, `step_number integer`, `price bigint`, `change_rate_bps integer`, `revealed_at timestamptz?` | `(investment_asset_id,step_number) UQ`, 가격>0 |
+| `investment_orders` | S | `classroom_student_id uuid FK(classroom_students)`, `investment_asset_id uuid FK(investment_assets)`, `side varchar(10)`, `quantity integer`, `executed_price bigint?`, `executed_price_step integer?`, `transaction_group_id uuid? FK(transaction_groups)`, `submitted_at timestamptz D=now()`, `executed_at timestamptz?`, `reject_reason varchar(80)?` | SM-IVT-002, 정수 수량>0 |
+| `investment_positions` | 없음 | `id uuid PK`, `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `investment_asset_id uuid FK(investment_assets)`, `quantity integer D=0`, `average_price bigint D=0`, `state_version bigint D=0`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | `(classroom_student_id,investment_asset_id) UQ`, 수량 0 이상 |
+| `loan_policy_versions` | I | `version integer`, `maximum_principal bigint`, `interest_rate_bps integer`, `term_units integer`, `installment_count integer`, `grace_units integer D=0`, `credit_adjustments jsonb D={}`, `status varchar(40)`, `effective_from timestamptz`, `superseded_at timestamptz?` | `(classroom_id,version) UQ`, 적용 후 불변 |
+| `loan_applications` | S | `classroom_student_id uuid FK(classroom_students)`, `loan_policy_version_id uuid FK(loan_policy_versions)`, `requested_amount bigint`, `approved_amount bigint?`, `credit_level_snapshot varchar(40)`, `credit_score_snapshot integer`, `decision_reason text?`, `decided_by_user_id uuid? FK(users)`, `decided_at timestamptz?` | 상태 `APPLIED·APPROVED·REJECTED·CANCELED` |
+| `loans` | S | `loan_application_id uuid FK(loan_applications)`, `principal_amount bigint`, `applied_interest_rate_bps integer`, `credit_level_at_approval varchar(40)`, `outstanding_principal bigint`, `outstanding_interest bigint D=0`, `disbursement_transaction_group_id uuid FK(transaction_groups)`, `started_at timestamptz`, `matures_at timestamptz`, `closed_at timestamptz?` | `loan_application_id UQ`, SM-LON-001 실행 이후 상태 |
+| `loan_installments` | S | `loan_id uuid FK(loans)`, `installment_number integer`, `scheduled_principal bigint`, `scheduled_interest bigint`, `due_at timestamptz`, `grace_until timestamptz`, `paid_principal bigint D=0`, `paid_interest bigint D=0`, `paid_at timestamptz?`, `transaction_group_id uuid? FK(transaction_groups)` | `(loan_id,installment_number) UQ`, 금액 0 이상 |
+| `credit_profiles` | 없음 | `classroom_student_id uuid PK FK(classroom_students)`, `classroom_id uuid`, `level varchar(40)`, `score integer`, `state_version bigint D=0`, `evaluated_at timestamptz`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | 점수 0~1000, SM-CRD-001 |
+| `credit_events` | I | `classroom_student_id uuid FK(credit_profiles)`, `event_type varchar(40)`, `score_delta integer`, `score_before integer`, `score_after integer`, `level_before varchar(40)`, `level_after varchar(40)`, `reason text`, `related_type varchar(40)?`, `related_id uuid?`, `occurred_at timestamptz D=now()` | 전후 점수 산식, append-only |
+
+### 4.5 지도 활동·퀴즈·투표
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `activity_sessions` | S | `activity_type varchar(40)`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `created_by_user_id uuid FK(users)`, `public_display_enabled boolean D=false`, `starts_at timestamptz?`, `ends_at timestamptz?` | SM-ACT-001 |
+| `activity_participants` | I | `activity_session_id uuid FK(activity_sessions)`, `classroom_student_id uuid FK(classroom_students)`, `participant_status varchar(40)`, `joined_at timestamptz?`, `completed_at timestamptz?` | `(activity_session_id,classroom_student_id) UQ` |
+| `quiz_questions` | S | `created_by_user_id uuid FK(users)`, `content_type varchar(40)`, `title varchar(160)?` | 문제 컨테이너, 교사 화면 전용 |
+| `quiz_question_versions` | I | `quiz_question_id uuid FK(quiz_questions)`, `version integer`, `content_type varchar(40)`, `question_type varchar(40)`, `status varchar(40)`, `prompt text`, `explanation text?`, `source varchar(40)`, `ai_run_id uuid? FK(ai_runs)`, `published_at timestamptz?`, `retired_at timestamptz?` | `(quiz_question_id,version) UQ`, SM-QST-001 |
+| `quiz_options` | I | `quiz_question_version_id uuid FK(quiz_question_versions)`, `option_key varchar(20)`, `option_text text`, `is_correct boolean`, `sort_order integer` | `(quiz_question_version_id,option_key) UQ`, 정답 1개 이상 |
+| `quiz_sessions` | 없음 | `activity_session_id uuid PK FK(activity_sessions)`, `classroom_id uuid`, `mode varchar(20)`, `content_type varchar(40)`, `reward_policy_public jsonb D={}`, `leaderboard_public boolean D=false`, `status varchar(40)`, `state_version bigint D=0`, `status_changed_at timestamptz D=now()`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | SM-QZS-001 |
+| `quiz_session_questions` | I | `quiz_session_id uuid FK(quiz_sessions)`, `quiz_question_version_id uuid FK(quiz_question_versions)`, `sequence_number integer`, `prompt_snapshot text`, `options_snapshot jsonb`, `correct_answer_snapshot jsonb`, `score_value integer`, `time_limit_seconds integer?` | `(quiz_session_id,sequence_number) UQ`, 실행 후 불변 |
+| `quiz_submissions` | S | `quiz_session_id uuid FK(quiz_sessions)`, `classroom_student_id uuid FK(classroom_students)`, `mode varchar(20)`, `answer_sheet_version integer`, `submitted_at timestamptz?` | `(quiz_session_id,classroom_student_id,answer_sheet_version) UQ` |
+| `quiz_answers` | I | `quiz_submission_id uuid FK(quiz_submissions)`, `quiz_session_question_id uuid FK(quiz_session_questions)`, `selected_option_key varchar(20)?`, `free_text text?`, `is_correct boolean?`, `score_awarded integer?`, `response_time_ms integer?`, `answered_at timestamptz D=now()` | `(quiz_submission_id,quiz_session_question_id) UQ` |
+| `quiz_result_versions` | I | `quiz_session_id uuid FK(quiz_sessions)`, `version integer`, `status varchar(40)`, `reward_transaction_group_id uuid? FK(transaction_groups)`, `published_at timestamptz?`, `supersedes_result_version_id uuid? FK(quiz_result_versions)` | `(quiz_session_id,version) UQ`, 게시 후 불변 |
+| `quiz_student_results` | I | `quiz_result_version_id uuid FK(quiz_result_versions)`, `classroom_student_id uuid FK(classroom_students)`, `score integer`, `correct_count integer`, `rank integer?`, `reward_amount bigint D=0`, `total_response_time_ms bigint?` | `(quiz_result_version_id,classroom_student_id) UQ` |
+| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | SM-QAD-001 |
+| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
+| `votes` | 없음 | `activity_session_id uuid PK FK(activity_sessions)`, `classroom_id uuid`, `title varchar(160)`, `description text?`, `anonymous boolean D=true`, `status varchar(40)`, `state_version bigint D=0`, `opens_at timestamptz?`, `closes_at timestamptz?`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | 상태 `READY·OPEN·CLOSED·RESULT_PUBLISHED` |
+| `vote_options` | I | `vote_id uuid FK(votes)`, `label varchar(160)`, `description text?`, `sort_order integer`, `budget_amount bigint?` | `(vote_id,sort_order) UQ` |
+| `vote_eligibilities` | I | `vote_id uuid FK(votes)`, `classroom_student_id uuid FK(classroom_students)`, `eligibility_token_hash varchar(128)`, `used_at timestamptz?` | `(vote_id,classroom_student_id) UQ`, `(vote_id,eligibility_token_hash) UQ |
+| `vote_ballots` | I | `vote_id uuid FK(votes)`, `vote_option_id uuid FK(vote_options)`, `eligibility_token_hash varchar(128)`, `receipt_hash varchar(128)`, `cast_at timestamptz D=now()` | `(vote_id,eligibility_token_hash) UQ`, `receipt_hash UQ` |
+
+### 4.6 AI·비동기 작업·내보내기·리포트
+
+| 테이블 | 공통 | 추가 컬럼 | 키·상태 |
+| --- | --- | --- | --- |
+| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid FK(users)`, `run_type varchar(40)`, `model_provider varchar(40)`, `model_id varchar(120)`, `prompt_version varchar(40)`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
+| `ai_artifacts` | I | `ai_run_id uuid FK(ai_runs)`, `artifact_type varchar(40)`, `content jsonb`, `schema_version varchar(20)`, `safety_status varchar(40)` | 생성 후 불변 |
+| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED` |
+| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 제안당 최종 결정 1개 UQ |
+| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·APPLIED·CANCELED` |
+| `async_operations` | S | `operation_type varchar(40)`, `requested_by_user_id uuid? FK(users)`, `progress_percent integer D=0`, `result_location varchar(512)?`, `error_code varchar(80)?`, `error_detail text?`, `started_at timestamptz?`, `completed_at timestamptz?`, `expires_at timestamptz?` | 진행률 0~100 |
+| `export_operations` | 없음 | `async_operation_id uuid PK FK(async_operations)`, `classroom_id uuid`, `requested_by_user_id uuid FK(users)`, `export_type varchar(40)`, `filter_snapshot jsonb`, `result_s3_key varchar(512)?`, `retention_until timestamptz`, `created_at timestamptz D=now()` | 비밀 URL 저장 금지 |
+| `report_snapshots` | I | `classroom_student_id uuid? FK(classroom_students)`, `report_type varchar(40)`, `schema_version varchar(20)`, `snapshot jsonb`, `as_of timestamptz`, `retention_until timestamptz` | 개인·학급 리포트 구분, 생성 후 불변 |
+
+<!-- TABLES:END -->
+
+## 5. 유일성·부분 유일 인덱스
+
+| ID | 테이블 | 정의 | 이유 |
+| --- | --- | --- | --- |
+| UK-001 | `classroom_teachers` | `UNIQUE (classroom_id) WHERE role='OWNER' AND ended_at IS NULL` | 소유 교사 정확히 1명 |
+| UK-002 | `classroom_teachers` | `UNIQUE (classroom_id,user_id,role) WHERE ended_at IS NULL` | 활성 역할 중복 방지 |
+| UK-003 | `classroom_students` | `UNIQUE (classroom_id,roster_number) WHERE retired_at IS NULL` | 활성 출석번호 중복 방지 |
+| UK-004 | `classroom_students` | `UNIQUE (classroom_id,lower(nickname)) WHERE retired_at IS NULL` | 활성 닉네임 대소문자 중복 방지 |
+| UK-005 | `student_sessions` | `UNIQUE (classroom_student_id) WHERE status='ACTIVE'` | 학생 활성 세션 1개 |
+| UK-006 | `ledger_accounts` | `UNIQUE (classroom_student_id) WHERE account_type='STUDENT_WALLET' AND status='ACTIVE'` | 학생 지갑 1개 |
+| UK-007 | `ledger_accounts` | `UNIQUE (classroom_id,system_owner_key) WHERE account_type='CLASSROOM_FUND' AND status='ACTIVE'` | 학급 공동기금 1개 |
+| UK-008 | `investment_markets` | `UNIQUE (classroom_id) WHERE status <> 'CLOSED'` | 활성 투자시장 1개 |
+| UK-009 | `classroom_policy_versions` | `UNIQUE (classroom_id,policy_area) WHERE superseded_at IS NULL` | 영역별 현재 적용 정책 1개 |
+| UK-010 | `ai_decisions` | `UNIQUE (ai_proposal_id)` | 제안 최종 결정 1개 |
+
+부분 유일 인덱스는 PostgreSQL `CREATE UNIQUE INDEX`로 구현합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
+
+## 6. 검사 제약조건
+
+| ID | 대상 | 조건 |
 | --- | --- | --- |
-| P1 | 학교·사용자·학급·교사·학생·모듈·정책 | 없음 |
-| P2 | 원장 계정·거래 그룹·원장 항목·멱등성·상태 이력 | P1 |
-| P3 | outbox·실시간 stream·감사 | P1·P2 |
-| P4 | 상점·재고·캐릭터·아이템·개인거래 | P1·P2 |
-| P5 | 예금·적금·투자·대출·신용 | P1·P2 |
-| P6 | 활동·퀴즈·투표 | P1·P2 |
-| P7 | AI 실행·제안·비동기 작업·리포트 | P1·P3 |
+| CK-001 | `classrooms` | `grade BETWEEN 4 AND 6` |
+| CK-002 | `classrooms` | `actual_ends_on IS NULL OR actual_starts_on IS NULL OR actual_ends_on >= actual_starts_on` |
+| CK-003 | `autonomous_schedules` | `day_of_week BETWEEN 1 AND 7 AND local_end_time > local_start_time` |
+| CK-004 | 모든 금액 | 환불이 없으므로 도메인 금액 `>=0`; 원장 `ledger_entries.amount`만 음수 허용 |
+| CK-005 | 모든 rate | 세율·기본 금리 `BETWEEN 0 AND 10000`; 투자 등락률은 `BETWEEN -10000 AND 100000` |
+| CK-006 | `payslips` | `gross_amount=deduction_amount+tax_amount+net_amount` |
+| CK-007 | `ledger_accounts` | 학생 계정과 시스템 계정 컬럼 중 정확히 하나만 존재 |
+| CK-008 | `ledger_accounts` | `account_type='STUDENT_WALLET'`이면 `current_balance>=0` |
+| CK-009 | `ledger_accounts` | `next_entry_sequence>=1` |
+| CK-010 | `ledger_entries` | `amount<>0 AND balance_before+amount=balance_after AND account_sequence>=1` |
+| CK-011 | `transaction_groups` | 복구 거래는 자기 자신을 참조하지 않고 `root_transaction_group_id<>id` |
+| CK-012 | `store_stocks` | `available_quantity>=0 AND reserved_quantity>=0` |
+| CK-013 | `store_orders` | `subtotal_amount+tax_amount=total_amount` |
+| CK-014 | `store_order_items` | `quantity>0`, 금액 산식과 `vat_rate_bps BETWEEN 0 AND 10000` |
+| CK-015 | `inventory_items` | `LOCKED_TRADE`일 때만 `locked_trade_id` 존재, `EQUIPPED`일 때만 `equipped_at` 존재 |
+| CK-016 | `trades` | `proposer_student_id<>counterpart_student_id` |
+| CK-017 | `trade_money_legs` | `amount>0 AND from_student_id<>to_student_id` |
+| CK-018 | `trade_item_legs` | `from_student_id<>to_student_id` |
+| CK-019 | 금융 원금·이자 | 금액 0 이상, 가입·대출 원금은 0보다 큼 |
+| CK-020 | `savings_accounts` | `0<=paid_installment_count<=installment_count` |
+| CK-021 | `savings_installments` | `installment_number>0 AND retryable_until>=due_at` |
+| CK-022 | `investment_price_steps` | `step_number>=0 AND price>0` |
+| CK-023 | `investment_orders` | `side IN ('BUY','SELL') AND quantity>0` |
+| CK-024 | `investment_positions` | `quantity>=0 AND average_price>=0` |
+| CK-025 | `loans` | `0<=outstanding_principal<=principal_amount AND outstanding_interest>=0` |
+| CK-026 | `loan_installments` | 예정·납부 금액 0 이상, 납부액은 예정액 이하 |
+| CK-027 | `credit_profiles` | `score BETWEEN 0 AND 1000` |
+| CK-028 | `credit_events` | `score_before+score_delta=score_after`, 전후 점수 0~1000 |
+| CK-029 | `quiz_session_questions` | `sequence_number>0 AND score_value>=0 AND time_limit_seconds>0` 또는 NULL |
+| CK-030 | `quiz_answers` | 객관식 선택과 자유응답 중 최대 하나만 존재, 점수·응답시간 0 이상 |
+| CK-031 | `quiz_student_results` | 점수·정답 수·보상·응답시간 0 이상, 순위는 1 이상 또는 NULL |
+| CK-032 | `vote_options` | `sort_order>=0 AND (budget_amount IS NULL OR budget_amount>=0)` |
+| CK-033 | `ai_runs` | `retention_until>=requested_at` |
+| CK-034 | `async_operations` | `progress_percent BETWEEN 0 AND 100` |
+| CK-035 | 보관 테이블 | `retention_until>=created_at` 또는 기준 시각 |
 
-## 5. 반드시 DB에서 강제할 제약
+상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 
-- 동일 학급 범위 복합 외래키
-- 학급별 소유 교사 1명
-- 학급별 출석번호·닉네임 유일성
-- 학생별 활성 세션 1개
-- 학생별 지갑 1개, 학급별 공동기금 계정 1개
-- 원장 계정 sequence 유일성과 전후 잔액 산식
-- 커밋 거래 원장 합계 0
-- 커밋된 거래·원장·정책 스냅샷의 수정·삭제 금지
-- 멱등성 키와 request hash 재사용 규칙
-- 거래 중 아이템 잠금의 단일 소유
-- 게시 버전과 실행 스냅샷의 불변 참조
-- 투자 포지션 수량 음수 금지
-- 투표별 자격 토큰 1회 사용
-- outbox stream sequence와 event ID 유일성
+## 7. 원장·불변성·트랜잭션 제약
 
-## 6. 애플리케이션에서 검증할 규칙
+### 7.1 커밋 거래 균형
 
-- 현재 역할·담당 학급·앱 모드·모듈 상태
-- 상태 머신별 허용 명령
-- 학년별 모듈 추천과 선수 모듈 영향
-- AI 제안 허용 범위와 교사 승인
-- 공개 화면 DTO의 개인정보 제외
-- 거래·금융·퀴즈의 복합 업무 조건
+`transaction_groups.status='COMMITTED'`인 거래는 커밋 시점에 다음을 모두 만족해야 합니다.
 
-DB는 결과 무결성과 불변성을 보장하고, Spring 서비스는 업무 명령의 의미와 권한을 판정합니다.
+1. `ledger_entries`가 2개 이상입니다.
+2. `sum(ledger_entries.amount)=0`입니다.
+3. 모든 항목이 같은 `classroom_id`입니다.
+4. 계정별 `account_sequence`가 기존 `next_entry_sequence`와 일치합니다.
+5. `balance_before+amount=balance_after`입니다.
+6. 마지막 항목의 `balance_after`와 `ledger_accounts.current_balance`가 일치합니다.
 
-## 7. 후속 산출물
+행 단위 `CHECK`만으로 그룹 합계를 검증할 수 없으므로 `DEFERRABLE INITIALLY DEFERRED` constraint trigger를 사용합니다. 트리거는 `ledger_entries` 변경과 `transaction_groups`의 `COMMITTED` 전이 양쪽에 설치합니다.
 
-1. 테이블·컬럼·NULL·기본값 데이터 사전
-2. 인덱스·외래키·부분 유일 인덱스 명세
-3. 원장 불변성 지연 제약 트리거
-4. Flyway `V1__initial_schema.sql`
-5. Testcontainers 무결성 테스트
-6. OpenAPI 필드와 저장·projection 필드 매핑표
+### 7.2 동시성 잠금 순서
+
+교착을 줄이기 위해 금액·아이템 명령은 항상 다음 순서로 잠급니다.
+
+1. 관련 `ledger_accounts`를 UUID 오름차순으로 `FOR UPDATE`
+2. `store_stocks` 또는 `inventory_items`를 UUID 오름차순으로 `FOR UPDATE`
+3. 도메인 루트 주문·거래·금융계좌를 `FOR UPDATE`
+4. 거래 그룹·원장 항목·상태 이력·outbox 삽입
+5. 계정 잔액·sequence와 도메인 상태 갱신
+
+### 7.3 완료 데이터 불변
+
+다음 행은 운영자 SQL을 포함해 일반 애플리케이션 역할에서 `UPDATE`·`DELETE`할 수 없습니다.
+
+- `COMMITTED` transaction group의 가격·유형·정책·복구 연결
+- 모든 `ledger_entries`
+- `policy_snapshots`, `policy_snapshot_sources`
+- 게시된 상품·금융상품·퀴즈·투자 시나리오 버전
+- `audit_events`, `state_transitions`, `credit_events`
+- 게시된 `quiz_result_versions`와 그 학생 결과
+- `vote_ballots`
+
+`outbox_events`는 payload와 식별 필드는 불변이지만 `published_at`, `publish_attempts`, `last_error`만 발행기 역할이 갱신할 수 있습니다.
+
+### 7.4 복구 거래
+
+- `recovery_of_group_id`는 `COMMITTED` 원거래만 참조합니다.
+- 최초 원거래는 `root_transaction_group_id=id`를 저장합니다.
+- 재복구도 동일 root를 유지합니다.
+- 복구 거래는 반대 부호 원장 항목과 필요한 새 업무 상태를 별도로 커밋합니다.
+- 원거래·원장 항목은 수정하거나 삭제하지 않습니다.
+
+### 7.5 정책 스냅샷
+
+가격·세율·금리·반올림·상품 조건을 계산한 뒤 다음 순서로 저장합니다.
+
+1. 정규화된 계산 입력으로 `snapshot_hash` 생성
+2. `policy_snapshots.calculated_values` 저장
+3. 사용한 정책·상품·가격 버전을 `policy_snapshot_sources`에 저장
+4. 거래 그룹이 스냅샷을 참조
+5. 원장과 도메인 상태를 커밋
+
+같은 학급의 같은 해시가 이미 있으면 기존 스냅샷을 재사용할 수 있습니다.
+
+## 8. 조회 인덱스
+
+PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK 자식 인덱스를 자동 생성하지 않으므로 모든 FK 선두 컬럼에 별도 인덱스가 필요합니다.
+
+| ID | 인덱스 | 컬럼·조건 | 지원 조회 |
+| --- | --- | --- | --- |
+| IX-001 | `ix_classrooms_school_status` | `(school_id,status)` | 학교별 학급 목록 |
+| IX-002 | `ix_classroom_students_classroom_status` | `(classroom_id,status,roster_number)` | 학생 명단 |
+| IX-003 | `ix_student_sessions_expires` | `(expires_at) WHERE status='ACTIVE'` | 세션 만료 |
+| IX-004 | `ix_classroom_modules_status` | `(classroom_id,status,module_code)` | 활성 모듈 |
+| IX-005 | `ix_autonomous_schedules_lookup` | `(classroom_id,day_of_week,local_start_time) WHERE enabled=true` | 자율시간 계산 |
+| IX-006 | `ix_payslips_student_issued` | `(classroom_student_id,issued_at DESC)` | 월급명세서 |
+| IX-007 | `ix_transaction_groups_classroom_committed` | `(classroom_id,committed_at DESC,id) WHERE status='COMMITTED'` | 거래 관리 기본 목록 |
+| IX-008 | `ix_transaction_groups_type_status` | `(classroom_id,transaction_type,status,created_at DESC)` | 거래 유형 필터 |
+| IX-009 | `ix_transaction_groups_recovery` | `(recovery_of_group_id) WHERE recovery_of_group_id IS NOT NULL` | 복구 연결 |
+| IX-010 | `ix_ledger_entries_account_sequence` | `(ledger_account_id,account_sequence DESC)` | 잔액 원장 |
+| IX-011 | `ix_ledger_entries_group` | `(transaction_group_id)` | 거래 상세 |
+| IX-012 | `ix_idempotency_expires` | `(expires_at)` | 만료 정리 |
+| IX-013 | `ix_state_transitions_aggregate` | `(classroom_id,aggregate_type,aggregate_id,state_version DESC)` | 상태 이력 |
+| IX-014 | `ix_outbox_unpublished` | `(occurred_at,event_id) WHERE published_at IS NULL` | 발행 재시도 |
+| IX-015 | `ix_audit_events_classroom_time` | `(classroom_id,occurred_at DESC,id)` | 감사 조회 |
+| IX-016 | `ix_store_products_classroom_status` | `(classroom_id,status,product_kind)` | 상점 상품 |
+| IX-017 | `ix_store_orders_student_time` | `(classroom_student_id,created_at DESC)` | 학생 주문 |
+| IX-018 | `ix_store_orders_fulfillment` | `(classroom_id,status,created_at)` | 수령 처리 |
+| IX-019 | `ix_inventory_items_owner_status` | `(classroom_student_id,status,acquired_at DESC)` | 보유·장착 목록 |
+| IX-020 | `ix_trades_proposer_status` | `(proposer_student_id,status,created_at DESC)` | 보낸 거래 |
+| IX-021 | `ix_trades_counterpart_status` | `(counterpart_student_id,status,created_at DESC)` | 받은 거래 |
+| IX-022 | `ix_trades_teacher_queue` | `(classroom_id,status,created_at) WHERE status='AWAITING_TEACHER'` | 교사 승인함 |
+| IX-023 | `ix_deposit_accounts_maturity` | `(classroom_id,status,matures_at)` | 예금 만기 |
+| IX-024 | `ix_savings_installments_due` | `(classroom_id,status,due_at)` | 적금 자동납입 |
+| IX-025 | `ix_investment_price_steps_reveal` | `(investment_asset_id,step_number DESC)` | 가격 그래프 |
+| IX-026 | `ix_investment_orders_student_time` | `(classroom_student_id,submitted_at DESC)` | 주문 이력 |
+| IX-027 | `ix_loan_applications_queue` | `(classroom_id,status,created_at)` | 대출 승인함 |
+| IX-028 | `ix_loan_installments_due` | `(classroom_id,status,due_at)` | 상환·연체 |
+| IX-029 | `ix_credit_events_student_time` | `(classroom_student_id,occurred_at DESC)` | 신용 변화 |
+| IX-030 | `ix_activity_sessions_classroom_status` | `(classroom_id,status,starts_at DESC)` | 지도 활동 |
+| IX-031 | `ix_quiz_submissions_session_student` | `(quiz_session_id,classroom_student_id)` | 제출 현황 |
+| IX-032 | `ix_quiz_results_session_version` | `(quiz_session_id,version DESC)` | 최신 결과 |
+| IX-033 | `ix_vote_ballots_vote_option` | `(vote_id,vote_option_id)` | 익명 집계 |
+| IX-034 | `ix_ai_runs_classroom_status` | `(classroom_id,status,requested_at DESC)` | AI 작업 |
+| IX-035 | `ix_async_operations_status` | `(classroom_id,status,created_at)` | 비동기 작업 감시 |
+| IX-036 | `ix_report_snapshots_retention` | `(retention_until)` | 보관 만료 |
+
+JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN ANALYZE` 근거가 생긴 필드만 표현식 또는 GIN 인덱스로 추가합니다.
+
+## 9. 공개 projection과 민감정보 경계
+
+공개 화면은 다음 개인 테이블을 직접 조회하지 않습니다.
+
+- `ledger_accounts`, `ledger_entries`
+- `deposit_accounts`, `savings_accounts`
+- `investment_orders`, `investment_positions`
+- `loan_applications`, `loans`, `loan_installments`
+- `credit_profiles`, `credit_events`
+- `trades`, `trade_*`
+- TEST 모드 `quiz_submissions`, `quiz_answers`, `quiz_student_results`
+- `vote_eligibilities`, `vote_ballots` 원문
+
+공개 이벤트는 애플리케이션 query 계층에서 다음 집계 DTO를 생성합니다.
+
+- 퀴즈 GAME 순위와 허용된 캐릭터·닉네임
+- 투표 선택지별 합계
+- 공동기금 총액·사용처
+- 투자 시장 공개 가격 단계
+- 지도 활동 진행 상태
+
+공개 projection을 별도 테이블로 물리화할지는 부하 테스트 후 결정합니다. MVP 초기에는 트랜잭션 기준 테이블을 읽는 전용 query와 캐시를 사용하되 개인 필드가 포함된 내부 DTO를 재사용하지 않습니다.
+
+## 10. 보관·삭제·파티셔닝
+
+| 데이터 | 기본 보관 | 처리 |
+| --- | --- | --- |
+| 학생 세션·토큰 | 만료 후 30일 이내 | 토큰 해시 삭제 |
+| 학생 앱 조회 | READ_ONLY 전환 후 30일 | 학생 접근 종료 |
+| 학급 운영·거래·금융·학습 기록 | READ_ONLY 후 1년 | 식별 연결 제거 후 비식별 집계 가능 |
+| 감사 로그 | 1년 | 보관기한 기준 삭제 |
+| AI 입력·출력 메타데이터 | 1년 | 원문·민감정보 최소화 |
+| 내보내기 파일 | 생성 시 설정한 단기 기한 | S3 object와 DB 위치 제거 |
+| 백업 | 삭제 후 최대 30일 | 운영 복구 정책에 따름 |
+
+초기에는 파티셔닝하지 않습니다. `audit_events`, `outbox_events`, `ledger_entries`가 학급당 예상량을 초과하면 월별 `occurred_at` 또는 `created_at` range 파티셔닝을 ADR로 추가합니다.
+
+## 11. 마이그레이션 구현 순서
+
+| 단계 | Flyway 후보 | 테이블 |
+| --- | --- | --- |
+| P1 | `V1_1__identity_classroom.sql` | 학교·사용자·코스·학급·학생·설정 |
+| P2 | `V1_2__ledger.sql` | 원장·정책 스냅샷·멱등성·상태 이력 |
+| P3 | `V1_3__event_audit.sql` | stream·outbox·감사 |
+| P4 | `V1_4__store_trade.sql` | 상점·캐릭터·재고·개인거래 |
+| P5 | `V1_5__finance.sql` | 예금·적금·투자·대출·신용 |
+| P6 | `V1_6__activity_quiz_vote.sql` | 지도 활동·퀴즈·투표 |
+| P7 | `V1_7__ai_report.sql` | AI·비동기 작업·내보내기·리포트 |
+| P8 | `V1_8__constraints_triggers.sql` | 복합 FK·부분 UQ·원장 지연 트리거·불변 트리거 |
+| P9 | `V1_9__indexes.sql` | 조회 인덱스 |
+
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_9`로 분리할 수 있습니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+
+## 12. Testcontainers 인수 기준
+
+| ID | 테스트 |
+| --- | --- |
+| DBT-001 | 다른 `classroom_id`의 학생·거래·상품을 복합 FK로 참조하면 실패 |
+| DBT-002 | 학급에 활성 OWNER 교사를 두 명 삽입하면 실패 |
+| DBT-003 | 활성 학생의 출석번호·닉네임 중복이 실패 |
+| DBT-004 | 같은 학생의 활성 세션 두 개가 실패 |
+| DBT-005 | 학생 지갑 음수 잔액 커밋이 실패 |
+| DBT-006 | 불균형 원장 거래의 `COMMITTED` 커밋이 지연 트리거에서 실패 |
+| DBT-007 | 원장 전후 잔액 산식과 계정 sequence 불일치가 실패 |
+| DBT-008 | 완료 거래·원장 항목·정책 스냅샷 수정·삭제가 실패 |
+| DBT-009 | 복구 거래가 원거래와 root를 보존하고 원거래를 바꾸지 않음 |
+| DBT-010 | 동일 멱등성 키·동일 hash는 기존 결과, 다른 hash는 충돌 |
+| DBT-011 | 같은 아이템을 두 활성 거래에 잠그면 한쪽이 실패 |
+| DBT-012 | 재고·투자 포지션·대출 잔액이 음수가 되면 실패 |
+| DBT-013 | 게시 상품·금융상품·퀴즈 버전의 핵심 필드 수정이 실패 |
+| DBT-014 | 동일 투표 자격 토큰으로 두 번 투표하면 실패 |
+| DBT-015 | outbox payload는 바뀌지 않고 발행 메타데이터만 갱신 가능 |
+| DBT-016 | 공개 조회 결과에 잔액·신용·대출·TEST 결과가 없음 |
+| DBT-017 | READ_ONLY 학급에서 신규 운영 데이터 생성이 서비스 인수 테스트에서 실패 |
+
+## 13. 애플리케이션 책임
+
+DB가 강제하지 않고 Spring 서비스가 판정하는 규칙:
+
+- 사용자 역할·담당 학급·모듈 상태·앱 모드
+- 상태 머신의 허용 명령과 상태 전이
+- 학년별 추천 모듈과 선수 모듈 영향
+- AI 제안 범위·안전검사·교사 승인
+- 대출 심사와 신용 정책 계산
+- 가격·세율·금리·반올림 계산
+- 공개 DTO 필드 허용 목록
+- 멱등성 키 재사용 시 `request_hash` 비교
+- 학급 OWNER가 정확히 1명인 상태로 학급 생성 트랜잭션 완료
+
+DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의미·권한·현재 상태를 판정합니다.
+
+## 14. 완료 기준과 후속 작업
+
+이번 물리 스키마 기준선의 완료 조건:
+
+- 논리 ERD 83개 엔티티가 83개 물리 테이블에 1:1 매핑
+- 전체 컬럼·자료형·NULL·기본값 규칙 명시
+- PK·학급 복합 FK·UQ·부분 UQ 정의
+- 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
+- 조회 인덱스 36개와 근거 정의
+- Testcontainers 무결성 시나리오 17개 정의
+
+후속 작업:
+
+1. Flyway `V1_1`~`V1_9` DDL 작성
+2. Testcontainers DBT-001~017 자동화
+3. OpenAPI 요청·응답 필드와 저장·projection 필드 매핑
+4. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정

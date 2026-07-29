@@ -327,8 +327,8 @@ HTTP 상태와 오류 응답 형식은 API·오류 명세에서 연결합니다.
 
 HTTP API별 역할·범위·PM 규칙 연결은 [HTTP API 명세](HTTP_API_SPEC.md), WebSocket 채널·이벤트 권한은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. [논리 데이터 모델](DATA_MODEL.md)의 소유·소속·상태 필드를 물리 스키마로 변환
-2. DB 제약조건과 애플리케이션 권한 검사의 책임 경계 확정
-3. 역할·상태·리소스 조합 인수 테스트 작성
+1. [물리 스키마](PHYSICAL_SCHEMA.md)의 학급 복합 FK와 소유·소속 제약을 Flyway DDL로 구현
+2. 역할·상태·리소스 조합 인수 테스트 작성
+3. 공개 projection 필드 허용 목록을 API 테스트로 고정
 
-논리 ERD는 화면·API·권한 경계를 기준으로 완료했습니다.
+논리 ERD와 물리 스키마는 화면·API·권한 경계를 기준으로 완료했습니다.

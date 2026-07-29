@@ -413,8 +413,8 @@ flowchart LR
 
 각 `UIA-*`의 HTTP 명령·응답·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md), `GUIDED`·퀴즈·투표·시장 실시간 연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. [논리 데이터 모델·ERD](DATA_MODEL.md)를 기준으로 물리 테이블과 projection을 설계합니다.
+1. [물리 스키마](PHYSICAL_SCHEMA.md)를 기준으로 화면별 저장·projection 필드를 매핑합니다.
 2. 화면·권한·상태 조합의 인수 테스트 ID를 RTM에 연결합니다.
 3. 계약 기반 클라이언트·서버 인터페이스를 생성합니다.
 
-논리 ERD는 화면·API 경계를 기준으로 완료했습니다.
+논리 ERD와 물리 스키마는 화면·API 경계를 기준으로 완료했습니다.

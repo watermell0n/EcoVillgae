@@ -421,8 +421,8 @@ Gateway가 다음 제어 메시지를 보내고 해당 구독의 도메인 이�
 
 다음 작업:
 
-WebSocket ID의 요구사항 역방향 연결은 [RTM v0.8](RTM.md), 이벤트 저장 구조는 [논리 데이터 모델](DATA_MODEL.md)에서 완료했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
+WebSocket ID의 요구사항 역방향 연결은 [RTM v0.9](RTM.md), 이벤트 저장 구조는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
-1. 논리 ERD 기준 outbox·stream 물리 스키마 확정
+1. outbox·stream Flyway DDL과 미발행 재시도 테스트
 2. AsyncAPI 기반 이벤트 타입·Gateway 인터페이스 생성
 3. 인수 테스트 ID와 개발 백로그 연결
