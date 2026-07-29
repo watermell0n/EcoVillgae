@@ -467,7 +467,9 @@ stateDiagram-v2
 
 화면과 행동 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)를 따릅니다.
 
-1. HTTP 명령 API와 WebSocket 이벤트 연결
+HTTP 명령 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 완료했습니다.
+
+1. WebSocket 이벤트 연결
 2. 엔티티·상태 이력·원장 관계 데이터 설계
 3. 상태 전이 인수 테스트와 오류 코드 연결
 

@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v0.4
+- 버전: v0.5
 - 기준일: 2026-07-29
-- 상태: 요구사항 기준선·핵심 상태 머신·역할 권한·화면 연결 완료
+- 상태: 요구사항 기준선·상태·권한·화면·HTTP API 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*` ID를 추가합니다. API·데이터·테스트가 만들어지면 같은 열에 실제 ID를 계속 추가합니다.
+RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*` ID를 추가합니다. WebSocket·데이터·테스트가 만들어지면 실제 ID를 계속 추가합니다.
 
 출처 약어:
 
@@ -20,6 +20,7 @@ RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 - `SM`: [핵심 상태 머신](STATE_MACHINES.md)
 - `PM`: [역할·권한 매트릭스](PERMISSION_MATRIX.md)
 - `SCR`: [화면 ID·행동 명세](SCREEN_SPEC.md)
+- `API`: [API 공통 규칙](API_COMMON_RULES.md)·[HTTP API 명세](HTTP_API_SPEC.md)
 
 ## 2. 플랫폼·인증
 
@@ -132,24 +133,107 @@ RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | DAT-005 | AI·DEC | 교사·시스템 | AI·기기 데이터 | AI 원문·기기 30일, 메타데이터 1년 만료 | TTL·삭제 테스트 | PM-DAT-006·PM-AI-001·PM-SVC-001 · SCR-WEB-025·SCR-ADM-003·SCR-OPS-001 / TEST TBD |
 | DAT-006 | MVP·DEC | 학생·시스템 | 온라인 명령 | 오프라인 변경 차단, 재연결 조회, 요청번호 멱등성 | 네트워크·재시도 테스트 | SM-TXN-001 · PM-TXN-001·PM-SVC-001 · SCR-STU-003·SCR-STU-007·SCR-STU-010·SCR-STU-017·SCR-STU-019·SCR-OPS-001 / TEST TBD |
 
-## 9. 커버리지 요약
+## 9. HTTP API 역추적
 
-| 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | 설계 하나 이상 | 테스트 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 플랫폼·인증 | 11 | 11 | 1 | 11 | 11 | 11 | 0 |
-| 경제교실·코스 | 15 | 15 | 10 | 15 | 15 | 15 | 0 |
-| 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 0 |
-| 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 0 |
-| 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 0 |
-| AI | 8 | 8 | 8 | 8 | 8 | 8 | 0 |
-| 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 0 |
-| 합계 | 76 | 76 | 56 | 76 | 76 | 76 | 0 |
+상세 요청·응답·오류는 [HTTP API 명세](HTTP_API_SPEC.md)를 기준으로 하며 아래 표는 요구사항에서 API를 찾기 위한 역방향 인덱스입니다.
 
-현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 명세에는 화면 76개와 주요 행동 68개가 정의되어 있습니다. API·데이터·테스트 연결은 후속 산출물 생성 시 갱신합니다.
+| 요구사항 | HTTP·공통 API ID |
+| --- | --- |
+| AI-001 | API-ADM-004·API-AI-001·API-AI-002·API-AI-004·API-AI-005·API-QZ-002 |
+| AI-002 | API-AI-003·API-AI-004 |
+| AI-003 | API-AI-002·API-AI-003·API-POL-001·API-READ-027 |
+| AI-004 | API-AI-002 |
+| AI-005 | API-AI-001·API-READ-027 |
+| AI-006 | API-AI-001·API-OPS-001·API-READ-033 |
+| AI-007 | API-AI-004 |
+| AI-008 | API-ADM-004·API-OPS-001·API-READ-027·API-READ-029 |
+| AUTH-001 | API-AUTH-001 |
+| AUTH-002 | API-ADM-001·API-ADM-003·API-CLS-004·API-CLS-005·API-OPS-002·API-READ-001·API-READ-005·API-READ-031 |
+| AUTH-003 | API-ADM-002·API-AUTH-001·API-READ-032 |
+| AUTH-004 | API-DSP-001·API-READ-025 |
+| AUTH-005 | API-AUTH-001 |
+| AUTH-006 | API-AUTH-002·API-AUTH-003 |
+| CLS-001 | API-CLS-001·API-CLS-003·API-READ-002 |
+| CLS-002 | API-MOD-001·API-MOD-002·API-READ-006 |
+| CLS-003 | API-CLS-007 |
+| CLS-004 | API-CLS-006·API-CLS-007 |
+| CLS-005 | API-CLS-006·API-CLS-007 |
+| CLS-006 | API-CLS-007 |
+| CLS-007 | API-CLS-008 |
+| CLS-008 | API-CLS-008 |
+| CLS-009 | API-ACT-001·API-ACT-002·API-DSP-001·API-READ-024·API-READ-025 |
+| CRS-001 | API-CLS-001·API-CLS-002·API-READ-002 |
+| CRS-002 | API-CLS-001 |
+| CRS-003 | API-CLS-002·API-READ-003 |
+| CRS-004 | API-CLS-002·API-READ-003 |
+| CRS-005 | API-CLS-002·API-MOD-001·API-READ-003 |
+| CRS-006 | API-MOD-001·API-READ-006 |
+| DAT-001 | API-DAT-001·API-READ-028 |
+| DAT-002 | API-DAT-002 |
+| DAT-003 | API-DAT-001·API-DAT-002·API-READ-026·API-READ-028·API-READ-030 |
+| DAT-004 | API-READ-029 |
+| DAT-005 | API-ADM-002·API-READ-032 |
+| DAT-006 | API-CMN-008·API-READ-001·API-READ-030 |
+| ECO-001 | API-READ-007·API-READ-009·API-SHP-002·API-TXN-001 |
+| ECO-002 | API-READ-009·API-TXN-002 |
+| ECO-003 | API-READ-007·API-READ-009 |
+| ECO-004 | API-CLS-003·API-READ-004·API-READ-008·API-TXN-001 |
+| ECO-005 | API-READ-010·API-READ-011·API-SHP-001·API-SHP-002·API-SHP-003·API-SHP-004 |
+| ECO-006 | API-READ-011·API-SHP-002·API-TXN-002 |
+| ECO-007 | API-CNT-002·API-ITM-001·API-READ-012·API-SHP-001 |
+| ECO-008 | API-POL-002·API-READ-023·API-VOT-001·API-VOT-002 |
+| ECO-009 | API-POL-002 |
+| ECO-010 | API-CNT-001·API-CNT-002 |
+| FIN-001 | API-FIN-001·API-FIN-002·API-FIN-003·API-READ-014·API-READ-015 |
+| FIN-002 | API-FIN-001·API-FIN-004·API-READ-014·API-READ-015 |
+| FIN-003 | API-FIN-005·API-READ-015 |
+| FIN-004 | API-FIN-004·API-FIN-005·API-FIN-006·API-READ-015 |
+| FIN-005 | API-FIN-007·API-FIN-008·API-READ-016 |
+| FIN-006 | API-FIN-009·API-READ-017 |
+| FIN-007 | API-FIN-007·API-FIN-008·API-FIN-009·API-READ-016·API-READ-017 |
+| FIN-008 | API-FIN-010·API-FIN-011·API-FIN-012·API-READ-014·API-READ-018·API-READ-019 |
+| FIN-009 | API-FIN-010·API-FIN-013·API-READ-018 |
+| FIN-010 | API-FIN-010·API-FIN-011·API-FIN-012·API-FIN-013·API-READ-018·API-READ-019 |
+| FIN-011 | API-AI-003·API-FIN-001·API-FIN-010·API-POL-001·API-READ-006 |
+| FIN-012 | API-CLS-008·API-FIN-008 |
+| QZ-001 | API-QZ-001·API-QZ-004·API-READ-020 |
+| QZ-002 | API-QZ-001·API-QZ-003·API-READ-020 |
+| QZ-003 | API-QZ-004·API-QZ-005·API-QZ-007·API-READ-021·API-READ-022·API-READ-025 |
+| QZ-004 | API-QZ-004·API-QZ-006·API-QZ-007·API-READ-021·API-READ-022 |
+| QZ-005 | API-QZ-004·API-QZ-007 |
+| QZ-006 | API-QZ-002·API-READ-020 |
+| QZ-007 | API-QZ-001·API-QZ-002·API-QZ-003 |
+| QZ-008 | API-QZ-001·API-QZ-003·API-READ-020 |
+| QZ-009 | API-QZ-008·API-QZ-009·API-READ-022·API-TXN-002 |
+| SYS-001 | API-READ-001 |
+| SYS-002 | API-OPS-001·API-OPS-002·API-READ-033·API-READ-034 |
+| SYS-005 | API-READ-030 |
+| TRD-001 | API-READ-013·API-TRD-001·API-TRD-002·API-TRD-003·API-TRD-004 |
+| TRD-002 | API-ITM-001·API-READ-012·API-TRD-001·API-TRD-002·API-TRD-003·API-TRD-004 |
+| TRD-003 | API-TRD-004 |
+| TRD-004 | API-MOD-002·API-READ-013 |
+| TRD-005 | API-TRD-001·API-TRD-004 |
 
-## 10. 다음 갱신
+`SYS-003`은 WebSocket 실시간 계약, `SYS-004`는 Terraform 인프라 계약이므로 HTTP API 연결 대상이 아닙니다.
 
-1. HTTP API·WebSocket 이벤트 ID 연결
+## 10. 커버리지 요약
+
+| 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | 설계 하나 이상 | 테스트 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 플랫폼·인증 | 11 | 11 | 1 | 11 | 11 | 9 | 11 | 0 |
+| 경제교실·코스 | 15 | 15 | 10 | 15 | 15 | 15 | 15 | 0 |
+| 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 15 | 0 |
+| 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 0 |
+| 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 0 |
+| AI | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 0 |
+| 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 6 | 0 |
+| 합계 | 76 | 76 | 56 | 76 | 76 | 74 | 76 | 0 |
+
+현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP 대상 요구사항은 74/74입니다. `SYS-003`은 WebSocket, `SYS-004`는 Terraform에서 연결합니다.
+
+## 11. 다음 갱신
+
+1. WebSocket 이벤트 ID 연결
 2. 데이터 엔티티 연결
 3. 인수 테스트·자동 테스트 ID 연결
 

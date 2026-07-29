@@ -291,8 +291,9 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 다음 작업
 
-1. 화면 행동 `UIA-*` 68건을 HTTP 명령과 조회 API에 연결
-2. `GUIDED`, GAME·TEST, 투표, 투자 시장의 WebSocket 채널·이벤트 정의
-3. 공개 화면 DTO와 역할별 응답 필드 정의
-4. API ID를 RTM에 연결하고 누락·충돌 검사
-5. API 경계가 확정된 뒤 ERD 작성
+화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 완료했습니다.
+
+1. `GUIDED`, GAME·TEST, 투표, 투자 시장의 WebSocket 채널·이벤트 정의
+2. 공개 화면 DTO와 역할별 응답 필드 검증
+3. OpenAPI 3.1 계약 생성
+4. API 경계가 확정된 뒤 ERD 작성

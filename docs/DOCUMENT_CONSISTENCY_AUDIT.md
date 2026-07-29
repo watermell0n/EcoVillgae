@@ -14,6 +14,7 @@
 6. `REQUIREMENTS_BASELINE.md`와 `RTM.md`: 추적 기준
 7. `STATE_MACHINES.md`, `PERMISSION_MATRIX.md`, `SCREEN_SPEC.md`: 상태·권한·화면 설계 기준
 8. `API_COMMON_RULES.md`: 인증·응답·오류·멱등성·동시성·시간·금액 구현 계약
+9. `HTTP_API_SPEC.md`: 화면 행동별 HTTP 명령·조회·오류 계약
 
 같은 주제의 내용이 다르면 위 순서의 상세 문서를 우선하고 README를 함께 수정합니다.
 
@@ -56,7 +57,8 @@
 
 다음은 제품 정책 충돌이 아니라 후속 설계 작업입니다.
 
-- 화면 행동별 HTTP API와 WebSocket 이벤트
+- WebSocket 채널·이벤트와 재연결 규칙
+- OpenAPI 3.1 계약
 - 데이터 모델과 마이그레이션
 - 인수 테스트와 백로그
 
@@ -69,3 +71,5 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 역할·상태별 화면·행동과 공개 화면 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)에서 관리합니다.
 
 인증·응답·오류·멱등성·동시성·시간·금액 계약은 [API 공통 규칙](API_COMMON_RULES.md)에서 관리합니다.
+
+화면 행동별 HTTP 명령·조회·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 관리합니다.
