@@ -1,10 +1,10 @@
 # 이코빌리지 MVP
 
 - 기준일: 2026-07-29
-- 상태: API 설계 전 제품·운영 기준 확정
+- 상태: API 공통 규칙 확정, HTTP·WebSocket 상세 명세 진행 중
 - 대상: 초등학교 4~6학년
 
-이 문서는 MVP 범위만 설명합니다. 상세 결정은 [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md), 학년·규모별 조합은 [추천 코스](docs/COURSE_RECOMMENDATIONS.md), 구현 기술은 [기술 스택](docs/TECH_STACK.md)을 기준으로 합니다.
+이 문서는 MVP 범위만 설명합니다. 상세 결정은 [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md), 공통 구현 계약은 [API 공통 규칙](docs/API_COMMON_RULES.md), 학년·규모별 조합은 [추천 코스](docs/COURSE_RECOMMENDATIONS.md), 구현 기술은 [기술 스택](docs/TECH_STACK.md)을 기준으로 합니다.
 
 ## 1. 제품 한 문장
 
@@ -190,7 +190,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 10. 다음 단계
 
-1. HTTP API·WebSocket 이벤트 설계
+1. 화면 행동별 HTTP API·WebSocket 이벤트 상세 설계
 2. 데이터 설계
 3. 인수 테스트와 개발 백로그 연결
 
@@ -201,6 +201,7 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 - [문서 충돌 검사](docs/DOCUMENT_CONSISTENCY_AUDIT.md)
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
+- [API 공통 규칙 v0.1](docs/API_COMMON_RULES.md)
 - [요구사항 기준선·용어집](docs/REQUIREMENTS_BASELINE.md)
 - [RTM v0.4](docs/RTM.md)
 - [핵심 상태 머신](docs/STATE_MACHINES.md)

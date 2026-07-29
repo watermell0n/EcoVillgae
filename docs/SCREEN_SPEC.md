@@ -399,13 +399,15 @@ flowchart LR
 | --- | --- |
 | `screen_id` | 요청이 발생한 화면 추적 |
 | `ui_action_id` | 주요 버튼·행동 추적 |
-| `request_id` | 멱등성·중복 탭 통제 |
+| `request_id` | 변경 요청의 `Idempotency-Key`로 전달해 멱등성·중복 탭 통제 |
 | `classroom_id` | 학급 범위 판정 |
 | `resource_id` | 거래·상품·금융·퀴즈·활동 대상 |
 | `expected_state_version` | 상태 충돌 감지 |
 | `client_occurred_at` | 표시·진단용 클라이언트 시각 |
 
 `screen_id`와 `ui_action_id`는 권한 증명이 아니며 변조돼도 권한이 상승하지 않아야 합니다.
+
+공통 헤더·응답·오류·시간·금액 형식은 [API 공통 규칙](API_COMMON_RULES.md)을 따릅니다.
 
 ## 10. 후속 설계 순서
 

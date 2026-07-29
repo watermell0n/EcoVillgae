@@ -235,8 +235,9 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 ## 9. 후속 순서
 
 화면과 행동 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)를 따릅니다.
+인증·응답·오류·멱등성·동시성·시간·금액 계약은 [API 공통 규칙](API_COMMON_RULES.md)을 따릅니다.
 
-1. HTTP API·WebSocket 이벤트
+1. 화면 행동별 HTTP API·WebSocket 이벤트
 2. 데이터 설계
 3. 인수 테스트와 개발 백로그
 

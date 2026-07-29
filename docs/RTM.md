@@ -32,7 +32,7 @@ RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | SYS-005 | TECH | 운영자 | CI/CD·관측 | Jenkins·EAS 배포와 오류·추적·지표 조회 가능 | 파이프라인·장애 주입 | PM-OPS-002 · SCR-OPS-001 / TEST TBD |
 | AUTH-001 | MVP·DEC | 학생 | 로그인 | 실명 없이 학급 코드·번호·닉네임·비밀번호로 로그인 | 인증 E2E | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
 | AUTH-002 | DEC | 전 역할 | 권한 | 학생·교사·관리자·시스템·AI가 허용 작업만 수행 | 권한 매트릭스 테스트 | PM-RBAC-001·PM-RBAC-002·PM-CLS-002·PM-CLS-003·PM-SVC-001 · SCR-STU-003·SCR-TCH-002·SCR-WEB-002·SCR-WEB-007·SCR-ADM-001·SCR-ADM-002·SCR-ADM-004·SCR-OPS-001 / TEST TBD |
-| AUTH-003 | TECH·DEC | 학생·교사 | 세션·토큰 | SecureStore 저장, 새 기기 로그인 시 기존 세션 종료 | 기기 시나리오 | PM-AUTH-001·PM-SVC-001 · SCR-STU-001·SCR-TCH-001·SCR-WEB-001 / TEST TBD |
+| AUTH-003 | TECH·DEC | 학생 | 세션·토큰 | SecureStore 저장, 다른 태블릿 로그인 시 기존 학생 세션 종료 | 학생 기기 전환 시나리오 | PM-AUTH-001·PM-SVC-001 · SCR-STU-001·SCR-ADM-003 / API-CMN-001·API-CMN-002 / TEST TBD |
 | AUTH-004 | MVP·DEC | 학생·교사 | 개인정보 | 개인 금융·평가 결과가 타 학생·공용 화면에 노출되지 않음 | 접근 제어·화면 검사 | PM-DAT-001·PM-DSP-001 · SCR-STU-004·SCR-STU-020·SCR-PUB-004 / TEST TBD |
 | AUTH-005 | MVP·DEC | 학생 | 로그인 실패 | 연속 실패 후에도 계정 잠금 상태가 생성되지 않음 | 인증 경계값 테스트 | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
 | AUTH-006 | MVP·DEC | 학생·교사 | 비밀번호 재설정 | 기존 본인 확인 흐름으로 비밀번호만 재설정되고 닉네임 재설정 경로는 없음 | 인증 E2E | PM-AUTH-002·PM-CLS-004 · SCR-STU-002·SCR-WEB-006 / TEST TBD |
