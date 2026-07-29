@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.b201'
 version = '0.1.0-SNAPSHOT'
-description = 'EcoVillage PostgreSQL schema migrations and integrity tests'
+description = 'EcoVillage core API'
 
 java {
     toolchain {
@@ -19,22 +19,23 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.5'
     testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.5'
+    testRuntimeOnly 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('bootJar') {
-    enabled = false
-}
-
 tasks.named('jar') {
-    enabled = true
+    enabled = false
 }
 
 tasks.named('test') {
