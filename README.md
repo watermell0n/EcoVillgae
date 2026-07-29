@@ -172,3 +172,54 @@ AI 코스 설계와 기존 코스 자동 재구성은 MVP에서 사용하지 않
 
 - [MVP 이후 추가 모듈 및 발전 방향](docs/FUTURE_MODULES_AND_ROADMAP.md)
 - [API 명세 전 미확정 이슈](docs/OPEN_ISSUES.md)
+
+## 11. 기술 스택
+
+### 11.1 클라이언트
+
+| 영역 | 기술 |
+| --- | --- |
+| 학생 태블릿 | React 19 + TypeScript + Vite 8 기반 PWA |
+| 교사 운영 웹 | React 19 + TypeScript + Vite 8 |
+| 교실 공용 화면 | 별도 React + Vite 웹 앱 |
+| 패키지·모노레포 | Node.js 24 LTS, pnpm workspace, Turborepo |
+| 라우팅·상태 | React Router, TanStack Query, Zustand |
+| 폼·검증 | React Hook Form, Zod |
+| UI·차트 | Tailwind CSS, Radix UI, Motion, Apache ECharts |
+| 실시간 클라이언트 | WebSocket, STOMP.js |
+
+### 11.2 서버·데이터·AI
+
+| 영역 | 기술 |
+| --- | --- |
+| 핵심 API | Java 21 LTS, Spring Boot 4.1, Gradle Kotlin DSL |
+| 서버 구조 | Spring Modulith 기반 모듈러 모놀리스 |
+| API·보안 | REST, OpenAPI, Spring MVC, Spring Security |
+| 실시간 수업 | WebSocket + STOMP, 다중 서버 운영 시 Valkey Pub/Sub |
+| 메인 DB | PostgreSQL 17, Spring Data JPA, JDBC, Flyway |
+| 비동기 처리 | Transactional Outbox, Amazon SQS, DLQ |
+| AI 모듈 | Python 3.13, FastAPI, Pydantic 2 |
+| AI 모델 | AWS Bedrock 기본, OpenAI 어댑터 |
+| 파일 저장 | Amazon S3, CloudFront |
+
+### 11.3 인프라·품질
+
+| 영역 | 기술 |
+| --- | --- |
+| 클라우드 | AWS 서울 리전 |
+| 배포 | S3 + CloudFront, ALB + ECS Fargate, RDS PostgreSQL |
+| 캐시·세션 | ElastiCache Serverless for Valkey |
+| 인프라 관리 | Terraform |
+| CI/CD | GitHub Actions, Docker, Amazon ECR |
+| 프론트 테스트 | Vitest, Testing Library, MSW, Playwright |
+| 백엔드 테스트 | JUnit 5, Testcontainers, jqwik |
+| 모니터링 | OpenTelemetry, Micrometer, CloudWatch, Sentry |
+
+### 11.4 핵심 원칙
+
+- MVP 클라이언트는 웹·PWA 우선으로 개발하고 네이티브 앱은 필요성이 확인된 뒤 검토합니다.
+- 핵심 서버는 마이크로서비스로 조기 분리하지 않고 업무 모듈이 분리된 모듈러 모놀리스로 구성합니다.
+- PostgreSQL을 경제 상태의 원본으로 사용하고 모든 금액 변경은 수정 불가능한 거래 원장에 기록합니다.
+- 거래 명령은 REST와 DB 트랜잭션으로 처리하고 WebSocket은 수업 상태와 결과 전달에 사용합니다.
+- DB 변경에 따른 비동기 작업은 Transactional Outbox를 거쳐 SQS로 전달합니다.
+- AI는 구조화된 제안과 설명만 생성하며 학생 계좌와 운영 설정을 직접 변경하지 않습니다.
