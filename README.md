@@ -189,7 +189,34 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 - 학생용 자유대화 AI, AI 역할극과 장기 개인화 추천
 - 실제 금융상품·실제 종목·실제 시세·미래 가격 예측
 
-## 10. 다음 단계
+## 10. 저장소 구조
+
+```text
+student-app/          React Native·Expo 태블릿 앱
+teacher-web/          Next.js 교사 관리 웹·교실 공용 화면
+backend/              Spring Boot 핵심 API·Flyway·DB 테스트
+ai-service/           FastAPI AI 서비스
+contracts/            OpenAPI·AsyncAPI 기계 판독 계약
+assets/characters/    캐릭터 원본·최적화 에셋
+infra/                Jenkins·Terraform
+docs/                 제품·API·데이터·UX·AI·디자인 문서
+scripts/              문서·계약·스키마 정적 검사
+```
+
+로컬 PostgreSQL 17과 Redis는 `.env.example`을 `.env`로 복사한 뒤 다음과 같이
+실행합니다.
+
+```bash
+docker compose -f compose.dev.yml up -d
+```
+
+학교 태블릿에서 앱을 실행할 때는 `EXPO_PUBLIC_API_BASE_URL`의 `localhost`를
+개발 PC의 같은 네트워크 IP로 변경합니다.
+
+팀의 작업 순서, 경로별 담당과 충돌 방지 규칙은
+[팀 일정·협업 방식](docs/TEAM_SCHEDULE_AND_WORKFLOW.md)을 따릅니다.
+
+## 11. 다음 단계
 
 1. Docker 사용 가능 CI에서 PostgreSQL 17 Testcontainers 무결성 테스트 전체 실행
 2. OpenAPI 요청·응답 필드와 저장·공개 projection 필드 매핑
@@ -198,8 +225,9 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 논리 ERD는 [논리 데이터 모델 v0.1](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마 v0.2](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
 
-## 11. 관련 문서
+## 12. 관련 문서
 
+- [팀 일정·협업 방식](docs/TEAM_SCHEDULE_AND_WORKFLOW.md)
 - [문서 충돌 검사](docs/DOCUMENT_CONSISTENCY_AUDIT.md)
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)

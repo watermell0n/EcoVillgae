@@ -1,24 +1,47 @@
-# 환경 변수
+# 환경 변수와 비밀정보
 .env
+.env.*
+!.env.example
+!**/.env.example
 
-# 로컬 툴 캐시
-.docker-config/
-.pnpm-store/
-
-# 에디터
+# 운영체제·에디터
+.DS_Store
+Thumbs.db
 .idea/
 .vscode/
 *.log
 
-# 로컬 도구 작업 파일
+# 로컬 툴 캐시
+.docker-config/
+.pnpm-store/
 .codex/
 
-# backend 빌드 산출물
+# Java·Gradle
 backend/.gradle/
 backend/build/
 backend/HELP.md
 
-# frontend 빌드 산출물
-frontend/node_modules/
-frontend/dist/
-frontend/coverage/
+# Node.js·Expo·Next.js
+**/node_modules/
+student-app/.expo/
+student-app/.expo-shared/
+student-app/dist/
+student-app/coverage/
+teacher-web/.next/
+teacher-web/out/
+teacher-web/coverage/
+
+# Python
+ai-service/.venv/
+ai-service/venv/
+ai-service/__pycache__/
+ai-service/.pytest_cache/
+ai-service/.mypy_cache/
+ai-service/.ruff_cache/
+**/*.py[cod]
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/crash.log
