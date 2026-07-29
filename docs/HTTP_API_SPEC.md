@@ -315,12 +315,12 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 - 세션 지원 API: 4개
 - 조회 API: 34개
 - 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 106개 작업
-- 아직 남은 항목: 데이터 엔티티, 인수 테스트 ID
+- 아직 남은 항목: 물리 테이블·인덱스, 인수 테스트 ID
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v0.8](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v0.8](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리 엔티티 연결은 [논리 데이터 모델](DATA_MODEL.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
 
-1. API·이벤트 경계 기준 ERD 작성
+1. 논리 ERD 기준 물리 테이블·인덱스·제약조건 확정
 2. OpenAPI 기반 TypeScript 클라이언트·Spring 인터페이스 생성
 3. 인수 테스트 ID와 개발 백로그 연결

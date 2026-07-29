@@ -2,12 +2,12 @@
 
 - 버전: v0.8
 - 기준일: 2026-07-29
-- 상태: 요구사항 기준선·상태·권한·화면·HTTP·WebSocket·OpenAPI·AsyncAPI 연결 완료
+- 상태: 요구사항 기준선·상태·권한·화면·API·이벤트·논리 데이터 모델 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v0.8은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*` ID를 추가합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다. 데이터·테스트가 만들어지면 실제 ID를 계속 추가합니다.
+RTM v0.8은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`를 추가합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다. 물리 테이블·테스트가 만들어지면 실제 ID를 계속 추가합니다.
 
 출처 약어:
 
@@ -24,6 +24,7 @@ RTM v0.8은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 - `WS`: [WebSocket 명세](WEBSOCKET_SPEC.md)
 - `OAS`: [OpenAPI 3.1 HTTP 계약](../contracts/openapi.yaml)
 - `AAS`: [AsyncAPI 3.1 WebSocket 계약](../contracts/asyncapi.yaml)
+- `DM`: [논리 데이터 모델·ERD](DATA_MODEL.md)
 
 ## 2. 플랫폼·인증
 
@@ -282,7 +283,21 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
 
-## 12. 커버리지 요약
+## 12. 논리 데이터 모델 커버리지
+
+| 요구사항 영역 | 논리 집계 루트 | 핵심 엔티티 |
+| --- | --- | --- |
+| 플랫폼·인증 | `classrooms` | `users`, `school_memberships`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links` |
+| 경제교실·코스 | `classrooms` | `course_template_versions`, `classroom_modules`, `classroom_policy_versions`, `autonomous_schedules`, `activity_sessions` |
+| 경제·개인거래 | `transaction_groups`, `store_orders`, `trades` | `ledger_accounts`, `ledger_entries`, `policy_snapshots`, `store_*`, `inventory_items`, `trade_*` |
+| 금융 | `deposit_accounts`, `savings_accounts`, `investment_markets`, `loans` | `financial_product_versions`, `savings_installments`, `investment_*`, `loan_*`, `credit_profiles`, `credit_events` |
+| 퀴즈·투표 | `activity_sessions` | `quiz_*`, `votes`, `vote_options`, `vote_eligibilities`, `vote_ballots` |
+| AI | `ai_runs` | `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts` |
+| 데이터·운영 | `audit_events`, `async_operations` | `report_snapshots`, `export_operations`, `idempotency_records`, `outbox_events`, `state_transitions` |
+
+세부 관계와 불변 규칙은 DM-001~DM-012 및 6개 ERD로 정의했습니다. 모든 76개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결되며, 물리 테이블명과 인수 테스트 ID는 후속 단계에서 확정합니다.
+
+## 13. 커버리지 요약
 
 | 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | OpenAPI | WS 대상 | WS 연결 | AsyncAPI | 설계 하나 이상 | 테스트 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -297,10 +312,10 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP·OpenAPI 대상 요구사항은 75/75입니다. WebSocket·AsyncAPI 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. `SYS-004`는 Terraform에서 연결합니다.
 
-## 13. 다음 갱신
+## 14. 다음 갱신
 
-1. 데이터 엔티티 연결
+1. 물리 테이블·인덱스·제약조건 연결
 2. 인수 테스트·자동 테스트 ID 연결
 3. 개발 백로그·구현 커밋 연결
 
-ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.
+논리 ERD는 역할·권한 매트릭스와 화면·API 경계를 기준으로 완료했습니다.

@@ -1,7 +1,7 @@
 # 이코빌리지 MVP
 
 - 기준일: 2026-07-29
-- 상태: HTTP·WebSocket 명세와 OpenAPI·AsyncAPI 기계 판독 계약 완료
+- 상태: API·이벤트 계약과 MVP 논리 데이터 모델·ERD 완료
 - 대상: 초등학교 4~6학년
 
 이 문서는 MVP 범위만 설명합니다. 상세 결정은 [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md), 공통 구현 계약은 [API 공통 규칙](docs/API_COMMON_RULES.md), 학년·규모별 조합은 [추천 코스](docs/COURSE_RECOMMENDATIONS.md), 구현 기술은 [기술 스택](docs/TECH_STACK.md)을 기준으로 합니다.
@@ -191,11 +191,11 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 10. 다음 단계
 
-1. API·이벤트 경계 기준 데이터 설계와 ERD 작성
+1. 논리 ERD 기준 PostgreSQL 17 물리 스키마와 Flyway 마이그레이션 작성
 2. OpenAPI·AsyncAPI 기반 클라이언트·서버 인터페이스 생성
 3. 인수 테스트와 개발 백로그 연결
 
-ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.
+논리 ERD는 [논리 데이터 모델 v0.1](docs/DATA_MODEL.md)로 확정했습니다. 테이블 자료형·인덱스·DB 제약조건은 [물리 스키마 초안](docs/PHYSICAL_SCHEMA.md)에서 이어서 설계합니다.
 
 ## 11. 관련 문서
 
@@ -209,6 +209,8 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)
 - [AsyncAPI 3.1 WebSocket 계약](contracts/asyncapi.yaml)
 - [API 계약 사용 안내](contracts/README.md)
+- [논리 데이터 모델·ERD v0.1](docs/DATA_MODEL.md)
+- [PostgreSQL 물리 스키마 초안](docs/PHYSICAL_SCHEMA.md)
 - [RTM v0.8](docs/RTM.md)
 - [핵심 상태 머신](docs/STATE_MACHINES.md)
 - [역할·권한 매트릭스 v0.3](docs/PERMISSION_MATRIX.md)

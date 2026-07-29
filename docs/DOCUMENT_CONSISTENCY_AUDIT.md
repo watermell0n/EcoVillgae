@@ -2,7 +2,7 @@
 
 - 검사일: 2026-07-29
 - 기준: Notion 현재 기준 문서와 팀 회의 후 확정사항
-- 결과: 충돌 해소와 Git 계약 반영 완료, Notion 동기화는 별도 확인 필요
+- 결과: 제품 정책 충돌 해소, API 계약과 논리 데이터 모델 반영 완료
 
 ## 1. 기준 문서 우선순위
 
@@ -17,6 +17,8 @@
 9. `HTTP_API_SPEC.md`: 화면 행동별 HTTP 명령·조회·오류 계약
 10. `WEBSOCKET_SPEC.md`: 실시간 채널·이벤트·공개 projection·재연결 계약
 11. `contracts/openapi.yaml`, `contracts/asyncapi.yaml`: 구현 도구용 HTTP·실시간 기계 판독 계약
+12. `DATA_MODEL.md`: API·이벤트·상태 머신을 연결한 MVP 논리 엔티티와 관계
+13. `PHYSICAL_SCHEMA.md`: PostgreSQL 자료형·인덱스·제약조건·DDL 후속 설계
 
 같은 주제의 내용이 다르면 위 순서의 상세 문서를 우선하고 README를 함께 수정합니다.
 
@@ -64,10 +66,10 @@
 
 다음은 제품 정책 충돌이 아니라 후속 설계 작업입니다.
 
-- 데이터 모델과 마이그레이션
+- 물리 스키마와 마이그레이션
 - 인수 테스트와 백로그
 
-ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.
+논리 ERD는 [논리 데이터 모델](DATA_MODEL.md)에서 완료했습니다. 물리 테이블과 인덱스는 [물리 스키마](PHYSICAL_SCHEMA.md)에서 이어서 확정합니다.
 
 핵심 상태 전이 기준은 [상태 머신](STATE_MACHINES.md)에서 관리합니다.
 
@@ -82,3 +84,5 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 실시간 채널·이벤트·공개 projection·재연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 관리합니다.
 
 구현 도구가 읽는 HTTP·실시간 스키마는 [OpenAPI](../contracts/openapi.yaml)와 [AsyncAPI](../contracts/asyncapi.yaml)에서 관리합니다.
+
+API·이벤트·상태 머신에 대응하는 논리 엔티티와 원장 불변 규칙은 [논리 데이터 모델](DATA_MODEL.md)에서 관리합니다.

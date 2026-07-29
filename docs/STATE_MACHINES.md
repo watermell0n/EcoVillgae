@@ -469,10 +469,10 @@ stateDiagram-v2
 
 HTTP 명령 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 커밋 후 이벤트 연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. OpenAPI·AsyncAPI 계약 생성
-2. 엔티티·상태 이력·원장 관계 데이터 설계
+1. [논리 데이터 모델·ERD](DATA_MODEL.md)의 엔티티·상태 이력·원장 관계를 물리 스키마로 변환
+2. 상태 전이와 DB 제약조건의 책임 경계 확정
 3. 상태 전이 인수 테스트와 오류 코드 연결
 
-ERD는 권한과 화면·API 경계를 확인한 뒤 진행합니다.
+논리 ERD는 권한과 화면·API 경계를 기준으로 작성 완료했습니다.
 
 상태별 명령 권한은 [역할·권한 매트릭스](PERMISSION_MATRIX.md)를 따릅니다.

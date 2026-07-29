@@ -295,6 +295,6 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
-1. API·이벤트 경계 기준 ERD 작성
+1. [논리 데이터 모델·ERD](DATA_MODEL.md) 기준 물리 스키마 작성
 2. 계약 기반 클라이언트·서버 인터페이스 생성
 3. 계약·인수 테스트 연결
