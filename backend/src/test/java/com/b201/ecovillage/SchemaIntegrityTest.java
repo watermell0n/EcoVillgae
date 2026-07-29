@@ -43,8 +43,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_10 creates all 83 physical tables")
-    void allMigrationsCreateEightyThreeTables() throws SQLException {
+    @DisplayName("DBT-000: Flyway V1_1~V1_11 creates all 85 physical tables")
+    void allMigrationsCreateEightyFiveTables() throws SQLException {
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement("""
                  SELECT count(*)
@@ -55,7 +55,7 @@ class SchemaIntegrityTest {
                  """);
              ResultSet result = statement.executeQuery()) {
             assertTrue(result.next());
-            assertEquals(83, result.getInt(1));
+            assertEquals(85, result.getInt(1));
         }
     }
 
@@ -488,8 +488,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, status)
-                    VALUES (?, ?, ?, '별', 5, 'ONE_MONTH', 'ACTIVE')
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, ?, '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
                     """, uuid(), secondSchool, seed.classroomCode());
             }
         });
@@ -498,8 +498,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, status)
-                    VALUES (?, ?, ?, '우리 반 돈', 5, 'ONE_MONTH', 'ACTIVE')
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, ?, '우리 반 돈', 5, 'ONE_MONTH', 30, 'ACTIVE')
                     """, uuid(), secondSchool, classroomCode());
             }
         });
@@ -508,8 +508,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, status)
-                    VALUES (?, ?, 'INVALID1', '별', 5, 'ONE_MONTH', 'ACTIVE')
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, 'INVALID1', '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
                     """, uuid(), secondSchool);
             }
         });
@@ -527,6 +527,81 @@ class SchemaIntegrityTest {
                     UPDATE classrooms SET classroom_code = ?
                      WHERE id = ?
                     """, classroomCode(), seed.classroomId());
+            }
+        });
+    }
+
+    @Test
+    @DisplayName("DBT-019: MVP classroom planning, role, schedule, and school AI constraints are enforced")
+    void mvpSchemaAlignmentConstraintsAreEnforced() throws SQLException {
+        Seed first = seed(false);
+        Seed second = seed(false);
+
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    UPDATE classrooms SET planned_student_count = 0 WHERE id = ?
+                    """, first.classroomId());
+            }
+        });
+
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO salary_roles
+                    (id, classroom_id, role_code, name, gross_amount, status)
+                VALUES (?, ?, 'CLASS_PRESIDENT', '회장', 100, 'ACTIVE')
+                """, uuid(), first.classroomId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO salary_roles
+                        (id, classroom_id, role_code, name, gross_amount, status)
+                    VALUES (?, ?, 'CLASS_PRESIDENT', '다른 이름', 200, 'ACTIVE')
+                    """, uuid(), first.classroomId());
+            }
+        });
+
+        UUID secondSchedule = uuid();
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO classroom_modules
+                    (id, classroom_id, module_code, status)
+                VALUES (?, ?, 'QUIZ', 'ACTIVE')
+                """, uuid(), first.classroomId());
+            execute(connection, """
+                INSERT INTO autonomous_schedules
+                    (id, classroom_id, day_of_week, local_start_time,
+                     local_end_time, status)
+                VALUES (?, ?, 1, '09:00', '10:00', 'ACTIVE')
+                """, secondSchedule, second.classroomId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO autonomous_schedule_modules
+                        (id, classroom_id, autonomous_schedule_id, module_code)
+                    VALUES (?, ?, ?, 'QUIZ')
+                    """, uuid(), first.classroomId(), secondSchedule);
+            }
+        });
+
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO school_ai_setting_versions
+                    (id, school_id, version, enabled, reason,
+                     effective_from, created_by_user_id)
+                VALUES (?, ?, 1, false, '학교 정책', now(), ?)
+                """, uuid(), first.schoolId(), first.userId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO school_ai_setting_versions
+                        (id, school_id, version, enabled, reason,
+                         effective_from, created_by_user_id)
+                    VALUES (?, ?, 2, true, '승인 정책', now(), ?)
+                    """, uuid(), first.schoolId(), first.userId());
             }
         });
     }
@@ -549,8 +624,8 @@ class SchemaIntegrityTest {
             execute(connection, """
                 INSERT INTO classrooms
                     (id, school_id, classroom_code, currency_name,
-                     grade, scale_label, status)
-                VALUES (?, ?, ?, '에코', 5, 'ONE_MONTH', 'ACTIVE')
+                     grade, scale_label, planned_student_count, status)
+                VALUES (?, ?, ?, '에코', 5, 'ONE_MONTH', 30, 'ACTIVE')
                 """, classroom, school, classroomCode);
         }
         UUID student = null;

@@ -244,7 +244,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 화면 행동별 HTTP API는 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 확정했습니다.
 
-PostgreSQL 물리 스키마, Flyway `V1_1`~`V1_10`, DBT-001~018은 구현했습니다.
+PostgreSQL 물리 스키마, Flyway `V1_1`~`V1_11`, DBT-001~019와 MVP API 필드 매핑은 구현했습니다.
 
 1. OpenAPI·AsyncAPI와 저장·projection 필드 매핑
 2. 계약 기반 클라이언트·서버 인터페이스 생성

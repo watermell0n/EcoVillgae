@@ -479,7 +479,7 @@ stateDiagram-v2
 
 HTTP 명령 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 커밋 후 이벤트 연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-상태 집합·상태 이력·원장 제약은 Flyway에, 핵심 결과 무결성은 DBT-001~018에 반영했습니다.
+상태 집합·상태 이력·원장 제약은 Flyway에, 핵심 결과 무결성은 DBT-001~019에 반영했습니다.
 
 1. 서비스 계층 상태 전이 인수 테스트 작성
 2. 상태 전이 오류 코드와 테스트 ID 연결

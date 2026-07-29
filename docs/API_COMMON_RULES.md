@@ -1,7 +1,7 @@
 # 이코빌리지 API 공통 규칙
 
-- 버전: v0.4
-- 기준일: 2026-07-29
+- 버전: v0.5
+- 기준일: 2026-07-30
 - 상태: 공통 계약 확정
 - 범위: 학생·교사용 앱, 교사·관리자 웹, 핵심 API, AI 내부 API, 실시간 연결
 
@@ -299,8 +299,8 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 계약과 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 물리 제약·원장 지연 제약 트리거는 Flyway `V1_1`~`V1_10`, 핵심 DB 검증은 DBT-001~018에 반영했습니다.
+화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml), [API 필드 매핑](../contracts/api-field-mapping.json), [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 비밀번호 재설정·WebSocket 티켓·공용 화면 토큰은 [임시 인증정보 저장 계약](EPHEMERAL_AUTH_STORAGE.md)을 따릅니다. 물리 제약·원장 지연 제약 트리거는 Flyway `V1_1`~`V1_11`, 핵심 DB 검증은 DBT-001~019에 반영했습니다.
 
-1. OpenAPI·AsyncAPI 필드와 저장·공개 projection 필드 매핑
-2. 계약 기반 클라이언트·서버 인터페이스 생성
-3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
+1. 계약 기반 클라이언트·서버 인터페이스 생성
+2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
+3. `planned` API를 MVP로 승격할 때 명시적 DTO·저장 모델 추가

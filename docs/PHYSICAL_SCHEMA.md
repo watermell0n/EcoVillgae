@@ -1,17 +1,17 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.4
-- 기준일: 2026-07-29
+- 버전: v0.5
+- 기준일: 2026-07-30
 - 기준 브랜치: `master`
-- 입력: [논리 데이터 모델 v0.3](DATA_MODEL.md)
+- 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
 - 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
 
-이 문서는 논리 ERD의 83개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
+이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_10`과 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_11`과 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -154,7 +154,7 @@ ON DELETE RESTRICT
 | `course_templates` | G | `template_code varchar(40)`, `name varchar(120)`, `grade_min smallint`, `grade_max smallint`, `scale_label varchar(20)`, `status varchar(40) D=DRAFT` | `template_code UQ`, 학년 4~6 |
 | `course_template_versions` | G | `course_template_id uuid FK(course_templates)`, `version integer`, `difficulty_profile jsonb D={}`, `status varchar(40)`, `published_at timestamptz?`, `retired_at timestamptz?` | `(course_template_id,version) UQ`, 게시 후 불변 |
 | `course_template_modules` | G | `course_template_version_id uuid FK(course_template_versions)`, `module_code varchar(40)`, `recommendation_level varchar(40)`, `sort_order integer D=0`, `config_json jsonb D={}` | `(course_template_version_id,module_code) UQ` |
-| `classrooms` | S | `school_id uuid FK(schools)`, `course_template_version_id uuid? FK(course_template_versions)`, `classroom_code varchar(8)`, `currency_name varchar(10)`, `grade smallint`, `scale_label varchar(20)`, `actual_starts_on date?`, `actual_ends_on date?`, `app_mode_override varchar(40)?`, `time_zone varchar(60) D=Asia/Seoul` | `classroom_code UQ`, 코드·단위명 생성 후 불변, SM-CLS-001 |
+| `classrooms` | S | `school_id uuid FK(schools)`, `course_template_version_id uuid? FK(course_template_versions)`, `classroom_code varchar(8)`, `currency_name varchar(10)`, `grade smallint`, `scale_label varchar(20)`, `planned_student_count integer`, `actual_starts_on date?`, `actual_ends_on date?`, `app_mode_override varchar(40)?`, `time_zone varchar(60) D=Asia/Seoul` | `classroom_code UQ`, 예상 학생 수>0, 코드·단위명 생성 후 불변, SM-CLS-001 |
 | `classroom_teachers` | I | `user_id uuid FK(users)`, `role varchar(40)`, `assigned_at timestamptz D=now()`, `ended_at timestamptz?` | 활성 OWNER 1명, 활성 `(classroom_id,user_id,role)` UQ |
 | `classroom_students` | S | `salary_role_id uuid? FK(salary_roles)`, `roster_number integer`, `nickname varchar(40)`, `joined_at timestamptz D=now()`, `retired_at timestamptz?` | `(classroom_id,roster_number) UQ`, `(classroom_id,lower(nickname)) UQ` |
 | `student_credentials` | 없음 | `classroom_student_id uuid PK FK(classroom_students)`, `classroom_id uuid`, `password_hash text`, `credential_version bigint D=1`, `changed_at timestamptz D=now()` | 학급 복합 FK, 로그인 실패 횟수·잠금 컬럼 없음 |
@@ -163,8 +163,10 @@ ON DELETE RESTRICT
 | `classroom_modules` | S | `module_code varchar(40)`, `config_json jsonb D={}`, `enabled_at timestamptz?`, `stopped_at timestamptz?` | `(classroom_id,module_code) UQ`, SM-MOD-001 |
 | `classroom_policy_versions` | I | `policy_area varchar(40)`, `version integer`, `values jsonb`, `schema_version varchar(20)`, `source varchar(40)`, `status varchar(40)`, `effective_from timestamptz`, `superseded_at timestamptz?` | `(classroom_id,policy_area,version) UQ`, 적용 후 불변 |
 | `autonomous_schedules` | S | `day_of_week smallint`, `local_start_time time`, `local_end_time time`, `time_zone varchar(60) D=Asia/Seoul`, `enabled boolean D=true` | `(classroom_id,day_of_week,local_start_time) UQ`, 종료>시작 |
-| `salary_roles` | S | `name varchar(80)`, `gross_amount bigint`, `deductions_json jsonb D={}`, `sort_order integer D=0` | `(classroom_id,lower(name)) UQ`, 금액 0 이상 |
+| `autonomous_schedule_modules` | 없음 | `id uuid PK`, `classroom_id uuid`, `autonomous_schedule_id uuid FK(autonomous_schedules)`, `module_code varchar(40) FK(classroom_modules)`, `created_at timestamptz D=now()` | 학급 복합 FK, `(autonomous_schedule_id,module_code) UQ` |
+| `salary_roles` | S | `role_code varchar(40)`, `name varchar(80)`, `gross_amount bigint`, `deductions_json jsonb D={}`, `sort_order integer D=0` | `(classroom_id,role_code) UQ`, `(classroom_id,lower(name)) UQ`, 코드 형식, 금액 0 이상 |
 | `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
+| `school_ai_setting_versions` | 없음 | `id uuid PK`, `school_id uuid FK(schools)`, `version integer`, `enabled boolean`, `reason text`, `effective_from timestamptz`, `superseded_at timestamptz?`, `created_by_user_id uuid FK(users)`, `created_at timestamptz D=now()` | `(school_id,version) UQ`, 학교별 현재 버전 1개, 이력 불변 |
 
 ### 4.2 거래 원장·멱등성·상태·이벤트·감사
 
@@ -278,8 +280,11 @@ ON DELETE RESTRICT
 | UK-013 | `store_products` | `UNIQUE (classroom_id,lower(name),product_kind)` | 학급 상점의 유형별 상품명 중복 방지 |
 | UK-014 | `financial_products` | `UNIQUE (classroom_id,product_type,lower(name))` | 학급 금융상품의 유형별 이름 중복 방지 |
 | UK-015 | `realtime_streams` | `UNIQUE (classroom_id,stream_type,coalesce(resource_id,zero_uuid))` | 같은 리소스의 활성 실시간 stream 중복 방지 |
+| UK-016 | `salary_roles` | `UNIQUE (classroom_id,role_code)` | 학생 배정과 API가 참조하는 학급 내 안정 역할 코드 |
+| UK-017 | `autonomous_schedule_modules` | `UNIQUE (autonomous_schedule_id,module_code)` | 같은 일정에 같은 모듈 중복 연결 방지 |
+| UK-018 | `school_ai_setting_versions` | `UNIQUE (school_id) WHERE superseded_at IS NULL` | 학교별 현재 AI 설정을 한 버전으로 제한 |
 
-UK-001~009·UK-011~015의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
+UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010·017은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
 
 ## 6. 검사 제약조건
 
@@ -321,6 +326,9 @@ UK-001~009·UK-011~015의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE 
 | CK-034 | `async_operations` | `progress_percent BETWEEN 0 AND 100` |
 | CK-035 | 보관 테이블 | `retention_until>=created_at` 또는 기준 시각 |
 | CK-036 | `classrooms` | `classroom_code`는 혼동 문자를 제외한 영문 대문자·숫자 8자, `currency_name`은 한글·영문·숫자 1~10자 |
+| CK-037 | `classrooms` | `planned_student_count>0` |
+| CK-038 | `salary_roles` | `role_code`는 영문 대문자로 시작하는 영문 대문자·숫자·밑줄 1~40자 |
+| CK-039 | `school_ai_setting_versions` | `version>0`, 사유는 공백이 아니며 `superseded_at`은 `effective_from`보다 뒤 |
 
 상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 
@@ -425,6 +433,7 @@ PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK �
 | IX-034 | `ix_ai_runs_classroom_status` | `(classroom_id,status,requested_at DESC)` | AI 작업 |
 | IX-035 | `ix_async_operations_status` | `(classroom_id,status,created_at)` | 비동기 작업 감시 |
 | IX-036 | `ix_report_snapshots_retention` | `(retention_until)` | 보관 만료 |
+| IX-037 | `ix_autonomous_schedule_modules_module` | `(classroom_id,module_code,autonomous_schedule_id)` | 모듈별 자율시간 조회 |
 
 JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN ANALYZE` 근거가 생긴 필드만 표현식 또는 GIN 인덱스로 추가합니다.
 
@@ -479,8 +488,9 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P8 | `V1_8__constraints_triggers.sql` | 복합 FK·부분 UQ·원장 지연 트리거·불변 트리거 |
 | P9 | `V1_9__indexes.sql` | 조회 인덱스 |
 | P10 | `V1_10__classroom_identity_and_public_quiz.sql` | 전역 학급 코드·화폐 단위명 불변성과 공개 GAME 1~3위 View |
+| P11 | `V1_11__mvp_schema_alignment.sql` | 예상 학생 수·안정 역할 코드·자율시간 모듈 연결·학교 AI 설정 버전 |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_10`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_11`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -504,6 +514,7 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | DBT-016 | 공개 퀴즈 View는 교사가 공개한 GAME 1~3위의 닉네임·장착 캐릭터만 내보내고 점수·정답 수·응답 시간·TEST 결과를 제외 |
 | DBT-017 | `classroom_accepts_new_operations()`가 READ_ONLY 학급에 대해 `false`를 반환 |
 | DBT-018 | 학급 코드가 전역에서 유일하고 형식이 유효하며, 화폐 단위명 형식과 생성 후 불변성이 강제됨 |
+| DBT-019 | 예상 학생 수, 역할 코드, 자율시간-모듈 학급 범위, 학교 AI 현재 설정 제약이 강제됨 |
 
 ## 13. 애플리케이션 책임
 
@@ -526,20 +537,20 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 
 구현 결과:
 
-- 논리 ERD 83개 엔티티가 83개 물리 테이블에 1:1 매핑
+- 논리 ERD 85개 엔티티가 85개 물리 테이블에 1:1 매핑
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_10`에 조회 인덱스 36개, FK 보조 인덱스 14개와 학급 식별·공개 순위 보강 구현
-- Testcontainers에 DBT-001~018과 83개 테이블 생성 검사 구현
+- Flyway `V1_1`~`V1_11`에 조회 인덱스 37개, FK 보조 인덱스 14개와 학급 식별·공개 순위·MVP 필드 보강 구현
+- Testcontainers에 DBT-001~019와 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
-- PostgreSQL 17에 Flyway `V1_1`~`V1_10` 직접 적용과 DBT-016·018 핵심 제약 검증 성공
-- Testcontainers 19개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
+- PostgreSQL 17에 Flyway `V1_1`~`V1_11` 직접 적용과 핵심 제약 검증 성공
+- Testcontainers 20개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
 
 후속 작업:
 
 1. Docker 사용 가능 Jenkins 에이전트에서 DBT 전체 실행
-2. OpenAPI 요청·응답 필드와 저장·projection 필드 매핑
+2. [API·스키마 필드 매핑](../contracts/api-field-mapping.json)을 구현 코드의 DTO·영속 계층과 동기화
 3. 서비스 계층에서 OWNER 0명 방지, 같은 멱등 키의 요청 hash 비교·기존 응답 반환, READ_ONLY 명령 차단 인수 테스트
 4. 금융·퀴즈 버전 불변성과 투자·대출 음수 값 거부를 포함한 서비스·DB 통합 테스트 보강
 5. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정
