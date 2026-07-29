@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v0.4
+- 버전: v0.5
 - 기준일: 2026-07-29
 - 상태: 요구사항 기준선·핵심 상태 머신·역할 권한·화면 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*` ID를 추가합니다. API·데이터·테스트가 만들어지면 같은 열에 실제 ID를 계속 추가합니다.
+RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*` ID를 추가합니다. API·데이터·테스트가 만들어지면 같은 열에 실제 ID를 계속 추가합니다.
 
 출처 약어:
 
@@ -31,7 +31,7 @@ RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | SYS-004 | TECH | 운영자 | AWS 인프라 | 서울 리전 자원이 Terraform으로 재현됨 | IaC plan·배포 검증 | PM-OPS-002 · SCR-OPS-001 / TEST TBD |
 | SYS-005 | TECH | 운영자 | CI/CD·관측 | Jenkins·EAS 배포와 오류·추적·지표 조회 가능 | 파이프라인·장애 주입 | PM-OPS-002 · SCR-OPS-001 / TEST TBD |
 | AUTH-001 | MVP·DEC | 학생 | 로그인 | 실명 없이 학급 코드·번호·닉네임·비밀번호로 로그인 | 인증 E2E | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
-| AUTH-002 | DEC | 전 역할 | 권한 | 학생·교사·관리자·시스템·AI가 허용 작업만 수행 | 권한 매트릭스 테스트 | PM-RBAC-001·PM-RBAC-002·PM-CLS-002·PM-CLS-003·PM-SVC-001 · SCR-STU-003·SCR-TCH-002·SCR-WEB-002·SCR-WEB-007·SCR-ADM-001·SCR-ADM-002·SCR-ADM-004·SCR-OPS-001 / TEST TBD |
+| AUTH-002 | DEC | 전 역할·기술 주체 | 권한 | STU·OWN·COT·SAD·POP·SYS·AIS·DSP가 허용 작업만 수행 | 권한 매트릭스 테스트 | PM-RBAC-001·PM-RBAC-002·PM-CLS-002·PM-CLS-003·PM-OPS-001·PM-OPS-002·PM-SVC-001·PM-DSP-001 · SCR-STU-003·SCR-TCH-002·SCR-WEB-002·SCR-WEB-007·SCR-ADM-001·SCR-ADM-002·SCR-ADM-004·SCR-OPS-001·SCR-OPS-002·SCR-PUB-001 / TEST TBD |
 | AUTH-003 | TECH·DEC | 학생·교사 | 세션·토큰 | SecureStore 저장, 새 기기 로그인 시 기존 세션 종료 | 기기 시나리오 | PM-AUTH-001·PM-SVC-001 · SCR-STU-001·SCR-TCH-001·SCR-WEB-001 / TEST TBD |
 | AUTH-004 | MVP·DEC | 학생·교사 | 개인정보 | 개인 금융·평가 결과가 타 학생·공용 화면에 노출되지 않음 | 접근 제어·화면 검사 | PM-DAT-001·PM-DSP-001 · SCR-STU-004·SCR-STU-020·SCR-PUB-004 / TEST TBD |
 | AUTH-005 | MVP·DEC | 학생 | 로그인 실패 | 연속 실패 후에도 계정 잠금 상태가 생성되지 않음 | 인증 경계값 테스트 | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
@@ -118,18 +118,18 @@ RTM v0.4는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AI-004 | AI·DEC | 교사 | 데이터 충분성 | 5명·10건 미만에서 추천 대신 데이터 부족 표시 | 경계값 테스트 | SM-AIR-001 · PM-AI-001·PM-SVC-001 · SCR-WEB-021 / TEST TBD |
 | AI-005 | AI·DEC | 교사 | 챗봇 조회 | 학급 집계만 답하고 학생 개인 분석·금융조언 차단 | 안전 평가 세트 | SM-AIR-001 · PM-AI-001·PM-DAT-001 · SCR-WEB-022 / TEST TBD |
 | AI-006 | AI·DEC | 교사 | 챗봇 운영 | 근거 형식, 30회·20초·1회 재시도와 장애 대체 화면 | 부하·장애 테스트 | SM-AIR-001 · PM-AI-001·PM-OPS-002 · SCR-WEB-022·SCR-OPS-001 / TEST TBD |
-| AI-007 | AI·DEC | 교사·학생 | AI 이벤트 | 7종 템플릿·학년 제한·교사 승인·금지 효과 검증 | 이벤트 계약·E2E | SM-AIR-001·SM-ACT-001 · PM-AI-002·PM-ACT-001 · SCR-WEB-023·SCR-TCH-006·SCR-PUB-003 / TEST TBD |
+| AI-007 | AI·DEC | 교사·학생 | AI 이벤트 | 7종 템플릿·학년 제한·교사 승인·금지 효과 검증 | 이벤트 계약·E2E | SM-AIR-001·SM-ACT-001 · PM-AI-002·PM-ACT-001·PM-DSP-001 · SCR-WEB-023·SCR-TCH-006·SCR-PUB-003 / TEST TBD |
 | AI-008 | AI·DEC | 교사·운영자 | AI 감사 | 실행 ID·모델·프롬프트·검증·교사 결정 추적 가능 | 감사 조회 테스트 | SM-AIR-001 · PM-AI-001·PM-AI-002·PM-DAT-005 · SCR-WEB-025·SCR-ADM-005 / TEST TBD |
 
 ## 8. 데이터·운영
 
 | 요구사항 ID | 출처 | 역할 | 대상 | 핵심 인수 기준 | 검증 방법 | 설계·테스트 연결 |
 | --- | --- | --- | --- | --- | --- | --- |
-| DAT-001 | DEC | 학생·교사·관리자 | 종료 후 조회 | 학생 30일, 교사·관리자 1년 권한 적용 | 시간·권한 테스트 | SM-CLS-001 · PM-DAT-001 · SCR-STU-024·SCR-WEB-024·SCR-ADM-005 / TEST TBD |
+| DAT-001 | DEC | 학생·교사·관리자 | 종료 후 조회 | READ_ONLY 전환 후 학생 30일, 교사·학교 관리자 1년 권한 적용 | 시간·권한 테스트 | SM-CLS-001 · PM-DAT-001 · SCR-STU-024·SCR-WEB-024·SCR-ADM-005 / TEST TBD |
 | DAT-002 | DEC | 교사·시스템 | 새 학급 | 학생 자산·금융·거래·학습데이터 자동 이월 없음 | 복제 E2E | PM-DAT-004·PM-SVC-001 · SCR-WEB-027 / TEST TBD |
 | DAT-003 | DEC | 학생·교사·관리자 | 복사·내보내기 | 학생 개인 리포트, 교사 PDF·CSV, 템플릿·퀴즈 복사 | 내보내기 테스트 | PM-DAT-002·PM-DAT-003·PM-DAT-004 · SCR-STU-024·SCR-TCH-012·SCR-WEB-024·SCR-WEB-027 / TEST TBD |
-| DAT-004 | DEC | 관리자·시스템 | 보관·삭제 | 1년 후 식별 연결 삭제와 삭제 감사 기록 생성 | 보존 배치 테스트 | SM-CLS-001 · PM-DAT-005·PM-DAT-006 · SCR-WEB-025·SCR-ADM-005 / TEST TBD |
-| DAT-005 | AI·DEC | 교사·시스템 | AI·기기 데이터 | AI 원문·기기 30일, 메타데이터 1년 만료 | TTL·삭제 테스트 | PM-DAT-006·PM-AI-001·PM-SVC-001 · SCR-WEB-025·SCR-ADM-003·SCR-OPS-001 / TEST TBD |
+| DAT-004 | DEC | 관리자·시스템 | 보관·삭제 | READ_ONLY 전환 1년 후 식별 연결 삭제·감사 기록 생성, 삭제 후 백업 잔존 최대 30일 | 보존 배치 테스트 | SM-CLS-001 · PM-DAT-005·PM-DAT-006 · SCR-WEB-025·SCR-ADM-005 / TEST TBD |
+| DAT-005 | AI·DEC | 교사·시스템 | AI·기기 데이터 | AI 원문은 생성 후 30일, 기기 연결은 READ_ONLY 전환 후 30일, 메타데이터는 AI 실행 후 1년 만료 | TTL·삭제 테스트 | PM-DAT-006·PM-AI-001·PM-SVC-001 · SCR-WEB-025·SCR-ADM-003·SCR-OPS-001 / TEST TBD |
 | DAT-006 | MVP·DEC | 학생·시스템 | 온라인 명령 | 오프라인 변경 차단, 재연결 조회, 요청번호 멱등성 | 네트워크·재시도 테스트 | SM-TXN-001 · PM-TXN-001·PM-SVC-001 · SCR-STU-003·SCR-STU-007·SCR-STU-010·SCR-STU-017·SCR-STU-019·SCR-OPS-001 / TEST TBD |
 
 ## 9. 커버리지 요약
