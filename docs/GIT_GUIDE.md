@@ -1,8 +1,8 @@
 # 이코빌리지 Git 작업 안내
 
-- 기준일: 2026-07-29
+- 기준일: 2026-07-30
 - 저장소: `https://lab.ssafy.com/s15-webmobile4-sub1/S15P11B201.git`
-- 공통 기준 브랜치: `master`
+- 개발 기준 브랜치: `develop`
 
 상세 일정과 경로별 담당은 [팀 일정·협업 방식](TEAM_SCHEDULE_AND_WORKFLOW.md)을
 따릅니다.
@@ -11,37 +11,30 @@
 
 | 브랜치 | 역할 |
 | --- | --- |
-| `master` | 신규 MVP의 공통 구조와 검토가 끝난 변경 |
-| `codex/backend-dev` | 허병우 개인 백엔드 개발 |
-| `feature/*` | 팀원별 기능·설계 작업 |
+| `master` | 배포 가능한 릴리스 이력. 기능 개발의 시작점이나 일반 MR 대상이 아님 |
+| `develop` | 다음 릴리스를 위한 개발 통합 기준선이자 일반 MR 대상 |
+| `feat/*` | `develop`에서 분기하는 기능·설계·문서 작업 |
 | `fix/*` | 버그 수정 |
 | `docs/*` | 독립 문서 변경 |
-| `release` | 이전 시연 코드 보존, 신규 MVP 작업 기준이 아님 |
-| `develop` | 이전 기준선, 신규 작업 기준이 아님 |
+| `release/*` | 릴리스 범위 확정 후 `develop`에서 분기하는 안정화 브랜치 |
+| `hotfix/*` | 운영 중 긴급 수정을 위해 `master`에서 분기하는 브랜치 |
+| `release` | 이전 시연 코드 보존용 레거시 브랜치. 신규 작업 기준이 아님 |
 
-팀원은 `release`와 `develop`에서 신규 MVP 브랜치를 만들지 않습니다. 최신
-`master`에서 각자 브랜치를 만들고 Merge Request도 `master`를 대상으로 합니다.
+일반 작업은 최신 `develop`에서 분기하고 Merge Request도 `develop`을 대상으로
+합니다. `master`에는 릴리스와 긴급 수정만 반영합니다.
 
 ## 2. 작업 시작
 
 ```bash
 git fetch origin --prune
-git switch master
-git pull --ff-only origin master
-git switch -c feature/S15P11B201-123-classroom-students
+git switch develop
+git pull --ff-only origin develop
+git switch -c feat/S15P11B201-123-classroom-students
 ```
 
 브랜치 이름은 `<type>/<Jira번호>-<kebab-case-description>`을 권장합니다.
-
-허병우의 백엔드 작업:
-
-```bash
-git fetch origin --prune
-git switch codex/backend-dev
-git pull --ff-only origin codex/backend-dev
-```
-
-팀원은 `codex/backend-dev`에서 분기하거나 직접 커밋하지 않습니다.
+기존 개인 통합 브랜치는 진행 중인 변경을 정리해 `develop` 대상 MR로 병합한 뒤
+신규 작업 기준으로 사용하지 않습니다.
 
 ## 3. 경로별 기본 소유
 
@@ -92,7 +85,7 @@ chore: 로컬 PostgreSQL과 Redis 구성 추가
 - Jenkins·Terraform
 - 캐릭터 편집 원본
 
-API 변경은 계약을 먼저 MR로 합의하고 각 구현 브랜치가 병합된 `master`를 다시
+API 변경은 계약을 먼저 MR로 합의하고 계약 변경이 병합된 `develop`을 각 구현 브랜치에 다시
 반영합니다. 적용된 Flyway 파일은 수정하지 않고 새 버전을 추가합니다.
 
 ## 6. 커밋 전 확인
@@ -129,6 +122,9 @@ node scripts/validate-database-implementation.mjs
 git push -u origin <branch-name>
 ```
 
+일반 기능·수정·문서 MR의 대상 브랜치는 `develop`입니다. 기능 하나가 끝날 때마다
+`master`로 MR을 만들지 않습니다.
+
 MR에는 다음 내용을 포함합니다.
 
 - 관련 Jira
@@ -139,25 +135,44 @@ MR에는 다음 내용을 포함합니다.
 
 기본 템플릿은 `.gitlab/merge_request_templates/Default.md`를 사용합니다.
 
-## 8. 최신 master 반영
+## 8. 최신 develop 반영
 
 작업 중 하루에 한 번 이상 최신 기준을 반영합니다.
 
 ```bash
 git fetch origin
-git rebase origin/master
+git rebase origin/develop
 ```
 
 공유된 개인 브랜치에서 이미 다른 사람이 작업을 이어받았다면 rebase 전에
 팀과 확인하고 merge 방식을 사용합니다.
 
-## 9. 금지·주의
+## 9. 릴리스와 긴급 수정
+
+`master` 반영은 개별 기능 완료 시점이 아니라 다음 릴리스 후보가 준비된 시점에
+진행합니다. 다음 조건을 모두 충족하면 `develop`에서 `release/<version>`을
+분기합니다.
+
+- 합의한 스프린트·MVP 마일스톤의 범위가 완료되어 있다.
+- `develop`의 CI와 필수 단위·통합·인수 테스트가 통과한다.
+- 릴리스를 막는 심각한 결함이 없고 문서·계약·DB 마이그레이션 검토가 끝났다.
+
+`release/*`에서는 새 기능을 추가하지 않고 결함 수정, 버전, 배포 설정과 문서만
+정리합니다. 검증이 끝나면 `release/*`에서 `master`로 MR을 만들고, 병합 커밋에
+버전 태그를 붙입니다. 안정화 중 발생한 변경이 빠지지 않도록 같은 `release/*`를
+`develop`에도 병합한 뒤 브랜치를 종료합니다.
+
+운영 중 긴급 수정은 `master`에서 `hotfix/*`를 분기해 검증 후 `master`로 MR을
+만들고, 동일 변경을 `develop`에도 병합합니다.
+
+## 10. 금지·주의
 
 - 다른 사람의 변경을 확인 없이 삭제하지 않습니다.
 - 공유 브랜치에 `git push --force`를 사용하지 않습니다.
 - `.env`, 비밀번호, 토큰, 인증서와 Terraform 상태를 커밋하지 않습니다.
 - `git reset --hard`, `git clean -fd`는 영향 범위를 모르면 실행하지 않습니다.
-- 기능 구현을 `master`에 직접 푸시하지 않습니다.
+- `develop`과 `master`에 직접 푸시하지 않고 MR과 리뷰를 거칩니다.
+- 일반 기능 브랜치에서 `master`로 바로 MR을 만들지 않습니다.
 
 비밀정보를 커밋했다면 파일 삭제만 하지 말고 즉시 키를 폐기·재발급하고 팀에
 알립니다.

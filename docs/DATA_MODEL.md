@@ -2,7 +2,7 @@
 
 - 버전: v0.4
 - 기준일: 2026-07-30
-- 기준 브랜치: `master`
+- 개발 기준 브랜치: `develop`
 - 상태: MVP 논리 ERD 기준선
 - 대상 DB: PostgreSQL 17
 
