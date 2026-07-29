@@ -83,6 +83,8 @@
 - React Native 앱은 EAS Build, Submit과 Update를 사용합니다.
 - 운영 배포와 앱 업데이트는 승인 단계를 두고 자동 실행 권한을 제한합니다.
 - 데이터베이스 스키마 변경은 애플리케이션 배포와 분리해 검증합니다.
+- 현재 개발·CI·Terraform 골격과 실제 AWS 생성의 경계는
+  [인프라 기준선](INFRASTRUCTURE_BASELINE.md)을 따릅니다.
 
 ## 7. 관측과 장애 대응
 
