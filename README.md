@@ -34,6 +34,8 @@
 - 학생은 학교에서 지급한 개인 태블릿을 사용합니다.
 - 개인 잔액, 금융상품, 세금과 평가 결과는 다른 학생이나 공용 화면에 공개하지 않습니다.
 - 교사용 앱과 관리 웹은 같은 API와 권한 정책을 사용합니다.
+- 경제교실에는 학급 소유 교사 1명과 공동 담당 교사 0명 이상을 둘 수 있습니다.
+- 소유 교사는 학급 구조·경제정책·모듈·종료를, 공동 담당 교사는 수업·승인·일상 운영을 담당합니다.
 
 ## 4. 학년·규모 추천
 
@@ -188,11 +190,10 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 10. 다음 단계
 
-1. 역할·권한 매트릭스 작성
-2. 화면 ID와 상태별 화면·버튼 연결
-3. HTTP API·WebSocket 이벤트 설계
-4. 데이터 설계
-5. 인수 테스트와 개발 백로그 연결
+1. 화면 ID와 역할·상태별 화면·버튼 연결
+2. HTTP API·WebSocket 이벤트 설계
+3. 데이터 설계
+4. 인수 테스트와 개발 백로그 연결
 
 ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.
 
@@ -202,8 +203,9 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
 - [요구사항 기준선·용어집](docs/REQUIREMENTS_BASELINE.md)
-- [RTM v0.2](docs/RTM.md)
+- [RTM v0.3](docs/RTM.md)
 - [핵심 상태 머신](docs/STATE_MACHINES.md)
+- [역할·권한 매트릭스](docs/PERMISSION_MATRIX.md)
 - [AI 활용 방향](docs/AI_DIRECTION.md)
 - [확정 기술 스택](docs/TECH_STACK.md)
 - [MVP 이후 추가 모듈 및 발전 방향](docs/FUTURE_MODULES_AND_ROADMAP.md)
