@@ -1,17 +1,19 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.1
+- 버전: v0.2
 - 기준일: 2026-07-29
-- 기준 Git 커밋: `a71f80d`
+- 설계 기준 Git 커밋: `139cd6e`
 - 입력: [논리 데이터 모델 v0.1](DATA_MODEL.md)
-- 상태: MVP 물리 테이블·인덱스·제약조건 기준선
+- 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
 
 이 문서는 논리 ERD의 83개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-이 단계에서는 실제 Flyway DDL 파일을 만들지 않습니다. 후속 구현은 이 문서의 식별자와 제약조건을 그대로 사용하여 `V1_1`~`V1_9` migration과 Testcontainers 무결성 테스트를 작성합니다.
+실행 가능한 Flyway `V1_1`~`V1_9`와 Testcontainers 무결성 테스트는
+[`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
+식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
 MVP 밖의 중학생 코스, 자리·부동산, 보험, 주거·청약 테이블은 만들지 않습니다.
 
@@ -511,20 +513,22 @@ DB가 강제하지 않고 Spring 서비스가 판정하는 규칙:
 
 DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의미·권한·현재 상태를 판정합니다.
 
-## 14. 완료 기준과 후속 작업
+## 14. 구현 결과와 후속 작업
 
-이번 물리 스키마 기준선의 완료 조건:
+구현 결과:
 
 - 논리 ERD 83개 엔티티가 83개 물리 테이블에 1:1 매핑
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- 조회 인덱스 36개와 근거 정의
-- Testcontainers 무결성 시나리오 17개 정의
+- Flyway `V1_1`~`V1_9`에 조회 인덱스 36개와 FK 보조 인덱스 14개 구현
+- Testcontainers에 DBT-001~017과 83개 테이블 생성 검사 구현
+- Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
+- 현재 개발 PC에는 Docker가 없어 PostgreSQL 컨테이너 테스트 18개는 환경상 건너뜀
 
 후속 작업:
 
-1. Flyway `V1_1`~`V1_9` DDL 작성
-2. Testcontainers DBT-001~017 자동화
-3. OpenAPI 요청·응답 필드와 저장·projection 필드 매핑
+1. Docker 사용 가능 Jenkins 에이전트에서 DBT 전체 실행
+2. OpenAPI 요청·응답 필드와 저장·projection 필드 매핑
+3. 서비스 계층에서 OWNER 0명 방지, 멱등 키 hash 비교, READ_ONLY 명령 차단 인수 테스트
 4. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정

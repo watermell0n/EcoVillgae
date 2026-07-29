@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v0.9
+- 버전: v1.0
 - 기준일: 2026-07-29
-- 상태: 요구사항 기준선·상태·권한·화면·API·이벤트·논리·물리 데이터 설계 연결 완료
+- 상태: 요구사항·계약·논리·물리 설계와 Flyway·DB 무결성 테스트 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v0.9는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 데이터 모델 `PDM-*`를 추가합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다. DDL·자동 테스트가 만들어지면 실제 ID를 계속 추가합니다.
+RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 데이터 모델 `PDM-*`, Flyway `V1_1`~`V1_9`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -311,6 +311,20 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 83개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
+### 13.1 실행 구현 연결
+
+| 구현 | 위치 | 결과 |
+| --- | --- | --- |
+| Flyway P1~P9 | `backend/src/main/resources/db/migration/V1_1~V1_9` | 83개 테이블 |
+| 기준 조회 인덱스 | `V1_9__indexes.sql` | IX-001~036 |
+| 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
+| 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
+| 공개 projection | `V1_9__indexes.sql` | 퀴즈·투표·공동기금·투자 4개 view |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~017 + 테이블 수 검사 |
+
+Java 컴파일은 성공했습니다. 로컬 Docker 부재로 Testcontainers 18개는 건너뛰었으며,
+Docker 사용 가능 Jenkins 에이전트의 실행 결과가 최종 PASS 기준입니다.
+
 ## 14. 커버리지 요약
 
 | 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | OpenAPI | WS 대상 | WS 연결 | AsyncAPI | 설계 하나 이상 | 테스트 |
@@ -328,9 +342,10 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 ## 15. 다음 갱신
 
-1. Flyway migration ID 연결
-2. 인수 테스트·자동 테스트 ID 연결
-3. OpenAPI 필드·저장·projection 매핑 연결
+1. Jenkins PostgreSQL 17 Testcontainers 전체 실행 결과 연결
+2. OpenAPI 필드·저장·projection 매핑 연결
+3. 서비스 인수 테스트 ID 연결
 4. 개발 백로그·구현 커밋 연결
 
-논리 ERD와 물리 스키마는 역할·권한·화면·API 경계를 기준으로 완료했습니다.
+논리 ERD·물리 스키마·Flyway·DB 무결성 테스트 코드는 역할·권한·화면·API 경계를
+기준으로 완료했습니다.
