@@ -215,6 +215,8 @@ docker compose -f compose.dev.yml up -d
 
 팀의 작업 순서, 경로별 담당과 충돌 방지 규칙은
 [팀 일정·협업 방식](docs/TEAM_SCHEDULE_AND_WORKFLOW.md)을 따릅니다.
+로컬·Jenkins·Terraform 준비 범위와 AWS 구축 시점은
+[인프라 기준선](docs/INFRASTRUCTURE_BASELINE.md)을 따릅니다.
 
 ## 11. 다음 단계
 
@@ -228,6 +230,7 @@ docker compose -f compose.dev.yml up -d
 ## 12. 관련 문서
 
 - [팀 일정·협업 방식](docs/TEAM_SCHEDULE_AND_WORKFLOW.md)
+- [인프라 기준선](docs/INFRASTRUCTURE_BASELINE.md)
 - [문서 충돌 검사](docs/DOCUMENT_CONSISTENCY_AUDIT.md)
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
