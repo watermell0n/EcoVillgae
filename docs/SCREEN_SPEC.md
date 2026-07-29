@@ -411,11 +411,10 @@ flowchart LR
 
 ## 10. 후속 설계 순서
 
-각 `UIA-*`의 HTTP 명령·응답·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 완료했습니다.
+각 `UIA-*`의 HTTP 명령·응답·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md), `GUIDED`·퀴즈·투표·시장 실시간 연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. `GUIDED`, 퀴즈·투표·시장 상태에 WebSocket 채널·이벤트 ID를 연결합니다.
-2. 조회 화면별 공개 DTO와 역할별 필드 마스킹을 검증합니다.
-3. 화면·권한·상태 조합의 인수 테스트 ID를 RTM에 연결합니다.
-4. 그다음 엔티티·원장·상태 이력 데이터 구조를 설계합니다.
+1. OpenAPI·AsyncAPI 계약을 생성합니다.
+2. 화면·권한·상태 조합의 인수 테스트 ID를 RTM에 연결합니다.
+3. 그다음 엔티티·원장·상태 이력 데이터 구조를 설계합니다.
 
 ERD는 화면·API 경계를 확정한 뒤 진행합니다.

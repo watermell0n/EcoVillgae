@@ -237,10 +237,10 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 화면과 행동 경계는 [화면 ID·행동 명세](SCREEN_SPEC.md)를 따릅니다.
 인증·응답·오류·멱등성·동시성·시간·금액 계약은 [API 공통 규칙](API_COMMON_RULES.md)을 따릅니다.
 
-화면 행동별 HTTP API는 [HTTP API 명세](HTTP_API_SPEC.md)에서 확정했습니다.
+화면 행동별 HTTP API는 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 확정했습니다.
 
-1. WebSocket 채널·이벤트
-2. OpenAPI 계약과 데이터 설계
+1. OpenAPI·AsyncAPI 계약
+2. API·이벤트 경계 기준 데이터 설계
 3. 인수 테스트와 개발 백로그
 
 ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.

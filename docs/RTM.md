@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v0.5
+- 버전: v0.6
 - 기준일: 2026-07-29
-- 상태: 요구사항 기준선·상태·권한·화면·HTTP API 연결 완료
+- 상태: 요구사항 기준선·상태·권한·화면·HTTP·WebSocket 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*` ID를 추가합니다. WebSocket·데이터·테스트가 만들어지면 실제 ID를 계속 추가합니다.
+RTM v0.6은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*` ID를 추가합니다. 데이터·테스트가 만들어지면 실제 ID를 계속 추가합니다.
 
 출처 약어:
 
@@ -21,6 +21,7 @@ RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 - `PM`: [역할·권한 매트릭스](PERMISSION_MATRIX.md)
 - `SCR`: [화면 ID·행동 명세](SCREEN_SPEC.md)
 - `API`: [API 공통 규칙](API_COMMON_RULES.md)·[HTTP API 명세](HTTP_API_SPEC.md)
+- `WS`: [WebSocket 명세](WEBSOCKET_SPEC.md)
 
 ## 2. 플랫폼·인증
 
@@ -207,6 +208,7 @@ RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | QZ-009 | API-QZ-008·API-QZ-009·API-READ-022·API-TXN-002 |
 | SYS-001 | API-READ-001 |
 | SYS-002 | API-OPS-001·API-OPS-002·API-READ-033·API-READ-034 |
+| SYS-003 | API-AUTH-007 |
 | SYS-005 | API-READ-030 |
 | TRD-001 | API-READ-013·API-TRD-001·API-TRD-002·API-TRD-003·API-TRD-004 |
 | TRD-002 | API-ITM-001·API-READ-012·API-TRD-001·API-TRD-002·API-TRD-003·API-TRD-004 |
@@ -214,26 +216,79 @@ RTM v0.5는 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | TRD-004 | API-MOD-002·API-READ-013 |
 | TRD-005 | API-TRD-001·API-TRD-004 |
 
-`SYS-003`은 WebSocket 실시간 계약, `SYS-004`는 Terraform 인프라 계약이므로 HTTP API 연결 대상이 아닙니다.
+`SYS-003`은 WebSocket 접속 티켓 HTTP API와 실시간 계약에 함께 연결합니다. `SYS-004`는 Terraform 인프라 계약이므로 HTTP API 연결 대상이 아닙니다.
 
-## 10. 커버리지 요약
+## 10. WebSocket 역추적
 
-| 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | 설계 하나 이상 | 테스트 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 플랫폼·인증 | 11 | 11 | 1 | 11 | 11 | 9 | 11 | 0 |
-| 경제교실·코스 | 15 | 15 | 10 | 15 | 15 | 15 | 15 | 0 |
-| 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 15 | 0 |
-| 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 0 |
-| 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 0 |
-| AI | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 0 |
-| 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 6 | 0 |
-| 합계 | 76 | 76 | 56 | 76 | 76 | 74 | 76 | 0 |
+상세 채널 권한·payload·순서·재연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)를 기준으로 합니다.
 
-현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP 대상 요구사항은 74/74입니다. `SYS-003`은 WebSocket, `SYS-004`는 Terraform에서 연결합니다.
+| 요구사항 | WebSocket 채널·이벤트 ID |
+| --- | --- |
+| AI-003 | WS-CLS-001·WS-TCH-001·EVT-POL-001 |
+| AI-006 | WS-OPS-001·EVT-OPS-001·EVT-OPS-002·EVT-OPS-003 |
+| AI-007 | WS-ACT-001·WS-ECO-001·WS-DSP-001·EVT-ACT-007·EVT-DSP-001 |
+| AUTH-003 | WS-STU-001·EVT-AUTH-001 |
+| AUTH-004 | WS-DSP-001·EVT-DSP-001·EVT-DSP-002·EVT-DSP-003·EVT-DSP-004·EVT-DSP-005·EVT-DSP-006 |
+| CLS-002 | WS-CLS-001·EVT-MOD-001 |
+| CLS-003 | WS-CLS-001·EVT-CLS-001 |
+| CLS-004 | WS-CLS-001·WS-ACT-001·EVT-CLS-001·EVT-ACT-005·EVT-ACT-006 |
+| CLS-005 | WS-CLS-001·EVT-CLS-001 |
+| CLS-006 | WS-CLS-001·EVT-CLS-001 |
+| CLS-007 | WS-CLS-001·WS-TCH-001·EVT-CLS-002 |
+| CLS-008 | WS-CLS-001·WS-TCH-001·EVT-CLS-002 |
+| CLS-009 | WS-ACT-001·WS-DSP-001·EVT-ACT-001·EVT-ACT-002·EVT-ACT-003·EVT-ACT-004·EVT-ACT-005·EVT-ACT-006·EVT-DSP-001·EVT-DSP-002·EVT-DSP-006 |
+| CRS-006 | WS-CLS-001·EVT-MOD-001 |
+| DAT-003 | WS-OPS-001·WS-STU-001·WS-TCH-001·EVT-NOTI-001·EVT-OPS-001·EVT-OPS-002·EVT-OPS-003 |
+| DAT-006 | WS-CLS-001·WS-STU-001·EVT-QZ-004 |
+| ECO-001 | WS-STU-001·EVT-TXN-001 |
+| ECO-002 | WS-STU-001·EVT-TXN-001 |
+| ECO-003 | WS-CLS-001·WS-TCH-001·EVT-POL-001 |
+| ECO-005 | WS-ECO-001·WS-STU-001·WS-TCH-001·EVT-SHP-001·EVT-SHP-002 |
+| ECO-006 | WS-STU-001·WS-TCH-001·EVT-SHP-002 |
+| ECO-008 | WS-VOT-001·WS-DSP-001·EVT-VOT-001·EVT-VOT-002·EVT-VOT-003·EVT-VOT-004·EVT-DSP-004·EVT-DSP-005 |
+| FIN-001 | WS-STU-001·EVT-FIN-001 |
+| FIN-002 | WS-STU-001·EVT-FIN-002 |
+| FIN-003 | WS-STU-001·EVT-FIN-002 |
+| FIN-004 | WS-STU-001·EVT-FIN-002 |
+| FIN-005 | WS-IVT-001·EVT-IVT-001·EVT-IVT-002 |
+| FIN-006 | WS-STU-001·WS-IVT-001·EVT-IVT-003·EVT-IVT-004 |
+| FIN-007 | WS-STU-001·WS-TCH-001·WS-IVT-001·EVT-IVT-001·EVT-IVT-002·EVT-IVT-004·EVT-IVT-005 |
+| FIN-008 | WS-STU-001·WS-TCH-001·EVT-FIN-003 |
+| FIN-009 | WS-STU-001·EVT-FIN-004 |
+| FIN-010 | WS-STU-001·WS-TCH-001·EVT-FIN-003·EVT-FIN-004 |
+| FIN-011 | WS-CLS-001·WS-TCH-001·EVT-POL-001 |
+| FIN-012 | WS-IVT-001·WS-TCH-001·EVT-IVT-005 |
+| QZ-001 | WS-QZ-001·EVT-QZ-001 |
+| QZ-003 | WS-QZ-001·WS-STU-001·WS-DSP-001·EVT-QZ-001·EVT-QZ-002·EVT-QZ-003·EVT-QZ-004·EVT-QZ-005·EVT-QZ-006·EVT-QZ-007·EVT-QZ-009·EVT-DSP-003·EVT-DSP-004·EVT-DSP-005 |
+| QZ-004 | WS-QZ-001·WS-STU-001·EVT-QZ-001·EVT-QZ-002·EVT-QZ-004·EVT-QZ-005·EVT-QZ-006·EVT-QZ-007·EVT-QZ-009 |
+| QZ-005 | WS-QZ-001·WS-STU-001·EVT-QZ-007 |
+| QZ-009 | WS-QZ-001·WS-STU-001·EVT-QZ-008 |
+| SYS-003 | WS-ACT-001·WS-QZ-001·WS-VOT-001·WS-IVT-001·WS-DSP-001·EVT-ACT-003 |
+| TRD-001 | WS-STU-001·WS-TCH-001·EVT-TRD-001 |
+| TRD-002 | WS-STU-001·WS-TCH-001·EVT-TRD-001 |
+| TRD-003 | WS-STU-001·WS-TCH-001·EVT-TRD-001 |
+| TRD-004 | WS-CLS-001·EVT-MOD-001 |
 
-## 11. 다음 갱신
+WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 연결했습니다. 나머지 요구사항은 설정·조회·배치·인프라처럼 실시간 전달이 필수가 아닙니다.
 
-1. WebSocket 이벤트 ID 연결
+## 11. 커버리지 요약
+
+| 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | WS 대상 | WS 연결 | 설계 하나 이상 | 테스트 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 플랫폼·인증 | 11 | 11 | 1 | 11 | 11 | 10 | 3 | 3 | 11 | 0 |
+| 경제교실·코스 | 15 | 15 | 10 | 15 | 15 | 15 | 9 | 9 | 15 | 0 |
+| 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 10 | 10 | 15 | 0 |
+| 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 0 |
+| 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 5 | 5 | 9 | 0 |
+| AI | 8 | 8 | 8 | 8 | 8 | 8 | 3 | 3 | 8 | 0 |
+| 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 2 | 2 | 6 | 0 |
+| 합계 | 76 | 76 | 56 | 76 | 76 | 75 | 44 | 44 | 76 | 0 |
+
+현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP 대상 요구사항은 75/75입니다. WebSocket 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. `SYS-004`는 Terraform에서 연결합니다.
+
+## 12. 다음 갱신
+
+1. OpenAPI·AsyncAPI 계약 ID 연결
 2. 데이터 엔티티 연결
 3. 인수 테스트·자동 테스트 ID 연결
 

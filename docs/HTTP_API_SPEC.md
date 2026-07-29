@@ -2,7 +2,7 @@
 
 - 버전: v0.1
 - 기준일: 2026-07-29
-- 상태: 화면 행동 68건 HTTP 매핑 완료
+- 상태: 화면 행동 68건 HTTP 매핑·WebSocket 접속 티켓 연결 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
@@ -72,6 +72,7 @@
 | API-AUTH-004 | `POST /auth/token-refreshes` | 회전형 갱신 토큰으로 새 앱 토큰 발급 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
 | API-AUTH-006 | `GET /auth/me` | 현재 사용자·역할·학교·담당 학급과 세션 정책 조회 |
+| API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
 
 비밀번호·토큰·재설정 증명값은 응답 이후 다시 조회할 수 없고 감사 로그에도 저장하지 않습니다.
 
@@ -203,6 +204,8 @@
 
 조회 API도 인증·역할·학급 범위를 서버에서 판정하며 클라이언트가 요청한 임의 필드를 확장하지 않습니다.
 
+실시간 채널의 초기화·재동기화에 사용하는 조회 응답은 `meta.event_sequence`를 포함합니다.
+
 | API ID | 메서드·경로 | 허용 역할 | 응답 요약 | 연결 화면·요구사항 |
 | --- | --- | --- | --- | --- |
 | API-READ-001 | `GET /auth/bootstrap` | 인증 사용자 | 세션, 역할별 학급, 유효 시작 화면 | SCR-STU-003·SCR-TCH-002·SCR-WEB-002 / SYS-001·AUTH-002 |
@@ -309,15 +312,14 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 - 화면 행동: 68개
 - HTTP 연결 대상 행동: 68개
 - 명령 API ID: 68개
-- 세션 지원 API: 3개
+- 세션 지원 API: 4개
 - 조회 API: 34개
-- 아직 남은 항목: WebSocket 채널·이벤트, OpenAPI 스키마, 인수 테스트 ID
+- 아직 남은 항목: OpenAPI·AsyncAPI 스키마, 데이터 엔티티, 인수 테스트 ID
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v0.5](RTM.md)에서 완료했습니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v0.6](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. GUIDED·GAME·TEST·투표·투자 시장 WebSocket 명세 작성
-2. HTTP·WebSocket의 공개 DTO와 재연결 시나리오 검증
-3. OpenAPI 3.1 초안과 계약 테스트 생성
-4. API 경계 확정 후 ERD 작성
+1. OpenAPI 3.1·AsyncAPI 초안과 계약 테스트 생성
+2. API·이벤트 경계 기준 ERD 작성
+3. 인수 테스트와 개발 백로그 연결

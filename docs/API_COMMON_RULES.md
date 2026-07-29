@@ -150,6 +150,7 @@
 - `202` 응답에는 `operation_id`, `status_url`, `status`를 포함합니다.
 - 생성 응답에는 `Location` 헤더를 제공합니다.
 - 명령 결과에는 변경된 리소스의 최신 `status`와 `state_version`을 가능한 한 포함합니다.
+- 실시간 화면의 HTTP snapshot 응답은 `meta.event_sequence`를 포함해 이후 WebSocket 이벤트 적용 기준을 제공합니다.
 
 ## 8. 오류 응답
 
@@ -251,7 +252,7 @@
 
 ## 12. 실시간 연결 공통 경계
 
-상세 채널과 이벤트는 별도 WebSocket 명세에서 정의하되 다음 규칙을 고정합니다.
+상세 채널과 이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 정의하며 다음 규칙을 고정합니다.
 
 - HTTP 트랜잭션 커밋 전에는 실시간 성공 이벤트를 발행하지 않습니다.
 - 연결용 토큰은 짧은 만료시간·단일 목적·학급·활동 범위로 발급하고 URL 쿼리에 장기 액세스 토큰을 넣지 않습니다.
@@ -291,9 +292,8 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 완료했습니다.
+화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
 
-1. `GUIDED`, GAME·TEST, 투표, 투자 시장의 WebSocket 채널·이벤트 정의
-2. 공개 화면 DTO와 역할별 응답 필드 검증
-3. OpenAPI 3.1 계약 생성
-4. API 경계가 확정된 뒤 ERD 작성
+1. OpenAPI 3.1·AsyncAPI 계약 생성
+2. API·이벤트 경계 기준 ERD 작성
+3. 계약·인수 테스트 연결
