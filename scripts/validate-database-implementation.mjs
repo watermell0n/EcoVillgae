@@ -36,6 +36,7 @@ const expectedMigrations = [
   "V1_7__ai_report.sql",
   "V1_8__constraints_triggers.sql",
   "V1_9__indexes.sql",
+  "V1_10__classroom_identity_and_public_quiz.sql",
 ];
 
 function unique(values) {
@@ -61,7 +62,7 @@ const errors = [];
 const migrationFiles = fs
   .readdirSync(migrationDirectory)
   .filter((file) => /^V.+\.sql$/.test(file))
-  .sort();
+  .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 
 if (JSON.stringify(migrationFiles) !== JSON.stringify(expectedMigrations)) {
   errors.push(
@@ -118,7 +119,7 @@ if (documentedIndexes.length !== 36) {
 }
 
 const expectedDbTests = Array.from(
-  { length: 17 },
+  { length: 18 },
   (_, index) => `DBT-${String(index + 1).padStart(3, "0")}`,
 );
 const implementedDbTests = unique([
@@ -128,8 +129,12 @@ for (const testId of difference(expectedDbTests, implementedDbTests)) {
   errors.push(`DB test is not automated: ${testId}`);
 }
 
+const constraintDeclarations = sql
+  .split(/\r?\n/)
+  .filter((line) => !/^\s*DROP CONSTRAINT\b/.test(line))
+  .join("\n");
 for (const constraint of duplicates([
-  ...sql.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
+  ...constraintDeclarations.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
 ].map((match) => match[1]))) {
   errors.push(`constraint name is duplicated: ${constraint}`);
 }

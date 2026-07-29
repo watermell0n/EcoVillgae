@@ -287,6 +287,17 @@ const requestFieldOverrides = {
   ],
   "API-CLS-001": [
     { name: "school_id" },
+    {
+      name: "currency_name",
+      schema: {
+        type: "string",
+        minLength: 1,
+        maxLength: 10,
+        pattern: "^[가-힣A-Za-z0-9]{1,10}$",
+        description:
+          "NFKC 정규화와 앞뒤 공백 제거 후 검증하며 서비스 금칙어를 허용하지 않는 생성 후 불변 표시명",
+      },
+    },
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
     {
       name: "course_size",
@@ -861,7 +872,13 @@ function buildOpenApi(operations) {
             "device_id",
           ],
           properties: {
-            classroom_code: { type: "string", minLength: 4, maxLength: 32 },
+            classroom_code: {
+              type: "string",
+              minLength: 8,
+              maxLength: 8,
+              pattern: "^[A-HJ-KM-NP-Za-hj-km-np-z2-9]{8}$",
+              description: "앞뒤 공백 제거·영문 대문자 정규화 후 8자 학급 코드",
+            },
             attendance_number: { type: "integer", minimum: 1 },
             nickname: { type: "string", minLength: 1, maxLength: 40 },
             password: { type: "string", format: "password", minLength: 8, writeOnly: true },

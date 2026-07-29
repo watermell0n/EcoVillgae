@@ -83,12 +83,12 @@ const decisionIds = [...source.matchAll(/\| (DM-\d{3}) \|/g)].map(
   (match) => match[1],
 );
 const expectedDecisions = Array.from(
-  { length: 12 },
+  { length: 13 },
   (_, index) => `DM-${String(index + 1).padStart(3, "0")}`,
 );
 if (decisionIds.join(",") !== expectedDecisions.join(",")) {
   errors.push(
-    `Decision IDs must be sequential DM-001..DM-012, found ${decisionIds.join(",")}`,
+    `Decision IDs must be sequential DM-001..DM-013, found ${decisionIds.join(",")}`,
   );
 }
 

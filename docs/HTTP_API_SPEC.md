@@ -1,6 +1,6 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.2
+- 버전: v0.3
 - 기준일: 2026-07-29
 - 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1 계약 연결 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
@@ -61,7 +61,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005 |
+| API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, reason` → 일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST` | AUTH-006 |
 
@@ -80,8 +80,8 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간 → `ACTIVE` 학급 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `VALIDATION_ERROR`, `POLICY_VIOLATION` | CLS-001·CRS-001·CRS-002 |
-| API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전 | PM-CLS-005 · SM-CLS-001 | `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
+| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`와 `ACTIVE` 학급 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
+| API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전, 학급 코드·화폐 단위명 변경 불가 | PM-CLS-005 · SM-CLS-001 | `IMMUTABLE_CLASSROOM_FIELD`, `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
 | API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임·역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
 | API-CLS-004 · UIA-CLS-004 | `POST /classrooms/{C}/co-teacher-commands` | OWN | `command=INVITE\|REMOVE, teacher_id, reason` → 담당 교사 목록 | PM-CLS-002 · SM-CLS-001 | `TEACHER_NOT_IN_SCHOOL`, `OWNER_REQUIRED`, `LAST_OWNER_REQUIRED` | AUTH-002 |
 | API-CLS-005 · UIA-CLS-005 | `POST /classrooms/{C}/ownership-transfer-commands` | OWN·대상 COT | `command=REQUEST\|ACCEPT\|CANCEL, transfer_id?, target_teacher_id?` → OWN·COT 원자 교환 | PM-CLS-003 · SM-CLS-001 | `TARGET_NOT_CO_TEACHER`, `TRANSFER_EXPIRED`, `INVALID_STATE_TRANSITION` | AUTH-002 |
@@ -209,8 +209,8 @@
 | API ID | 메서드·경로 | 허용 역할 | 응답 요약 | 연결 화면·요구사항 |
 | --- | --- | --- | --- | --- |
 | API-READ-001 | `GET /auth/bootstrap` | 인증 사용자 | 세션, 역할별 학급, 유효 시작 화면 | SCR-STU-003·SCR-TCH-002·SCR-WEB-002 / SYS-001·AUTH-002 |
-| API-READ-002 | `GET /classrooms/{C}` | STU·OWN·COT·SAD | 역할별 학급 상태·기간·코스 요약 | SCR-STU-003·SCR-WEB-003·SCR-ADM-001 / CLS-001·CRS-001 |
-| API-READ-003 | `GET /classrooms/{C}/configuration` | OWN·COT | 코스·난이도·기간·자율시간·설정 버전 | SCR-WEB-004·SCR-WEB-008 / CRS-003·CRS-004·CRS-005 |
+| API-READ-002 | `GET /classrooms/{C}` | STU·OWN·COT·SAD | 역할별 학급 상태·기간·코스·화폐 단위명 요약, 허용 역할에는 학급 코드 포함 | SCR-STU-003·SCR-WEB-003·SCR-ADM-001 / AUTH-007·CLS-001·CLS-010·CRS-001 |
+| API-READ-003 | `GET /classrooms/{C}/configuration` | OWN·COT | 읽기 전용 학급 코드·화폐 단위명, 코스·난이도·기간·자율시간·설정 버전 | SCR-WEB-004·SCR-WEB-008 / AUTH-007·CLS-010·CRS-003·CRS-004·CRS-005 |
 | API-READ-004 | `GET /classrooms/{C}/roster-and-salaries` | OWN·COT | 학생 번호·닉네임·역할·급여, COT는 제한된 수정 권한 | SCR-WEB-006 / ECO-004 |
 | API-READ-005 | `GET /classrooms/{C}/co-teachers` | OWN·COT | 담당 교사·소유권 이전 상태 | SCR-WEB-007 / AUTH-002 |
 | API-READ-006 | `GET /classrooms/{C}/modules-and-policies` | STU·OWN·COT | 활성 모듈, 공개 정책, 교사용 전체 정책 버전 | SCR-STU-003·SCR-WEB-005·SCR-WEB-009 / CLS-002·CRS-006·FIN-011 |
@@ -263,6 +263,7 @@
 ```json
 {
   "amount": 1200,
+  "currency_name": "에코",
   "tax_amount": 120,
   "total_amount": 1320,
   "rate_bps": 1000,
@@ -271,6 +272,7 @@
 ```
 
 클라이언트가 보낸 계산 결과는 미리보기로만 사용하고 서버가 정책 스냅샷으로 다시 계산합니다.
+`currency_name`은 학급의 불변 표시 메타데이터이며 거래별 정책 스냅샷이나 계산값으로 취급하지 않습니다.
 
 ### 12.2 상태 보유 리소스
 
@@ -319,7 +321,7 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v0.9](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결은 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v1.1](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결은 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)입니다.
 
 1. OpenAPI 요청·응답과 저장·projection 필드 매핑
 2. Flyway DDL·Testcontainers 무결성 테스트

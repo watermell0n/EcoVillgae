@@ -4,7 +4,7 @@
 
 ## 구성
 
-- `src/main/resources/db/migration/V1_1~V1_9`: Flyway 마이그레이션
+- `src/main/resources/db/migration/V1_1~V1_10`: Flyway 마이그레이션
 - `src/test/java`: PostgreSQL 17 Testcontainers 무결성 테스트
 - `build.gradle`: Java 21, Spring Boot 4.1.0 의존성 관리 기준
 

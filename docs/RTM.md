@@ -1,13 +1,13 @@
 # 이코빌리지 요구사항 추적 매트릭스
 
-- 버전: v1.0
+- 버전: v1.1
 - 기준일: 2026-07-29
 - 상태: 요구사항·계약·논리·물리 설계와 Flyway·DB 무결성 테스트 연결 완료
 - 범위: MVP 제품·운영·기술 요구사항
 
 ## 1. 사용 방법
 
-RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 데이터 모델 `PDM-*`, Flyway `V1_1`~`V1_9`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.1은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 데이터 모델 `PDM-*`, Flyway `V1_1`~`V1_10`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -42,6 +42,7 @@ RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AUTH-004 | MVP·DEC | 학생·교사 | 개인정보 | 개인 금융·평가 결과가 타 학생·공용 화면에 노출되지 않음 | 접근 제어·화면 검사 | PM-DAT-001·PM-DSP-001 · SCR-STU-004·SCR-STU-020·SCR-PUB-004 / TEST TBD |
 | AUTH-005 | MVP·DEC | 학생 | 로그인 실패 | 연속 실패 후에도 계정 잠금 상태가 생성되지 않음 | 인증 경계값 테스트 | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
 | AUTH-006 | MVP·DEC | 학생·교사 | 비밀번호 재설정 | 기존 본인 확인 흐름으로 비밀번호만 재설정되고 닉네임 재설정 경로는 없음 | 인증 E2E | PM-AUTH-002·PM-CLS-004 · SCR-STU-002·SCR-WEB-006 / TEST TBD |
+| AUTH-007 | DEC | 교사·학생·시스템 | 학급 코드 | 서버가 혼동 문자를 제외한 8자 코드를 전역 유일하게 생성하고 로그인에서 정규화하며 생성 후 변경하지 않음 | 생성·충돌·로그인 테스트 | SM-CLS-001 · PM-CLS-001 · SCR-WEB-003·SCR-WEB-004·SCR-STU-001 / API-CLS-001·API-AUTH-001 · DBT-018 |
 
 ## 3. 경제교실·코스
 
@@ -62,6 +63,7 @@ RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | CRS-004 | CRS | 학생·교사 | 난이도 | 학년별 문장·숫자·계산·리포트 프로필 적용 | 콘텐츠 검수 | PM-CLS-005·PM-SVC-001 · SCR-WEB-004·SCR-STU-021·SCR-STU-022·SCR-STU-024 / TEST TBD |
 | CRS-005 | CRS | 교사 | 추천 수정 | 추가·제외 시 선수 모듈과 학습 영향 표시 | 추천 UI 테스트 | PM-CLS-005·PM-MOD-001 · SCR-WEB-004·SCR-WEB-005 / TEST TBD |
 | CRS-006 | MVP·CRS | 학생 | 모듈 노출 | 미선택 모듈 경로·메뉴·명령 접근 차단 | 권한·UI 테스트 | SM-MOD-001 · PM-MOD-001·PM-RBAC-002 · SCR-STU-003·SCR-WEB-005 / TEST TBD |
+| CLS-010 | DEC | 소유 교사·학생 | 학급 화폐 단위명 | OWN이 개설 시 한글·영문·숫자 1~10자 단위명을 필수 입력하고 금칙어를 거절하며 생성 후 모든 역할의 변경을 차단 | 생성·형식·권한·불변성 테스트 | SM-CLS-001 · PM-CLS-001·PM-CLS-005 · SCR-WEB-003·SCR-WEB-004·SCR-STU-003 / API-CLS-001·API-READ-002·API-READ-003 · DBT-018 |
 
 ## 4. 경제·개인거래
 
@@ -158,6 +160,7 @@ RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AUTH-004 | API-DSP-001·API-READ-025 |
 | AUTH-005 | API-AUTH-001 |
 | AUTH-006 | API-AUTH-002·API-AUTH-003 |
+| AUTH-007 | API-AUTH-001·API-CLS-001·API-READ-002·API-READ-003 |
 | CLS-001 | API-CLS-001·API-CLS-003·API-READ-002 |
 | CLS-002 | API-MOD-001·API-MOD-002·API-READ-006 |
 | CLS-003 | API-CLS-007 |
@@ -167,6 +170,7 @@ RTM v1.0은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | CLS-007 | API-CLS-008 |
 | CLS-008 | API-CLS-008 |
 | CLS-009 | API-ACT-001·API-ACT-002·API-DSP-001·API-READ-024·API-READ-025 |
+| CLS-010 | API-CLS-001·API-READ-002·API-READ-003 |
 | CRS-001 | API-CLS-001·API-CLS-002·API-READ-002 |
 | CRS-002 | API-CLS-001 |
 | CRS-003 | API-CLS-002·API-READ-003 |
@@ -288,7 +292,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 요구사항 영역 | 논리 집계 루트 | 핵심 엔티티 |
 | --- | --- | --- |
-| 플랫폼·인증 | `classrooms` | `users`, `school_memberships`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links` |
+| 플랫폼·인증 | `classrooms` | 전역 `classroom_code`, `users`, `school_memberships`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links` |
 | 경제교실·코스 | `classrooms` | `course_template_versions`, `classroom_modules`, `classroom_policy_versions`, `autonomous_schedules`, `activity_sessions` |
 | 경제·개인거래 | `transaction_groups`, `store_orders`, `trades` | `ledger_accounts`, `ledger_entries`, `policy_snapshots`, `store_*`, `inventory_items`, `trade_*` |
 | 금융 | `deposit_accounts`, `savings_accounts`, `investment_markets`, `loans` | `financial_product_versions`, `savings_installments`, `investment_*`, `loan_*`, `credit_profiles`, `credit_events` |
@@ -296,7 +300,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | AI | `ai_runs` | `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts` |
 | 데이터·운영 | `audit_events`, `async_operations` | `report_snapshots`, `export_operations`, `idempotency_records`, `outbox_events`, `state_transitions` |
 
-세부 관계와 불변 규칙은 DM-001~DM-012 및 6개 ERD로 정의했습니다. 모든 76개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
+세부 관계와 불변 규칙은 DM-001~DM-013 및 6개 ERD로 정의했습니다. 모든 78개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
 
 ## 13. 물리 데이터 모델 커버리지
 
@@ -304,10 +308,10 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | --- | ---: | --- |
 | 논리 엔티티 | 83 | 6개 ERD에서 추출 |
 | 물리 테이블 | 83 | 논리 엔티티와 1:1 매핑 |
-| 부분·핵심 유일성 | 10 | UK-001~010 |
-| 검사 제약 | 35 | CK-001~035 |
+| 부분·핵심 유일성 | 10 | UK-001~010와 `classroom_code` 전역 UQ |
+| 검사 제약 | 36 | CK-001~036 |
 | 조회 인덱스 | 36 | IX-001~036 |
-| DB 인수 기준 | 17 | DBT-001~017 |
+| DB 인수 기준 | 18 | DBT-001~018 |
 
 물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 83개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
@@ -315,30 +319,31 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P9 | `backend/src/main/resources/db/migration/V1_1~V1_9` | 83개 테이블 |
+| Flyway P1~P10 | `backend/src/main/resources/db/migration/V1_1~V1_10` | 83개 테이블과 학급 식별·공개 순위 보강 |
 | 기준 조회 인덱스 | `V1_9__indexes.sql` | IX-001~036 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
-| 공개 projection | `V1_9__indexes.sql` | 퀴즈·투표·공동기금·투자 4개 view |
-| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~017 + 테이블 수 검사 |
+| 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~018 + 테이블 수 검사 |
 
-Java 컴파일은 성공했습니다. 로컬 Docker 부재로 Testcontainers 18개는 건너뛰었으며,
-Docker 사용 가능 Jenkins 에이전트의 실행 결과가 최종 PASS 기준입니다.
+Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_10`
+직접 적용·제약 검증은 성공했습니다. Testcontainers 19개 전체 실행은 Docker 사용
+가능 Jenkins 에이전트의 결과를 최종 PASS 기준으로 삼습니다.
 
 ## 14. 커버리지 요약
 
 | 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | OpenAPI | WS 대상 | WS 연결 | AsyncAPI | 설계 하나 이상 | 테스트 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 플랫폼·인증 | 11 | 11 | 1 | 11 | 11 | 10 | 10 | 3 | 3 | 3 | 11 | 0 |
-| 경제교실·코스 | 15 | 15 | 10 | 15 | 15 | 15 | 15 | 9 | 9 | 9 | 15 | 0 |
+| 플랫폼·인증 | 12 | 12 | 2 | 12 | 12 | 11 | 11 | 3 | 3 | 3 | 12 | 1 |
+| 경제교실·코스 | 16 | 16 | 11 | 16 | 16 | 16 | 16 | 9 | 9 | 9 | 16 | 1 |
 | 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 15 | 10 | 10 | 10 | 15 | 0 |
 | 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 0 |
 | 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 5 | 5 | 5 | 9 | 0 |
 | AI | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 3 | 3 | 3 | 8 | 0 |
 | 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 6 | 2 | 2 | 2 | 6 | 0 |
-| 합계 | 76 | 76 | 56 | 76 | 76 | 75 | 75 | 44 | 44 | 44 | 76 | 0 |
+| 합계 | 78 | 78 | 58 | 78 | 78 | 77 | 77 | 44 | 44 | 44 | 78 | 2 |
 
-현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 76/76입니다. 상태 전이가 필요한 요구사항 56개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP·OpenAPI 대상 요구사항은 75/75입니다. WebSocket·AsyncAPI 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. `SYS-004`는 Terraform에서 연결합니다.
+현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 78/78입니다. 상태 또는 불변 생명주기 규칙이 필요한 요구사항 58개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP·OpenAPI 대상 요구사항은 77/77입니다. WebSocket·AsyncAPI 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. `SYS-004`는 Terraform에서 연결합니다.
 
 ## 15. 다음 갱신
 

@@ -68,6 +68,7 @@ paths:
         - "AUTH-001"
         - "AUTH-003"
         - "AUTH-005"
+        - "AUTH-007"
       tags:
         - "Authentication"
       summary: "classroom_code, attendance_number, nickname, password, device_id → 토큰, 학생 세션, 유효 진입 화면"
@@ -446,13 +447,15 @@ paths:
         - "SM-CLS-001"
         - "SM-MOD-001"
       x-rtm-ids:
+        - "AUTH-007"
         - "CLS-001"
+        - "CLS-010"
         - "CRS-001"
         - "CRS-002"
       tags:
         - "Classrooms"
-      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간 → ACTIVE 학급"
-      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간 → ACTIVE 학급."
+      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code와 ACTIVE 학급"
+      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code와 ACTIVE 학급."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -493,6 +496,12 @@ paths:
                     school_id:
                       type: "string"
                       format: "uuid"
+                    currency_name:
+                      type: "string"
+                      minLength: 1
+                      maxLength: 10
+                      pattern: "^[가-힣A-Za-z0-9]{1,10}$"
+                      description: "NFKC 정규화와 앞뒤 공백 제거 후 검증하며 서비스 금칙어를 허용하지 않는 생성 후 불변 표시명"
                     grade:
                       type: "integer"
                       enum:
@@ -533,6 +542,7 @@ paths:
                         additionalProperties: true
                   required:
                     - "school_id"
+                    - "currency_name"
                     - "grade"
                     - "course_size"
                     - "starts_on"
@@ -561,8 +571,8 @@ paths:
         - "CRS-005"
       tags:
         - "Classrooms"
-      summary: "학년, 규모, 기간, 코스, 난이도 → 새 설정 버전"
-      description: "사람이 검토하는 원문 기준: `API-CLS-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학년, 규모, 기간, 코스, 난이도 → 새 설정 버전."
+      summary: "학년, 규모, 기간, 코스, 난이도 → 새 설정 버전, 학급 코드, 화폐 단위명 변경 불가"
+      description: "사람이 검토하는 원문 기준: `API-CLS-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학년, 규모, 기간, 코스, 난이도 → 새 설정 버전, 학급 코드, 화폐 단위명 변경 불가."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -5522,12 +5532,14 @@ paths:
         - "STU-003"
         - "WEB-003"
         - "ADM-001"
+        - "AUTH-007"
         - "CLS-001"
+        - "CLS-010"
         - "CRS-001"
       tags:
         - "Queries"
-      summary: "역할별 학급 상태, 기간, 코스 요약"
-      description: "사람이 검토하는 원문 기준: `API-READ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT, SAD.\n\n핵심 계약: 역할별 학급 상태, 기간, 코스 요약."
+      summary: "역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함"
+      description: "사람이 검토하는 원문 기준: `API-READ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT, SAD.\n\n핵심 계약: 역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -5567,13 +5579,15 @@ paths:
       x-rtm-ids:
         - "WEB-004"
         - "WEB-008"
+        - "AUTH-007"
+        - "CLS-010"
         - "CRS-003"
         - "CRS-004"
         - "CRS-005"
       tags:
         - "Queries"
-      summary: "코스, 난이도, 기간, 자율시간, 설정 버전"
-      description: "사람이 검토하는 원문 기준: `API-READ-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 코스, 난이도, 기간, 자율시간, 설정 버전."
+      summary: "읽기 전용 학급 코드, 화폐 단위명, 코스, 난이도, 기간, 자율시간, 설정 버전"
+      description: "사람이 검토하는 원문 기준: `API-READ-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 읽기 전용 학급 코드, 화폐 단위명, 코스, 난이도, 기간, 자율시간, 설정 버전."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -6999,8 +7013,10 @@ components:
       properties:
         classroom_code:
           type: "string"
-          minLength: 4
-          maxLength: 32
+          minLength: 8
+          maxLength: 8
+          pattern: "^[A-HJ-KM-NP-Za-hj-km-np-z2-9]{8}$"
+          description: "앞뒤 공백 제거·영문 대문자 정규화 후 8자 학급 코드"
         attendance_number:
           type: "integer"
           minimum: 1

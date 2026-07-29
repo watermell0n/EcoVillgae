@@ -1,6 +1,6 @@
 # 이코빌리지 논리 데이터 모델
 
-- 버전: v0.1
+- 버전: v0.2
 - 기준일: 2026-07-29
 - 기준 Git 커밋: `29f0bbb`
 - 상태: MVP 논리 ERD 기준선
@@ -38,6 +38,7 @@ MVP 범위는 초등학교 4~6학년이며 상점·캐릭터·개인거래·예�
 | DM-010 | 공개 화면은 공개 projection만 사용합니다. 학생 잔액·신용·대출·개인거래·TEST 결과를 공개용 테이블이나 이벤트 payload에 복제하지 않습니다. |
 | DM-011 | 게시·가입·실행에 사용된 버전은 수정하지 않고 새 버전을 만듭니다. 퀴즈 문제, 금융상품, 정책, 투자 시나리오가 이 원칙을 따릅니다. |
 | DM-012 | 운영 데이터는 물리 삭제보다 종료 상태와 보관기한을 사용합니다. 보관기간 종료 후 학생 식별 연결만 제거하고 비식별 집계를 남길 수 있습니다. |
+| DM-013 | `classroom_code`는 서버가 생성한 전역 유일 8자 불변 코드이고, `currency_name`은 OWN이 개설 시 입력한 검증 완료 1~10자 불변 표시값입니다. |
 
 ## 3. 학급·인증·설정
 
@@ -67,6 +68,7 @@ erDiagram
         uuid school_id FK
         uuid course_template_version_id FK
         string classroom_code UK
+        string currency_name
         int grade
         string scale_label
         date actual_starts_on
@@ -122,6 +124,8 @@ erDiagram
 
 - 학급별 소유 교사는 정확히 1명이며 공동 담당 교사는 0명 이상입니다.
 - `classroom_students`의 `(classroom_id, roster_number)`와 `(classroom_id, nickname)`은 각각 유일합니다.
+- `classrooms.classroom_code`는 학교 범위가 아닌 전체 서비스에서 유일하며 `ABCDEFGHJKMNPQRSTUVWXYZ23456789` 문자 집합의 8자 코드입니다.
+- `classrooms.currency_name`은 NFKC 정규화 후 한글·영문·숫자 1~10자와 금칙어 검증을 통과한 필수값입니다. 학급 코드와 화폐 단위명은 생성 후 변경하지 않습니다.
 - 학생 비밀번호 해시는 `student_credentials`에 분리하고 닉네임 변경과 비밀번호 재설정을 같은 기능으로 취급하지 않습니다.
 - 학생 세션은 한 학생당 활성 세션 1개만 허용합니다. 새 학교 태블릿 연결 시 기존 활성 세션을 종료합니다.
 - 교사용 앱과 관리 웹의 동시 로그인은 허용하므로 교사 사용자에는 단일 활성 세션 제약을 두지 않습니다.
@@ -661,8 +665,8 @@ erDiagram
 
 | 요구사항 | 데이터 엔티티 |
 | --- | --- |
-| AUTH-001~006 | `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships` |
-| CLS-001~009·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `course_template_versions`, `activity_sessions` |
+| AUTH-001~007 | `classrooms`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships` |
+| CLS-001~010·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `course_template_versions`, `activity_sessions` |
 | ECO-001~010 | `ledger_accounts`, `transaction_groups`, `ledger_entries`, `policy_snapshots`, `payslips`, `store_*`, `inventory_items`, `character_catalog` |
 | TRD-001~005 | `trades`, `trade_money_legs`, `trade_item_legs`, `trade_decisions`, `idempotency_records` |
 | FIN-001~012 | `financial_product_versions`, 예금·적금·투자·대출·신용 엔티티, `policy_snapshots`, 원장 엔티티 |
@@ -674,7 +678,7 @@ erDiagram
 ## 11. 물리 스키마 검증 결과
 
 1. 83개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 83개 테이블에 1:1 매핑했습니다.
-2. 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
+2. 전역 학급 코드, 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
 3. 거래 그룹 합계 0, 전후 잔액, 계정 sequence와 완료 후 불변성을 지연 제약 트리거로 설계했습니다.
 4. 상태 전이는 서비스가 판정하고 DB는 상태 집합·결과 무결성·불변성을 강제하도록 책임을 구분했습니다.
 5. 상품·정책·금융·퀴즈·투자 버전의 불변 참조와 공개 projection 경계를 정의했습니다.
@@ -682,6 +686,6 @@ erDiagram
 
 ## 12. 후속 작업
 
-1. [물리 스키마](PHYSICAL_SCHEMA.md) 기준 Flyway `V1_1`~`V1_9` DDL을 작성합니다.
-2. DBT-001~017 Testcontainers 무결성 테스트를 자동화합니다.
+1. Flyway `V1_10`과 DBT-018로 전역 학급 코드·화폐 단위명 불변성과 공개 GAME 순위 경계를 반영했습니다.
+2. Docker 사용 가능 Jenkins에서 DBT-001~018을 실행합니다.
 3. OpenAPI 요청·응답 필드와 실제 저장·projection 필드를 교차 검증합니다.

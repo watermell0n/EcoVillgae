@@ -16,8 +16,11 @@
 - 중학생 코스와 자리·부동산 모듈은 MVP에서 제외합니다.
 - `1회·1주·1달·1학기`는 실제 날짜나 회차를 고정하지 않는 **추천 규모 라벨**입니다.
 - 실제 운영기간과 활동 횟수는 교사가 자유롭게 정합니다.
+- 학급 코드는 서버가 혼동하기 쉬운 문자를 제외한 영문 대문자·숫자 8자로 전역에서 유일하게 생성하며 개설 후 변경하지 않습니다.
+- 학급 소유 교사는 개설 시 학급 화폐 단위명을 필수로 입력합니다. 한글·영문·숫자 1~10자와 금칙어를 검증하고 개설 후에는 변경하지 않습니다.
 - 코스는 AI가 생성하지 않고 팀이 검증한 추천표를 사용합니다.
 - 모든 `1회` 코스는 퀴즈·게임만 사용하며 지갑과 학급 화폐를 생성하지 않습니다.
+- `1회` 코스도 개설 메타데이터로 단위명을 입력하지만 지갑·금액 화면에서는 사용하지 않습니다.
 - 금융 모듈 기본 추천은 초4 `정기예금`, 초5 `정기예금·정기적금`, 초6 `정기예금·정기적금·가상 투자`입니다.
 - 교육용 대출은 초5 1학기와 초6 1학기에 기본 추천합니다.
 - 교사는 추천 모듈을 추가하거나 제외할 수 있으며 시스템은 선수 모듈과 영향을 안내합니다.
@@ -65,6 +68,7 @@
 ### 5.1 공통 기반
 
 - 학급 코드·출석번호·닉네임·비밀번호 기반 로그인
+- 서버 생성 전역 유일 학급 코드와 개설 후 변경할 수 없는 학급 화폐 단위명
 - 로그인 실패 횟수로 학생 계정을 잠그지 않으며, 비밀번호 재설정은 기존 이코빌리지 본인 확인 절차를 재사용
 - 경제교실과 역할·권한
 - 지갑과 수정하지 않는 거래 원장
@@ -223,7 +227,7 @@ docker compose -f compose.dev.yml up -d
 3. OpenAPI·AsyncAPI 기반 클라이언트·서버 인터페이스 생성
 4. 실제 서비스 쿼리의 `EXPLAIN ANALYZE` 결과로 보조 인덱스 조정
 
-논리 ERD는 [논리 데이터 모델 v0.1](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마 v0.2](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
+논리 ERD는 [논리 데이터 모델 v0.2](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마 v0.3](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
 
 ## 12. 관련 문서
 
@@ -231,20 +235,20 @@ docker compose -f compose.dev.yml up -d
 - [문서 충돌 검사](docs/DOCUMENT_CONSISTENCY_AUDIT.md)
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
-- [API 공통 규칙 v0.2](docs/API_COMMON_RULES.md)
-- [HTTP API 명세 v0.2](docs/HTTP_API_SPEC.md)
+- [API 공통 규칙 v0.3](docs/API_COMMON_RULES.md)
+- [HTTP API 명세 v0.3](docs/HTTP_API_SPEC.md)
 - [WebSocket 명세 v0.2](docs/WEBSOCKET_SPEC.md)
-- [요구사항 기준선·용어집](docs/REQUIREMENTS_BASELINE.md)
+- [요구사항 기준선·용어집 v0.5](docs/REQUIREMENTS_BASELINE.md)
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)
 - [AsyncAPI 3.1 WebSocket 계약](contracts/asyncapi.yaml)
 - [API 계약 사용 안내](contracts/README.md)
-- [논리 데이터 모델·ERD v0.1](docs/DATA_MODEL.md)
-- [PostgreSQL 물리 스키마 v0.2](docs/PHYSICAL_SCHEMA.md)
+- [논리 데이터 모델·ERD v0.2](docs/DATA_MODEL.md)
+- [PostgreSQL 물리 스키마 v0.3](docs/PHYSICAL_SCHEMA.md)
 - [Flyway·Testcontainers 실행 안내](backend/README.md)
-- [RTM v1.0](docs/RTM.md)
-- [핵심 상태 머신](docs/STATE_MACHINES.md)
-- [역할·권한 매트릭스 v0.3](docs/PERMISSION_MATRIX.md)
-- [화면 ID·행동 명세](docs/SCREEN_SPEC.md)
+- [RTM v1.1](docs/RTM.md)
+- [핵심 상태 머신 v0.3](docs/STATE_MACHINES.md)
+- [역할·권한 매트릭스 v0.4](docs/PERMISSION_MATRIX.md)
+- [화면 ID·행동 명세 v0.3](docs/SCREEN_SPEC.md)
 - [AI 활용 방향](docs/AI_DIRECTION.md)
 - [확정 기술 스택](docs/TECH_STACK.md)
 - [MVP 이후 추가 모듈 및 발전 방향](docs/FUTURE_MODULES_AND_ROADMAP.md)
