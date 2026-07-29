@@ -188,14 +188,13 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 10. 다음 단계
 
-1. 요구사항 기준선과 용어집 확정
-2. RTM v0.1 검토
-3. 상태 머신과 권한 매트릭스 작성
-4. 화면·HTTP API·WebSocket 이벤트 설계
-5. 데이터 설계
-6. 인수 테스트와 개발 백로그 연결
+1. 역할·권한 매트릭스 작성
+2. 화면 ID와 상태별 화면·버튼 연결
+3. HTTP API·WebSocket 이벤트 설계
+4. 데이터 설계
+5. 인수 테스트와 개발 백로그 연결
 
-ERD는 RTM v0.1 이후 필요한 설계 단계에서 진행합니다.
+ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행합니다.
 
 ## 11. 관련 문서
 
@@ -203,7 +202,8 @@ ERD는 RTM v0.1 이후 필요한 설계 단계에서 진행합니다.
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
 - [요구사항 기준선·용어집](docs/REQUIREMENTS_BASELINE.md)
-- [RTM v0.1](docs/RTM.md)
+- [RTM v0.2](docs/RTM.md)
+- [핵심 상태 머신](docs/STATE_MACHINES.md)
 - [AI 활용 방향](docs/AI_DIRECTION.md)
 - [확정 기술 스택](docs/TECH_STACK.md)
 - [MVP 이후 추가 모듈 및 발전 방향](docs/FUTURE_MODULES_AND_ROADMAP.md)
