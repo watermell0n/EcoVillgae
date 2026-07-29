@@ -2,7 +2,7 @@
 
 - 버전: v0.5
 - 기준일: 2026-07-30
-- 기준 브랜치: `master`
+- 개발 기준 브랜치: `develop`
 - 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
 - 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
 - 대상: PostgreSQL 17, Flyway migration
