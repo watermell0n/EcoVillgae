@@ -1,6 +1,6 @@
 # 이코빌리지 API 공통 규칙
 
-- 버전: v0.1
+- 버전: v0.2
 - 기준일: 2026-07-29
 - 상태: 공통 계약 확정
 - 범위: 학생·교사용 앱, 교사·관리자 웹, 핵심 API, AI 내부 API, 실시간 연결
@@ -80,6 +80,7 @@
 | 헤더 | 적용 | 규칙 |
 | --- | --- | --- |
 | `Authorization` | 앱·내부 서비스 | `Bearer {token}` |
+| `X-Refresh-Token` | 앱 토큰 갱신 | `API-AUTH-004`에서만 SecureStore의 회전형 갱신 토큰 전송, 로그 마스킹 |
 | `Idempotency-Key` | 모든 변경 명령 | 클라이언트가 사용자 행동마다 생성한 UUID, 화면의 `request_id`와 같은 값 |
 | `X-Correlation-Id` | 모든 요청 | 분산 추적 ID, 없으면 게이트웨이가 생성 |
 | `Accept-Language` | 선택 | 기본 `ko-KR`, 화면 메시지 언어 선택 |
@@ -290,10 +291,10 @@
 
 WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{3자리 번호}`를 사용합니다.
 
-## 15. 다음 작업
+## 15. 계약과 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다.
+화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
-1. OpenAPI 3.1·AsyncAPI 계약 생성
-2. API·이벤트 경계 기준 ERD 작성
+1. API·이벤트 경계 기준 ERD 작성
+2. 계약 기반 클라이언트·서버 인터페이스 생성
 3. 계약·인수 테스트 연결

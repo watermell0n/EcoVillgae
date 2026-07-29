@@ -2,7 +2,7 @@
 
 - 검사일: 2026-07-29
 - 기준: Notion 현재 기준 문서와 팀 회의 후 확정사항
-- 결과: 충돌 해소 후 Git·Notion 동기화 대상으로 확정
+- 결과: 충돌 해소와 Git 계약 반영 완료, Notion 동기화는 별도 확인 필요
 
 ## 1. 기준 문서 우선순위
 
@@ -16,6 +16,7 @@
 8. `API_COMMON_RULES.md`: 인증·응답·오류·멱등성·동시성·시간·금액 구현 계약
 9. `HTTP_API_SPEC.md`: 화면 행동별 HTTP 명령·조회·오류 계약
 10. `WEBSOCKET_SPEC.md`: 실시간 채널·이벤트·공개 projection·재연결 계약
+11. `contracts/openapi.yaml`, `contracts/asyncapi.yaml`: 구현 도구용 HTTP·실시간 기계 판독 계약
 
 같은 주제의 내용이 다르면 위 순서의 상세 문서를 우선하고 README를 함께 수정합니다.
 
@@ -58,7 +59,6 @@
 
 다음은 제품 정책 충돌이 아니라 후속 설계 작업입니다.
 
-- OpenAPI 3.1·AsyncAPI 계약
 - 데이터 모델과 마이그레이션
 - 인수 테스트와 백로그
 
@@ -75,3 +75,5 @@ ERD는 역할·권한 매트릭스와 화면·API 경계를 확정한 뒤 진행
 화면 행동별 HTTP 명령·조회·오류 연결은 [HTTP API 명세](HTTP_API_SPEC.md)에서 관리합니다.
 
 실시간 채널·이벤트·공개 projection·재연결은 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 관리합니다.
+
+구현 도구가 읽는 HTTP·실시간 스키마는 [OpenAPI](../contracts/openapi.yaml)와 [AsyncAPI](../contracts/asyncapi.yaml)에서 관리합니다.
