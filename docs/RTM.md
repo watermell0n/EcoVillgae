@@ -146,13 +146,13 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 
 | 요구사항 | HTTP·공통 API ID |
 | --- | --- |
-| AI-001 | API-ADM-004·API-AI-001·API-AI-002·API-AI-004·API-AI-005·API-QZ-002 |
-| AI-002 | API-AI-003·API-AI-004 |
+| AI-001 | API-ADM-004·API-AI-001·API-AI-002·API-AI-004·API-AI-005·API-AI-006·API-QZ-002 |
+| AI-002 | API-AI-003·API-AI-006 |
 | AI-003 | API-AI-002·API-AI-003·API-POL-001·API-READ-027 |
 | AI-004 | API-AI-002 |
 | AI-005 | API-AI-001·API-READ-027 |
 | AI-006 | API-AI-001·API-OPS-001·API-READ-033 |
-| AI-007 | API-AI-004 |
+| AI-007 | API-AI-004·API-AI-006 |
 | AI-008 | API-ADM-004·API-OPS-001·API-READ-027·API-READ-029 |
 | AUTH-001 | API-AUTH-001 |
 | AUTH-002 | API-ADM-001·API-ADM-003·API-CLS-004·API-CLS-005·API-OPS-002·API-READ-001·API-READ-005·API-READ-031 |
@@ -283,7 +283,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 계약 | 사람이 읽는 기준 | 계약 수 | ID 차이 | 규격 검사 |
 | --- | --- | ---: | ---: | --- |
-| OpenAPI 3.1 | HTTP API 106개 | 작업 106개 | 0 | PASS |
+| OpenAPI 3.1 | HTTP API 107개 | 작업 107개 | 0 | PASS |
 | AsyncAPI 3.1 | 채널 10개·이벤트 48개 | 채널 10개·이벤트 48개 | 0 | PASS |
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
@@ -325,7 +325,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~019 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 65개 strict, 후속 41개 planned |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 68개 strict, 후속 39개 planned |
 
 Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_11`
 직접 적용·제약 검증은 성공했습니다. Testcontainers 20개 전체 실행은 Docker 사용

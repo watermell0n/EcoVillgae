@@ -176,11 +176,12 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-AI-001 · UIA-AI-001 | `POST /classrooms/{C}/ai/chat-requests` | OWN·COT | 질문·선택한 집계 범위 → 답변·근거·`ai_run_id` | PM-AI-001·PM-DAT-001 · SM-AIR-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT`, `INDIVIDUAL_ANALYSIS_FORBIDDEN` | AI-001·AI-005·AI-006 |
+| API-AI-001 · UIA-AI-001 | `POST /classrooms/{C}/ai/chat-requests` | OWN·COT | `question, period, metric_scopes, include_policy_history?` → `ai_run_id, answer, period, data_as_of, evidence, recommendations` | PM-AI-001·PM-DAT-001 · SM-AIR-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT`, `INDIVIDUAL_ANALYSIS_FORBIDDEN` | AI-001·AI-005·AI-006 |
 | API-AI-002 · UIA-AI-002 | `POST /classrooms/{C}/ai/balancing-analysis-operations` | OWN·COT | 분석 기간·대상 지표 → `202 operation_id`, 제안 목록 | PM-AI-003 · SM-AIR-001 | `INSUFFICIENT_ANALYSIS_DATA`, `AI_DISABLED`, `ANALYSIS_ALREADY_RUNNING` | AI-001·AI-003·AI-004 |
-| API-AI-003 · UIA-AI-003 | `POST /classrooms/{C}/ai/balancing-proposals/{R}/commands` | OWN | `command=APPLY\|REJECT, edited_values?, reason` → 정책 버전 또는 거절 | PM-AI-004·PM-POL-001 · SM-AIR-001 | `OWNER_REQUIRED`, `POLICY_VERSION_CONFLICT`, `PROPOSAL_EXPIRED` | AI-002·AI-003·FIN-011 |
-| API-AI-004 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-event-commands` | OWN·COT | `command=REQUEST_DRAFT\|APPROVE\|REJECT, template_type, event_id?, edits?` → AI 실행 또는 승인 이벤트 | PM-AI-002 · SM-AIR-001·SM-ACT-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `AI_DISABLED` | AI-001·AI-002·AI-007 |
+| API-AI-003 · UIA-AI-003 | `POST /classrooms/{C}/ai/balancing-proposals/{R}/commands` | OWN | `command=APPLY\|REJECT, edited_values?, reason, expected_policy_version` → `proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version` | PM-AI-004·PM-POL-001 · SM-AIR-001 | `OWNER_REQUIRED`, `POLICY_VERSION_CONFLICT`, `PROPOSAL_EXPIRED` | AI-002·AI-003·FIN-011 |
+| API-AI-004 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-event-draft-operations` | OWN·COT | `template_type=PRICE\|SUPPLY\|TAX\|INTEREST_RATE\|INVESTMENT_NEWS\|REWARD\|PUBLIC_FUND, interest_rate_scope?, teacher_context?` → `202 operation_id` | PM-AI-002 · SM-AIR-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `AI_DISABLED` | AI-001·AI-007 |
 | API-AI-005 · UIA-AI-005 | `PUT /classrooms/{C}/ai-settings` | OWN | `enabled=false, reason` → 학급 AI 설정 버전 | PM-AI-005 · SM-AIR-001 | `OWNER_REQUIRED`, `AI_APPLICATION_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | AI-001 |
+| API-AI-006 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-events/{R}/decisions` | OWN·COT | `decision=APPROVE\|REJECT, edits?, reason, expected_event_version` → `event_id, ai_run_id, status, state_version, published_at?` | PM-AI-002 · SM-AIR-001·SM-ACT-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `PROPOSAL_EXPIRED` | AI-001·AI-002·AI-007 |
 
 ### 8.2 데이터·내보내기
 
@@ -315,11 +316,11 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 - 화면 행동: 68개
 - HTTP 연결 대상 행동: 68개
-- 명령 API ID: 68개
+- 명령 API ID: 69개
 - 세션 지원 API: 4개
 - 조회 API: 34개
-- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 106개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) PASS, MVP 65개 strict·후속 41개 planned
+- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 107개 작업
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) PASS, MVP 68개 strict·후속 39개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업

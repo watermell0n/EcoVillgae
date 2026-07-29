@@ -201,7 +201,7 @@ WebSocket으로 허용하는 클라이언트 메시지는 연결 관리뿐입니
 | EVT-ACT-004 | `activity.participation.updated` | WS-TCH-001·TEACHER | 제출·접속 상태 커밋 | `activity_id, joined_count, submitted_count, total_count` | CLS-009 |
 | EVT-ACT-005 | `activity.finished` | WS-ACT-001·PARTICIPANT/TEACHER | API-ACT-002·SM-ACT-001 | `result_status, next_app_mode, summary_url?` | CLS-004·CLS-009 |
 | EVT-ACT-006 | `activity.canceled` | WS-ACT-001·PARTICIPANT/TEACHER | API-ACT-002·SM-ACT-001 | `reason_code, next_app_mode` | CLS-004·CLS-009 |
-| EVT-ACT-007 | `economic_event.published` | WS-ACT-001·WS-ECO-001·PARTICIPANT/CLASSROOM | API-AI-004 승인 커밋 | `event_id, template_type, title, description, effective_from` | AI-007 |
+| EVT-ACT-007 | `economic_event.published` | WS-ACT-001·WS-ECO-001·PARTICIPANT/CLASSROOM | API-AI-006 승인 커밋 | `event_id, template_type, title, description, effective_from` | AI-007 |
 
 타이머는 매초 이벤트를 보내지 않습니다. 서버의 `ends_at`을 기준으로 클라이언트가 표시하고 단계 전환 및 10초 간격 동기화 이벤트로 오차를 보정합니다.
 

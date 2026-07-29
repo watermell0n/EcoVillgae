@@ -91,7 +91,7 @@ const definitionSources = [
   },
   {
     name: "HTTP API",
-    expected: 114,
+    expected: 115,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,

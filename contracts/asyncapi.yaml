@@ -1445,7 +1445,7 @@ components:
         - "WS-ACT-001"
         - "WS-ECO-001"
       x-origin-api-ids:
-        - "API-AI-004"
+        - "API-AI-006"
       x-state-machine-ids: []
       x-rtm-ids:
         - "AI-007"

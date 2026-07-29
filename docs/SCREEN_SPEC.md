@@ -291,7 +291,7 @@
 | UIA-AI-001 | SCR-WEB-022 AI 챗봇 질의 | OWN·COT | AI 켜짐, 집계 범위, 30회·20초·1회 재시도 | PM-AI-001 / SM-AIR-001 |
 | UIA-AI-002 | SCR-WEB-021 밸런싱 분석 요청 | OWN·COT | 학생 5명 미만 또는 관련 거래 10건 미만이면 데이터 부족 처리 | PM-AI-003 / SM-AIR-001 |
 | UIA-AI-003 | SCR-WEB-021 밸런싱 정책 적용 | OWN | `AWAITING_TEACHER → APPROVED → APPLYING`, 최신 정책 재검증 | PM-AI-004 / SM-AIR-001 |
-| UIA-AI-004 | SCR-WEB-023 경제 이벤트 초안 요청·승인·거절 | OWN·COT | AI 켜짐, 7종 템플릿·학년·금지효과 검증 | PM-AI-002 / SM-AIR-001 |
+| UIA-AI-004 | SCR-WEB-023 경제 이벤트 초안 요청·승인·거절 | OWN·COT | `API-AI-004` 비동기 초안 요청과 `API-AI-006` 승인·거절 분리, 7종 템플릿·학년·금지효과 검증 | PM-AI-002 / SM-AIR-001 |
 | UIA-AI-005 | SCR-WEB-021 학급 AI 끄기 | OWN | 담당 학급, 진행 AI 적용과 충돌 없음 | PM-AI-005 |
 | UIA-DAT-001 | SCR-WEB-024 PDF·CSV 내보내기 | OWN·COT | 담당, 운영 중 또는 READ_ONLY 전환 후 1년 이내, 실행자·범위 감사 | PM-DAT-003 |
 | UIA-DAT-002 | SCR-WEB-027 학급 템플릿 복사 | OWN·COT | 학생 데이터 제외, 코스·모듈·승인 퀴즈만 | PM-DAT-004 |
