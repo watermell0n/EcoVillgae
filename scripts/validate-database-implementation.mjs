@@ -38,6 +38,7 @@ const expectedMigrations = [
   "V1_9__indexes.sql",
   "V1_10__classroom_identity_and_public_quiz.sql",
   "V1_11__mvp_schema_alignment.sql",
+  "V1_12__seed_course_recommendations.sql",
 ];
 
 function unique(values) {

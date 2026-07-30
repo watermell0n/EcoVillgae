@@ -11,7 +11,7 @@
 
 이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_11`과 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_12`와 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -489,8 +489,9 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P9 | `V1_9__indexes.sql` | 조회 인덱스 |
 | P10 | `V1_10__classroom_identity_and_public_quiz.sql` | 전역 학급 코드·화폐 단위명 불변성과 공개 GAME 1~3위 View |
 | P11 | `V1_11__mvp_schema_alignment.sql` | 예상 학생 수·안정 역할 코드·자율시간 모듈 연결·학교 AI 설정 버전 |
+| P12 | `V1_12__seed_course_recommendations.sql` | 초4~6 × 1회·1주·1달·1학기 12개 추천 코스와 버전·모듈 제품 데이터 |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_11`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_12`로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -542,10 +543,11 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_11`에 조회 인덱스 37개, FK 보조 인덱스 14개와 학급 식별·공개 순위·MVP 필드 보강 구현
+- Flyway `V1_1`~`V1_12`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스 제품 데이터 구현
 - Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
 - PostgreSQL 17에 Flyway `V1_1`~`V1_11` 직접 적용과 핵심 제약 검증 성공
+- `V1_12` 포함 전체 재적용은 Docker 재가동 후 S15P11B201-119와 Jenkins에서 검증
 - Testcontainers 21개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
 
 후속 작업:

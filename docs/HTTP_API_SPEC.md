@@ -80,6 +80,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
+| API-CRS-001 | `GET /course-recommendations?grade={4..6}&course_size={label}` | 인증 교사 | 학년·규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전·난이도·학습 중점·핵심/선택/기반 모듈·선수개념·제외 영향 | PM-CLS-005 · SM — | `AUTH_REQUIRED`, `ROLE_NOT_ALLOWED`, `VALIDATION_ERROR`, `COURSE_VERSION_MISSING` | CRS-003·CRS-004·CRS-005 |
 | API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`와 `ACTIVE` 학급 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
 | API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전, 학급 코드·화폐 단위명 변경 불가 | PM-CLS-005 · SM-CLS-001 | `IMMUTABLE_CLASSROOM_FIELD`, `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
 | API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임·역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
@@ -318,8 +319,8 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 - 명령 API ID: 68개
 - 세션 지원 API: 4개
 - 조회 API: 34개
-- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 106개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) PASS, MVP 65개 strict·후속 41개 planned
+- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 107개 작업
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP 66개 strict·후속 41개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업

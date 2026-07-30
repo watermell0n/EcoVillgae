@@ -777,6 +777,75 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-CRS-001": [
+    {
+      name: "recommendations",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "recommended_course_id",
+            "template_code",
+            "name",
+            "grade",
+            "course_size",
+            "version",
+            "data_version",
+            "published_at",
+            "difficulty_profile",
+            "learning_focus",
+            "recommendation_reason",
+            "modules",
+          ],
+          properties: {
+            recommended_course_id: { type: "string", format: "uuid" },
+            template_code: { type: "string" },
+            name: { type: "string" },
+            grade: { type: "integer", enum: [4, 5, 6] },
+            course_size: {
+              type: "string",
+              enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"],
+            },
+            version: { type: "integer", minimum: 1 },
+            data_version: { type: "string" },
+            published_at: { type: "string", format: "date-time" },
+            difficulty_profile: { type: "object", additionalProperties: true },
+            learning_focus: { type: "string" },
+            recommendation_reason: { type: "string" },
+            modules: {
+              type: "array",
+              items: {
+                type: "object",
+                required: [
+                  "module_code",
+                  "label",
+                  "recommendation_level",
+                  "prerequisites",
+                ],
+                properties: {
+                  module_code: { type: "string" },
+                  label: { type: "string" },
+                  recommendation_level: {
+                    type: "string",
+                    enum: ["FOUNDATION", "CORE", "OPTIONAL"],
+                  },
+                  prerequisites: {
+                    type: "array",
+                    uniqueItems: true,
+                    items: { type: "string" },
+                  },
+                  exclusion_impact: { type: ["string", "null"] },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
   "API-AUTH-001": [
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
     { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
@@ -981,6 +1050,7 @@ function responseFields(operation) {
 
 const storageByDomain = {
   AUTH: ["classrooms", "classroom_students", "student_credentials", "student_sessions"],
+  CRS: ["course_templates", "course_template_versions", "course_template_modules"],
   CLS: ["classrooms", "classroom_teachers", "classroom_students", "salary_roles", "classroom_modules", "autonomous_schedules", "autonomous_schedule_modules"],
   MOD: ["classroom_modules", "state_transitions"],
   POL: ["classroom_policy_versions", "policy_snapshots"],
@@ -1143,6 +1213,7 @@ function tagForApi(apiId) {
   const domain = apiId.split("-")[1];
   const tags = {
     AUTH: "Authentication",
+    CRS: "Course recommendations",
     CLS: "Classrooms",
     MOD: "Modules",
     POL: "Policies",
@@ -1200,6 +1271,27 @@ function parameterRefs(operation) {
   }
   if (operation.method !== "GET") {
     parameters.push({ $ref: "#/components/parameters/IdempotencyKey" });
+  }
+  if (operation.apiId === "API-CRS-001") {
+    parameters.push(
+      {
+        name: "grade",
+        in: "query",
+        required: false,
+        schema: { type: "integer", enum: [4, 5, 6] },
+        description: "course_size와 함께 지정하거나 둘 다 생략합니다.",
+      },
+      {
+        name: "course_size",
+        in: "query",
+        required: false,
+        schema: {
+          type: "string",
+          enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"],
+        },
+        description: "grade와 함께 지정하거나 둘 다 생략합니다.",
+      },
+    );
   }
 
   const pagedQueries = new Set([
@@ -1334,7 +1426,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 106개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -2057,9 +2149,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 106, `HTTP 작업 수가 106이 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 106, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 106, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 107, `HTTP 작업 수가 107이 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 107, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 107, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -2076,8 +2168,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 106,
-      "OpenAPI 작업 수가 106이 아닙니다.",
+      ) === 107,
+      "OpenAPI 작업 수가 107이 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

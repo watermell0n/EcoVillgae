@@ -7,7 +7,7 @@
 
 ## 1. 사용 방법
 
-RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_11`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_12`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -59,7 +59,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | CLS-009 | MVP·DEC | 학생·교사 | 지도 활동·공용 화면 | 시작 시 학생은 활동 전용 화면으로 이동하고 공용 화면에는 공개 정보만 표시 | 실시간 화면 E2E | SM-ACT-001·SM-APP-001 · PM-ACT-001·PM-DSP-001 · SCR-TCH-004·SCR-TCH-007·SCR-STU-021·SCR-WEB-028·SCR-PUB-002 / TEST TBD |
 | CRS-001 | MVP·CRS | 교사 | 규모 라벨 | 라벨과 실제 날짜·활동 횟수가 독립적으로 저장됨 | 설정 테스트 | PM-CLS-005 · SCR-WEB-004 / TEST TBD |
 | CRS-002 | MVP·CRS | 학생 | 1회 코스 | 퀴즈·게임 외 모듈·지갑·화폐 보상이 생성되지 않음 | 코스 E2E | PM-CLS-005·PM-MOD-001·PM-RBAC-002 · SCR-WEB-004·SCR-STU-003 / TEST TBD |
-| CRS-003 | CRS | 교사 | 추천표 | 12개 조합과 데이터 버전을 조회할 수 있음 | 데이터 검증 | PM-CLS-005 · SCR-WEB-004 / TEST TBD |
+| CRS-003 | MVP·CRS | 교사 | 추천표 | 12개 조합과 데이터 버전을 조회할 수 있음 | 데이터 검증 | PM-CLS-005 · SCR-WEB-004 / API-CRS-001 · `CourseRecommendationSeedTest` |
 | CRS-004 | CRS | 학생·교사 | 난이도 | 학년별 문장·숫자·계산·리포트 프로필 적용 | 콘텐츠 검수 | PM-CLS-005·PM-SVC-001 · SCR-WEB-004·SCR-STU-021·SCR-STU-022·SCR-STU-024 / TEST TBD |
 | CRS-005 | CRS | 교사 | 추천 수정 | 추가·제외 시 선수 모듈과 학습 영향 표시 | 추천 UI 테스트 | PM-CLS-005·PM-MOD-001 · SCR-WEB-004·SCR-WEB-005 / TEST TBD |
 | CRS-006 | MVP·CRS | 학생 | 모듈 노출 | 미선택 모듈 경로·메뉴·명령 접근 차단 | 권한·UI 테스트 | SM-MOD-001 · PM-MOD-001·PM-RBAC-002 · SCR-STU-003·SCR-WEB-005 / TEST TBD |
@@ -283,7 +283,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 계약 | 사람이 읽는 기준 | 계약 수 | ID 차이 | 규격 검사 |
 | --- | --- | ---: | ---: | --- |
-| OpenAPI 3.1 | HTTP API 106개 | 작업 106개 | 0 | PASS |
+| OpenAPI 3.1 | HTTP API 107개 | 작업 107개 | 0 | PASS |
 | AsyncAPI 3.1 | 채널 10개·이벤트 48개 | 채널 10개·이벤트 48개 | 0 | PASS |
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
@@ -319,17 +319,17 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P11 | `backend/src/main/resources/db/migration/V1_1~V1_11` | 85개 테이블과 학급 식별·공개 순위·MVP 필드 보강 |
+| Flyway P1~P12 | `backend/src/main/resources/db/migration/V1_1~V1_12` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스 제품 데이터 보강 |
 | 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 65개 strict, 후속 41개 planned |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 66개 strict, 후속 41개 planned |
 
-Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_11`
-직접 적용·제약 검증은 성공했습니다. Testcontainers 21개 전체 실행은 Docker 사용
-가능 Jenkins 에이전트의 결과를 최종 PASS 기준으로 삼습니다.
+Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17에서 Flyway `V1_1`~`V1_11`
+직접 적용·제약 검증을 완료했고, `V1_12`를 포함한 전체 Testcontainers 실행은 Docker
+재가동 후 S15P11B201-119와 Jenkins에서 최종 검증합니다.
 
 ## 14. 커버리지 요약
 

@@ -13,7 +13,7 @@ src/main/java/com/b201/ecovillage/
     repository/   Spring Data JPA 저장소
 src/main/resources/
   application.yml
-  db/migration/   Flyway V1_1~V1_11
+  db/migration/   Flyway V1_1~V1_12
 src/test/java/
   identity/       계정 도메인 단위 테스트
   SchemaIntegrityTest.java   PostgreSQL 17 Testcontainers 무결성 테스트

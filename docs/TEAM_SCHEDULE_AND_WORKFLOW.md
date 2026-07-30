@@ -7,7 +7,7 @@
 ## 1. 현재 진행상황
 
 저장소 기준으로 공통 환경 설정, OpenAPI·AsyncAPI 계약, API 필드 매핑, 85개 테이블의 Flyway
-`V1_1`~`V1_11`, DBT-001~020 구현이 완료되었습니다. Docker 사용 Jenkins의
+`V1_1`~`V1_12`, DBT-001~020 구현이 완료되었습니다. Docker 사용 Jenkins의
 Testcontainers 21개 전체 실행, 계약 기반 인터페이스 생성, 앱·웹·AI
 서비스 구현과 서비스·E2E 인수 테스트가 남아 있습니다.
 
