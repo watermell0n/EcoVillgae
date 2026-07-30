@@ -327,9 +327,12 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
 | API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 66개 strict, 후속 41개 planned |
 
-Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17에서 Flyway `V1_1`~`V1_11`
-직접 적용·제약 검증을 완료했고, `V1_12`를 포함한 전체 Testcontainers 실행은 Docker
-재가동 후 S15P11B201-119와 Jenkins에서 최종 검증합니다.
+Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
+데이터베이스에서 Flyway `V1_1`~`V1_12` 직접 적용, 85개 물리 테이블과 Hibernate
+스키마 검증, 데이터베이스 삭제·재생성 후 전체 재적용을 완료했습니다. 같은
+격리 데이터베이스에서 테이블 생성 검사와 DBT-001~020 총 21개를 건너뜀 없이
+통과했습니다.
+Testcontainers 21개 전체 실행은 Docker 사용 Jenkins에서 최종 검증합니다.
 
 ## 14. 커버리지 요약
 

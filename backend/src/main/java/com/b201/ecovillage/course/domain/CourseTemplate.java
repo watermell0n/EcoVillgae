@@ -28,10 +28,10 @@ public class CourseTemplate {
     private String name;
 
     @Column(name = "grade_min", nullable = false, updatable = false)
-    private int gradeMin;
+    private short gradeMin;
 
     @Column(name = "grade_max", nullable = false, updatable = false)
-    private int gradeMax;
+    private short gradeMax;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "scale_label", nullable = false, updatable = false, length = 20)
@@ -63,8 +63,8 @@ public class CourseTemplate {
         if (grade < 4 || grade > 6) {
             throw new IllegalArgumentException("grade must be between 4 and 6");
         }
-        this.gradeMin = grade;
-        this.gradeMax = grade;
+        this.gradeMin = (short) grade;
+        this.gradeMax = (short) grade;
         this.courseSize = Objects.requireNonNull(courseSize, "courseSize must not be null");
         this.status = "PUBLISHED";
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");

@@ -20,6 +20,8 @@ src/test/java/
 ```
 
 `build.gradle`은 Java 21과 Spring Boot 4.1.0 의존성 관리 기준입니다.
+Spring Boot 4의 Flyway 자동 구성을 위해 `spring-boot-starter-flyway`를 사용하고,
+PostgreSQL 지원은 `flyway-database-postgresql`로 추가합니다.
 
 ## 실행 조건
 
@@ -62,6 +64,25 @@ cd backend
 Docker가 없으면 Testcontainers 기반 21개 DB 테스트는 건너뛰지만 계정 도메인
 단위 테스트와 Java 컴파일은 실행됩니다. Jenkins에서는 DB 테스트가 하나도
 건너뛰지 않고 통과해야 합니다.
+
+2026-07-30에는 로컬 PostgreSQL 17.10의 빈 격리 데이터베이스에서 애플리케이션을
+기동해 `V1_1`~`V1_12` 12개를 적용하고, 85개 물리 테이블과 Hibernate 스키마
+검증을 확인했습니다. 데이터베이스를 삭제·재생성한 뒤 같은 절차를 반복해 전체
+재적용도 확인했습니다. 이 직접 적용 검증은 Docker 사용 Jenkins의 Testcontainers
+21개 무결성 테스트를 대체하지 않습니다.
+
+Docker를 사용할 수 없는 개발 PC에서는 로컬 전용
+`ecovillage_migration_test` 데이터베이스에 한해 같은 DB 테스트를 실행할 수
+있습니다. 이 테스트는 실행 중 Flyway `clean`을 호출하므로 다른 데이터베이스
+이름과 원격 호스트는 코드에서 거절합니다.
+
+```powershell
+$env:TEST_POSTGRES_JDBC_URL = "jdbc:postgresql://localhost:55432/ecovillage_migration_test"
+$env:TEST_POSTGRES_USERNAME = "postgres"
+$env:TEST_POSTGRES_PASSWORD = "<local-development-password>"
+$env:ALLOW_EXTERNAL_DB_CLEAN = "true"
+.\gradlew.bat test --tests "com.b201.ecovillage.SchemaIntegrityTest" --rerun-tasks
+```
 
 루트에서 DDL·문서·테스트 식별자 매핑을 정적으로 검사할 수 있습니다.
 
