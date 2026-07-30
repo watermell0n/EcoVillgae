@@ -54,7 +54,6 @@ function App() {
   const [page, setPage] = useState<PageKey>("village");
   const [nickname, setNickname] = useState("학생");
   const [walletBalance, setWalletBalance] = useState(studentHomeEnvelope.studentView.walletBalance);
-  const [message, setMessage] = useState("자율시간이에요. 열린 마을 기능만 사용할 수 있어요.");
 
   if (authState === "landing") {
     return <LandingScreen onStart={() => setAuthState("login")} />;
@@ -92,28 +91,24 @@ function App() {
           onLogout={() => setAuthState("landing")}
           onProfile={() => {
             setPage("character");
-            setMessage("프로필에서 닉네임과 비밀번호를 바꿀 수 있어요.");
           }}
         />
         <section className="content-area">
-          <StatusBanner message={message} />
           {page === "village" && <VillagePage onMove={setPage} />}
           {page === "wallet" && <WalletPage walletBalance={walletBalance} />}
-          {page === "paystub" && <PaystubPage onConfirm={() => setMessage("월급명세서를 확인했어요.")} />}
+          {page === "paystub" && <PaystubPage />}
           {page === "shop" && (
             <ShopPage
               walletBalance={walletBalance}
               onBuy={(price, name) => {
                 if (walletBalance < price) {
-                  setMessage(`${name}을 사기에는 비빔이 부족해요.`);
                   return;
                 }
                 setWalletBalance((value) => value - price);
-                setMessage(`${name} 구매 요청을 만들었어요. 실물 상품은 선생님 확인 후 수령해요.`);
               }}
             />
           )}
-          {page === "bank" && <BankPage onSubscribe={() => setMessage("예금 가입을 신청했어요. 선생님이 정한 규칙에 맞춰 처리돼요.")} />}
+          {page === "bank" && <BankPage />}
           {page === "investment" && <InvestmentPage />}
           {page === "trade" && <TradePage />}
           {page === "quiz" && <QuizPage />}
@@ -233,7 +228,6 @@ function Header({
   return (
     <header className="app-header">
       <div>
-        <p className="eyebrow">우리 반 경제생활</p>
         <h1>{title}</h1>
       </div>
       <div className="header-actions">
@@ -267,15 +261,6 @@ function Header({
   );
 }
 
-function StatusBanner({ message }: { message: string }) {
-  return (
-    <div className="status-banner">
-      <b>현재 상태</b>
-      <span>{message}</span>
-    </div>
-  );
-}
-
 function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
   const cards = useMemo(() => [
     ...moduleCards.filter((card) => card.id !== "paystub" && card.id !== "character"),
@@ -287,13 +272,7 @@ function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">마을 광장</p>
           <h2>지금 할 수 있는 경제 활동</h2>
-          <p>상점, 은행, 투자, 거래, 퀴즈로 들어갈 수 있어요. 닫힌 기능은 선생님 수업 상태에 맞춰 잠겨요.</p>
-        </div>
-        <div className="mode-card">
-          <b>AUTONOMOUS</b>
-          <span>자율 활동 가능</span>
         </div>
       </section>
       <section className="village-grid">
@@ -362,7 +341,7 @@ function WalletPage({ walletBalance }: { walletBalance: number }) {
   );
 }
 
-function PaystubPage({ onConfirm }: { onConfirm: () => void }) {
+function PaystubPage() {
   return (
     <section className="paystub-layout">
       <div className="receipt">
@@ -388,7 +367,7 @@ function PaystubPage({ onConfirm }: { onConfirm: () => void }) {
           <span>-17비빔</span>
           <b>내 지갑<br />158비빔</b>
         </div>
-        <button className="primary-action" onClick={onConfirm}>확인했어요</button>
+        <button className="primary-action">확인했어요</button>
       </div>
     </section>
   );
@@ -426,7 +405,7 @@ function ShopPage({ walletBalance, onBuy }: { walletBalance: number; onBuy: (pri
   );
 }
 
-function BankPage({ onSubscribe }: { onSubscribe: () => void }) {
+function BankPage() {
   return (
     <section className="panel">
       <p className="eyebrow">이코 은행</p>
@@ -438,7 +417,7 @@ function BankPage({ onSubscribe }: { onSubscribe: () => void }) {
             <b>{product.title}</b>
             <p>{product.amount}비빔부터 · 이자 {product.rate}</p>
             <small>{product.description}</small>
-            <button onClick={onSubscribe}>가입하기</button>
+            <button>가입하기</button>
           </article>
         ))}
       </div>

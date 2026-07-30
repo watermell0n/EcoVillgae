@@ -392,32 +392,8 @@ p {
   padding: 30px 34px 46px;
 }
 
-.status-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 14px 18px;
-  border: 1px solid #f5d46b;
-  border-radius: 14px;
-  background: rgba(255, 250, 219, 0.9);
-}
-
-.status-banner b {
-  flex: 0 0 auto;
-}
-
-.status-banner span {
-  color: var(--muted-600);
-  font-weight: 850;
-}
-
 .hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 22px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .hero h2,
@@ -433,31 +409,6 @@ p {
   color: var(--muted-600);
   font-weight: 800;
   line-height: 1.6;
-}
-
-.mode-card {
-  width: 260px;
-  padding: 18px;
-  border: 1px solid var(--line-soft);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.86);
-}
-
-.mode-card b,
-.mode-card span {
-  display: block;
-}
-
-.mode-card b {
-  color: var(--purple-500);
-  font-weight: 950;
-}
-
-.mode-card span {
-  margin-top: 6px;
-  color: var(--muted-600);
-  font-size: 13px;
-  font-weight: 800;
 }
 
 .village-grid {
