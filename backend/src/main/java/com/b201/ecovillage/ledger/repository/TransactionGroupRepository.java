@@ -12,6 +12,8 @@ public interface TransactionGroupRepository extends Repository<TransactionGroup,
 
     TransactionGroup save(TransactionGroup transactionGroup);
 
+    TransactionGroup saveAndFlush(TransactionGroup transactionGroup);
+
     Optional<TransactionGroup> findById(UUID id);
 
     List<TransactionGroup> findAllByRecoveryOfGroupIdOrderByCreatedAt(UUID recoveryOfGroupId);
