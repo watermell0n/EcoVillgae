@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이코빌리지 교사 UI Prototype 178-185</title>
+  <style>
+    :root {
+      --ink: #1f2937;
+      --muted: #72819a;
+      --line: #d9e5f5;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-solid: #ffffff;
+      --blue: #7dbef5;
+      --blue-dark: #3578bd;
+      --green: #7ccf9a;
+      --mint: #d7f4e4;
+      --yellow: #ffe6a6;
+      --red: #f07c7c;
+      --lavender: #d9d0ff;
+      --shadow: 0 18px 50px rgba(83, 122, 152, 0.22);
+      --radius: 8px;
+      --soft-radius: 18px;
+      font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(217, 243, 255, 0.88), rgba(247, 255, 221, 0.92)),
+        url("./ecovillage-background-1280x800-v2.png") center bottom / cover no-repeat;
+      overflow: hidden;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      padding: 18px;
+      gap: 16px;
+    }
+
+    .sidebar {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(199, 221, 241, 0.9);
+      border-radius: var(--soft-radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .brand {
+      padding: 20px 18px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #bee7ff, #c7f0cf);
+      box-shadow: inset 0 -4px 0 rgba(255, 255, 255, 0.55);
+      font-size: 24px;
+    }
+
+    .brand h1 {
+      margin: 10px 0 4px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .screen-list {
+      padding: 12px;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .group-label {
+      margin: 14px 6px 6px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .screen-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      margin: 5px 0;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: #334155;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .screen-button:hover,
+    .screen-button.active {
+      background: #eef8ff;
+      border-color: #bfddfb;
+    }
+
+    .screen-button.active {
+      color: var(--blue-dark);
+      font-weight: 800;
+    }
+
+    .screen-no {
+      width: 58px;
+      flex: 0 0 58px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .screen-title {
+      min-width: 0;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 68px minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .topbar {
+      background: var(--panel);
+      border: 1px solid rgba(199, 221, 241, 0.9);
+      border-radius: var(--soft-radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+    }
+
+    .class-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #edf7ff;
+      color: #326899;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chip.green {
+      background: var(--mint);
+      color: #2f7d4b;
+    }
+
+    .chip.yellow {
+      background: #fff3c9;
+      color: #8a6500;
+    }
+
+    .chip.red {
+      background: #ffe5e5;
+      color: #a33b3b;
+    }
+
+    .workspace {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid rgba(199, 221, 241, 0.9);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .content {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .header h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 15px;
+    }
+
+    .primary-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: var(--radius);
+      background: #e7f2ff;
+      color: #2f6798;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #89ccff, #8fe0b0);
+      color: #143450;
+    }
+
+    .btn.warn {
+      background: #ffe3a3;
+      color: #6f4b00;
+    }
+
+    .btn.danger {
+      background: #ffe3e3;
+      color: #963737;
+    }
+
+    .board {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .hero-panel,
+    .form-panel,
+    .table-panel,
+    .timeline-panel {
+      background: var(--panel-solid);
+      border: 1px solid var(--line);
+      border-radius: var(--soft-radius);
+      padding: 18px;
+    }
+
+    .hero-panel {
+      min-height: 340px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(215, 244, 228, 0.9), transparent 55%),
+        #fff;
+    }
+
+    .hero-icon {
+      font-size: 62px;
+      margin-bottom: 10px;
+    }
+
+    .hero-panel h3 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    .hero-panel p {
+      margin: 0 auto 20px;
+      max-width: 480px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 17px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      min-height: 126px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    .metric {
+      font-size: 30px;
+      font-weight: 900;
+      margin-top: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      color: #42526b;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .input,
+    .select {
+      width: 100%;
+      height: 48px;
+      border: 1px solid #cfe0f5;
+      border-radius: var(--radius);
+      background: #f3f9ff;
+      padding: 0 14px;
+      color: #334155;
+      outline: none;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: var(--radius);
+      font-size: 14px;
+    }
+
+    .table th,
+    .table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #e6eef8;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .table th {
+      color: #52637a;
+      font-size: 12px;
+      background: #f3f8fe;
+    }
+
+    .table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .summary {
+      min-width: 0;
+      min-height: 0;
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: var(--soft-radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .summary h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .summary-item {
+      border: 1px solid #e4edf8;
+      border-radius: var(--radius);
+      padding: 11px;
+      background: #ffffff;
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    .summary-item span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .stepper {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .step {
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: #eef8ff;
+      color: #3c6e9d;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .step.active {
+      background: var(--mint);
+      color: #2f7d4b;
+    }
+
+    .mobile-note {
+      display: none;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      background: #fff3c9;
+      color: #755600;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        max-height: 330px;
+      }
+
+      .main {
+        grid-template-rows: auto auto;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .grid,
+      .grid.two,
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        min-height: 68px;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px;
+      }
+
+      .mobile-note {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">🏘️</div>
+        <h1>이코빌리지</h1>
+        <p>교사 화면 178~185 클릭형 UI 프로토타입</p>
+      </div>
+      <div id="screenList" class="screen-list"></div>
+    </aside>
+
+    <main class="main">
+      <section class="topbar">
+        <div class="class-chip">
+          <span class="brand-mark" style="width:36px;height:36px;font-size:20px;">🏫</span>
+          <span>햇살초 5학년 2반 경제마을</span>
+        </div>
+        <div class="status-row">
+          <span class="chip green">운영 준비</span>
+          <span class="chip">공용 화면 연결됨</span>
+          <span class="chip yellow">승인 대기 4건</span>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="content">
+          <div class="mobile-note">태블릿/데스크톱 기준 프로토타입입니다. 넓은 화면에서 보면 더 정확해요.</div>
+          <header class="header">
+            <div>
+              <h2 id="screenTitle"></h2>
+              <p id="screenPurpose"></p>
+            </div>
+            <div class="primary-actions" id="actions"></div>
+          </header>
+          <div class="board" id="board"></div>
+        </div>
+        <aside class="summary">
+          <h3>화면 설계 체크</h3>
+          <div class="summary-list" id="summary"></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const groups = [
+      {
+        label: "178 로그인·교실 선택",
+        screens: [
+          {
+            id: "T-178-01",
+            title: "교사 로그인",
+            purpose: "교사가 서비스에 진입하고 경제교실 목록으로 이동합니다.",
+            type: "hero",
+            icon: "🏘️",
+            heroTitle: "우리 반 경제생활이 시작되는 곳",
+            heroText: "교사 계정으로 로그인해서 이코빌리지 경제교실을 운영해요.",
+            actions: ["교사로 로그인", "비밀번호 찾기"],
+            checks: ["입력 전 버튼 비활성화", "로그인 실패 문구", "성공 시 교실 목록 이동"],
+            summary: ["중앙 흰 패널", "마을 배경", "아이디/비밀번호 입력"]
+          },
+          {
+            id: "T-178-02",
+            title: "경제교실 목록·선택",
+            purpose: "운영할 경제교실을 선택하거나 새 경제교실을 만듭니다.",
+            type: "cards",
+            actions: ["새 경제교실 만들기", "샘플 교실"],
+            cards: [
+              ["햇살초 5-2 경제마을", "운영 준비 · 학생 24명 · 1학기"],
+              ["소비와 저축 1주 프로젝트", "임시 저장 · 학생 명단 필요"],
+              ["공공예산 체험반", "종료됨 · 읽기 전용"]
+            ],
+            checks: ["교실 카드 클릭", "임시 저장 이어쓰기", "빈 상태 분기"],
+            summary: ["교실명", "운영 기간", "학생 수", "상태 칩"]
+          },
+          {
+            id: "T-178-03",
+            title: "경제교실 미생성 빈 상태",
+            purpose: "아직 교실이 없는 교사에게 첫 생성 행동을 안내합니다.",
+            type: "hero",
+            icon: "🏡",
+            heroTitle: "아직 만든 경제교실이 없어요",
+            heroText: "우리 반 경제생활을 시작하려면 경제교실을 먼저 만들어주세요.",
+            actions: ["경제교실 만들기", "샘플 둘러보기"],
+            checks: ["첫 생성 CTA", "샘플 보기", "권한 없음 안내"],
+            summary: ["빈 마을 일러스트", "큰 CTA", "초기 안내"]
+          }
+        ]
+      },
+      {
+        label: "179 경제교실 개설",
+        screens: [
+          {
+            id: "T-179-01",
+            title: "경제교실 기본 정보 입력",
+            purpose: "교실 이름과 기본 학급 정보를 설정합니다.",
+            type: "form",
+            steps: ["기본 정보", "기간 설정", "개설 완료"],
+            actions: ["다음", "임시 저장"],
+            fields: ["교실 이름", "학교명", "학년", "반", "수업 대상 설명", "화폐명"],
+            checks: ["필수값 검증", "이름 중복 오류", "우측 미리보기"],
+            summary: ["교실명", "학년/반", "화폐명"]
+          },
+          {
+            id: "T-179-02",
+            title: "학년·운영기간 설정",
+            purpose: "운영 유형과 기간, 활동 시간을 정합니다.",
+            type: "cards",
+            steps: ["기본 정보", "기간 설정", "개설 완료"],
+            actions: ["개설하기", "이전"],
+            cards: [
+              ["1회 체험", "경제 개념을 짧게 경험"],
+              ["1주 프로젝트", "소비와 저축을 빠르게 운영"],
+              ["1달 운영", "세금과 상점까지 확장"],
+              ["1학기 운영", "공공예산과 예금까지 포함"]
+            ],
+            checks: ["날짜 검증", "기간별 추천 경고", "활동 요일 선택"],
+            summary: ["시작일/종료일", "운영 요일", "하루 활동 시간"]
+          },
+          {
+            id: "T-179-03",
+            title: "개설 완료·초기 안내",
+            purpose: "교실 개설 완료 후 다음 할 일을 안내합니다.",
+            type: "hero",
+            icon: "✅",
+            heroTitle: "경제교실이 열렸어요",
+            heroText: "학생 접속 링크를 공유하고 추천 코스를 골라 운영을 시작해요.",
+            actions: ["추천 코스 고르기", "학생 등록", "대시보드"],
+            checks: ["QR/링크", "다음 할 일", "대시보드 이동"],
+            summary: ["개설 완료", "학생 접속", "초기 설정"]
+          }
+        ]
+      },
+      {
+        label: "180 코스 추천",
+        screens: [
+          {
+            id: "T-180-01",
+            title: "추천 조건 입력",
+            purpose: "학급 상황에 맞는 운영 코스 조건을 입력합니다.",
+            type: "form",
+            steps: ["조건 입력", "추천 결과", "이유 상세"],
+            actions: ["추천 보기", "초기화"],
+            fields: ["운영 기간", "학년", "학생 수", "수업 목표", "난이도", "사용 모듈"],
+            checks: ["필수 조건", "추천 불가 조합", "선택 요약"],
+            summary: ["제품 추천 테이블", "AI 직접 생성 아님", "조건 기반 추천"]
+          },
+          {
+            id: "T-180-02",
+            title: "추천 코스 결과",
+            purpose: "추천 코스 후보를 비교하고 선택합니다.",
+            type: "cards",
+            steps: ["조건 입력", "추천 결과", "이유 상세"],
+            actions: ["이 코스로 시작", "추천 이유 보기"],
+            cards: [
+              ["소비와 저축 마을", "1주 · 쉬움 · 지갑/상점/퀴즈"],
+              ["세금과 공공재 마을", "1달 · 보통 · 세금/공공기금/투표"],
+              ["한 학기 경제 운영", "1학기 · 확장 · 예금/거래 포함"]
+            ],
+            checks: ["코스 카드 선택", "추천 이유 이동", "모듈 설정 연결"],
+            summary: ["기간", "난이도", "핵심 모듈"]
+          },
+          {
+            id: "T-180-03",
+            title: "추천 이유 상세",
+            purpose: "왜 이 코스가 적합한지 교사가 이해합니다.",
+            type: "timeline",
+            steps: ["조건 입력", "추천 결과", "이유 상세"],
+            actions: ["선택하기", "다른 추천 보기"],
+            checks: ["추천 근거", "포함 모듈", "적용 변경 요약"],
+            summary: ["학년 적합", "운영 기간 적합", "모듈 난이도"]
+          }
+        ]
+      },
+      {
+        label: "181 모듈·일정 설정",
+        screens: [
+          {
+            id: "T-181-01",
+            title: "추천 모듈 선택",
+            purpose: "사용할 경제 모듈과 학생 메뉴 구성을 결정합니다.",
+            type: "cards",
+            actions: ["다음", "추천값 적용"],
+            cards: [
+              ["지갑", "잔액과 거래 내역"],
+              ["월급", "정기 지급"],
+              ["세금", "소득세/소비세"],
+              ["상점", "상품 구매"],
+              ["개인 거래", "교사 승인 필수"],
+              ["공공 예산", "안건과 투표"]
+            ],
+            checks: ["모듈 의존성", "학생 노출 여부", "AI는 교사 전용"],
+            summary: ["켜진 모듈", "잠긴 모듈", "경고"]
+          },
+          {
+            id: "T-181-02",
+            title: "운영 일정 편집",
+            purpose: "모듈별 운영 일정을 조정합니다.",
+            type: "table",
+            actions: ["활동 추가", "저장"],
+            columns: ["날짜", "활동", "모듈", "상태"],
+            rows: [
+              ["7/30", "첫 월급 지급", "월급", "예약"],
+              ["7/31", "상점 열기", "상점", "준비"],
+              ["8/01", "공공예산 투표", "투표", "검토 필요"]
+            ],
+            checks: ["일정 충돌", "활동 잠금", "종료일 이후 저장 불가"],
+            summary: ["주간 일정", "모듈 필터", "선택 날짜 상세"]
+          },
+          {
+            id: "T-181-03",
+            title: "자율 이용 모듈 허용 설정",
+            purpose: "학생이 자율적으로 사용할 수 있는 기능을 정합니다.",
+            type: "table",
+            actions: ["저장", "학생 화면 미리보기"],
+            columns: ["모듈", "학생 노출", "자율 이용", "승인"],
+            rows: [
+              ["지갑", "ON", "ON", "불필요"],
+              ["상점", "ON", "ON", "선택"],
+              ["개인 거래", "ON", "ON", "필수"],
+              ["예금", "ON", "OFF", "필수"]
+            ],
+            checks: ["돈 이동 확인", "승인 대기 안내", "학생 메뉴 미리보기"],
+            summary: ["자율 이용", "교사 승인", "시간 제한"]
+          }
+        ]
+      },
+      {
+        label: "182 대시보드",
+        screens: [
+          {
+            id: "T-182-01",
+            title: "학급 경제 현황",
+            purpose: "오늘의 학급 경제 상태를 한눈에 확인합니다.",
+            type: "metrics",
+            actions: ["활동 시작", "장부 보기", "리포트"],
+            metrics: [["총 화폐량", "48,200"], ["평균 잔액", "2,008"], ["공공기금", "7,400"], ["참여 학생", "22/24"]],
+            checks: ["KPI", "최근 활동", "오늘 해야 할 일"],
+            summary: ["경제 상태", "참여율", "운영 요약"]
+          },
+          {
+            id: "T-182-02",
+            title: "위험·운영 알림",
+            purpose: "놓치면 안 되는 운영 이슈를 확인하고 처리합니다.",
+            type: "table",
+            actions: ["선택 처리", "관련 화면 이동"],
+            columns: ["종류", "내용", "중요도", "상태"],
+            rows: [
+              ["거래", "승인 대기 4건", "높음", "처리 필요"],
+              ["접속", "미접속 학생 2명", "보통", "확인"],
+              ["일정", "투표 일정 충돌", "보통", "검토"]
+            ],
+            checks: ["필터", "알림 상세", "나중에 보기"],
+            summary: ["위험도", "처리 버튼", "관련 화면"]
+          },
+          {
+            id: "T-182-03",
+            title: "오늘 활동 빠른 실행",
+            purpose: "수업 중 자주 쓰는 활동을 빠르게 시작합니다.",
+            type: "cards",
+            actions: ["공용 화면 열기", "예약 활동 실행"],
+            cards: [
+              ["월급 지급", "오늘 예약된 월급을 지급"],
+              ["세금 징수", "소득세/소비세 실행"],
+              ["퀴즈 시작", "공용 화면과 연결"],
+              ["투표 시작", "공공예산 안건 투표"]
+            ],
+            checks: ["공용 화면 연결", "학생 접속 수", "시작 전 경고"],
+            summary: ["빠른 실행", "참여 준비", "공용 화면"]
+          }
+        ]
+      },
+      {
+        label: "183 학생 관리",
+        screens: [
+          {
+            id: "T-183-01",
+            title: "학생 목록",
+            purpose: "전체 학생 계정과 접속 상태를 관리합니다.",
+            type: "table",
+            actions: ["학생 추가", "CSV 업로드"],
+            columns: ["번호", "이름", "닉네임", "접속", "잔액"],
+            rows: [
+              ["1", "김도윤", "상점왕", "온라인", "2,400"],
+              ["2", "이서연", "저축요정", "온라인", "3,100"],
+              ["3", "박민준", "세금탐정", "오프라인", "1,800"]
+            ],
+            checks: ["검색/필터", "상세 이동", "일괄 선택"],
+            summary: ["학생 식별 정보", "접속 상태", "잔액"]
+          },
+          {
+            id: "T-183-02",
+            title: "학생 상세·개인 기록",
+            purpose: "한 학생의 참여와 경제 기록을 확인합니다.",
+            type: "metrics",
+            actions: ["보상 지급", "비밀번호 초기화"],
+            metrics: [["잔액", "2,400"], ["누적 수입", "8,200"], ["누적 지출", "5,800"], ["참여율", "91%"]],
+            checks: ["거래 내역", "활동 기록", "돈 이동 확인 모달"],
+            summary: ["개인 기록", "교사 조치", "계정 정보"]
+          },
+          {
+            id: "T-183-03",
+            title: "계정 등록·비밀번호 초기화",
+            purpose: "학생 계정을 만들거나 접속 문제를 해결합니다.",
+            type: "form",
+            actions: ["학생 등록", "초기 비밀번호 발급"],
+            fields: ["출석번호", "이름", "초기 닉네임", "초기 비밀번호", "CSV 업로드", "메모"],
+            checks: ["중복 번호", "CSV 오류", "QR/접속 안내"],
+            summary: ["직접 등록", "CSV 업로드", "비밀번호 초기화"]
+          }
+        ]
+      },
+      {
+        label: "184 급여·세금",
+        screens: [
+          {
+            id: "T-184-01",
+            title: "역할별 월급 설정",
+            purpose: "학생 역할 또는 기본 기준에 따라 월급을 설정합니다.",
+            type: "table",
+            actions: ["역할 추가", "저장"],
+            columns: ["역할", "지급액", "주기", "학생 수"],
+            rows: [
+              ["기본 학생", "1,000", "매주", "24"],
+              ["은행원", "1,300", "매주", "2"],
+              ["상점 매니저", "1,200", "매주", "2"]
+            ],
+            checks: ["지급액 검증", "예상 총액", "과도한 지급 경고"],
+            summary: ["역할", "월급", "주기"]
+          },
+          {
+            id: "T-184-02",
+            title: "소득세·부가세 정책 설정",
+            purpose: "학급 경제에서 적용할 세금 규칙을 정합니다.",
+            type: "cards",
+            actions: ["저장", "적용 예시 보기"],
+            cards: [
+              ["소득세", "월급의 10%를 공공기금으로"],
+              ["소비세", "상점 구매 금액의 5%"],
+              ["벌금", "활동 규칙 위반 시 차감"],
+              ["공공기금", "세금이 모이는 학급 예산"]
+            ],
+            checks: ["세율 검증", "세금 OFF 안내", "정책 예시"],
+            summary: ["고정세", "비율세", "공공기금"]
+          },
+          {
+            id: "T-184-03",
+            title: "월급명세서 미리보기",
+            purpose: "학생에게 보일 월급과 세금 결과를 사전에 확인합니다.",
+            type: "hero",
+            icon: "🧾",
+            heroTitle: "김도윤 학생 월급명세서",
+            heroText: "기본 월급 1,000 - 소득세 100 + 보너스 200 = 최종 1,100",
+            actions: ["월급 지급 실행", "설정으로 돌아가기"],
+            checks: ["학생 선택", "중복 지급 경고", "지급 전 확인"],
+            summary: ["기본 월급", "세금", "최종 지급액"]
+          }
+        ]
+      },
+      {
+        label: "185 상점·거래 승인",
+        screens: [
+          {
+            id: "T-185-01",
+            title: "상품·재고 목록",
+            purpose: "학생이 구매할 수 있는 상품과 재고를 관리합니다.",
+            type: "table",
+            actions: ["상품 추가", "판매 상태 변경"],
+            columns: ["상품", "가격", "재고", "상태"],
+            rows: [
+              ["자리 선택권", "500", "12", "판매 중"],
+              ["숙제 패스권", "2,000", "2", "승인 필요"],
+              ["칭찬 배지", "300", "무제한", "판매 중"]
+            ],
+            checks: ["품절 상태", "구매 승인", "학생 노출"],
+            summary: ["상품", "가격", "재고"]
+          },
+          {
+            id: "T-185-02",
+            title: "상품 등록·수정",
+            purpose: "상품 정보를 만들거나 수정합니다.",
+            type: "form",
+            actions: ["저장", "미리보기", "판매 시작"],
+            fields: ["상품명", "설명", "가격", "재고", "판매 기간", "구매 승인 여부"],
+            checks: ["가격 검증", "재고 경고", "학생 카드 미리보기"],
+            summary: ["상품 정보", "판매 옵션", "이미지"]
+          },
+          {
+            id: "T-185-03",
+            title: "개인거래 검토·승인",
+            purpose: "학생 간 개인 거래 요청을 검토하고 승인 또는 반려합니다.",
+            type: "table",
+            actions: ["승인", "반려", "학생 기록 보기"],
+            columns: ["요청자", "상대", "내용", "상태"],
+            rows: [
+              ["김도윤", "이서연", "칭찬 배지 1개 / 300", "대기"],
+              ["박민준", "최하은", "자리 선택권 / 500", "위험 확인"],
+              ["정지우", "한유나", "100 코인 송금", "대기"]
+            ],
+            checks: ["잔액 부족", "의심 거래", "승인 결과 알림"],
+            summary: ["승인 대기", "거래 상세", "반려 사유"]
+          }
+        ]
+      }
+    ];
+
+    const screens = groups.flatMap((group) => group.screens.map((screen) => ({ ...screen, group: group.label })));
+    let currentId = screens[0].id;
+
+    const screenList = document.getElementById("screenList");
+    const screenTitle = document.getElementById("screenTitle");
+    const screenPurpose = document.getElementById("screenPurpose");
+    const actions = document.getElementById("actions");
+    const board = document.getElementById("board");
+    const summary = document.getElementById("summary");
+
+    function renderList() {
+      screenList.innerHTML = "";
+      groups.forEach((group) => {
+        const label = document.createElement("div");
+        label.className = "group-label";
+        label.textContent = group.label;
+        screenList.appendChild(label);
+
+        group.screens.forEach((screen) => {
+          const button = document.createElement("button");
+          button.className = `screen-button ${screen.id === currentId ? "active" : ""}`;
+          button.type = "button";
+          button.innerHTML = `<span class="screen-no">${screen.id}</span><span class="screen-title">${screen.title}</span>`;
+          button.addEventListener("click", () => {
+            currentId = screen.id;
+            render();
+          });
+          screenList.appendChild(button);
+        });
+      });
+    }
+
+    function renderActions(screen) {
+      actions.innerHTML = "";
+      (screen.actions || []).forEach((label, index) => {
+        const button = document.createElement("button");
+        button.className = `btn ${index === 0 ? "primary" : ""}`;
+        button.type = "button";
+        button.textContent = label;
+        actions.appendChild(button);
+      });
+    }
+
+    function renderSteps(screen) {
+      if (!screen.steps) return "";
+      return `<div class="stepper">${screen.steps.map((step, index) => `<span class="step ${index === 0 ? "active" : ""}">${step}</span>`).join("")}</div>`;
+    }
+
+    function renderBoard(screen) {
+      const steps = renderSteps(screen);
+
+      if (screen.type === "hero") {
+        return `${steps}<section class="hero-panel">
+          <div>
+            <div class="hero-icon">${screen.icon || "🏫"}</div>
+            <h3>${screen.heroTitle}</h3>
+            <p>${screen.heroText}</p>
+            <button class="btn primary">${screen.actions?.[0] || "다음"}</button>
+          </div>
+        </section>`;
+      }
+
+      if (screen.type === "form") {
+        return `${steps}<section class="form-panel">
+          <div class="form-grid">
+            ${(screen.fields || []).map((field, index) => `<div class="field">
+              <label>${field}</label>
+              ${index % 3 === 1 ? `<select class="select"><option>${field} 선택</option></select>` : `<input class="input" placeholder="${field} 입력" />`}
+            </div>`).join("")}
+          </div>
+        </section>`;
+      }
+
+      if (screen.type === "cards") {
+        return `${steps}<section class="grid ${screen.cards?.length <= 4 ? "two" : ""}">
+          ${(screen.cards || []).map((card, index) => `<article class="card">
+            <div>
+              <span class="chip ${index === 0 ? "green" : index === 1 ? "yellow" : ""}">${index === 0 ? "추천" : "선택"}</span>
+              <h3>${card[0]}</h3>
+              <p>${card[1]}</p>
+            </div>
+            <button class="btn">선택</button>
+          </article>`).join("")}
+        </section>`;
+      }
+
+      if (screen.type === "table") {
+        return `${steps}<section class="table-panel">
+          <table class="table">
+            <thead><tr>${(screen.columns || []).map((column) => `<th>${column}</th>`).join("")}<th>조치</th></tr></thead>
+            <tbody>
+              ${(screen.rows || []).map((row, rowIndex) => `<tr>
+                ${row.map((cell, index) => `<td>${index === row.length - 1 ? `<span class="chip ${cell.includes("위험") || cell.includes("필요") ? "red" : cell.includes("대기") || cell.includes("검토") ? "yellow" : "green"}">${cell}</span>` : cell}</td>`).join("")}
+                <td><button class="btn">${rowIndex === 0 ? "상세" : "보기"}</button></td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </section>`;
+      }
+
+      if (screen.type === "metrics") {
+        return `${steps}<section class="grid two">
+          ${(screen.metrics || []).map((metric, index) => `<article class="card">
+            <div>
+              <span class="chip ${index % 2 === 0 ? "green" : ""}">오늘</span>
+              <h3>${metric[0]}</h3>
+              <div class="metric">${metric[1]}</div>
+            </div>
+            <p>지난 활동 기준으로 자동 집계됩니다.</p>
+          </article>`).join("")}
+        </section>
+        <section class="timeline-panel">
+          <table class="table">
+            <tbody>
+              <tr><td>09:10</td><td>월급 지급 예약이 준비됐어요.</td><td><span class="chip yellow">확인</span></td></tr>
+              <tr><td>10:20</td><td>상점 구매 3건이 발생했어요.</td><td><span class="chip green">정상</span></td></tr>
+              <tr><td>11:00</td><td>개인거래 승인 요청이 들어왔어요.</td><td><span class="chip red">처리 필요</span></td></tr>
+            </tbody>
+          </table>
+        </section>`;
+      }
+
+      if (screen.type === "timeline") {
+        return `${steps}<section class="timeline-panel">
+          <table class="table">
+            <tbody>
+              <tr><td><span class="chip green">1</span></td><td>5학년에게 맞는 소비/저축 난이도입니다.</td></tr>
+              <tr><td><span class="chip green">2</span></td><td>1주 운영 기간 안에 완료할 수 있는 활동 수입니다.</td></tr>
+              <tr><td><span class="chip yellow">3</span></td><td>세금과 공공예산은 다음 코스로 확장할 수 있어요.</td></tr>
+            </tbody>
+          </table>
+        </section>`;
+      }
+
+      return "";
+    }
+
+    function renderSummary(screen) {
+      const jiraKey = `S15P11B201-${screen.id.split("-")[1]}`;
+      const items = [
+        ["Jira", jiraKey],
+        ["프레임", screen.id],
+        ["그룹", screen.group],
+        ["완료 체크", (screen.checks || []).join(" · ")],
+        ["화면 요소", (screen.summary || []).join(" · ")]
+      ];
+
+      summary.innerHTML = items.map((item) => `<div class="summary-item">
+        <strong>${item[0]}</strong>
+        <span>${item[1]}</span>
+      </div>`).join("");
+    }
+
+    function render() {
+      const screen = screens.find((item) => item.id === currentId) || screens[0];
+      document.title = `${screen.id} ${screen.title}`;
+      renderList();
+      screenTitle.textContent = `${screen.id} ${screen.title}`;
+      screenPurpose.textContent = screen.purpose;
+      renderActions(screen);
+      board.innerHTML = renderBoard(screen);
+      renderSummary(screen);
+    }
+
+    render();
+  </script>
+</body>
+</html>
