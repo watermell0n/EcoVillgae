@@ -83,7 +83,7 @@ Notion·회의 기록은 결정 입력으로 사용하되 저장소에 반영된
 
 다음은 제품 정책 충돌이 아니라 후속 구현·검증 작업입니다.
 
-- Docker 사용 가능 Jenkins에서 Testcontainers 20개 전체 실행
+- Docker 사용 가능 Jenkins에서 Testcontainers 21개 전체 실행
 - [API 필드 매핑](../../contracts/api-field-mapping.json) 기반 클라이언트·서버 인터페이스 생성
 - 계약 기반 클라이언트·서버 인터페이스 생성
 - 역할·상태·오류·outbox 재시도를 포함한 서비스·E2E 인수 테스트와 백로그 연결

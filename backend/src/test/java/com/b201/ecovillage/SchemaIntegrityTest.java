@@ -33,18 +33,34 @@ class SchemaIntegrityTest {
             .withUsername("ecovillage")
             .withPassword("ecovillage");
 
+    static Flyway flyway;
+
     @BeforeAll
     static void migrate() {
-        Flyway.configure()
+        flyway = Flyway.configure()
             .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
             .locations("classpath:db/migration")
-            .load()
-            .migrate();
+            .cleanDisabled(false)
+            .load();
+        flyway.migrate();
     }
 
     @Test
     @DisplayName("DBT-000: Flyway V1_1~V1_11 creates all 85 physical tables")
     void allMigrationsCreateEightyFiveTables() throws SQLException {
+        assertEquals(85, physicalTableCount());
+    }
+
+    @Test
+    @DisplayName("DBT-020: an isolated database can be cleaned and recreated from all migrations")
+    void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
+        flyway.clean();
+        assertEquals(0, physicalTableCount());
+        assertEquals(11, flyway.migrate().migrationsExecuted);
+        assertEquals(85, physicalTableCount());
+    }
+
+    private static int physicalTableCount() throws SQLException {
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement("""
                  SELECT count(*)
@@ -55,7 +71,7 @@ class SchemaIntegrityTest {
                  """);
              ResultSet result = statement.executeQuery()) {
             assertTrue(result.next());
-            assertEquals(85, result.getInt(1));
+            return result.getInt(1);
         }
     }
 

@@ -120,7 +120,7 @@ if (documentedIndexes.length !== 37) {
 }
 
 const expectedDbTests = Array.from(
-  { length: 19 },
+  { length: 20 },
   (_, index) => `DBT-${String(index + 1).padStart(3, "0")}`,
 );
 const implementedDbTests = unique([

@@ -59,7 +59,7 @@ cd backend
 .\gradlew.bat bootJar
 ```
 
-Docker가 없으면 Testcontainers 기반 20개 DB 테스트는 건너뛰지만 계정 도메인
+Docker가 없으면 Testcontainers 기반 21개 DB 테스트는 건너뛰지만 계정 도메인
 단위 테스트와 Java 컴파일은 실행됩니다. Jenkins에서는 DB 테스트가 하나도
 건너뛰지 않고 통과해야 합니다.
 
@@ -69,6 +69,25 @@ Docker가 없으면 Testcontainers 기반 20개 DB 테스트는 건너뛰지만 
 node scripts/validate-database-implementation.mjs
 node scripts/validate-api-schema-consistency.mjs
 ```
+
+## 로컬 개발 데이터베이스 재생성
+
+아래 절차는 저장소의 로컬 Compose PostgreSQL 데이터만 삭제합니다. 공유·운영
+데이터베이스에는 사용하지 않습니다.
+
+```powershell
+$projectName = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { "ecovillage" }
+docker compose down
+docker volume rm "$projectName`_postgres-data"
+docker compose up -d postgres
+cd backend
+.\gradlew.bat test
+```
+
+마지막 테스트는 빈 PostgreSQL 17에 `V1_1`부터 최신 버전까지 적용하고,
+Testcontainers 내부에서 `clean → 전체 재적용`이 가능한지도 검증합니다. Flyway
+`clean`은 격리된 테스트 컨테이너에서만 허용합니다. 이미 적용한 마이그레이션을
+수정하거나 운영 데이터베이스를 되돌리는 방식으로 사용하지 않습니다.
 
 ## 계정 모델 원칙
 

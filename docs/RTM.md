@@ -311,7 +311,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 부분·핵심 유일성 | 18 | UK-001~018과 `classroom_code` 전역 UQ |
 | 검사 제약 | 39 | CK-001~039 |
 | 조회 인덱스 | 37 | IX-001~037 |
-| DB 인수 기준 | 19 | DBT-001~019 |
+| DB 인수 기준 | 20 | DBT-001~020 |
 
 물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 85개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
@@ -324,11 +324,11 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
-| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~019 + 테이블 수 검사 |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
 | API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 65개 strict, 후속 41개 planned |
 
 Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_11`
-직접 적용·제약 검증은 성공했습니다. Testcontainers 20개 전체 실행은 Docker 사용
+직접 적용·제약 검증은 성공했습니다. Testcontainers 21개 전체 실행은 Docker 사용
 가능 Jenkins 에이전트의 결과를 최종 PASS 기준으로 삼습니다.
 
 ## 14. 커버리지 요약

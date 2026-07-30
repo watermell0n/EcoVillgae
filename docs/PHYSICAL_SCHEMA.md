@@ -515,6 +515,7 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | DBT-017 | `classroom_accepts_new_operations()`가 READ_ONLY 학급에 대해 `false`를 반환 |
 | DBT-018 | 학급 코드가 전역에서 유일하고 형식이 유효하며, 화폐 단위명 형식과 생성 후 불변성이 강제됨 |
 | DBT-019 | 예상 학생 수, 역할 코드, 자율시간-모듈 학급 범위, 학교 AI 현재 설정 제약이 강제됨 |
+| DBT-020 | 격리된 PostgreSQL에서 전체 Flyway 스키마를 정리하고 재생성할 수 있음 |
 
 ## 13. 애플리케이션 책임
 
@@ -542,10 +543,10 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
 - Flyway `V1_1`~`V1_11`에 조회 인덱스 37개, FK 보조 인덱스 14개와 학급 식별·공개 순위·MVP 필드 보강 구현
-- Testcontainers에 DBT-001~019와 85개 테이블 생성 검사 구현
+- Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
 - PostgreSQL 17에 Flyway `V1_1`~`V1_11` 직접 적용과 핵심 제약 검증 성공
-- Testcontainers 20개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
+- Testcontainers 21개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
 
 후속 작업:
 

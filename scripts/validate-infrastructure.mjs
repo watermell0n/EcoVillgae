@@ -61,6 +61,16 @@ for (const key of [
 }
 
 const jenkins = read("Jenkinsfile");
+requirePattern(
+  jenkins,
+  /name:\s*'REQUIRE_DB_TESTS'[\s\S]*?defaultValue:\s*true/,
+  "Jenkinsfile: PostgreSQL Testcontainers guard must be enabled by default",
+);
+requirePattern(
+  jenkins,
+  /grep -q '<testcase' "\$report"/,
+  "Jenkinsfile: PostgreSQL Testcontainers report must contain test cases",
+);
 for (const stage of [
   "Toolchain",
   "Contracts and Schema",
