@@ -62,15 +62,29 @@ class FakeGenerationProvider:
         if trusted_input["analysis_mode"] == "SETUP_PRECHECK":
             return FakeGenerationProvider._setup_precheck(payload)
 
-        metric = next(
+        available_metrics = [
             metric for metric in payload["metrics"] if metric["availability"] == "AVAILABLE"
+        ]
+        metric = next(
+            (
+                candidate
+                for candidate in available_metrics
+                if candidate["state"] == payload["analysis_severity"]
+            ),
+            available_metrics[0],
         )
         proposals = []
-        if payload["allowed_actions"]:
+        if payload["analysis_severity"] != "NORMAL" and payload["allowed_actions"]:
             action = payload["allowed_actions"][0]
             proposals.append(
                 {
                     "action_id": action["action_id"],
+                    "target_type": action["target_type"],
+                    "label": action.get("label"),
+                    "current_value": action["current_value"],
+                    "min_value": action["min_value"],
+                    "max_value": action["max_value"],
+                    "unit": action["unit"],
                     "proposed_value": action["current_value"],
                     "evidence_metric_codes": [metric["code"]],
                     "rationale": "현재 집계 지표를 기준으로 허용 범위 안의 값을 유지합니다.",
@@ -82,9 +96,22 @@ class FakeGenerationProvider:
                 }
             )
         return {
+            "review_status": "REVIEW_REQUIRED",
+            "analysis_mode": trusted_input["analysis_mode"],
+            "trigger_type": trusted_input["trigger_type"],
+            "analysis_severity": payload["analysis_severity"],
+            "metric_version": payload["metric_version"],
+            "threshold_version": payload["threshold_version"],
+            "period": payload["period"],
+            "previous_period": payload["previous_period"],
             "summary": "학급 집계 지표와 허용된 조정 범위를 바탕으로 검토용 제안을 만들었습니다.",
             "evidence_metric_codes": [metric["code"]],
-            "causes": ["현재 기간의 집계 지표 변화가 관찰되었습니다."],
+            "causes": [
+                {
+                    "text": "현재 기간의 집계 지표 변화가 관찰되었습니다.",
+                    "evidence_metric_codes": [metric["code"]],
+                }
+            ],
             "proposals": proposals,
         }
 

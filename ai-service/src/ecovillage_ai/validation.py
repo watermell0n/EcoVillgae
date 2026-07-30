@@ -8,6 +8,10 @@ from enum import StrEnum
 from pydantic import BaseModel, ValidationError
 
 from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.features.balancing import (
+    eligible_evidence_codes,
+    validate_balancing_input,
+)
 from ecovillage_ai.features.quiz_draft import (
     quiz_content_safety_codes,
     quiz_grade_quality_codes,
@@ -20,10 +24,9 @@ from ecovillage_ai.features.setup_precheck import (
     validate_setup_precheck_input,
 )
 from ecovillage_ai.models import (
-    AnalysisMode,
-    AnalysisSeverity,
     BalancingGenerationRequest,
     BalancingOutput,
+    BalancingPayload,
     EconomicEventGenerationRequest,
     EconomicEventOutput,
     ErrorCode,
@@ -31,7 +34,6 @@ from ecovillage_ai.models import (
     GenerationOutput,
     GenerationRequest,
     InterestRateScope,
-    MetricAvailability,
     QuizDraftGenerationRequest,
     QuizDraftOutput,
     SetupPrecheckOutput,
@@ -73,28 +75,7 @@ def validate_input_policy(request: GenerationRequest) -> None:
         if isinstance(request.payload, SetupPrecheckPayload):
             validate_setup_precheck_input(request.payload)
             return
-        if (
-            request.analysis_mode is AnalysisMode.AUTO_MONITOR
-            and request.payload.analysis_severity is AnalysisSeverity.NORMAL
-        ):
-            raise ServiceError(
-                status_code=422,
-                code=ErrorCode.INPUT_SCHEMA_INVALID,
-                message="NORMAL 자동 모니터링 결과는 AI 생성을 호출하지 않습니다.",
-                validation_codes=["AUTO_MONITOR_NORMAL_MODEL_CALL_FORBIDDEN"],
-                validation_stage=ValidationStage.CONTEXT,
-            )
-        if not any(
-            metric.availability is MetricAvailability.AVAILABLE
-            for metric in request.payload.metrics
-        ):
-            raise ServiceError(
-                status_code=422,
-                code=ErrorCode.INSUFFICIENT_DATA,
-                message="생성에 사용할 수 있는 경제 지표가 부족합니다.",
-                validation_codes=["NO_AVAILABLE_METRIC"],
-                validation_stage=ValidationStage.EVIDENCE,
-            )
+        validate_balancing_input(request)
     elif isinstance(request, EconomicEventGenerationRequest):
         _validate_event_grade_policy(request)
     elif isinstance(request, QuizDraftGenerationRequest):
@@ -225,7 +206,7 @@ def _validate_context(
         if isinstance(output, BalancingOutput) and not isinstance(
             request.payload, SetupPrecheckPayload
         ):
-            return []
+            return _validate_balancing_context(request, request.payload, output)
         return ["OUTPUT_TYPE_MISMATCH"]
     if isinstance(request, TeacherChatGenerationRequest) and isinstance(
         output, TeacherChatOutput
@@ -286,6 +267,38 @@ def _validate_setup_context(
     return codes
 
 
+def _validate_balancing_context(
+    request: BalancingGenerationRequest,
+    payload: BalancingPayload,
+    output: BalancingOutput,
+) -> list[str]:
+    codes: list[str] = []
+    if output.analysis_mode is not request.analysis_mode:
+        codes.append("ANALYSIS_MODE_CHANGED")
+    if output.trigger_type is not request.trigger_type:
+        codes.append("ANALYSIS_TRIGGER_CHANGED")
+    if output.analysis_severity is not payload.analysis_severity:
+        codes.append("ANALYSIS_SEVERITY_CHANGED")
+    if output.metric_version != payload.metric_version:
+        codes.append("METRIC_VERSION_CHANGED")
+    if output.threshold_version != payload.threshold_version:
+        codes.append("THRESHOLD_VERSION_CHANGED")
+    if output.period != payload.period:
+        codes.append("ANALYSIS_PERIOD_CHANGED")
+    if output.previous_period != payload.previous_period:
+        codes.append("PREVIOUS_PERIOD_CHANGED")
+
+    proposal_ids = [proposal.action_id for proposal in output.proposals]
+    if len(proposal_ids) != len(set(proposal_ids)):
+        codes.append("DUPLICATE_ACTION_ID")
+    priorities = [proposal.priority for proposal in output.proposals]
+    if priorities != list(range(1, len(priorities) + 1)):
+        codes.append("PROPOSAL_PRIORITY_INVALID")
+    if payload.analysis_severity.value == "NORMAL" and output.proposals:
+        codes.append("NORMAL_PROPOSAL_FORBIDDEN")
+    return codes
+
+
 def _validate_event_context(
     request: EconomicEventGenerationRequest, output: EconomicEventOutput
 ) -> list[str]:
@@ -338,14 +351,26 @@ def _validate_evidence(
         elif isinstance(output, BalancingOutput) and not isinstance(
             request.payload, SetupPrecheckPayload
         ):
-            metric_codes = {metric.code.value for metric in request.payload.metrics}
-            if not set(output.evidence_metric_codes) <= metric_codes:
+            metric_codes = eligible_evidence_codes(request)
+            has_fabricated_evidence = not set(output.evidence_metric_codes) <= metric_codes
+            if has_fabricated_evidence:
                 codes.append("FABRICATED_EVIDENCE")
-            if any(
-                not set(proposal.evidence_metric_codes) <= metric_codes
-                for proposal in output.proposals
+            referenced_codes: set[str] = set()
+            for cause in output.causes:
+                referenced_codes.update(cause.evidence_metric_codes)
+                if not set(cause.evidence_metric_codes) <= metric_codes:
+                    has_fabricated_evidence = True
+                    codes.append("FABRICATED_EVIDENCE")
+            for proposal in output.proposals:
+                referenced_codes.update(proposal.evidence_metric_codes)
+                if not set(proposal.evidence_metric_codes) <= metric_codes:
+                    has_fabricated_evidence = True
+                    codes.append("FABRICATED_EVIDENCE")
+            if (
+                not has_fabricated_evidence
+                and set(output.evidence_metric_codes) != referenced_codes
             ):
-                codes.append("FABRICATED_EVIDENCE")
+                codes.append("EVIDENCE_SUMMARY_MISMATCH")
     elif isinstance(request, TeacherChatGenerationRequest) and isinstance(
         output, TeacherChatOutput
     ):
@@ -413,7 +438,21 @@ def _validate_range(request: GenerationRequest, output: GenerationOutput) -> lis
             action = action_by_id.get(proposal.action_id)
             if action is None:
                 codes.append("UNKNOWN_ACTION_ID")
-            elif not action.min_value <= proposal.proposed_value <= action.max_value:
+                continue
+            if proposal.target_type is not action.target_type:
+                codes.append("ACTION_TARGET_TYPE_CHANGED")
+            if proposal.label != action.label:
+                codes.append("ACTION_LABEL_CHANGED")
+            if proposal.current_value != action.current_value:
+                codes.append("ACTION_CURRENT_VALUE_CHANGED")
+            if (
+                proposal.min_value != action.min_value
+                or proposal.max_value != action.max_value
+            ):
+                codes.append("ACTION_RANGE_CHANGED")
+            if proposal.unit is not action.unit:
+                codes.append("ACTION_UNIT_CHANGED")
+            if not action.min_value <= proposal.proposed_value <= action.max_value:
                 codes.append("PROPOSED_VALUE_OUT_OF_RANGE")
     return codes
 

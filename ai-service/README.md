@@ -84,6 +84,13 @@ ruff check .
 자동 적용 표현을 차단하며, 48개 평가 사례와 Swagger 직접 테스트는
 [`docs/ai/SETUP_PRECHECK.md`](../docs/ai/SETUP_PRECHECK.md)를 따릅니다.
 
+교사 요청·자동 모니터링 밸런싱은 현재·이전 구간과 16개 경제 지표, 허용 조정 후보만
+근거로 원인과 검토용 제안을 반환합니다. 표본 부족과 자동 모니터링 NORMAL은 공급자를
+호출하지 않으며, 문맥·근거·action·범위 변조를 차단합니다. 60개 평가 사례와 Swagger
+직접 테스트는
+[`docs/ai/METRICS_AND_THRESHOLDS.md`](../docs/ai/METRICS_AND_THRESHOLDS.md)의 10장을
+따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.

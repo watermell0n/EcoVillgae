@@ -65,7 +65,7 @@ def balancing_request() -> dict[str, object]:
             {
                 "code": "CONSUMPTION_RATE_BPS",
                 "value": 4200,
-                "previous_value": 3900,
+                "previous_value": None,
                 "availability": "AVAILABLE",
                 "unavailable_reason": None,
                 "unit": "RATE_BPS",
@@ -106,6 +106,8 @@ def auto_monitor_request() -> dict[str, object]:
         "data_as_of": now.isoformat(),
     }
     body["payload"]["analysis_severity"] = "WARN"
+    body["payload"]["metrics"][0]["previous_value"] = 3900
+    body["payload"]["metrics"][0]["state"] = "WARN"
     return deepcopy(body)
 
 

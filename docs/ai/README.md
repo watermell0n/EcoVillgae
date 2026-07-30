@@ -9,7 +9,7 @@
 | 문서 | 역할 |
 | --- | --- |
 | [내부 AI API 계약](INTERNAL_API_CONTRACT.md) | Spring 핵심 API와 FastAPI 사이의 요청·응답·오류·실행 경계 |
-| [경제 지표·임계값](METRICS_AND_THRESHOLDS.md) | 밸런싱 입력 지표 계산식, 최소 표본, 경고와 조정 허용 범위 |
+| [경제 지표·임계값](METRICS_AND_THRESHOLDS.md) | 밸런싱 입력 지표·경고·조정 범위, 60개 평가와 Swagger 직접 테스트 |
 | [안전·평가 기준](SAFETY_AND_EVALUATION.md) | 입력 최소화, 출력 검사, 회귀 평가와 출시 게이트 |
 | [프롬프트·공통 생성 런타임](PROMPT_RUNTIME.md) | 버전 프롬프트 선택, 공급자 명령, 순서형 검증과 안전 로그 |
 | [실제 공급자 어댑터](PROVIDER_ADAPTERS.md) | Bedrock·OpenAI 구조화 출력, 라우팅, 환경 설정, 오류와 smoke 검사 |

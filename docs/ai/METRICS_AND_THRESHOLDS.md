@@ -265,3 +265,135 @@ classroom_id + metric_code + direction + severity + period_from + period_to
 분석 구간의 재발은 새 알림입니다. `ACKNOWLEDGED`는 현재 알림의 반복 노출만 막으며 다음
 구간의 재발과 OWN의 이후 정책 적용을 막지 않습니다. 자동 이벤트 추천도 같은 구간의
 `source_proposal_id + template_type`을 중복 생성하지 않습니다.
+
+## 10. AI 설명 구현·평가와 직접 테스트
+
+- 프롬프트 버전: `balancing-v1`
+- 평가 세트: `balancing-evaluation-v1`
+- 상태: 독립 AI MVP 7단계 구현
+
+Spring이 계산할 표본·지표·심각도·허용 action은 독립 AI 단계에서 합성 fixture로
+재현합니다. FastAPI는 지표를 다시 계산하지 않고 다음 경계를 검증한 뒤 교사용 설명만
+생성합니다.
+
+- `ON_DEMAND`는 교사가 선택해 전달한 사용 가능한 지표를 설명합니다.
+- `AUTO_MONITOR`는 바로 전 같은 길이 구간이 있고 OBSERVE·WARN인 지표만 설명합니다.
+- 활성 학생 5명 미만, 관련 거래 10건 미만, 사용 가능 지표 없음과 자동 모니터링 NORMAL은
+  공급자를 호출하지 않습니다.
+- 성공 결과는 항상 `REVIEW_REQUIRED`이며 실행 모드·트리거·심각도·버전·두 구간을 입력과
+  같게 유지합니다.
+- 원인과 제안은 사용 가능한 입력 지표에 근거를 붙이고, 제안의 action 메타데이터와 허용
+  범위를 바꾸지 않습니다.
+
+평가 fixture는
+[`balancing_evaluation_v1.json`](../../ai-service/tests/fixtures/balancing_evaluation_v1.json)에
+있습니다.
+
+- 성공 36개: 3개 학년 × 12개 정상 생성 상황
+- 공급자 호출 전 거절 12개: 3개 학년 × 표본 부족 2종·NORMAL·지표 없음
+- 잘못된 출력 거절 12개: 3개 학년 × 근거·action·범위·승인 경계 조작
+- 합계 60개이며 16개 지표와 10개 조정 대상 종류를 모두 포함합니다.
+
+### 10.1 자동 테스트
+
+Windows PowerShell 또는 Git Bash에서 AI 서비스 폴더로 이동한 뒤 실행합니다.
+
+```bash
+./.venv/Scripts/python.exe -m pytest tests/test_balancing.py -q -p no:cacheprovider
+```
+
+`82 passed`가 나오면 60개 평가와 추가 문맥·입력 안전 검사가 모두 통과한 것입니다.
+
+### 10.2 Swagger에서 직접 테스트
+
+Git Bash:
+
+```bash
+cd /c/Users/SSAFY/Desktop/S15P11B201/ai-service
+export ECOVILLAGE_AI_PROVIDER=FAKE
+./.venv/Scripts/python.exe -m uvicorn ecovillage_ai.main:app --reload --app-dir src
+```
+
+PowerShell:
+
+```powershell
+cd C:\Users\SSAFY\Desktop\S15P11B201\ai-service
+$env:ECOVILLAGE_AI_PROVIDER = 'FAKE'
+./.venv/Scripts/python.exe -m uvicorn ecovillage_ai.main:app --reload --app-dir src
+```
+
+`http://127.0.0.1:8000/docs`에서
+`POST /internal/v1/generations/balancing`의 **Try it out**을 누릅니다. **Authorize**에는
+`local-development-token`만 입력합니다. `X-AI-Run-Id`는 본문 `ai_run_id`,
+`X-Correlation-Id`는 본문 `correlation_id`와 같아야 합니다.
+
+`deadline_at`은 실행 시점보다 5분 뒤의 UTC 시각으로 바꿉니다. PowerShell에서는
+`(Get-Date).ToUniversalTime().AddMinutes(5).ToString('o')`로 만들 수 있습니다.
+
+```json
+{
+  "ai_run_id": "11111111-1111-4111-8111-111111111111",
+  "request_id": "22222222-2222-4222-8222-222222222222",
+  "correlation_id": "33333333-3333-4333-8333-333333333333",
+  "schema_version": "1.1",
+  "prompt_version": "balancing-v1",
+  "attempt": 1,
+  "deadline_at": "2026-07-30T12:05:00.000Z",
+  "locale": "ko-KR",
+  "grade": 5,
+  "analysis_mode": "ON_DEMAND",
+  "trigger_type": "TEACHER_REQUEST",
+  "payload": {
+    "metric_version": "economic-metrics-v1",
+    "threshold_version": "economic-thresholds-v1",
+    "period": {
+      "from": "2026-07-16T00:00:00.000Z",
+      "to": "2026-07-23T00:00:00.000Z",
+      "data_as_of": "2026-07-30T00:00:00.000Z"
+    },
+    "previous_period": null,
+    "analysis_severity": "OBSERVE",
+    "sample": {
+      "active_students": 24,
+      "related_transactions": 40,
+      "status": "SUFFICIENT"
+    },
+    "metrics": [
+      {
+        "code": "CONSUMPTION_RATE_BPS",
+        "value": 8500,
+        "previous_value": null,
+        "availability": "AVAILABLE",
+        "unavailable_reason": null,
+        "unit": "RATE_BPS",
+        "state": "OBSERVE",
+        "direction": "HIGH",
+        "subject_label": null
+      }
+    ],
+    "allowed_actions": [
+      {
+        "action_id": "product-price-default",
+        "target_type": "PRODUCT_PRICE",
+        "target_id": "44444444-4444-4444-8444-444444444444",
+        "current_value": 100,
+        "min_value": 90,
+        "max_value": 110,
+        "unit": "AMOUNT",
+        "label": "기본 상품 가격"
+      }
+    ]
+  }
+}
+```
+
+정상 응답은 HTTP 200이며 `review_status=REVIEW_REQUIRED`, `analysis_mode=ON_DEMAND`,
+`analysis_severity=OBSERVE`를 반환합니다. 원인과 제안의 근거에는
+`CONSUMPTION_RATE_BPS`만 있고, 제안의 `action_id`, 현재값 100, 범위 90~110과 단위는
+입력과 같아야 합니다.
+
+자동 모니터링을 시험하려면 `analysis_mode`와 `trigger_type`을 `AUTO_MONITOR`로 바꾸고,
+현재 구간 바로 앞의 동일 길이 `previous_period`와 각 사용 가능 지표의 `previous_value`를
+추가합니다. `analysis_severity=NORMAL`이면 HTTP 422와
+`AUTO_MONITOR_NORMAL_MODEL_CALL_FORBIDDEN`이 반환되며 FAKE 공급자도 호출하지 않습니다.
+FAKE 테스트는 실제 API key나 토큰을 소비하지 않습니다.

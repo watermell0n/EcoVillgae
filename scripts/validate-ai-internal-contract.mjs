@@ -30,6 +30,9 @@ const quizDraftEvaluation = JSON.parse(
 const setupPrecheckEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/setup_precheck_evaluation_v1.json"),
 );
+const balancingEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/balancing_evaluation_v1.json"),
+);
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
   .readdirSync(promptRoot, { recursive: true, withFileTypes: true })
@@ -211,6 +214,28 @@ assert(
 );
 assert(setupPrecheckDoc.includes("48개"), "설정 점검 문서에 48개 평가 사례가 없습니다.");
 
+const balancingSuccessCount =
+  balancingEvaluation.grades.length * balancingEvaluation.success_cases.length;
+const balancingPreProviderCount =
+  balancingEvaluation.grades.length * balancingEvaluation.pre_provider_rejection_cases.length;
+const balancingInvalidOutputCount =
+  balancingEvaluation.grades.length * balancingEvaluation.invalid_output_cases.length;
+const balancingEvaluationCount =
+  balancingSuccessCount + balancingPreProviderCount + balancingInvalidOutputCount;
+assert(
+  balancingEvaluation.evaluation_set_version === "balancing-evaluation-v1",
+  "밸런싱 평가 세트 버전이 올바르지 않습니다.",
+);
+assert(
+  balancingSuccessCount === balancingEvaluation.expected_success_case_count &&
+    balancingPreProviderCount ===
+      balancingEvaluation.expected_pre_provider_rejection_count &&
+    balancingInvalidOutputCount === balancingEvaluation.expected_invalid_output_case_count &&
+    balancingEvaluationCount === 60,
+  `밸런싱 평가 사례는 성공 36개, 호출 전 거절 12개, 출력 거절 12개여야 합니다: ${balancingEvaluationCount}`,
+);
+assert(metricsDoc.includes("합계 60개"), "지표 문서에 밸런싱 60개 평가 사례가 없습니다.");
+
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
 assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
@@ -309,6 +334,7 @@ console.log(
       teacher_chat_evaluation_cases: teacherChatEvaluationCount,
       quiz_draft_evaluation_cases: quizDraftEvaluationCount,
       setup_precheck_evaluation_cases: setupPrecheckEvaluationCount,
+      balancing_evaluation_cases: balancingEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

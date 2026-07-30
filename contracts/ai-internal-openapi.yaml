@@ -294,13 +294,13 @@ components:
       properties:
         active_students:
           type: integer
-          minimum: 5
+          minimum: 0
         related_transactions:
           type: integer
-          minimum: 10
+          minimum: 0
         status:
           type: string
-          const: SUFFICIENT
+          enum: [SUFFICIENT, INSUFFICIENT]
     Metric:
       type: object
       additionalProperties: false
@@ -566,7 +566,6 @@ components:
           $ref: '#/components/schemas/Sample'
         metrics:
           type: array
-          minItems: 1
           maxItems: 100
           items:
             $ref: '#/components/schemas/Metric'
@@ -597,6 +596,12 @@ components:
       additionalProperties: false
       required:
         - action_id
+        - target_type
+        - label
+        - current_value
+        - min_value
+        - max_value
+        - unit
         - proposed_value
         - evidence_metric_codes
         - rationale
@@ -608,6 +613,35 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+        target_type:
+          type: string
+          enum:
+            - PRODUCT_PRICE
+            - PRODUCT_STOCK
+            - ACTIVITY_REWARD
+            - GAME_REWARD
+            - QUIZ_REWARD
+            - TAX_RATE
+            - INFLATION_RATE
+            - DEPOSIT_RATE
+            - SAVINGS_RATE
+            - LOAN_RATE
+        label:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        current_value:
+          type: integer
+          minimum: 0
+        min_value:
+          type: integer
+          minimum: 0
+        max_value:
+          type: integer
+          minimum: 0
+        unit:
+          type: string
+          enum: [AMOUNT, COUNT, RATE_BPS]
         proposed_value:
           type: integer
           minimum: 0
@@ -637,11 +671,62 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+    BalancingCause:
+      type: object
+      additionalProperties: false
+      required: [text, evidence_metric_codes]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+        evidence_metric_codes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
     BalancingOutput:
       type: object
       additionalProperties: false
-      required: [summary, evidence_metric_codes, causes, proposals]
+      required:
+        - review_status
+        - analysis_mode
+        - trigger_type
+        - analysis_severity
+        - metric_version
+        - threshold_version
+        - period
+        - previous_period
+        - summary
+        - evidence_metric_codes
+        - causes
+        - proposals
       properties:
+        review_status:
+          type: string
+          const: REVIEW_REQUIRED
+        analysis_mode:
+          type: string
+          enum: [ON_DEMAND, AUTO_MONITOR]
+        trigger_type:
+          type: string
+          enum: [TEACHER_REQUEST, AUTO_MONITOR]
+        analysis_severity:
+          type: string
+          enum: [NORMAL, OBSERVE, WARN]
+        metric_version:
+          type: string
+          const: economic-metrics-v1
+        threshold_version:
+          type: string
+          const: economic-thresholds-v1
+        period:
+          $ref: '#/components/schemas/Period'
+        previous_period:
+          oneOf:
+            - $ref: '#/components/schemas/Period'
+            - type: 'null'
         summary:
           type: string
           minLength: 1
@@ -657,9 +742,7 @@ components:
           minItems: 1
           maxItems: 10
           items:
-            type: string
-            minLength: 1
-            maxLength: 500
+            $ref: '#/components/schemas/BalancingCause'
         proposals:
           type: array
           maxItems: 20

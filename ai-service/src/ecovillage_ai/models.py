@@ -99,6 +99,11 @@ class AnalysisSeverity(StrEnum):
     WARN = "WARN"
 
 
+class SampleStatus(StrEnum):
+    SUFFICIENT = "SUFFICIENT"
+    INSUFFICIENT = "INSUFFICIENT"
+
+
 class SetupContextType(StrEnum):
     CLASSROOM_SETUP = "CLASSROOM_SETUP"
     PRODUCT_DRAFT = "PRODUCT_DRAFT"
@@ -185,9 +190,20 @@ class Period(ContractModel):
 
 
 class Sample(ContractModel):
-    active_students: Annotated[StrictInt, Field(ge=5)]
-    related_transactions: Annotated[StrictInt, Field(ge=10)]
-    status: Literal["SUFFICIENT"]
+    active_students: Annotated[StrictInt, Field(ge=0)]
+    related_transactions: Annotated[StrictInt, Field(ge=0)]
+    status: SampleStatus
+
+    @model_validator(mode="after")
+    def validate_status(self) -> Sample:
+        expected = (
+            SampleStatus.SUFFICIENT
+            if self.active_students >= 5 and self.related_transactions >= 10
+            else SampleStatus.INSUFFICIENT
+        )
+        if self.status is not expected:
+            raise ValueError("표본 상태가 활성 학생·관련 거래 최소 기준과 일치하지 않습니다.")
+        return self
 
 
 class Metric(ContractModel):
@@ -355,7 +371,7 @@ class BalancingPayload(ContractModel):
     previous_period: Period | None = None
     analysis_severity: AnalysisSeverity
     sample: Sample
-    metrics: Annotated[list[Metric], Field(min_length=1, max_length=100)]
+    metrics: Annotated[list[Metric], Field(max_length=100)]
     allowed_actions: Annotated[list[AllowedAction], Field(max_length=100)]
 
     @field_validator("metrics")
@@ -378,8 +394,8 @@ class BalancingPayload(ContractModel):
     def validate_period_pair(self) -> BalancingPayload:
         if self.previous_period is None:
             return self
-        if self.previous_period.to > self.period.from_:
-            raise ValueError("이전 분석 구간은 현재 분석 구간과 겹칠 수 없습니다.")
+        if self.previous_period.to != self.period.from_:
+            raise ValueError("이전 분석 구간은 현재 구간 바로 앞에서 끝나야 합니다.")
         current_duration = self.period.to - self.period.from_
         previous_duration = self.previous_period.to - self.previous_period.from_
         if current_duration != previous_duration:
@@ -657,6 +673,12 @@ GenerationRequest = (
 
 class BalancingProposal(ContractModel):
     action_id: ShortText
+    target_type: ActionTargetType
+    label: Annotated[str, Field(min_length=1, max_length=100)] | None
+    current_value: Annotated[StrictInt, Field(ge=0)]
+    min_value: Annotated[StrictInt, Field(ge=0)]
+    max_value: Annotated[StrictInt, Field(ge=0)]
+    unit: MetricUnit
     proposed_value: Annotated[StrictInt, Field(ge=0)]
     evidence_metric_codes: Annotated[list[str], Field(min_length=1)]
     rationale: Annotated[str, Field(min_length=1, max_length=1000)]
@@ -674,13 +696,30 @@ class BalancingProposal(ContractModel):
         return values
 
 
+class BalancingCause(ContractModel):
+    text: Annotated[str, Field(min_length=1, max_length=500)]
+    evidence_metric_codes: Annotated[list[str], Field(min_length=1)]
+
+    @field_validator("evidence_metric_codes")
+    @classmethod
+    def evidence_codes_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("원인 근거 지표 코드는 중복될 수 없습니다.")
+        return values
+
+
 class BalancingOutput(ContractModel):
+    review_status: Literal["REVIEW_REQUIRED"]
+    analysis_mode: AnalysisMode
+    trigger_type: AnalysisTriggerType
+    analysis_severity: AnalysisSeverity
+    metric_version: Literal["economic-metrics-v1"]
+    threshold_version: Literal["economic-thresholds-v1"]
+    period: Period
+    previous_period: Period | None
     summary: Annotated[str, Field(min_length=1, max_length=1500)]
     evidence_metric_codes: Annotated[list[str], Field(min_length=1)]
-    causes: Annotated[
-        list[Annotated[str, Field(min_length=1, max_length=500)]],
-        Field(min_length=1, max_length=10),
-    ]
+    causes: Annotated[list[BalancingCause], Field(min_length=1, max_length=10)]
     proposals: Annotated[list[BalancingProposal], Field(max_length=20)]
 
     @field_validator("evidence_metric_codes")
