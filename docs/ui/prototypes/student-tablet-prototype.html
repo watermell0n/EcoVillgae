@@ -1,0 +1,1751 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이코빌리지 학생 태블릿 프로토타입</title>
+  <style>
+    :root {
+      --ink: #243042;
+      --muted: #6f8198;
+      --line: #cfe8ef;
+      --panel: rgba(255,255,255,0.92);
+      --white: #fff;
+      --blue: #75bdf4;
+      --blue-deep: #2f76b8;
+      --green: #74c895;
+      --green-soft: #dff6e8;
+      --yellow: #ffe39a;
+      --yellow-soft: #fff5d8;
+      --red: #ee7777;
+      --red-soft: #ffe8e8;
+      --purple: #b7a9f6;
+      --shadow: 0 14px 34px rgba(45, 77, 87, 0.08);
+      --radius: 18px;
+      --soft: 14px;
+      font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: auto;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(187, 226, 255, 0.72), transparent 34%),
+        linear-gradient(135deg, #d7efff 0%, #d7f3e8 48%, #f8f5c8 100%);
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .tablet {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      padding: 0;
+    }
+
+    .nav {
+      background: #2f3b4d;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      overflow: hidden;
+    }
+
+    .home-mark {
+      min-width: 118px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.13);
+      font-size: 15px;
+      font-weight: 950;
+      color: #fff;
+    }
+
+    .nav-list {
+      padding: 0;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      overflow: auto;
+    }
+
+    .nav-btn {
+      height: 36px;
+      border: 0;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.12);
+      color: #eef6ff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 14px;
+      white-space: nowrap;
+    }
+
+    .nav-btn.active,
+    .nav-btn:hover {
+      background: #ed8a44;
+      color: #fff;
+      box-shadow: none;
+    }
+
+    .nav-btn .icon {
+      width: auto;
+      height: auto;
+      display: inline;
+      border-radius: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 13px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .nav-btn span:last-child {
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 76px minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .topbar {
+      background: linear-gradient(90deg, rgba(190,226,247,0.9), rgba(200,244,218,0.88));
+      border: 0;
+      border-bottom: 2px solid rgba(255,255,255,0.65);
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      min-width: 0;
+    }
+
+    .student {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.42);
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      box-shadow: inset 0 -4px 0 rgba(255,255,255,0.38);
+    }
+
+    .student strong {
+      display: block;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .student span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.72);
+      color: #316fa7;
+      font-size: 14px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .chip.green { background: var(--green-soft); color: #2f7e4a; }
+    .chip.yellow { background: var(--yellow-soft); color: #886000; }
+    .chip.red { background: var(--red-soft); color: #a33b3b; }
+
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0.05)),
+        transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 34px 42px;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 350px;
+      gap: 26px;
+    }
+
+    .stage.full {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .stage.full > .panel {
+      display: none;
+    }
+
+    .content {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 15px;
+    }
+
+    .head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0 0 7px;
+      font-size: 34px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.45;
+      font-weight: 650;
+    }
+
+    .screen-key {
+      color: #7f91a6;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .body {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .village-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      padding-top: 12px;
+    }
+
+    .village-card {
+      min-height: 218px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 2px solid rgba(207,232,239,0.95);
+      border-radius: 22px;
+      background: rgba(255,255,255,0.72);
+      box-shadow: 0 18px 34px rgba(48, 84, 92, 0.08);
+      overflow: hidden;
+    }
+
+    .village-card.orange { border-color: #f4c9af; }
+    .village-card.purple { border-color: #c8bcff; }
+    .village-card.red { border-color: #f4c3c2; }
+    .village-card.green { border-color: #bfe7ca; }
+    .village-card.yellow { border-color: #f5dc85; }
+    .village-card.dim {
+      opacity: 0.52;
+      filter: grayscale(0.1);
+    }
+
+    .module-badge {
+      position: absolute;
+      right: 18px;
+      top: 16px;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #ec6f70;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .village-icon {
+      display: block;
+      margin-bottom: 22px;
+      font-size: 52px;
+      line-height: 1;
+    }
+
+    .village-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .village-card span {
+      display: block;
+      color: #7b8da4;
+      font-size: 17px;
+      font-weight: 850;
+    }
+
+    .enter-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 126px;
+      height: 36px;
+      margin-top: 20px;
+      border-radius: 999px;
+      background: #ed8541;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 950;
+    }
+
+    .enter-pill.purple { background: #7d55ef; }
+    .enter-pill.green { background: #5fad67; }
+    .enter-pill.red { background: #e86f70; }
+
+    .paystub-view {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .receipt-card,
+    .info-stack > section {
+      background: rgba(255,255,255,0.88);
+      border: 2px solid rgba(241,202,182,0.95);
+      border-radius: 22px;
+      box-shadow: 0 18px 34px rgba(48, 84, 92, 0.08);
+      overflow: hidden;
+    }
+
+    .receipt-head {
+      min-height: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 34px;
+      background: #ed8541;
+      color: #fff;
+    }
+
+    .receipt-head strong {
+      display: block;
+      font-size: 25px;
+    }
+
+    .receipt-body {
+      display: grid;
+      gap: 16px;
+      padding: 26px 34px 34px;
+      background: #fffdf4;
+    }
+
+    .receipt-row {
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 0 22px;
+      border-radius: 14px;
+      background: rgba(248,251,238,0.9);
+      font-size: 19px;
+      font-weight: 950;
+    }
+
+    .receipt-row.tax {
+      background: #fff7f2;
+      border: 1px solid #f4c9c1;
+      color: #e26767;
+    }
+
+    .receipt-total {
+      margin-top: 8px;
+      padding: 26px;
+      border: 3px solid #65b66f;
+      border-radius: 18px;
+      background: #f4fff1;
+      text-align: center;
+      color: #5fad67;
+      font-size: 50px;
+      font-weight: 950;
+    }
+
+    .receipt-total span {
+      display: block;
+      color: #7b8da4;
+      font-size: 15px;
+      margin-top: 6px;
+    }
+
+    .info-stack {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .info-stack > section {
+      border-color: #c9e3d0;
+      padding: 24px 28px;
+    }
+
+    .flow-line {
+      min-height: 110px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: center;
+      text-align: center;
+    }
+
+    .flow-box {
+      border-radius: 14px;
+      padding: 20px;
+      background: #f5f7fb;
+      font-size: 26px;
+      font-weight: 950;
+    }
+
+    .flow-box.good {
+      background: #f0fff2;
+      border: 2px solid #b8e0c0;
+      color: #5fad67;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      background: rgba(255,255,255,0.82);
+      border: 2px solid rgba(207,232,239,0.95);
+      border-radius: 20px;
+      padding: 22px;
+      min-height: 168px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      box-shadow: 0 14px 28px rgba(48, 84, 92, 0.07);
+    }
+
+    .open-section {
+      display: grid;
+      gap: 22px;
+      align-content: start;
+    }
+
+    .hero-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding: 4px 2px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.5);
+      text-align: center;
+    }
+
+    .hero-strip h2 {
+      margin: 0 0 8px;
+      font-size: 36px;
+      letter-spacing: 0;
+    }
+
+    .hero-strip p {
+      margin: 0;
+      max-width: 620px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .hero-balance {
+      text-align: right;
+      color: #357fb3;
+      font-size: 18px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .hero-balance strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--ink);
+      font-size: 36px;
+      letter-spacing: 0;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      color: var(--ink);
+      font-size: 19px;
+      font-weight: 950;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .plain-list {
+      display: grid;
+      gap: 0;
+      background: rgba(255,255,255,0.5);
+      border-top: 1px solid rgba(64,139,197,0.18);
+      border-bottom: 1px solid rgba(64,139,197,0.18);
+    }
+
+    .plain-row {
+      min-height: 68px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      padding: 13px 2px;
+      border-bottom: 1px solid rgba(64,139,197,0.14);
+    }
+
+    .plain-row:last-child {
+      border-bottom: 0;
+    }
+
+    .plain-row strong {
+      display: block;
+      font-size: 18px;
+    }
+
+    .plain-row span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .quick-action {
+      min-height: 118px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      padding: 15px;
+      border: 2px solid rgba(185,216,239,0.9);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.72);
+    }
+
+    .quick-action strong {
+      font-size: 18px;
+    }
+
+    .quick-action span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+
+    .card.selected {
+      border-color: #7cbdf4;
+      box-shadow: 0 0 0 4px rgba(117,189,244,0.15);
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+      font-weight: 650;
+    }
+
+    .price {
+      margin-top: auto;
+      font-size: 24px;
+      font-weight: 950;
+      color: #24465e;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      min-height: 66px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      background: rgba(255,255,255,0.82);
+      border: 2px solid rgba(207,232,239,0.9);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+
+    .row strong {
+      display: block;
+      font-size: 17px;
+    }
+
+    .row span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .amount {
+      font-size: 21px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .amount.plus { color: #23834b; }
+    .amount.minus { color: #c25151; }
+
+    .panel {
+      min-height: 0;
+      background: rgba(255,255,255,0.64);
+      border: 0;
+      border-radius: 22px;
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      overflow: auto;
+    }
+
+    .mini {
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(36,48,66,0.09);
+      border-radius: var(--radius);
+      padding: 4px 0 12px;
+    }
+
+    .mini:last-child {
+      border-bottom: 0;
+    }
+
+    .mini strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+
+    .mini span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .footer {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    .progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #c4d4e6;
+    }
+
+    .dot.active { background: var(--blue); }
+
+    .actions {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+    }
+
+    .btn {
+      min-height: 52px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 19px;
+      background: #eaf5ff;
+      color: #316fa7;
+      font-size: 16px;
+      font-weight: 950;
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08), 0 8px 16px rgba(48,84,92,0.06);
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      background: #ed8541;
+      color: #fff;
+    }
+
+    .btn.warn {
+      background: var(--yellow);
+      color: #735000;
+    }
+
+    .btn.danger {
+      background: var(--red-soft);
+      color: #a33b3b;
+    }
+
+    .form {
+      max-width: 620px;
+      display: grid;
+      gap: 13px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 7px;
+      color: #51667c;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .input, .select {
+      width: 100%;
+      height: 58px;
+      border: 1px solid #cfe1f3;
+      border-radius: var(--radius);
+      background: #f4f9ff;
+      padding: 0 16px;
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 700;
+      outline: 0;
+    }
+
+    .hero {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 10%, rgba(223,246,232,0.95), transparent 58%),
+        rgba(255,255,255,0.68);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px;
+    }
+
+    .hero .big {
+      display: inline-grid;
+      place-items: center;
+      min-width: 72px;
+      height: 40px;
+      margin-bottom: 14px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: #eaf7ff;
+      color: #2f76b8;
+      font-size: 17px;
+      font-weight: 950;
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 0 auto 20px;
+      max-width: 560px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.5;
+      font-weight: 650;
+    }
+
+    .character {
+      min-height: 280px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(0deg, #d7f1c4 0 22%, transparent 23%),
+        linear-gradient(180deg, #effaff, #ffffff);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 0 rgba(69, 126, 170, 0.12);
+    }
+
+    .char-body {
+      width: 150px;
+      height: 170px;
+      border-radius: 4px;
+      border: 2px dashed rgba(109, 145, 131, 0.36);
+      background: rgba(255,255,255,0.34);
+      display: grid;
+      place-items: center;
+      color: rgba(64, 82, 76, 0.38);
+      font-size: 16px;
+      font-weight: 950;
+      image-rendering: pixelated;
+    }
+
+    .shop-layout {
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .character-panel,
+    .shop-panel {
+      min-height: 0;
+      background: #f8fcff;
+      border: 2px solid #b9d8ef;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 5px 0 rgba(69, 126, 170, 0.16);
+    }
+
+    .character-panel {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .character-stage {
+      display: grid;
+      place-items: center;
+      padding: 22px 22px 18px;
+      background:
+        linear-gradient(0deg, #d7f1c4 0 20%, transparent 21%),
+        linear-gradient(180deg, #eaf8ff, #ffffff 58%, #f7fff0);
+    }
+
+    .avatar-preview {
+      width: min(100%, 250px);
+      height: 260px;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .avatar-preview::before {
+      content: "";
+      position: absolute;
+      bottom: 18px;
+      width: 154px;
+      height: 18px;
+      border-radius: 0;
+      background: rgba(65, 121, 90, 0.14);
+    }
+
+    .asset-slot {
+      width: 190px;
+      height: 214px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      color: rgba(47, 118, 184, 0.42);
+      font-size: 12px;
+      font-weight: 900;
+      text-align: center;
+      image-rendering: pixelated;
+    }
+
+    .asset-slot::before {
+      content: "";
+      position: absolute;
+      inset: 8px 12px 6px;
+      border: 2px dashed rgba(78, 145, 194, 0.38);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.24);
+    }
+
+    .asset-slot span {
+      position: relative;
+      z-index: 1;
+      line-height: 1.5;
+    }
+
+    .asset-slot img,
+    .asset-thumb img {
+      position: relative;
+      z-index: 1;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .selected-item {
+      margin: 0 18px 12px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      border-radius: 6px;
+      background: #eef8ff;
+      border: 2px solid #c8dff1;
+    }
+
+    .item-thumb,
+    .item-art {
+      display: grid;
+      place-items: center;
+      background: #fff;
+      border: 2px solid #c8dff1;
+      border-radius: 6px;
+      color: #45515f;
+      font-weight: 950;
+    }
+
+    .item-thumb {
+      width: 72px;
+      height: 72px;
+      font-size: 13px;
+    }
+
+    .selected-item strong {
+      display: block;
+      font-size: 22px;
+    }
+
+    .selected-item span {
+      display: block;
+      margin-top: 6px;
+      color: #357fb3;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .shop-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .category-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 16px;
+      border-bottom: 2px solid #d4e8f6;
+      overflow: auto;
+    }
+
+    .category-tabs button {
+      min-height: 42px;
+      border: 2px solid #c8dff1;
+      border-radius: 6px;
+      background: #fff;
+      padding: 0 14px;
+      color: #333b47;
+      font-size: 15px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .category-tabs button.active {
+      border-color: #7ebeea;
+      background: #e8f7ff;
+      color: #2f76b8;
+      box-shadow: inset 0 -3px 0 rgba(72, 148, 205, 0.16);
+    }
+
+    .item-grid {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .shop-item {
+      min-height: 190px;
+      display: grid;
+      grid-template-rows: 96px auto auto;
+      gap: 9px;
+      border: 2px solid #c8dff1;
+      border-radius: 6px;
+      background: #fff;
+      padding: 12px;
+      text-align: center;
+      box-shadow: 0 4px 0 rgba(69, 126, 170, 0.08);
+    }
+
+    .shop-item.active {
+      border-color: #7ebeea;
+      box-shadow: 0 4px 0 rgba(69, 126, 170, 0.08), inset 0 0 0 3px rgba(126,190,234,0.16);
+    }
+
+    .item-art {
+      height: 96px;
+      font-size: 13px;
+    }
+
+    .asset-thumb {
+      width: 64px;
+      height: 52px;
+      border: 2px dashed rgba(78, 145, 194, 0.42);
+      border-radius: 4px;
+      background: #eef8ff;
+      display: block;
+      position: relative;
+      image-rendering: pixelated;
+    }
+
+    .asset-thumb::before,
+    .asset-thumb::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 24px;
+      height: 1px;
+      background: rgba(78, 145, 194, 0.34);
+      transform: translate(-50%, -50%);
+    }
+
+    .asset-thumb::after {
+      width: 1px;
+      height: 24px;
+    }
+
+    .shop-item strong {
+      display: block;
+      font-size: 18px;
+    }
+
+    .shop-item span {
+      display: block;
+      margin-top: 4px;
+      color: #357fb3;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .item-state {
+      min-height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      background: #e8f7ff;
+      color: #2f76b8;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .item-state.locked {
+      background: #fff0ec;
+      color: #bf6658;
+    }
+
+    .shop-actions {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: 10px;
+      padding: 0 18px 18px;
+    }
+
+    .shop-actions .btn {
+      border: 2px solid rgba(69, 126, 170, 0.18);
+    }
+
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .tablet {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+      }
+      .nav {
+        grid-template-rows: auto auto;
+      }
+      .nav-list {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .main {
+        min-height: 900px;
+      }
+      .stage {
+        grid-template-columns: 1fr;
+      }
+      .shop-layout {
+        grid-template-columns: 1fr;
+      }
+      .item-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .grid,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="tablet">
+    <aside class="nav">
+      <div class="home-mark">EV</div>
+      <div id="navList" class="nav-list"></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="student">
+          <div class="avatar">🏘️</div>
+          <div>
+            <strong>이코빌리지</strong>
+            <span>마을 광장 · 1일차</span>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip">1일차</span>
+          <span class="chip green">💰 135비빔</span>
+          <span class="chip">👤 학생</span>
+        </div>
+      </header>
+
+      <section class="stage">
+        <div class="content">
+          <div class="head">
+            <div>
+              <h1 id="title"></h1>
+              <p id="desc" class="desc"></p>
+            </div>
+            <div id="key" class="screen-key"></div>
+          </div>
+          <div id="body" class="body"></div>
+        </div>
+        <aside class="panel">
+          <h2>지금 상태</h2>
+          <div id="side" class="mini-list"></div>
+        </aside>
+      </section>
+
+      <footer class="footer">
+        <div id="progress" class="progress"></div>
+        <div id="actions" class="actions"></div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const groups = [
+      ["홈", "H", [
+        ["SCR-STU-001", "학생 로그인", "학급 코드·출석번호·닉네임·비밀번호로 접속해요.", "login"],
+        ["SCR-STU-002", "비밀번호 재설정", "기존 본인 확인 절차로 비밀번호만 다시 설정해요.", "passwordReset"],
+        ["SCR-STU-003", "경제교실 홈·상태 안내", "앱 모드, 공지, 활성 모듈과 종료 안내를 확인해요.", "home"]
+      ]],
+      ["지갑", "W", [
+        ["SCR-STU-004", "지갑·거래내역", "잔액, 거래 그룹, 전후 잔액, 정책 스냅샷을 확인해요.", "wallet"],
+        ["SCR-STU-005", "월급명세서", "총급여·소득세·공제·실수령액을 봐요.", "paystub"]
+      ]],
+      ["상점", "S", [
+        ["SCR-STU-006", "상점 목록", "상품·가격·부가세·재고를 둘러봐요.", "shop"],
+        ["SCR-STU-007", "상품 상세·구매", "최종 결제액, 실제·디지털 구분, 환불 불가 안내를 확인해요.", "product"],
+        ["SCR-STU-008", "보유 아이템·캐릭터", "보유 상태와 장착 캐릭터를 확인해요.", "inventory"]
+      ]],
+      ["거래", "T", [
+        ["SCR-STU-009", "개인거래 목록", "내 제안·받은 제안·승인 대기·완료 기록을 봐요.", "tradeList"],
+        ["SCR-STU-010", "개인거래 작성", "상대 학생, 금액·아이템, 세금 예상, 요청번호를 확인해요.", "tradeCreate"],
+        ["SCR-STU-011", "개인거래 상세·동의", "거래 당사자·상태·세금·동의·거절·취소를 처리해요.", "tradeReceive"]
+      ]],
+      ["공동", "C", [
+        ["SCR-STU-012", "공동기금·투표", "기금 잔액·사용내역과 익명 투표를 확인해요.", "fund"]
+      ]],
+      ["금융", "F", [
+        ["SCR-STU-013", "금융 홈", "예금·적금·투자·대출의 열린 모듈을 확인해요.", "financeHome"],
+        ["SCR-STU-014", "정기예금", "상품 조건, 가입 계좌, 만기·중도해지 예상액을 봐요.", "deposit"],
+        ["SCR-STU-015", "정기적금", "납입 일정, 유예 재납입, 해지 상태를 확인해요.", "saving"],
+        ["SCR-STU-016", "투자 시장", "가상 자산 4종의 현재가와 시장 상태를 확인해요.", "market"],
+        ["SCR-STU-017", "투자 주문", "매수·매도 수량과 예상 잔액을 확인해요.", "order"],
+        ["SCR-STU-018", "투자 포트폴리오", "보유량·평균가격·평가손익을 봐요.", "portfolio"],
+        ["SCR-STU-019", "대출 신청·상환", "대출 신청, 상환 일정, 유예 상태를 확인해요.", "loan"],
+        ["SCR-STU-020", "내 신용", "NORMAL·GOOD·CAUTION·RESTRICTED 상태 설명을 봐요.", "credit"]
+      ]],
+      ["활동", "A", [
+        ["SCR-STU-021", "GAME 퀴즈", "문제·타이머·제출과 개인 진행 상태를 확인해요.", "quiz"],
+        ["SCR-STU-022", "TEST 응시", "개인별 문제를 풀고 순위·보상 없는 안내를 확인해요.", "test"],
+        ["SCR-STU-023", "퀴즈 결과·오류 신고", "개인 결과, 공개 허용 결과, 문항 신고를 확인해요.", "result"],
+        ["SCR-STU-024", "개인·최종 리포트", "잔액·금융·학습 결과와 최종 스냅샷을 봐요.", "report"]
+      ]]
+    ];
+
+    const screens = groups.flatMap(([group, icon, items]) => items.map(([id, title, desc, type]) => ({ group, icon, id, title, desc, type })));
+    let activeId = "SCR-STU-003";
+
+    const sideBase = [
+      ["오늘의 모드", "자율 이용 · 14:30까지"],
+      ["선생님 알림", "개인거래 승인 대기 1건"],
+      ["잠긴 기능", "예금 신규 가입은 내일 열려요"]
+    ];
+
+    function navHTML() {
+      const navList = document.getElementById("navList");
+      navList.innerHTML = groups.map(([label, icon, items]) => {
+        const isActive = items.some(([id]) => id === activeId);
+        return `<button class="nav-btn ${isActive ? "active" : ""}" onclick="openScreen('${items[0][0]}')">
+          <span class="icon">${icon}</span><span>${label}</span>
+        </button>`;
+      }).join("");
+    }
+
+    function cards(items, selectedIndex = 0) {
+      return `<div class="grid ${items.length > 4 ? "three" : ""}">
+        ${items.map((item, index) => `<article class="card ${index === selectedIndex ? "selected" : ""}">
+          <span class="chip ${index === selectedIndex ? "green" : ""}">${item.tag}</span>
+          <h2>${item.title}</h2>
+          <p>${item.text}</p>
+          ${item.price ? `<div class="price">${item.price}</div>` : ""}
+        </article>`).join("")}
+      </div>`;
+    }
+
+    function rows(items) {
+      return `<div class="list">
+        ${items.map((item) => `<div class="row">
+          <div><strong>${item.title}</strong><span>${item.text}</span></div>
+          <div class="amount ${item.amount?.startsWith("+") ? "plus" : item.amount?.startsWith("-") ? "minus" : ""}">${item.amount || item.state}</div>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    function plainRows(items) {
+      return `<div class="plain-list">
+        ${items.map((item) => `<div class="plain-row">
+          <div><strong>${item.title}</strong><span>${item.text}</span></div>
+          <div class="amount ${item.amount?.startsWith("+") ? "plus" : item.amount?.startsWith("-") ? "minus" : ""}">${item.amount || item.state}</div>
+        </div>`).join("")}
+      </div>`;
+    }
+
+    function openHome() {
+      return `<div class="open-section">
+        <section class="hero-strip">
+          <div>
+            <h2>마을 광장</h2>
+            <p>자유 활동 시간에 들어갈 수 있는 마을 기능을 골라요.</p>
+          </div>
+          <div class="hero-balance">보유 비빔<strong>135</strong></div>
+        </section>
+        <section class="village-grid">
+          ${[
+            ["orange", "🏪", "이코 상점", "상품을 사요", "입장하기 →", ""],
+            ["purple", "🏦", "이코 은행", "예금 가입 가능", "입장하기 →", ""],
+            ["red", "📈", "투자 광장", "투자 가능", "입장하기 →", ""],
+            ["green", "💼", "월급명세서", "내 급여 확인", "입장하기 →", ""],
+            ["dim", "☑️", "마을 회의", "공동기금 투표", "수업 중", "공사중"],
+            ["dim", "📰", "투자 결과", "2일차 결과 공개", "공사중", "공사중"],
+            ["", "🏠", "이코 주택관", "청약으로 내 집 마련", "입장하기 →", "NEW"],
+            ["yellow", "🛡️", "이코 보험사", "준비물·숙제 보험", "입장하기 →", "NEW"],
+            ["", "💳", "이코 신용센터", "대출·신용점수", "입장하기 →", "NEW"]
+          ].map(([tone, icon, title, text, cta, badge]) => `<article class="village-card ${tone}">
+            ${badge ? `<b class="module-badge">${badge}</b>` : ""}
+            <div>
+              <i class="village-icon">${icon}</i>
+              <strong>${title}</strong>
+              <span>${text}</span>
+              <em class="enter-pill ${tone === "purple" ? "purple" : tone === "green" ? "green" : tone === "red" ? "red" : ""}">${cta}</em>
+            </div>
+          </article>`).join("")}
+        </section>
+      </div>`;
+    }
+
+    function paystubView() {
+      return `<div class="paystub-view">
+        <article class="receipt-card">
+          <div class="receipt-head">
+            <div><strong>급여 명세서</strong><span>이코빌리지 · 1일차</span></div>
+            <b>이코<br />지급</b>
+          </div>
+          <div class="receipt-body">
+            <div class="receipt-row"><span>🏷️ 1인 1역 월급</span><b>+150비빔</b></div>
+            <div class="receipt-row"><span>🎯 퀴즈 정답수당</span><b>+25비빔</b></div>
+            <div class="receipt-row"><span>총 받은 돈</span><b>175비빔</b></div>
+            <div class="receipt-row tax"><span>🏛️ 소득세 · 공동기금으로 이동해요</span><b>-17비빔</b></div>
+            <div class="receipt-total">158비빔<span>175비빔 - 소득세 17비빔 = 158비빔</span></div>
+          </div>
+        </article>
+        <div class="info-stack">
+          <section>
+            <h2>세금은 어디로 가나요?</h2>
+            <p class="desc">소득세 17비빔은 우리 반 공동기금으로 모여요. 나중에 함께 투표해서 사용할 곳을 정해요.</p>
+          </section>
+          <section>
+            <h2>돈의 흐름</h2>
+            <div class="flow-line">
+              <div class="flow-box">175비빔</div>
+              <strong>→ -17비빔 →</strong>
+              <div class="flow-box good">158비빔</div>
+            </div>
+          </section>
+          <section>
+            <h2>내 지갑 변화</h2>
+            ${plainRows([
+              { title: "이전 잔액", text: "오늘 활동 전", amount: "0비빔" },
+              { title: "입금된 금액", text: "세금 반영 후", amount: "+158비빔" },
+              { title: "현재 잔액", text: "내 지갑", amount: "158비빔" }
+            ])}
+          </section>
+          <button class="btn primary" style="height:64px;font-size:22px;">확인했어요!</button>
+        </div>
+      </div>`;
+    }
+
+    function openWallet() {
+      return `<div class="open-section">
+        <section class="hero-strip">
+          <div>
+            <h2>120비빔</h2>
+            <p>지금 사용할 수 있는 비빔이에요. 구매, 세금, 거래는 모두 기록으로 남습니다.</p>
+          </div>
+          <div class="hero-balance">이번 주 변화<strong>+500</strong></div>
+        </section>
+        <section>
+          <div class="section-title">최근 거래 <span>전체 보기</span></div>
+          ${plainRows([
+            { title: "오늘 받은 월급", text: "기본 월급에서 소득세가 빠졌어요.", amount: "+900" },
+            { title: "상점 구매", text: "자리 선택권 구매", amount: "-500" },
+            { title: "공공기금 세금", text: "소득세 납부", amount: "-100" },
+            { title: "퀴즈 참여 보상", text: "경제 퀴즈 참여", amount: "+200" }
+          ])}
+        </section>
+      </div>`;
+    }
+
+    function form(fields) {
+      return `<div class="form">
+        ${fields.map((field, index) => `<div class="field">
+          <label>${field}</label>
+          ${index === 0 ? `<select class="select"><option>${field} 선택</option></select>` : `<input class="input" placeholder="${field} 입력" />`}
+        </div>`).join("")}
+      </div>`;
+    }
+
+    function hero(icon, title, text, cta) {
+      return `<div class="hero">
+        <div>
+          <div class="big">${icon}</div>
+          <h2>${title}</h2>
+          <p>${text}</p>
+          <button class="btn primary">${cta}</button>
+        </div>
+      </div>`;
+    }
+
+    function characterPreview() {
+      return `<div class="character"><div class="char-body">민</div></div>`;
+    }
+
+    function characterShop() {
+      const items = [
+        ["hat", "빨간 모자", "30비빔", "보유 중", ""],
+        ["top", "파란 후드", "50비빔", "착용 중", "active"],
+        ["bottom", "줄무늬 바지", "40비빔", "보유 중", ""],
+        ["shoes", "빨간 운동화", "30비빔", "보유 중", ""],
+        ["bag", "노란 백팩", "60비빔", "10비빔 부족", "locked"],
+        ["bg", "벚꽃 배경", "80비빔", "10비빔 부족", "locked"]
+      ];
+
+      return `<div class="shop-layout">
+        <section class="character-panel">
+          <div class="character-stage">
+            ${avatarFigure()}
+          </div>
+          <div class="selected-item">
+            <div class="item-thumb"><span class="asset-thumb"></span></div>
+            <div>
+              <strong>파란 후드</strong>
+              <span>50비빔</span>
+            </div>
+          </div>
+          <div class="shop-actions">
+            <button class="btn">원래 모습</button>
+            <button class="btn primary">구매하기</button>
+          </div>
+        </section>
+        <section class="shop-panel">
+          <div class="category-tabs">
+            <button class="active">추천</button>
+            <button>모자</button>
+            <button>얼굴</button>
+            <button>상의</button>
+            <button>하의</button>
+            <button>신발</button>
+            <button>배경</button>
+          </div>
+          <div class="item-grid">
+            ${items.map(([art, name, price, state, mode]) => `<article class="shop-item ${mode === "active" ? "active" : ""}">
+              <div class="item-art"><span class="asset-thumb" aria-label="${art} 아이템 이미지 자리"></span></div>
+              <div><strong>${name}</strong><span>${price}</span></div>
+              <div class="item-state ${mode === "locked" ? "locked" : ""}">${state}</div>
+            </article>`).join("")}
+          </div>
+        </section>
+      </div>`;
+    }
+
+    function characterHome() {
+      return `<div class="shop-layout">
+        <section class="character-panel">
+          <div class="character-stage">
+            ${avatarFigure()}
+          </div>
+          <div class="selected-item">
+            <div class="item-thumb"><span class="asset-thumb"></span></div>
+            <div>
+              <strong>세금탐정</strong>
+              <span>보유 120비빔</span>
+            </div>
+          </div>
+        </section>
+        <section class="shop-panel">
+          <div class="category-tabs">
+            <button class="active">착용 중</button>
+            <button>보유 아이템</button>
+          </div>
+          <div style="padding:16px;">
+            ${plainRows([
+              { title: "파란 후드", text: "상의 · 현재 착용 중", amount: "50비빔" },
+              { title: "빨간 모자", text: "모자 · 보유 중", amount: "30비빔" },
+              { title: "줄무늬 바지", text: "하의 · 보유 중", amount: "40비빔" }
+            ])}
+          </div>
+        </section>
+      </div>`;
+    }
+
+    function characterWearPreview() {
+      return `<div class="shop-layout">
+        <section class="character-panel">
+          <div class="character-stage">
+            ${avatarFigure()}
+          </div>
+          <div class="selected-item">
+            <div class="item-thumb"><span class="asset-thumb"></span></div>
+            <div>
+              <strong>파란 후드 + 빨간 모자</strong>
+              <span>미리보기 중</span>
+            </div>
+          </div>
+          <div class="shop-actions">
+            <button class="btn">취소</button>
+            <button class="btn primary">이 모습 저장</button>
+          </div>
+        </section>
+        <section class="shop-panel">
+          <div class="category-tabs">
+            <button class="active">변경 내용</button>
+          </div>
+          <div style="padding:16px;">
+            ${plainRows([
+              { title: "모자", text: "없음에서 빨간 모자로 변경", state: "변경" },
+              { title: "상의", text: "파란 후드 유지", state: "유지" },
+              { title: "친구에게 보이는 모습", text: "저장 후 프로필에 반영", state: "공개" }
+            ])}
+          </div>
+        </section>
+      </div>`;
+    }
+
+    function avatarFigure() {
+      return `<div class="avatar-preview">
+        <div class="asset-slot"><span>캐릭터<br />이미지 영역</span></div>
+      </div>`;
+    }
+
+    function bodyFor(type) {
+      const view = {
+        login: () => form(["교실 코드", "출석번호", "닉네임", "비밀번호"]),
+        passwordReset: () => form(["교실 코드", "출석번호", "닉네임", "새 비밀번호"]),
+        home: () => openHome(),
+        guided: () => hero("진행", "선생님 활동이 시작됐어요", "지금은 퀴즈 활동 시간이에요. 다른 경제 활동은 잠시 멈춰요.", "활동 참여하기"),
+        wallet: () => openWallet(),
+        paystub: () => paystubView(),
+        ledger: () => rows([
+          { title: "거래 번호 TX-0142", text: "상점 구매 · 선생님 정책 v3 적용", state: "완료" },
+          { title: "금액", text: "상품 500 + 소비세 25", amount: "-525" },
+          { title: "처리 시간", text: "2026-07-29 10:22", state: "기록됨" }
+        ]),
+        shop: () => cards([
+          { tag: "재고 12", title: "자리 선택권", text: "다음 자율 시간에 쓸 수 있어요.", price: "500" },
+          { tag: "승인 필요", title: "숙제 패스권", text: "구매 후 선생님 확인이 필요해요.", price: "2,000" },
+          { tag: "무제한", title: "초록 모자", text: "캐릭터가 착용할 수 있어요.", price: "300" },
+          { tag: "품절", title: "급식 우선권", text: "지금은 살 수 없어요.", price: "800" }
+        ]),
+        product: () => rows([
+          { title: "자리 선택권", text: "상품 가격", amount: "500" },
+          { title: "소비세", text: "공공기금으로 모여요.", amount: "25" },
+          { title: "구매 후 잔액", text: "현재 120 비빔 기준", amount: "70" }
+        ]),
+        purchase: () => hero("완료", "구매가 완료됐어요", "자리 선택권이 내 보관함에 들어왔어요. 거래 내역에도 기록됐습니다.", "보관함 보기"),
+        profile: () => characterHome(),
+        inventory: () => characterShop(),
+        preview: () => characterWearPreview(),
+        tradeList: () => rows([
+          { title: "내가 보낸 제안 TRD-102", text: "박서윤에게 200비빔 보내기 · 교사 승인 대기", state: "대기" },
+          { title: "받은 제안 TRD-099", text: "김도윤의 빨간 신발 거래 · 동의 필요", state: "확인" },
+          { title: "완료 거래 TRD-088", text: "초록 모자 이전 완료 · 요청번호 보관", state: "완료" }
+        ]),
+        tradeCreate: () => form(["거래할 친구", "보낼 비빔", "보낼 아이템", "거래 이유"]),
+        tradeReceive: () => rows([
+          { title: "김도윤이 보낸 거래", text: "빨간 신발 1개를 30비빔에 제안했어요.", state: "동의 필요" },
+          { title: "예상 세금", text: "개인거래 세금이 함께 계산돼요.", amount: "-3" },
+          { title: "내 잔액", text: "동의 후 남는 금액", amount: "2,100" }
+        ]),
+        tradeResult: () => hero("대기", "선생님 승인을 기다려요", "친구가 동의했고, 이제 선생님이 거래를 확인하고 있어요.", "거래 목록 보기"),
+        financeHome: () => cards([
+          { tag: "활성", title: "정기예금", text: "7일 상품 가입 가능", price: "연 5%" },
+          { tag: "활성", title: "정기적금", text: "4회 납입 일정 확인", price: "2회 남음" },
+          { tag: "열림", title: "투자 시장", text: "가상 자산 4종 현재가", price: "OPEN" },
+          { tag: "승인 필요", title: "대출", text: "교사 승인 후 실행", price: "한도 2,000" }
+        ]),
+        deposit: () => cards([
+          { tag: "가입 가능", title: "7일 정기예금", text: "7일 뒤 이자를 받아요.", price: "이자 5%" },
+          { tag: "보유 중", title: "저축 예금", text: "매주 조금씩 모아요.", price: "1,000" }
+        ]),
+        saving: () => rows([
+          { title: "4회 정기적금", text: "2회 납입 완료 · 다음 납입 8월 2일", state: "진행" },
+          { title: "이번 회차", text: "잔액 부족이면 부분 출금 없이 MISSED 처리", amount: "500" },
+          { title: "유예 재납입", text: "유예기간 안에 다시 납입할 수 있어요.", state: "가능" }
+        ]),
+        market: () => cards([
+          { tag: "OPEN", title: "쌀", text: "가격 단계 4 · 전 단계보다 상승", price: "120" },
+          { tag: "OPEN", title: "목재", text: "가격 단계 2 · 변동 없음", price: "90" },
+          { tag: "OPEN", title: "철", text: "가격 단계 5 · 급등", price: "180" },
+          { tag: "PAUSED", title: "물", text: "교사 확인 중", price: "70" }
+        ]),
+        order: () => form(["자산", "매수·매도", "정수 수량", "요청번호"]),
+        portfolio: () => rows([
+          { title: "쌀 3개", text: "평균 100 · 현재 120", amount: "+60" },
+          { title: "목재 2개", text: "평균 95 · 현재 90", amount: "-10" },
+          { title: "실현손익", text: "이미 판 자산의 결과", amount: "+40" }
+        ]),
+        loan: () => rows([
+          { title: "대출 신청", text: "교사 승인 후 원장에 기록돼요.", state: "승인 필요" },
+          { title: "상환 일정", text: "4회 분할상환 · 단리 적용", amount: "500" },
+          { title: "잔액 부족", text: "부분 출금 없이 OVERDUE 처리", state: "주의" }
+        ]),
+        credit: () => rows([
+          { title: "현재 신용", text: "교육용 상태이며 친구에게 공개되지 않아요.", state: "NORMAL" },
+          { title: "좋아지는 조건", text: "상환일을 지키고 연체를 복구해요.", state: "안내" },
+          { title: "제한 상태", text: "RESTRICTED면 새 대출 신청이 잠겨요.", state: "비공개" }
+        ]),
+        fund: () => rows([
+          { title: "학급 공공기금", text: "세금과 벌금으로 모인 돈", amount: "7,400" },
+          { title: "사용 예정", text: "학급 간식 예산안", amount: "-3,000" },
+          { title: "남는 금액", text: "투표가 통과되면 남는 돈", amount: "4,400" }
+        ]),
+        vote: () => cards([
+          { tag: "선택", title: "학급 간식 사기", text: "공공기금 3,000비빔 사용" },
+          { tag: "선택", title: "학급 문구 사기", text: "공공기금 2,500비빔 사용" },
+          { tag: "선택", title: "다음 주로 넘기기", text: "기금을 더 모아요." }
+        ]),
+        waiting: () => hero("대기", "잠시만 기다려요", "선생님이 활동을 준비하고 있어요. 시작되면 자동으로 문제 화면으로 넘어갑니다.", "준비 완료"),
+        quiz: () => cards([
+          { tag: "문제", title: "소득세는 어디에 쓰일까요?", text: "가장 알맞은 답을 골라요." },
+          { tag: "1", title: "개인 용돈", text: "나만 쓰는 돈이에요." },
+          { tag: "2", title: "공공기금", text: "우리 반을 위해 함께 쓰는 돈이에요." },
+          { tag: "3", title: "상점 재고", text: "상품을 채우는 돈이에요." }
+        ], 2),
+        test: () => cards([
+          { tag: "TEST", title: "개인별 평가 문제", text: "순위와 화폐 보상 없이 정답 중심으로 채점돼요." },
+          { tag: "1", title: "예산이 필요한 이유", text: "가장 알맞은 설명을 골라요." },
+          { tag: "2", title: "소비와 저축", text: "문항은 개인 결과에만 반영돼요." }
+        ], 1),
+        result: () => rows([
+          { title: "내 결과", text: "3문제 중 2문제를 맞혔어요.", state: "정답 2" },
+          { title: "참여 보상", text: "경제 퀴즈 참여", amount: "+100" },
+          { title: "공개 순위", text: "공용 화면에는 상위 3명 닉네임과 캐릭터만 보여요.", state: "개인 점수 비공개" }
+        ]),
+        report: () => rows([
+          { title: "최종 잔액", text: "READ_ONLY 전환 후 30일 동안 조회 가능", amount: "12,400" },
+          { title: "금융 결과", text: "예금 만기·투자 정산·대출 상환 요약", state: "완료" },
+          { title: "학습 결과", text: "GAME·TEST 개인 결과와 오류 신고 이력", state: "보기" }
+        ])
+      };
+      return (view[type] || view.home)();
+    }
+
+    function sideFor(screen) {
+      const extra = {
+        login: [["접속 방법", "교실 코드 + 출석번호"], ["개인정보", "다른 친구에게 보이지 않아요"]],
+        passwordReset: [["재설정 범위", "비밀번호만 변경"], ["닉네임", "재설정 기능 없음"]],
+        guided: [["현재 모드", "GUIDED"], ["잠금", "상점·거래·금융 잠시 중지"]],
+        wallet: [["원장 원칙", "완료 거래는 수정하지 않아요"], ["정정", "복구 거래로 기록"]],
+        inventory: [["아이템 상태", "AVAILABLE · EQUIPPED · LOCKED_TRADE"], ["에셋", "assets/characters/exports 사용 예정"]],
+        tradeCreate: [["승인 규칙", "친구 동의 후 선생님 승인"], ["주의", "승인 전에는 돈이 움직이지 않아요"]],
+        tradeList: [["거래 순서", "제안 → 동의 → 교사 승인"], ["중복 방지", "요청번호로 재시도 관리"]],
+        financeHome: [["금융 모듈", "선택된 모듈만 표시"], ["시장 상태", "OPEN일 때만 주문 가능"]],
+        loan: [["대출 승인", "교사 승인 후 실행"], ["연체", "부분 출금 없이 OVERDUE"]],
+        credit: [["공개 범위", "본인과 교사만 조회"], ["친구 공개", "불가"]],
+        vote: [["익명 투표", "친구에게 내 선택이 보이지 않아요"], ["결과 공개", "전체 투표 수만 공개"]],
+        quiz: [["남은 시간", "01:24"], ["제출 상태", "아직 제출 전"]],
+        test: [["TEST", "순위·속도·화폐 보상 없음"], ["결과", "개인별 비공개"]],
+        report: [["조회 기간", "READ_ONLY 후 30일"], ["이월", "잔액·아이템 자동 이월 없음"]]
+      }[screen.type] || sideBase;
+
+      document.getElementById("side").innerHTML = extra.map(([title, text]) => `
+        <div class="mini"><strong>${title}</strong><span>${text}</span></div>
+      `).join("");
+    }
+
+    function actionsFor(screen) {
+      const primary = {
+        login: "입장하기",
+        passwordReset: "재설정 요청",
+        home: "열린 활동 보기",
+        guided: "참여하기",
+        shop: "상품 보기",
+        product: "구매하기",
+        purchase: "확인",
+        inventory: "장착 저장",
+        tradeList: "새 거래",
+        tradeCreate: "거래 제안",
+        tradeReceive: "동의하기",
+        tradeResult: "확인",
+        financeHome: "모듈 보기",
+        deposit: "가입하기",
+        saving: "납입 확인",
+        market: "주문하기",
+        order: "주문 제출",
+        portfolio: "시장 보기",
+        loan: "신청하기",
+        credit: "도움말 보기",
+        vote: "투표 제출",
+        waiting: "준비 완료",
+        quiz: "답 제출",
+        test: "답 제출",
+        result: "오류 신고",
+        report: "내보내기"
+      }[screen.type] || "확인";
+
+      document.getElementById("actions").innerHTML = `
+        <button class="btn">뒤로</button>
+        <button class="btn primary">${primary}</button>
+      `;
+    }
+
+    function progressFor() {
+      const index = screens.findIndex((screen) => screen.id === activeId);
+      document.getElementById("progress").innerHTML = `
+        <span>${index + 1} / ${screens.length}</span>
+        ${screens.map((screen) => `<span class="dot ${screen.id === activeId ? "active" : ""}"></span>`).join("")}
+      `;
+    }
+
+    function openScreen(id) {
+      activeId = id;
+      render();
+    }
+
+    function render() {
+      const screen = screens.find((item) => item.id === activeId) || screens[0];
+      const stage = document.querySelector(".stage");
+      stage.classList.toggle("full", ["home", "paystub", "profile", "inventory", "preview"].includes(screen.type));
+      navHTML();
+      document.getElementById("title").textContent = screen.title;
+      document.getElementById("desc").textContent = screen.desc;
+      document.getElementById("key").textContent = screen.id;
+      document.getElementById("body").innerHTML = bodyFor(screen.type);
+      sideFor(screen);
+      actionsFor(screen);
+      progressFor();
+    }
+
+    render();
+  </script>
+</body>
+</html>
