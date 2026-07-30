@@ -377,6 +377,20 @@ class FactUnit(StrEnum):
     TEXT = "TEXT"
 
 
+class TeacherChatResponseMode(StrEnum):
+    ANSWER = "ANSWER"
+    LIMITED = "LIMITED"
+
+
+class TeacherChatLimitationCode(StrEnum):
+    PERSONAL_ANALYSIS_NOT_SUPPORTED = "PERSONAL_ANALYSIS_NOT_SUPPORTED"
+    REAL_FINANCIAL_ADVICE_NOT_SUPPORTED = "REAL_FINANCIAL_ADVICE_NOT_SUPPORTED"
+    FUTURE_PREDICTION_NOT_SUPPORTED = "FUTURE_PREDICTION_NOT_SUPPORTED"
+    READ_ONLY_BOUNDARY = "READ_ONLY_BOUNDARY"
+    PROMPT_INJECTION_BLOCKED = "PROMPT_INJECTION_BLOCKED"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+
+
 class Fact(ContractModel):
     fact_id: ShortText
     label: Annotated[str, Field(min_length=1, max_length=150)]
@@ -410,6 +424,32 @@ class TeacherChatPayload(ContractModel):
         if len(fact_ids) != len(set(fact_ids)):
             raise ValueError("fact_id는 중복될 수 없습니다.")
         return values
+
+    @field_validator("recent_policy_changes")
+    @classmethod
+    def policy_fact_ids_must_be_unique(
+        cls, values: list[PolicyChangeFact]
+    ) -> list[PolicyChangeFact]:
+        fact_ids = [value.fact_id for value in values]
+        if len(fact_ids) != len(set(fact_ids)):
+            raise ValueError("정책 변경 fact_id는 중복될 수 없습니다.")
+        changed_at = [value.changed_at for value in values]
+        if changed_at != sorted(changed_at):
+            raise ValueError("정책 변경 이력은 changed_at 오름차순이어야 합니다.")
+        return values
+
+    @model_validator(mode="after")
+    def validate_policy_change_context(self) -> TeacherChatPayload:
+        fact_ids = {fact.fact_id for fact in self.facts}
+        policy_fact_ids = {change.fact_id for change in self.recent_policy_changes}
+        if fact_ids & policy_fact_ids:
+            raise ValueError("집계 사실과 정책 변경 fact_id는 중복될 수 없습니다.")
+        if any(
+            change.changed_at > self.period.data_as_of
+            for change in self.recent_policy_changes
+        ):
+            raise ValueError("정책 변경 시각은 data_as_of 이후일 수 없습니다.")
+        return self
 
 
 class InvestmentPriceFact(ContractModel):
@@ -655,17 +695,40 @@ class SetupPrecheckOutput(ContractModel):
     ]
 
 
+class GroundedCause(ContractModel):
+    text: Annotated[str, Field(min_length=1, max_length=700)]
+    evidence_fact_ids: Annotated[list[ShortText], Field(min_length=1, max_length=20)]
+
+    @field_validator("evidence_fact_ids")
+    @classmethod
+    def evidence_ids_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("원인 근거 fact_id는 중복될 수 없습니다.")
+        return values
+
+
 class Recommendation(ContractModel):
     text: Annotated[str, Field(min_length=1, max_length=700)]
+    evidence_fact_ids: Annotated[list[ShortText], Field(min_length=1, max_length=20)]
     side_effects: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=300)]], Field(min_length=1, max_length=5)
     ]
 
+    @field_validator("evidence_fact_ids")
+    @classmethod
+    def evidence_ids_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("대응안 근거 fact_id는 중복될 수 없습니다.")
+        return values
+
 
 class TeacherChatOutput(ContractModel):
+    response_mode: TeacherChatResponseMode
     answer: Annotated[str, Field(min_length=1, max_length=3000)]
-    evidence_fact_ids: Annotated[list[str], Field(min_length=1)]
+    evidence_fact_ids: Annotated[list[ShortText], Field(max_length=100)]
+    causes: Annotated[list[GroundedCause], Field(max_length=10)]
     recommendations: Annotated[list[Recommendation], Field(max_length=5)]
+    limitation_codes: Annotated[list[TeacherChatLimitationCode], Field(max_length=10)]
     period: Period
     data_as_of: datetime
 
@@ -675,6 +738,41 @@ class TeacherChatOutput(ContractModel):
         if len(values) != len(set(values)):
             raise ValueError("근거 fact_id는 중복될 수 없습니다.")
         return values
+
+    @field_validator("limitation_codes")
+    @classmethod
+    def limitation_codes_must_be_unique(
+        cls, values: list[TeacherChatLimitationCode]
+    ) -> list[TeacherChatLimitationCode]:
+        if len(values) != len(set(values)):
+            raise ValueError("챗봇 제한 코드는 중복될 수 없습니다.")
+        return values
+
+    @model_validator(mode="after")
+    def validate_response_mode(self) -> TeacherChatOutput:
+        if self.response_mode is TeacherChatResponseMode.ANSWER:
+            if not self.evidence_fact_ids:
+                raise ValueError("일반 답변에는 하나 이상의 근거 fact_id가 필요합니다.")
+            if not self.causes:
+                raise ValueError("일반 답변에는 근거가 연결된 원인이 필요합니다.")
+            if not self.recommendations:
+                raise ValueError("일반 답변에는 근거가 연결된 대응안이 필요합니다.")
+            if self.limitation_codes:
+                raise ValueError("일반 답변에는 제한 코드를 포함할 수 없습니다.")
+            evidence_ids = set(self.evidence_fact_ids)
+            nested_ids = {
+                fact_id
+                for item in (*self.causes, *self.recommendations)
+                for fact_id in item.evidence_fact_ids
+            }
+            if not nested_ids <= evidence_ids:
+                raise ValueError("원인과 대응안의 근거는 전체 근거 목록에 포함되어야 합니다.")
+        else:
+            if not self.limitation_codes:
+                raise ValueError("제한 답변에는 하나 이상의 제한 코드가 필요합니다.")
+            if self.evidence_fact_ids or self.causes or self.recommendations:
+                raise ValueError("제한 답변에는 사실 근거·원인·대응안을 포함할 수 없습니다.")
+        return self
 
 
 class EventChoice(ContractModel):

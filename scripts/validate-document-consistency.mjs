@@ -3,7 +3,17 @@ import path from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
-const excludedDirectories = new Set([".git", ".gradle", "build", "node_modules"]);
+const excludedDirectories = new Set([
+  ".codex",
+  ".docker-config",
+  ".git",
+  ".gradle",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  "build",
+  "node_modules",
+]);
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");

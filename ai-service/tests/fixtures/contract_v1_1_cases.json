@@ -41,7 +41,16 @@
       "id": "teacher-chat",
       "factory": "teacher_chat",
       "endpoint": "/internal/v1/generations/teacher-chat",
-      "expected_output_fields": ["answer", "evidence_fact_ids", "period"]
+      "expected_output_fields": [
+        "response_mode",
+        "answer",
+        "evidence_fact_ids",
+        "causes",
+        "recommendations",
+        "limitation_codes",
+        "period",
+        "data_as_of"
+      ]
     },
     {
       "id": "event-teacher",

@@ -65,6 +65,13 @@ ruff check .
 [`tests/fixtures/contract_v1_1_cases.json`](tests/fixtures/contract_v1_1_cases.json)에
 정리되어 있으며 테스트가 이 목록을 직접 실행합니다.
 
+교사용 챗봇은 근거가 붙은 `ANSWER`와 근거를 만들지 않는 `LIMITED`를 구분합니다.
+금지 질문은 외부 공급자 호출 전에 결정적 가드가 처리하며, 20개 기본 상황 × 3개 학년의
+60개 평가 사례는
+[`tests/fixtures/teacher_chat_evaluation_v1.json`](tests/fixtures/teacher_chat_evaluation_v1.json)에
+정리되어 있습니다. 상세 동작은
+[`docs/ai/TEACHER_CHAT.md`](../docs/ai/TEACHER_CHAT.md)를 따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.

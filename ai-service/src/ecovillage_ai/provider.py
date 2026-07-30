@@ -122,16 +122,33 @@ class FakeGenerationProvider:
 
     @staticmethod
     def _teacher_chat(payload: dict[str, Any]) -> dict[str, Any]:
-        fact = payload["facts"][0]
+        facts = payload["facts"][:2]
+        fact_ids = [fact["fact_id"] for fact in facts]
+        policy_changes = payload["recent_policy_changes"][:1]
+        fact_ids.extend(change["fact_id"] for change in policy_changes)
+        fact_summary = ", ".join(
+            f"{fact['label']}={fact['value']}" for fact in facts
+        )
+        if policy_changes:
+            fact_summary += f", 최근 정책 변화={policy_changes[0]['summary']}"
         return {
-            "answer": f"제공된 학급 집계 사실 중 '{fact['label']}' 항목을 우선 확인해 보세요.",
-            "evidence_fact_ids": [fact["fact_id"]],
+            "response_mode": "ANSWER",
+            "answer": f"제공된 학급 집계 사실을 보면 {fact_summary}입니다.",
+            "evidence_fact_ids": fact_ids,
+            "causes": [
+                {
+                    "text": "현재 조회 기간에 관찰된 집계 사실을 함께 살펴볼 필요가 있습니다.",
+                    "evidence_fact_ids": fact_ids,
+                }
+            ],
             "recommendations": [
                 {
                     "text": "같은 기간의 다른 집계 지표와 함께 비교해 원인을 확인해 보세요.",
+                    "evidence_fact_ids": fact_ids,
                     "side_effects": ["단일 지표만 보면 일시적 변화를 과대 해석할 수 있습니다."],
                 }
             ],
+            "limitation_codes": [],
             "period": payload["period"],
             "data_as_of": payload["period"]["data_as_of"],
         }

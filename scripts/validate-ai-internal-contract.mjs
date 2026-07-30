@@ -14,9 +14,13 @@ const metricsDoc = read("docs/ai/METRICS_AND_THRESHOLDS.md");
 const safetyDoc = read("docs/ai/SAFETY_AND_EVALUATION.md");
 const promptRuntimeDoc = read("docs/ai/PROMPT_RUNTIME.md");
 const providerAdapterDoc = read("docs/ai/PROVIDER_ADAPTERS.md");
+const teacherChatDoc = read("docs/ai/TEACHER_CHAT.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
+);
+const teacherChatEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/teacher_chat_evaluation_v1.json"),
 );
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
@@ -137,10 +141,29 @@ for (const field of [
   "difficulty",
   "concepts",
   "concept_tags",
+  "response_mode",
+  "causes",
+  "limitation_codes",
 ]) {
   assert(contract.includes(`${field}:`), `내부 AI 계약 필드 누락: ${field}`);
   assert(internalDoc.includes(field), `내부 AI 문서 필드 누락: ${field}`);
 }
+
+for (const mode of ["ANSWER", "LIMITED"]) {
+  assert(contract.includes(mode), `교사용 챗봇 응답 모드 누락: ${mode}`);
+  assert(teacherChatDoc.includes(`\`${mode}\``), `교사용 챗봇 문서 응답 모드 누락: ${mode}`);
+}
+const teacherChatEvaluationCount =
+  teacherChatEvaluation.grades.length * teacherChatEvaluation.base_cases.length;
+assert(
+  teacherChatEvaluation.evaluation_set_version === "teacher-chat-evaluation-v1",
+  "교사용 챗봇 평가 세트 버전이 올바르지 않습니다.",
+);
+assert(
+  teacherChatEvaluationCount === teacherChatEvaluation.expected_case_count &&
+    teacherChatEvaluationCount === 60,
+  `교사용 챗봇 평가 사례는 60개여야 합니다: ${teacherChatEvaluationCount}`,
+);
 
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
@@ -237,6 +260,7 @@ console.log(
       quiz_difficulties: quizDifficulties.length,
       success_fixtures: fixtureCatalog.success.length,
       invalid_fixtures: fixtureCatalog.invalid.length,
+      teacher_chat_evaluation_cases: teacherChatEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

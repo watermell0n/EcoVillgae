@@ -23,7 +23,20 @@ from tests.factories import (
 
 CASES = [
     ("/internal/v1/generations/balancing", balancing_request, {"summary", "proposals"}),
-    ("/internal/v1/generations/teacher-chat", teacher_chat_request, {"answer", "period"}),
+    (
+        "/internal/v1/generations/teacher-chat",
+        teacher_chat_request,
+        {
+            "response_mode",
+            "answer",
+            "evidence_fact_ids",
+            "causes",
+            "recommendations",
+            "limitation_codes",
+            "period",
+            "data_as_of",
+        },
+    ),
     (
         "/internal/v1/generations/economic-event",
         economic_event_request,
@@ -290,3 +303,18 @@ def test_openapi_and_pydantic_expose_v1_1_feature_dimensions(client: TestClient)
         "current_step_index",
         "public_price_facts",
     } <= set(contract_schemas["InvestmentNewsContext"]["required"])
+    assert generated_schemas["TeacherChatResponseMode"]["enum"] == [
+        "ANSWER",
+        "LIMITED",
+    ]
+    assert {
+        "response_mode",
+        "answer",
+        "evidence_fact_ids",
+        "causes",
+        "recommendations",
+        "limitation_codes",
+        "period",
+        "data_as_of",
+    } == set(contract_schemas["TeacherChatOutput"]["required"])
+    assert "evidence_fact_ids" in contract_schemas["Recommendation"]["required"]

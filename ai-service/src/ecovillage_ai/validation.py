@@ -33,7 +33,10 @@ UUID_PATTERN = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-"
     r"[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b"
 )
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+EMAIL_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+    r"(?![A-Za-z0-9.-])"
+)
 PHONE_PATTERN = re.compile(r"(?<!\d)01[016789][ -]?\d{3,4}[ -]?\d{4}(?!\d)")
 TOKEN_PATTERN = re.compile(
     r"(?i)\b(?:bearer\s+[A-Za-z0-9._~+/=-]+|access[_ -]?token|refresh[_ -]?token|password)\b"
@@ -322,7 +325,16 @@ def _validate_evidence(
         output, TeacherChatOutput
     ):
         fact_ids = {fact.fact_id for fact in request.payload.facts}
-        if not set(output.evidence_fact_ids) <= fact_ids:
+        fact_ids.update(
+            change.fact_id for change in request.payload.recent_policy_changes
+        )
+        output_fact_ids = set(output.evidence_fact_ids)
+        output_fact_ids.update(
+            fact_id
+            for item in (*output.causes, *output.recommendations)
+            for fact_id in item.evidence_fact_ids
+        )
+        if not output_fact_ids <= fact_ids:
             codes.append("FABRICATED_EVIDENCE")
     elif isinstance(request, QuizDraftGenerationRequest) and isinstance(
         output, QuizDraftOutput
@@ -390,7 +402,7 @@ def _validate_content_safety(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
     del request
-    text = " ".join(_iter_strings(output))
+    text = " ".join(_iter_natural_language(output))
     codes: list[str] = []
     if UUID_PATTERN.search(text) or EMAIL_PATTERN.search(text) or PHONE_PATTERN.search(text):
         codes.append("SENSITIVE_DATA_DETECTED")
@@ -409,7 +421,7 @@ def _validate_approval_boundary(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
     del request
-    text = " ".join(_iter_strings(output))
+    text = " ".join(_iter_natural_language(output))
     if any(phrase in text for phrase in APPROVAL_BOUNDARY_PHRASES):
         return ["APPROVAL_BOUNDARY_VIOLATION"]
     return []
@@ -447,6 +459,18 @@ def _iter_strings(value: object) -> Iterable[str]:
             yield from _iter_strings(nested)
     elif isinstance(value, str):
         yield value
+
+
+def _iter_natural_language(output: GenerationOutput) -> Iterable[str]:
+    if isinstance(output, TeacherChatOutput):
+        yield output.answer
+        for cause in output.causes:
+            yield cause.text
+        for recommendation in output.recommendations:
+            yield recommendation.text
+            yield from recommendation.side_effects
+        return
+    yield from _iter_strings(output)
 
 
 def _unique(values: list[str]) -> list[str]:

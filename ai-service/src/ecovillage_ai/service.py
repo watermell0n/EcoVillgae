@@ -14,6 +14,7 @@ from ecovillage_ai.errors import (
     ProviderUnavailableError,
     ServiceError,
 )
+from ecovillage_ai.features.teacher_chat import teacher_chat_policy_output
 from ecovillage_ai.models import (
     BalancingGenerationRequest,
     BalancingGenerationResponse,
@@ -88,12 +89,23 @@ class GenerationService:
         try:
             validate_input_policy(request)
             output_model = output_model_for(kind, request)
-            command = self._build_command(kind, request, output_model)
-            provider_result = await self._call_provider(command, request)
-            usage = provider_result.usage
-            output = self._validation_pipeline.validate(
-                request, output_model, provider_result.content
+            policy_output = (
+                teacher_chat_policy_output(request)
+                if isinstance(request, TeacherChatGenerationRequest)
+                else None
             )
+            if policy_output is not None:
+                provider_name = "RULES"
+                model_id = "teacher-chat-guard-v1"
+                self._validation_pipeline.validate_parsed(request, policy_output)
+                output = policy_output
+            else:
+                command = self._build_command(kind, request, output_model)
+                provider_result = await self._call_provider(command, request)
+                usage = provider_result.usage
+                output = self._validation_pipeline.validate(
+                    request, output_model, provider_result.content
+                )
             metadata: dict[str, Any] = {
                 "ai_run_id": request.ai_run_id,
                 "schema_version": request.schema_version,
