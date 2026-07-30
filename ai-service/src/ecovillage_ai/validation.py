@@ -14,6 +14,11 @@ from ecovillage_ai.features.quiz_draft import (
     quiz_structure_quality_codes,
     validate_quiz_draft_input,
 )
+from ecovillage_ai.features.setup_precheck import (
+    highest_preflight_severity,
+    preflight_guidance_quality_codes,
+    validate_setup_precheck_input,
+)
 from ecovillage_ai.models import (
     AnalysisMode,
     AnalysisSeverity,
@@ -66,6 +71,7 @@ class ValidationStage(StrEnum):
 def validate_input_policy(request: GenerationRequest) -> None:
     if isinstance(request, BalancingGenerationRequest):
         if isinstance(request.payload, SetupPrecheckPayload):
+            validate_setup_precheck_input(request.payload)
             return
         if (
             request.analysis_mode is AnalysisMode.AUTO_MONITOR
@@ -263,6 +269,8 @@ def _validate_setup_context(
     codes: list[str] = []
     if output.context_type is not payload.context.context_type:
         codes.append("SETUP_CONTEXT_MISMATCH")
+    if output.overall_severity is not highest_preflight_severity(payload):
+        codes.append("PREFLIGHT_OVERALL_SEVERITY_CHANGED")
     candidate_ids = {candidate.action_id for candidate in payload.candidates}
     explanation_ids = [item.action_id for item in output.candidate_explanations]
     if len(explanation_ids) != len(set(explanation_ids)):
@@ -311,14 +319,22 @@ def _validate_evidence(
             check_by_id = {check.check_id: check for check in request.payload.checks}
             for explanation in output.candidate_explanations:
                 candidate = candidate_by_id.get(explanation.action_id)
-                if candidate is not None and not set(
-                    explanation.evidence_reason_codes
-                ) <= set(candidate.reason_codes):
-                    codes.append("FABRICATED_EVIDENCE")
+                if candidate is not None:
+                    output_reasons = set(explanation.evidence_reason_codes)
+                    input_reasons = set(candidate.reason_codes)
+                    if not output_reasons <= input_reasons:
+                        codes.append("FABRICATED_EVIDENCE")
+                    elif explanation.evidence_reason_codes != candidate.reason_codes:
+                        codes.append("SETUP_REASON_CODES_CHANGED")
             for explanation in output.check_explanations:
                 check = check_by_id.get(explanation.check_id)
                 if check is not None and explanation.reason_code != check.reason_code:
                     codes.append("PREFLIGHT_REASON_CHANGED")
+                if (
+                    check is not None
+                    and explanation.subject_action_ids != check.subject_action_ids
+                ):
+                    codes.append("PREFLIGHT_SUBJECTS_CHANGED")
         elif isinstance(output, BalancingOutput) and not isinstance(
             request.payload, SetupPrecheckPayload
         ):
@@ -372,6 +388,17 @@ def _validate_range(request: GenerationRequest, output: GenerationOutput) -> lis
             candidate = candidate_by_id.get(explanation.action_id)
             if candidate is not None and explanation.proposed_value != candidate.proposed_value:
                 codes.append("PROPOSED_VALUE_CHANGED")
+            if candidate is not None and (
+                explanation.min_value != candidate.min_value
+                or explanation.max_value != candidate.max_value
+            ):
+                codes.append("SETUP_RANGE_CHANGED")
+            if candidate is not None and explanation.unit is not candidate.unit:
+                codes.append("SETUP_UNIT_CHANGED")
+            if candidate is not None and explanation.target_type is not candidate.target_type:
+                codes.append("SETUP_TARGET_TYPE_CHANGED")
+            if candidate is not None and explanation.label != candidate.label:
+                codes.append("SETUP_LABEL_CHANGED")
         for explanation in output.check_explanations:
             check = check_by_id.get(explanation.check_id)
             if check is not None and explanation.severity is not check.severity:
@@ -394,6 +421,12 @@ def _validate_range(request: GenerationRequest, output: GenerationOutput) -> lis
 def _validate_grade_and_effect(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
+    if (
+        isinstance(request, BalancingGenerationRequest)
+        and isinstance(request.payload, SetupPrecheckPayload)
+        and isinstance(output, SetupPrecheckOutput)
+    ):
+        return preflight_guidance_quality_codes(request.payload, output)
     if isinstance(request, QuizDraftGenerationRequest) and isinstance(
         output, QuizDraftOutput
     ):

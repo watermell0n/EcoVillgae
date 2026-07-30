@@ -16,6 +16,7 @@ const promptRuntimeDoc = read("docs/ai/PROMPT_RUNTIME.md");
 const providerAdapterDoc = read("docs/ai/PROVIDER_ADAPTERS.md");
 const teacherChatDoc = read("docs/ai/TEACHER_CHAT.md");
 const quizDraftDoc = read("docs/ai/QUIZ_DRAFT.md");
+const setupPrecheckDoc = read("docs/ai/SETUP_PRECHECK.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
@@ -25,6 +26,9 @@ const teacherChatEvaluation = JSON.parse(
 );
 const quizDraftEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/quiz_draft_evaluation_v1.json"),
+);
+const setupPrecheckEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/setup_precheck_evaluation_v1.json"),
 );
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
@@ -189,6 +193,24 @@ assert(
 );
 assert(quizDraftDoc.includes("48개"), "퀴즈 초안 문서에 48개 평가 사례가 없습니다.");
 
+const setupPrecheckSuccessCount =
+  setupPrecheckEvaluation.grades.length * setupPrecheckEvaluation.success_cases.length;
+const setupPrecheckInvalidCount =
+  setupPrecheckEvaluation.grades.length * setupPrecheckEvaluation.invalid_output_cases.length;
+const setupPrecheckEvaluationCount = setupPrecheckSuccessCount + setupPrecheckInvalidCount;
+assert(
+  setupPrecheckEvaluation.evaluation_set_version === "setup-precheck-evaluation-v1",
+  "설정 점검 평가 세트 버전이 올바르지 않습니다.",
+);
+assert(
+  setupPrecheckSuccessCount === setupPrecheckEvaluation.expected_success_case_count &&
+    setupPrecheckInvalidCount === setupPrecheckEvaluation.expected_invalid_case_count &&
+    setupPrecheckEvaluationCount === setupPrecheckEvaluation.expected_case_count &&
+    setupPrecheckEvaluationCount === 48,
+  `설정 점검 평가 사례는 48개여야 합니다: ${setupPrecheckEvaluationCount}`,
+);
+assert(setupPrecheckDoc.includes("48개"), "설정 점검 문서에 48개 평가 사례가 없습니다.");
+
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
 assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
@@ -286,6 +308,7 @@ console.log(
       invalid_fixtures: fixtureCatalog.invalid.length,
       teacher_chat_evaluation_cases: teacherChatEvaluationCount,
       quiz_draft_evaluation_cases: quizDraftEvaluationCount,
+      setup_precheck_evaluation_cases: setupPrecheckEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

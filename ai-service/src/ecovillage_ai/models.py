@@ -247,6 +247,8 @@ class SetupContext(ContractModel):
 
     @model_validator(mode="after")
     def validate_quiz_mode(self) -> SetupContext:
+        if len(self.active_modules) != len(set(self.active_modules)):
+            raise ValueError("활성 모듈은 중복될 수 없습니다.")
         if self.context_type is SetupContextType.QUIZ_SESSION_DRAFT:
             if self.quiz_mode is None:
                 raise ValueError("퀴즈 세션 설정 문맥에는 quiz_mode가 필요합니다.")
@@ -282,6 +284,13 @@ class PreflightCheck(ContractModel):
     subject_action_ids: Annotated[list[ShortText], Field(max_length=20)]
     message: Annotated[str, Field(min_length=1, max_length=500)]
 
+    @field_validator("subject_action_ids")
+    @classmethod
+    def subject_action_ids_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("점검 대상 action_id는 중복될 수 없습니다.")
+        return values
+
 
 class SetupPrecheckPayload(ContractModel):
     context: SetupContext
@@ -312,12 +321,23 @@ class SetupPrecheckPayload(ContractModel):
             for candidate in self.candidates
         ):
             raise ValueError("설정 문맥에서 허용하지 않는 추천 대상입니다.")
+        if self.context.course_scale is CourseScale.ONE_SHOT and self.candidates:
+            raise ValueError("1회 코스에는 경제 설정·화폐 보상 후보를 둘 수 없습니다.")
         if self.context.context_type is SetupContextType.QUIZ_SESSION_DRAFT and (
-            self.context.course_scale is CourseScale.ONE_SHOT
-            or self.context.quiz_mode is QuizRunMode.TEST
+            self.context.quiz_mode is QuizRunMode.TEST
         ):
             if self.candidates:
                 raise ValueError("TEST와 1회 코스 퀴즈에는 화폐 보상 후보를 둘 수 없습니다.")
+
+        if self.context.context_type is SetupContextType.CLASSROOM_SETUP and any(
+            candidate.target_id is not None for candidate in self.candidates
+        ):
+            raise ValueError("학급 개설 설정 후보에는 개별 target_id를 둘 수 없습니다.")
+        if self.context.context_type in {
+            SetupContextType.PRODUCT_DRAFT,
+            SetupContextType.QUIZ_SESSION_DRAFT,
+        } and any(candidate.target_id is None for candidate in self.candidates):
+            raise ValueError("상품·퀴즈 설정 후보에는 대상 target_id가 필요합니다.")
 
         known_ids = set(candidate_ids)
         if any(
@@ -673,7 +693,12 @@ class BalancingOutput(ContractModel):
 
 class SetupCandidateExplanation(ContractModel):
     action_id: ShortText
+    target_type: SetupRecommendationTargetType
+    label: Annotated[str, Field(min_length=1, max_length=100)]
     proposed_value: Annotated[StrictInt, Field(ge=0)]
+    min_value: Annotated[StrictInt, Field(ge=0)]
+    max_value: Annotated[StrictInt, Field(ge=0)]
+    unit: MetricUnit
     evidence_reason_codes: Annotated[list[ReasonCode], Field(min_length=1, max_length=20)]
     rationale: Annotated[str, Field(min_length=1, max_length=1000)]
     cautions: Annotated[
@@ -692,13 +717,22 @@ class PreflightCheckExplanation(ContractModel):
     check_id: ShortText
     severity: PreflightSeverity
     reason_code: ReasonCode
+    subject_action_ids: Annotated[list[ShortText], Field(max_length=20)]
     explanation: Annotated[str, Field(min_length=1, max_length=1000)]
     correction_guidance: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
+
+    @field_validator("subject_action_ids")
+    @classmethod
+    def subject_action_ids_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("점검 설명 대상 action_id는 중복될 수 없습니다.")
+        return values
 
 
 class SetupPrecheckOutput(ContractModel):
     review_status: Literal["REVIEW_REQUIRED"]
     context_type: SetupContextType
+    overall_severity: PreflightSeverity
     summary: Annotated[str, Field(min_length=1, max_length=1500)]
     candidate_explanations: Annotated[
         list[SetupCandidateExplanation], Field(max_length=30)

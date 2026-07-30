@@ -423,6 +423,7 @@ components:
         active_modules:
           type: array
           maxItems: 30
+          uniqueItems: true
           items:
             type: string
             minLength: 1
@@ -521,6 +522,10 @@ components:
         candidates:
           type: array
           maxItems: 30
+          description: >-
+            ONE_SHOT 코스와 TEST 퀴즈에는 후보를 전달하지 않는다. CLASSROOM_SETUP은
+            target_id가 null이고 PRODUCT_DRAFT와 QUIZ_SESSION_DRAFT 후보에는 대상 UUID가
+            필요하다.
           items:
             $ref: '#/components/schemas/SetupCandidate'
         checks:
@@ -665,7 +670,12 @@ components:
       additionalProperties: false
       required:
         - action_id
+        - target_type
+        - label
         - proposed_value
+        - min_value
+        - max_value
+        - unit
         - evidence_reason_codes
         - rationale
         - cautions
@@ -674,9 +684,31 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+        target_type:
+          type: string
+          enum:
+            - ROLE_SALARY
+            - INCOME_TAX_RATE
+            - DEPOSIT_RATE
+            - LOAN_RATE
+            - PRODUCT_PRICE
+            - GAME_REWARD
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
         proposed_value:
           type: integer
           minimum: 0
+        min_value:
+          type: integer
+          minimum: 0
+        max_value:
+          type: integer
+          minimum: 0
+        unit:
+          type: string
+          enum: [AMOUNT, COUNT, RATE_BPS]
         evidence_reason_codes:
           type: array
           minItems: 1
@@ -703,6 +735,7 @@ components:
         - check_id
         - severity
         - reason_code
+        - subject_action_ids
         - explanation
         - correction_guidance
       properties:
@@ -716,6 +749,14 @@ components:
         reason_code:
           type: string
           pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        subject_action_ids:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
         explanation:
           type: string
           minLength: 1
@@ -730,6 +771,7 @@ components:
       required:
         - review_status
         - context_type
+        - overall_severity
         - summary
         - candidate_explanations
         - check_explanations
@@ -740,6 +782,9 @@ components:
         context_type:
           type: string
           enum: [CLASSROOM_SETUP, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
+        overall_severity:
+          type: string
+          enum: [PASS, WARN, BLOCK]
         summary:
           type: string
           minLength: 1

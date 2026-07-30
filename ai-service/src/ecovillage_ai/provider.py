@@ -90,17 +90,41 @@ class FakeGenerationProvider:
 
     @staticmethod
     def _setup_precheck(payload: dict[str, Any]) -> dict[str, Any]:
+        severity_priority = {"PASS": 0, "WARN": 1, "BLOCK": 2}
+        overall_severity = max(
+            (check["severity"] for check in payload["checks"]),
+            key=severity_priority.__getitem__,
+        )
+        cautioned_action_ids = {
+            action_id
+            for check in payload["checks"]
+            if check["severity"] in {"WARN", "BLOCK"}
+            for action_id in check["subject_action_ids"]
+        }
         return {
             "review_status": "REVIEW_REQUIRED",
             "context_type": payload["context"]["context_type"],
-            "summary": "규칙 엔진이 계산한 설정 후보와 시작 전 점검 결과를 설명했습니다.",
+            "overall_severity": overall_severity,
+            "summary": (
+                f"규칙 엔진이 계산한 후보를 바꾸지 않고 시작 전 점검의 "
+                f"최고 판정 {overall_severity}를 설명했습니다."
+            ),
             "candidate_explanations": [
                 {
                     "action_id": candidate["action_id"],
+                    "target_type": candidate["target_type"],
+                    "label": candidate["label"],
                     "proposed_value": candidate["proposed_value"],
+                    "min_value": candidate["min_value"],
+                    "max_value": candidate["max_value"],
+                    "unit": candidate["unit"],
                     "evidence_reason_codes": candidate["reason_codes"],
                     "rationale": "현재 수업 설정에 맞춰 계산된 후보값의 의미를 확인해 보세요.",
-                    "cautions": ["실제 적용 전 현재 수업 계획과 함께 검토해야 합니다."],
+                    "cautions": (
+                        ["관련 WARN·BLOCK 원인을 수정하거나 확인한 뒤 적용해야 합니다."]
+                        if candidate["action_id"] in cautioned_action_ids
+                        else []
+                    ),
                 }
                 for candidate in payload["candidates"]
             ],
@@ -109,6 +133,7 @@ class FakeGenerationProvider:
                     "check_id": check["check_id"],
                     "severity": check["severity"],
                     "reason_code": check["reason_code"],
+                    "subject_action_ids": check["subject_action_ids"],
                     "explanation": check["message"],
                     "correction_guidance": (
                         None

@@ -79,6 +79,11 @@ ruff check .
 정리되어 있습니다. 자동 평가와 Swagger 직접 테스트는
 [`docs/ai/QUIZ_DRAFT.md`](../docs/ai/QUIZ_DRAFT.md)를 따릅니다.
 
+경제 설정 추천·시작 전 점검은 규칙 엔진이 계산한 급여·세율·금리·상품 가격·GAME 보상
+후보와 `PASS·WARN·BLOCK` 판정을 바꾸지 않고 설명합니다. 값·범위·단위·근거·판정 변조와
+자동 적용 표현을 차단하며, 48개 평가 사례와 Swagger 직접 테스트는
+[`docs/ai/SETUP_PRECHECK.md`](../docs/ai/SETUP_PRECHECK.md)를 따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.
