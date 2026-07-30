@@ -23,21 +23,26 @@ import com.b201.ecovillage.trade.application.CreateTradeCommand;
 import com.b201.ecovillage.trade.application.ProposerTradeCommandRequest;
 import com.b201.ecovillage.trade.application.TradeCommandResult;
 import com.b201.ecovillage.trade.application.TradeCommandService;
+import com.b201.ecovillage.trade.application.TeacherTradeDecisionRequest;
+import com.b201.ecovillage.trade.application.TradeTeacherDecisionService;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}/trades")
 public class TradeController {
 
     private final TradeCommandService tradeService;
+    private final TradeTeacherDecisionService teacherDecisionService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public TradeController(
         TradeCommandService tradeService,
+        TradeTeacherDecisionService teacherDecisionService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.tradeService = tradeService;
+        this.teacherDecisionService = teacherDecisionService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -116,6 +121,33 @@ public class TradeController {
             : correlationId;
         TradeCommandResult result = tradeService.decideByCounterpart(
             new CounterpartTradeDecisionRequest(
+                subject(principal),
+                classroomId,
+                tradeId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.decision(),
+                request.reason()
+            )
+        );
+        return response(HttpStatus.OK, result, requestId, resolvedCorrelationId);
+    }
+
+    @PostMapping("/{tradeId}/teacher-decisions")
+    public ResponseEntity<ApiResponse<TradeCommandResponse>> decideByTeacher(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID tradeId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody TeacherTradeDecisionBody request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        TradeCommandResult result = teacherDecisionService.decide(
+            new TeacherTradeDecisionRequest(
                 subject(principal),
                 classroomId,
                 tradeId,

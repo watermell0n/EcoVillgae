@@ -16,6 +16,11 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
 
     Optional<Trade> findByClassroomIdAndId(UUID classroomId, UUID id);
 
+    Optional<Trade> findByClassroomIdAndTransactionGroupId(
+        UUID classroomId,
+        UUID transactionGroupId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select trade

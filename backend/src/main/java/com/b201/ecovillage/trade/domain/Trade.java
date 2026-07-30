@@ -163,10 +163,7 @@ public class Trade {
             policySnapshotId,
             "policySnapshotId must not be null"
         );
-        this.transactionGroupId = Objects.requireNonNull(
-            transactionGroupId,
-            "transactionGroupId must not be null"
-        );
+        this.transactionGroupId = transactionGroupId;
         this.teacherDecidedAt = changedAt;
         changeStatus(TradeStatus.SETTLING, changedAt);
     }
@@ -228,6 +225,14 @@ public class Trade {
 
     public TradeStatus getStatus() {
         return status;
+    }
+
+    public UUID getPolicySnapshotId() {
+        return policySnapshotId;
+    }
+
+    public UUID getTransactionGroupId() {
+        return transactionGroupId;
     }
 
     public long getStateVersion() {
