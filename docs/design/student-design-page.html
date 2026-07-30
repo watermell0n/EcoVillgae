@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이코빌리지 학생 앱 디자인 페이지</title>
+  <style>
+    :root {
+      --ink: #243042;
+      --muted: #6f8198;
+      --nav: #2f3b4d;
+      --sky: #d7efff;
+      --mint: #d7f3e8;
+      --cream: #f8f5c8;
+      --orange: #ed8541;
+      --green: #5fad67;
+      --purple: #7d55ef;
+      --red: #e86f70;
+      --line: #cfe8ef;
+      --card: rgba(255,255,255,0.82);
+      --shadow: 0 18px 38px rgba(48,84,92,0.1);
+      font-family: "Pretendard", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(187,226,255,0.74), transparent 34%),
+        linear-gradient(135deg, var(--sky) 0%, var(--mint) 48%, var(--cream) 100%);
+    }
+
+    .devbar {
+      height: 52px;
+      background: var(--nav);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      color: #fff;
+      overflow-x: auto;
+    }
+
+    .devbar strong,
+    .devbar span {
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 10px;
+      padding: 0 15px;
+      white-space: nowrap;
+      font-weight: 950;
+    }
+
+    .devbar strong { background: rgba(255,255,255,0.14); }
+    .devbar span { background: rgba(255,255,255,0.1); color: #eef6ff; }
+    .devbar span.active { background: var(--orange); color: #fff; }
+
+    .appbar {
+      height: 76px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 0 30px;
+      background: linear-gradient(90deg, rgba(190,226,247,0.92), rgba(200,244,218,0.9));
+      border-bottom: 2px solid rgba(255,255,255,0.7);
+    }
+
+    .brand,
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand b {
+      font-size: 23px;
+      font-weight: 950;
+    }
+
+    .location,
+    .pill {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 0 18px;
+      background: rgba(255,255,255,0.75);
+      font-weight: 950;
+      color: var(--ink);
+      box-shadow: 0 8px 18px rgba(48,84,92,0.05);
+    }
+
+    .status {
+      justify-content: flex-end;
+    }
+
+    .pill.day { color: #7d55ef; }
+    .pill.money { color: var(--green); }
+
+    main {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 34px 42px 70px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 26px;
+      align-items: stretch;
+      margin-bottom: 28px;
+    }
+
+    .hero-card,
+    .side-card,
+    .board,
+    .component-card {
+      background: var(--card);
+      border: 2px solid rgba(207,232,239,0.95);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card {
+      padding: 34px 38px;
+      min-height: 230px;
+      display: grid;
+      align-content: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      width: max-content;
+      min-height: 34px;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 14px;
+      background: #fff7e8;
+      color: var(--orange);
+      font-weight: 950;
+    }
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: 44px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.55;
+      font-weight: 750;
+    }
+
+    .side-card {
+      padding: 24px;
+    }
+
+    .side-card h2,
+    .board h2 {
+      margin: 0 0 16px;
+      font-size: 23px;
+      letter-spacing: 0;
+    }
+
+    .todo {
+      display: grid;
+      gap: 10px;
+    }
+
+    .todo div {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-radius: 14px;
+      background: #fffbea;
+      border: 1px solid #f4d56c;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 34px 0 16px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .swatch {
+      min-height: 116px;
+      border-radius: 20px;
+      padding: 16px;
+      display: grid;
+      align-content: end;
+      border: 2px solid rgba(255,255,255,0.6);
+      box-shadow: 0 10px 22px rgba(48,84,92,0.07);
+      font-weight: 950;
+    }
+
+    .swatch small {
+      display: block;
+      margin-top: 5px;
+      color: rgba(36,48,66,0.65);
+      font-weight: 850;
+    }
+
+    .components {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .component-card {
+      padding: 22px;
+      min-height: 230px;
+    }
+
+    .component-card h3 {
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+
+    .village-card {
+      min-height: 158px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      border: 2px solid #f4c9af;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.72);
+      margin-top: 14px;
+    }
+
+    .village-card i {
+      display: block;
+      font-style: normal;
+      font-size: 44px;
+      margin-bottom: 10px;
+    }
+
+    .village-card strong {
+      display: block;
+      font-size: 21px;
+      margin-bottom: 6px;
+    }
+
+    .enter {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      min-width: 110px;
+      margin-top: 12px;
+      border-radius: 999px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 950;
+    }
+
+    .receipt {
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 20px;
+      background: #fffdf4;
+      border: 2px solid #f1cab6;
+    }
+
+    .receipt-head {
+      padding: 16px 18px;
+      background: var(--orange);
+      color: #fff;
+      font-weight: 950;
+      font-size: 20px;
+    }
+
+    .receipt-row {
+      min-height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px;
+      padding: 0 14px;
+      border-radius: 12px;
+      background: #f8fbee;
+      font-weight: 900;
+    }
+
+    .receipt-total {
+      margin: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 2px solid var(--green);
+      border-radius: 15px;
+      color: var(--green);
+      font-size: 32px;
+      font-weight: 950;
+    }
+
+    .slot {
+      height: 168px;
+      display: grid;
+      place-items: center;
+      margin-top: 14px;
+      border-radius: 20px;
+      background: #eef8ff;
+      border: 2px dashed #7ebeea;
+      color: #2f76b8;
+      font-weight: 950;
+      image-rendering: pixelated;
+    }
+
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .screen {
+      min-height: 166px;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.78);
+      border: 2px solid rgba(207,232,239,0.95);
+      box-shadow: 0 10px 22px rgba(48,84,92,0.06);
+    }
+
+    .screen b {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 10px;
+      background: #eef8ff;
+      color: #2f76b8;
+      font-size: 13px;
+    }
+
+    .screen h3 {
+      margin: 14px 0 8px;
+      font-size: 20px;
+    }
+
+    .screen p {
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .priority {
+      display: grid;
+      gap: 10px;
+      counter-reset: order;
+    }
+
+    .priority div {
+      counter-increment: order;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      min-height: 60px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(207,232,239,0.95);
+      padding: 0 16px;
+      font-weight: 900;
+    }
+
+    .priority div::before {
+      content: counter(order);
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #f7d94e;
+      color: #6a5200;
+      font-weight: 950;
+    }
+
+    .priority code {
+      color: #2f76b8;
+      font-weight: 950;
+    }
+
+    .board {
+      padding: 24px;
+    }
+
+    @media (max-width: 980px) {
+      .appbar,
+      .hero,
+      .paystub-view {
+        grid-template-columns: 1fr;
+      }
+
+      .palette,
+      .components,
+      .screen-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      main {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="devbar">
+    <strong>▼ 개발 메뉴</strong>
+    <span class="active">🏘️ 마을</span>
+    <span>💰 지갑</span>
+    <span>🏪 상점</span>
+    <span>🎮 활동</span>
+    <span>🎨 캐릭터</span>
+  </nav>
+
+  <header class="appbar">
+    <div class="brand"><span style="font-size:32px">🏘️</span><b>이코빌리지</b></div>
+    <div class="location">📍 학생 앱 디자인 페이지</div>
+    <div class="status">
+      <span class="pill day">1일차</span>
+      <span class="pill money">💰 135비빔</span>
+      <span class="pill">👤 학생</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <article class="hero-card">
+        <span class="eyebrow">Figma 작업용 기준</span>
+        <h1>학생 앱은 마을을 돌아다니는 느낌으로 설계해요</h1>
+        <p>최신 Git 문서의 `SCR-STU-001~024` 화면과 Jira `S15P11B201-190~196`을 기준으로, 캡처처럼 하늘색·민트색 파스텔 UI에 큰 카드 중심 흐름을 적용합니다.</p>
+      </article>
+      <aside class="side-card">
+        <h2>핵심 원칙</h2>
+        <div class="todo">
+          <div>1. 홈은 마을 기능 카드</div>
+          <div>2. 상세는 큰 결과 카드</div>
+          <div>3. 설명은 짧게</div>
+          <div>4. 캐릭터는 도트 PNG 슬롯</div>
+        </div>
+      </aside>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>색상 토큰</h2>
+        <span>00 Student Style</span>
+      </div>
+      <div class="palette">
+        <div class="swatch" style="background:#d7efff">sky-100<small>#D7EFFF</small></div>
+        <div class="swatch" style="background:#d7f3e8">mint-100<small>#D7F3E8</small></div>
+        <div class="swatch" style="background:#f8f5c8">cream-100<small>#F8F5C8</small></div>
+        <div class="swatch" style="background:#ed8541;color:white">orange-500<small style="color:rgba(255,255,255,.8)">#ED8541</small></div>
+        <div class="swatch" style="background:#5fad67;color:white">green-500<small style="color:rgba(255,255,255,.8)">#5FAD67</small></div>
+        <div class="swatch" style="background:#7d55ef;color:white">purple-500<small style="color:rgba(255,255,255,.8)">#7D55EF</small></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>공통 컴포넌트</h2>
+        <span>Figma 컴포넌트 후보</span>
+      </div>
+      <div class="components">
+        <article class="component-card">
+          <h3>Village Card</h3>
+          <p>홈에서 기능 건물로 들어가는 카드입니다.</p>
+          <div class="village-card">
+            <div>
+              <i>🏪</i>
+              <strong>이코 상점</strong>
+              <p>상품을 사요</p>
+              <span class="enter">입장하기 →</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="component-card">
+          <h3>Receipt Card</h3>
+          <p>월급명세서와 구매 상세에 쓰는 영수증 카드입니다.</p>
+          <div class="receipt">
+            <div class="receipt-head">급여 명세서</div>
+            <div class="receipt-row"><span>1인 1역 월급</span><b>+150</b></div>
+            <div class="receipt-row"><span>소득세</span><b style="color:var(--red)">-17</b></div>
+            <div class="receipt-total">158비빔</div>
+          </div>
+        </article>
+
+        <article class="component-card">
+          <h3>Character Slot</h3>
+          <p>도트 캐릭터를 직접 그리지 않고 이미지 에셋을 얹는 영역입니다.</p>
+          <div class="slot">도트 캐릭터 PNG</div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>Figma 페이지 구성</h2>
+        <span>섹션 단위</span>
+      </div>
+      <div class="screen-grid">
+        <article class="screen"><b>00</b><h3>Student Style</h3><p>색상, 타이포, 공통 바, 버튼, 카드, 상태 배지</p></article>
+        <article class="screen"><b>01</b><h3>Student Home</h3><p>로그인, 비밀번호 재설정, 마을 광장, 지도 활동 전환</p></article>
+        <article class="screen"><b>02</b><h3>Wallet Paystub</h3><p>지갑, 월급명세서, 거래 상세</p></article>
+        <article class="screen"><b>03</b><h3>Shop Character</h3><p>상점, 구매, 캐릭터, 보유 아이템</p></article>
+        <article class="screen"><b>04</b><h3>Trade Fund</h3><p>개인거래, 공동기금, 익명 투표</p></article>
+        <article class="screen"><b>05</b><h3>Finance</h3><p>금융 홈, 예금, 적금, 투자, 대출, 신용</p></article>
+        <article class="screen"><b>06</b><h3>Quiz Report</h3><p>GAME 퀴즈, TEST 응시, 결과, 최종 리포트</p></article>
+        <article class="screen"><b>99</b><h3>References</h3><p>캡처 레퍼런스, 도트 캐릭터 에셋, 아이콘 후보</p></article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>우선 제작 순서</h2>
+        <span>Jira 190~196 + SCR-STU 기준</span>
+      </div>
+      <div class="board">
+        <div class="priority">
+          <div><span>마을 광장 홈</span><code>SCR-STU-003</code></div>
+          <div><span>월급명세서</span><code>SCR-STU-005</code></div>
+          <div><span>지갑·거래내역</span><code>SCR-STU-004</code></div>
+          <div><span>상점·구매</span><code>SCR-STU-006~007</code></div>
+          <div><span>캐릭터·보유 아이템</span><code>SCR-STU-008</code></div>
+          <div><span>선생님 수업·퀴즈 결과</span><code>SCR-STU-021~023</code></div>
+          <div><span>공동기금·투표</span><code>SCR-STU-012</code></div>
+          <div><span>개인거래</span><code>SCR-STU-009~011</code></div>
+          <div><span>금융 확장 화면</span><code>SCR-STU-013~020</code></div>
+          <div><span>로그인·최종 리포트</span><code>SCR-STU-001~002, 024</code></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
