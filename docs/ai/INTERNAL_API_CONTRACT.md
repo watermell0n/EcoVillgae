@@ -1,6 +1,6 @@
 # 이코빌리지 내부 AI API 계약
 
-- 버전: v1.0
+- 버전: v1.1
 - 기준일: 2026-07-30
 - 상태: MVP 구현 기준선
 - 호출 관계: Spring 핵심 API·비동기 작업자 → FastAPI AI 서비스
@@ -73,7 +73,7 @@
   "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
   "request_id": "b4d6c65d-df46-4d4b-a83c-a1c8d95ee8fe",
   "correlation_id": "b18b92c5-1273-4bed-832e-4d33bcf85f4f",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "prompt_version": "balancing-v1",
   "attempt": 1,
   "deadline_at": "2026-07-30T05:30:20.000Z",
@@ -96,7 +96,7 @@
 ```json
 {
   "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "prompt_version": "balancing-v1",
   "provider": "BEDROCK",
   "model_id": "configured-model-id",
@@ -119,17 +119,32 @@
 
 ## 6. 기능별 계약
 
-### 6.1 경제 밸런싱
+### 6.1 설정 점검·경제 밸런싱
 
 `POST /internal/v1/generations/balancing`
 
-입력:
+요청은 `analysis_mode`에 따라 다음 세 흐름으로 구분합니다.
 
-- 분석 기간과 `data_as_of`
-- 현재·직전 동일 길이 분석 구간의 지표
-- 학생 수와 관련 거래 수
-- 규칙 엔진이 계산한 경고 코드
-- 조정 대상별 현재값·최솟값·최댓값·단위
+| 모드 | 입력 | AI가 반환하는 것 |
+| --- | --- | --- |
+| `SETUP_PRECHECK` | 설정 문맥, 규칙 엔진 후보값·범위·근거, 사전 점검 결과 | 후보값과 점검 결과를 바꾸지 않은 교사용 설명 |
+| `ON_DEMAND` | 교사가 요청한 분석 구간, 지표, 허용 조정안 | 요약·원인·근거·우선순위 조정 제안 |
+| `AUTO_MONITOR` | 현재·이전 비중첩 동일 길이 구간, OBSERVE·WARN 지표, 허용 조정안 | 자동 알림 후보에 사용할 설명과 조정 제안 |
+
+`SETUP_PRECHECK`의 `context_type`은 다음 세 가지입니다.
+
+- `CLASSROOM_SETUP`: 역할 급여, 소득세율, 예금금리, 대출금리 후보
+- `PRODUCT_DRAFT`: 교사가 등록 중인 상품의 가격 후보
+- `QUIZ_SESSION_DRAFT`: GAME 퀴즈 보상 후보. TEST와 1회성 코스에는 보상 후보를 두지 않음
+
+후보 숫자와 `PASS·WARN·BLOCK` 판정은 규칙 엔진이 계산합니다. FastAPI는
+`action_id`, 후보값, 허용 범위, 근거 코드, 점검 심각도를 그대로 인용해 설명하며 값을
+새로 계산하거나 변경할 수 없습니다.
+
+운영 분석 입력에는 `trigger_type`, 지표·임계값 버전, 분석 심각도, 표본, 지표와 허용
+조정안이 포함됩니다. 자동 모니터링은 `AUTO_MONITOR`와 `trigger_type=AUTO_MONITOR`를
+함께 사용하며 NORMAL은 모델을 호출하지 않고 거절합니다. OBSERVE·WARN만 생성 요청을
+허용합니다.
 
 출력:
 
@@ -139,8 +154,8 @@
 - 우선순위가 있는 조정 제안
 - 예상 효과와 부작용
 
-제안은 입력으로 받은 `action_id`와 정수 `proposed_value`만 참조합니다. 새로운 대상,
-금액 단위, 정책 종류 또는 허용 범위를 만들 수 없습니다. 최소 표본 판정은 모델 호출
+운영 조정 제안은 입력으로 받은 `action_id`와 정수 `proposed_value`만 참조합니다. 새로운
+대상, 금액 단위, 정책 종류 또는 허용 범위를 만들 수 없습니다. 최소 표본 판정은 모델 호출
 전에 핵심 API가 수행하고 FastAPI도 같은 값을 방어적으로 검사합니다.
 
 ### 6.2 교사용 챗봇
@@ -182,13 +197,23 @@ PRICE | SUPPLY | TAX | INTEREST_RATE | INVESTMENT_NEWS | REWARD | PUBLIC_FUND
 FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않고 제목·이야기·선택지·진행
 문구만 포함합니다.
 
+이벤트 출처는 교사의 직접 요청인 `TEACHER_REQUEST`와 자동 모니터링 제안에서 이어지는
+`MONITOR_RECOMMENDATION`을 모두 허용합니다. 후자는 `source_proposal_id`와 하나 이상의
+`source_evidence_codes`가 반드시 있어야 합니다.
+
+`INVESTMENT_NEWS`는 별도 기업을 생성하지 않습니다. 입력에 있는
+`scenario_version_id`, `asset_id`, `price_step_id`, 가상 자산 이름·기호,
+`current_step_index`와 현재 단계까지의 `public_price_facts`만 사용합니다. 출력은 같은 연결
+ID와 현재 단계, 제목·뉴스 본문·교사용 설명을 반환하며 다음 단계 가격, 수익 예측, 매매
+추천을 만들 수 없습니다.
+
 ### 6.4 퀴즈 초안
 
 `POST /internal/v1/generations/quiz-draft`
 
-입력은 학년, 주제, 학습목표, `ECONOMY·NONSENSE`, `MULTIPLE_CHOICE·OX`, 문항 수로
-제한합니다. 출력 문항은 문제, 선택지, 정답 key, 해설, 난이도와 개념 태그를
-포함합니다.
+입력은 학년, 주제, 학습목표, `difficulty=INTRODUCTORY|STANDARD|ADVANCED`, 하나 이상의
+`concepts`, `ECONOMY·NONSENSE`, `MULTIPLE_CHOICE·OX`, 문항 수로 제한합니다. 출력 문항은
+문제, 선택지, 정답 key, 해설, 요청 난이도와 입력 개념 안의 `concept_tags`를 포함합니다.
 
 - 객관식은 3~5개 선택지와 정확히 하나의 정답을 가집니다.
 - OX는 `O`, `X` 두 선택지와 정확히 하나의 정답을 가집니다.
@@ -237,16 +262,16 @@ FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않�
 
 1. 제품 정책은 `docs/AI_DIRECTION.md`를 먼저 변경합니다.
 2. 이 문서와 `contracts/ai-internal-openapi.yaml`을 함께 변경합니다.
-3. Pydantic 모델과 Spring 내부 DTO의 계약 테스트를 갱신합니다.
+3. Pydantic 모델을 갱신하고, 통합 단계에서는 Spring 내부 DTO와 계약 테스트도 함께
+   갱신합니다.
 4. 프롬프트·스키마 버전의 호환성을 판정합니다.
 5. 외부 필드가 바뀌면 `docs/HTTP_API_SPEC.md`와 생성된 `contracts/openapi.yaml`,
    `contracts/api-field-mapping.json`을 함께 갱신합니다.
 
-## 10. 다음 계약 버전 반영 항목
+## 10. v1.1 반영 결과
 
-아래 항목은 2026-07-30 제품 결정으로 확정했지만 현재 기계 판독 계약 v1.0에는 아직
-포함되지 않았습니다. 기능 코드를 추가하기 전에 v1.1로 올리고 이 문서·OpenAPI·Pydantic·
-Spring DTO를 한 커밋에서 함께 변경합니다.
+2026-07-30 제품 결정을 사람용 계약, OpenAPI, Pydantic 모델과 로컬 fixture에
+반영했습니다. Spring DTO·DB·외부 API 연결은 독립 AI MVP 이후 통합 단계에서 진행합니다.
 
 ### 10.1 설정 추천·자동 모니터링
 
@@ -257,8 +282,8 @@ Spring DTO를 한 커밋에서 함께 변경합니다.
   요청할 때도 FastAPI는 입력 `action_id`, 후보값과 허용 범위를 바꿀 수 없습니다.
 - `AUTO_MONITOR`의 NORMAL은 FastAPI를 호출하지 않고 Spring에서 완료합니다.
   OBSERVE·WARN만 현재 밸런싱 생성 계약을 사용합니다.
-- 요청 envelope에는 분석 트리거와 구간을 추가하고, 자동 실행은 사용자 ID 대신 시스템
-  행위와 스케줄 멱등 키를 Spring 저장 메타데이터에 기록합니다.
+- 요청 envelope에는 분석 트리거와 구간을 추가했습니다. 자동 실행의 시스템 행위와
+  스케줄 멱등 키 저장은 Spring 통합 단계의 책임입니다.
 
 ### 10.2 이벤트 출처·투자 뉴스 연결
 
@@ -268,5 +293,5 @@ Spring DTO를 한 커밋에서 함께 변경합니다.
   공개 가능한 가격 사실을 전달합니다. 다음 단계 가격과 다른 미공개 뉴스는 전달하지 않습니다.
 - FastAPI는 기업·재무정보·가격·수익률을 생성하지 않고 연결된 단계의 제목·뉴스 본문·
   교사용 설명만 반환합니다.
-- 핵심 API는 시장 시작 전에 단계별 생성 작업을 실행하고 교사 승인 상태를 저장하며,
-  학생 조회에는 가격 단계 공개 이후의 승인 뉴스만 포함합니다.
+- 시장 시작 전 단계별 생성 작업, 교사 승인 상태 저장과 학생 공개 시점 제어는 Spring
+  통합 단계의 책임입니다.

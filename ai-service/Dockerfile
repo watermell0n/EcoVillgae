@@ -15,4 +15,4 @@ RUN python -m pip install .
 USER app
 EXPOSE 8000
 
-CMD ["uvicorn", "bibim_ai.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "ecovillage_ai.main:app", "--host", "0.0.0.0", "--port", "8000"]

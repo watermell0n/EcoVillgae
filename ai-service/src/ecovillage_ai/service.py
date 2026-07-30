@@ -6,13 +6,13 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from bibim_ai.config import Settings
-from bibim_ai.errors import (
+from ecovillage_ai.config import Settings
+from ecovillage_ai.errors import (
     ProviderRateLimitedError,
     ProviderUnavailableError,
     ServiceError,
 )
-from bibim_ai.models import (
+from ecovillage_ai.models import (
     BalancingGenerationRequest,
     BalancingGenerationResponse,
     BalancingOutput,
@@ -26,15 +26,16 @@ from bibim_ai.models import (
     QuizDraftGenerationRequest,
     QuizDraftGenerationResponse,
     QuizDraftOutput,
+    SetupPrecheckOutput,
+    SetupPrecheckPayload,
     TeacherChatGenerationRequest,
     TeacherChatGenerationResponse,
     TeacherChatOutput,
 )
-from bibim_ai.provider import GenerationKind, GenerationProvider
-from bibim_ai.validation import validate_input_policy, validate_output_policy
+from ecovillage_ai.provider import GenerationKind, GenerationProvider
+from ecovillage_ai.validation import validate_input_policy, validate_output_policy
 
 OUTPUT_MODELS: dict[GenerationKind, type[GenerationOutput]] = {
-    GenerationKind.BALANCING: BalancingOutput,
     GenerationKind.TEACHER_CHAT: TeacherChatOutput,
     GenerationKind.ECONOMIC_EVENT: EconomicEventOutput,
     GenerationKind.QUIZ_DRAFT: QuizDraftOutput,
@@ -80,7 +81,7 @@ class GenerationService:
                 validation_codes=["PROVIDER_UNAVAILABLE"],
             ) from error
 
-        output = self._validate_provider_output(kind, provider_result.output)
+        output = self._validate_provider_output(kind, request, provider_result.output)
         validate_output_policy(request, output)
         metadata: dict[str, Any] = {
             "ai_run_id": request.ai_run_id,
@@ -114,9 +115,20 @@ class GenerationService:
 
     @staticmethod
     def _validate_provider_output(
-        kind: GenerationKind, raw_output: dict[str, Any]
+        kind: GenerationKind,
+        request: GenerationRequest,
+        raw_output: dict[str, Any],
     ) -> GenerationOutput:
-        model = OUTPUT_MODELS[kind]
+        if kind is GenerationKind.BALANCING:
+            if not isinstance(request, BalancingGenerationRequest):
+                raise TypeError("밸런싱 생성에는 밸런싱 요청이 필요합니다.")
+            model: type[GenerationOutput] = (
+                SetupPrecheckOutput
+                if isinstance(request.payload, SetupPrecheckPayload)
+                else BalancingOutput
+            )
+        else:
+            model = OUTPUT_MODELS[kind]
         try:
             return model.model_validate(raw_output)
         except ValidationError as error:

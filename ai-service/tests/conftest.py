@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from bibim_ai.config import ALL_GENERATION_SCOPES, Settings
-from bibim_ai.main import create_app
+from ecovillage_ai.config import ALL_GENERATION_SCOPES, Settings
+from ecovillage_ai.main import create_app
 
 
 @pytest.fixture

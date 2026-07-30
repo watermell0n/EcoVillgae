@@ -13,8 +13,14 @@ const internalDoc = read("docs/ai/INTERNAL_API_CONTRACT.md");
 const metricsDoc = read("docs/ai/METRICS_AND_THRESHOLDS.md");
 const safetyDoc = read("docs/ai/SAFETY_AND_EVALUATION.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
+const fixtureCatalog = JSON.parse(
+  read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
+);
 
 assert(/^openapi: 3\.1\.0$/m.test(contract), "내부 AI 계약은 OpenAPI 3.1.0이어야 합니다.");
+assert(/^  version: 1\.1\.0$/m.test(contract), "내부 AI 계약 버전은 1.1.0이어야 합니다.");
+assert(internalDoc.includes("- 버전: v1.1"), "사람용 내부 AI 계약 버전은 v1.1이어야 합니다.");
+assert(fixtureCatalog.schema_version === "1.1", "AI fixture schema_version은 1.1이어야 합니다.");
 
 const expectedOperations = new Map([
   ["/internal/v1/generations/balancing", "generateBalancingProposal"],
@@ -79,6 +85,42 @@ for (const eventType of eventTypes) {
   assert(publicSpec.includes(eventType), `외부 API 이벤트 템플릿 누락: ${eventType}`);
 }
 
+const analysisModes = ["SETUP_PRECHECK", "ON_DEMAND", "AUTO_MONITOR"];
+const setupContexts = ["CLASSROOM_SETUP", "PRODUCT_DRAFT", "QUIZ_SESSION_DRAFT"];
+const eventSources = ["TEACHER_REQUEST", "MONITOR_RECOMMENDATION"];
+const quizDifficulties = ["INTRODUCTORY", "STANDARD", "ADVANCED"];
+for (const value of [
+  ...analysisModes,
+  ...setupContexts,
+  ...eventSources,
+  ...quizDifficulties,
+]) {
+  assert(contract.includes(value), `내부 AI 계약 enum 누락: ${value}`);
+  assert(internalDoc.includes(value), `내부 AI 문서 enum 누락: ${value}`);
+}
+
+for (const field of [
+  "scenario_version_id",
+  "asset_id",
+  "price_step_id",
+  "current_step_index",
+  "public_price_facts",
+  "difficulty",
+  "concepts",
+  "concept_tags",
+]) {
+  assert(contract.includes(`${field}:`), `내부 AI 계약 필드 누락: ${field}`);
+  assert(internalDoc.includes(field), `내부 AI 문서 필드 누락: ${field}`);
+}
+
+const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
+assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
+assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
+assert(
+  new Set(fixtureCases.map((fixture) => fixture.id)).size === fixtureCases.length,
+  "AI v1.1 fixture id가 중복되었습니다.",
+);
+
 const metricCodes = [
   "LIQUID_MONEY_CHANGE_RATE_BPS",
   "ISSUANCE_AMOUNT",
@@ -125,6 +167,12 @@ console.log(
       component_refs: componentRefs.length,
       unresolved_refs: unresolvedRefs.length,
       event_templates: eventTypes.length,
+      analysis_modes: analysisModes.length,
+      setup_contexts: setupContexts.length,
+      event_sources: eventSources.length,
+      quiz_difficulties: quizDifficulties.length,
+      success_fixtures: fixtureCatalog.success.length,
+      invalid_fixtures: fixtureCatalog.invalid.length,
       metric_codes: metricCodes.length,
       forbidden_input_fields: 0,
     },

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from bibim_ai.models import ErrorCode
+from ecovillage_ai.models import ErrorCode
 
 
 class ServiceError(Exception):

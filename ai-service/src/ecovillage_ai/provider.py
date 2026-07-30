@@ -4,13 +4,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
-from bibim_ai.models import (
+from ecovillage_ai.models import (
+    AnalysisMode,
     BalancingGenerationRequest,
     EconomicEventGenerationRequest,
+    EventTemplateType,
     GenerationRequest,
     MetricAvailability,
     QuizDraftGenerationRequest,
     QuizQuestionType,
+    SetupPrecheckPayload,
     TeacherChatGenerationRequest,
     Usage,
 )
@@ -67,6 +70,13 @@ class FakeGenerationProvider:
 
     @staticmethod
     def _balancing(request: BalancingGenerationRequest) -> dict[str, Any]:
+        if request.analysis_mode is AnalysisMode.SETUP_PRECHECK and isinstance(
+            request.payload, SetupPrecheckPayload
+        ):
+            return FakeGenerationProvider._setup_precheck(request.payload)
+
+        if isinstance(request.payload, SetupPrecheckPayload):
+            raise TypeError("운영 분석 모드에는 설정 점검 payload를 사용할 수 없습니다.")
         metric = next(
             metric
             for metric in request.payload.metrics
@@ -96,6 +106,38 @@ class FakeGenerationProvider:
         }
 
     @staticmethod
+    def _setup_precheck(payload: SetupPrecheckPayload) -> dict[str, Any]:
+        return {
+            "review_status": "REVIEW_REQUIRED",
+            "context_type": payload.context.context_type.value,
+            "summary": "규칙 엔진이 계산한 설정 후보와 시작 전 점검 결과를 설명했습니다.",
+            "candidate_explanations": [
+                {
+                    "action_id": candidate.action_id,
+                    "proposed_value": candidate.proposed_value,
+                    "evidence_reason_codes": candidate.reason_codes,
+                    "rationale": "현재 수업 설정에 맞춰 계산된 후보값의 의미를 확인해 보세요.",
+                    "cautions": ["실제 적용 전 현재 수업 계획과 함께 검토해야 합니다."],
+                }
+                for candidate in payload.candidates
+            ],
+            "check_explanations": [
+                {
+                    "check_id": check.check_id,
+                    "severity": check.severity.value,
+                    "reason_code": check.reason_code,
+                    "explanation": check.message,
+                    "correction_guidance": (
+                        None
+                        if check.severity.value == "PASS"
+                        else "관련 설정 후보와 허용 범위를 다시 확인해 주세요."
+                    ),
+                }
+                for check in payload.checks
+            ],
+        }
+
+    @staticmethod
     def _teacher_chat(request: TeacherChatGenerationRequest) -> dict[str, Any]:
         fact = request.payload.facts[0]
         return {
@@ -118,12 +160,12 @@ class FakeGenerationProvider:
             "SUPPLY": "마을 창고에 생긴 변화",
             "TAX": "마을 회의에서 온 안내",
             "INTEREST_RATE": "은행에서 전한 새로운 안내",
-            "INVESTMENT_NEWS": "마을 기업에서 온 소식",
+            "INVESTMENT_NEWS": "가상 자산 시장의 새로운 소식",
             "REWARD": "활동 보상에 관한 소식",
             "PUBLIC_FUND": "공공기금 사용을 위한 회의",
         }
         template = request.payload.template_type.value
-        return {
+        output: dict[str, Any] = {
             "review_status": "REVIEW_REQUIRED",
             "template_type": template,
             "title": titles[template],
@@ -141,7 +183,23 @@ class FakeGenerationProvider:
                 },
             ],
             "progress_messages": ["교사 검토를 기다리는 경제 이벤트 초안이 준비되었습니다."],
+            "investment_news_binding": None,
+            "teacher_explanation": None,
         }
+        if request.payload.template_type is EventTemplateType.INVESTMENT_NEWS:
+            context = request.payload.investment_news_context
+            if context is None:
+                raise TypeError("투자 뉴스 생성에는 투자 뉴스 문맥이 필요합니다.")
+            output["investment_news_binding"] = {
+                "scenario_version_id": str(context.scenario_version_id),
+                "asset_id": str(context.asset_id),
+                "price_step_id": str(context.price_step_id),
+                "current_step_index": context.current_step_index,
+            }
+            output["teacher_explanation"] = (
+                "입력으로 받은 현재 공개 단계의 사실만 사용한 검토용 뉴스입니다."
+            )
+        return output
 
     @staticmethod
     def _quiz_draft(request: QuizDraftGenerationRequest) -> dict[str, Any]:
@@ -171,7 +229,10 @@ class FakeGenerationProvider:
                     "choices": choices,
                     "correct_choice_key": correct_key,
                     "explanation": "경제 선택은 필요한 정보와 그 영향을 함께 살펴보아야 합니다.",
-                    "age_appropriateness_tags": [f"초{request.grade}", "쉬운표현"],
+                    "difficulty": request.payload.difficulty.value,
+                    "concept_tags": [
+                        request.payload.concepts[index % len(request.payload.concepts)]
+                    ],
                 }
             )
         return {

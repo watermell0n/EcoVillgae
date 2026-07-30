@@ -8,8 +8,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from bibim_ai.errors import ServiceError
-from bibim_ai.models import (
+from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.models import (
     BalancingGenerationRequest,
     BalancingGenerationResponse,
     EconomicEventGenerationRequest,
@@ -21,7 +21,7 @@ from bibim_ai.models import (
     TeacherChatGenerationRequest,
     TeacherChatGenerationResponse,
 )
-from bibim_ai.provider import GenerationKind
+from ecovillage_ai.provider import GenerationKind
 
 router = APIRouter(prefix="/internal/v1/generations", tags=["Internal AI Generations"])
 bearer = HTTPBearer(

@@ -3,9 +3,9 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bibim-ai-service"
+name = "ecovillage-ai-service"
 version = "0.1.0"
-description = "BIBIM internal AI generation service"
+description = "이코빌리지 내부 AI 생성 서비스"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bibim_ai"]
+packages = ["src/ecovillage_ai"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

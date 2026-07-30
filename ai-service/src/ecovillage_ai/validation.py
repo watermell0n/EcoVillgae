@@ -5,8 +5,10 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel
 
-from bibim_ai.errors import ServiceError
-from bibim_ai.models import (
+from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.models import (
+    AnalysisMode,
+    AnalysisSeverity,
     BalancingGenerationRequest,
     BalancingOutput,
     EconomicEventGenerationRequest,
@@ -19,6 +21,8 @@ from bibim_ai.models import (
     MetricAvailability,
     QuizDraftGenerationRequest,
     QuizDraftOutput,
+    SetupPrecheckOutput,
+    SetupPrecheckPayload,
     TeacherChatGenerationRequest,
     TeacherChatOutput,
 )
@@ -38,6 +42,18 @@ FINANCIAL_ADVICE_PHRASES = ("수익을 보장", "투자하세요", "대출 받�
 
 def validate_input_policy(request: GenerationRequest) -> None:
     if isinstance(request, BalancingGenerationRequest):
+        if isinstance(request.payload, SetupPrecheckPayload):
+            return
+        if (
+            request.analysis_mode is AnalysisMode.AUTO_MONITOR
+            and request.payload.analysis_severity is AnalysisSeverity.NORMAL
+        ):
+            raise ServiceError(
+                status_code=422,
+                code=ErrorCode.INPUT_SCHEMA_INVALID,
+                message="NORMAL 자동 모니터링 결과는 AI 생성을 호출하지 않습니다.",
+                validation_codes=["AUTO_MONITOR_NORMAL_MODEL_CALL_FORBIDDEN"],
+            )
         if not any(
             metric.availability is MetricAvailability.AVAILABLE
             for metric in request.payload.metrics
@@ -85,8 +101,15 @@ def _validate_event_grade_policy(request: EconomicEventGenerationRequest) -> Non
 
 def validate_output_policy(request: GenerationRequest, output: GenerationOutput) -> None:
     codes: list[str] = []
-    if isinstance(request, BalancingGenerationRequest) and isinstance(output, BalancingOutput):
-        codes.extend(_validate_balancing(request, output))
+    if isinstance(request, BalancingGenerationRequest):
+        if isinstance(request.payload, SetupPrecheckPayload) and isinstance(
+            output, SetupPrecheckOutput
+        ):
+            codes.extend(_validate_setup_precheck(request.payload, output))
+        elif isinstance(output, BalancingOutput):
+            codes.extend(_validate_balancing(request, output))
+        else:
+            codes.append("OUTPUT_TYPE_MISMATCH")
     elif isinstance(request, TeacherChatGenerationRequest) and isinstance(
         output, TeacherChatOutput
     ):
@@ -134,6 +157,45 @@ def _validate_balancing(request: BalancingGenerationRequest, output: BalancingOu
     return _unique(codes)
 
 
+def _validate_setup_precheck(
+    payload: SetupPrecheckPayload, output: SetupPrecheckOutput
+) -> list[str]:
+    codes: list[str] = []
+    if output.context_type is not payload.context.context_type:
+        codes.append("SETUP_CONTEXT_MISMATCH")
+
+    candidate_by_id = {candidate.action_id: candidate for candidate in payload.candidates}
+    explanation_ids = [item.action_id for item in output.candidate_explanations]
+    if len(explanation_ids) != len(set(explanation_ids)):
+        codes.append("DUPLICATE_ACTION_ID")
+    if set(explanation_ids) != set(candidate_by_id):
+        codes.append("SETUP_CANDIDATE_MISMATCH")
+    for explanation in output.candidate_explanations:
+        candidate = candidate_by_id.get(explanation.action_id)
+        if candidate is None:
+            continue
+        if explanation.proposed_value != candidate.proposed_value:
+            codes.append("PROPOSED_VALUE_CHANGED")
+        if not set(explanation.evidence_reason_codes) <= set(candidate.reason_codes):
+            codes.append("FABRICATED_EVIDENCE")
+
+    check_by_id = {check.check_id: check for check in payload.checks}
+    check_explanation_ids = [item.check_id for item in output.check_explanations]
+    if len(check_explanation_ids) != len(set(check_explanation_ids)):
+        codes.append("DUPLICATE_CHECK_ID")
+    if set(check_explanation_ids) != set(check_by_id):
+        codes.append("PREFLIGHT_CHECK_MISMATCH")
+    for explanation in output.check_explanations:
+        check = check_by_id.get(explanation.check_id)
+        if check is None:
+            continue
+        if explanation.severity is not check.severity:
+            codes.append("PREFLIGHT_SEVERITY_CHANGED")
+        if explanation.reason_code != check.reason_code:
+            codes.append("PREFLIGHT_REASON_CHANGED")
+    return _unique(codes)
+
+
 def _validate_teacher_chat(
     request: TeacherChatGenerationRequest, output: TeacherChatOutput
 ) -> list[str]:
@@ -154,6 +216,16 @@ def _validate_economic_event(
     codes: list[str] = []
     if output.template_type is not request.payload.template_type:
         codes.append("EVENT_TEMPLATE_MISMATCH")
+    input_context = request.payload.investment_news_context
+    output_binding = output.investment_news_binding
+    if input_context is not None and output_binding is not None:
+        if (
+            output_binding.scenario_version_id != input_context.scenario_version_id
+            or output_binding.asset_id != input_context.asset_id
+            or output_binding.price_step_id != input_context.price_step_id
+            or output_binding.current_step_index != input_context.current_step_index
+        ):
+            codes.append("INVESTMENT_NEWS_BINDING_MISMATCH")
     text = " ".join(_iter_strings(output))
     if any(effect.casefold() in text.casefold() for effect in request.payload.prohibited_effects):
         codes.append("FORBIDDEN_EVENT_EFFECT")
@@ -172,6 +244,11 @@ def _validate_quiz(request: QuizDraftGenerationRequest, output: QuizDraftOutput)
         question.question_type is not request.payload.question_type for question in output.questions
     ):
         codes.append("QUIZ_TYPE_MISMATCH")
+    if any(question.difficulty is not request.payload.difficulty for question in output.questions):
+        codes.append("QUIZ_DIFFICULTY_MISMATCH")
+    allowed_concepts = set(request.payload.concepts)
+    if any(not set(question.concept_tags) <= allowed_concepts for question in output.questions):
+        codes.append("FABRICATED_CONCEPT_TAG")
     return codes
 
 

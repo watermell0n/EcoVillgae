@@ -1,16 +1,21 @@
 openapi: 3.1.0
 info:
-  title: BIBIM Spring-FastAPI Internal AI API
-  version: 1.0.0
+  title: 이코빌리지 Spring-FastAPI 내부 AI API
+  version: 1.1.0
+  summary: Spring과 FastAPI 사이의 내부 AI 생성 계약
   description: |
     Spring 통합 API가 집계·권한·정책 범위를 확정한 뒤 FastAPI 생성 서비스에
     전달하는 내부 전용 계약이다. 이 API는 사용자 토큰과 학생 개인 데이터를 받지
     않으며 생성 결과를 직접 게시하거나 정책에 적용하지 않는다.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
 servers:
   - url: http://ai-service:8000
     description: Container network
 tags:
   - name: Internal AI Generations
+    description: 검증된 입력만 받아 교사 검토용 AI 산출물을 생성하는 내부 작업
 security:
   - internalServiceBearer: []
 paths:
@@ -18,7 +23,7 @@ paths:
     post:
       tags: [Internal AI Generations]
       operationId: generateBalancingProposal
-      summary: 집계 경제 지표에서 허용 범위 내 밸런싱 설명과 제안을 생성한다.
+      summary: 설정 점검 또는 운영 지표에서 검증 가능한 설명과 제안을 생성한다.
       x-required-scope: ai:generate:balancing
       parameters:
         - $ref: '#/components/parameters/CorrelationId'
@@ -249,7 +254,7 @@ components:
           format: uuid
         schema_version:
           type: string
-          const: '1.0'
+          const: '1.1'
         prompt_version:
           type: string
           pattern: '^[a-z0-9-]+-v[1-9][0-9]*$'
@@ -387,6 +392,140 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+    SetupContext:
+      type: object
+      additionalProperties: false
+      required:
+        - context_type
+        - course_scale
+        - expected_students
+        - operation_period_days
+        - active_modules
+        - quiz_mode
+      properties:
+        context_type:
+          type: string
+          enum: [CLASSROOM_SETUP, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
+        course_scale:
+          type: string
+          enum: [ONE_SHOT, ONE_WEEK, ONE_MONTH, ONE_SEMESTER]
+        expected_students:
+          type: integer
+          minimum: 1
+          maximum: 100
+        operation_period_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+        active_modules:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        quiz_mode:
+          type: [string, 'null']
+          enum: [GAME, TEST, null]
+    SetupCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - action_id
+        - target_type
+        - target_id
+        - proposed_value
+        - min_value
+        - max_value
+        - unit
+        - reason_codes
+        - label
+      properties:
+        action_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        target_type:
+          type: string
+          enum:
+            - ROLE_SALARY
+            - INCOME_TAX_RATE
+            - DEPOSIT_RATE
+            - LOAN_RATE
+            - PRODUCT_PRICE
+            - GAME_REWARD
+        target_id:
+          type: [string, 'null']
+          format: uuid
+        proposed_value:
+          type: integer
+          minimum: 0
+        min_value:
+          type: integer
+          minimum: 0
+        max_value:
+          type: integer
+          minimum: 0
+        unit:
+          type: string
+          enum: [AMOUNT, COUNT, RATE_BPS]
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+    PreflightCheck:
+      type: object
+      additionalProperties: false
+      required: [check_id, severity, reason_code, subject_action_ids, message]
+      properties:
+        check_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        severity:
+          type: string
+          enum: [PASS, WARN, BLOCK]
+        reason_code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        subject_action_ids:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+    SetupPrecheckPayload:
+      type: object
+      additionalProperties: false
+      required: [context, candidates, checks]
+      properties:
+        context:
+          $ref: '#/components/schemas/SetupContext'
+        candidates:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/SetupCandidate'
+        checks:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PreflightCheck'
     BalancingPayload:
       type: object
       additionalProperties: false
@@ -394,6 +533,8 @@ components:
         - metric_version
         - threshold_version
         - period
+        - previous_period
+        - analysis_severity
         - sample
         - metrics
         - allowed_actions
@@ -406,6 +547,13 @@ components:
           const: economic-thresholds-v1
         period:
           $ref: '#/components/schemas/Period'
+        previous_period:
+          oneOf:
+            - $ref: '#/components/schemas/Period'
+            - type: 'null'
+        analysis_severity:
+          type: string
+          enum: [NORMAL, OBSERVE, WARN]
         sample:
           $ref: '#/components/schemas/Sample'
         metrics:
@@ -424,10 +572,18 @@ components:
       allOf:
         - $ref: '#/components/schemas/CommonRequestFields'
         - type: object
-          required: [payload]
+          required: [analysis_mode, trigger_type, payload]
           properties:
+            analysis_mode:
+              type: string
+              enum: [SETUP_PRECHECK, ON_DEMAND, AUTO_MONITOR]
+            trigger_type:
+              type: string
+              enum: [TEACHER_REQUEST, AUTO_MONITOR]
             payload:
-              $ref: '#/components/schemas/BalancingPayload'
+              oneOf:
+                - $ref: '#/components/schemas/SetupPrecheckPayload'
+                - $ref: '#/components/schemas/BalancingPayload'
     BalancingProposal:
       type: object
       additionalProperties: false
@@ -501,6 +657,101 @@ components:
           maxItems: 20
           items:
             $ref: '#/components/schemas/BalancingProposal'
+    SetupCandidateExplanation:
+      type: object
+      additionalProperties: false
+      required:
+        - action_id
+        - proposed_value
+        - evidence_reason_codes
+        - rationale
+        - cautions
+      properties:
+        action_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        proposed_value:
+          type: integer
+          minimum: 0
+        evidence_reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        cautions:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+    PreflightCheckExplanation:
+      type: object
+      additionalProperties: false
+      required:
+        - check_id
+        - severity
+        - reason_code
+        - explanation
+        - correction_guidance
+      properties:
+        check_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        severity:
+          type: string
+          enum: [PASS, WARN, BLOCK]
+        reason_code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        explanation:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        correction_guidance:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
+    SetupPrecheckOutput:
+      type: object
+      additionalProperties: false
+      required:
+        - review_status
+        - context_type
+        - summary
+        - candidate_explanations
+        - check_explanations
+      properties:
+        review_status:
+          type: string
+          const: REVIEW_REQUIRED
+        context_type:
+          type: string
+          enum: [CLASSROOM_SETUP, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 1500
+        candidate_explanations:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/SetupCandidateExplanation'
+        check_explanations:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PreflightCheckExplanation'
     Fact:
       type: object
       additionalProperties: false
@@ -621,11 +872,86 @@ components:
         - INVESTMENT_NEWS
         - REWARD
         - PUBLIC_FUND
+    InvestmentPriceFact:
+      type: object
+      additionalProperties: false
+      required: [step_index, price, change_rate_bps, revealed_at]
+      properties:
+        step_index:
+          type: integer
+          minimum: 1
+        price:
+          type: integer
+          minimum: 1
+        change_rate_bps:
+          type: integer
+          minimum: -10000
+          maximum: 100000
+        revealed_at:
+          type: string
+          format: date-time
+    InvestmentNewsContext:
+      type: object
+      additionalProperties: false
+      required:
+        - scenario_version_id
+        - asset_id
+        - price_step_id
+        - asset_name
+        - asset_symbol
+        - current_step_index
+        - public_price_facts
+      properties:
+        scenario_version_id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        price_step_id:
+          type: string
+          format: uuid
+        asset_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        asset_symbol:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]{1,9}$'
+        current_step_index:
+          type: integer
+          minimum: 1
+        public_price_facts:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/InvestmentPriceFact'
     EconomicEventPayload:
       type: object
       additionalProperties: false
-      required: [template_type, effect_summary, prohibited_effects]
+      required:
+        - source_type
+        - source_proposal_id
+        - source_evidence_codes
+        - template_type
+        - effect_summary
+        - prohibited_effects
+        - investment_news_context
       properties:
+        source_type:
+          type: string
+          enum: [TEACHER_REQUEST, MONITOR_RECOMMENDATION]
+        source_proposal_id:
+          type: [string, 'null']
+          format: uuid
+        source_evidence_codes:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Z][A-Z0-9_]{1,79}$'
         template_type:
           $ref: '#/components/schemas/EventTemplateType'
         interest_rate_scope:
@@ -650,6 +976,10 @@ components:
         teacher_context:
           type: [string, 'null']
           maxLength: 1000
+        investment_news_context:
+          oneOf:
+            - $ref: '#/components/schemas/InvestmentNewsContext'
+            - type: 'null'
     EconomicEventGenerationRequest:
       unevaluatedProperties: false
       allOf:
@@ -675,6 +1005,23 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+    InvestmentNewsBinding:
+      type: object
+      additionalProperties: false
+      required: [scenario_version_id, asset_id, price_step_id, current_step_index]
+      properties:
+        scenario_version_id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        price_step_id:
+          type: string
+          format: uuid
+        current_step_index:
+          type: integer
+          minimum: 1
     EconomicEventOutput:
       type: object
       additionalProperties: false
@@ -712,21 +1059,50 @@ components:
             type: string
             minLength: 1
             maxLength: 300
+        investment_news_binding:
+          oneOf:
+            - $ref: '#/components/schemas/InvestmentNewsBinding'
+            - type: 'null'
+        teacher_explanation:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
     QuizCategory:
       type: string
       enum: [ECONOMY, NONSENSE]
     QuizQuestionType:
       type: string
       enum: [MULTIPLE_CHOICE, OX]
+    QuizDifficulty:
+      type: string
+      enum: [INTRODUCTORY, STANDARD, ADVANCED]
     QuizDraftPayload:
       type: object
       additionalProperties: false
-      required: [topic, learning_objectives, category, question_type, count]
+      required:
+        - topic
+        - difficulty
+        - concepts
+        - learning_objectives
+        - category
+        - question_type
+        - count
       properties:
         topic:
           type: string
           minLength: 1
           maxLength: 200
+        difficulty:
+          $ref: '#/components/schemas/QuizDifficulty'
+        concepts:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
         learning_objectives:
           type: array
           minItems: 1
@@ -774,7 +1150,8 @@ components:
         - choices
         - correct_choice_key
         - explanation
-        - age_appropriateness_tags
+        - difficulty
+        - concept_tags
       properties:
         review_status:
           type: string
@@ -798,7 +1175,9 @@ components:
           type: string
           minLength: 1
           maxLength: 1000
-        age_appropriateness_tags:
+        difficulty:
+          $ref: '#/components/schemas/QuizDifficulty'
+        concept_tags:
           type: array
           minItems: 1
           maxItems: 10
@@ -850,7 +1229,7 @@ components:
           format: uuid
         schema_version:
           type: string
-          const: '1.0'
+          const: '1.1'
         prompt_version:
           type: string
           pattern: '^[a-z0-9-]+-v[1-9][0-9]*$'
@@ -880,7 +1259,9 @@ components:
           required: [output]
           properties:
             output:
-              $ref: '#/components/schemas/BalancingOutput'
+              oneOf:
+                - $ref: '#/components/schemas/SetupPrecheckOutput'
+                - $ref: '#/components/schemas/BalancingOutput'
     TeacherChatGenerationResponse:
       unevaluatedProperties: false
       allOf:

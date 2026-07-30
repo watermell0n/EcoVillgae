@@ -1,3 +1,5 @@
+"""이코빌리지 내부 AI 요청·응답 계약 모델."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,6 +18,7 @@ from pydantic import (
 
 ShortText = Annotated[str, Field(min_length=1, max_length=100)]
 ValidationCodes = Annotated[list[str], Field(max_length=50)]
+ReasonCode = Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9_]{1,79}$")]
 
 
 class ContractModel(BaseModel):
@@ -79,6 +82,51 @@ class ActionTargetType(StrEnum):
     LOAN_RATE = "LOAN_RATE"
 
 
+class AnalysisMode(StrEnum):
+    SETUP_PRECHECK = "SETUP_PRECHECK"
+    ON_DEMAND = "ON_DEMAND"
+    AUTO_MONITOR = "AUTO_MONITOR"
+
+
+class AnalysisTriggerType(StrEnum):
+    TEACHER_REQUEST = "TEACHER_REQUEST"
+    AUTO_MONITOR = "AUTO_MONITOR"
+
+
+class AnalysisSeverity(StrEnum):
+    NORMAL = "NORMAL"
+    OBSERVE = "OBSERVE"
+    WARN = "WARN"
+
+
+class SetupContextType(StrEnum):
+    CLASSROOM_SETUP = "CLASSROOM_SETUP"
+    PRODUCT_DRAFT = "PRODUCT_DRAFT"
+    QUIZ_SESSION_DRAFT = "QUIZ_SESSION_DRAFT"
+
+
+class CourseScale(StrEnum):
+    ONE_SHOT = "ONE_SHOT"
+    ONE_WEEK = "ONE_WEEK"
+    ONE_MONTH = "ONE_MONTH"
+    ONE_SEMESTER = "ONE_SEMESTER"
+
+
+class SetupRecommendationTargetType(StrEnum):
+    ROLE_SALARY = "ROLE_SALARY"
+    INCOME_TAX_RATE = "INCOME_TAX_RATE"
+    DEPOSIT_RATE = "DEPOSIT_RATE"
+    LOAN_RATE = "LOAN_RATE"
+    PRODUCT_PRICE = "PRODUCT_PRICE"
+    GAME_REWARD = "GAME_REWARD"
+
+
+class PreflightSeverity(StrEnum):
+    PASS = "PASS"
+    WARN = "WARN"
+    BLOCK = "BLOCK"
+
+
 class EventTemplateType(StrEnum):
     PRICE = "PRICE"
     SUPPLY = "SUPPLY"
@@ -95,6 +143,11 @@ class InterestRateScope(StrEnum):
     LOAN = "LOAN"
 
 
+class EventSourceType(StrEnum):
+    TEACHER_REQUEST = "TEACHER_REQUEST"
+    MONITOR_RECOMMENDATION = "MONITOR_RECOMMENDATION"
+
+
 class QuizCategory(StrEnum):
     ECONOMY = "ECONOMY"
     NONSENSE = "NONSENSE"
@@ -103,6 +156,17 @@ class QuizCategory(StrEnum):
 class QuizQuestionType(StrEnum):
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
     OX = "OX"
+
+
+class QuizDifficulty(StrEnum):
+    INTRODUCTORY = "INTRODUCTORY"
+    STANDARD = "STANDARD"
+    ADVANCED = "ADVANCED"
+
+
+class QuizRunMode(StrEnum):
+    GAME = "GAME"
+    TEST = "TEST"
 
 
 class Period(ContractModel):
@@ -173,10 +237,103 @@ class AllowedAction(ContractModel):
         return self
 
 
+class SetupContext(ContractModel):
+    context_type: SetupContextType
+    course_scale: CourseScale
+    expected_students: Annotated[StrictInt, Field(ge=1, le=100)]
+    operation_period_days: Annotated[StrictInt, Field(ge=1, le=365)]
+    active_modules: Annotated[list[ShortText], Field(max_length=30)]
+    quiz_mode: QuizRunMode | None = None
+
+    @model_validator(mode="after")
+    def validate_quiz_mode(self) -> SetupContext:
+        if self.context_type is SetupContextType.QUIZ_SESSION_DRAFT:
+            if self.quiz_mode is None:
+                raise ValueError("퀴즈 세션 설정 문맥에는 quiz_mode가 필요합니다.")
+        elif self.quiz_mode is not None:
+            raise ValueError("퀴즈 세션 외 설정 문맥에는 quiz_mode를 지정할 수 없습니다.")
+        return self
+
+
+class SetupCandidate(ContractModel):
+    action_id: ShortText
+    target_type: SetupRecommendationTargetType
+    target_id: UUID | None = None
+    proposed_value: Annotated[StrictInt, Field(ge=0)]
+    min_value: Annotated[StrictInt, Field(ge=0)]
+    max_value: Annotated[StrictInt, Field(ge=0)]
+    unit: MetricUnit
+    reason_codes: Annotated[list[ReasonCode], Field(min_length=1, max_length=20)]
+    label: Annotated[str, Field(min_length=1, max_length=100)]
+
+    @model_validator(mode="after")
+    def validate_range(self) -> SetupCandidate:
+        if not self.min_value <= self.proposed_value <= self.max_value:
+            raise ValueError("설정 후보값은 min_value와 max_value 범위 안이어야 합니다.")
+        if len(self.reason_codes) != len(set(self.reason_codes)):
+            raise ValueError("설정 후보의 reason_codes는 중복될 수 없습니다.")
+        return self
+
+
+class PreflightCheck(ContractModel):
+    check_id: ShortText
+    severity: PreflightSeverity
+    reason_code: ReasonCode
+    subject_action_ids: Annotated[list[ShortText], Field(max_length=20)]
+    message: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+class SetupPrecheckPayload(ContractModel):
+    context: SetupContext
+    candidates: Annotated[list[SetupCandidate], Field(max_length=30)]
+    checks: Annotated[list[PreflightCheck], Field(min_length=1, max_length=50)]
+
+    @model_validator(mode="after")
+    def validate_context_candidates(self) -> SetupPrecheckPayload:
+        candidate_ids = [candidate.action_id for candidate in self.candidates]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("설정 후보 action_id는 중복될 수 없습니다.")
+        check_ids = [check.check_id for check in self.checks]
+        if len(check_ids) != len(set(check_ids)):
+            raise ValueError("시작 전 점검 check_id는 중복될 수 없습니다.")
+
+        allowed_targets = {
+            SetupContextType.CLASSROOM_SETUP: {
+                SetupRecommendationTargetType.ROLE_SALARY,
+                SetupRecommendationTargetType.INCOME_TAX_RATE,
+                SetupRecommendationTargetType.DEPOSIT_RATE,
+                SetupRecommendationTargetType.LOAN_RATE,
+            },
+            SetupContextType.PRODUCT_DRAFT: {SetupRecommendationTargetType.PRODUCT_PRICE},
+            SetupContextType.QUIZ_SESSION_DRAFT: {SetupRecommendationTargetType.GAME_REWARD},
+        }
+        if any(
+            candidate.target_type not in allowed_targets[self.context.context_type]
+            for candidate in self.candidates
+        ):
+            raise ValueError("설정 문맥에서 허용하지 않는 추천 대상입니다.")
+        if self.context.context_type is SetupContextType.QUIZ_SESSION_DRAFT and (
+            self.context.course_scale is CourseScale.ONE_SHOT
+            or self.context.quiz_mode is QuizRunMode.TEST
+        ):
+            if self.candidates:
+                raise ValueError("TEST와 1회 코스 퀴즈에는 화폐 보상 후보를 둘 수 없습니다.")
+
+        known_ids = set(candidate_ids)
+        if any(
+            not set(check.subject_action_ids) <= known_ids
+            for check in self.checks
+        ):
+            raise ValueError("점검 결과가 알 수 없는 설정 후보를 참조합니다.")
+        return self
+
+
 class BalancingPayload(ContractModel):
     metric_version: Literal["economic-metrics-v1"]
     threshold_version: Literal["economic-thresholds-v1"]
     period: Period
+    previous_period: Period | None = None
+    analysis_severity: AnalysisSeverity
     sample: Sample
     metrics: Annotated[list[Metric], Field(min_length=1, max_length=100)]
     allowed_actions: Annotated[list[AllowedAction], Field(max_length=100)]
@@ -196,6 +353,20 @@ class BalancingPayload(ContractModel):
         if len(action_ids) != len(set(action_ids)):
             raise ValueError("action_id는 중복될 수 없습니다.")
         return values
+
+    @model_validator(mode="after")
+    def validate_period_pair(self) -> BalancingPayload:
+        if self.previous_period is None:
+            return self
+        if self.previous_period.to > self.period.from_:
+            raise ValueError("이전 분석 구간은 현재 분석 구간과 겹칠 수 없습니다.")
+        current_duration = self.period.to - self.period.from_
+        previous_duration = self.previous_period.to - self.previous_period.from_
+        if current_duration != previous_duration:
+            raise ValueError("현재와 이전 분석 구간의 길이는 같아야 합니다.")
+        if self.previous_period.data_as_of != self.period.data_as_of:
+            raise ValueError("현재와 이전 분석 구간의 data_as_of는 같아야 합니다.")
+        return self
 
 
 class FactUnit(StrEnum):
@@ -241,7 +412,47 @@ class TeacherChatPayload(ContractModel):
         return values
 
 
+class InvestmentPriceFact(ContractModel):
+    step_index: Annotated[StrictInt, Field(ge=1)]
+    price: Annotated[StrictInt, Field(ge=1)]
+    change_rate_bps: Annotated[StrictInt, Field(ge=-10000, le=100000)]
+    revealed_at: datetime
+
+    @field_validator("revealed_at")
+    @classmethod
+    def revealed_at_requires_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("revealed_at에는 시간대가 필요합니다.")
+        return value
+
+
+class InvestmentNewsContext(ContractModel):
+    scenario_version_id: UUID
+    asset_id: UUID
+    price_step_id: UUID
+    asset_name: Annotated[str, Field(min_length=1, max_length=100)]
+    asset_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{1,9}$")]
+    current_step_index: Annotated[StrictInt, Field(ge=1)]
+    public_price_facts: Annotated[
+        list[InvestmentPriceFact], Field(min_length=1, max_length=100)
+    ]
+
+    @model_validator(mode="after")
+    def validate_public_price_facts(self) -> InvestmentNewsContext:
+        indexes = [fact.step_index for fact in self.public_price_facts]
+        if len(indexes) != len(set(indexes)):
+            raise ValueError("공개 가격 사실의 step_index는 중복될 수 없습니다.")
+        if indexes != sorted(indexes):
+            raise ValueError("공개 가격 사실은 step_index 오름차순이어야 합니다.")
+        if indexes[-1] != self.current_step_index:
+            raise ValueError("공개 가격 사실은 현재 가격 단계까지만 포함해야 합니다.")
+        return self
+
+
 class EconomicEventPayload(ContractModel):
+    source_type: EventSourceType
+    source_proposal_id: UUID | None = None
+    source_evidence_codes: Annotated[list[ReasonCode], Field(max_length=20)]
     template_type: EventTemplateType
     interest_rate_scope: InterestRateScope | None = None
     effect_summary: Annotated[
@@ -253,19 +464,39 @@ class EconomicEventPayload(ContractModel):
         Field(min_length=1, max_length=30),
     ]
     teacher_context: Annotated[str, Field(max_length=1000)] | None = None
+    investment_news_context: InvestmentNewsContext | None = None
 
     @model_validator(mode="after")
-    def validate_interest_rate_scope(self) -> EconomicEventPayload:
+    def validate_event_context(self) -> EconomicEventPayload:
+        if self.source_type is EventSourceType.MONITOR_RECOMMENDATION:
+            if self.source_proposal_id is None or not self.source_evidence_codes:
+                raise ValueError("모니터링 추천 이벤트에는 원본 제안과 근거 코드가 필요합니다.")
+        elif self.source_proposal_id is not None or self.source_evidence_codes:
+            raise ValueError("교사 요청 이벤트에는 모니터링 제안 참조를 지정할 수 없습니다.")
+        if len(self.source_evidence_codes) != len(set(self.source_evidence_codes)):
+            raise ValueError("이벤트 출처 근거 코드는 중복될 수 없습니다.")
+
         if self.template_type is EventTemplateType.INTEREST_RATE:
             if self.interest_rate_scope is None:
                 raise ValueError("INTEREST_RATE 템플릿에는 interest_rate_scope가 필요합니다.")
         elif self.interest_rate_scope is not None:
             raise ValueError("금리 외 템플릿에는 interest_rate_scope를 지정할 수 없습니다.")
+
+        if self.template_type is EventTemplateType.INVESTMENT_NEWS:
+            if self.investment_news_context is None:
+                raise ValueError("INVESTMENT_NEWS에는 투자 뉴스 문맥이 필요합니다.")
+        elif self.investment_news_context is not None:
+            raise ValueError("투자 뉴스 외 템플릿에는 투자 뉴스 문맥을 지정할 수 없습니다.")
         return self
 
 
 class QuizDraftPayload(ContractModel):
     topic: Annotated[str, Field(min_length=1, max_length=200)]
+    difficulty: QuizDifficulty
+    concepts: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=100)]],
+        Field(min_length=1, max_length=20),
+    ]
     learning_objectives: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=300)]],
         Field(min_length=1, max_length=10),
@@ -274,12 +505,19 @@ class QuizDraftPayload(ContractModel):
     question_type: QuizQuestionType
     count: Annotated[StrictInt, Field(ge=1, le=30)]
 
+    @field_validator("concepts")
+    @classmethod
+    def concepts_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("퀴즈 개념은 중복될 수 없습니다.")
+        return values
+
 
 class CommonGenerationRequest(ContractModel):
     ai_run_id: UUID
     request_id: UUID
     correlation_id: UUID
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     prompt_version: Annotated[str, Field(pattern=r"^[a-z0-9-]+-v[1-9][0-9]*$")]
     attempt: Annotated[StrictInt, Field(ge=1, le=2)]
     deadline_at: datetime
@@ -295,7 +533,33 @@ class CommonGenerationRequest(ContractModel):
 
 
 class BalancingGenerationRequest(CommonGenerationRequest):
-    payload: BalancingPayload
+    analysis_mode: AnalysisMode
+    trigger_type: AnalysisTriggerType
+    payload: SetupPrecheckPayload | BalancingPayload
+
+    @model_validator(mode="after")
+    def validate_analysis_context(self) -> BalancingGenerationRequest:
+        if self.analysis_mode is AnalysisMode.SETUP_PRECHECK:
+            if self.trigger_type is not AnalysisTriggerType.TEACHER_REQUEST:
+                raise ValueError("설정 점검은 교사 설정 흐름에서만 요청할 수 있습니다.")
+            if not isinstance(self.payload, SetupPrecheckPayload):
+                raise ValueError("SETUP_PRECHECK에는 설정 점검 payload가 필요합니다.")
+        else:
+            if not isinstance(self.payload, BalancingPayload):
+                raise ValueError("운영 분석에는 경제 지표 payload가 필요합니다.")
+            expected_trigger = (
+                AnalysisTriggerType.AUTO_MONITOR
+                if self.analysis_mode is AnalysisMode.AUTO_MONITOR
+                else AnalysisTriggerType.TEACHER_REQUEST
+            )
+            if self.trigger_type is not expected_trigger:
+                raise ValueError("분석 모드와 trigger_type이 일치하지 않습니다.")
+            if (
+                self.analysis_mode is AnalysisMode.AUTO_MONITOR
+                and self.payload.previous_period is None
+            ):
+                raise ValueError("자동 모니터링에는 같은 길이의 이전 분석 구간이 필요합니다.")
+        return self
 
 
 class TeacherChatGenerationRequest(CommonGenerationRequest):
@@ -354,6 +618,43 @@ class BalancingOutput(ContractModel):
         return values
 
 
+class SetupCandidateExplanation(ContractModel):
+    action_id: ShortText
+    proposed_value: Annotated[StrictInt, Field(ge=0)]
+    evidence_reason_codes: Annotated[list[ReasonCode], Field(min_length=1, max_length=20)]
+    rationale: Annotated[str, Field(min_length=1, max_length=1000)]
+    cautions: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=300)]], Field(max_length=5)
+    ]
+
+    @field_validator("evidence_reason_codes")
+    @classmethod
+    def evidence_codes_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("설정 후보 설명의 근거 코드는 중복될 수 없습니다.")
+        return values
+
+
+class PreflightCheckExplanation(ContractModel):
+    check_id: ShortText
+    severity: PreflightSeverity
+    reason_code: ReasonCode
+    explanation: Annotated[str, Field(min_length=1, max_length=1000)]
+    correction_guidance: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
+
+
+class SetupPrecheckOutput(ContractModel):
+    review_status: Literal["REVIEW_REQUIRED"]
+    context_type: SetupContextType
+    summary: Annotated[str, Field(min_length=1, max_length=1500)]
+    candidate_explanations: Annotated[
+        list[SetupCandidateExplanation], Field(max_length=30)
+    ]
+    check_explanations: Annotated[
+        list[PreflightCheckExplanation], Field(min_length=1, max_length=50)
+    ]
+
+
 class Recommendation(ContractModel):
     text: Annotated[str, Field(min_length=1, max_length=700)]
     side_effects: Annotated[
@@ -382,6 +683,13 @@ class EventChoice(ContractModel):
     consequence_text: Annotated[str, Field(min_length=1, max_length=500)]
 
 
+class InvestmentNewsBinding(ContractModel):
+    scenario_version_id: UUID
+    asset_id: UUID
+    price_step_id: UUID
+    current_step_index: Annotated[StrictInt, Field(ge=1)]
+
+
 class EconomicEventOutput(ContractModel):
     review_status: Literal["REVIEW_REQUIRED"]
     template_type: EventTemplateType
@@ -392,6 +700,8 @@ class EconomicEventOutput(ContractModel):
         list[Annotated[str, Field(min_length=1, max_length=300)]],
         Field(min_length=1, max_length=10),
     ]
+    investment_news_binding: InvestmentNewsBinding | None = None
+    teacher_explanation: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
 
     @field_validator("choices")
     @classmethod
@@ -400,6 +710,15 @@ class EconomicEventOutput(ContractModel):
         if len(keys) != len(set(keys)):
             raise ValueError("이벤트 선택지 키는 중복될 수 없습니다.")
         return values
+
+    @model_validator(mode="after")
+    def validate_investment_output(self) -> EconomicEventOutput:
+        if self.template_type is EventTemplateType.INVESTMENT_NEWS:
+            if self.investment_news_binding is None or self.teacher_explanation is None:
+                raise ValueError("투자 뉴스 출력에는 단계 연결과 교사용 설명이 필요합니다.")
+        elif self.investment_news_binding is not None or self.teacher_explanation is not None:
+            raise ValueError("투자 뉴스 외 이벤트에는 투자 뉴스 전용 출력을 둘 수 없습니다.")
+        return self
 
 
 class QuizChoice(ContractModel):
@@ -414,7 +733,8 @@ class QuizQuestionDraft(ContractModel):
     choices: Annotated[list[QuizChoice], Field(min_length=2, max_length=5)]
     correct_choice_key: Annotated[str, Field(pattern=r"^(?:[A-E]|O|X)$")]
     explanation: Annotated[str, Field(min_length=1, max_length=1000)]
-    age_appropriateness_tags: Annotated[
+    difficulty: QuizDifficulty
+    concept_tags: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=50)]], Field(min_length=1, max_length=10)
     ]
 
@@ -430,6 +750,8 @@ class QuizQuestionDraft(ContractModel):
         if self.question_type is QuizQuestionType.MULTIPLE_CHOICE:
             if not 3 <= len(keys) <= 5 or any(key not in "ABCDE" for key in keys):
                 raise ValueError("객관식 문항은 A-E 범위의 선택지 3~5개를 가져야 합니다.")
+        if len(self.concept_tags) != len(set(self.concept_tags)):
+            raise ValueError("퀴즈 개념 태그는 중복될 수 없습니다.")
         return self
 
 
@@ -439,7 +761,13 @@ class QuizDraftOutput(ContractModel):
     questions: Annotated[list[QuizQuestionDraft], Field(min_length=1, max_length=30)]
 
 
-GenerationOutput = BalancingOutput | TeacherChatOutput | EconomicEventOutput | QuizDraftOutput
+GenerationOutput = (
+    SetupPrecheckOutput
+    | BalancingOutput
+    | TeacherChatOutput
+    | EconomicEventOutput
+    | QuizDraftOutput
+)
 
 
 class Usage(ContractModel):
@@ -449,7 +777,7 @@ class Usage(ContractModel):
 
 class ResponseMetadata(ContractModel):
     ai_run_id: UUID
-    schema_version: Literal["1.0"]
+    schema_version: Literal["1.1"]
     prompt_version: Annotated[str, Field(pattern=r"^[a-z0-9-]+-v[1-9][0-9]*$")]
     provider: Annotated[str, Field(min_length=1, max_length=50)]
     model_id: Annotated[str, Field(min_length=1, max_length=200)]
@@ -459,7 +787,7 @@ class ResponseMetadata(ContractModel):
 
 
 class BalancingGenerationResponse(ResponseMetadata):
-    output: BalancingOutput
+    output: SetupPrecheckOutput | BalancingOutput
 
 
 class TeacherChatGenerationResponse(ResponseMetadata):

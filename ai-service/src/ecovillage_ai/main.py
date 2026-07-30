@@ -8,12 +8,12 @@ from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
-from bibim_ai.api import router
-from bibim_ai.config import Settings
-from bibim_ai.errors import ServiceError
-from bibim_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
-from bibim_ai.provider import FakeGenerationProvider, GenerationProvider
-from bibim_ai.service import GenerationService
+from ecovillage_ai.api import router
+from ecovillage_ai.config import Settings
+from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
+from ecovillage_ai.provider import FakeGenerationProvider, GenerationProvider
+from ecovillage_ai.service import GenerationService
 
 
 def _header_uuid(request: Request, header_name: str) -> UUID:

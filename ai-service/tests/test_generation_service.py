@@ -6,12 +6,19 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from bibim_ai.config import Settings
-from bibim_ai.errors import ProviderRateLimitedError, ProviderUnavailableError
-from bibim_ai.main import create_app
-from bibim_ai.models import Usage
-from bibim_ai.provider import FakeGenerationProvider, GenerationKind, ProviderResult
-from tests.factories import balancing_request, headers, teacher_chat_request
+from ecovillage_ai.config import Settings
+from ecovillage_ai.errors import ProviderRateLimitedError, ProviderUnavailableError
+from ecovillage_ai.main import create_app
+from ecovillage_ai.models import Usage
+from ecovillage_ai.provider import FakeGenerationProvider, GenerationKind, ProviderResult
+from tests.factories import (
+    balancing_request,
+    headers,
+    investment_news_request,
+    quiz_draft_request,
+    setup_precheck_request,
+    teacher_chat_request,
+)
 
 
 @dataclass
@@ -42,6 +49,27 @@ class SensitiveOutputProvider:
     async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
         result = await FakeGenerationProvider().generate(kind, request)
         result.output["answer"] = "연락처는 teacher@example.com 입니다."
+        return result
+
+
+class ChangedSetupCandidateProvider:
+    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(kind, request)
+        result.output["candidate_explanations"][0]["proposed_value"] += 1
+        return result
+
+
+class ChangedInvestmentBindingProvider:
+    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(kind, request)
+        result.output["investment_news_binding"]["current_step_index"] += 1
+        return result
+
+
+class FabricatedQuizConceptProvider:
+    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(kind, request)
+        result.output["questions"][0]["concept_tags"] = ["입력에 없는 개념"]
         return result
 
 
@@ -103,6 +131,44 @@ def test_sensitive_provider_output_is_rejected(settings: Settings) -> None:
     assert response.json()["error"]["code"] == "AI_OUTPUT_SAFETY_REJECTED"
     assert response.json()["error"]["validation_codes"] == ["SENSITIVE_DATA_DETECTED"]
     assert "teacher@example.com" not in response.text
+
+
+def test_changed_setup_candidate_is_rejected(settings: Settings) -> None:
+    with _client(settings, ChangedSetupCandidateProvider()) as client:
+        response = client.post(
+            "/internal/v1/generations/balancing",
+            headers=headers(),
+            json=setup_precheck_request(),
+        )
+
+    assert response.status_code == 422
+    assert "PROPOSED_VALUE_CHANGED" in response.json()["error"]["validation_codes"]
+
+
+def test_changed_investment_binding_is_rejected(settings: Settings) -> None:
+    with _client(settings, ChangedInvestmentBindingProvider()) as client:
+        response = client.post(
+            "/internal/v1/generations/economic-event",
+            headers=headers(),
+            json=investment_news_request(),
+        )
+
+    assert response.status_code == 422
+    assert "INVESTMENT_NEWS_BINDING_MISMATCH" in response.json()["error"][
+        "validation_codes"
+    ]
+
+
+def test_fabricated_quiz_concept_is_rejected(settings: Settings) -> None:
+    with _client(settings, FabricatedQuizConceptProvider()) as client:
+        response = client.post(
+            "/internal/v1/generations/quiz-draft",
+            headers=headers(),
+            json=quiz_draft_request(),
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["validation_codes"] == ["FABRICATED_CONCEPT_TAG"]
 
 
 def test_rate_limit_is_mapped_without_hidden_retry(settings: Settings) -> None:
