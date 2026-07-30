@@ -1,6 +1,6 @@
 # 이코빌리지 논리 데이터 모델
 
-- 버전: v0.4
+- 버전: v0.5
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
 - 상태: MVP 논리 ERD 기준선
@@ -617,11 +617,14 @@ erDiagram
         uuid id PK
         uuid classroom_id FK
         string run_type
+        string trigger_type
         string status
         string model_provider
         string model_id
         string prompt_version
         jsonb input_scope
+        datetime period_from
+        datetime period_to
         jsonb validation_result
         datetime requested_at
         datetime completed_at
@@ -638,6 +641,9 @@ erDiagram
         uuid id PK
         uuid ai_run_id FK
         string proposal_type
+        string source_type
+        string severity
+        string dedupe_key
         jsonb proposed_values
         jsonb allowed_ranges
         string status
@@ -683,6 +689,11 @@ erDiagram
 
 - AI 서비스는 `ai_runs`, `ai_artifacts`와 제안만 만들 수 있고 원장·학생 계좌·정책 테이블을 직접 수정할 수 없습니다.
 - AI 제안 적용은 교사 결정 후 핵심 API가 허용 범위와 최신 정책 버전을 다시 검증합니다.
+- `ai_runs.trigger_type`은 `SETUP_PRECHECK·ON_DEMAND·AUTO_MONITOR·TEACHER_REQUEST·MONITOR_RECOMMENDATION`을 구분합니다. 자동 실행은 요청 교사 없이 시스템 행위자로 기록합니다.
+- 설정 추천과 운영 밸런싱은 같은 제안 저장 구조를 사용하되 `proposal_type`, 적용 대상과 데이터 충분성 규칙을 구분합니다. 설정 추천 수치는 Spring 규칙 엔진 산출물이며 AI 원문에서 파싱하지 않습니다.
+- 자동 모니터링 제안의 `dedupe_key`는 학급·지표·방향·심각도·분석 구간으로 결정적으로 만들고, 같은 키는 한 번만 저장합니다. `ACKNOWLEDGED` 결정은 정책 적용이 아니며 다음 분석 구간의 재발을 막지 않습니다.
+- `economic_event_drafts`는 `source_type`과 원본 제안 참조를 저장합니다. `INVESTMENT_NEWS`는 반드시 하나의 `investment_price_steps`에 연결하고 승인 후에도 해당 단계가 공개될 때까지 학생 조회에서 제외합니다.
+- 투자 뉴스의 제목·본문을 수정해도 연결된 시나리오·자산·가격 단계와 가격 자체는 변경하지 않습니다. 미래 단계의 뉴스와 가격은 교사용 검토 범위와 학생 공개 projection을 분리합니다.
 - 챗봇 질문·답변 원문은 30일, 모델·프롬프트·비용·성공·실패 메타데이터는 1년 보관합니다.
 - 학생 5명 미만 또는 관련 거래 10건 미만인 밸런싱 실행은 `INSUFFICIENT_DATA`로 종료하고 개인 단위 결과를 생성하지 않습니다.
 - `report_snapshots`는 개인용·교사용·최종 리포트를 구분하며 공개 화면에서 직접 조회하지 않습니다.

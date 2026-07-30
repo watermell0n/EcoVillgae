@@ -56,7 +56,7 @@ assert(brokenLinks.length === 0, `깨진 로컬 문서 링크\n${brokenLinks.joi
 const definitionSources = [
   {
     name: "요구사항",
-    expected: 78,
+    expected: 81,
     files: ["docs/REQUIREMENTS_BASELINE.md"],
     pattern: /^\| ((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3})(?!\d)/g,

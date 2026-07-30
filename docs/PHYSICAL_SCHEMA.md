@@ -1,10 +1,10 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.5
+- 버전: v0.6
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
-- 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
-- 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
+- 입력: [논리 데이터 모델 v0.5](DATA_MODEL.md)
+- 상태: MVP 물리 기준선·AI v1.1 컬럼 설계 반영, 관련 Flyway 구현 예정
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
@@ -250,11 +250,11 @@ ON DELETE RESTRICT
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
 | --- | --- | --- | --- |
-| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid FK(users)`, `run_type varchar(40)`, `model_provider varchar(40)`, `model_id varchar(120)`, `prompt_version varchar(40)`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
+| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid? FK(users)`, `run_type varchar(40)`, `trigger_type varchar(40)`, `analysis_period_from timestamptz?`, `analysis_period_to timestamptz?`, `model_provider varchar(40)?`, `model_id varchar(120)?`, `prompt_version varchar(40)?`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | 자동·규칙 전용 실행은 요청 사용자·모델 메타 NULL, `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
 | `ai_artifacts` | I | `ai_run_id uuid FK(ai_runs)`, `artifact_type varchar(40)`, `content jsonb`, `schema_version varchar(20)`, `safety_status varchar(40)` | 생성 후 불변 |
-| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED` |
-| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 제안당 최종 결정 1개 UQ |
-| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·APPLIED·CANCELED` |
+| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `source_type varchar(40)`, `severity varchar(20)?`, `metric_code varchar(80)?`, `direction varchar(20)?`, `dedupe_key varchar(200)?`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·ACKNOWLEDGED·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED`, 같은 자동 분석 구간의 dedupe key는 서비스에서 멱등 저장 |
+| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 결정 `ACKNOWLEDGE·APPROVE·REJECT`, 정책 적용 최종 결정은 1개 UQ |
+| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `source_type varchar(40)`, `source_proposal_id uuid? FK(ai_proposals)`, `investment_price_step_id uuid? FK(investment_price_steps)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?`, `revealed_at timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·REVEALED·APPLIED·CANCELED`, INVESTMENT_NEWS는 가격 단계 연결 필수·단계당 활성 뉴스 1개 |
 | `async_operations` | S | `operation_type varchar(40)`, `requested_by_user_id uuid? FK(users)`, `progress_percent integer D=0`, `result_location varchar(512)?`, `error_code varchar(80)?`, `error_detail text?`, `started_at timestamptz?`, `completed_at timestamptz?`, `expires_at timestamptz?` | 진행률 0~100 |
 | `export_operations` | 없음 | `async_operation_id uuid PK FK(async_operations)`, `classroom_id uuid`, `requested_by_user_id uuid FK(users)`, `export_type varchar(40)`, `filter_snapshot jsonb`, `result_s3_key varchar(512)?`, `retention_until timestamptz`, `created_at timestamptz D=now()` | 비밀 URL 저장 금지 |
 | `report_snapshots` | I | `classroom_student_id uuid? FK(classroom_students)`, `report_type varchar(40)`, `schema_version varchar(20)`, `snapshot jsonb`, `as_of timestamptz`, `retention_until timestamptz` | 개인·학급 리포트 구분, 생성 후 불변 |
@@ -547,6 +547,10 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - PostgreSQL 17에 Flyway `V1_1`~`V1_11` 직접 적용과 핵심 제약 검증 성공
 - Testcontainers 20개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
 
+`ai_runs`, `ai_proposals`, `ai_decisions`, `economic_event_drafts`의 AI v1.1 추가 컬럼은
+설계만 반영된 상태입니다. 기존 `V1_1`~`V1_11`을 소급 수정하지 않고 다음 단계에서 새
+Flyway 마이그레이션과 DB 무결성 테스트로 구현합니다.
+
 후속 작업:
 
 1. Docker 사용 가능 Jenkins 에이전트에서 DBT 전체 실행
@@ -554,3 +558,4 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 3. 서비스 계층에서 OWNER 0명 방지, 같은 멱등 키의 요청 hash 비교·기존 응답 반환, READ_ONLY 명령 차단 인수 테스트
 4. 금융·퀴즈 버전 불변성과 투자·대출 음수 값 거부를 포함한 서비스·DB 통합 테스트 보강
 5. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정
+6. AI v1.1 실행 트리거·알림 중복키·투자 뉴스 가격 단계 연결 컬럼과 제약 구현

@@ -241,3 +241,32 @@ FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않�
 4. 프롬프트·스키마 버전의 호환성을 판정합니다.
 5. 외부 필드가 바뀌면 `docs/HTTP_API_SPEC.md`와 생성된 `contracts/openapi.yaml`,
    `contracts/api-field-mapping.json`을 함께 갱신합니다.
+
+## 10. 다음 계약 버전 반영 항목
+
+아래 항목은 2026-07-30 제품 결정으로 확정했지만 현재 기계 판독 계약 v1.0에는 아직
+포함되지 않았습니다. 기능 코드를 추가하기 전에 v1.1로 올리고 이 문서·OpenAPI·Pydantic·
+Spring DTO를 한 커밋에서 함께 변경합니다.
+
+### 10.1 설정 추천·자동 모니터링
+
+- 밸런싱 요청에 `analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR`를 추가합니다.
+- `SETUP_PRECHECK` 입력은 학년·코스·예상 학생 수·활성 모듈과 Spring이 계산한
+  급여·세율·예금·대출금리·상품 가격·GAME 보상 후보로 제한합니다.
+- 규칙 기반 숫자와 BLOCK·WARN 판정만 필요하면 FastAPI를 호출하지 않습니다. 설명을
+  요청할 때도 FastAPI는 입력 `action_id`, 후보값과 허용 범위를 바꿀 수 없습니다.
+- `AUTO_MONITOR`의 NORMAL은 FastAPI를 호출하지 않고 Spring에서 완료합니다.
+  OBSERVE·WARN만 현재 밸런싱 생성 계약을 사용합니다.
+- 요청 envelope에는 분석 트리거와 구간을 추가하고, 자동 실행은 사용자 ID 대신 시스템
+  행위와 스케줄 멱등 키를 Spring 저장 메타데이터에 기록합니다.
+
+### 10.2 이벤트 출처·투자 뉴스 연결
+
+- 경제 이벤트 입력에 `source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION`과 선택적인
+  `source_proposal_id`를 추가합니다.
+- `INVESTMENT_NEWS`에는 `scenario_version_id`, `asset_id`, `price_step_id`, 현재 단계까지의
+  공개 가능한 가격 사실을 전달합니다. 다음 단계 가격과 다른 미공개 뉴스는 전달하지 않습니다.
+- FastAPI는 기업·재무정보·가격·수익률을 생성하지 않고 연결된 단계의 제목·뉴스 본문·
+  교사용 설명만 반환합니다.
+- 핵심 API는 시장 시작 전에 단계별 생성 작업을 실행하고 교사 승인 상태를 저장하며,
+  학생 조회에는 가격 단계 공개 이후의 승인 뉴스만 포함합니다.

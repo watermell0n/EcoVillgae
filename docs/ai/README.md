@@ -11,6 +11,7 @@
 | [내부 AI API 계약](INTERNAL_API_CONTRACT.md) | Spring 핵심 API와 FastAPI 사이의 요청·응답·오류·실행 경계 |
 | [경제 지표·임계값](METRICS_AND_THRESHOLDS.md) | 밸런싱 입력 지표 계산식, 최소 표본, 경고와 조정 허용 범위 |
 | [안전·평가 기준](SAFETY_AND_EVALUATION.md) | 입력 최소화, 출력 검사, 회귀 평가와 출시 게이트 |
+| [단계별 개발 계획](IMPLEMENTATION_PLAN.md) | 계약 v1.1부터 규칙 엔진·모니터링·이벤트·투자 뉴스·출시 검증까지의 실행 순서 |
 | [기계 판독 내부 OpenAPI](../../contracts/ai-internal-openapi.yaml) | FastAPI 내부 HTTP 인터페이스의 OpenAPI 3.1 계약 |
 
 프롬프트 본문과 회귀 평가 케이스는 구현 단계에서 버전 디렉터리에 추가합니다.
