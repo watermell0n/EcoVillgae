@@ -3,7 +3,7 @@
 - 작성일: 2026-07-29
 - 범위: S15P11B201-178 ~ S15P11B201-185
 - 기준 문서: `p0-fe-ux-foundation.md`
-- 디자인 기준: 이코빌리지 경제교육 웹앱 UI 레퍼런스
+- 디자인 기준: `docs/design/FE_DESIGN_GUIDE.md`와 `docs/design/FE_SCREEN_GENERATION_SPEC.md`
 - 산출 목표: Jira 이슈 8개, 화면 24종의 화면 생성 기준
 
 ## 0. 공통 화면 규칙

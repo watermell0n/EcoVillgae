@@ -2,7 +2,7 @@
 
 - 기준 문서: `docs/SCREEN_SPEC.md`, `docs/REQUIREMENTS_BASELINE.md`
 - 기준 Jira: `S15P11B201-190` ~ `S15P11B201-196`
-- 스타일 기준: 레퍼런스 캡처의 파스텔 마을 UI
+- 스타일 기준: `docs/design/FE_SCREEN_GENERATION_SPEC.md`와 `docs/design/STUDENT_DESIGN_PAGE.md`의 파스텔 마을 UI 규칙
 - 기준 해상도: 1280x800 학생 태블릿
 
 ## 1. 스타일 방향
@@ -151,7 +151,7 @@ Jira `190~196`은 21개 화면 단위였지만, 최신 `SCREEN_SPEC.md`는 학�
 ## 7. 프로토타입 반영 원칙
 
 - 현재 `student-tablet-prototype.html`은 화면 ID 확인용으로 24개 화면을 유지한다.
-- 홈과 월급명세서부터 레퍼런스 캡처 스타일을 우선 적용한다.
+- 홈과 월급명세서부터 상세 생성 스펙에 정의된 레이아웃·색상·상태 규칙을 우선 적용한다.
 - 나머지 화면은 같은 컴포넌트 문법으로 점진적으로 치환한다.
 - 도트 캐릭터는 직접 그리지 않고 `assets/characters/exports` 이미지가 들어갈 슬롯만 설계한다.
 - 버튼은 성공을 추정하지 않고 “처리 중”, “재시도”, “최신 상태 다시 불러오기” 상태를 가진다.

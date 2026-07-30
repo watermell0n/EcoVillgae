@@ -3,14 +3,14 @@
 - 작성일: 2026-07-30
 - 목적: FE 라벨 Jira 이슈를 개별 구현물이 아니라, 화면 생성과 백엔드 연동 설계에 넘길 수 있는 통합 디자인 기준으로 정리한다.
 - 기준 문서: `docs/SCREEN_SPEC.md`, `docs/REQUIREMENTS_BASELINE.md`, `docs/PERMISSION_MATRIX.md`, `docs/STATE_MACHINES.md`
-- 상세 레퍼런스: `docs/design/FE_SCREEN_GENERATION_SPEC.md`, `docs/ui/TEACHER_SCREENS_178_185.md`, `docs/ui/STUDENT_PAGE_CONCEPT.md`, `docs/design/STUDENT_DESIGN_PAGE.md`
+- 상세 기준 문서: `docs/design/FE_SCREEN_GENERATION_SPEC.md`, `docs/ui/TEACHER_SCREENS_178_185.md`, `docs/ui/STUDENT_PAGE_CONCEPT.md`, `docs/design/STUDENT_DESIGN_PAGE.md`
 
 ## 1. Jira 범위
 
 | Jira | 내용 | 산출 방식 |
 | --- | --- | --- |
-| `S15P11B201-76` | UI 재설계 3D version | 완료된 초기 레퍼런스. 최종 생성 기준은 이 문서로 수렴 |
-| `S15P11B201-77` | UI 재설계 new version | 완료된 초기 레퍼런스. 파스텔 마을 UI 방향만 유지 |
+| `S15P11B201-76` | UI 재설계 3D version | 최종 생성 기준은 이 문서와 상세 기준 문서로 수렴 |
+| `S15P11B201-77` | UI 재설계 new version | 최종 생성 기준은 이 문서와 상세 기준 문서로 수렴 |
 | `S15P11B201-103` | 교사 핵심 사용자 흐름 정의 | 이 문서의 교사 흐름/IA 섹션으로 처리 |
 | `S15P11B201-104` | 학생 핵심 사용자 흐름 정의 | 이 문서의 학생 흐름/IA 섹션으로 처리 |
 | `S15P11B201-105` | 공용 화면 활동 흐름 정의 | 이 문서의 공용 화면 섹션으로 처리 |
@@ -235,4 +235,4 @@ SCR-STU-001 로그인
 - 공용 화면은 공개 스키마만 사용한다.
 - 돈이 이동하는 행동은 확인, 처리 중, 성공, 실패 상태를 가진다.
 - 모듈 미선택·비활성 상태는 학생에게 숨김, 교사에게 활성화 안내로 분리한다.
-- Jira FE 산출물은 이 문서와 상세 레퍼런스 문서 링크로 추적한다.
+- Jira FE 산출물은 이 문서와 상세 기준 문서 링크로 추적한다.
