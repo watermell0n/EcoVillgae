@@ -1,48 +1,180 @@
-import { useMemo, useState } from "react";
-import { studentHomeEnvelope, transactions } from "./data/studentHome";
+import { FormEvent, useMemo, useState } from "react";
+import { moduleCards, studentHomeEnvelope, transactions } from "./data/studentHome";
 import type { ModuleCard } from "./types/screen";
 
-type PageKey = "village" | "wallet" | "paystub" | "shop" | "character" | "class";
+type AuthState = "landing" | "login" | "app";
+type PageKey =
+  | "village"
+  | "wallet"
+  | "paystub"
+  | "shop"
+  | "bank"
+  | "investment"
+  | "trade"
+  | "quiz"
+  | "character"
+  | "class";
 
 const menuItems: Array<{ key: PageKey; label: string; icon: string; disabled?: boolean }> = [
   { key: "village", label: "마을 광장", icon: "🏘️" },
   { key: "wallet", label: "내 지갑", icon: "💰" },
   { key: "paystub", label: "월급명세서", icon: "💼" },
   { key: "shop", label: "이코 상점", icon: "🏪" },
+  { key: "bank", label: "이코 은행", icon: "🏦" },
+  { key: "investment", label: "투자 광장", icon: "📈" },
+  { key: "trade", label: "거래소", icon: "🤝" },
+  { key: "quiz", label: "퀴즈", icon: "📝" },
   { key: "character", label: "내 캐릭터", icon: "🙂" },
-  { key: "class", label: "선생님 수업", icon: "📚", disabled: true }
+  { key: "class", label: "선생님 수업", icon: "📚" }
+];
+
+const products = [
+  { id: "pencil", name: "연필 교환권", price: 30, stock: 12, type: "실물 상품", owned: false },
+  { id: "snack", name: "간식 우선권", price: 50, stock: 4, type: "권리 상품", owned: false },
+  { id: "hoodie", name: "파란 후드", price: 50, stock: 99, type: "캐릭터", owned: true },
+  { id: "cap", name: "빨간 모자", price: 30, stock: 99, type: "캐릭터", owned: true }
+];
+
+const financeProducts = [
+  { id: "deposit-1", title: "3일 예금", description: "오늘 넣으면 3일차에 이자를 받아요", amount: 100, rate: "10%" },
+  { id: "saving-1", title: "매일 적금", description: "매일 조금씩 모으는 연습이에요", amount: 30, rate: "15%" }
+];
+
+const investmentAssets = [
+  { name: "거북이상사", price: 55, change: "+5", memo: "안정적인 성장" },
+  { name: "호랑운송", price: 35, change: "-5", memo: "물류비 상승" },
+  { name: "독수리테크", price: 48, change: "+18", memo: "신제품 성공" }
 ];
 
 function App() {
+  const [authState, setAuthState] = useState<AuthState>("landing");
   const [page, setPage] = useState<PageKey>("village");
-  const envelope = studentHomeEnvelope;
-  const title = useMemo(() => menuItems.find((item) => item.key === page)?.label ?? "마을 광장", [page]);
+  const [nickname, setNickname] = useState("학생");
+  const [walletBalance, setWalletBalance] = useState(studentHomeEnvelope.studentView.walletBalance);
+  const [message, setMessage] = useState("자율시간이에요. 열린 마을 기능만 사용할 수 있어요.");
+
+  if (authState === "landing") {
+    return <LandingScreen onStart={() => setAuthState("login")} />;
+  }
+
+  if (authState === "login") {
+    return (
+      <LoginScreen
+        onBack={() => setAuthState("landing")}
+        onLogin={(nextNickname) => {
+          setNickname(nextNickname || "학생");
+          setAuthState("app");
+        }}
+      />
+    );
+  }
+
+  const envelope = {
+    ...studentHomeEnvelope,
+    studentView: { ...studentHomeEnvelope.studentView, nickname, walletBalance }
+  };
+  const title = menuItems.find((item) => item.key === page)?.label ?? "마을 광장";
 
   return (
     <div className="student-shell">
-      <Sidebar current={page} onMove={setPage} />
+      <Sidebar current={page} onMove={setPage} onLogout={() => setAuthState("landing")} />
       <main className="student-main">
-        <Header title={title} />
+        <Header title={title} envelope={envelope} />
         <section className="content-area">
+          <StatusBanner message={message} />
           {page === "village" && <VillagePage onMove={setPage} />}
-          {page === "wallet" && <WalletPage />}
-          {page === "paystub" && <PaystubPage />}
-          {page === "shop" && <ShopPage />}
+          {page === "wallet" && <WalletPage walletBalance={walletBalance} />}
+          {page === "paystub" && <PaystubPage onConfirm={() => setMessage("월급명세서를 확인했어요.")} />}
+          {page === "shop" && (
+            <ShopPage
+              walletBalance={walletBalance}
+              onBuy={(price, name) => {
+                if (walletBalance < price) {
+                  setMessage(`${name}을 사기에는 비빔이 부족해요.`);
+                  return;
+                }
+                setWalletBalance((value) => value - price);
+                setMessage(`${name} 구매 요청을 만들었어요. 실물 상품은 선생님 확인 후 수령해요.`);
+              }}
+            />
+          )}
+          {page === "bank" && <BankPage onSubscribe={() => setMessage("예금 가입 요청 화면까지 이어졌어요. 실제 가입은 API 연동 후 처리돼요.")} />}
+          {page === "investment" && <InvestmentPage />}
+          {page === "trade" && <TradePage />}
+          {page === "quiz" && <QuizPage />}
           {page === "character" && <CharacterPage />}
+          {page === "class" && <ClassModePage />}
         </section>
       </main>
-      <aside className="right-summary" aria-label="학생 상태 요약">
-        <p className="eyebrow">내 상태</p>
-        <strong>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</strong>
-        <span>{envelope.classroom.dayIndex}일차 · {envelope.mode}</span>
-        <div className="summary-line" />
-        <p>열린 기능만 사용할 수 있어요. 돈이 움직이는 행동은 서버 확인 후 반영돼요.</p>
-      </aside>
+      <RightSummary envelope={envelope} />
     </div>
   );
 }
 
-function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey) => void }) {
+function LandingScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <main className="auth-background">
+      <div className="float coin-a">💰</div>
+      <div className="float coin-b">🪙</div>
+      <section className="welcome-panel">
+        <span className="welcome-icon">🏘️</span>
+        <p className="eyebrow">경제교육 웹앱</p>
+        <h1>이코빌리지</h1>
+        <p>우리 반 경제생활이 시작되는 곳</p>
+        <button className="primary-action wide" onClick={onStart}>마을 입장하기</button>
+      </section>
+    </main>
+  );
+}
+
+function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickname: string) => void }) {
+  const [form, setForm] = useState({
+    classroomCode: "ECO-001",
+    attendanceNumber: "3",
+    nickname: "학생",
+    password: ""
+  });
+  const canSubmit = form.classroomCode && form.attendanceNumber && form.nickname && form.password;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmit) {
+      return;
+    }
+    onLogin(form.nickname);
+  }
+
+  return (
+    <main className="auth-background">
+      <form className="login-panel" onSubmit={submit}>
+        <button className="ghost-back" type="button" onClick={onBack}>←</button>
+        <span className="welcome-icon">🏘️</span>
+        <h1>이코빌리지</h1>
+        <p>선생님이 알려준 정보로 접속해요</p>
+        <label>
+          학급 코드
+          <input value={form.classroomCode} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
+        </label>
+        <label>
+          출석번호
+          <input value={form.attendanceNumber} onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })} />
+        </label>
+        <label>
+          닉네임
+          <input value={form.nickname} onChange={(event) => setForm({ ...form, nickname: event.target.value })} />
+        </label>
+        <label>
+          비밀번호
+          <input type="password" value={form.password} placeholder="선생님이 알려준 비밀번호" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+        </label>
+        <button className="primary-action wide" disabled={!canSubmit}>마을 입장하기</button>
+        <p className="login-note">현재는 UI 시연용 로그인입니다. API 연동 시 `POST /auth/student-sessions`로 연결해요.</p>
+      </form>
+    </main>
+  );
+}
+
+function Sidebar({ current, onMove, onLogout }: { current: PageKey; onMove: (page: PageKey) => void; onLogout: () => void }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -54,28 +186,18 @@ function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey
       </div>
       <nav>
         {menuItems.map((item) => (
-          <button
-            key={item.key}
-            className={current === item.key ? "side-item active" : "side-item"}
-            disabled={item.disabled}
-            onClick={() => onMove(item.key)}
-          >
+          <button key={item.key} className={current === item.key ? "side-item active" : "side-item"} onClick={() => onMove(item.key)}>
             <span>{item.icon}</span>
             {item.label}
           </button>
         ))}
       </nav>
-      <div className="teacher-lock">
-        <b>수업 중 잠금</b>
-        <p>선생님이 활동을 시작하면 마을 기능은 자동으로 잠겨요.</p>
-      </div>
+      <button className="logout-button" onClick={onLogout}>처음 화면</button>
     </aside>
   );
 }
 
-function Header({ title }: { title: string }) {
-  const envelope = studentHomeEnvelope;
-
+function Header({ title, envelope }: { title: string; envelope: typeof studentHomeEnvelope }) {
   return (
     <header className="app-header">
       <div>
@@ -91,20 +213,33 @@ function Header({ title }: { title: string }) {
   );
 }
 
+function StatusBanner({ message }: { message: string }) {
+  return (
+    <div className="status-banner">
+      <b>현재 상태</b>
+      <span>{message}</span>
+    </div>
+  );
+}
+
 function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
-  const cards = studentHomeEnvelope.data.cards;
+  const cards = useMemo(() => [
+    ...moduleCards,
+    { id: "trade", title: "친구 거래소", subtitle: "친구와 아이템·비빔 거래를 제안해요", icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
+    { id: "quiz", title: "오늘의 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", state: "active", cta: "풀러가기" } as ModuleCard
+  ], []);
 
   return (
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">자율시간</p>
-          <h2>오늘 사용할 마을 기능을 골라요</h2>
-          <p>선생님이 허용한 기능만 보이고, 닫힌 기능은 이유를 함께 보여줘요.</p>
+          <p className="eyebrow">마을 광장</p>
+          <h2>지금 할 수 있는 경제 활동</h2>
+          <p>상점, 은행, 투자, 거래, 퀴즈로 들어갈 수 있어요. 닫힌 기능은 선생님 수업 상태에 맞춰 잠겨요.</p>
         </div>
         <div className="mode-card">
           <b>AUTONOMOUS</b>
-          <span>상점·지갑·캐릭터 이용 가능</span>
+          <span>자율 활동 가능</span>
         </div>
       </section>
       <section className="village-grid">
@@ -122,9 +257,11 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
     paystub: "paystub",
     character: "character",
     shop: "shop",
-    bank: "wallet",
-    investment: "wallet",
-    meeting: "village"
+    bank: "bank",
+    investment: "investment",
+    meeting: "class",
+    trade: "trade",
+    quiz: "quiz"
   };
 
   return (
@@ -138,21 +275,20 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
   );
 }
 
-function WalletPage() {
+function WalletPage({ walletBalance }: { walletBalance: number }) {
+  const todayIncome = transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
+  const todayExpense = transactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+
   return (
     <section className="two-column">
       <div className="wallet-hero">
         <p>지금 내 지갑</p>
-        <strong>158비빔</strong>
-        <span>오늘 +158비빔</span>
+        <strong>{walletBalance}비빔</strong>
+        <span>오늘 +{todayIncome - todayExpense}비빔</span>
       </div>
       <div className="panel">
-        <div className="panel-head">
-          <div>
-            <p className="eyebrow">거래 내역</p>
-            <h2>오늘 돈의 흐름</h2>
-          </div>
-        </div>
+        <p className="eyebrow">거래 내역</p>
+        <h2>오늘 돈의 흐름</h2>
         <div className="transaction-list">
           {transactions.map((tx) => (
             <article className="transaction-row" key={tx.id}>
@@ -172,7 +308,7 @@ function WalletPage() {
   );
 }
 
-function PaystubPage() {
+function PaystubPage({ onConfirm }: { onConfirm: () => void }) {
   return (
     <section className="paystub-layout">
       <div className="receipt">
@@ -198,7 +334,7 @@ function PaystubPage() {
           <span>-17비빔</span>
           <b>내 지갑<br />158비빔</b>
         </div>
-        <button className="primary-action">확인했어요</button>
+        <button className="primary-action" onClick={onConfirm}>확인했어요</button>
       </div>
     </section>
   );
@@ -213,19 +349,105 @@ function ReceiptRow({ label, amount, danger }: { label: string; amount: string; 
   );
 }
 
-function ShopPage() {
+function ShopPage({ walletBalance, onBuy }: { walletBalance: number; onBuy: (price: number, name: string) => void }) {
   return (
     <section className="panel">
-      <p className="eyebrow">이코 상점</p>
-      <h2>구매 가능한 상품</h2>
+      <p className="eyebrow">상점</p>
+      <h2>상품을 고르고 구매해요</h2>
       <div className="product-grid">
-        {["연필 교환권", "간식 우선권", "파란 후드", "빨간 모자"].map((name, index) => (
-          <article className="product-card" key={name}>
-            <span>{index < 2 ? "🎁" : "👕"}</span>
-            <b>{name}</b>
-            <p>{30 + index * 10}비빔</p>
-            <button>{index === 3 ? "잔액 부족" : "상세 보기"}</button>
+        {products.map((product) => {
+          const disabled = walletBalance < product.price;
+          return (
+            <article className="product-card" key={product.id}>
+              <span>{product.type === "캐릭터" ? "👕" : "🎁"}</span>
+              <b>{product.name}</b>
+              <p>{product.price}비빔 · 재고 {product.stock}</p>
+              <small>{product.owned ? "보유 중" : product.type}</small>
+              <button disabled={disabled} onClick={() => onBuy(product.price, product.name)}>{disabled ? "잔액 부족" : "구매하기"}</button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function BankPage({ onSubscribe }: { onSubscribe: () => void }) {
+  return (
+    <section className="panel">
+      <p className="eyebrow">이코 은행</p>
+      <h2>예금과 적금 상품</h2>
+      <div className="product-grid compact">
+        {financeProducts.map((product) => (
+          <article className="product-card" key={product.id}>
+            <span>🏦</span>
+            <b>{product.title}</b>
+            <p>{product.amount}비빔부터 · 이자 {product.rate}</p>
+            <small>{product.description}</small>
+            <button onClick={onSubscribe}>가입하기</button>
           </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function InvestmentPage() {
+  return (
+    <section className="panel">
+      <p className="eyebrow">투자 광장</p>
+      <h2>오늘의 투자 결과</h2>
+      <div className="result-list">
+        {investmentAssets.map((asset) => (
+          <article className="result-row" key={asset.name}>
+            <div>
+              <b>{asset.name}</b>
+              <span>{asset.memo}</span>
+            </div>
+            <strong className={asset.change.startsWith("+") ? "positive" : "negative"}>{asset.change}비빔</strong>
+            <small>현재가 {asset.price}비빔</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TradePage() {
+  return (
+    <section className="two-column">
+      <div className="panel">
+        <p className="eyebrow">친구 거래소</p>
+        <h2>거래 제안 만들기</h2>
+        <label className="stack-label">상대 학생<input placeholder="예: 하늘" /></label>
+        <label className="stack-label">보낼 비빔<input placeholder="0" /></label>
+        <label className="stack-label">거래 메모<input placeholder="무엇을 거래하나요?" /></label>
+        <button className="primary-action wide">제안 보내기</button>
+      </div>
+      <div className="panel">
+        <p className="eyebrow">대기 중 거래</p>
+        <h2>선생님 승인 전</h2>
+        <div className="transaction-row">
+          <div>
+            <b>민준에게 보낸 제안</b>
+            <span>파란 후드 ↔ 30비빔</span>
+          </div>
+          <div className="money">대기</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function QuizPage() {
+  return (
+    <section className="panel">
+      <p className="eyebrow">오늘의 퀴즈</p>
+      <h2>경제생활 퀴즈</h2>
+      <div className="quiz-box">
+        <b>소득세는 어디에 모이나요?</b>
+        {["내 캐릭터 보관함", "우리 반 공동기금", "선생님 개인 지갑"].map((choice) => (
+          <button key={choice}>{choice}</button>
         ))}
       </div>
     </section>
@@ -236,7 +458,7 @@ function CharacterPage() {
   return (
     <section className="character-layout">
       <div className="character-slot">
-        <span>DOT<br />CHARACTER</span>
+        <span>캐릭터<br />이미지 자리</span>
       </div>
       <div className="panel">
         <p className="eyebrow">캐릭터 슬롯</p>
@@ -249,6 +471,29 @@ function CharacterPage() {
         ))}
       </div>
     </section>
+  );
+}
+
+function ClassModePage() {
+  return (
+    <section className="panel centered-panel">
+      <span className="big-icon">📚</span>
+      <p className="eyebrow">선생님 수업</p>
+      <h2>수업이 시작되면 이 화면으로 전환돼요</h2>
+      <p>지도 활동, 퀴즈, 공개 화면은 선생님이 시작한 세션 상태에 따라 열려요.</p>
+    </section>
+  );
+}
+
+function RightSummary({ envelope }: { envelope: typeof studentHomeEnvelope }) {
+  return (
+    <aside className="right-summary" aria-label="학생 상태 요약">
+      <p className="eyebrow">내 상태</p>
+      <strong>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</strong>
+      <span>{envelope.classroom.dayIndex}일차 · {envelope.mode}</span>
+      <div className="summary-line" />
+      <p>실제 잔액·구매·예금·퀴즈 결과는 API 연동 후 서버 응답으로 확정돼요.</p>
+    </aside>
   );
 }
 
