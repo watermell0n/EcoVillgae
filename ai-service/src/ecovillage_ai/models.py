@@ -526,6 +526,7 @@ class InvestmentNewsContext(ContractModel):
 
 
 class EconomicEventPayload(ContractModel):
+    course_scale: CourseScale
     source_type: EventSourceType
     source_proposal_id: UUID | None = None
     source_evidence_codes: Annotated[list[ReasonCode], Field(max_length=20)]
@@ -877,9 +878,13 @@ class InvestmentNewsBinding(ContractModel):
 class EconomicEventOutput(ContractModel):
     review_status: Literal["REVIEW_REQUIRED"]
     template_type: EventTemplateType
+    source_type: EventSourceType
+    source_proposal_id: UUID | None
+    source_evidence_codes: Annotated[list[ReasonCode], Field(max_length=20)]
+    interest_rate_scope: InterestRateScope | None
     title: Annotated[str, Field(min_length=1, max_length=150)]
     narrative: Annotated[str, Field(min_length=1, max_length=2000)]
-    choices: Annotated[list[EventChoice], Field(max_length=5)]
+    choices: Annotated[list[EventChoice], Field(min_length=2, max_length=5)]
     progress_messages: Annotated[
         list[Annotated[str, Field(min_length=1, max_length=300)]],
         Field(min_length=1, max_length=10),
@@ -896,12 +901,35 @@ class EconomicEventOutput(ContractModel):
         return values
 
     @model_validator(mode="after")
-    def validate_investment_output(self) -> EconomicEventOutput:
+    def validate_event_output(self) -> EconomicEventOutput:
+        if self.source_type is EventSourceType.MONITOR_RECOMMENDATION:
+            if self.source_proposal_id is None or not self.source_evidence_codes:
+                raise ValueError("모니터링 추천 출력에는 원본 제안과 근거 코드가 필요합니다.")
+        elif self.source_proposal_id is not None or self.source_evidence_codes:
+            raise ValueError("교사 요청 출력에는 모니터링 제안 참조를 둘 수 없습니다.")
+        if len(self.source_evidence_codes) != len(set(self.source_evidence_codes)):
+            raise ValueError("이벤트 출력 근거 코드는 중복될 수 없습니다.")
+
+        if self.template_type is EventTemplateType.INTEREST_RATE:
+            if self.interest_rate_scope is None:
+                raise ValueError("금리 이벤트 출력에는 interest_rate_scope가 필요합니다.")
+        elif self.interest_rate_scope is not None:
+            raise ValueError("금리 외 이벤트 출력에는 interest_rate_scope를 둘 수 없습니다.")
+
         if self.template_type is EventTemplateType.INVESTMENT_NEWS:
             if self.investment_news_binding is None or self.teacher_explanation is None:
                 raise ValueError("투자 뉴스 출력에는 단계 연결과 교사용 설명이 필요합니다.")
         elif self.investment_news_binding is not None or self.teacher_explanation is not None:
             raise ValueError("투자 뉴스 외 이벤트에는 투자 뉴스 전용 출력을 둘 수 없습니다.")
+
+        normalized_labels = [" ".join(choice.label.split()).casefold() for choice in self.choices]
+        if len(normalized_labels) != len(set(normalized_labels)):
+            raise ValueError("이벤트 선택지 문구는 중복될 수 없습니다.")
+        normalized_messages = [
+            " ".join(message.split()).casefold() for message in self.progress_messages
+        ]
+        if len(normalized_messages) != len(set(normalized_messages)):
+            raise ValueError("이벤트 진행 문구는 중복될 수 없습니다.")
         return self
 
 

@@ -219,6 +219,7 @@ def teacher_chat_request() -> dict[str, object]:
 def economic_event_request() -> dict[str, object]:
     body = common("economic-event-v1")
     body["payload"] = {
+        "course_scale": "ONE_MONTH",
         "source_type": "TEACHER_REQUEST",
         "source_proposal_id": None,
         "source_evidence_codes": [],

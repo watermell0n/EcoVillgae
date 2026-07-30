@@ -220,6 +220,10 @@ class FakeGenerationProvider:
         output: dict[str, Any] = {
             "review_status": "REVIEW_REQUIRED",
             "template_type": template,
+            "source_type": payload["source_type"],
+            "source_proposal_id": payload["source_proposal_id"],
+            "source_evidence_codes": payload["source_evidence_codes"],
+            "interest_rate_scope": payload["interest_rate_scope"],
             "title": titles[template],
             "narrative": "마을의 경제 환경이 달라져 주민들이 함께 상황을 살펴보고 있습니다.",
             "choices": [

@@ -12,6 +12,12 @@ from ecovillage_ai.features.balancing import (
     eligible_evidence_codes,
     validate_balancing_input,
 )
+from ecovillage_ai.features.economic_event import (
+    event_approval_boundary_codes,
+    event_content_safety_codes,
+    event_grade_and_effect_codes,
+    validate_economic_event_input,
+)
 from ecovillage_ai.features.quiz_draft import (
     quiz_content_safety_codes,
     quiz_grade_quality_codes,
@@ -30,10 +36,8 @@ from ecovillage_ai.models import (
     EconomicEventGenerationRequest,
     EconomicEventOutput,
     ErrorCode,
-    EventTemplateType,
     GenerationOutput,
     GenerationRequest,
-    InterestRateScope,
     QuizDraftGenerationRequest,
     QuizDraftOutput,
     SetupPrecheckOutput,
@@ -77,38 +81,9 @@ def validate_input_policy(request: GenerationRequest) -> None:
             return
         validate_balancing_input(request)
     elif isinstance(request, EconomicEventGenerationRequest):
-        _validate_event_grade_policy(request)
+        validate_economic_event_input(request)
     elif isinstance(request, QuizDraftGenerationRequest):
         validate_quiz_draft_input(request)
-
-
-def _validate_event_grade_policy(request: EconomicEventGenerationRequest) -> None:
-    template = request.payload.template_type
-    allowed_by_grade = {
-        4: {EventTemplateType.PRICE, EventTemplateType.SUPPLY, EventTemplateType.PUBLIC_FUND},
-        5: {
-            EventTemplateType.PRICE,
-            EventTemplateType.SUPPLY,
-            EventTemplateType.PUBLIC_FUND,
-            EventTemplateType.TAX,
-            EventTemplateType.INTEREST_RATE,
-        },
-        6: set(EventTemplateType),
-    }
-    if template not in allowed_by_grade[request.grade]:
-        _raise_validation(
-            ValidationStage.GRADE_AND_EFFECT,
-            ["GRADE_POLICY_VIOLATION"],
-        )
-    if (
-        template is EventTemplateType.INTEREST_RATE
-        and request.grade == 5
-        and request.payload.interest_rate_scope is InterestRateScope.LOAN
-    ):
-        _raise_validation(
-            ValidationStage.GRADE_AND_EFFECT,
-            ["GRADE_POLICY_VIOLATION"],
-        )
 
 
 class OutputValidationPipeline:
@@ -305,6 +280,14 @@ def _validate_event_context(
     codes: list[str] = []
     if output.template_type is not request.payload.template_type:
         codes.append("EVENT_TEMPLATE_MISMATCH")
+    if output.source_type is not request.payload.source_type:
+        codes.append("EVENT_SOURCE_CHANGED")
+    if output.source_proposal_id != request.payload.source_proposal_id:
+        codes.append("EVENT_SOURCE_PROPOSAL_CHANGED")
+    if output.source_evidence_codes != request.payload.source_evidence_codes:
+        codes.append("EVENT_SOURCE_EVIDENCE_CHANGED")
+    if output.interest_rate_scope is not request.payload.interest_rate_scope:
+        codes.append("EVENT_INTEREST_RATE_SCOPE_CHANGED")
     input_context = request.payload.investment_news_context
     output_binding = output.investment_news_binding
     if input_context is not None and output_binding is not None:
@@ -474,19 +457,12 @@ def _validate_grade_and_effect(
         output, EconomicEventOutput
     ):
         return []
-    codes: list[str] = []
-    text = " ".join(_iter_strings(output))
-    if any(effect.casefold() in text.casefold() for effect in request.payload.prohibited_effects):
-        codes.append("FORBIDDEN_EVENT_EFFECT")
-    if re.search(r"\d", text):
-        codes.append("FORBIDDEN_EVENT_NUMERIC_EFFECT")
-    return codes
+    return event_grade_and_effect_codes(request, output)
 
 
 def _validate_content_safety(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
-    del request
     text = " ".join(_iter_natural_language(output))
     codes: list[str] = []
     if UUID_PATTERN.search(text) or EMAIL_PATTERN.search(text) or PHONE_PATTERN.search(text):
@@ -501,17 +477,25 @@ def _validate_content_safety(
         codes.append("FUTURE_PRICE_PREDICTION_DETECTED")
     if isinstance(output, QuizDraftOutput):
         codes.extend(quiz_content_safety_codes(output))
+    if isinstance(request, EconomicEventGenerationRequest) and isinstance(
+        output, EconomicEventOutput
+    ):
+        codes.extend(event_content_safety_codes(output))
     return codes
 
 
 def _validate_approval_boundary(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
-    del request
     text = " ".join(_iter_natural_language(output))
+    codes = []
     if any(phrase in text for phrase in APPROVAL_BOUNDARY_PHRASES):
-        return ["APPROVAL_BOUNDARY_VIOLATION"]
-    return []
+        codes.append("APPROVAL_BOUNDARY_VIOLATION")
+    if isinstance(request, EconomicEventGenerationRequest) and isinstance(
+        output, EconomicEventOutput
+    ):
+        codes.extend(event_approval_boundary_codes(output))
+    return codes
 
 
 def _raise_validation(stage: ValidationStage, codes: list[str]) -> None:

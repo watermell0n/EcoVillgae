@@ -1123,14 +1123,20 @@ components:
       type: object
       additionalProperties: false
       required:
+        - course_scale
         - source_type
         - source_proposal_id
         - source_evidence_codes
         - template_type
+        - interest_rate_scope
         - effect_summary
         - prohibited_effects
+        - teacher_context
         - investment_news_context
       properties:
+        course_scale:
+          type: string
+          enum: [ONE_SHOT, ONE_WEEK, ONE_MONTH, ONE_SEMESTER]
         source_type:
           type: string
           enum: [TEACHER_REQUEST, MONITOR_RECOMMENDATION]
@@ -1220,6 +1226,10 @@ components:
       required:
         - review_status
         - template_type
+        - source_type
+        - source_proposal_id
+        - source_evidence_codes
+        - interest_rate_scope
         - title
         - narrative
         - choices
@@ -1230,6 +1240,22 @@ components:
           const: REVIEW_REQUIRED
         template_type:
           $ref: '#/components/schemas/EventTemplateType'
+        source_type:
+          type: string
+          enum: [TEACHER_REQUEST, MONITOR_RECOMMENDATION]
+        source_proposal_id:
+          type: [string, 'null']
+          format: uuid
+        source_evidence_codes:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[A-Z][A-Z0-9_]{1,79}$'
+        interest_rate_scope:
+          type: [string, 'null']
+          enum: [DEPOSIT, SAVINGS, LOAN, null]
         title:
           type: string
           minLength: 1
@@ -1240,6 +1266,7 @@ components:
           maxLength: 2000
         choices:
           type: array
+          minItems: 2
           maxItems: 5
           items:
             $ref: '#/components/schemas/EventChoice'

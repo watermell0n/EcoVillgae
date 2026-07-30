@@ -218,13 +218,15 @@ PRICE | SUPPLY | TAX | INTEREST_RATE | INVESTMENT_NEWS | REWARD | PUBLIC_FUND
 `PRICE·SUPPLY·PUBLIC_FUND`, 초5는 여기에 `TAX`와 예금·적금 금리를, 초6은 전체
 템플릿과 대출금리를 사용할 수 있습니다.
 
-핵심 API가 수치 효과를 `effect_summary`라는 설명용 읽기 전용 데이터로 전달합니다.
+핵심 API가 코스 규모를 `course_scale`로, 수치 효과를 `effect_summary`라는 설명용 읽기 전용
+데이터로 전달합니다. `ONE_SHOT` 코스는 공급자 호출 전에 거절합니다.
 FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않고 제목·이야기·선택지·진행
 문구만 포함합니다.
 
 이벤트 출처는 교사의 직접 요청인 `TEACHER_REQUEST`와 자동 모니터링 제안에서 이어지는
 `MONITOR_RECOMMENDATION`을 모두 허용합니다. 후자는 `source_proposal_id`와 하나 이상의
-`source_evidence_codes`가 반드시 있어야 합니다.
+`source_evidence_codes`가 반드시 있어야 합니다. 출력은 `source_type`, 원본 제안 ID,
+근거 코드와 `interest_rate_scope`를 그대로 보존하고 항상 두 개 이상의 선택지를 반환합니다.
 
 `INVESTMENT_NEWS`는 별도 기업을 생성하지 않습니다. 입력에 있는
 `scenario_version_id`, `asset_id`, `price_step_id`, 가상 자산 이름·기호,

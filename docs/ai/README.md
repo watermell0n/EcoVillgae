@@ -16,6 +16,7 @@
 | [근거 기반 교사용 챗봇](TEACHER_CHAT.md) | 집계 사실 입력, 근거 연결 출력, 사전 제한 가드와 60개 평가 사례 |
 | [교사용 AI 퀴즈 초안](QUIZ_DRAFT.md) | 학년·분류·유형·난이도별 생성, 결정적 품질 필터, 48개 평가와 로컬 테스트 |
 | [경제 설정 추천·시작 전 점검](SETUP_PRECHECK.md) | 규칙 엔진 후보·판정 보존, 설명 품질 검증, 48개 평가와 Swagger 직접 테스트 |
+| [AI 경제 이벤트 초안](ECONOMIC_EVENT.md) | 7종 템플릿, 두 출처, 학년·코스·효과 안전 검증, 42개 평가와 Swagger 직접 테스트 |
 | [단계별 개발 계획](IMPLEMENTATION_PLAN.md) | 전체 MVP AI 기능을 FastAPI 단독으로 완성한 뒤 Spring·DB·웹을 연결하는 실행 순서 |
 | [기계 판독 내부 OpenAPI](../../contracts/ai-internal-openapi.yaml) | FastAPI 내부 HTTP 인터페이스의 OpenAPI 3.1 계약 |
 

@@ -91,6 +91,11 @@ ruff check .
 [`docs/ai/METRICS_AND_THRESHOLDS.md`](../docs/ai/METRICS_AND_THRESHOLDS.md)의 10장을
 따릅니다.
 
+경제 이벤트는 교사 요청과 모니터링 추천에서 PRICE·SUPPLY·PUBLIC_FUND·TAX·
+INTEREST_RATE·INVESTMENT_NEWS·REWARD 전용 프롬프트를 선택합니다. 학년·1회 코스,
+출처·근거·효과·승인 경계를 결정적으로 검사하며, 42개 평가 사례와 Swagger 직접 테스트는
+[`docs/ai/ECONOMIC_EVENT.md`](../docs/ai/ECONOMIC_EVENT.md)를 따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.

@@ -288,6 +288,27 @@ def test_openapi_and_pydantic_expose_v1_1_feature_dimensions(client: TestClient)
     assert contract_schemas["EconomicEventPayload"]["properties"]["source_type"][
         "enum"
     ] == ["TEACHER_REQUEST", "MONITOR_RECOMMENDATION"]
+    assert {
+        "course_scale",
+        "source_type",
+        "source_proposal_id",
+        "source_evidence_codes",
+        "template_type",
+        "interest_rate_scope",
+        "effect_summary",
+        "prohibited_effects",
+        "teacher_context",
+        "investment_news_context",
+    } == set(contract_schemas["EconomicEventPayload"]["required"])
+    assert {
+        "source_type",
+        "source_proposal_id",
+        "source_evidence_codes",
+        "interest_rate_scope",
+    } <= set(contract_schemas["EconomicEventOutput"]["required"])
+    assert contract_schemas["EconomicEventOutput"]["properties"]["choices"][
+        "minItems"
+    ] == 2
     assert generated_schemas["QuizDifficulty"]["enum"] == [
         "INTRODUCTORY",
         "STANDARD",

@@ -127,7 +127,7 @@ class PromptRegistry:
             request, EconomicEventGenerationRequest
         ):
             mode = request.payload.template_type.value.casefold().replace("_", "-")
-            return mode, "economic-event-v1", "v1/economic-event.txt"
+            return mode, "economic-event-v1", f"v1/economic-event/{mode}.txt"
         if kind is GenerationKind.QUIZ_DRAFT and isinstance(
             request, QuizDraftGenerationRequest
         ):
