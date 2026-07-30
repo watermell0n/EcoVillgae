@@ -20,6 +20,7 @@
         "classrooms",
         "classroom_students",
         "student_credentials",
+        "device_links",
         "student_sessions"
       ],
       "request": {
@@ -49,7 +50,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.nickname",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -67,7 +68,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.device_id",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -81,7 +82,7 @@
             "required": true,
             "type": "string",
             "target": "projection.access_token",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -90,7 +91,7 @@
             "required": true,
             "type": "string",
             "target": "projection.refresh_token",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -99,7 +100,7 @@
             "required": true,
             "type": "string",
             "target": "projection.expires_at",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -108,7 +109,7 @@
             "required": true,
             "type": "string",
             "target": "projection.classroom_id",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -117,7 +118,7 @@
             "required": true,
             "type": "string",
             "target": "projection.student_id",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -126,7 +127,7 @@
             "required": true,
             "type": "string",
             "target": "projection.role",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }

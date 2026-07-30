@@ -20,9 +20,23 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: true
 
 server:
   port: ${BACKEND_PORT:8080}
+
+ecovillage:
+  auth:
+    issuer: ecovillage-api
+    access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${AUTH_REFRESH_TOKEN_TTL:14d}
+    jwt-secret: ${AUTH_JWT_SECRET:local-development-jwt-secret-change-before-deploy}
+    token-pepper: ${AUTH_TOKEN_PEPPER:local-development-token-pepper-change-before-deploy}
+    login-attempt-limit: ${AUTH_LOGIN_ATTEMPT_LIMIT:20}
+    login-attempt-window: ${AUTH_LOGIN_ATTEMPT_WINDOW:1m}
 
 management:
   endpoints:

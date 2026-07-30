@@ -1025,6 +1025,15 @@ const storageByReadApi = {
 };
 
 function storageTargets(operation) {
+  if (operation.apiId === "API-AUTH-001") {
+    return [
+      "classrooms",
+      "classroom_students",
+      "student_credentials",
+      "device_links",
+      "student_sessions",
+    ];
+  }
   if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
   if (operation.apiId === "API-AUTH-003") return ["redis.password-reset", "student_credentials", "student_sessions"];
   if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];

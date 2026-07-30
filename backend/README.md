@@ -70,6 +70,21 @@ node scripts/validate-database-implementation.mjs
 node scripts/validate-api-schema-consistency.mjs
 ```
 
+## 학생 로그인 API
+
+`POST /auth/student-sessions`는 OpenAPI `API-AUTH-001` 계약을 구현합니다.
+
+- 학급 코드·출석번호·닉네임·비밀번호·기기 UUID를 검증합니다.
+- 비밀번호는 Argon2id 해시와 비교하고 로그인 실패로 계정을 잠그지 않습니다.
+- 액세스 토큰은 15분 JWT, 갱신 토큰은 14일 만료이며 갱신 토큰 해시만 저장합니다.
+- 새 기기 로그인은 기존 ACTIVE 학생 세션을 먼저 폐기합니다.
+- 기기 UUID는 HMAC-SHA-256 지문으로만 저장합니다.
+- 단일 인스턴스 순간 요청 제한을 적용하며 배포 단계에서는 Redis 기반 제한기로
+  교체할 수 있도록 인터페이스를 분리했습니다.
+
+로컬 기본 키는 개발 전용입니다. 배포 환경에서는 `.env.example`의
+`AUTH_JWT_SECRET`, `AUTH_TOKEN_PEPPER`를 Secrets Manager 등에서 주입해야 합니다.
+
 ## 로컬 개발 데이터베이스 재생성
 
 아래 절차는 저장소의 로컬 Compose PostgreSQL 데이터만 삭제합니다. 공유·운영
