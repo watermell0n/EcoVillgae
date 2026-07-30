@@ -6,5 +6,5 @@
 ## 학생 앱 디자인
 
 - [FE 통합 디자인 가이드](FE_DESIGN_GUIDE.md): FE 라벨 Jira 이슈를 한곳에 모은 화면 생성 기준, IA, 상태·개인정보·컴포넌트 규칙
-- [학생 앱 디자인 페이지](STUDENT_DESIGN_PAGE.md): Figma 학생 화면 작업용 페이지 구조, 디자인 토큰, 공통 컴포넌트, 화면별 디자인 구상
+- [학생 앱 디자인 페이지](STUDENT_DESIGN_PAGE.md): 학생 화면 생성용 페이지 구조, 디자인 토큰, 공통 컴포넌트, 화면별 디자인 구상
 - [학생 앱 디자인 HTML](student-design-page.html): 위 디자인 페이지를 캡처 스타일로 시각화한 브라우저용 보드
