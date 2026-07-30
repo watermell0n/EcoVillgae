@@ -548,8 +548,21 @@ class QuizDraftPayload(ContractModel):
     @field_validator("concepts")
     @classmethod
     def concepts_must_be_unique(cls, values: list[str]) -> list[str]:
-        if len(values) != len(set(values)):
+        normalized = [" ".join(value.split()).casefold() for value in values]
+        if any(not value for value in normalized):
+            raise ValueError("퀴즈 개념은 공백일 수 없습니다.")
+        if len(normalized) != len(set(normalized)):
             raise ValueError("퀴즈 개념은 중복될 수 없습니다.")
+        return values
+
+    @field_validator("learning_objectives")
+    @classmethod
+    def learning_objectives_must_be_unique(cls, values: list[str]) -> list[str]:
+        normalized = [" ".join(value.split()).casefold() for value in values]
+        if any(not value for value in normalized):
+            raise ValueError("퀴즈 학습목표는 공백일 수 없습니다.")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("퀴즈 학습목표는 중복될 수 없습니다.")
         return values
 
 

@@ -72,6 +72,13 @@ ruff check .
 정리되어 있습니다. 상세 동작은
 [`docs/ai/TEACHER_CHAT.md`](../docs/ai/TEACHER_CHAT.md)를 따릅니다.
 
+교사용 퀴즈 초안은 초4~6, 경제·넌센스, 객관식·OX, 세 난이도의 모든 조합을 지원하고
+항상 `REVIEW_REQUIRED`로 반환합니다. 중복·숫자 정답·OX 의미·학년 수준·유해 표현을
+결정적으로 검사하며 48개 조합·실패 평가 사례는
+[`tests/fixtures/quiz_draft_evaluation_v1.json`](tests/fixtures/quiz_draft_evaluation_v1.json)에
+정리되어 있습니다. 자동 평가와 Swagger 직접 테스트는
+[`docs/ai/QUIZ_DRAFT.md`](../docs/ai/QUIZ_DRAFT.md)를 따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.

@@ -15,12 +15,16 @@ const safetyDoc = read("docs/ai/SAFETY_AND_EVALUATION.md");
 const promptRuntimeDoc = read("docs/ai/PROMPT_RUNTIME.md");
 const providerAdapterDoc = read("docs/ai/PROVIDER_ADAPTERS.md");
 const teacherChatDoc = read("docs/ai/TEACHER_CHAT.md");
+const quizDraftDoc = read("docs/ai/QUIZ_DRAFT.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
 );
 const teacherChatEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/teacher_chat_evaluation_v1.json"),
+);
+const quizDraftEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/quiz_draft_evaluation_v1.json"),
 );
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
@@ -164,6 +168,26 @@ assert(
     teacherChatEvaluationCount === 60,
   `교사용 챗봇 평가 사례는 60개여야 합니다: ${teacherChatEvaluationCount}`,
 );
+const quizDraftSuccessCount =
+  quizDraftEvaluation.grades.length *
+  quizDraftEvaluation.success_matrix.categories.length *
+  quizDraftEvaluation.success_matrix.question_types.length *
+  quizDraftEvaluation.success_matrix.difficulties.length;
+const quizDraftInvalidCount =
+  quizDraftEvaluation.grades.length * quizDraftEvaluation.invalid_output_cases.length;
+const quizDraftEvaluationCount = quizDraftSuccessCount + quizDraftInvalidCount;
+assert(
+  quizDraftEvaluation.evaluation_set_version === "quiz-draft-evaluation-v1",
+  "퀴즈 초안 평가 세트 버전이 올바르지 않습니다.",
+);
+assert(
+  quizDraftSuccessCount === quizDraftEvaluation.expected_success_case_count &&
+    quizDraftInvalidCount === quizDraftEvaluation.expected_invalid_case_count &&
+    quizDraftEvaluationCount === quizDraftEvaluation.expected_case_count &&
+    quizDraftEvaluationCount === 48,
+  `퀴즈 초안 평가 사례는 48개여야 합니다: ${quizDraftEvaluationCount}`,
+);
+assert(quizDraftDoc.includes("48개"), "퀴즈 초안 문서에 48개 평가 사례가 없습니다.");
 
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
@@ -261,6 +285,7 @@ console.log(
       success_fixtures: fixtureCatalog.success.length,
       invalid_fixtures: fixtureCatalog.invalid.length,
       teacher_chat_evaluation_cases: teacherChatEvaluationCount,
+      quiz_draft_evaluation_cases: quizDraftEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

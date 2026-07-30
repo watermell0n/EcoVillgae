@@ -14,6 +14,7 @@
 | [프롬프트·공통 생성 런타임](PROMPT_RUNTIME.md) | 버전 프롬프트 선택, 공급자 명령, 순서형 검증과 안전 로그 |
 | [실제 공급자 어댑터](PROVIDER_ADAPTERS.md) | Bedrock·OpenAI 구조화 출력, 라우팅, 환경 설정, 오류와 smoke 검사 |
 | [근거 기반 교사용 챗봇](TEACHER_CHAT.md) | 집계 사실 입력, 근거 연결 출력, 사전 제한 가드와 60개 평가 사례 |
+| [교사용 AI 퀴즈 초안](QUIZ_DRAFT.md) | 학년·분류·유형·난이도별 생성, 결정적 품질 필터, 48개 평가와 로컬 테스트 |
 | [단계별 개발 계획](IMPLEMENTATION_PLAN.md) | 전체 MVP AI 기능을 FastAPI 단독으로 완성한 뒤 Spring·DB·웹을 연결하는 실행 순서 |
 | [기계 판독 내부 OpenAPI](../../contracts/ai-internal-openapi.yaml) | FastAPI 내부 HTTP 인터페이스의 OpenAPI 3.1 계약 |
 

@@ -203,22 +203,45 @@ class FakeGenerationProvider:
     def _quiz_draft(payload: dict[str, Any]) -> dict[str, Any]:
         questions = []
         for index in range(payload["count"]):
+            concept = payload["concepts"][index % len(payload["concepts"])]
             if payload["question_type"] == "OX":
                 choices = [
                     {"choice_key": "O", "text": "맞다"},
                     {"choice_key": "X", "text": "아니다"},
                 ]
                 correct_key = "O"
+                if payload["category"] == "NONSENSE":
+                    question_text = (
+                        f"{payload['topic']} 말장난 문항 {index + 1}은 의도한 정답이 하나여야 한다."
+                    )
+                    explanation = "말장난도 교사가 확인할 수 있도록 의도한 정답이 분명해야 합니다."
+                else:
+                    question_text = (
+                        f"{payload['topic']}에서 {concept}을 함께 고려해야 한다. 문항 {index + 1}"
+                    )
+                    explanation = f"{concept}을 함께 살피면 경제 선택의 이유를 설명할 수 있습니다."
             else:
-                choices = [
-                    {"choice_key": "A", "text": "필요와 선택을 함께 생각한다"},
-                    {"choice_key": "B", "text": "가격만 보고 바로 결정한다"},
-                    {"choice_key": "C", "text": "다른 정보는 확인하지 않는다"},
-                ]
+                if payload["category"] == "NONSENSE":
+                    choices = [
+                        {"choice_key": "A", "text": "의도한 말장난의 답"},
+                        {"choice_key": "B", "text": "관련 없는 첫 번째 답"},
+                        {"choice_key": "C", "text": "관련 없는 두 번째 답"},
+                    ]
+                    question_text = (
+                        f"{payload['topic']} 말장난에서 의도한 답을 고르세요. 문항 {index + 1}"
+                    )
+                    explanation = "문제의 표현과 직접 연결되는 하나의 답을 고릅니다."
+                else:
+                    choices = [
+                        {"choice_key": "A", "text": f"{concept}과 선택의 영향을 함께 생각한다"},
+                        {"choice_key": "B", "text": "가격만 보고 바로 결정한다"},
+                        {"choice_key": "C", "text": "다른 정보는 확인하지 않는다"},
+                    ]
+                    question_text = (
+                        f"{payload['topic']}에서 올바른 선택을 고르세요. 문항 {index + 1}"
+                    )
+                    explanation = f"{concept}과 선택의 영향을 함께 살펴보아야 합니다."
                 correct_key = "A"
-            question_text = (
-                f"{payload['topic']}에 대해 올바르게 생각한 내용을 고르세요. 문항 {index + 1}"
-            )
             questions.append(
                 {
                     "review_status": "REVIEW_REQUIRED",
@@ -226,9 +249,9 @@ class FakeGenerationProvider:
                     "question": question_text,
                     "choices": choices,
                     "correct_choice_key": correct_key,
-                    "explanation": "경제 선택은 필요한 정보와 그 영향을 함께 살펴보아야 합니다.",
+                    "explanation": explanation,
                     "difficulty": payload["difficulty"],
-                    "concept_tags": [payload["concepts"][index % len(payload["concepts"])]],
+                    "concept_tags": [concept],
                 }
             )
         return {

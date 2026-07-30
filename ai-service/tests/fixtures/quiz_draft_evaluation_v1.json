@@ -1,0 +1,35 @@
+{
+  "evaluation_set_version": "quiz-draft-evaluation-v1",
+  "prompt_version": "quiz-draft-v1",
+  "grades": [4, 5, 6],
+  "success_matrix": {
+    "categories": ["ECONOMY", "NONSENSE"],
+    "question_types": ["MULTIPLE_CHOICE", "OX"],
+    "difficulties": ["INTRODUCTORY", "STANDARD", "ADVANCED"]
+  },
+  "invalid_output_cases": [
+    {
+      "id": "duplicate-question",
+      "mutation": "DUPLICATE_QUESTION",
+      "validation_code": "QUIZ_DUPLICATE_QUESTION"
+    },
+    {
+      "id": "duplicate-choice-meaning",
+      "mutation": "DUPLICATE_CHOICE_MEANING",
+      "validation_code": "QUIZ_DUPLICATE_CHOICE_MEANING"
+    },
+    {
+      "id": "numeric-answer-mismatch",
+      "mutation": "NUMERIC_ANSWER_MISMATCH",
+      "validation_code": "QUIZ_NUMERIC_ANSWER_MISMATCH"
+    },
+    {
+      "id": "student-ridicule",
+      "mutation": "UNSAFE_RIDICULE",
+      "validation_code": "QUIZ_UNSAFE_CONTENT"
+    }
+  ],
+  "expected_success_case_count": 36,
+  "expected_invalid_case_count": 12,
+  "expected_case_count": 48
+}

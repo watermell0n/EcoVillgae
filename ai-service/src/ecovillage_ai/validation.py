@@ -8,6 +8,12 @@ from enum import StrEnum
 from pydantic import BaseModel, ValidationError
 
 from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.features.quiz_draft import (
+    quiz_content_safety_codes,
+    quiz_grade_quality_codes,
+    quiz_structure_quality_codes,
+    validate_quiz_draft_input,
+)
 from ecovillage_ai.models import (
     AnalysisMode,
     AnalysisSeverity,
@@ -85,6 +91,8 @@ def validate_input_policy(request: GenerationRequest) -> None:
             )
     elif isinstance(request, EconomicEventGenerationRequest):
         _validate_event_grade_policy(request)
+    elif isinstance(request, QuizDraftGenerationRequest):
+        validate_quiz_draft_input(request)
 
 
 def _validate_event_grade_policy(request: EconomicEventGenerationRequest) -> None:
@@ -244,6 +252,7 @@ def _validate_context(
             for question in output.questions
         ):
             codes.append("QUIZ_DIFFICULTY_MISMATCH")
+        codes.extend(quiz_structure_quality_codes(output))
         return codes
     return ["OUTPUT_TYPE_MISMATCH"]
 
@@ -385,6 +394,10 @@ def _validate_range(request: GenerationRequest, output: GenerationOutput) -> lis
 def _validate_grade_and_effect(
     request: GenerationRequest, output: GenerationOutput
 ) -> list[str]:
+    if isinstance(request, QuizDraftGenerationRequest) and isinstance(
+        output, QuizDraftOutput
+    ):
+        return quiz_grade_quality_codes(request, output)
     if not isinstance(request, EconomicEventGenerationRequest) or not isinstance(
         output, EconomicEventOutput
     ):
@@ -414,6 +427,8 @@ def _validate_content_safety(
         codes.append("FINANCIAL_ADVICE_DETECTED")
     if any(phrase in text for phrase in FUTURE_PRICE_PHRASES):
         codes.append("FUTURE_PRICE_PREDICTION_DETECTED")
+    if isinstance(output, QuizDraftOutput):
+        codes.extend(quiz_content_safety_codes(output))
     return codes
 
 
