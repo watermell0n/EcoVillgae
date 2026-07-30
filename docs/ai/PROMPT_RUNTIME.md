@@ -1,0 +1,84 @@
+# AI 프롬프트·공통 생성 런타임
+
+- 기준일: 2026-07-30
+- 상태: 독립 AI MVP 2단계 구현 완료
+- 적용 계약: 내부 AI schema v1.1
+
+## 1. 목적
+
+모든 AI 기능이 같은 방식으로 승인된 프롬프트를 선택하고 공급자를 호출하며 결과를
+검증하게 합니다. 이 런타임은 실제 Bedrock·OpenAI 연결과 무관하며 공급자가 바뀌어도
+서비스·검증 계층은 유지됩니다.
+
+## 2. 프롬프트 선택
+
+프롬프트 키는 기능, 실행 모드, 학년, 프롬프트 버전으로 결정합니다.
+
+| 기능 | 모드 선택 기준 | 요청 버전 |
+| --- | --- | --- |
+| 설정 점검 | `SETUP_PRECHECK` | `setup-precheck-v1` |
+| 교사 요청 밸런싱 | `ON_DEMAND` | `balancing-v1` |
+| 자동 모니터링 | `AUTO_MONITOR` | `balancing-v1` |
+| 교사용 챗봇 | 답변 모드 | `teacher-chat-v1` |
+| 경제 이벤트·투자 뉴스 | 7종 `template_type` | `economic-event-v1` |
+| 퀴즈 초안 | `category`와 `question_type` 조합 | `quiz-draft-v1` |
+
+학년 4·5·6은 각각 별도 선택 키와 고정 학년 지침을 사용합니다. 등록되지 않은 조합이나
+요청 버전 불일치는 공급자 호출 전에 `AI_RUN_CONTEXT_MISMATCH`로 거절합니다.
+
+프롬프트 본문은
+[`ai-service/src/ecovillage_ai/prompts/v1`](../../ai-service/src/ecovillage_ai/prompts/v1)에
+보관합니다. 제품 정책과 수치 규칙의 기준은 계속 `docs/AI_DIRECTION.md`와 규칙 엔진이며,
+프롬프트 파일만 바꿔 정책을 변경하지 않습니다.
+
+## 3. 공급자 생성 명령
+
+공급자는 다음 네 요소가 분리된 `GenerationCommand`만 받습니다.
+
+1. `system_instruction`: 저장소에 승인된 정적 시스템 지침과 고정 학년 지침
+2. `trusted_input_json`: 입력 모델에서 최소화한 학년·언어·payload와 필요한 실행 모드
+3. `output_schema`: 기능별 Pydantic 출력 모델에서 생성한 JSON Schema
+4. `prompt_key`와 `prompt_version`: 실행에 사용한 결정적 프롬프트 식별자
+
+`ai_run_id`, `request_id`, `correlation_id`, deadline과 인증 정보는 모델 입력에 넣지
+않습니다. 교사 질문을 포함한 자유 텍스트는 `trusted_input_json`의 데이터로만 직렬화하고
+`system_instruction`에 문자열로 결합하지 않습니다.
+
+공급자는 JSON 문자열 또는 JSON object를 반환할 수 있습니다. 공통 파서는 잘못된 JSON,
+object가 아닌 최상위 값, 지원하지 않는 콘텐츠 형식과 Pydantic 스키마 위반을 모두
+`AI_OUTPUT_SCHEMA_INVALID`로 변환합니다.
+
+## 4. 결정적 검증 순서
+
+공급자 출력은 다음 순서에서 첫 실패 단계까지만 평가합니다.
+
+| 순서 | 단계 | 검사 예시 |
+| ---: | --- | --- |
+| 1 | `SCHEMA` | JSON 파싱, 추가 필드, enum, 길이·개수 |
+| 2 | `CONTEXT` | 출력 종류, 기간, 템플릿, 투자 단계, 퀴즈 문맥 |
+| 3 | `EVIDENCE` | 입력 metric·fact·reason·concept 참조 여부 |
+| 4 | `RANGE` | action 존재, 후보값 보존, `min..max` 범위 |
+| 5 | `GRADE_AND_EFFECT` | 학년 템플릿과 이벤트 금지 효과·수치 |
+| 6 | `CONTENT_SAFETY` | 개인정보, 비밀, 개인 분석, 금융 조언, 미래 가격 |
+| 7 | `APPROVAL_BOUNDARY` | 승인·게시·직접 적용 우회 표현 |
+
+뒤 단계의 위반이 함께 있어도 앞 단계 오류를 먼저 반환하므로 회귀 결과가 결정적입니다.
+
+## 5. 구조화 실행 로그
+
+성공과 실패 모두 `SafeRunEvent` 하나로 기록합니다.
+
+- 실행·요청·상관관계 ID
+- 기능, schema·프롬프트 버전과 프롬프트 키
+- 공급자, 모델, 시도 번호, 학년
+- 지연시간, 입력·출력 토큰 수
+- 성공·실패 결과, 오류 코드, 첫 실패 단계와 검증 코드
+
+질문·답변, 시스템 프롬프트, 신뢰 입력 JSON, 전체 payload와 공급자 원문은 로그 필드에
+존재하지 않습니다. 로그 sink 장애도 생성 성공·실패 결과를 바꾸지 않습니다.
+
+## 6. 현재 공급자 경계
+
+현재 `FakeGenerationProvider`는 같은 `GenerationCommand`를 받아 결정적 JSON 문자열을
+반환합니다. 한 요청에서 공급자를 한 번만 호출하며 내부 재시도를 하지 않습니다.
+다음 단계에서 Bedrock·OpenAI 어댑터가 이 인터페이스를 구현합니다.

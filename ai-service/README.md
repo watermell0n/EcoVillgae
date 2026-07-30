@@ -9,6 +9,12 @@ Spring 핵심 API가 권한·집계·정책 범위를 확정한 뒤 호출하는
 제안 경로 및 가상 자산 가격 단계 연결을 지원합니다. 퀴즈 초안은 난이도와 개념을 입력과
 출력에서 함께 검증합니다.
 
+기능·모드·학년별 프롬프트는 `src/ecovillage_ai/prompts`에서 버전으로 관리합니다.
+공급자는 승인된 시스템 지침, 최소 신뢰 JSON, 출력 JSON Schema가 분리된 공통
+`GenerationCommand`만 받습니다. 출력은 스키마부터 승인 경계까지 고정 순서로 검증하고
+실행 로그에는 ID·버전·지연시간·토큰·검증 코드만 남깁니다. 상세 구조는
+[`docs/ai/PROMPT_RUNTIME.md`](../docs/ai/PROMPT_RUNTIME.md)를 기준으로 합니다.
+
 ## 제공 API
 
 - `GET /healthz`

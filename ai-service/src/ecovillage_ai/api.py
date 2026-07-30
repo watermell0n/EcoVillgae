@@ -21,7 +21,7 @@ from ecovillage_ai.models import (
     TeacherChatGenerationRequest,
     TeacherChatGenerationResponse,
 )
-from ecovillage_ai.provider import GenerationKind
+from ecovillage_ai.runtime import GenerationKind
 
 router = APIRouter(prefix="/internal/v1/generations", tags=["Internal AI Generations"])
 bearer = HTTPBearer(

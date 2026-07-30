@@ -12,8 +12,11 @@ from ecovillage_ai.api import router
 from ecovillage_ai.config import Settings
 from ecovillage_ai.errors import ServiceError
 from ecovillage_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
+from ecovillage_ai.prompting import PromptRegistry
 from ecovillage_ai.provider import FakeGenerationProvider, GenerationProvider
 from ecovillage_ai.service import GenerationService
+from ecovillage_ai.telemetry import RunEventSink
+from ecovillage_ai.validation import OutputValidationPipeline
 
 
 def _header_uuid(request: Request, header_name: str) -> UUID:
@@ -41,6 +44,9 @@ def create_app(
     *,
     settings: Settings | None = None,
     provider: GenerationProvider | None = None,
+    prompt_registry: PromptRegistry | None = None,
+    validation_pipeline: OutputValidationPipeline | None = None,
+    event_sink: RunEventSink | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
     resolved_provider = provider or FakeGenerationProvider()
@@ -53,7 +59,11 @@ def create_app(
     )
     app.state.settings = resolved_settings
     app.state.generation_service = GenerationService(
-        settings=resolved_settings, provider=resolved_provider
+        settings=resolved_settings,
+        provider=resolved_provider,
+        prompt_registry=prompt_registry,
+        validation_pipeline=validation_pipeline,
+        event_sink=event_sink,
     )
 
     @app.middleware("http")

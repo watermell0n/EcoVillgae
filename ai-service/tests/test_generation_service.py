@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,7 +11,11 @@ from ecovillage_ai.config import Settings
 from ecovillage_ai.errors import ProviderRateLimitedError, ProviderUnavailableError
 from ecovillage_ai.main import create_app
 from ecovillage_ai.models import Usage
-from ecovillage_ai.provider import FakeGenerationProvider, GenerationKind, ProviderResult
+from ecovillage_ai.provider import (
+    FakeGenerationProvider,
+    GenerationCommand,
+    ProviderResult,
+)
 from tests.factories import (
     balancing_request,
     headers,
@@ -26,57 +31,63 @@ class RaisingProvider:
     error: Exception
     calls: int = 0
 
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
         self.calls += 1
         raise self.error
 
 
 class FabricatedEvidenceProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["evidence_metric_codes"] = ["FABRICATED_METRIC"]
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["evidence_metric_codes"] = ["FABRICATED_METRIC"]
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class UnexpectedOutputFieldProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["direct_apply_command"] = "apply"
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["direct_apply_command"] = "apply"
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class SensitiveOutputProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["answer"] = "연락처는 teacher@example.com 입니다."
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["answer"] = "연락처는 teacher@example.com 입니다."
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class ChangedSetupCandidateProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["candidate_explanations"][0]["proposed_value"] += 1
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["candidate_explanations"][0]["proposed_value"] += 1
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class ChangedInvestmentBindingProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["investment_news_binding"]["current_step_index"] += 1
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["investment_news_binding"]["current_step_index"] += 1
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class FabricatedQuizConceptProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
-        result = await FakeGenerationProvider().generate(kind, request)
-        result.output["questions"][0]["concept_tags"] = ["입력에 없는 개념"]
-        return result
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
+        result = await FakeGenerationProvider().generate(command)
+        output = json.loads(result.content)
+        output["questions"][0]["concept_tags"] = ["입력에 없는 개념"]
+        return ProviderResult(content=output, usage=result.usage)
 
 
 class SlowProvider:
-    async def generate(self, kind: GenerationKind, request: Any) -> ProviderResult:
+    async def generate(self, command: GenerationCommand) -> ProviderResult:
         await asyncio.sleep(0.2)
-        return ProviderResult(output={}, usage=Usage(input_tokens=0, output_tokens=0))
+        return ProviderResult(content={}, usage=Usage(input_tokens=0, output_tokens=0))
 
 
 def _client(settings: Settings, provider: Any) -> TestClient:
