@@ -48,6 +48,30 @@ services:
       - "${OTEL_GRPC_PORT:-4317}:4317"
       - "${OTEL_HTTP_PORT:-4318}:4318"
 
+  ai-service:
+    build:
+      context: ./ai-service
+    environment:
+      BIBIM_AI_ENVIRONMENT: ${BIBIM_AI_ENVIRONMENT:-local}
+      BIBIM_AI_INTERNAL_SERVICE_TOKEN: ${BIBIM_AI_INTERNAL_SERVICE_TOKEN:-local-development-token}
+      BIBIM_AI_INTERNAL_SERVICE_SCOPES: ${BIBIM_AI_INTERNAL_SERVICE_SCOPES:-ai:generate:balancing,ai:generate:teacher-chat,ai:generate:economic-event,ai:generate:quiz-draft}
+      BIBIM_AI_PROVIDER: ${BIBIM_AI_PROVIDER:-FAKE}
+      BIBIM_AI_MODEL_ID: ${BIBIM_AI_MODEL_ID:-deterministic-v1}
+      BIBIM_AI_PROVIDER_TIMEOUT_SECONDS: ${BIBIM_AI_PROVIDER_TIMEOUT_SECONDS:-10}
+      BIBIM_AI_MINIMUM_DEADLINE_REMAINING_SECONDS: ${BIBIM_AI_MINIMUM_DEADLINE_REMAINING_SECONDS:-0.05}
+      BIBIM_AI_DOCS_ENABLED: ${BIBIM_AI_DOCS_ENABLED:-true}
+    ports:
+      - "${AI_SERVICE_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres-data:
   redis-data:
