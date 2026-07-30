@@ -29,6 +29,8 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
+import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
+import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 
@@ -38,7 +40,7 @@ public class ClassroomRosterService {
     private static final Pattern ROLE_CODE =
         Pattern.compile("^[A-Z][A-Z0-9_]{0,39}$");
 
-    private final TeacherAccessService teacherAccessService;
+    private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomStudentRepository studentRepository;
     private final SalaryRoleRepository salaryRoleRepository;
@@ -47,7 +49,7 @@ public class ClassroomRosterService {
     private final Clock clock;
 
     public ClassroomRosterService(
-        TeacherAccessService teacherAccessService,
+        ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomStudentRepository studentRepository,
         SalaryRoleRepository salaryRoleRepository,
@@ -55,7 +57,7 @@ public class ClassroomRosterService {
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
-        this.teacherAccessService = teacherAccessService;
+        this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.studentRepository = studentRepository;
         this.salaryRoleRepository = salaryRoleRepository;
@@ -66,7 +68,12 @@ public class ClassroomRosterService {
 
     @Transactional
     public UpdateRosterResult update(UpdateRosterCommand command) {
-        teacherAccessService.requireOwner(command.teacherSubject(), command.classroomId());
+        authorizationService.authorize(
+            command.teacherSubject(),
+            command.classroomId(),
+            ClassroomPermission.MANAGE_ROSTER,
+            null
+        );
         Classroom classroom = classroomRepository
             .findById(command.classroomId())
             .orElseThrow(() -> new ClassroomOperationException(

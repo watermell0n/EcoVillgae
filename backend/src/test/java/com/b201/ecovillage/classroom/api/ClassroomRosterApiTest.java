@@ -216,7 +216,7 @@ class ClassroomRosterApiTest {
                 .content(singleStudentBody(1, null, 1, "하늘", 1))
         )
             .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.error.code").value("OWNER_REQUIRED"));
+            .andExpect(jsonPath("$.error.code").value("CLASS_NOT_ASSIGNED"));
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder

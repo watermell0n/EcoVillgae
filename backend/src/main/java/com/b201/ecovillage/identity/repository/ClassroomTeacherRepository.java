@@ -21,4 +21,9 @@ public interface ClassroomTeacherRepository extends JpaRepository<ClassroomTeach
     );
 
     boolean existsByClassroomIdAndUserIdAndEndedAtIsNull(UUID classroomId, UUID userId);
+
+    List<ClassroomTeacher> findAllByClassroomIdAndUserIdAndEndedAtIsNull(
+        UUID classroomId,
+        UUID userId
+    );
 }

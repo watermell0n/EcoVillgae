@@ -16,12 +16,14 @@ import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
+import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 
 @Service
 public class ClassroomConfigurationService {
 
-    private final TeacherAccessService teacherAccessService;
+    private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomModuleRepository classroomModuleRepository;
     private final AutonomousScheduleRepository scheduleRepository;
@@ -29,14 +31,14 @@ public class ClassroomConfigurationService {
     private final ClassroomPolicyVersionRepository policyVersionRepository;
 
     public ClassroomConfigurationService(
-        TeacherAccessService teacherAccessService,
+        ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomModuleRepository classroomModuleRepository,
         AutonomousScheduleRepository scheduleRepository,
         AutonomousScheduleModuleRepository scheduleModuleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository
     ) {
-        this.teacherAccessService = teacherAccessService;
+        this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.classroomModuleRepository = classroomModuleRepository;
         this.scheduleRepository = scheduleRepository;
@@ -46,7 +48,12 @@ public class ClassroomConfigurationService {
 
     @Transactional(readOnly = true)
     public ClassroomConfigurationResult get(String teacherSubject, UUID classroomId) {
-        teacherAccessService.requireAssignedTeacher(teacherSubject, classroomId);
+        authorizationService.authorize(
+            teacherSubject,
+            classroomId,
+            ClassroomPermission.READ_CONFIGURATION,
+            null
+        );
         Classroom classroom = classroomRepository
             .findById(classroomId)
             .orElseThrow(() -> new ClassroomOperationException(

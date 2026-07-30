@@ -31,6 +31,7 @@ import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
+import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 
@@ -52,7 +53,7 @@ public class ClassroomCreationService {
         "ecovillage"
     );
 
-    private final TeacherAccessService teacherAccessService;
+    private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomTeacherRepository classroomTeacherRepository;
     private final ClassroomModuleRepository classroomModuleRepository;
@@ -64,7 +65,7 @@ public class ClassroomCreationService {
     private final Clock clock;
 
     public ClassroomCreationService(
-        TeacherAccessService teacherAccessService,
+        ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomTeacherRepository classroomTeacherRepository,
         ClassroomModuleRepository classroomModuleRepository,
@@ -75,7 +76,7 @@ public class ClassroomCreationService {
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
-        this.teacherAccessService = teacherAccessService;
+        this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.classroomTeacherRepository = classroomTeacherRepository;
         this.classroomModuleRepository = classroomModuleRepository;
@@ -90,7 +91,7 @@ public class ClassroomCreationService {
     @Transactional
     public CreateClassroomResult create(CreateClassroomCommand command) {
         ValidatedCreation validated = validate(command);
-        UserAccount owner = teacherAccessService.requireTeacherInSchool(
+        UserAccount owner = authorizationService.requireTeacherInSchool(
             command.teacherSubject(),
             command.schoolId()
         );

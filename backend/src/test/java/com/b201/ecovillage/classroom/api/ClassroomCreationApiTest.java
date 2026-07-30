@@ -197,7 +197,7 @@ class ClassroomCreationApiTest {
                 .content(validCreationBody("에코", "ONE_WEEK"))
         )
             .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
+            .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
     }
 
     private String validCreationBody(String currencyName, String courseSize) {
