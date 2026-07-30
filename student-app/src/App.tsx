@@ -270,11 +270,6 @@ function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <h2>지금 할 수 있는 경제 활동</h2>
-        </div>
-      </section>
       <section className="village-grid">
         {cards.map((card) => (
           <VillageCard key={card.id} card={card} onMove={onMove} />

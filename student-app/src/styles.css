@@ -392,11 +392,6 @@ p {
   padding: 30px 34px 46px;
 }
 
-.hero {
-  margin-bottom: 24px;
-}
-
-.hero h2,
 .panel h2,
 .tax-explain h2 {
   margin-bottom: 8px;
@@ -404,7 +399,6 @@ p {
   font-weight: 950;
 }
 
-.hero p,
 .tax-explain p {
   color: var(--muted-600);
   font-weight: 800;
@@ -867,7 +861,6 @@ p {
   }
 
   .app-header,
-  .hero,
   .transaction-row {
     display: block;
   }
