@@ -3,7 +3,7 @@
 - 작성일: 2026-07-30
 - 목적: FE 라벨 Jira 이슈를 개별 구현물이 아니라, 화면 생성과 백엔드 연동 설계에 넘길 수 있는 통합 디자인 기준으로 정리한다.
 - 기준 문서: `docs/SCREEN_SPEC.md`, `docs/REQUIREMENTS_BASELINE.md`, `docs/PERMISSION_MATRIX.md`, `docs/STATE_MACHINES.md`
-- 상세 레퍼런스: `docs/ui/TEACHER_SCREENS_178_185.md`, `docs/ui/STUDENT_PAGE_CONCEPT.md`, `docs/design/STUDENT_DESIGN_PAGE.md`
+- 상세 레퍼런스: `docs/design/FE_SCREEN_GENERATION_SPEC.md`, `docs/ui/TEACHER_SCREENS_178_185.md`, `docs/ui/STUDENT_PAGE_CONCEPT.md`, `docs/design/STUDENT_DESIGN_PAGE.md`
 
 ## 1. Jira 범위
 
@@ -19,7 +19,7 @@
 | `S15P11B201-190` ~ `S15P11B201-196` | 학생 화면 21종 설계 | 최신 `SCR-STU-001~024` 기준으로 확장해 처리 |
 | `S15P11B201-197` | 교실 공용 활동 화면 3종 설계 | `SCR-PUB-001~004` 기준으로 처리 |
 
-FE 라벨 이슈는 HTML 화면을 추가로 계속 만들기보다, 이 문서와 부속 상세 문서에 화면 생성 규칙을 모아 관리한다.
+FE 라벨 이슈는 HTML 화면을 추가로 계속 만들기보다, 이 문서와 `FE_SCREEN_GENERATION_SPEC.md`에 화면 생성 규칙을 모아 관리한다.
 
 ## 2. 전체 디자인 방향
 

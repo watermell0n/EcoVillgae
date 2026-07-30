@@ -5,6 +5,7 @@
 ## 통합 FE 디자인 가이드
 
 - 통합 기준 문서: [../design/FE_DESIGN_GUIDE.md](../design/FE_DESIGN_GUIDE.md)
+- 화면별 상세 생성 스펙: [../design/FE_SCREEN_GENERATION_SPEC.md](../design/FE_SCREEN_GENERATION_SPEC.md)
 
 ## 교사 화면 178~185
 
