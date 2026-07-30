@@ -168,7 +168,7 @@
 | API-QZ-007 · UIA-QZ-007 | `POST /classrooms/{C}/quiz-sessions/{R}/result-commands` | OWN·COT | `command=CONFIRM\|PUBLISH\|CLOSE, leaderboard_public?` → 결과 버전·보상 원장·공개 상태. `leaderboard_public=true`는 GAME에서만 허용하고 TEST는 항상 `false` | PM-QZ-002 · SM-QZS-001·SM-TXN-001 | `SCORING_NOT_FINISHED`, `INVALID_STATE_TRANSITION`, `PUBLIC_DATA_ONLY` | QZ-003·QZ-004·QZ-005 |
 | API-QZ-008 · UIA-QZ-008 | `POST /classrooms/{C}/quiz-sessions/{R}/question-issue-reports` | STU | `question_id, reason_code, description` → `UNDER_REVIEW` 신고 | PM-QZ-003 · SM-QAD-001 | `NOT_EXAMINEE`, `DUPLICATE_REPORT`, `VALIDATION_ERROR` | QZ-009 |
 | API-QZ-009 · UIA-QZ-009 | `POST /classrooms/{C}/quiz-sessions/{R}/regrade-operations` | OWN·COT | 무효 문항, 판정 사유 → `202 operation_id`, 새 결과 버전·복구 거래 | PM-QZ-002·PM-QZ-003·PM-TXN-003 · SM-QAD-001·SM-QZS-001·SM-TXN-001 | `QUESTION_NOT_UNDER_REVIEW`, `REGRADING_ALREADY_RUNNING` | QZ-009 |
-| API-VOT-001 · UIA-VOT-001 | `POST /classrooms/{C}/votes/{R}/commands` | OWN·COT | `command=CLOSE\|CONFIRM_RESULT, selected_use?` → 익명 집계·활동 완료 | PM-ACT-002 · SM-ACT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `VOTE_COUNT_MISMATCH` | ECO-008 |
+| API-VOT-001 · UIA-VOT-001 | `POST /classrooms/{C}/votes/{R}/commands` | OWN·COT | `command=CREATE\|OPEN\|CLOSE\|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use?` → 예산안 생성·익명 투표 진행·기금 집행 | PM-ACT-002 · SM-ACT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `VOTE_COUNT_MISMATCH`, `BUDGET_EXCEEDS_FUND`, `INSUFFICIENT_BALANCE`, `NOT_PARTICIPANT` | ECO-008 |
 | API-VOT-002 · UIA-VOT-002 | `POST /classrooms/{C}/votes/{R}/ballots` | STU | `option_id` → 익명 투표 접수 영수증 | PM-ACT-001 · SM-ACT-001 | `VOTE_NOT_LIVE`, `ALREADY_VOTED`, `NOT_PARTICIPANT` | ECO-008 |
 
 ## 8. AI·데이터 API
@@ -231,12 +231,12 @@
 | API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
 | API-READ-021 | `GET /classrooms/{C}/quiz-sessions/{R}` | STU·OWN·COT | 역할별 진행 상태·문항 스냅샷·제출 상태 | SCR-TCH-005·SCR-STU-021·SCR-STU-022 / QZ-003·QZ-004 |
 | API-READ-022 | `GET /classrooms/{C}/quiz-sessions/{R}/results` | STU·OWN·COT | 학생은 본인, 교사는 학급 결과·무효화 상태 | SCR-STU-023·SCR-WEB-019 / QZ-003·QZ-004·QZ-009 |
-| API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·선택지·익명 집계·기금 사용 결과 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
+| API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·예산 선택지·익명 집계·현재 공동기금·확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
 | API-READ-024 | `GET /classrooms/{C}/guided-activities/{R}` | STU·OWN·COT | 역할별 활동·참여·GUIDED·공개 설정 | SCR-TCH-004·SCR-STU-021 / CLS-009 |
 | API-READ-025 | `GET /public/display-sessions/{display_session_id}/bootstrap` | DSP | 문제·타이머·익명 집계·허용된 공개 결과만 | SCR-PUB-001·SCR-PUB-002·SCR-PUB-003·SCR-PUB-004 / AUTH-004·CLS-009·QZ-003 |
 | API-READ-026 | `GET /classrooms/{C}/teacher-dashboard` | OWN·COT | 승인·수령·정산·활동 알림과 요약 | SCR-TCH-002·SCR-TCH-012 / DAT-003 |
 | API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | AI 실행·근거·검증·승인 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008 |
-| API-READ-028 | `GET /classrooms/{C}/reports` | STU·OWN·COT | 학생은 본인, 교사는 개인·학급·최종 스냅샷 | SCR-STU-024·SCR-WEB-024 / DAT-001·DAT-003 |
+| API-READ-028 | `GET /classrooms/{C}/reports?from={instant}&to={instant}` | OWN·COT | 기간 내 학급 화폐·지갑·소비·예적금 원금·공동기금·활성 학생·퀴즈 참여 집계. 개인 식별자·닉네임·개인 잔액은 반환하지 않음 | SCR-WEB-024 / DAT-001·DAT-003 |
 | API-READ-029 | `GET /classrooms/{C}/audit-events` | OWN·COT·SAD | 역할 범위별 감사 이벤트·요청번호·전후상태 | SCR-WEB-025·SCR-ADM-005 / AI-008·DAT-004 |
 | API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | 비동기 작업 상태·실패코드·만료 다운로드 URL | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
 | API-READ-031 | `GET /schools/{school_id}/teachers` | SAD | 학교 교사 계정·소속·상태 | SCR-ADM-002 / AUTH-002 |

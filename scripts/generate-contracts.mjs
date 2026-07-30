@@ -132,6 +132,7 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-007",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-028",
   "API-READ-029",
   "API-READ-030",
 ]);
@@ -723,7 +724,50 @@ const requestFieldOverrides = {
     { name: "description" },
   ],
   "API-VOT-001": [
-    { name: "command", values: ["CLOSE", "CONFIRM_RESULT"] },
+    {
+      name: "command",
+      values: ["CREATE", "OPEN", "CLOSE", "CONFIRM_RESULT"],
+    },
+    { name: "title", optional: true },
+    { name: "description", optional: true },
+    {
+      name: "options",
+      optional: true,
+      schema: {
+        type: "array",
+        minItems: 2,
+        maxItems: 10,
+        items: {
+          type: "object",
+          required: ["label", "budget_amount"],
+          properties: {
+            label: { type: "string", minLength: 1, maxLength: 160 },
+            description: { type: ["string", "null"], maxLength: 2000 },
+            budget_amount: {
+              type: "integer",
+              format: "int64",
+              minimum: 0,
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "participant_ids",
+      optional: true,
+      schema: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        items: { type: "string", format: "uuid" },
+      },
+    },
+    {
+      name: "public_display_enabled",
+      optional: true,
+      schema: { type: "boolean" },
+    },
     { name: "selected_use", optional: true },
   ],
   "API-VOT-002": [{ name: "option_id" }],
@@ -1025,7 +1069,104 @@ const responseFieldOverrides = {
     { name: "summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
     { name: "leaderboard", optional: true, schema: projectionItems({ rank: { type: "integer", minimum: 1, maximum: 3 }, nickname: { type: "string" }, character_code: { type: ["string", "null"] } }) },
   ],
-  "API-READ-023": [{ name: "options", schema: projectionItems({ count: { type: "integer", minimum: 0 } }) }],
+  "API-VOT-001": [
+    { name: "vote_id", schema: { type: "string", format: "uuid" } },
+    {
+      name: "status",
+      schema: {
+        type: "string",
+        enum: ["READY", "OPEN", "CLOSED", "RESULT_PUBLISHED"],
+      },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
+    {
+      name: "selected_option_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+    {
+      name: "transaction_group_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+  ],
+  "API-VOT-002": [
+    { name: "receipt_hash", schema: { type: "string" } },
+    { name: "cast_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-READ-023": [
+    { name: "vote_id", schema: { type: "string", format: "uuid" } },
+    { name: "title", schema: { type: "string" } },
+    { name: "description", optional: true, schema: { type: ["string", "null"] } },
+    { name: "anonymous", schema: { type: "boolean", const: true } },
+    {
+      name: "status",
+      schema: {
+        type: "string",
+        enum: ["READY", "OPEN", "CLOSED", "RESULT_PUBLISHED"],
+      },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
+    { name: "opens_at", optional: true, schema: { type: ["string", "null"], format: "date-time" } },
+    { name: "closes_at", optional: true, schema: { type: ["string", "null"], format: "date-time" } },
+    { name: "public_fund_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "participant_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "ballot_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "eligible", optional: true, schema: { type: ["boolean", "null"] } },
+    { name: "has_voted", optional: true, schema: { type: ["boolean", "null"] } },
+    { name: "selected_option_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "selected_use", optional: true, schema: { type: ["string", "null"] } },
+    { name: "transaction_group_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    {
+      name: "options",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["option_id", "label", "budget_amount"],
+          properties: {
+            option_id: { type: "string", format: "uuid" },
+            label: { type: "string" },
+            description: { type: ["string", "null"] },
+            budget_amount: { type: "integer", format: "int64", minimum: 0 },
+            vote_count: { type: ["integer", "null"], format: "int64", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-READ-028": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    {
+      name: "period",
+      schema: {
+        type: "object",
+        required: ["from", "to"],
+        properties: {
+          from: { type: "string", format: "date-time" },
+          to: { type: "string", format: "date-time" },
+        },
+        additionalProperties: false,
+      },
+    },
+    { name: "total_currency_amount", schema: { type: "integer", format: "int64" } },
+    { name: "wallet_balance_amount", schema: { type: "integer", format: "int64" } },
+    { name: "average_wallet_balance", schema: { type: "integer", format: "int64" } },
+    { name: "spending_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "savings_principal_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "public_fund_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "active_student_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "quiz_participant_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "quiz_submission_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "generated_at", schema: { type: "string", format: "date-time" } },
+  ],
   "API-READ-024": [
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
@@ -1143,9 +1284,27 @@ const storageByReadApi = {
   "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
   "API-READ-021": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
   "API-READ-022": ["quiz_result_versions", "quiz_student_results", "view.public_quiz_leaderboard"],
-  "API-READ-023": ["view.public_vote_aggregates"],
+  "API-READ-023": [
+    "votes",
+    "vote_options",
+    "vote_eligibilities",
+    "vote_ballots",
+    "ledger_accounts",
+    "transaction_groups",
+    "transaction_business_refs",
+  ],
   "API-READ-024": ["activity_sessions", "activity_participants"],
   "API-READ-025": ["activity_sessions", "activity_participants", "redis.display-session", "realtime_streams", "outbox_events"],
+  "API-READ-028": [
+    "classroom_students",
+    "ledger_accounts",
+    "ledger_entries",
+    "transaction_groups",
+    "deposit_accounts",
+    "savings_accounts",
+    "quiz_sessions",
+    "quiz_submissions",
+  ],
   "API-READ-029": ["audit_events"],
   "API-READ-030": ["async_operations"],
 };
@@ -1382,6 +1541,22 @@ function parameterRefs(operation) {
       },
     );
   }
+  if (operation.apiId === "API-READ-028") {
+    parameters.push(
+      {
+        name: "from",
+        in: "query",
+        required: true,
+        schema: { type: "string", format: "date-time" },
+      },
+      {
+        name: "to",
+        in: "query",
+        required: true,
+        schema: { type: "string", format: "date-time" },
+      },
+    );
+  }
 
   const pagedQueries = new Set([
     "API-READ-008",
@@ -1393,7 +1568,6 @@ function parameterRefs(operation) {
     "API-READ-019",
     "API-READ-020",
     "API-READ-027",
-    "API-READ-028",
     "API-READ-029",
     "API-READ-031",
     "API-READ-032",

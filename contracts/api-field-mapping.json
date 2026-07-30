@@ -6798,6 +6798,51 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "title",
+            "required": false,
+            "type": "string",
+            "target": "service_input.title",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string",
+            "target": "service_input.description",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "options",
+            "required": false,
+            "type": "array",
+            "target": "service_input.options",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "participant_ids",
+            "required": false,
+            "type": "array",
+            "target": "service_input.participant_ids",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "public_display_enabled",
+            "required": false,
+            "type": "boolean",
+            "target": "service_input.public_display_enabled",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "selected_use",
             "required": false,
             "type": "string",
@@ -6831,9 +6876,27 @@
           },
           {
             "name": "state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "projection.state_version",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "selected_option_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.selected_option_id",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "transaction_group_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.transaction_group_id",
             "transform": "votes, vote_options, vote_eligibilities, vote_ballots, view.public_vote_aggregates에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
@@ -9428,7 +9491,13 @@
       "path": "/classrooms/{classroom_id}/votes/{resource_id}",
       "implementation_status": "mvp-contract",
       "storage_targets": [
-        "view.public_vote_aggregates"
+        "votes",
+        "vote_options",
+        "vote_eligibilities",
+        "vote_ballots",
+        "ledger_accounts",
+        "transaction_groups",
+        "transaction_business_refs"
       ],
       "request": {
         "mode": "none",
@@ -9439,11 +9508,155 @@
         "mode": "strict",
         "fields": [
           {
+            "name": "vote_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.vote_id",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "title",
+            "required": true,
+            "type": "string",
+            "target": "projection.title",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.description",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "anonymous",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.anonymous",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "opens_at",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.opens_at",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "closes_at",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.closes_at",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "public_fund_balance",
+            "required": true,
+            "type": "integer",
+            "target": "projection.public_fund_balance",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "participant_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.participant_count",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ballot_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.ballot_count",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "eligible",
+            "required": false,
+            "type": "boolean|null",
+            "target": "projection.eligible",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "has_voted",
+            "required": false,
+            "type": "boolean|null",
+            "target": "projection.has_voted",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "selected_option_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.selected_option_id",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "selected_use",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.selected_use",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "transaction_group_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.transaction_group_id",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "options",
             "required": true,
             "type": "array",
             "target": "projection.options",
-            "transform": "view.public_vote_aggregates에서 검증·조합하는 response 필드",
+            "transform": "votes, vote_options, vote_eligibilities, vote_ballots, ledger_accounts, transaction_groups, transaction_business_refs에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -9651,10 +9864,17 @@
     {
       "api_id": "API-READ-028",
       "method": "GET",
-      "path": "/classrooms/{classroom_id}/reports",
-      "implementation_status": "planned",
+      "path": "/classrooms/{classroom_id}/reports?from={instant}&to={instant}",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
-        "service_projection"
+        "classroom_students",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups",
+        "deposit_accounts",
+        "savings_accounts",
+        "quiz_sessions",
+        "quiz_submissions"
       ],
       "request": {
         "mode": "none",
@@ -9662,33 +9882,114 @@
         "fields": []
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "resource_id",
+            "name": "classroom_id",
             "required": true,
             "type": "string",
-            "target": "projection.resource_id",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "target": "projection.classroom_id",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "status",
+            "name": "period",
             "required": true,
-            "type": "string",
-            "target": "projection.status",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "type": "object",
+            "target": "projection.period",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "state_version",
-            "required": false,
+            "name": "total_currency_amount",
+            "required": true,
             "type": "integer",
-            "target": "projection.state_version",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "target": "projection.total_currency_amount",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "wallet_balance_amount",
+            "required": true,
+            "type": "integer",
+            "target": "projection.wallet_balance_amount",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "average_wallet_balance",
+            "required": true,
+            "type": "integer",
+            "target": "projection.average_wallet_balance",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "spending_amount",
+            "required": true,
+            "type": "integer",
+            "target": "projection.spending_amount",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "savings_principal_amount",
+            "required": true,
+            "type": "integer",
+            "target": "projection.savings_principal_amount",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "public_fund_balance",
+            "required": true,
+            "type": "integer",
+            "target": "projection.public_fund_balance",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "active_student_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.active_student_count",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "quiz_participant_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.quiz_participant_count",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "quiz_submission_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.quiz_submission_count",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "generated_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.generated_at",
+            "transform": "classroom_students, ledger_accounts, ledger_entries, transaction_groups, deposit_accounts, savings_accounts, quiz_sessions, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
