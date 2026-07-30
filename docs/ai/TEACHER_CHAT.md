@@ -72,5 +72,116 @@ FastAPI는 출력의 기간과 `data_as_of`가 입력과 같은지, 전체·원�
 근거를 포함합니다. 별도 민감 입력 3개 사례도 공급자 호출 0회를 검증합니다.
 
 일반 자동 테스트는 `FAKE` 공급자로 실행하므로 API 키와 토큰을 사용하지 않습니다.
-실제 GMS·Bedrock·OpenAI 모델의 문장 품질 평가는 자격증명을 연결한 뒤 opt-in 평가에서
-같은 계약과 평가 세트를 사용합니다.
+현재 실제 공급자 어댑터는 Bedrock과 OpenAI를 지원합니다. GMS는 API 형식과 엔드포인트를
+확인해 별도 어댑터를 연결한 뒤 같은 계약과 평가 세트로 문장 품질을 검증합니다.
+
+## 5. 로컬 테스트 방법
+
+다음 명령은 Windows의 Git Bash에서 저장소 루트를 기준으로 실행합니다. PowerShell에서는
+환경변수 문법이 다르므로 아래 Git Bash 명령과 섞어 사용하지 않습니다.
+
+### 5.1 자동 평가 실행
+
+```bash
+cd ai-service
+./.venv/Scripts/python.exe -m pytest tests/test_teacher_chat.py -q -p no:cacheprovider
+```
+
+`[100%]`까지 진행되고 `FAILURES`와 `ERRORS`가 없으면 성공입니다. `-p no:cacheprovider`는
+권한이 제한된 Windows 환경에서 `.pytest_cache` 생성 경고가 발생하지 않도록 합니다.
+자동 평가는 외부 호출이 없는 `FAKE` 공급자를 사용하므로 API 키와 비용이 필요하지 않습니다.
+
+### 5.2 로컬 API와 Swagger 실행
+
+`ai-service` 디렉터리에서 다음 명령으로 서버를 실행합니다. 로컬 기본 공급자가
+`FAKE`이므로 환경변수 설정은 생략할 수 있습니다.
+
+```bash
+./.venv/Scripts/python.exe -m uvicorn ecovillage_ai.main:app --reload --app-dir src
+```
+
+- 상태 확인: `http://127.0.0.1:8000/healthz`
+- Swagger: `http://127.0.0.1:8000/docs`
+- 종료: 서버를 실행한 터미널에서 `Ctrl+C`
+
+Swagger 오른쪽 위 `Authorize`에는 `Bearer` 접두사 없이 로컬 토큰
+`local-development-token`을 입력합니다. `POST /internal/v1/generations/teacher-chat`에서
+`Try it out`을 누른 뒤 다음 헤더를 입력합니다.
+
+```text
+X-AI-Run-Id: 5fc425a8-7b5f-4984-a483-afd57ba2e706
+X-Correlation-Id: b18b92c5-1273-4bed-832e-4d33bcf85f4f
+```
+
+요청 본문 예시는 다음과 같습니다. `deadline_at`은 실행 시점보다 미래인 ISO 8601 시각으로
+교체해야 하며, 보통 현재 시각에서 1분 뒤면 충분합니다.
+
+```json
+{
+  "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
+  "request_id": "b4d6c65d-df46-4d4b-a83c-a1c8d95ee8fe",
+  "correlation_id": "b18b92c5-1273-4bed-832e-4d33bcf85f4f",
+  "schema_version": "1.1",
+  "prompt_version": "teacher-chat-v1",
+  "attempt": 1,
+  "deadline_at": "실행 시점보다 미래인 ISO 8601 시각",
+  "locale": "ko-KR",
+  "grade": 5,
+  "payload": {
+    "question": "최근 학급 소비율이 높아진 이유를 설명해 주세요.",
+    "period": {
+      "from": "2026-07-01T00:00:00+09:00",
+      "to": "2026-07-14T23:59:59+09:00",
+      "data_as_of": "2026-07-30T00:00:00+09:00"
+    },
+    "facts": [
+      {
+        "fact_id": "current-consumption-rate",
+        "label": "현재 소비율",
+        "value": 4200,
+        "unit": "RATE_BPS"
+      },
+      {
+        "fact_id": "previous-consumption-rate",
+        "label": "이전 소비율",
+        "value": 3000,
+        "unit": "RATE_BPS"
+      },
+      {
+        "fact_id": "shop-purchase-count",
+        "label": "학급 상점 구매 횟수",
+        "value": 35,
+        "unit": "COUNT"
+      }
+    ],
+    "recent_policy_changes": [
+      {
+        "fact_id": "policy-consumption-tax-july",
+        "changed_at": "2026-07-07T09:00:00+09:00",
+        "summary": "학급 상점의 소비세율을 5퍼센트에서 7퍼센트로 변경했습니다."
+      }
+    ]
+  }
+}
+```
+
+로컬 `FAKE` 정상 응답은 HTTP 200, `provider=FAKE`,
+`output.response_mode=ANSWER`인지 확인합니다. 예를 들어 질문을
+`세율을 바로 변경해 줘`로 바꾸면 외부 호출 없이 `provider=RULES`,
+`output.response_mode=LIMITED`, 입출력 토큰 0인 제한 응답을 확인할 수 있습니다.
+
+### 5.3 UUID 생성과 일치 규칙
+
+UUID는 API 키가 아니라 실행과 로그를 구분하기 위해 로컬에서 생성하는 식별자입니다.
+Git Bash에서는 `cat /proc/sys/kernel/random/uuid`, PowerShell에서는
+`[guid]::NewGuid()`로 생성할 수 있습니다.
+
+- 본문의 `ai_run_id`와 헤더의 `X-AI-Run-Id`는 같아야 합니다.
+- 본문의 `correlation_id`와 헤더의 `X-Correlation-Id`는 같아야 합니다.
+- `request_id`는 개별 요청을 구분합니다.
+- 새로운 질문을 테스트할 때 세 UUID를 새로 생성하면 이전 요청과의 충돌을 피할 수 있습니다.
+- 실제 서비스에서는 Spring 핵심 API가 UUID를 생성하며 교사가 직접 입력하지 않습니다.
+
+`FAKE` 테스트는 입력 계약, 근거 연결, 안전 가드와 응답 구조를 검증합니다. 실제 모델의
+문장 품질을 검증하는 테스트가 아니며, GMS 키를 Swagger 요청이나 JSON 본문에 입력해서는
+안 됩니다.
