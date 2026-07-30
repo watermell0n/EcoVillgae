@@ -26,6 +26,7 @@ import com.b201.ecovillage.identity.application.LoginRateLimitedException;
 import com.b201.ecovillage.ledger.application.LedgerTransactionValidationException;
 import com.b201.ecovillage.ledger.domain.InsufficientLedgerBalanceException;
 import com.b201.ecovillage.store.domain.InsufficientStoreStockException;
+import com.b201.ecovillage.trade.domain.TradeOperationException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -92,6 +93,21 @@ public class ApiExceptionHandler {
             HttpStatus.CONFLICT,
             "OUT_OF_STOCK",
             "상품 재고가 부족합니다.",
+            false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(TradeOperationException.class)
+    ResponseEntity<ApiErrorResponse> handleTradeOperation(
+        TradeOperationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            HttpStatus.CONFLICT,
+            exception.getCode(),
+            exception.getMessage(),
             false,
             List.of(),
             request

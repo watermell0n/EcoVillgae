@@ -19,6 +19,18 @@ public enum ClassroomPermission {
         "PM-SHP-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    PROPOSE_TRADE(
+        "PM-TRD-001",
+        Set.of(ClassroomActorRole.STU)
+    ),
+    DECIDE_TRADE(
+        "PM-TRD-002",
+        Set.of(ClassroomActorRole.STU)
+    ),
+    APPROVE_TRADE(
+        "PM-TRD-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
     READ_OWN_STUDENT_DATA(
         "PM-DAT-001",
         Set.of(ClassroomActorRole.STU)
