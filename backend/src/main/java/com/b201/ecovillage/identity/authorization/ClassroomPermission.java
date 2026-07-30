@@ -15,6 +15,10 @@ public enum ClassroomPermission {
         "PM-TXN-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    PURCHASE_STORE(
+        "PM-SHP-002",
+        Set.of(ClassroomActorRole.STU)
+    ),
     READ_OWN_STUDENT_DATA(
         "PM-DAT-001",
         Set.of(ClassroomActorRole.STU)

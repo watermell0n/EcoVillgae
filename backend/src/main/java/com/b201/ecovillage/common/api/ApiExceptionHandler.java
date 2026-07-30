@@ -23,6 +23,9 @@ import com.b201.ecovillage.identity.application.ClassroomNotActiveException;
 import com.b201.ecovillage.identity.application.InvalidCredentialsException;
 import com.b201.ecovillage.identity.application.InvalidLoginRequestException;
 import com.b201.ecovillage.identity.application.LoginRateLimitedException;
+import com.b201.ecovillage.ledger.application.LedgerTransactionValidationException;
+import com.b201.ecovillage.ledger.domain.InsufficientLedgerBalanceException;
+import com.b201.ecovillage.store.domain.InsufficientStoreStockException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -60,6 +63,51 @@ public class ApiExceptionHandler {
             exception.getCode(),
             exception.getMessage(),
             exception.getStatus().is5xxServerError(),
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(InsufficientLedgerBalanceException.class)
+    ResponseEntity<ApiErrorResponse> handleInsufficientBalance(
+        InsufficientLedgerBalanceException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            HttpStatus.CONFLICT,
+            "INSUFFICIENT_BALANCE",
+            "상품을 구매할 잔액이 부족합니다.",
+            false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(InsufficientStoreStockException.class)
+    ResponseEntity<ApiErrorResponse> handleInsufficientStock(
+        InsufficientStoreStockException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            HttpStatus.CONFLICT,
+            "OUT_OF_STOCK",
+            "상품 재고가 부족합니다.",
+            false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(LedgerTransactionValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleLedgerValidation(
+        LedgerTransactionValidationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            HttpStatus.CONFLICT,
+            exception.getCode(),
+            exception.getMessage(),
+            false,
             List.of(),
             request
         );
