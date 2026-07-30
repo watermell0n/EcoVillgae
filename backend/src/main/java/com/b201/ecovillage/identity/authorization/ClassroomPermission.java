@@ -39,6 +39,18 @@ public enum ClassroomPermission {
         "PM-FIN-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    MANAGE_QUIZ_QUESTIONS(
+        "PM-QZ-001",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    MANAGE_QUIZ_SESSIONS(
+        "PM-QZ-002",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    PARTICIPATE_QUIZ(
+        "PM-QZ-002",
+        Set.of(ClassroomActorRole.STU)
+    ),
     READ_OWN_STUDENT_DATA(
         "PM-DAT-001",
         Set.of(ClassroomActorRole.STU)
