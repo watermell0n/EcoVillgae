@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.identity.application.ClassroomNotActiveException;
 import com.b201.ecovillage.identity.application.InvalidCredentialsException;
 import com.b201.ecovillage.identity.application.InvalidLoginRequestException;
@@ -44,6 +45,21 @@ public class ApiExceptionHandler {
             "INVALID_CREDENTIALS",
             "로그인 정보를 확인해 주세요.",
             false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(ClassroomOperationException.class)
+    ResponseEntity<ApiErrorResponse> handleClassroomOperation(
+        ClassroomOperationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.getStatus(),
+            exception.getCode(),
+            exception.getMessage(),
+            exception.getStatus().is5xxServerError(),
             List.of(),
             request
         );

@@ -10,4 +10,6 @@ import com.b201.ecovillage.identity.domain.Classroom;
 public interface ClassroomRepository extends JpaRepository<Classroom, UUID> {
 
     Optional<Classroom> findByClassroomCode(String classroomCode);
+
+    boolean existsByClassroomCode(String classroomCode);
 }
