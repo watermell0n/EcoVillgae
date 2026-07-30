@@ -1,14 +1,14 @@
 # 이코빌리지 논리 데이터 모델
 
-- 버전: v0.1
-- 기준일: 2026-07-29
-- 기준 Git 커밋: `29f0bbb`
+- 버전: v0.4
+- 기준일: 2026-07-30
+- 개발 기준 브랜치: `develop`
 - 상태: MVP 논리 ERD 기준선
 - 대상 DB: PostgreSQL 17
 
 ## 1. 목적과 범위
 
-이 문서는 확정된 요구사항, 상태 머신, HTTP API와 WebSocket 이벤트를 PostgreSQL의 논리 엔티티와 관계로 연결합니다. 실제 테이블 자료형, 인덱스와 DDL은 후속 [물리 스키마](PHYSICAL_SCHEMA.md)에서 확정합니다.
+이 문서는 확정된 요구사항, 상태 머신, HTTP API와 WebSocket 이벤트를 PostgreSQL의 논리 엔티티와 관계로 연결합니다. 실제 테이블 자료형, 인덱스와 DDL은 [물리 스키마](PHYSICAL_SCHEMA.md)와 Flyway 마이그레이션에서 확정했습니다.
 
 MVP 범위는 초등학교 4~6학년이며 상점·캐릭터·개인거래·예금·적금·가상 투자·교육용 대출·퀴즈·투표·AI 운영 지원을 포함합니다. 중학생 코스, 자리·부동산, 보험, 주거·청약은 포함하지 않습니다.
 
@@ -38,6 +38,8 @@ MVP 범위는 초등학교 4~6학년이며 상점·캐릭터·개인거래·예�
 | DM-010 | 공개 화면은 공개 projection만 사용합니다. 학생 잔액·신용·대출·개인거래·TEST 결과를 공개용 테이블이나 이벤트 payload에 복제하지 않습니다. |
 | DM-011 | 게시·가입·실행에 사용된 버전은 수정하지 않고 새 버전을 만듭니다. 퀴즈 문제, 금융상품, 정책, 투자 시나리오가 이 원칙을 따릅니다. |
 | DM-012 | 운영 데이터는 물리 삭제보다 종료 상태와 보관기한을 사용합니다. 보관기간 종료 후 학생 식별 연결만 제거하고 비식별 집계를 남길 수 있습니다. |
+| DM-013 | `classroom_code`는 서버가 생성한 전역 유일 8자 불변 코드이고, `currency_name`은 OWN이 개설 시 입력한 검증 완료 1~10자 불변 표시값입니다. |
+| DM-014 | 학급 생성의 예상 학생 수는 `classrooms`에, 급여 역할의 안정 식별자는 `salary_roles.role_code`에 저장합니다. 자율시간과 모듈은 연결 테이블로 정규화하고 학교 AI 설정은 불변 버전 이력으로 관리합니다. |
 
 ## 3. 학급·인증·설정
 
@@ -46,6 +48,8 @@ erDiagram
     USERS ||--o{ SCHOOL_MEMBERSHIPS : receives
     SCHOOLS ||--o{ SCHOOL_MEMBERSHIPS : scopes
     SCHOOLS ||--o{ CLASSROOMS : operates
+    SCHOOLS ||--o{ SCHOOL_AI_SETTING_VERSIONS : governs
+    USERS ||--o{ SCHOOL_AI_SETTING_VERSIONS : changes
     COURSE_TEMPLATE_VERSIONS ||--o{ CLASSROOMS : recommends
     COURSE_TEMPLATES ||--o{ COURSE_TEMPLATE_VERSIONS : versions
     COURSE_TEMPLATE_VERSIONS ||--o{ COURSE_TEMPLATE_MODULES : contains
@@ -58,6 +62,8 @@ erDiagram
     CLASSROOMS ||--o{ CLASSROOM_MODULES : enables
     CLASSROOMS ||--o{ CLASSROOM_POLICY_VERSIONS : versions
     CLASSROOMS ||--o{ AUTONOMOUS_SCHEDULES : schedules
+    AUTONOMOUS_SCHEDULES ||--o{ AUTONOMOUS_SCHEDULE_MODULES : enables
+    CLASSROOM_MODULES ||--o{ AUTONOMOUS_SCHEDULE_MODULES : assigned_to
     CLASSROOMS ||--o{ SALARY_ROLES : defines
     SALARY_ROLES ||--o{ CLASSROOM_STUDENTS : assigns
     CLASSROOM_STUDENTS ||--o{ PAYSLIPS : receives
@@ -67,8 +73,10 @@ erDiagram
         uuid school_id FK
         uuid course_template_version_id FK
         string classroom_code UK
+        string currency_name
         int grade
         string scale_label
+        int planned_student_count
         date actual_starts_on
         date actual_ends_on
         string status
@@ -107,6 +115,38 @@ erDiagram
         datetime effective_from
         string source
     }
+    AUTONOMOUS_SCHEDULES {
+        uuid id PK
+        uuid classroom_id FK
+        int day_of_week
+        time local_start_time
+        time local_end_time
+        string status
+    }
+    AUTONOMOUS_SCHEDULE_MODULES {
+        uuid id PK
+        uuid classroom_id FK
+        uuid autonomous_schedule_id FK
+        string module_code FK
+    }
+    SALARY_ROLES {
+        uuid id PK
+        uuid classroom_id FK
+        string role_code UK
+        string name
+        bigint gross_amount
+        string status
+    }
+    SCHOOL_AI_SETTING_VERSIONS {
+        uuid id PK
+        uuid school_id FK
+        int version
+        bool enabled
+        string reason
+        datetime effective_from
+        datetime superseded_at
+        uuid created_by_user_id FK
+    }
     PAYSLIPS {
         uuid id PK
         uuid classroom_student_id FK
@@ -122,11 +162,17 @@ erDiagram
 
 - 학급별 소유 교사는 정확히 1명이며 공동 담당 교사는 0명 이상입니다.
 - `classroom_students`의 `(classroom_id, roster_number)`와 `(classroom_id, nickname)`은 각각 유일합니다.
+- `classrooms.classroom_code`는 학교 범위가 아닌 전체 서비스에서 유일하며 `ABCDEFGHJKMNPQRSTUVWXYZ23456789` 문자 집합의 8자 코드입니다.
+- `classrooms.currency_name`은 NFKC 정규화 후 한글·영문·숫자 1~10자와 금칙어 검증을 통과한 필수값입니다. 학급 코드와 화폐 단위명은 생성 후 변경하지 않습니다.
 - 학생 비밀번호 해시는 `student_credentials`에 분리하고 닉네임 변경과 비밀번호 재설정을 같은 기능으로 취급하지 않습니다.
 - 학생 세션은 한 학생당 활성 세션 1개만 허용합니다. 새 학교 태블릿 연결 시 기존 활성 세션을 종료합니다.
 - 교사용 앱과 관리 웹의 동시 로그인은 허용하므로 교사 사용자에는 단일 활성 세션 제약을 두지 않습니다.
 - `classrooms.scale_label`은 추천 깊이만 나타내며 실제 운영 날짜를 계산하거나 고정하지 않습니다.
+- `classrooms.planned_student_count`는 개설 시 받은 양의 예상 인원이며 실제 활성 학생 수와 별도로 보존합니다.
+- `salary_roles.role_code`는 학급 안에서 유일한 영문 대문자 기반 안정 코드입니다. 표시명 변경과 학생 배정 DTO는 이 코드를 기준으로 연결합니다.
+- 자율시간의 `module_codes` 배열은 `autonomous_schedule_modules`의 행들로 저장하며 복합 FK로 다른 학급의 일정·모듈을 연결할 수 없습니다.
 - `classroom_policy_versions`는 새 거래 적용용 정책입니다. 실제 거래가 참조하는 결합 결과는 별도 `policy_snapshots`에 저장합니다.
+- 학교 AI 활성화 여부는 `school_ai_setting_versions`의 현재 행으로 조회하고, 변경 시 이전 행을 종료한 뒤 새 버전을 추가합니다.
 
 ## 4. 거래 원장·정책·이벤트
 
@@ -646,7 +692,7 @@ erDiagram
 
 | API·이벤트 영역 | 집계 루트 | 주요 하위 엔티티 | 상태 머신 |
 | --- | --- | --- | --- |
-| `API-CLS`, `EVT-CLS` | `classrooms` | 교사·학생·일정·모듈·정책 | SM-CLS-001·SM-APP-001·SM-MOD-001 |
+| `API-CLS`, `EVT-CLS` | `classrooms` | 교사·학생·일정·일정-모듈·급여 역할·정책 | SM-CLS-001·SM-APP-001·SM-MOD-001 |
 | `API-TXN`, `EVT-TXN` | `transaction_groups` | 원장 계정·원장 항목·복구 연결 | SM-TXN-001 |
 | `API-SHP`, `EVT-SHP` | `store_orders` | 주문 항목·재고·아이템 | SM-SHP-001·SM-ITM-001 |
 | `API-TRD`, `EVT-TRD` | `trades` | 금액 leg·아이템 leg·결정 | SM-TRD-001·SM-ITM-001·SM-TXN-001 |
@@ -656,32 +702,35 @@ erDiagram
 | `API-QZ`, `EVT-QZ` | `quiz_sessions` | 문제 스냅샷·제출·결과 버전·재채점 | SM-QST-001·SM-QZS-001·SM-QAD-001 |
 | `API-VOT`, `EVT-VOT` | `votes` | 선택지·자격 토큰·익명 투표지 | SM-ACT-001 |
 | `API-AI`, `EVT-OPS` | `ai_runs`, `async_operations` | 산출물·제안·결정 | SM-AIR-001 |
+| `API-ADM-004` | `school_ai_setting_versions` | 학교 AI 설정 버전 | 없음(불변 버전) |
 
 ## 10. 요구사항 추적
 
 | 요구사항 | 데이터 엔티티 |
 | --- | --- |
-| AUTH-001~006 | `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships` |
-| CLS-001~009·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `course_template_versions`, `activity_sessions` |
+| AUTH-001~007 | `classrooms`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships` |
+| CLS-001~010·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `autonomous_schedule_modules`, `salary_roles`, `course_template_versions`, `activity_sessions` |
 | ECO-001~010 | `ledger_accounts`, `transaction_groups`, `ledger_entries`, `policy_snapshots`, `payslips`, `store_*`, `inventory_items`, `character_catalog` |
 | TRD-001~005 | `trades`, `trade_money_legs`, `trade_item_legs`, `trade_decisions`, `idempotency_records` |
 | FIN-001~012 | `financial_product_versions`, 예금·적금·투자·대출·신용 엔티티, `policy_snapshots`, 원장 엔티티 |
 | QZ-001~009 | 퀴즈 문제 버전·실행·제출·결과·신고·재채점 엔티티 |
-| AI-001~008 | `ai_runs`, `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts`, `audit_events` |
+| AI-001~008 | `school_ai_setting_versions`, `classroom_policy_versions`, `ai_runs`, `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts`, `audit_events` |
 | DAT-001~006 | `report_snapshots`, `export_operations`, `audit_events`, `idempotency_records`, 보관기한 컬럼 |
 | SYS-003 | `realtime_streams`, `outbox_events`, `async_operations` |
 
 ## 11. 물리 스키마 검증 결과
 
-1. 83개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 83개 테이블에 1:1 매핑했습니다.
-2. 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
+1. 85개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 85개 테이블에 1:1 매핑했습니다.
+2. 전역 학급 코드, 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
 3. 거래 그룹 합계 0, 전후 잔액, 계정 sequence와 완료 후 불변성을 지연 제약 트리거로 설계했습니다.
 4. 상태 전이는 서비스가 판정하고 DB는 상태 집합·결과 무결성·불변성을 강제하도록 책임을 구분했습니다.
 5. 상품·정책·금융·퀴즈·투자 버전의 불변 참조와 공개 projection 경계를 정의했습니다.
 6. 보관기한·식별 연결 제거와 원장·감사 보존 기준을 확정했습니다.
 
-## 12. 후속 작업
+## 12. 구현 상태와 후속 작업
 
-1. [물리 스키마](PHYSICAL_SCHEMA.md) 기준 Flyway `V1_1`~`V1_9` DDL을 작성합니다.
-2. DBT-001~017 Testcontainers 무결성 테스트를 자동화합니다.
-3. OpenAPI 요청·응답 필드와 실제 저장·projection 필드를 교차 검증합니다.
+Flyway `V1_1`~`V1_11`과 DBT-001~019에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드와 공개 GAME 순위 경계를 반영했습니다.
+
+1. Docker 사용 가능 Jenkins에서 Testcontainers 20개를 모두 실행합니다.
+2. [API·스키마 필드 매핑](../contracts/api-field-mapping.json)을 구현 DTO·영속 계층과 동기화합니다.
+3. 서비스·E2E 인수 테스트를 RTM에 연결합니다.

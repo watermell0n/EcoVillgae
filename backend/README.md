@@ -13,11 +13,13 @@ src/main/java/com/b201/ecovillage/
     repository/   Spring Data JPA 저장소
 src/main/resources/
   application.yml
-  db/migration/   Flyway V1_1~V1_9
+  db/migration/   Flyway V1_1~V1_11
 src/test/java/
   identity/       계정 도메인 단위 테스트
-  SchemaIntegrityTest.java
+  SchemaIntegrityTest.java   PostgreSQL 17 Testcontainers 무결성 테스트
 ```
+
+`build.gradle`은 Java 21과 Spring Boot 4.1.0 의존성 관리 기준입니다.
 
 ## 실행 조건
 
@@ -29,7 +31,7 @@ src/test/java/
 
 ```powershell
 Copy-Item .env.example .env
-docker compose -f compose.dev.yml up -d
+docker compose up -d
 ```
 
 백엔드 실행:
@@ -43,6 +45,12 @@ cd backend
 `http://localhost:8080/actuator/health`입니다. `application.yml`은 백엔드
 디렉터리와 저장소 루트의 `.env`를 선택적으로 읽습니다.
 
+백엔드까지 컨테이너로 함께 실행할 때는 저장소 루트에서 다음 명령을 사용합니다.
+
+```powershell
+docker compose --profile app up -d --build
+```
+
 ## 테스트와 빌드
 
 ```powershell
@@ -51,7 +59,7 @@ cd backend
 .\gradlew.bat bootJar
 ```
 
-Docker가 없으면 Testcontainers 기반 18개 DB 테스트는 건너뛰지만 계정 도메인
+Docker가 없으면 Testcontainers 기반 20개 DB 테스트는 건너뛰지만 계정 도메인
 단위 테스트와 Java 컴파일은 실행됩니다. Jenkins에서는 DB 테스트가 하나도
 건너뛰지 않고 통과해야 합니다.
 
@@ -59,6 +67,7 @@ Docker가 없으면 Testcontainers 기반 18개 DB 테스트는 건너뛰지만 
 
 ```bash
 node scripts/validate-database-implementation.mjs
+node scripts/validate-api-schema-consistency.mjs
 ```
 
 ## 계정 모델 원칙

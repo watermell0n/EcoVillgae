@@ -5,10 +5,12 @@ import process from "node:process";
 const root = process.cwd();
 const httpSpecPath = path.join(root, "docs", "HTTP_API_SPEC.md");
 const websocketSpecPath = path.join(root, "docs", "WEBSOCKET_SPEC.md");
+const rtmPath = path.join(root, "docs", "RTM.md");
 const contractsDir = path.join(root, "contracts");
 
 const httpMarkdown = fs.readFileSync(httpSpecPath, "utf8");
 const websocketMarkdown = fs.readFileSync(websocketSpecPath, "utf8");
+const rtmMarkdown = fs.readFileSync(rtmPath, "utf8");
 
 function tableCells(line) {
   const sentinel = "\u0000";
@@ -109,6 +111,35 @@ function parseHttpOperations(markdown) {
   }
 
   return operations;
+}
+
+function parseMvpRequirementIds(markdown) {
+  const result = new Set();
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!/^\| [A-Z]{2,4}-\d{3} \|/.test(line)) continue;
+    const cells = tableCells(line);
+    const requirementId = cells[0]?.match(/^[A-Z]{2,4}-\d{3}$/)?.[0];
+    if (requirementId && cells[1]?.includes("MVP")) result.add(requirementId);
+  }
+  return result;
+}
+
+const mvpRequirementIds = parseMvpRequirementIds(rtmMarkdown);
+const mvpSupportApiIds = new Set([
+  "API-AUTH-004",
+  "API-AUTH-005",
+  "API-AUTH-006",
+  "API-AUTH-007",
+  "API-READ-001",
+  "API-READ-003",
+  "API-READ-030",
+]);
+
+function implementationStatus(operation) {
+  return operation.rtmIds.some((id) => mvpRequirementIds.has(id)) ||
+    mvpSupportApiIds.has(operation.apiId)
+    ? "mvp-contract"
+    : "planned";
 }
 
 function parseChannels(markdown) {
@@ -287,6 +318,17 @@ const requestFieldOverrides = {
   ],
   "API-CLS-001": [
     { name: "school_id" },
+    {
+      name: "currency_name",
+      schema: {
+        type: "string",
+        minLength: 1,
+        maxLength: 10,
+        pattern: "^[가-힣A-Za-z0-9]{1,10}$",
+        description:
+          "NFKC 정규화와 앞뒤 공백 제거 후 검증하며 서비스 금칙어를 허용하지 않는 생성 후 불변 표시명",
+      },
+    },
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
     {
       name: "course_size",
@@ -542,6 +584,161 @@ const requestFieldOverrides = {
     { name: "confirmed_co_teacher_ids" },
     { name: "reason" },
   ],
+  "API-AUTH-003": [
+    { name: "command", values: ["COMPLETE"] },
+    { name: "reset_request_id" },
+    { name: "new_password", schema: { type: "string", format: "password", minLength: 8, writeOnly: true } },
+    { name: "reason" },
+  ],
+  "API-ACT-001": [
+    { name: "participant_ids" },
+    { name: "public_fields", schema: { type: "array", uniqueItems: true, items: { type: "string" } } },
+  ],
+  "API-ACT-002": [
+    { name: "command", values: ["END", "CANCEL"] },
+    { name: "reason", optional: true },
+  ],
+  "API-DSP-001": [
+    { name: "command", values: ["CONNECT", "DISCONNECT"] },
+    { name: "display_session_id", optional: true },
+  ],
+  "API-SHP-001": [
+    { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "UNPUBLISH"] },
+    { name: "product_id", optional: true },
+    { name: "name" },
+    { name: "description", optional: true },
+    { name: "product_kind", values: ["DIGITAL", "PHYSICAL", "CHARACTER"] },
+    { name: "unit_price", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "vat_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
+    { name: "stock_quantity", schema: { type: "integer", minimum: 0 } },
+    { name: "character_source_id", optional: true },
+    { name: "expected_product_version", optional: true, schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-SHP-002": [
+    { name: "product_id" },
+    { name: "quantity", schema: { type: "integer", minimum: 1 } },
+    { name: "expected_product_version", schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-ITM-001": [{ name: "command", values: ["EQUIP", "UNEQUIP"] }],
+  "API-CNT-001": [
+    { name: "command", values: ["APPROVE", "REJECT", "PUBLISH", "UNPUBLISH"] },
+    { name: "source_title" },
+    { name: "source_url", schema: { type: "string", format: "uri" } },
+    { name: "rights_status" },
+    { name: "rights_evidence_key" },
+    { name: "reviewed_at", schema: { type: "string", format: "date-time" } },
+    { name: "regions", schema: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string" } } },
+  ],
+  "API-TRD-002": [{ name: "command", values: ["CANCEL"] }],
+  "API-TRD-003": [
+    { name: "decision", values: ["ACCEPT", "REJECT"] },
+    { name: "reason", optional: true },
+  ],
+  "API-TRD-004": [
+    { name: "decision", values: ["APPROVE", "REJECT"] },
+    { name: "reason" },
+  ],
+  "API-FIN-001": [
+    { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "STOP"] },
+    { name: "product_id", optional: true },
+    { name: "product_type", values: ["DEPOSIT", "SAVINGS"] },
+    { name: "name" },
+    { name: "term_units", schema: { type: "integer", minimum: 1 } },
+    { name: "interest_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
+    { name: "early_termination_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
+    { name: "installment_count", optional: true, schema: { type: "integer", minimum: 2, maximum: 12 } },
+    { name: "installment_amount", optional: true, schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "minimum_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "maximum_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "expected_product_version", optional: true, schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-FIN-002": [
+    { name: "product_id" },
+    { name: "principal", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "expected_product_version", schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-FIN-003": [{ name: "command", values: ["EARLY_TERMINATE"] }],
+  "API-QZ-001": [
+    { name: "command", values: ["CREATE", "UPDATE"] },
+    { name: "question_id", optional: true },
+    { name: "content_type", values: ["ECONOMY", "NONSENSE"] },
+    { name: "question_type", values: ["MULTIPLE_CHOICE", "OX"] },
+    { name: "prompt" },
+    {
+      name: "options",
+      schema: {
+        type: "array",
+        minItems: 2,
+        items: {
+          type: "object",
+          required: ["option_key", "option_text", "is_correct", "sort_order"],
+          properties: {
+            option_key: { type: "string" },
+            option_text: { type: "string" },
+            is_correct: { type: "boolean" },
+            sort_order: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    { name: "explanation", optional: true },
+    { name: "expected_question_version", optional: true, schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-QZ-003": [
+    { name: "command", values: ["APPROVE", "PUBLISH", "RETIRE"] },
+    { name: "reason", optional: true },
+  ],
+  "API-QZ-004": [
+    { name: "command", values: ["START", "CLOSE_SUBMISSIONS"] },
+    { name: "question_version_ids" },
+    { name: "participant_ids" },
+    { name: "mode", values: ["GAME", "TEST"] },
+    { name: "content_type", values: ["ECONOMY", "NONSENSE"] },
+    { name: "reward_policy_public", schema: { type: "object", additionalProperties: { type: ["integer", "boolean", "string"] } } },
+    { name: "leaderboard_public", optional: true, schema: { type: "boolean" } },
+  ],
+  "API-QZ-005": [
+    { name: "question_id" },
+    { name: "option_id" },
+    { name: "client_answered_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-QZ-007": [
+    { name: "command", values: ["CONFIRM", "PUBLISH", "CLOSE"] },
+    { name: "leaderboard_public", optional: true, schema: { type: "boolean" } },
+    { name: "expected_result_version", optional: true, schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-QZ-008": [
+    { name: "question_id" },
+    { name: "reason_code" },
+    { name: "description" },
+  ],
+  "API-VOT-001": [
+    { name: "command", values: ["CLOSE", "CONFIRM_RESULT"] },
+    { name: "selected_use", optional: true },
+  ],
+  "API-VOT-002": [{ name: "option_id" }],
+  "API-AI-004": [
+    { name: "command", values: ["REQUEST_DRAFT", "APPROVE", "REJECT"] },
+    { name: "template_type" },
+    { name: "event_id", optional: true },
+    { name: "edits", optional: true, schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
+  ],
+  "API-AI-005": [
+    { name: "enabled", schema: { type: "boolean", const: false } },
+    { name: "reason", schema: { type: "string", minLength: 1 } },
+  ],
+  "API-DAT-001": [
+    { name: "format", values: ["PDF", "CSV"] },
+    { name: "report_type" },
+    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
+    { name: "student_scope", optional: true, schema: { type: "array", uniqueItems: true, items: { type: "string", format: "uuid" } } },
+    { name: "reason", optional: true },
+  ],
+  "API-ADM-004": [
+    { name: "enabled", schema: { type: "boolean", const: false } },
+    { name: "reason", schema: { type: "string", minLength: 1 } },
+  ],
   "API-OPS-001": [
     { name: "provider" },
     { name: "global_daily_limit", schema: { type: "integer", minimum: 0 } },
@@ -551,12 +748,346 @@ const requestFieldOverrides = {
   ],
 };
 
+const mutationContextFields = [
+  { name: "expected_state_version", optional: true, schema: { type: "integer", format: "int64", minimum: 0 } },
+  { name: "screen_id", optional: true, schema: { type: "string", pattern: "^SCR-[A-Z]+-\\d{3}$" } },
+  { name: "ui_action_id", optional: true, schema: { type: "string", pattern: "^UIA-[A-Z]+-\\d{3}$" } },
+  { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
+];
+
+function projectionItemSchema(extraProperties = {}, required = []) {
+  return {
+    type: "object",
+    properties: {
+      resource_id: { type: "string", format: "uuid" },
+      label: { type: "string" },
+      status: { type: "string" },
+      version: { type: "integer", minimum: 0 },
+      state_version: { type: "integer", format: "int64", minimum: 0 },
+      ...extraProperties,
+    },
+    ...(required.length > 0 ? { required } : {}),
+    additionalProperties: false,
+  };
+}
+
+const projectionItems = (extraProperties = {}, required = []) => ({
+  type: "array",
+  items: projectionItemSchema(extraProperties, required),
+});
+
+const responseFieldOverrides = {
+  "API-AUTH-001": [
+    { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "role", schema: { type: "string", enum: ["STU"] } },
+  ],
+  "API-AUTH-002": [
+    { name: "reset_request_id", schema: { type: "string", format: "uuid" } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "verification_method", schema: { type: "string" } },
+  ],
+  "API-AUTH-003": [
+    { name: "credential_version", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "completed_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AUTH-004": [
+    { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AUTH-006": [
+    { name: "session_id", schema: { type: "string", format: "uuid" } },
+    { name: "revoked_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AUTH-007": [
+    { name: "ticket", schema: { type: "string", minLength: 20, readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-CLS-001": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_code", schema: { type: "string", minLength: 8, maxLength: 8 } },
+    { name: "currency_name", schema: { type: "string", minLength: 1, maxLength: 10 } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-CLS-002": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "policy_version", schema: { type: "integer", minimum: 1 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-CLS-003": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_count", schema: { type: "integer", minimum: 0 } },
+    { name: "salary_role_count", schema: { type: "integer", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-ACT-001": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["LIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-ACT-002": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["FINALIZING", "CANCELED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-DSP-001": [
+    { name: "display_session_id", schema: { type: "string", format: "uuid" } },
+    { name: "display_token", optional: true, schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", optional: true, schema: { type: "string", format: "date-time" } },
+    { name: "status", schema: { type: "string" } },
+  ],
+  "API-TXN-001": [
+    { name: "transaction_group_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["COMMITTED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-TXN-002": [
+    { name: "transaction_group_id", schema: { type: "string", format: "uuid" } },
+    { name: "recovery_of_group_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["COMMITTED"] } },
+  ],
+  "API-SHP-002": [
+    { name: "order_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-VOT-002": [
+    { name: "receipt_hash", schema: { type: "string" } },
+    { name: "cast_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AI-001": [
+    { name: "answer", schema: { type: "string" } },
+    { name: "metric_summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "number", "boolean"] } } },
+    { name: "data_as_of", schema: { type: "string", format: "date-time" } },
+    { name: "source_labels", schema: { type: "array", items: { type: "string" } } },
+  ],
+  "API-ADM-004": [
+    { name: "school_id", schema: { type: "string", format: "uuid" } },
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+    { name: "enabled", schema: { type: "boolean" } },
+    { name: "effective_from", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-READ-001": [
+    { name: "user_id", schema: { type: "string", format: "uuid" } },
+    { name: "roles", schema: { type: "array", items: { type: "string" }, uniqueItems: true } },
+    { name: "classrooms", schema: projectionItems({ classroom_code: { type: "string" }, currency_name: { type: "string" } }) },
+    { name: "start_screen", schema: { type: "string" } },
+  ],
+  "API-READ-002": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_code", optional: true, schema: { type: "string" } },
+    { name: "currency_name", schema: { type: "string" } },
+    { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
+    { name: "course_size", schema: { type: "string" } },
+    { name: "planned_student_count", schema: { type: "integer", minimum: 1 } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-READ-003": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_code", schema: { type: "string" } },
+    { name: "currency_name", schema: { type: "string" } },
+    { name: "module_codes", schema: { type: "array", items: { type: "string" }, uniqueItems: true } },
+    { name: "autonomous_schedules", schema: projectionItems({ module_codes: { type: "array", items: { type: "string" }, uniqueItems: true } }) },
+    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
+  ],
+  "API-READ-004": [
+    { name: "students", schema: projectionItems({ attendance_number: { type: "integer", minimum: 1 }, nickname: { type: "string" }, role_code: { type: ["string", "null"] } }) },
+    { name: "salary_roles", schema: projectionItems({ role_code: { type: "string" }, gross_amount: { type: "integer", format: "int64", minimum: 0 } }) },
+  ],
+  "API-READ-006": [
+    { name: "modules", schema: projectionItems({ module_code: { type: "string" }, config: { type: "object", additionalProperties: true } }) },
+    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
+  ],
+  "API-READ-007": [
+    { name: "balance", schema: { type: "integer", format: "int64" } },
+    { name: "recent_transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) },
+  ],
+  "API-READ-008": [{ name: "payslips", schema: projectionItems({ net_amount: { type: "integer", format: "int64" }, issued_at: { type: "string", format: "date-time" } }) }],
+  "API-READ-009": [{ name: "transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) }],
+  "API-READ-010": [{ name: "products", schema: projectionItems({ unit_price: { type: "integer", format: "int64", minimum: 0 }, product_kind: { type: "string" } }) }],
+  "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
+  "API-READ-012": [{ name: "inventory_items", schema: projectionItems({ character_code: { type: "string" }, equipped: { type: "boolean" } }) }],
+  "API-READ-013": [{ name: "trades", schema: projectionItems({ counterpart_nickname: { type: "string" }, direction: { type: "string" } }) }],
+  "API-READ-014": [{ name: "financial_products", schema: projectionItems({ product_type: { type: "string" }, interest_rate_bps: { type: "integer" } }) }],
+  "API-READ-015": [
+    { name: "deposit_accounts", schema: projectionItems({ principal_amount: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
+    { name: "savings_accounts", schema: projectionItems({ principal_balance: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
+  ],
+  "API-READ-020": [{ name: "questions", schema: projectionItems({ content_type: { type: "string" }, question_type: { type: "string" }, prompt: { type: "string" } }) }],
+  "API-READ-021": [
+    { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
+    { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
+    { name: "status", schema: { type: "string" } },
+    { name: "questions", schema: projectionItems({ prompt: { type: "string" }, options: { type: "array", items: { type: "string" } } }) },
+  ],
+  "API-READ-022": [
+    { name: "result_version", schema: { type: "integer", minimum: 1 } },
+    { name: "status", schema: { type: "string" } },
+    { name: "summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
+    { name: "leaderboard", optional: true, schema: projectionItems({ rank: { type: "integer", minimum: 1, maximum: 3 }, nickname: { type: "string" }, character_code: { type: ["string", "null"] } }) },
+  ],
+  "API-READ-023": [{ name: "options", schema: projectionItems({ count: { type: "integer", minimum: 0 } }) }],
+  "API-READ-024": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "participant_count", schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-READ-025": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "scene", schema: { type: "string" } },
+    { name: "timer", optional: true, schema: { type: "object", required: ["server_time", "ends_at"], properties: { server_time: { type: "string", format: "date-time" }, ends_at: { type: "string", format: "date-time" } }, additionalProperties: false } },
+    { name: "public_data", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean", "array", "object", "null"] } } },
+  ],
+  "API-READ-030": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "progress_percent", schema: { type: "integer", minimum: 0, maximum: 100 } },
+    { name: "result_url", optional: true, schema: { type: "string", format: "uri-reference" } },
+    { name: "error_code", optional: true, schema: { type: "string" } },
+  ],
+};
+
+const resourceIdByDomain = {
+  MOD: "module_id",
+  POL: "policy_version_id",
+  SHP: "product_id",
+  ITM: "inventory_item_id",
+  CNT: "character_source_id",
+  TRD: "trade_id",
+  FIN: "financial_resource_id",
+  QZ: "quiz_resource_id",
+  VOT: "vote_id",
+  AI: "ai_resource_id",
+  ADM: "administration_resource_id",
+};
+
+function responseFields(operation) {
+  const explicit = responseFieldOverrides[operation.apiId];
+  if (explicit) return explicit;
+  const resourceName = resourceIdByDomain[operation.apiId.split("-")[1]] ?? "resource_id";
+  return [
+    { name: resourceName, schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", optional: true, schema: { type: "integer", format: "int64", minimum: 0 } },
+  ];
+}
+
+const storageByDomain = {
+  AUTH: ["classrooms", "classroom_students", "student_credentials", "student_sessions"],
+  CLS: ["classrooms", "classroom_teachers", "classroom_students", "salary_roles", "classroom_modules", "autonomous_schedules", "autonomous_schedule_modules"],
+  MOD: ["classroom_modules", "state_transitions"],
+  POL: ["classroom_policy_versions", "policy_snapshots"],
+  ACT: ["activity_sessions", "activity_participants", "realtime_streams", "outbox_events"],
+  DSP: ["activity_sessions", "redis.display-session"],
+  TXN: ["transaction_groups", "ledger_entries", "ledger_accounts", "policy_snapshots"],
+  SHP: ["store_products", "store_product_versions", "store_stocks", "store_orders", "store_order_items"],
+  ITM: ["inventory_items"],
+  CNT: ["character_catalog", "classroom_characters"],
+  TRD: ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "transaction_groups"],
+  FIN: ["financial_products", "financial_product_versions", "deposit_accounts", "savings_accounts", "investment_orders", "loans", "credit_profiles", "transaction_groups"],
+  QZ: ["quiz_questions", "quiz_question_versions", "quiz_options", "quiz_sessions", "quiz_submissions", "quiz_answers", "quiz_result_versions"],
+  VOT: ["votes", "vote_options", "vote_eligibilities", "vote_ballots", "view.public_vote_aggregates"],
+  AI: ["ai_runs", "ai_artifacts", "ai_proposals", "ai_decisions", "economic_event_drafts", "classroom_policy_versions"],
+  DAT: ["async_operations", "export_operations", "report_snapshots"],
+  ADM: ["schools", "school_memberships", "classroom_teachers", "school_ai_setting_versions"],
+  OPS: ["external_secrets_manager", "audit_events"],
+};
+
+const storageByReadApi = {
+  "API-READ-001": ["users", "school_memberships", "classroom_teachers", "classroom_students", "classrooms"],
+  "API-READ-002": ["classrooms", "course_template_versions"],
+  "API-READ-003": ["classrooms", "classroom_modules", "autonomous_schedules", "autonomous_schedule_modules", "classroom_policy_versions"],
+  "API-READ-004": ["classroom_students", "salary_roles"],
+  "API-READ-006": ["classroom_modules", "classroom_policy_versions"],
+  "API-READ-007": ["ledger_accounts", "ledger_entries", "transaction_groups"],
+  "API-READ-008": ["payslips"],
+  "API-READ-009": ["transaction_groups", "ledger_entries", "transaction_business_refs"],
+  "API-READ-010": ["store_products", "store_product_versions", "store_stocks", "classroom_characters"],
+  "API-READ-011": ["store_orders", "store_order_items"],
+  "API-READ-012": ["inventory_items", "character_catalog"],
+  "API-READ-013": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions"],
+  "API-READ-014": ["financial_products", "financial_product_versions"],
+  "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
+  "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
+  "API-READ-021": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
+  "API-READ-022": ["quiz_result_versions", "quiz_student_results", "view.public_quiz_leaderboard"],
+  "API-READ-023": ["view.public_vote_aggregates"],
+  "API-READ-024": ["activity_sessions", "activity_participants"],
+  "API-READ-025": ["view.public_quiz_leaderboard", "view.public_vote_aggregates", "view.public_fund_summary", "view.public_investment_market"],
+  "API-READ-030": ["async_operations"],
+};
+
+function storageTargets(operation) {
+  if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
+  if (operation.apiId === "API-AUTH-003") return ["redis.password-reset", "student_credentials", "student_sessions"];
+  if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-005") return ["external_idp.refresh-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-007") return ["redis.realtime-ticket"];
+  if (operation.apiId === "API-DSP-001") return ["activity_sessions", "redis.display-session"];
+  if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
+  if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
+  if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];
+  return storageByDomain[operation.apiId.split("-")[1]] ?? ["service_projection"];
+}
+
+const exactFieldTargets = {
+  classroom_code: "classrooms.classroom_code",
+  currency_name: "classrooms.currency_name",
+  student_count: "classrooms.planned_student_count",
+  planned_student_count: "classrooms.planned_student_count",
+  attendance_number: "classroom_students.roster_number",
+  course_size: "classrooms.scale_label",
+  starts_on: "classrooms.actual_starts_on",
+  ends_on: "classrooms.actual_ends_on",
+  timezone: "classrooms.time_zone",
+  role_code: "salary_roles.role_code",
+  module_codes: "autonomous_schedule_modules.module_code",
+  expected_state_version: "service_validation.state_version",
+  expected_policy_version: "service_validation.policy_version",
+  password: "student_credentials.password_hash",
+  new_password: "student_credentials.password_hash",
+  ticket: "redis.realtime-ticket.token_hash",
+  display_token: "redis.display-session.token_hash",
+  reset_request_id: "redis.password-reset.request_id",
+};
+
+function schemaType(schema) {
+  if (schema.$ref) return schema.$ref;
+  return Array.isArray(schema.type) ? schema.type.join("|") : schema.type ?? "any";
+}
+
+function manifestField(field, direction, targets) {
+  const target = exactFieldTargets[field.name] ??
+    (direction === "request"
+      ? `service_input.${field.name}`
+      : `projection.${field.name}`);
+  return {
+    name: field.name,
+    required: !field.optional,
+    type: schemaType(schemaForField(field)),
+    target,
+    transform: exactFieldTargets[field.name]
+      ? "명시된 이름·자료형 변환 후 저장 또는 조회"
+      : `${targets.join(", ")}에서 검증·조합하는 ${direction} 필드`,
+    nullable: Boolean(field.optional),
+  };
+}
+
 function requestSchema(operation) {
   if (operation.apiId === "API-AUTH-001") {
     return { $ref: "#/components/schemas/StudentSessionRequest" };
   }
 
-  const fields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
+  const strict = implementationStatus(operation) === "mvp-contract";
+  const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
+  const fields = [...mutationContextFields, ...domainFields];
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -565,19 +1096,37 @@ function requestSchema(operation) {
   }
 
   return {
-    allOf: [
-      { $ref: "#/components/schemas/MutationContext" },
-      {
+    type: "object",
+    description: strict
+      ? `HTTP_API_SPEC.md의 ${operation.apiId} MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다.`
+      : `${operation.apiId}는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다.`,
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+    additionalProperties: !strict,
+  };
+}
+
+function successResponseSchema(operation) {
+  const fields = responseFields(operation);
+  const properties = {};
+  const required = [];
+  for (const field of fields) {
+    properties[field.name] = schemaForField(field);
+    if (!field.optional) required.push(field.name);
+  }
+  return {
+    type: "object",
+    required: ["data", "meta"],
+    properties: {
+      data: {
         type: "object",
-        description:
-          fields.length > 0
-            ? `도메인 필드는 HTTP_API_SPEC.md의 ${operation.apiId} 계약을 구조화했습니다.`
-            : `${operation.apiId}의 세부 도메인 DTO는 구현 스프린트에서 이 기준 계약을 확장합니다.`,
+        required,
         properties,
-        ...(required.length > 0 ? { required } : {}),
-        additionalProperties: true,
+        additionalProperties: false,
       },
-    ],
+      meta: { $ref: "#/components/schemas/Meta" },
+    },
+    additionalProperties: false,
   };
 }
 
@@ -682,9 +1231,14 @@ function buildOpenApi(operations) {
   for (const operation of operations) {
     const method = operation.method.toLowerCase();
     const status = successStatus(operation);
+    const contractStatus = implementationStatus(operation);
+    const targets = storageTargets(operation);
     const op = {
       operationId: camelFromId(operation.apiId),
       "x-api-id": operation.apiId,
+      "x-implementation-status": contractStatus,
+      "x-schema-closure": contractStatus === "mvp-contract" ? "strict" : "planned",
+      "x-storage-targets": targets,
       ...(operation.uiActionIds.length > 0 ? { "x-ui-action-ids": operation.uiActionIds } : {}),
       "x-roles": operation.roles ? operation.roles.split(/,\s*|·/) : [],
       "x-permission-ids": operation.permissionIds,
@@ -707,7 +1261,12 @@ function buildOpenApi(operations) {
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
             : status === "202"
               ? { $ref: "#/components/responses/Accepted" }
-              : { $ref: "#/components/responses/Success" },
+              : contractStatus === "mvp-contract"
+                ? {
+                    description: "MVP 작업별 명시적 성공 응답",
+                    content: { "application/json": { schema: successResponseSchema(operation) } },
+                  }
+                : { $ref: "#/components/responses/Success" },
         "400": { $ref: "#/components/responses/BadRequest" },
         "401": { $ref: "#/components/responses/Unauthorized" },
         "403": { $ref: "#/components/responses/Forbidden" },
@@ -861,7 +1420,13 @@ function buildOpenApi(operations) {
             "device_id",
           ],
           properties: {
-            classroom_code: { type: "string", minLength: 4, maxLength: 32 },
+            classroom_code: {
+              type: "string",
+              minLength: 8,
+              maxLength: 8,
+              pattern: "^[A-HJ-KM-NP-Za-hj-km-np-z2-9]{8}$",
+              description: "앞뒤 공백 제거·영문 대문자 정규화 후 8자 학급 코드",
+            },
             attendance_number: { type: "integer", minimum: 1 },
             nickname: { type: "string", minLength: 1, maxLength: 40 },
             password: { type: "string", format: "password", minLength: 8, writeOnly: true },
@@ -1394,7 +1959,89 @@ function toYaml(value, indent = 0) {
   return `${pad}${yamlScalar(value)}`;
 }
 
-function assertGeneration(httpOperations, channels, events, openapi, asyncapi) {
+const studentSessionRequestFields = [
+  { name: "classroom_code" },
+  { name: "attendance_number", schema: { type: "integer", minimum: 1 } },
+  { name: "nickname", schema: { type: "string", minLength: 1, maxLength: 40 } },
+  { name: "password", schema: { type: "string", format: "password", minLength: 8, writeOnly: true } },
+  { name: "device_id" },
+];
+
+const acceptedResponseFields = [
+  { name: "operation_id", schema: { type: "string", format: "uuid" } },
+  { name: "status", schema: { type: "string", enum: ["QUEUED", "RUNNING"] } },
+  { name: "status_url", schema: { type: "string", format: "uri-reference" } },
+];
+
+function hasRequestBody(operation) {
+  return !["GET", "DELETE"].includes(operation.method) && operation.apiId !== "API-AUTH-004";
+}
+
+function requestFieldsForManifest(operation) {
+  if (!hasRequestBody(operation)) return [];
+  if (operation.apiId === "API-AUTH-001") return studentSessionRequestFields;
+  const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
+  return [...mutationContextFields, ...domainFields];
+}
+
+function responseFieldsForManifest(operation) {
+  const status = successStatus(operation);
+  if (status === "204") return [];
+  if (status === "202") return acceptedResponseFields;
+  return responseFields(operation);
+}
+
+function buildApiFieldMapping(operations) {
+  return {
+    version: "1.0.0",
+    generated_from: ["docs/HTTP_API_SPEC.md", "docs/RTM.md", "docs/PHYSICAL_SCHEMA.md"],
+    policy: {
+      mvp_contract: "요청·응답 최상위 DTO를 닫고 저장·조회 경계를 확정",
+      planned: "경로·권한·추적성만 예약하며 구현 스프린트에서 DTO를 확정",
+      secrets: "원문 비밀번호·토큰은 저장하거나 로그에 남기지 않고 해시 또는 외부 세션 참조만 보관",
+    },
+    operations: operations.map((operation) => {
+      const contractStatus = implementationStatus(operation);
+      const targets = storageTargets(operation);
+      const requestFields = requestFieldsForManifest(operation);
+      const responseFieldsForOperation = responseFieldsForManifest(operation);
+      const explicitRequest =
+        !hasRequestBody(operation) ||
+        operation.apiId === "API-AUTH-001" ||
+        Object.hasOwn(requestFieldOverrides, operation.apiId);
+      return {
+        api_id: operation.apiId,
+        method: operation.method,
+        path: operation.path,
+        implementation_status: contractStatus,
+        storage_targets: targets,
+        request: {
+          mode: hasRequestBody(operation)
+            ? contractStatus === "mvp-contract" ? "strict" : "planned"
+            : "none",
+          schema_source: explicitRequest ? "explicit" : "inferred-planned",
+          fields: requestFields.map((field) => ({
+            ...manifestField(field, "request", targets),
+            visibility: schemaForField(field).writeOnly ? "secret-input" : "role-scoped",
+          })),
+        },
+        response: {
+          mode: successStatus(operation) === "204"
+            ? "none"
+            : contractStatus === "mvp-contract" ? "strict" : "planned",
+          fields: responseFieldsForOperation.map((field) => ({
+            ...manifestField(field, "response", targets),
+            visibility: schemaForField(field)["x-sensitive"] || schemaForField(field).writeOnly
+              ? "one-time-secret"
+              : operation.apiId === "API-READ-025" ? "public-approved" : "role-scoped",
+          })),
+        },
+      };
+    }),
+  };
+}
+
+function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
   const routeKeys = httpOperations.map((operation) => `${operation.method} ${operation.path}`);
   const eventIds = events.map((event) => event.eventId);
@@ -1429,6 +2076,23 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi) {
         48,
       "AsyncAPI 이벤트 메시지 수가 48이 아닙니다.",
     ],
+    [
+      fieldMapping.operations.every(
+        (operation) =>
+          operation.implementation_status !== "mvp-contract" ||
+          operation.request.mode === "none" ||
+          operation.request.schema_source === "explicit",
+      ),
+      "MVP 요청 중 명시적 DTO가 아닌 작업이 있습니다.",
+    ],
+    [
+      fieldMapping.operations.every(
+        (operation) =>
+          operation.implementation_status !== "mvp-contract" ||
+          operation.storage_targets.length > 0,
+      ),
+      "MVP 작업 중 저장·조회 경계가 없는 작업이 있습니다.",
+    ],
   ];
 
   const failures = assertions.filter(([ok]) => !ok).map(([, message]) => message);
@@ -1440,11 +2104,17 @@ const channels = parseChannels(websocketMarkdown);
 const events = parseEvents(websocketMarkdown);
 const openapi = buildOpenApi(httpOperations);
 const asyncapi = buildAsyncApi(channels, events);
+const fieldMapping = buildApiFieldMapping(httpOperations);
 
-assertGeneration(httpOperations, channels, events, openapi, asyncapi);
+assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping);
 fs.mkdirSync(contractsDir, { recursive: true });
 fs.writeFileSync(path.join(contractsDir, "openapi.yaml"), `${toYaml(openapi)}\n`, "utf8");
 fs.writeFileSync(path.join(contractsDir, "asyncapi.yaml"), `${toYaml(asyncapi)}\n`, "utf8");
+fs.writeFileSync(
+  path.join(contractsDir, "api-field-mapping.json"),
+  `${JSON.stringify(fieldMapping, null, 2)}\n`,
+  "utf8",
+);
 
 console.log(
   JSON.stringify(
@@ -1452,7 +2122,14 @@ console.log(
       openapi_operations: httpOperations.length,
       asyncapi_channels: channels.length,
       asyncapi_events: events.length,
-      output: ["contracts/openapi.yaml", "contracts/asyncapi.yaml"],
+      mvp_contract_operations: fieldMapping.operations.filter(
+        (operation) => operation.implementation_status === "mvp-contract",
+      ).length,
+      output: [
+        "contracts/openapi.yaml",
+        "contracts/asyncapi.yaml",
+        "contracts/api-field-mapping.json",
+      ],
     },
     null,
     2,

@@ -36,6 +36,8 @@ const expectedMigrations = [
   "V1_7__ai_report.sql",
   "V1_8__constraints_triggers.sql",
   "V1_9__indexes.sql",
+  "V1_10__classroom_identity_and_public_quiz.sql",
+  "V1_11__mvp_schema_alignment.sql",
 ];
 
 function unique(values) {
@@ -61,7 +63,7 @@ const errors = [];
 const migrationFiles = fs
   .readdirSync(migrationDirectory)
   .filter((file) => /^V.+\.sql$/.test(file))
-  .sort();
+  .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 
 if (JSON.stringify(migrationFiles) !== JSON.stringify(expectedMigrations)) {
   errors.push(
@@ -100,8 +102,8 @@ for (const table of difference(implementedTables, documentedTables)) {
 for (const table of duplicates(implementedTables)) {
   errors.push(`table is created more than once: ${table}`);
 }
-if (implementedTables.length !== 83) {
-  errors.push(`expected 83 tables, found ${implementedTables.length}`);
+if (implementedTables.length !== 85) {
+  errors.push(`expected 85 tables, found ${implementedTables.length}`);
 }
 
 const documentedIndexes = [
@@ -113,12 +115,12 @@ const implementedIndexes = [
 for (const index of difference(documentedIndexes, implementedIndexes)) {
   errors.push(`documented IX index is not implemented: ${index}`);
 }
-if (documentedIndexes.length !== 36) {
-  errors.push(`expected 36 documented indexes, found ${documentedIndexes.length}`);
+if (documentedIndexes.length !== 37) {
+  errors.push(`expected 37 documented indexes, found ${documentedIndexes.length}`);
 }
 
 const expectedDbTests = Array.from(
-  { length: 17 },
+  { length: 19 },
   (_, index) => `DBT-${String(index + 1).padStart(3, "0")}`,
 );
 const implementedDbTests = unique([
@@ -128,8 +130,12 @@ for (const testId of difference(expectedDbTests, implementedDbTests)) {
   errors.push(`DB test is not automated: ${testId}`);
 }
 
+const constraintDeclarations = sql
+  .split(/\r?\n/)
+  .filter((line) => !/^\s*DROP CONSTRAINT\b/.test(line))
+  .join("\n");
 for (const constraint of duplicates([
-  ...sql.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
+  ...constraintDeclarations.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
 ].map((match) => match[1]))) {
   errors.push(`constraint name is duplicated: ${constraint}`);
 }

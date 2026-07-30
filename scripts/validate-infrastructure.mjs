@@ -19,7 +19,7 @@ function requirePattern(text, pattern, message) {
   }
 }
 
-const compose = read("compose.dev.yml");
+const compose = read("compose.yaml");
 requirePattern(compose, /^\s{2}postgres:\s*$/m, "compose: postgres service missing");
 requirePattern(compose, /postgres:17-alpine/, "compose: PostgreSQL 17 image missing");
 requirePattern(compose, /^\s{2}redis:\s*$/m, "compose: redis service missing");

@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,8 +43,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_9 creates all 83 physical tables")
-    void allMigrationsCreateEightyThreeTables() throws SQLException {
+    @DisplayName("DBT-000: Flyway V1_1~V1_11 creates all 85 physical tables")
+    void allMigrationsCreateEightyFiveTables() throws SQLException {
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement("""
                  SELECT count(*)
@@ -54,7 +55,7 @@ class SchemaIntegrityTest {
                  """);
              ResultSet result = statement.executeQuery()) {
             assertTrue(result.next());
-            assertEquals(83, result.getInt(1));
+            assertEquals(85, result.getInt(1));
         }
     }
 
@@ -193,8 +194,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-008: policy snapshots and ledger entries are immutable")
-    void immutableFinancialEvidenceCannotBeChanged() throws SQLException {
+    @DisplayName("DBT-008: policy snapshot calculated values are immutable")
+    void policySnapshotCalculatedValuesCannotBeChanged() throws SQLException {
         Seed seed = seed(false);
         UUID snapshot = uuid();
         try (Connection connection = connection()) {
@@ -297,8 +298,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-012: negative stock and invalid domain quantities are rejected")
-    void negativeDomainQuantityIsRejected() throws SQLException {
+    @DisplayName("DBT-012: negative store stock is rejected")
+    void negativeStoreStockIsRejected() throws SQLException {
         Seed seed = seed(false);
         UUID product = createStoreProduct(seed);
         assertSqlFailure(() -> {
@@ -313,8 +314,8 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-013: published product versions keep business fields immutable")
-    void publishedVersionBusinessFieldsAreImmutable() throws SQLException {
+    @DisplayName("DBT-013: a published store product unit price is immutable")
+    void publishedStoreProductUnitPriceIsImmutable() throws SQLException {
         Seed seed = seed(false);
         UUID product = createStoreProduct(seed);
         UUID version = uuid();
@@ -402,15 +403,17 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-016: public projections exclude private finance and identity fields")
+    @DisplayName("DBT-016: public projections enforce the approved GAME top-three boundary")
     void publicProjectionColumnsAreSafe() throws SQLException {
         Set<String> forbidden = Set.of(
-            "classroom_student_id", "current_balance", "credit_score", "level",
+            "classroom_student_id", "credit_score", "level",
             "outstanding_principal", "selected_option_key", "free_text",
-            "eligibility_token_hash", "receipt_hash");
+            "eligibility_token_hash", "receipt_hash", "score", "correct_count",
+            "total_response_time_ms");
+        Set<String> leaderboardColumns = new HashSet<>();
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement("""
-                 SELECT column_name
+                 SELECT table_name, column_name
                    FROM information_schema.columns
                   WHERE table_schema = 'public'
                     AND table_name LIKE 'public\\_%' ESCAPE '\\'
@@ -419,9 +422,33 @@ class SchemaIntegrityTest {
             int columnCount = 0;
             while (result.next()) {
                 columnCount++;
-                assertFalse(forbidden.contains(result.getString(1)));
+                String tableName = result.getString(1);
+                String columnName = result.getString(2);
+                assertFalse(forbidden.contains(columnName));
+                if ("public_quiz_leaderboard".equals(tableName)) {
+                    leaderboardColumns.add(columnName);
+                }
             }
             assertTrue(columnCount > 0);
+        }
+        assertEquals(
+            Set.of("classroom_id", "quiz_session_id", "rank", "nickname",
+                "character_code", "character_name"),
+            leaderboardColumns);
+
+        try (Connection connection = connection();
+             PreparedStatement statement = connection.prepareStatement("""
+                 SELECT definition
+                   FROM pg_views
+                  WHERE schemaname = 'public'
+                    AND viewname = 'public_quiz_leaderboard'
+                 """);
+             ResultSet result = statement.executeQuery()) {
+            assertTrue(result.next());
+            String definition = result.getString(1);
+            assertTrue(definition.contains("leaderboard_public"));
+            assertTrue(definition.contains("rank >= 1"));
+            assertTrue(definition.contains("rank <= 3"));
         }
     }
 
@@ -444,6 +471,141 @@ class SchemaIntegrityTest {
         }
     }
 
+    @Test
+    @DisplayName("DBT-018: classroom code and currency name are valid, global, and immutable")
+    void classroomIdentityAndCurrencyNameAreProtected() throws SQLException {
+        Seed seed = seed(false);
+        UUID secondSchool = uuid();
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO schools (id, school_code, name)
+                VALUES (?, ?, '두 번째 학교')
+                """, secondSchool, "school-" + shortId());
+        }
+
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO classrooms
+                        (id, school_id, classroom_code, currency_name,
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, ?, '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                    """, uuid(), secondSchool, seed.classroomCode());
+            }
+        });
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO classrooms
+                        (id, school_id, classroom_code, currency_name,
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, ?, '우리 반 돈', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                    """, uuid(), secondSchool, classroomCode());
+            }
+        });
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO classrooms
+                        (id, school_id, classroom_code, currency_name,
+                         grade, scale_label, planned_student_count, status)
+                    VALUES (?, ?, 'INVALID1', '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                    """, uuid(), secondSchool);
+            }
+        });
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    UPDATE classrooms SET currency_name = '별'
+                     WHERE id = ?
+                    """, seed.classroomId());
+            }
+        });
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    UPDATE classrooms SET classroom_code = ?
+                     WHERE id = ?
+                    """, classroomCode(), seed.classroomId());
+            }
+        });
+    }
+
+    @Test
+    @DisplayName("DBT-019: MVP classroom planning, role, schedule, and school AI constraints are enforced")
+    void mvpSchemaAlignmentConstraintsAreEnforced() throws SQLException {
+        Seed first = seed(false);
+        Seed second = seed(false);
+
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    UPDATE classrooms SET planned_student_count = 0 WHERE id = ?
+                    """, first.classroomId());
+            }
+        });
+
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO salary_roles
+                    (id, classroom_id, role_code, name, gross_amount, status)
+                VALUES (?, ?, 'CLASS_PRESIDENT', '회장', 100, 'ACTIVE')
+                """, uuid(), first.classroomId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO salary_roles
+                        (id, classroom_id, role_code, name, gross_amount, status)
+                    VALUES (?, ?, 'CLASS_PRESIDENT', '다른 이름', 200, 'ACTIVE')
+                    """, uuid(), first.classroomId());
+            }
+        });
+
+        UUID secondSchedule = uuid();
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO classroom_modules
+                    (id, classroom_id, module_code, status)
+                VALUES (?, ?, 'QUIZ', 'ACTIVE')
+                """, uuid(), first.classroomId());
+            execute(connection, """
+                INSERT INTO autonomous_schedules
+                    (id, classroom_id, day_of_week, local_start_time,
+                     local_end_time, status)
+                VALUES (?, ?, 1, '09:00', '10:00', 'ACTIVE')
+                """, secondSchedule, second.classroomId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO autonomous_schedule_modules
+                        (id, classroom_id, autonomous_schedule_id, module_code)
+                    VALUES (?, ?, ?, 'QUIZ')
+                    """, uuid(), first.classroomId(), secondSchedule);
+            }
+        });
+
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO school_ai_setting_versions
+                    (id, school_id, version, enabled, reason,
+                     effective_from, created_by_user_id)
+                VALUES (?, ?, 1, false, '학교 정책', now(), ?)
+                """, uuid(), first.schoolId(), first.userId());
+        }
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO school_ai_setting_versions
+                        (id, school_id, version, enabled, reason,
+                         effective_from, created_by_user_id)
+                    VALUES (?, ?, 2, true, '승인 정책', now(), ?)
+                    """, uuid(), first.schoolId(), first.userId());
+            }
+        });
+    }
+
     private static Connection connection() throws SQLException {
         return DriverManager.getConnection(
             POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
@@ -453,6 +615,7 @@ class SchemaIntegrityTest {
         UUID school = uuid();
         UUID classroom = uuid();
         UUID user = createUser();
+        String classroomCode = classroomCode();
         try (Connection connection = connection()) {
             execute(connection, """
                 INSERT INTO schools (id, school_code, name)
@@ -460,9 +623,10 @@ class SchemaIntegrityTest {
                 """, school, "school-" + shortId());
             execute(connection, """
                 INSERT INTO classrooms
-                    (id, school_id, classroom_code, grade, scale_label, status)
-                VALUES (?, ?, ?, 5, 'ONE_MONTH', 'ACTIVE')
-                """, classroom, school, "class-" + shortId());
+                    (id, school_id, classroom_code, currency_name,
+                     grade, scale_label, planned_student_count, status)
+                VALUES (?, ?, ?, '에코', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                """, classroom, school, classroomCode);
         }
         UUID student = null;
         String nickname = null;
@@ -470,7 +634,7 @@ class SchemaIntegrityTest {
             nickname = "student-" + shortId();
             student = createStudent(classroom, 1, nickname);
         }
-        return new Seed(school, classroom, user, student, nickname);
+        return new Seed(school, classroom, user, student, nickname, classroomCode);
     }
 
     private static UUID createUser() throws SQLException {
@@ -709,6 +873,22 @@ class SchemaIntegrityTest {
         return uuid().toString().substring(0, 8);
     }
 
+    private static String classroomCode() {
+        String alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        String source = uuid().toString().replace("-", "").toUpperCase();
+        StringBuilder result = new StringBuilder(8);
+        for (int index = 0; index < source.length() && result.length() < 8; index++) {
+            char candidate = source.charAt(index);
+            if (alphabet.indexOf(candidate) >= 0) {
+                result.append(candidate);
+            }
+        }
+        while (result.length() < 8) {
+            result.append(alphabet.charAt(result.length()));
+        }
+        return result.toString();
+    }
+
     @FunctionalInterface
     private interface SqlRunnable {
         void run() throws SQLException;
@@ -724,7 +904,8 @@ class SchemaIntegrityTest {
         UUID classroomId,
         UUID userId,
         UUID studentId,
-        String nickname
+        String nickname,
+        String classroomCode
     ) {
     }
 

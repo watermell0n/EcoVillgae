@@ -13,6 +13,8 @@ const requiredEntities = [
   "CLASSROOM_STUDENTS",
   "CLASSROOM_MODULES",
   "CLASSROOM_POLICY_VERSIONS",
+  "SCHOOL_AI_SETTING_VERSIONS",
+  "AUTONOMOUS_SCHEDULE_MODULES",
   "LEDGER_ACCOUNTS",
   "TRANSACTION_GROUPS",
   "LEDGER_ENTRIES",
@@ -83,12 +85,12 @@ const decisionIds = [...source.matchAll(/\| (DM-\d{3}) \|/g)].map(
   (match) => match[1],
 );
 const expectedDecisions = Array.from(
-  { length: 12 },
+  { length: 14 },
   (_, index) => `DM-${String(index + 1).padStart(3, "0")}`,
 );
 if (decisionIds.join(",") !== expectedDecisions.join(",")) {
   errors.push(
-    `Decision IDs must be sequential DM-001..DM-012, found ${decisionIds.join(",")}`,
+    `Decision IDs must be sequential DM-001..DM-014, found ${decisionIds.join(",")}`,
   );
 }
 
