@@ -78,4 +78,28 @@ public class ActivityParticipant {
             joinedAt
         );
     }
+
+    public void complete(Instant changedAt) {
+        if (!"JOINED".equals(participantStatus)) {
+            return;
+        }
+        participantStatus = "COMPLETED";
+        completedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
+    public void cancel(Instant changedAt) {
+        if (!"JOINED".equals(participantStatus)) {
+            return;
+        }
+        participantStatus = "CANCELED";
+        completedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
+    public UUID getClassroomStudentId() {
+        return classroomStudentId;
+    }
+
+    public String getParticipantStatus() {
+        return participantStatus;
+    }
 }

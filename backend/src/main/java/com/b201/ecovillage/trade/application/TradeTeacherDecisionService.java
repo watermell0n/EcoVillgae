@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
@@ -84,6 +85,7 @@ public class TradeTeacherDecisionService {
     private final PolicySnapshotRepository snapshotRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final AtomicLedgerTransactionService ledgerTransactionService;
+    private final AuditTrailService auditTrailService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -102,6 +104,7 @@ public class TradeTeacherDecisionService {
         PolicySnapshotRepository snapshotRepository,
         IdempotencyRecordRepository idempotencyRepository,
         AtomicLedgerTransactionService ledgerTransactionService,
+        AuditTrailService auditTrailService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -119,6 +122,7 @@ public class TradeTeacherDecisionService {
         this.snapshotRepository = snapshotRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.ledgerTransactionService = ledgerTransactionService;
+        this.auditTrailService = auditTrailService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -179,6 +183,7 @@ public class TradeTeacherDecisionService {
         tradeRepository.saveAndFlush(trade);
         TradeCommandResult result = result(trade);
         saveIdempotency(command, teacherId, requestHash, result, now);
+        recordDecision(command, teacherId, result);
         return result;
     }
 
@@ -224,6 +229,7 @@ public class TradeTeacherDecisionService {
             tradeRepository.flush();
             TradeCommandResult result = result(trade);
             saveIdempotency(command, teacherId, requestHash, result, now);
+            recordDecision(command, teacherId, result);
             return result;
         }
 
@@ -246,7 +252,37 @@ public class TradeTeacherDecisionService {
             List.of(settlement)
         );
         tradeRepository.flush();
-        return result(trade);
+        TradeCommandResult result = result(trade);
+        recordDecision(command, teacherId, result);
+        return result;
+    }
+
+    private void recordDecision(
+        TeacherTradeDecisionRequest command,
+        UUID teacherId,
+        TradeCommandResult result
+    ) {
+        auditTrailService.record(
+            command.classroomId(),
+            teacherId,
+            command.decision() == TeacherTradeDecision.APPROVE
+                ? "TRADE_APPROVED"
+                : "TRADE_REJECTED",
+            "TRADE",
+            result.tradeId(),
+            command.requestId(),
+            command.correlationId(),
+            Map.of("status", "AWAITING_TEACHER"),
+            Map.of(
+                "status", result.status(),
+                "decision", command.decision().name(),
+                "reason", command.reason()
+            ),
+            "TRADE",
+            command.decision() == TeacherTradeDecision.APPROVE
+                ? "개인거래가 교사 승인되었습니다."
+                : "개인거래가 교사에 의해 거절되었습니다."
+        );
     }
 
     private final class SettlementMutation implements LedgerDomainMutation {

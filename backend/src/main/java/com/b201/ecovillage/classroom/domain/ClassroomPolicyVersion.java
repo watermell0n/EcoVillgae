@@ -59,6 +59,7 @@ public class ClassroomPolicyVersion {
     private ClassroomPolicyVersion(
         UUID id,
         UUID classroomId,
+        String policyArea,
         int version,
         Map<String, Object> policyValues,
         String source,
@@ -66,7 +67,7 @@ public class ClassroomPolicyVersion {
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.classroomId = Objects.requireNonNull(classroomId, "classroomId must not be null");
-        this.policyArea = "SALARY";
+        this.policyArea = Objects.requireNonNull(policyArea, "policyArea must not be null");
         this.version = version;
         this.policyValues = new LinkedHashMap<>(
             Objects.requireNonNull(policyValues, "policyValues must not be null")
@@ -89,9 +90,28 @@ public class ClassroomPolicyVersion {
         return new ClassroomPolicyVersion(
             id,
             classroomId,
+            "SALARY",
             version,
             policyValues,
             source,
+            effectiveFrom
+        );
+    }
+
+    public static ClassroomPolicyVersion accessMode(
+        UUID id,
+        UUID classroomId,
+        int version,
+        Map<String, Object> policyValues,
+        Instant effectiveFrom
+    ) {
+        return new ClassroomPolicyVersion(
+            id,
+            classroomId,
+            "ACCESS_MODE",
+            version,
+            policyValues,
+            "TEACHER",
             effectiveFrom
         );
     }

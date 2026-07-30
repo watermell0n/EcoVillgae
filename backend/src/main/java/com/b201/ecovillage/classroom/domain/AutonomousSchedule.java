@@ -122,6 +122,14 @@ public class AutonomousSchedule {
         return status;
     }
 
+    public String getTimeZone() {
+        return timeZone;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     public long getStateVersion() {
         return stateVersion;
     }
