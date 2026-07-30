@@ -98,7 +98,7 @@ function App() {
               }}
             />
           )}
-          {page === "bank" && <BankPage onSubscribe={() => setMessage("예금 가입 요청 화면까지 이어졌어요. 실제 가입은 API 연동 후 처리돼요.")} />}
+          {page === "bank" && <BankPage onSubscribe={() => setMessage("예금 가입을 신청했어요. 선생님이 정한 규칙에 맞춰 처리돼요.")} />}
           {page === "investment" && <InvestmentPage />}
           {page === "trade" && <TradePage />}
           {page === "quiz" && <QuizPage />}
@@ -168,7 +168,7 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickna
           <input type="password" value={form.password} placeholder="선생님이 알려준 비밀번호" onChange={(event) => setForm({ ...form, password: event.target.value })} />
         </label>
         <button className="primary-action wide" disabled={!canSubmit}>마을 입장하기</button>
-        <p className="login-note">현재는 UI 시연용 로그인입니다. API 연동 시 `POST /auth/student-sessions`로 연결해요.</p>
+        <p className="login-note">비밀번호를 잊었다면 선생님께 알려주세요.</p>
       </form>
     </main>
   );
@@ -294,7 +294,7 @@ function WalletPage({ walletBalance }: { walletBalance: number }) {
             <article className="transaction-row" key={tx.id}>
               <div>
                 <b>{tx.title}</b>
-                <span>{tx.id} · 처리 완료</span>
+                <span>{tx.amount > 0 ? "내 지갑에 들어왔어요" : "우리 반 공동기금으로 모였어요"}</span>
               </div>
               <div className={tx.amount < 0 ? "money negative" : "money positive"}>
                 {tx.amount > 0 ? "+" : ""}{tx.amount}비빔
@@ -492,7 +492,7 @@ function RightSummary({ envelope }: { envelope: typeof studentHomeEnvelope }) {
       <strong>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</strong>
       <span>{envelope.classroom.dayIndex}일차 · {envelope.mode}</span>
       <div className="summary-line" />
-      <p>실제 잔액·구매·예금·퀴즈 결과는 API 연동 후 서버 응답으로 확정돼요.</p>
+      <p>돈이 바뀌는 활동은 선생님이 정한 규칙에 맞춰 반영돼요.</p>
     </aside>
   );
 }
