@@ -76,7 +76,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | ECO-005 | MVP | 교사·학생 | 상점 | 디지털·실제 상품 구매와 상품별 부가세 계산 | 구매 E2E | SM-SHP-001·SM-TXN-001 · PM-SHP-001·PM-SHP-002·PM-SHP-003 · SCR-STU-006·SCR-STU-007·SCR-WEB-011·SCR-TCH-010 / DBT-012·DBT-013 · TEST TBD |
 | ECO-006 | MVP·DEC | 학생·교사 | 환불·복구 | 학생 환불 경로 없음, 운영 오류는 복구 거래 | 권한·복구 테스트 | SM-SHP-001·SM-TXN-001 · PM-SHP-002·PM-TXN-003 · SCR-STU-007·SCR-WEB-012 / TEST TBD |
 | ECO-007 | MVP | 학생 | 캐릭터 | 구매·보유·장착 상태와 소유권 일치 | 아이템 E2E | SM-ITM-001 · PM-CNT-001·PM-ITM-001·PM-SHP-001·PM-SHP-002 · SCR-STU-008·SCR-WEB-011 / TEST TBD |
-| ECO-008 | MVP·DEC | 학생·교사 | 공동기금·투표 | 기금 잔액·예산·익명 투표·사용내역 일치 | 투표·원장 테스트 | SM-ACT-001·SM-TXN-001 · PM-POL-002·PM-ACT-001·PM-ACT-002 · SCR-STU-012·SCR-TCH-006·SCR-WEB-010·SCR-PUB-003 / DBT-014 · TEST TBD |
+| ECO-008 | MVP·DEC | 학생·교사 | 공동기금·투표 | 기금 잔액·예산·익명 투표·사용내역 일치 | 투표·원장 테스트 | SM-ACT-001·SM-TXN-001 · PM-POL-002·PM-ACT-001·PM-ACT-002 · SCR-STU-012·SCR-TCH-006·SCR-WEB-010·SCR-PUB-003 / DBT-014 · `VoteTest`·`VoteCommandServiceTest`·`VoteBallotServiceTest`·`VoteQueryServiceTest`·`LedgerAccountTest` |
 | ECO-009 | MVP·DEC | 교사 | 세금 사용처 | 기본 사용처가 제공되고 이름·설명·예산 항목 수정 가능 | 설정 E2E | PM-POL-002 · SCR-WEB-010 / TEST TBD |
 | ECO-010 | MVP·DEC | 운영자 | 캐릭터 원작 | 배포 지역 퍼블릭 도메인·출처·권리 검토일이 등록된 원작만 게시 가능 | 콘텐츠 승인 테스트 | PM-CNT-001 · SCR-OPS-003·SCR-WEB-011 / TEST TBD |
 | TRD-001 | MVP·DEC | 학생·교사 | 개인거래 | 제안·동의·승인 전에는 자산 이전 없음 | 상태 머신 E2E | SM-TRD-001 · PM-TRD-001·PM-TRD-002·PM-TRD-003 · SCR-STU-009·SCR-STU-010·SCR-STU-011·SCR-TCH-008·SCR-TCH-009 / TEST TBD |

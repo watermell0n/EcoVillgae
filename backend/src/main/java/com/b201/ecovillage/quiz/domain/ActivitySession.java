@@ -155,6 +155,15 @@ public class ActivitySession {
         changeStatus("CANCELED", changedAt);
     }
 
+    public void complete(Instant changedAt) {
+        if (!"FINALIZING".equals(status)) {
+            throw new IllegalStateException(
+                "only a finalizing activity can be completed"
+            );
+        }
+        changeStatus("COMPLETED", changedAt);
+    }
+
     private void changeStatus(String nextStatus, Instant changedAt) {
         status = nextStatus;
         statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");

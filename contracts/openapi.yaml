@@ -7042,8 +7042,8 @@ paths:
         - "ECO-008"
       tags:
         - "Vote"
-      summary: "command=CLOSE|CONFIRM_RESULT, selected_use? → 익명 집계, 활동 완료"
-      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CLOSE|CONFIRM_RESULT, selected_use? → 익명 집계, 활동 완료."
+      summary: "command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행"
+      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7068,16 +7068,32 @@ paths:
                     required:
                       - "vote_id"
                       - "status"
+                      - "state_version"
                     properties:
                       vote_id:
                         type: "string"
                         format: "uuid"
                       status:
                         type: "string"
+                        enum:
+                          - "READY"
+                          - "OPEN"
+                          - "CLOSED"
+                          - "RESULT_PUBLISHED"
                       state_version:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      selected_option_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      transaction_group_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -7124,8 +7140,47 @@ paths:
                 command:
                   type: "string"
                   enum:
+                    - "CREATE"
+                    - "OPEN"
                     - "CLOSE"
                     - "CONFIRM_RESULT"
+                title:
+                  type: "string"
+                description:
+                  type: "string"
+                options:
+                  type: "array"
+                  minItems: 2
+                  maxItems: 10
+                  items:
+                    type: "object"
+                    required:
+                      - "label"
+                      - "budget_amount"
+                    properties:
+                      label:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 160
+                      description:
+                        type:
+                          - "string"
+                          - "null"
+                        maxLength: 2000
+                      budget_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                participant_ids:
+                  type: "array"
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: "string"
+                    format: "uuid"
+                public_display_enabled:
+                  type: "boolean"
                 selected_use:
                   type: "string"
               required:
@@ -10319,7 +10374,13 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "view.public_vote_aggregates"
+        - "votes"
+        - "vote_options"
+        - "vote_eligibilities"
+        - "vote_ballots"
+        - "ledger_accounts"
+        - "transaction_groups"
+        - "transaction_business_refs"
       x-roles:
         - "STU"
         - "OWN"
@@ -10332,8 +10393,8 @@ paths:
         - "ECO-008"
       tags:
         - "Queries"
-      summary: "참여 여부, 선택지, 익명 집계, 기금 사용 결과"
-      description: "사람이 검토하는 원문 기준: `API-READ-023` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 참여 여부, 선택지, 익명 집계, 기금 사용 결과."
+      summary: "참여 여부, 예산 선택지, 익명 집계, 현재 공동기금, 확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김"
+      description: "사람이 검토하는 원문 기준: `API-READ-023` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 참여 여부, 예산 선택지, 익명 집계, 현재 공동기금, 확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -10355,29 +10416,110 @@ paths:
                   data:
                     type: "object"
                     required:
+                      - "vote_id"
+                      - "title"
+                      - "anonymous"
+                      - "status"
+                      - "state_version"
+                      - "public_fund_balance"
+                      - "participant_count"
+                      - "ballot_count"
                       - "options"
                     properties:
+                      vote_id:
+                        type: "string"
+                        format: "uuid"
+                      title:
+                        type: "string"
+                      description:
+                        type:
+                          - "string"
+                          - "null"
+                      anonymous:
+                        type: "boolean"
+                        const: true
+                      status:
+                        type: "string"
+                        enum:
+                          - "READY"
+                          - "OPEN"
+                          - "CLOSED"
+                          - "RESULT_PUBLISHED"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      opens_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      closes_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      public_fund_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      participant_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      ballot_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      eligible:
+                        type:
+                          - "boolean"
+                          - "null"
+                      has_voted:
+                        type:
+                          - "boolean"
+                          - "null"
+                      selected_option_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      selected_use:
+                        type:
+                          - "string"
+                          - "null"
+                      transaction_group_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
                       options:
                         type: "array"
                         items:
                           type: "object"
+                          required:
+                            - "option_id"
+                            - "label"
+                            - "budget_amount"
                           properties:
-                            resource_id:
+                            option_id:
                               type: "string"
                               format: "uuid"
                             label:
                               type: "string"
-                            status:
-                              type: "string"
-                            version:
-                              type: "integer"
-                              minimum: 0
-                            state_version:
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            budget_amount:
                               type: "integer"
                               format: "int64"
                               minimum: 0
-                            count:
-                              type: "integer"
+                            vote_count:
+                              type:
+                                - "integer"
+                                - "null"
+                              format: "int64"
                               minimum: 0
                           additionalProperties: false
                     additionalProperties: false
@@ -10682,40 +10824,137 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
-  "/classrooms/{classroom_id}/reports":
+  "/classrooms/{classroom_id}/reports?from={instant}&to={instant}":
     get:
       operationId: "apiRead028"
       x-api-id: "API-READ-028"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "service_projection"
+        - "classroom_students"
+        - "ledger_accounts"
+        - "ledger_entries"
+        - "transaction_groups"
+        - "deposit_accounts"
+        - "savings_accounts"
+        - "quiz_sessions"
+        - "quiz_submissions"
       x-roles:
-        - "STU"
         - "OWN"
         - "COT"
       x-permission-ids: []
       x-state-machine-ids: []
       x-rtm-ids:
-        - "STU-024"
         - "WEB-024"
         - "DAT-001"
         - "DAT-003"
       tags:
         - "Queries"
-      summary: "학생은 본인, 교사는 개인, 학급, 최종 스냅샷"
-      description: "사람이 검토하는 원문 기준: `API-READ-028` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 본인, 교사는 개인, 학급, 최종 스냅샷."
+      summary: "기간 내 학급 화폐, 지갑, 소비, 예적금 원금, 공동기금, 활성 학생, 퀴즈 참여 집계. 개인 식별자, 닉네임, 개인 잔액은 반환하지 않음"
+      description: "사람이 검토하는 원문 기준: `API-READ-028` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 기간 내 학급 화폐, 지갑, 소비, 예적금 원금, 공동기금, 활성 학생, 퀴즈 참여 집계. 개인 식별자, 닉네임, 개인 잔액은 반환하지 않음."
       security:
         - bearerAuth: []
         - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/InstantPath"
+        - $ref: "#/components/parameters/InstantPath"
+        - name: "from"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "to"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "classroom_id"
+                      - "period"
+                      - "total_currency_amount"
+                      - "wallet_balance_amount"
+                      - "average_wallet_balance"
+                      - "spending_amount"
+                      - "savings_principal_amount"
+                      - "public_fund_balance"
+                      - "active_student_count"
+                      - "quiz_participant_count"
+                      - "quiz_submission_count"
+                      - "generated_at"
+                    properties:
+                      classroom_id:
+                        type: "string"
+                        format: "uuid"
+                      period:
+                        type: "object"
+                        required:
+                          - "from"
+                          - "to"
+                        properties:
+                          from:
+                            type: "string"
+                            format: "date-time"
+                          to:
+                            type: "string"
+                            format: "date-time"
+                        additionalProperties: false
+                      total_currency_amount:
+                        type: "integer"
+                        format: "int64"
+                      wallet_balance_amount:
+                        type: "integer"
+                        format: "int64"
+                      average_wallet_balance:
+                        type: "integer"
+                        format: "int64"
+                      spending_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      savings_principal_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      public_fund_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      active_student_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      quiz_participant_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      quiz_submission_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      generated_at:
+                        type: "string"
+                        format: "date-time"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -11214,6 +11453,14 @@ components:
       in: "path"
       required: true
       description: "display_session_id 식별자"
+      schema:
+        type: "string"
+        format: "uuid"
+    InstantPath:
+      name: "instant"
+      in: "path"
+      required: true
+      description: "instant 식별자"
       schema:
         type: "string"
         format: "uuid"

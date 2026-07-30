@@ -135,7 +135,13 @@ public class LedgerAccount {
         }
 
         long nextBalance = Math.addExact(currentBalance, amount);
-        if (accountType == LedgerAccountType.STUDENT_WALLET && nextBalance < 0) {
+        if (
+            (
+                accountType == LedgerAccountType.STUDENT_WALLET
+                    || accountType == LedgerAccountType.CLASSROOM_FUND
+            )
+                && nextBalance < 0
+        ) {
             throw new InsufficientLedgerBalanceException(id, currentBalance, -amount);
         }
 
