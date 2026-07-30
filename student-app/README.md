@@ -28,3 +28,6 @@ React, Vite, TypeScript를 사용하는 학생 웹 작업 영역입니다.
 npm install
 npm run dev
 ```
+
+개발 서버는 `/api` 요청을 `http://localhost:8080` 백엔드로 프록시합니다.
+백엔드 주소를 바꿔야 하면 `VITE_API_BASE_URL` 환경변수를 사용합니다.

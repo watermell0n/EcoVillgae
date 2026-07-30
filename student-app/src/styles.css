@@ -134,6 +134,17 @@ button:disabled {
   font-size: 13px;
 }
 
+.form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ffd0c8;
+  border-radius: 10px;
+  background: #fff1ed;
+  color: var(--red-500);
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .ghost-back {
   position: absolute;
   left: 20px;

@@ -1,4 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
+import { ApiError } from "./api/client";
+import { createStudentSession, type StudentSession } from "./api/auth";
+import { clearStudentSession, getDeviceId, loadStudentSession, saveStudentSession } from "./api/sessionStorage";
 import { moduleCards, studentHomeEnvelope, transactions } from "./data/studentHome";
 import type { ModuleCard } from "./types/screen";
 
@@ -50,7 +53,8 @@ const investmentAssets = [
 ];
 
 function App() {
-  const [authState, setAuthState] = useState<AuthState>("landing");
+  const [session, setSession] = useState<StudentSession | null>(() => loadStudentSession());
+  const [authState, setAuthState] = useState<AuthState>(() => loadStudentSession() ? "app" : "landing");
   const [page, setPage] = useState<PageKey>("village");
   const [nickname, setNickname] = useState("학생");
   const [walletBalance, setWalletBalance] = useState(studentHomeEnvelope.studentView.walletBalance);
@@ -63,7 +67,9 @@ function App() {
     return (
       <LoginScreen
         onBack={() => setAuthState("landing")}
-        onLogin={(nextNickname) => {
+        onLogin={(nextSession, nextNickname) => {
+          setSession(nextSession);
+          saveStudentSession(nextSession);
           setNickname(nextNickname || "학생");
           setAuthState("app");
         }}
@@ -88,7 +94,12 @@ function App() {
           title={title}
           envelope={envelope}
           onMove={setPage}
-          onLogout={() => setAuthState("landing")}
+          onLogout={() => {
+            clearStudentSession();
+            setSession(null);
+            setPage("village");
+            setAuthState("landing");
+          }}
           onProfile={() => {
             setPage("character");
           }}
@@ -130,27 +141,50 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
         <p className="eyebrow">경제교육 웹앱</p>
         <h1>이코빌리지</h1>
         <p>우리 반 경제생활이 시작되는 곳</p>
-        <button className="primary-action wide" onClick={onStart}>마을 입장하기</button>
+        <button className="primary-action wide" onClick={onStart}>로그인하기</button>
       </section>
     </main>
   );
 }
 
-function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickname: string) => void }) {
+function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (session: StudentSession, nickname: string) => void }) {
   const [form, setForm] = useState({
     classroomCode: "ECO-001",
     attendanceNumber: "3",
     nickname: "학생",
     password: ""
   });
-  const canSubmit = form.classroomCode && form.attendanceNumber && form.nickname && form.password;
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const canSubmit = form.classroomCode && form.attendanceNumber && form.nickname && form.password.length >= 8 && !loginLoading;
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) {
+      setLoginError("입력한 정보를 다시 확인해 주세요.");
       return;
     }
-    onLogin(form.nickname);
+
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      const nextSession = await createStudentSession({
+        classroomCode: form.classroomCode.trim(),
+        attendanceNumber: Number(form.attendanceNumber),
+        nickname: form.nickname.trim(),
+        password: form.password,
+        deviceId: getDeviceId()
+      });
+      onLogin(nextSession, form.nickname.trim());
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setLoginError(error.message);
+      } else {
+        setLoginError("서버에 연결하지 못했어요. 백엔드가 켜져 있는지 확인해 주세요.");
+      }
+    } finally {
+      setLoginLoading(false);
+    }
   }
 
   return (
@@ -162,21 +196,22 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickna
         <p>선생님이 알려준 정보로 접속해요</p>
         <label>
           학급 코드
-          <input value={form.classroomCode} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
+          <input value={form.classroomCode} disabled={loginLoading} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
         </label>
         <label>
           출석번호
-          <input value={form.attendanceNumber} onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })} />
+          <input value={form.attendanceNumber} disabled={loginLoading} inputMode="numeric" onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })} />
         </label>
         <label>
           닉네임
-          <input value={form.nickname} onChange={(event) => setForm({ ...form, nickname: event.target.value })} />
+          <input value={form.nickname} disabled={loginLoading} onChange={(event) => setForm({ ...form, nickname: event.target.value })} />
         </label>
         <label>
           비밀번호
-          <input type="password" value={form.password} placeholder="선생님이 알려준 비밀번호" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+          <input type="password" value={form.password} disabled={loginLoading} placeholder="8자 이상 입력" onChange={(event) => setForm({ ...form, password: event.target.value })} />
         </label>
-        <button className="primary-action wide" disabled={!canSubmit}>마을 입장하기</button>
+        {loginError && <p className="form-error">{loginError}</p>}
+        <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "마을 입장하기"}</button>
         <p className="login-note">비밀번호를 잊었다면 선생님께 알려주세요.</p>
       </form>
     </main>
