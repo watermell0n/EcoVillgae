@@ -526,6 +526,7 @@ erDiagram
         string status
         uuid policy_snapshot_id FK
         bool public_display_enabled
+        jsonb public_fields
         datetime starts_at
         datetime ends_at
         bigint state_version
@@ -729,7 +730,7 @@ erDiagram
 
 ## 12. 구현 상태와 후속 작업
 
-Flyway `V1_1`~`V1_12`와 DBT-001~020에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계와 추천 코스 제품 데이터를 반영했습니다.
+Flyway `V1_1`~`V1_13`과 DBT-001~020에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계, 추천 코스 제품 데이터와 활동 공개 필드 allowlist를 반영했습니다.
 
 1. Docker 사용 가능 Jenkins에서 Testcontainers 21개를 모두 실행합니다.
 2. [API·스키마 필드 매핑](../contracts/api-field-mapping.json)을 구현 DTO·영속 계층과 동기화합니다.

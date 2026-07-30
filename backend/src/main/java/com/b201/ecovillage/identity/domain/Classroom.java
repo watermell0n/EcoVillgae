@@ -167,6 +167,20 @@ public class Classroom {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void setAppModeOverride(String appModeOverride, Instant changedAt) {
+        if (
+            appModeOverride != null
+                && !"AUTONOMOUS".equals(appModeOverride)
+                && !"CLOSED".equals(appModeOverride)
+        ) {
+            throw new IllegalArgumentException(
+                "appModeOverride must be AUTONOMOUS, CLOSED, or null"
+            );
+        }
+        this.appModeOverride = appModeOverride;
+        touch(changedAt);
+    }
+
     public boolean allowsStudentLogin(Instant now) {
         return switch (status) {
             case ACTIVE, CLOSING -> true;
@@ -213,6 +227,10 @@ public class Classroom {
 
     public String getTimeZone() {
         return timeZone;
+    }
+
+    public String getAppModeOverride() {
+        return appModeOverride;
     }
 
     public ClassroomStatus getStatus() {

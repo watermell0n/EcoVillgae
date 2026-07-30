@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
@@ -94,6 +95,7 @@ class TradeTeacherDecisionServiceTest {
         IdempotencyRecordRepository idempotencyRepository =
             mock(IdempotencyRecordRepository.class);
         transactionService = mock(AtomicLedgerTransactionService.class);
+        AuditTrailService auditTrailService = mock(AuditTrailService.class);
 
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
@@ -112,6 +114,7 @@ class TradeTeacherDecisionServiceTest {
             snapshotRepository,
             idempotencyRepository,
             transactionService,
+            auditTrailService,
             uuidGenerator,
             clock
         );

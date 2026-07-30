@@ -20,4 +20,9 @@ public interface ActivityParticipantRepository
         UUID classroomId,
         UUID activitySessionId
     );
+
+    long countByClassroomIdAndActivitySessionId(
+        UUID classroomId,
+        UUID activitySessionId
+    );
 }

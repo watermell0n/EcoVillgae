@@ -132,6 +132,7 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-007",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-029",
   "API-READ-030",
 ]);
 
@@ -413,6 +414,14 @@ const requestFieldOverrides = {
           additionalProperties: false,
         },
       },
+    },
+  ],
+  "API-CLS-007": [
+    { name: "command", values: ["OPEN", "CLOSE", "EXTEND"] },
+    {
+      name: "duration_minutes",
+      optional: true,
+      schema: { type: "integer", minimum: 1, maximum: 480 },
     },
   ],
   "API-CLS-008": [
@@ -894,6 +903,20 @@ const responseFieldOverrides = {
     { name: "salary_role_count", schema: { type: "integer", minimum: 0 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-CLS-007": [
+    { name: "mode", schema: { type: "string", enum: ["CLOSED", "AUTONOMOUS"] } },
+    { name: "source", schema: { type: "string", enum: ["MANUAL"] } },
+    {
+      name: "expires_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "module_codes",
+      schema: { type: "array", items: { type: "string" }, uniqueItems: true },
+    },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
   "API-ACT-001": [
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string", enum: ["LIVE"] } },
@@ -1014,6 +1037,38 @@ const responseFieldOverrides = {
     { name: "timer", optional: true, schema: { type: "object", required: ["server_time", "ends_at"], properties: { server_time: { type: "string", format: "date-time" }, ends_at: { type: "string", format: "date-time" } }, additionalProperties: false } },
     { name: "public_data", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean", "array", "object", "null"] } } },
   ],
+  "API-READ-029": [
+    {
+      name: "items",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "audit_event_id",
+            "actor_type",
+            "action",
+            "target_type",
+            "occurred_at",
+          ],
+          properties: {
+            audit_event_id: { type: "string", format: "uuid" },
+            actor_type: { type: "string" },
+            actor_id: { type: ["string", "null"], format: "uuid" },
+            action: { type: "string" },
+            target_type: { type: "string" },
+            target_id: { type: ["string", "null"], format: "uuid" },
+            request_id: { type: ["string", "null"] },
+            correlation_id: { type: ["string", "null"] },
+            before_summary: { type: ["object", "null"], additionalProperties: true },
+            after_summary: { type: ["object", "null"], additionalProperties: true },
+            occurred_at: { type: "string", format: "date-time" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
   "API-READ-030": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
@@ -1054,8 +1109,8 @@ const storageByDomain = {
   CLS: ["classrooms", "classroom_teachers", "classroom_students", "salary_roles", "classroom_modules", "autonomous_schedules", "autonomous_schedule_modules"],
   MOD: ["classroom_modules", "state_transitions"],
   POL: ["classroom_policy_versions", "policy_snapshots"],
-  ACT: ["activity_sessions", "activity_participants", "realtime_streams", "outbox_events"],
-  DSP: ["activity_sessions", "redis.display-session"],
+  ACT: ["activity_sessions", "activity_participants", "realtime_streams", "outbox_events", "audit_events"],
+  DSP: ["activity_sessions", "redis.display-session", "realtime_streams", "outbox_events", "audit_events"],
   TXN: ["transaction_groups", "ledger_entries", "ledger_accounts", "policy_snapshots"],
   SHP: ["store_products", "store_product_versions", "store_stocks", "store_orders", "store_order_items"],
   ITM: ["inventory_items"],
@@ -1090,7 +1145,8 @@ const storageByReadApi = {
   "API-READ-022": ["quiz_result_versions", "quiz_student_results", "view.public_quiz_leaderboard"],
   "API-READ-023": ["view.public_vote_aggregates"],
   "API-READ-024": ["activity_sessions", "activity_participants"],
-  "API-READ-025": ["view.public_quiz_leaderboard", "view.public_vote_aggregates", "view.public_fund_summary", "view.public_investment_market"],
+  "API-READ-025": ["activity_sessions", "activity_participants", "redis.display-session", "realtime_streams", "outbox_events"],
+  "API-READ-029": ["audit_events"],
   "API-READ-030": ["async_operations"],
 };
 
@@ -1109,7 +1165,40 @@ function storageTargets(operation) {
   if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];
   if (operation.apiId === "API-AUTH-005") return ["external_idp.refresh-session", "student_sessions"];
   if (operation.apiId === "API-AUTH-007") return ["redis.realtime-ticket"];
-  if (operation.apiId === "API-DSP-001") return ["activity_sessions", "redis.display-session"];
+  if (operation.apiId === "API-DSP-001") {
+    return [
+      "activity_sessions",
+      "redis.display-session",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
+  if (operation.apiId === "API-CLS-007") {
+    return [
+      "classrooms",
+      "classroom_policy_versions",
+      "classroom_modules",
+      "autonomous_schedules",
+      "autonomous_schedule_modules",
+      "activity_sessions",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
+  if (operation.apiId === "API-TRD-004") {
+    return [
+      "trades",
+      "trade_money_legs",
+      "trade_item_legs",
+      "trade_decisions",
+      "transaction_groups",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
   if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
   if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
   if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];

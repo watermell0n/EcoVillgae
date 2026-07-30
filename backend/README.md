@@ -13,7 +13,7 @@ src/main/java/com/b201/ecovillage/
     repository/   Spring Data JPA 저장소
 src/main/resources/
   application.yml
-  db/migration/   Flyway V1_1~V1_12
+  db/migration/   Flyway V1_1~V1_13
 src/test/java/
   identity/       계정 도메인 단위 테스트
   SchemaIntegrityTest.java   PostgreSQL 17 Testcontainers 무결성 테스트
@@ -66,7 +66,7 @@ Docker가 없으면 Testcontainers 기반 21개 DB 테스트는 건너뛰지만 
 건너뛰지 않고 통과해야 합니다.
 
 2026-07-30에는 로컬 PostgreSQL 17.10의 빈 격리 데이터베이스에서 애플리케이션을
-기동해 `V1_1`~`V1_12` 12개를 적용하고, 85개 물리 테이블과 Hibernate 스키마
+기동해 `V1_1`~`V1_13` 13개를 적용하고, 85개 물리 테이블과 Hibernate 스키마
 검증을 확인했습니다. 데이터베이스를 삭제·재생성한 뒤 같은 절차를 반복해 전체
 재적용도 확인했습니다. 이 직접 적용 검증은 Docker 사용 Jenkins의 Testcontainers
 21개 무결성 테스트를 대체하지 않습니다.

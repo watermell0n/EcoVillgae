@@ -7,7 +7,7 @@
 
 ## 1. 사용 방법
 
-RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_12`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_13`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -50,7 +50,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | --- | --- | --- | --- | --- | --- | --- |
 | CLS-001 | MVP·DEC | 교사 | 경제교실 생성 | 학년·규모·기간·인원·급여·모듈·자율시간 저장 | 생성 E2E | SM-CLS-001·SM-MOD-001 · PM-CLS-001·PM-CLS-005·PM-CLS-007 · SCR-WEB-003 / DBT-002 · TEST TBD |
 | CLS-002 | DEC | 교사 | 모듈 상태 | 추가 가능, 중지는 활성 데이터별 정산 규칙 적용 | 상태 전이 테스트 | SM-MOD-001 · PM-MOD-001 · SCR-WEB-005 / TEST TBD |
-| CLS-003 | DEC | 학생 | 앱 운영 상태 | CLOSED·AUTONOMOUS·GUIDED별 허용 화면이 다름 | 상태별 UI 테스트 | SM-APP-001 · PM-CLS-008·PM-RBAC-002 · SCR-STU-003 / TEST TBD |
+| CLS-003 | MVP·DEC | 학생 | 앱 운영 상태 | CLOSED·AUTONOMOUS·GUIDED별 허용 화면이 다름 | 상태별 UI 테스트 | SM-APP-001 · PM-CLS-008·PM-RBAC-002 · SCR-STU-003 / TEST TBD |
 | CLS-004 | DEC | 교사·시스템 | 상태 우선순위 | GUIDED가 수동·반복 일정에 우선함 | 우선순위 테스트 | SM-APP-001 · PM-CLS-007·PM-CLS-008·PM-ACT-001 · SCR-STU-003·SCR-TCH-003 / TEST TBD |
 | CLS-005 | DEC | 학생·교사 | 자율시간 | 종료 5분·1분 알림과 연장 동작 | 시간 제어 테스트 | SM-APP-001 · PM-CLS-007·PM-CLS-008 · SCR-STU-003·SCR-TCH-003·SCR-WEB-008 / TEST TBD |
 | CLS-006 | DEC | 시스템 | 종료 경계 거래 | 접수 거래 완료, 미제출 초안 미실행 | 동시성 테스트 | SM-APP-001·SM-TXN-001 · PM-CLS-008·PM-TXN-001 · SCR-STU-003·SCR-TCH-003 / TEST TBD |
@@ -319,16 +319,16 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P12 | `backend/src/main/resources/db/migration/V1_1~V1_12` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스 제품 데이터 보강 |
+| Flyway P1~P13 | `backend/src/main/resources/db/migration/V1_1~V1_13` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 보강 |
 | 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 66개 strict, 후속 41개 planned |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 68개 strict, 후속 39개 planned |
 
 Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
-데이터베이스에서 Flyway `V1_1`~`V1_12` 직접 적용, 85개 물리 테이블과 Hibernate
+데이터베이스에서 Flyway `V1_1`~`V1_13` 직접 적용, 85개 물리 테이블과 Hibernate
 스키마 검증, 데이터베이스 삭제·재생성 후 전체 재적용을 완료했습니다. 같은
 격리 데이터베이스에서 테이블 생성 검사와 DBT-001~020 총 21개를 건너뜀 없이
 통과했습니다.

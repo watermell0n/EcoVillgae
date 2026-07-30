@@ -1765,16 +1765,18 @@ paths:
     post:
       operationId: "apiCls007"
       x-api-id: "API-CLS-007"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "classrooms"
-        - "classroom_teachers"
-        - "classroom_students"
-        - "salary_roles"
+        - "classroom_policy_versions"
         - "classroom_modules"
         - "autonomous_schedules"
         - "autonomous_schedule_modules"
+        - "activity_sessions"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-CLS-007"
       x-roles:
@@ -1802,7 +1804,50 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "mode"
+                      - "source"
+                      - "module_codes"
+                      - "state_version"
+                    properties:
+                      mode:
+                        type: "string"
+                        enum:
+                          - "CLOSED"
+                          - "AUTONOMOUS"
+                      source:
+                        type: "string"
+                        enum:
+                          - "MANUAL"
+                      expires_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      module_codes:
+                        type: "array"
+                        items:
+                          type: "string"
+                        uniqueItems: true
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -1827,7 +1872,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-CLS-007는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-CLS-007 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -1850,10 +1895,11 @@ paths:
                     - "EXTEND"
                 duration_minutes:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
+                  maximum: 480
               required:
                 - "command"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/closure-operations":
     post:
       operationId: "apiCls008"
@@ -2385,6 +2431,7 @@ paths:
         - "activity_participants"
         - "realtime_streams"
         - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-ACT-001"
       x-roles:
@@ -2507,6 +2554,7 @@ paths:
         - "activity_participants"
         - "realtime_streams"
         - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-ACT-002"
       x-roles:
@@ -2623,6 +2671,9 @@ paths:
       x-storage-targets:
         - "activity_sessions"
         - "redis.display-session"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-DSP-001"
       x-roles:
@@ -4408,6 +4459,9 @@ paths:
         - "trade_item_legs"
         - "trade_decisions"
         - "transaction_groups"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-TRD-004"
       x-roles:
@@ -10433,10 +10487,11 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "view.public_quiz_leaderboard"
-        - "view.public_vote_aggregates"
-        - "view.public_fund_summary"
-        - "view.public_investment_market"
+        - "activity_sessions"
+        - "activity_participants"
+        - "redis.display-session"
+        - "realtime_streams"
+        - "outbox_events"
       x-roles:
         - "DSP"
       x-permission-ids: []
@@ -10683,10 +10738,10 @@ paths:
     get:
       operationId: "apiRead029"
       x-api-id: "API-READ-029"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "service_projection"
+        - "audit_events"
       x-roles:
         - "OWN"
         - "COT"
@@ -10712,7 +10767,76 @@ paths:
         - $ref: "#/components/parameters/Limit"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "items"
+                    properties:
+                      items:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "audit_event_id"
+                            - "actor_type"
+                            - "action"
+                            - "target_type"
+                            - "occurred_at"
+                          properties:
+                            audit_event_id:
+                              type: "string"
+                              format: "uuid"
+                            actor_type:
+                              type: "string"
+                            actor_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            action:
+                              type: "string"
+                            target_type:
+                              type: "string"
+                            target_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            request_id:
+                              type:
+                                - "string"
+                                - "null"
+                            correlation_id:
+                              type:
+                                - "string"
+                                - "null"
+                            before_summary:
+                              type:
+                                - "object"
+                                - "null"
+                              additionalProperties: true
+                            after_summary:
+                              type:
+                                - "object"
+                                - "null"
+                              additionalProperties: true
+                            occurred_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:

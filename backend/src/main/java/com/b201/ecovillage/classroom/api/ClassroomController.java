@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.b201.ecovillage.classroom.application.AutonomousScheduleCommand;
+import com.b201.ecovillage.classroom.application.AccessModeCommand;
+import com.b201.ecovillage.classroom.application.AccessModeCommandService;
+import com.b201.ecovillage.classroom.application.AccessModeResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
@@ -40,6 +43,7 @@ public class ClassroomController {
     private final ClassroomCreationService creationService;
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
+    private final AccessModeCommandService accessModeCommandService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -47,14 +51,50 @@ public class ClassroomController {
         ClassroomCreationService creationService,
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
+        AccessModeCommandService accessModeCommandService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.creationService = creationService;
         this.configurationService = configurationService;
         this.rosterService = rosterService;
+        this.accessModeCommandService = accessModeCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/{classroomId}/access-mode-commands")
+    public ApiResponse<AccessModeResponse> changeAccessMode(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody AccessModeCommandRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        AccessModeResult result = accessModeCommandService.execute(
+            new AccessModeCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.command(),
+                request.durationMinutes()
+            )
+        );
+        return new ApiResponse<>(
+            new AccessModeResponse(
+                result.mode().name(),
+                result.source(),
+                result.expiresAt(),
+                result.moduleCodes(),
+                result.stateVersion()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
     }
 
     @PutMapping("/{classroomId}/roster-and-salaries")
