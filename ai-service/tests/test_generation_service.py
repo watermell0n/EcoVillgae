@@ -8,7 +8,12 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from ecovillage_ai.config import Settings
-from ecovillage_ai.errors import ProviderRateLimitedError, ProviderUnavailableError
+from ecovillage_ai.errors import (
+    ProviderConfigurationError,
+    ProviderRateLimitedError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+)
 from ecovillage_ai.main import create_app
 from ecovillage_ai.models import Usage
 from ecovillage_ai.provider import (
@@ -234,3 +239,40 @@ def test_provider_timeout_is_safe_deadline_error(settings: Settings) -> None:
     assert response.status_code == 504
     assert response.json()["error"]["code"] == "AI_DEADLINE_EXCEEDED"
     assert response.json()["error"]["retryable"] is False
+
+
+def test_provider_reported_timeout_is_safe_deadline_error(settings: Settings) -> None:
+    provider = RaisingProvider(ProviderTimeoutError("raw-provider-timeout"))
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/teacher-chat",
+            headers=headers(),
+            json=teacher_chat_request(),
+        )
+
+    assert provider.calls == 1
+    assert response.status_code == 504
+    assert response.json()["error"]["validation_codes"] == ["PROVIDER_TIMEOUT"]
+    assert "raw-provider-timeout" not in response.text
+
+
+def test_provider_configuration_error_is_safe_and_not_retryable(
+    settings: Settings,
+) -> None:
+    provider = RaisingProvider(ProviderConfigurationError("raw-secret-credential"))
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/teacher-chat",
+            headers=headers(),
+            json=teacher_chat_request(),
+        )
+
+    assert provider.calls == 1
+    assert response.status_code == 503
+    assert response.json()["error"] == {
+        "code": "AI_PROVIDER_UNAVAILABLE",
+        "message": "AI 공급자 설정을 확인할 수 없습니다.",
+        "retryable": False,
+        "validation_codes": ["PROVIDER_CONFIGURATION_ERROR"],
+    }
+    assert "raw-secret-credential" not in response.text

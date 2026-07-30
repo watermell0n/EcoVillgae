@@ -1,7 +1,7 @@
 # AI 프롬프트·공통 생성 런타임
 
 - 기준일: 2026-07-30
-- 상태: 독립 AI MVP 2단계 구현 완료
+- 상태: 독립 AI MVP 3단계 구현 완료
 - 적용 계약: 내부 AI schema v1.1
 
 ## 1. 목적
@@ -77,8 +77,12 @@ object가 아닌 최상위 값, 지원하지 않는 콘텐츠 형식과 Pydantic
 질문·답변, 시스템 프롬프트, 신뢰 입력 JSON, 전체 payload와 공급자 원문은 로그 필드에
 존재하지 않습니다. 로그 sink 장애도 생성 성공·실패 결과를 바꾸지 않습니다.
 
-## 6. 현재 공급자 경계
+## 6. 공급자 경계
 
-현재 `FakeGenerationProvider`는 같은 `GenerationCommand`를 받아 결정적 JSON 문자열을
-반환합니다. 한 요청에서 공급자를 한 번만 호출하며 내부 재시도를 하지 않습니다.
-다음 단계에서 Bedrock·OpenAI 어댑터가 이 인터페이스를 구현합니다.
+`FakeGenerationProvider`, `BedrockGenerationProvider`, `OpenAIGenerationProvider`는 모두
+같은 `GenerationCommand`와 `ProviderResult` 계약을 사용합니다. 기능별 라우터가 공급자와
+모델을 선택하고 실제 선택 결과를 응답 메타데이터와 `SafeRunEvent`에 남깁니다.
+
+SDK 내부 자동 재시도는 비활성화합니다. 한 FastAPI 요청에서 공급자를 한 번만 호출하고
+429·503에 대한 재시도 가능 여부만 상위 호출자에게 반환합니다. 환경변수, 구조화 출력 방식,
+오류 변환과 opt-in smoke 절차는 [실제 공급자 어댑터](PROVIDER_ADAPTERS.md)를 따릅니다.

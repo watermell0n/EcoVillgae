@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Protocol
 
+from ecovillage_ai.config import Settings
 from ecovillage_ai.models import Usage
 from ecovillage_ai.runtime import GenerationCommand, GenerationKind, ProviderResult
 
@@ -13,6 +14,17 @@ class GenerationProvider(Protocol):
 
 class FakeGenerationProvider:
     """외부 호출 없이 공통 생성 명령으로 결정적 JSON 결과를 만든다."""
+
+    provider_name = "FAKE"
+
+    def __init__(self, model_id: str = "deterministic-v1") -> None:
+        self._model_id = model_id
+
+    def provider_name_for(self, kind: GenerationKind) -> str:
+        return self.provider_name
+
+    def model_id_for(self, kind: GenerationKind) -> str:
+        return self._model_id
 
     async def generate(self, command: GenerationCommand) -> ProviderResult:
         trusted_input = json.loads(command.trusted_input_json)
@@ -209,8 +221,46 @@ class FakeGenerationProvider:
         }
 
 
+def build_generation_provider(settings: Settings) -> GenerationProvider:
+    from ecovillage_ai.providers import (
+        BedrockGenerationProvider,
+        OpenAIGenerationProvider,
+        RoutedGenerationProvider,
+    )
+
+    settings.validate_provider_environment()
+    providers: dict[tuple[str, str], GenerationProvider] = {}
+    routes: dict[GenerationKind, GenerationProvider] = {}
+    for kind in GenerationKind:
+        route = settings.route_for(kind.value)
+        key = (route.provider_name, route.model_id)
+        provider = providers.get(key)
+        if provider is None:
+            if route.provider_name == "FAKE":
+                provider = FakeGenerationProvider(model_id=route.model_id)
+            elif route.provider_name == "BEDROCK":
+                if settings.aws_region is None:
+                    raise RuntimeError("BEDROCK 사용 시 AWS 리전이 필요합니다.")
+                provider = BedrockGenerationProvider(
+                    model_id=route.model_id,
+                    region_name=settings.aws_region,
+                    timeout_seconds=settings.provider_timeout_seconds,
+                    max_output_tokens=settings.provider_max_output_tokens,
+                )
+            else:
+                provider = OpenAIGenerationProvider(
+                    model_id=route.model_id,
+                    timeout_seconds=settings.provider_timeout_seconds,
+                    max_output_tokens=settings.provider_max_output_tokens,
+                )
+            providers[key] = provider
+        routes[kind] = provider
+    return RoutedGenerationProvider(routes)
+
+
 __all__ = [
     "FakeGenerationProvider",
+    "build_generation_provider",
     "GenerationCommand",
     "GenerationKind",
     "GenerationProvider",

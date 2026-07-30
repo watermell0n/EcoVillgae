@@ -53,11 +53,11 @@ def test_obsolete_demo_name_is_absent_from_repository() -> None:
 
 def test_settings_read_ecovillage_environment_prefix(monkeypatch: object) -> None:
     monkeypatch.setenv("ECOVILLAGE_AI_ENVIRONMENT", "test-prefix")
-    monkeypatch.setenv("ECOVILLAGE_AI_PROVIDER", "TEST_PROVIDER")
+    monkeypatch.setenv("ECOVILLAGE_AI_PROVIDER", "FAKE")
     monkeypatch.setenv("ECOVILLAGE_AI_DOCS_ENABLED", "false")
 
     settings = Settings.from_env()
 
     assert settings.environment == "test-prefix"
-    assert settings.provider_name == "TEST_PROVIDER"
+    assert settings.provider_name == "FAKE"
     assert settings.docs_enabled is False

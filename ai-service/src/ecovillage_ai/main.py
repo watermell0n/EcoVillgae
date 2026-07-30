@@ -13,7 +13,7 @@ from ecovillage_ai.config import Settings
 from ecovillage_ai.errors import ServiceError
 from ecovillage_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
 from ecovillage_ai.prompting import PromptRegistry
-from ecovillage_ai.provider import FakeGenerationProvider, GenerationProvider
+from ecovillage_ai.provider import GenerationProvider, build_generation_provider
 from ecovillage_ai.service import GenerationService
 from ecovillage_ai.telemetry import RunEventSink
 from ecovillage_ai.validation import OutputValidationPipeline
@@ -49,7 +49,7 @@ def create_app(
     event_sink: RunEventSink | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
-    resolved_provider = provider or FakeGenerationProvider()
+    resolved_provider = provider or build_generation_provider(resolved_settings)
     app = FastAPI(
         title=resolved_settings.app_name,
         version=resolved_settings.app_version,

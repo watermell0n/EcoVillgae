@@ -12,6 +12,7 @@
 | [경제 지표·임계값](METRICS_AND_THRESHOLDS.md) | 밸런싱 입력 지표 계산식, 최소 표본, 경고와 조정 허용 범위 |
 | [안전·평가 기준](SAFETY_AND_EVALUATION.md) | 입력 최소화, 출력 검사, 회귀 평가와 출시 게이트 |
 | [프롬프트·공통 생성 런타임](PROMPT_RUNTIME.md) | 버전 프롬프트 선택, 공급자 명령, 순서형 검증과 안전 로그 |
+| [실제 공급자 어댑터](PROVIDER_ADAPTERS.md) | Bedrock·OpenAI 구조화 출력, 라우팅, 환경 설정, 오류와 smoke 검사 |
 | [단계별 개발 계획](IMPLEMENTATION_PLAN.md) | 전체 MVP AI 기능을 FastAPI 단독으로 완성한 뒤 Spring·DB·웹을 연결하는 실행 순서 |
 | [기계 판독 내부 OpenAPI](../../contracts/ai-internal-openapi.yaml) | FastAPI 내부 HTTP 인터페이스의 OpenAPI 3.1 계약 |
 

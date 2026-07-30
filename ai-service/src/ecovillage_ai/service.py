@@ -7,8 +7,10 @@ from typing import Any
 
 from ecovillage_ai.config import Settings
 from ecovillage_ai.errors import (
+    ProviderConfigurationError,
     ProviderError,
     ProviderRateLimitedError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
     ServiceError,
 )
@@ -82,6 +84,7 @@ class GenerationService:
         started_at = perf_counter()
         command: GenerationCommand | None = None
         usage = Usage(input_tokens=0, output_tokens=0)
+        provider_name, model_id = self._provider_identity(kind)
         try:
             validate_input_policy(request)
             output_model = output_model_for(kind, request)
@@ -95,8 +98,8 @@ class GenerationService:
                 "ai_run_id": request.ai_run_id,
                 "schema_version": request.schema_version,
                 "prompt_version": request.prompt_version,
-                "provider": self._settings.provider_name,
-                "model_id": self._settings.provider_model_id,
+                "provider": provider_name,
+                "model_id": model_id,
                 "safety_status": "PASSED",
                 "validation_codes": [],
                 "usage": usage,
@@ -108,6 +111,8 @@ class GenerationService:
                 kind=kind,
                 request=request,
                 command=command,
+                provider_name=provider_name,
+                model_id=model_id,
                 usage=usage,
                 started_at=started_at,
                 outcome="FAILED",
@@ -118,6 +123,8 @@ class GenerationService:
             kind=kind,
             request=request,
             command=command,
+            provider_name=provider_name,
+            model_id=model_id,
             usage=usage,
             started_at=started_at,
             outcome="SUCCEEDED",
@@ -148,12 +155,21 @@ class GenerationService:
         timeout = self._provider_timeout(request)
         try:
             return await asyncio.wait_for(self._provider.generate(command), timeout=timeout)
-        except TimeoutError as error:
+        except (TimeoutError, ProviderTimeoutError) as error:
             raise ServiceError(
                 status_code=504,
                 code=ErrorCode.DEADLINE_EXCEEDED,
                 message="AI 생성 제한시간을 초과했습니다.",
                 validation_codes=["PROVIDER_TIMEOUT"],
+                validation_stage="PROVIDER",
+            ) from error
+        except ProviderConfigurationError as error:
+            raise ServiceError(
+                status_code=503,
+                code=ErrorCode.PROVIDER_UNAVAILABLE,
+                message="AI 공급자 설정을 확인할 수 없습니다.",
+                retryable=False,
+                validation_codes=["PROVIDER_CONFIGURATION_ERROR"],
                 validation_stage="PROVIDER",
             ) from error
         except ProviderRateLimitedError as error:
@@ -218,6 +234,8 @@ class GenerationService:
         kind: GenerationKind,
         request: GenerationRequest,
         command: GenerationCommand | None,
+        provider_name: str,
+        model_id: str,
         usage: Usage,
         started_at: float,
         outcome: str,
@@ -231,8 +249,8 @@ class GenerationService:
             schema_version=request.schema_version,
             prompt_version=request.prompt_version,
             prompt_key=command.prompt_key if command is not None else None,
-            provider=self._settings.provider_name,
-            model_id=self._settings.provider_model_id,
+            provider=provider_name,
+            model_id=model_id,
             attempt=request.attempt,
             grade=request.grade,
             duration_ms=max(0, round((perf_counter() - started_at) * 1000)),
@@ -258,6 +276,14 @@ class GenerationService:
                 )
             except Exception:
                 return
+
+    def _provider_identity(self, kind: GenerationKind) -> tuple[str, str]:
+        provider_name_method = getattr(self._provider, "provider_name_for", None)
+        model_id_method = getattr(self._provider, "model_id_for", None)
+        if callable(provider_name_method) and callable(model_id_method):
+            return str(provider_name_method(kind)), str(model_id_method(kind))
+        route = self._settings.route_for(kind.value)
+        return route.provider_name, route.model_id
 
     @staticmethod
     def _build_response(

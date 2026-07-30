@@ -37,3 +37,11 @@ class ProviderRateLimitedError(ProviderError):
 
 class ProviderUnavailableError(ProviderError):
     pass
+
+
+class ProviderTimeoutError(ProviderError):
+    pass
+
+
+class ProviderConfigurationError(ProviderError):
+    pass

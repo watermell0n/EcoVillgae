@@ -13,6 +13,7 @@ const internalDoc = read("docs/ai/INTERNAL_API_CONTRACT.md");
 const metricsDoc = read("docs/ai/METRICS_AND_THRESHOLDS.md");
 const safetyDoc = read("docs/ai/SAFETY_AND_EVALUATION.md");
 const promptRuntimeDoc = read("docs/ai/PROMPT_RUNTIME.md");
+const providerAdapterDoc = read("docs/ai/PROVIDER_ADAPTERS.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
@@ -23,6 +24,9 @@ const promptFiles = fs
   .filter((entry) => entry.isFile() && entry.name.endsWith(".txt"));
 const validationSource = read("ai-service/src/ecovillage_ai/validation.py");
 const telemetrySource = read("ai-service/src/ecovillage_ai/telemetry.py");
+const bedrockSource = read("ai-service/src/ecovillage_ai/providers/bedrock.py");
+const openaiSource = read("ai-service/src/ecovillage_ai/providers/openai.py");
+const configSource = read("ai-service/src/ecovillage_ai/config.py");
 
 assert(/^openapi: 3\.1\.0$/m.test(contract), "내부 AI 계약은 OpenAPI 3.1.0이어야 합니다.");
 assert(/^  version: 1\.1\.0$/m.test(contract), "내부 AI 계약 버전은 1.1.0이어야 합니다.");
@@ -35,6 +39,17 @@ assert(
   ),
   "공통 프롬프트에 신뢰 입력의 지시 격리 규칙이 없습니다.",
 );
+assert(bedrockSource.includes('provider_name = "BEDROCK"'), "Bedrock 공급자 어댑터가 없습니다.");
+assert(openaiSource.includes('provider_name = "OPENAI"'), "OpenAI 공급자 어댑터가 없습니다.");
+assert(
+  bedrockSource.includes('"total_max_attempts": 1'),
+  "Bedrock SDK 단일 시도 설정이 없습니다.",
+);
+assert(openaiSource.includes("max_retries=0"), "OpenAI SDK 자동 재시도가 꺼져 있지 않습니다.");
+for (const providerName of ["FAKE", "BEDROCK", "OPENAI"]) {
+  assert(providerAdapterDoc.includes(`\`${providerName}\``), `공급자 문서 누락: ${providerName}`);
+  assert(configSource.includes(`"${providerName}"`), `공급자 설정 누락: ${providerName}`);
+}
 
 const expectedOperations = new Map([
   ["/internal/v1/generations/balancing", "generateBalancingProposal"],
@@ -224,6 +239,8 @@ console.log(
       invalid_fixtures: fixtureCatalog.invalid.length,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
+      actual_provider_adapters: 2,
+      generation_routes: 4,
       forbidden_log_fields: 0,
       metric_codes: metricCodes.length,
       forbidden_input_fields: 0,
