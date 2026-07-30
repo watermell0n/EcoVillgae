@@ -9,10 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
 from ecovillage_ai.api import router
-from ecovillage_ai.config import Settings
+from ecovillage_ai.config import GENERATION_KINDS, Settings
 from ecovillage_ai.errors import ServiceError
 from ecovillage_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
-from ecovillage_ai.prompting import PromptRegistry
+from ecovillage_ai.prompting import SUPPORTED_PROMPT_VERSIONS, PromptRegistry
 from ecovillage_ai.provider import GenerationProvider, build_generation_provider
 from ecovillage_ai.service import GenerationService
 from ecovillage_ai.telemetry import RunEventSink
@@ -127,6 +127,15 @@ def create_app(
             service=resolved_settings.app_name,
             version=resolved_settings.app_version,
             provider=resolved_settings.provider_name,
+            schema_version="1.1",
+            prompt_versions=list(SUPPORTED_PROMPT_VERSIONS),
+            provider_routes={
+                kind: {
+                    "provider": resolved_settings.route_for(kind).provider_name,
+                    "model_id": resolved_settings.route_for(kind).model_id,
+                }
+                for kind in GENERATION_KINDS
+            },
         )
 
     app.include_router(router)

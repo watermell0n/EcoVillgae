@@ -22,6 +22,13 @@ GRADE_INSTRUCTIONS = {
     5: "초등학교 5학년 수준의 경제 개념을 일상 사례와 연결해 설명한다.",
     6: "초등학교 6학년 수준에서 원인과 영향을 구분하되 실제 금융 조언은 하지 않는다.",
 }
+SUPPORTED_PROMPT_VERSIONS = (
+    "setup-precheck-v1",
+    "balancing-v1",
+    "teacher-chat-v1",
+    "economic-event-v1",
+    "quiz-draft-v1",
+)
 
 
 class PromptRegistryError(Exception):

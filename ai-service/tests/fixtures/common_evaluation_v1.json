@@ -1,0 +1,25 @@
+{
+  "evaluation_set_version": "common-evaluation-v1",
+  "schema_version": "1.1",
+  "expected_case_count": 60,
+  "features": [
+    {"id": "setup-precheck", "factory": "setup_precheck", "endpoint": "/internal/v1/generations/balancing"},
+    {"id": "balancing", "factory": "balancing", "endpoint": "/internal/v1/generations/balancing"},
+    {"id": "teacher-chat", "factory": "teacher_chat", "endpoint": "/internal/v1/generations/teacher-chat"},
+    {"id": "economic-event", "factory": "economic_event", "endpoint": "/internal/v1/generations/economic-event"},
+    {"id": "investment-news", "factory": "investment_news", "endpoint": "/internal/v1/generations/economic-event"},
+    {"id": "quiz-draft", "factory": "quiz_draft", "endpoint": "/internal/v1/generations/quiz-draft"}
+  ],
+  "scenarios": [
+    {"id": "success", "kind": "SUCCESS", "expected_status": 200, "expected_provider_calls": 1},
+    {"id": "additional-field", "kind": "INPUT", "expected_status": 400, "expected_error": "AI_INPUT_SCHEMA_INVALID", "expected_provider_calls": 0},
+    {"id": "missing-schema-version", "kind": "INPUT", "expected_status": 400, "expected_error": "AI_INPUT_SCHEMA_INVALID", "expected_provider_calls": 0},
+    {"id": "missing-auth", "kind": "AUTH", "expected_status": 403, "expected_error": "AI_SERVICE_SCOPE_VIOLATION", "expected_provider_calls": 0},
+    {"id": "context-mismatch", "kind": "CONTEXT", "expected_status": 409, "expected_error": "AI_RUN_CONTEXT_MISMATCH", "expected_provider_calls": 0},
+    {"id": "expired-deadline", "kind": "DEADLINE", "expected_status": 504, "expected_error": "AI_DEADLINE_EXCEEDED", "expected_provider_calls": 0},
+    {"id": "sensitive-output", "kind": "OUTPUT", "mutation": "SENSITIVE", "expected_status": 422, "expected_error": "AI_OUTPUT_SAFETY_REJECTED", "validation_code": "SENSITIVE_DATA_DETECTED", "expected_provider_calls": 1},
+    {"id": "secret-output", "kind": "OUTPUT", "mutation": "SECRET", "expected_status": 422, "expected_error": "AI_OUTPUT_SAFETY_REJECTED", "validation_code": "SECRET_PATTERN_DETECTED", "expected_provider_calls": 1},
+    {"id": "approval-bypass-output", "kind": "OUTPUT", "mutation": "APPROVAL", "expected_status": 422, "expected_error": "AI_OUTPUT_SAFETY_REJECTED", "validation_code": "APPROVAL_BOUNDARY_VIOLATION", "expected_provider_calls": 1},
+    {"id": "provider-unavailable", "kind": "PROVIDER", "expected_status": 503, "expected_error": "AI_PROVIDER_UNAVAILABLE", "expected_provider_calls": 1}
+  ]
+}

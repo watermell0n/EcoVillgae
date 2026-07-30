@@ -19,6 +19,7 @@ const quizDraftDoc = read("docs/ai/QUIZ_DRAFT.md");
 const setupPrecheckDoc = read("docs/ai/SETUP_PRECHECK.md");
 const economicEventDoc = read("docs/ai/ECONOMIC_EVENT.md");
 const investmentNewsDoc = read("docs/ai/INVESTMENT_NEWS.md");
+const releaseEvaluationDoc = read("docs/ai/MVP_RELEASE_EVALUATION.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
@@ -40,6 +41,12 @@ const economicEventEvaluation = JSON.parse(
 );
 const investmentNewsEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/investment_news_evaluation_v1.json"),
+);
+const commonEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/common_evaluation_v1.json"),
+);
+const releaseProfile = JSON.parse(
+  read("ai-service/tests/fixtures/ai_mvp_release_v1.json"),
 );
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
@@ -310,6 +317,37 @@ for (const field of ["asset_name", "asset_symbol", "current_step_index"]) {
   );
 }
 
+const commonEvaluationCount =
+  commonEvaluation.features.length * commonEvaluation.scenarios.length;
+assert(
+  commonEvaluation.evaluation_set_version === "common-evaluation-v1" &&
+    commonEvaluationCount === commonEvaluation.expected_case_count &&
+    commonEvaluationCount === 60,
+  `공통 평가 사례는 60개여야 합니다: ${commonEvaluationCount}`,
+);
+const totalMvpEvaluationCount =
+  commonEvaluationCount +
+  setupPrecheckEvaluationCount +
+  balancingEvaluationCount +
+  teacherChatEvaluationCount +
+  economicEventEvaluationCount +
+  investmentNewsEvaluationCount +
+  quizDraftEvaluationCount;
+assert(
+  releaseProfile.release_profile_version === "ai-mvp-release-v1" &&
+    totalMvpEvaluationCount === releaseProfile.minimum_evaluation_cases &&
+    totalMvpEvaluationCount === 350,
+  `AI MVP 전체 평가 사례는 350개여야 합니다: ${totalMvpEvaluationCount}`,
+);
+assert(
+  releaseEvaluationDoc.includes("| 합계 | 350 |"),
+  "AI MVP 통합 평가 문서에 전체 350개 합계가 없습니다.",
+);
+assert(
+  releaseEvaluationDoc.includes("production_release_ready"),
+  "AI MVP 통합 평가 문서에 운영 출시 판정 설명이 없습니다.",
+);
+
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
 assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
@@ -411,6 +449,8 @@ console.log(
       balancing_evaluation_cases: balancingEvaluationCount,
       economic_event_evaluation_cases: economicEventEvaluationCount,
       investment_news_evaluation_cases: investmentNewsEvaluationCount,
+      common_evaluation_cases: commonEvaluationCount,
+      total_mvp_evaluation_cases: totalMvpEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

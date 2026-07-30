@@ -18,6 +18,7 @@
 | [경제 설정 추천·시작 전 점검](SETUP_PRECHECK.md) | 규칙 엔진 후보·판정 보존, 설명 품질 검증, 48개 평가와 Swagger 직접 테스트 |
 | [AI 경제 이벤트 초안](ECONOMIC_EVENT.md) | 7종 템플릿, 두 출처, 학년·코스·효과 안전 검증, 42개 평가와 Swagger 직접 테스트 |
 | [가상 투자 단계별 AI 뉴스](INVESTMENT_NEWS.md) | 목표 가격 단계 연결, 기업·가격·미래정보 차단, 32개 평가와 Swagger 직접 테스트 |
+| [AI 독립 MVP 통합 평가와 출시 게이트](MVP_RELEASE_EVALUATION.md) | 공통 60개와 전체 350개 평가, 통합 실행기, 사람·공급자·Docker 선택 검사 |
 | [단계별 개발 계획](IMPLEMENTATION_PLAN.md) | 전체 MVP AI 기능을 FastAPI 단독으로 완성한 뒤 Spring·DB·웹을 연결하는 실행 순서 |
 | [기계 판독 내부 OpenAPI](../../contracts/ai-internal-openapi.yaml) | FastAPI 내부 HTTP 인터페이스의 OpenAPI 3.1 계약 |
 

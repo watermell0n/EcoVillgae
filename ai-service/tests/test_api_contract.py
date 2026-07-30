@@ -76,6 +76,20 @@ def test_health_check(client: TestClient) -> None:
         "service": "이코빌리지 AI 서비스",
         "version": "0.1.0",
         "provider": "FAKE",
+        "schema_version": "1.1",
+        "prompt_versions": [
+            "setup-precheck-v1",
+            "balancing-v1",
+            "teacher-chat-v1",
+            "economic-event-v1",
+            "quiz-draft-v1",
+        ],
+        "provider_routes": {
+            "balancing": {"provider": "FAKE", "model_id": "deterministic-v1"},
+            "teacher-chat": {"provider": "FAKE", "model_id": "deterministic-v1"},
+            "economic-event": {"provider": "FAKE", "model_id": "deterministic-v1"},
+            "quiz-draft": {"provider": "FAKE", "model_id": "deterministic-v1"},
+        },
     }
 
 

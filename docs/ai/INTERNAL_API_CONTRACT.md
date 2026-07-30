@@ -257,6 +257,14 @@ FastAPI는 공급자 호출 전에 주제·개념·학습목표의 민감정보,
 학생 조롱·유해 표현을 결정적으로 검사합니다. 세부 규칙과 48개 평가 세트, Swagger
 실행법은 [교사용 AI 퀴즈 초안](QUIZ_DRAFT.md)을 따릅니다.
 
+### 6.5 실행 상태
+
+`GET /healthz`는 데이터베이스나 외부 공급자를 호출하지 않고 현재 프로세스의 실행 구성을
+반환합니다. `status`, 서비스 버전, 내부 AI `schema_version`, 지원 프롬프트 버전 목록과
+기능별 `provider·model_id`를 포함합니다. 실제 공급자 연결 성공 여부는 이 응답이 아니라
+명시적인 opt-in smoke로 확인합니다. Docker 검증 방법은
+[AI 독립 MVP 통합 평가와 출시 게이트](MVP_RELEASE_EVALUATION.md)를 따릅니다.
+
 ## 7. 오류 계약
 
 ```json

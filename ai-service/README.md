@@ -61,6 +61,17 @@ pytest
 ruff check .
 ```
 
+전체 AI 기능의 350개 평가 카탈로그, 전체 회귀와 정적 검사를 한 번에 실행하려면 다음
+명령을 사용합니다. 기본 실행은 `FAKE`만 사용하므로 API 키가 필요하지 않습니다.
+
+```bash
+.venv/Scripts/python.exe -m ecovillage_ai.evaluation
+```
+
+기능별 `--suite`, 실제 공급자 `--provider-smoke`, Docker `--docker-smoke`, 사람 평가와
+JSON 결과 저장 방법은
+[`docs/ai/MVP_RELEASE_EVALUATION.md`](../docs/ai/MVP_RELEASE_EVALUATION.md)를 따릅니다.
+
 계약 v1.1의 대표 성공 12건과 실패 7건은
 [`tests/fixtures/contract_v1_1_cases.json`](tests/fixtures/contract_v1_1_cases.json)에
 정리되어 있으며 테스트가 이 목록을 직접 실행합니다.

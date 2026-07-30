@@ -16,6 +16,9 @@ dependencies = [
   "uvicorn[standard]>=0.34,<1",
 ]
 
+[project.scripts]
+ecovillage-ai-evaluate = "ecovillage_ai.evaluation:main"
+
 [project.optional-dependencies]
 dev = [
   "httpx2>=2,<3",

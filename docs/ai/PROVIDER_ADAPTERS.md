@@ -96,4 +96,11 @@ $env:ECOVILLAGE_AI_RUN_PROVIDER_SMOKE='true'
 pytest -m provider_smoke -q
 ```
 
+10단계 통합 실행기에서는 `--provider-smoke` 자체가 명시적 실행 동의이므로 플래그를
+내부 smoke 프로세스에 전달합니다.
+
+```powershell
+.venv\Scripts\python.exe -m ecovillage_ai.evaluation --provider-smoke
+```
+
 이 테스트는 실제 사용량과 비용이 발생할 수 있으므로 CI 기본 작업에는 포함하지 않습니다.

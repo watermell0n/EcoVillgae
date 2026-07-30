@@ -1057,8 +1057,16 @@ class ErrorResponse(ContractModel):
     correlation_id: UUID
 
 
+class ProviderRouteHealth(ContractModel):
+    provider: Annotated[str, Field(min_length=1, max_length=50)]
+    model_id: Annotated[str, Field(min_length=1, max_length=200)]
+
+
 class HealthResponse(ContractModel):
     status: Literal["UP"]
     service: str
     version: str
     provider: str
+    schema_version: Literal["1.1"]
+    prompt_versions: list[str]
+    provider_routes: dict[str, ProviderRouteHealth]
