@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "canvas": {
+    "logicalWidth": 28,
+    "logicalHeight": 32,
+    "pixelCell": 5,
+    "displayScale": 2
+  },
+  "anchors": {
+    "CANVAS": { "x": 0, "y": 0 },
+    "HEAD_TOP": { "x": 14, "y": 3 },
+    "FACE_CENTER": { "x": 14, "y": 8 },
+    "NECK": { "x": 14, "y": 11 },
+    "SHOULDER_LEFT": { "x": 9, "y": 12 },
+    "SHOULDER_RIGHT": { "x": 19, "y": 12 },
+    "TORSO_CENTER": { "x": 14, "y": 16 },
+    "BACK_CENTER": { "x": 14, "y": 16 },
+    "HAND_LEFT": { "x": 5, "y": 17 },
+    "HAND_RIGHT": { "x": 23, "y": 17 },
+    "TAIL": { "x": 23, "y": 20 },
+    "FOOT_LEFT": { "x": 11, "y": 25 },
+    "FOOT_RIGHT": { "x": 17, "y": 25 },
+    "FLOOR": { "x": 14, "y": 27 },
+    "EFFECT_CENTER": { "x": 14, "y": 16 }
+  },
+  "bodyTiers": {
+    "CHUBBY": { "index": 3, "torsoWidth": 21, "label": "포근" },
+    "BASE": { "index": 2, "torsoWidth": 17, "label": "기본" },
+    "SLIM": { "index": 1, "torsoWidth": 13, "label": "산뜻" },
+    "VERY_SLIM": { "index": 0, "torsoWidth": 11, "label": "가벼움" }
+  },
+  "layers": [
+    { "slot": "SCENE", "z": 0, "side": "behind" },
+    { "slot": "FLOOR", "z": 10, "side": "behind" },
+    { "slot": "BACK", "z": 20, "side": "behind" },
+    { "slot": "TAIL", "z": 30, "side": "behind" },
+    { "slot": "BASE", "z": 40, "side": "body" },
+    { "slot": "TORSO", "z": 50, "side": "front" },
+    { "slot": "FACE", "z": 60, "side": "front" },
+    { "slot": "HAND_LEFT", "z": 70, "side": "front" },
+    { "slot": "HAND_RIGHT", "z": 80, "side": "front" },
+    { "slot": "HEAD", "z": 90, "side": "front" },
+    { "slot": "EFFECT", "z": 100, "side": "front" }
+  ],
+  "conflictGroups": {
+    "headwear": ["HEAD"],
+    "backwear": ["BACK"],
+    "fullBody": ["TORSO"]
+  },
+  "occlusionMasks": {
+    "hood": ["HEAD_TOP"],
+    "helmet": ["HEAD_TOP"],
+    "fullBody": ["TORSO_BASE", "LEGS_BASE"]
+  },
+  "naming": "slot_itemid_tier_frame.png",
+  "renderPolicy": {
+    "integerScaleOnly": true,
+    "nearestNeighbor": true,
+    "mipmaps": false,
+    "rotationAllowed": false,
+    "fractionalPositionAllowed": false,
+    "alphaValues": [0, 255],
+    "atlasExtrudePixels": 2
+  }
+}
