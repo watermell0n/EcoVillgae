@@ -3,6 +3,11 @@ from __future__ import annotations
 import re
 
 from ecovillage_ai.errors import ServiceError
+from ecovillage_ai.features.investment_news import (
+    investment_news_approval_boundary_codes,
+    investment_news_grade_and_effect_codes,
+    validate_investment_news_input,
+)
 from ecovillage_ai.features.setup_precheck import PROMPT_INJECTION_PATTERNS
 from ecovillage_ai.features.teacher_chat import (
     EMAIL_PATTERN,
@@ -60,6 +65,7 @@ def validate_economic_event_input(request: EconomicEventGenerationRequest) -> No
     """외부 모델을 호출하기 전에 이벤트 정책과 신뢰 입력의 안전성을 검사한다."""
 
     _validate_free_text(request)
+    validate_investment_news_input(request)
     payload = request.payload
     codes: list[str] = []
     if payload.course_scale is CourseScale.ONE_SHOT:
@@ -97,6 +103,7 @@ def event_grade_and_effect_codes(
         codes.append("FORBIDDEN_EVENT_EFFECT")
     if re.search(r"\d", text):
         codes.append("FORBIDDEN_EVENT_NUMERIC_EFFECT")
+    codes.extend(investment_news_grade_and_effect_codes(request, output))
 
     title_limit, narrative_limit, choice_limit, consequence_limit, progress_limit = (
         GRADE_TEXT_LIMITS[request.grade]
@@ -124,9 +131,10 @@ def event_content_safety_codes(output: EconomicEventOutput) -> list[str]:
 
 def event_approval_boundary_codes(output: EconomicEventOutput) -> list[str]:
     text = " ".join(event_natural_language(output))
+    codes = investment_news_approval_boundary_codes(output)
     if any(pattern.search(text) for pattern in APPROVAL_BYPASS_PATTERNS):
-        return ["APPROVAL_BOUNDARY_VIOLATION"]
-    return []
+        codes.append("APPROVAL_BOUNDARY_VIOLATION")
+    return list(dict.fromkeys(codes))
 
 
 def event_natural_language(output: EconomicEventOutput) -> list[str]:

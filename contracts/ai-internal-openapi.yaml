@@ -1206,7 +1206,13 @@ components:
     InvestmentNewsBinding:
       type: object
       additionalProperties: false
-      required: [scenario_version_id, asset_id, price_step_id, current_step_index]
+      required:
+        - scenario_version_id
+        - asset_id
+        - price_step_id
+        - asset_name
+        - asset_symbol
+        - current_step_index
       properties:
         scenario_version_id:
           type: string
@@ -1217,6 +1223,13 @@ components:
         price_step_id:
           type: string
           format: uuid
+        asset_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        asset_symbol:
+          type: string
+          pattern: '^[A-Z][A-Z0-9]{1,9}$'
         current_step_index:
           type: integer
           minimum: 1

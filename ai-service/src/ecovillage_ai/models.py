@@ -522,6 +522,14 @@ class InvestmentNewsContext(ContractModel):
             raise ValueError("공개 가격 사실은 step_index 오름차순이어야 합니다.")
         if indexes[-1] != self.current_step_index:
             raise ValueError("공개 가격 사실은 현재 가격 단계까지만 포함해야 합니다.")
+        if indexes != list(range(1, self.current_step_index + 1)):
+            raise ValueError("공개 가격 사실은 첫 단계부터 현재 단계까지 빠짐없이 포함해야 합니다.")
+        revealed_times = [fact.revealed_at for fact in self.public_price_facts]
+        if any(
+            previous >= current
+            for previous, current in zip(revealed_times, revealed_times[1:], strict=False)
+        ):
+            raise ValueError("공개 가격 사실의 시각은 단계 순서대로 증가해야 합니다.")
         return self
 
 
@@ -872,6 +880,8 @@ class InvestmentNewsBinding(ContractModel):
     scenario_version_id: UUID
     asset_id: UUID
     price_step_id: UUID
+    asset_name: Annotated[str, Field(min_length=1, max_length=100)]
+    asset_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{1,9}$")]
     current_step_index: Annotated[StrictInt, Field(ge=1)]
 
 

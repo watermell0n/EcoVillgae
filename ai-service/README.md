@@ -96,6 +96,11 @@ INTEREST_RATE·INVESTMENT_NEWS·REWARD 전용 프롬프트를 선택합니다. �
 출처·근거·효과·승인 경계를 결정적으로 검사하며, 42개 평가 사례와 Swagger 직접 테스트는
 [`docs/ai/ECONOMIC_EVENT.md`](../docs/ai/ECONOMIC_EVENT.md)를 따릅니다.
 
+가상 투자 뉴스는 시나리오·자산·목표 가격 단계·자산명·기호를 보존하고, 기업·가격·
+수익률·매매 추천·미래정보와 승인 전 공개 표현을 차단합니다. 자산 4종 × 상황 8종의
+32개 평가와 Swagger 직접 테스트는
+[`docs/ai/INVESTMENT_NEWS.md`](../docs/ai/INVESTMENT_NEWS.md)를 따릅니다.
+
 ## 현재 경계
 
 - 학생 원본·개인 식별 정보와 사용자 토큰을 받지 않습니다.

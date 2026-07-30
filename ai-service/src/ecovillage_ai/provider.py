@@ -248,10 +248,17 @@ class FakeGenerationProvider:
                 "scenario_version_id": context["scenario_version_id"],
                 "asset_id": context["asset_id"],
                 "price_step_id": context["price_step_id"],
+                "asset_name": context["asset_name"],
+                "asset_symbol": context["asset_symbol"],
                 "current_step_index": context["current_step_index"],
             }
+            output["title"] = f"{context['asset_name']}의 새로운 소식"
+            output["narrative"] = (
+                f"가상 자산 {context['asset_name']}({context['asset_symbol']})에 "
+                "현재 확인할 수 있는 새로운 소식이 전해졌습니다."
+            )
             output["teacher_explanation"] = (
-                "입력으로 받은 현재 공개 단계의 사실만 사용한 검토용 뉴스입니다."
+                f"{context['asset_name']}의 목표 단계까지 받은 사실만 사용한 검토용 뉴스입니다."
             )
         return output
 

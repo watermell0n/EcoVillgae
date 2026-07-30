@@ -295,6 +295,8 @@ def _validate_event_context(
             output_binding.scenario_version_id != input_context.scenario_version_id
             or output_binding.asset_id != input_context.asset_id
             or output_binding.price_step_id != input_context.price_step_id
+            or output_binding.asset_name != input_context.asset_name
+            or output_binding.asset_symbol != input_context.asset_symbol
             or output_binding.current_step_index != input_context.current_step_index
         ):
             codes.append("INVESTMENT_NEWS_BINDING_MISMATCH")

@@ -18,6 +18,7 @@ const teacherChatDoc = read("docs/ai/TEACHER_CHAT.md");
 const quizDraftDoc = read("docs/ai/QUIZ_DRAFT.md");
 const setupPrecheckDoc = read("docs/ai/SETUP_PRECHECK.md");
 const economicEventDoc = read("docs/ai/ECONOMIC_EVENT.md");
+const investmentNewsDoc = read("docs/ai/INVESTMENT_NEWS.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
   read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
@@ -36,6 +37,9 @@ const balancingEvaluation = JSON.parse(
 );
 const economicEventEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/economic_event_evaluation_v1.json"),
+);
+const investmentNewsEvaluation = JSON.parse(
+  read("ai-service/tests/fixtures/investment_news_evaluation_v1.json"),
 );
 const promptRoot = path.join(root, "ai-service/src/ecovillage_ai/prompts/v1");
 const promptFiles = fs
@@ -269,6 +273,43 @@ assert(
 );
 assert(economicEventDoc.includes("총 42개"), "경제 이벤트 문서에 42개 평가 사례가 없습니다.");
 
+const investmentNewsEvaluationCount =
+  investmentNewsEvaluation.assets.length * investmentNewsEvaluation.scenarios.length;
+const investmentNewsSuccessCount =
+  investmentNewsEvaluation.assets.length *
+  investmentNewsEvaluation.scenarios.filter((scenario) =>
+    ["SUCCESS", "BATCH_SUCCESS"].includes(scenario.kind),
+  ).length;
+const investmentNewsPreProviderCount =
+  investmentNewsEvaluation.assets.length *
+  investmentNewsEvaluation.scenarios.filter((scenario) => scenario.kind === "PRE_PROVIDER")
+    .length;
+const investmentNewsInvalidOutputCount =
+  investmentNewsEvaluation.assets.length *
+  investmentNewsEvaluation.scenarios.filter((scenario) => scenario.kind === "INVALID_OUTPUT")
+    .length;
+assert(
+  investmentNewsEvaluation.evaluation_set_version === "investment-news-evaluation-v1",
+  "투자 뉴스 평가 세트 버전이 올바르지 않습니다.",
+);
+assert(
+  investmentNewsSuccessCount === investmentNewsEvaluation.expected_success_case_count &&
+    investmentNewsPreProviderCount ===
+      investmentNewsEvaluation.expected_pre_provider_rejection_count &&
+    investmentNewsInvalidOutputCount ===
+      investmentNewsEvaluation.expected_invalid_output_case_count &&
+    investmentNewsEvaluationCount === investmentNewsEvaluation.expected_case_count &&
+    investmentNewsEvaluationCount === 32,
+  `투자 뉴스 평가 사례는 성공 8개, 호출 전 거절 4개, 출력 거절 20개여야 합니다: ${investmentNewsEvaluationCount}`,
+);
+assert(investmentNewsDoc.includes("총 32개"), "투자 뉴스 문서에 32개 평가 사례가 없습니다.");
+for (const field of ["asset_name", "asset_symbol", "current_step_index"]) {
+  assert(
+    investmentNewsDoc.includes(`\`${field}\``),
+    `투자 뉴스 문서에 연결 필드가 없습니다: ${field}`,
+  );
+}
+
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
 assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
 assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
@@ -369,6 +410,7 @@ console.log(
       setup_precheck_evaluation_cases: setupPrecheckEvaluationCount,
       balancing_evaluation_cases: balancingEvaluationCount,
       economic_event_evaluation_cases: economicEventEvaluationCount,
+      investment_news_evaluation_cases: investmentNewsEvaluationCount,
       prompt_assets: promptFiles.length,
       validation_stages: validationStages.length,
       actual_provider_adapters: 2,

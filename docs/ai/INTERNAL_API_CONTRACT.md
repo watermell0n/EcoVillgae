@@ -230,9 +230,12 @@ FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않�
 
 `INVESTMENT_NEWS`는 별도 기업을 생성하지 않습니다. 입력에 있는
 `scenario_version_id`, `asset_id`, `price_step_id`, 가상 자산 이름·기호,
-`current_step_index`와 현재 단계까지의 `public_price_facts`만 사용합니다. 출력은 같은 연결
-ID와 현재 단계, 제목·뉴스 본문·교사용 설명을 반환하며 다음 단계 가격, 수익 예측, 매매
-추천을 만들 수 없습니다.
+`current_step_index`와 목표 단계까지의 `public_price_facts`만 사용합니다. 출력의
+`investment_news_binding`은 같은 세 ID·자산명·기호·단계를 반환하며 제목 또는 본문에도
+입력 자산을 명시합니다. 다음 단계 가격, 기업·재무정보, 수익 예측과 매매 추천은 만들 수
+없습니다. 시장 시작 전 단계별 초안은 Spring이 목표 단계별 prefix 입력으로 같은 API를
+반복 호출하며, 승인·저장·학생 공개는 이 생성 계약 밖에서 처리합니다. 상세 검증과
+실행법은 [가상 투자 단계별 AI 뉴스](INVESTMENT_NEWS.md)를 따릅니다.
 
 ### 6.4 퀴즈 초안
 
@@ -322,9 +325,9 @@ FastAPI는 공급자 호출 전에 주제·개념·학습목표의 민감정보,
 
 - 경제 이벤트 입력에 `source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION`과 선택적인
   `source_proposal_id`를 추가합니다.
-- `INVESTMENT_NEWS`에는 `scenario_version_id`, `asset_id`, `price_step_id`, 현재 단계까지의
-  공개 가능한 가격 사실을 전달합니다. 다음 단계 가격과 다른 미공개 뉴스는 전달하지 않습니다.
+- `INVESTMENT_NEWS`에는 `scenario_version_id`, `asset_id`, `price_step_id`, 자산명·기호와
+  목표 단계까지의 가격 사실을 전달합니다. 목표 단계 이후 가격과 다른 뉴스는 전달하지 않습니다.
 - FastAPI는 기업·재무정보·가격·수익률을 생성하지 않고 연결된 단계의 제목·뉴스 본문·
-  교사용 설명만 반환합니다.
+  교사용 설명과 입력을 그대로 보존한 연결 정보를 반환합니다.
 - 시장 시작 전 단계별 생성 작업, 교사 승인 상태 저장과 학생 공개 시점 제어는 Spring
   통합 단계의 책임입니다.
