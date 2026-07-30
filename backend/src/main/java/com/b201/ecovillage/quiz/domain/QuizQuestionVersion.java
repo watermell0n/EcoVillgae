@@ -143,6 +143,10 @@ public class QuizQuestionVersion {
         return id;
     }
 
+    public UUID getQuizQuestionId() {
+        return quizQuestionId;
+    }
+
     public int getVersion() {
         return version;
     }

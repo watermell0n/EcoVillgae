@@ -93,6 +93,10 @@ public class QuizOption {
         return id;
     }
 
+    public UUID getQuizQuestionVersionId() {
+        return quizQuestionVersionId;
+    }
+
     public String getOptionKey() {
         return optionKey;
     }
