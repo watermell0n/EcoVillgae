@@ -375,6 +375,7 @@ public class ClassroomRosterService {
                 item.put("role_code", role.getRoleCode());
                 item.put("name", role.getName());
                 item.put("gross_amount", role.getGrossAmount());
+                item.put("deductions", role.getDeductions());
                 return item;
             })
             .toList();

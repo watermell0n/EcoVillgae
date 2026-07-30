@@ -13,12 +13,28 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import com.b201.ecovillage.ledger.domain.LedgerAccount;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
 
 public interface LedgerAccountRepository extends Repository<LedgerAccount, UUID> {
 
     LedgerAccount save(LedgerAccount account);
 
     Optional<LedgerAccount> findById(UUID id);
+
+    Optional<LedgerAccount> findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+        UUID classroomId,
+        UUID classroomStudentId,
+        LedgerAccountType accountType,
+        LedgerAccountStatus status
+    );
+
+    Optional<LedgerAccount> findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(
+        UUID classroomId,
+        String systemOwnerKey,
+        LedgerAccountType accountType,
+        LedgerAccountStatus status
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

@@ -2427,7 +2427,8 @@
         "transaction_groups",
         "ledger_entries",
         "ledger_accounts",
-        "policy_snapshots"
+        "policy_snapshots",
+        "payslips"
       ],
       "request": {
         "mode": "strict",
@@ -2484,6 +2485,15 @@
             "type": "array",
             "target": "service_input.student_ids",
             "transform": "transaction_groups, ledger_entries, ledger_accounts, policy_snapshots에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "period_key",
+            "required": true,
+            "type": "string",
+            "target": "payslips.period_key",
+            "transform": "교사가 지정한 급여 회차 키를 학생별 명세서 중복 지급 기준으로 사용",
             "nullable": false,
             "visibility": "role-scoped"
           },

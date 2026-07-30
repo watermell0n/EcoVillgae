@@ -44,5 +44,20 @@ public interface ClassroomStudentRepository extends JpaRepository<ClassroomStude
         ClassroomStudentStatus status
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select student
+          from ClassroomStudent student
+         where student.classroomId = :classroomId
+           and student.id in :studentIds
+           and student.status = :status
+         order by student.id
+        """)
+    List<ClassroomStudent> findAllForUpdate(
+        @Param("classroomId") UUID classroomId,
+        @Param("studentIds") List<UUID> studentIds,
+        @Param("status") ClassroomStudentStatus status
+    );
+
     long countByClassroomIdAndStatus(UUID classroomId, ClassroomStudentStatus status);
 }

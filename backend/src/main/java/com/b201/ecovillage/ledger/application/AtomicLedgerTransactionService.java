@@ -57,6 +57,15 @@ public class AtomicLedgerTransactionService {
         LedgerTransactionCommand command,
         List<? extends LedgerDomainMutation> domainMutations
     ) {
+        return execute(null, command, domainMutations);
+    }
+
+    @Transactional
+    public LedgerTransactionResult execute(
+        UUID requestedTransactionGroupId,
+        LedgerTransactionCommand command,
+        List<? extends LedgerDomainMutation> domainMutations
+    ) {
         List<? extends LedgerDomainMutation> mutations = List.copyOf(domainMutations);
         IdempotencyRecord replay = idempotencyRecordRepository
             .findForReplay(
@@ -87,7 +96,9 @@ public class AtomicLedgerTransactionService {
 
         mutations.forEach(LedgerDomainMutation::validate);
 
-        UUID groupId = uuidGenerator.generate();
+        UUID groupId = requestedTransactionGroupId == null
+            ? uuidGenerator.generate()
+            : requestedTransactionGroupId;
         TransactionGroup group = createTransactionGroup(command, groupId);
         group.startValidation(command.occurredAt());
         transactionGroupRepository.saveAndFlush(group);

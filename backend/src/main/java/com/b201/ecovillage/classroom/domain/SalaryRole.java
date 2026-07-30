@@ -132,6 +132,10 @@ public class SalaryRole {
         return id;
     }
 
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
     public String getRoleCode() {
         return roleCode;
     }
@@ -142,5 +146,13 @@ public class SalaryRole {
 
     public long getGrossAmount() {
         return grossAmount;
+    }
+
+    public Map<String, Object> getDeductions() {
+        return Map.copyOf(deductions);
+    }
+
+    public String getStatus() {
+        return status;
     }
 }

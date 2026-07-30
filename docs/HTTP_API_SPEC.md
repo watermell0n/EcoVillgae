@@ -112,7 +112,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-TXN-001 · UIA-TXN-001 | `POST /classrooms/{C}/payouts` | OWN·COT | 지급 유형, 대상 학생, 정책 기준액, 사유 → 원장 거래 그룹·명세서 | PM-TXN-002 · SM-TXN-001 | `DUPLICATE_PAYOUT`, `POLICY_VIOLATION`, `CLASS_NOT_ACTIVE` | ECO-001·ECO-004 |
+| API-TXN-001 · UIA-TXN-001 | `POST /classrooms/{C}/payouts` | OWN·COT | 지급 유형, 대상 학생, 급여 회차 키(`period_key`), 정책 기준액, 사유 → 원장 거래 그룹·명세서 | PM-TXN-002 · SM-TXN-001 | `DUPLICATE_PAYOUT`, `POLICY_VIOLATION`, `CLASS_NOT_ACTIVE` | ECO-001·ECO-004 |
 | API-TXN-002 · UIA-TXN-002 | `POST /classrooms/{C}/ledger-transactions/{R}/recoveries` | OWN·COT | 복구 유형, 금액·아이템 조정, 필수 사유 → 원거래 연결 복구 거래 | PM-TXN-003 · SM-TXN-001 | `ORIGINAL_TRANSACTION_NOT_COMMITTED`, `RECOVERY_ALREADY_EXISTS`, `VALIDATION_ERROR` | ECO-002·ECO-006·QZ-009 |
 
 ### 5.2 상점·캐릭터

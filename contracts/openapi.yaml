@@ -2566,6 +2566,7 @@ paths:
         - "ledger_entries"
         - "ledger_accounts"
         - "policy_snapshots"
+        - "payslips"
       x-ui-action-ids:
         - "UIA-TXN-001"
       x-roles:
@@ -2674,6 +2675,11 @@ paths:
                     type: "string"
                     format: "uuid"
                   uniqueItems: true
+                period_key:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 40
+                  description: "달력 월과 무관하게 교사가 지정하는 급여 회차 식별자"
                 amount:
                   type: "integer"
                   format: "int64"
@@ -2686,6 +2692,7 @@ paths:
               required:
                 - "payout_type"
                 - "student_ids"
+                - "period_key"
                 - "amount"
                 - "policy_version"
                 - "reason"
