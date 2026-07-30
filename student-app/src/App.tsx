@@ -25,10 +25,10 @@ const menuItems: Array<{ key: PageKey; label: string; icon: string; disabled?: b
   { key: "class", label: "선생님 수업", icon: "📚" }
 ];
 
-const profileItems: Array<{ key: PageKey; label: string; icon: string; helper: string }> = [
-  { key: "character", label: "내 캐릭터", icon: "🙂", helper: "아이템 장착" },
-  { key: "wallet", label: "내 지갑", icon: "💰", helper: "돈 흐름 보기" },
-  { key: "paystub", label: "월급명세서", icon: "💼", helper: "받은 돈 확인" }
+const profileItems: Array<{ key: PageKey; label: string; icon: string }> = [
+  { key: "character", label: "내 캐릭터", icon: "🙂" },
+  { key: "wallet", label: "내 지갑", icon: "💰" },
+  { key: "paystub", label: "월급명세서", icon: "💼" }
 ];
 
 const products = [
@@ -83,12 +83,18 @@ function App() {
       <Sidebar
         current={page}
         onMove={setPage}
-        onLogout={() => setAuthState("landing")}
-        nickname={nickname}
-        walletBalance={walletBalance}
       />
       <main className="student-main">
-        <Header title={title} envelope={envelope} />
+        <Header
+          title={title}
+          envelope={envelope}
+          onMove={setPage}
+          onLogout={() => setAuthState("landing")}
+          onProfile={() => {
+            setPage("character");
+            setMessage("프로필에서 닉네임과 비밀번호를 바꿀 수 있어요.");
+          }}
+        />
         <section className="content-area">
           <StatusBanner message={message} />
           {page === "village" && <VillagePage onMove={setPage} />}
@@ -182,50 +188,9 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickna
   );
 }
 
-function Sidebar({
-  current,
-  onMove,
-  onLogout,
-  nickname,
-  walletBalance
-}: {
-  current: PageKey;
-  onMove: (page: PageKey) => void;
-  onLogout: () => void;
-  nickname: string;
-  walletBalance: number;
-}) {
-  const [profileOpen, setProfileOpen] = useState(false);
-
-  function moveFromProfile(nextPage: PageKey) {
-    onMove(nextPage);
-    setProfileOpen(false);
-  }
-
+function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey) => void }) {
   return (
     <aside className="sidebar">
-      <div className="profile-bar">
-        <button className="notification-button" aria-label="알림">🔔</button>
-        <button className="profile-button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen}>
-          <span className="avatar-head" />
-          <span className="avatar-body" />
-        </button>
-      </div>
-      {profileOpen && (
-        <section className="profile-popover">
-          <p className="eyebrow">{nickname}의 프로필</p>
-          <strong>{walletBalance}비빔</strong>
-          <div className="profile-actions">
-            {profileItems.map((item) => (
-              <button key={item.key} onClick={() => moveFromProfile(item.key)}>
-                <span>{item.icon}</span>
-                <b>{item.label}</b>
-                <small>{item.helper}</small>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
       <div className="brand">
         <span>🏘️</span>
         <div>
@@ -241,22 +206,62 @@ function Sidebar({
           </button>
         ))}
       </nav>
-      <button className="logout-button" onClick={onLogout}>처음 화면</button>
     </aside>
   );
 }
 
-function Header({ title, envelope }: { title: string; envelope: typeof studentHomeEnvelope }) {
+function Header({
+  title,
+  envelope,
+  onMove,
+  onProfile,
+  onLogout
+}: {
+  title: string;
+  envelope: typeof studentHomeEnvelope;
+  onMove: (page: PageKey) => void;
+  onProfile: () => void;
+  onLogout: () => void;
+}) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  function moveFromProfile(nextPage: PageKey) {
+    onMove(nextPage);
+    setProfileOpen(false);
+  }
+
   return (
     <header className="app-header">
       <div>
         <p className="eyebrow">우리 반 경제생활</p>
         <h1>{title}</h1>
       </div>
-      <div className="header-pills">
-        <span>{envelope.classroom.dayIndex}일차</span>
-        <span>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</span>
-        <span>{envelope.studentView.nickname}</span>
+      <div className="header-actions">
+        <button className="notification-button" aria-label="알림">🔔</button>
+        <button className="profile-button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen} aria-label="프로필 메뉴">
+          <span className="avatar-head" />
+          <span className="avatar-body" />
+        </button>
+        {profileOpen && (
+          <section className="profile-popover">
+            <strong>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</strong>
+            <div className="profile-actions">
+              {profileItems.map((item) => (
+                <button key={item.key} onClick={() => moveFromProfile(item.key)}>
+                  <span>{item.icon}</span>
+                  <b>{item.label}</b>
+                </button>
+              ))}
+            </div>
+            <div className="profile-footer">
+              <button onClick={() => {
+                onProfile();
+                setProfileOpen(false);
+              }}>프로필</button>
+              <button onClick={onLogout}>로그아웃</button>
+            </div>
+          </section>
+        )}
       </div>
     </header>
   );
@@ -363,7 +368,7 @@ function PaystubPage({ onConfirm }: { onConfirm: () => void }) {
       <div className="receipt">
         <div className="receipt-top">
           <h2>급여 명세서</h2>
-          <p>이코빌리지 · 1일차</p>
+          <p>이코빌리지</p>
         </div>
         <ReceiptRow label="1인 1역 월급" amount="+150비빔" />
         <ReceiptRow label="퀴즈 정답수당" amount="+25비빔" />
