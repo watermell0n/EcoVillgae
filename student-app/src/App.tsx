@@ -149,10 +149,10 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
 
 function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (session: StudentSession, nickname: string) => void }) {
   const [form, setForm] = useState({
-    classroomCode: "ECO-001",
-    attendanceNumber: "3",
-    nickname: "학생",
-    password: ""
+    classroomCode: "ABCD2345",
+    attendanceNumber: "7",
+    nickname: "경제왕",
+    password: "economy123!"
   });
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
