@@ -17,15 +17,18 @@ type PageKey =
 
 const menuItems: Array<{ key: PageKey; label: string; icon: string; disabled?: boolean }> = [
   { key: "village", label: "마을 광장", icon: "🏘️" },
-  { key: "wallet", label: "내 지갑", icon: "💰" },
-  { key: "paystub", label: "월급명세서", icon: "💼" },
   { key: "shop", label: "이코 상점", icon: "🏪" },
   { key: "bank", label: "이코 은행", icon: "🏦" },
   { key: "investment", label: "투자 광장", icon: "📈" },
   { key: "trade", label: "거래소", icon: "🤝" },
   { key: "quiz", label: "퀴즈", icon: "📝" },
-  { key: "character", label: "내 캐릭터", icon: "🙂" },
   { key: "class", label: "선생님 수업", icon: "📚" }
+];
+
+const profileItems: Array<{ key: PageKey; label: string; icon: string; helper: string }> = [
+  { key: "character", label: "내 캐릭터", icon: "🙂", helper: "아이템 장착" },
+  { key: "wallet", label: "내 지갑", icon: "💰", helper: "돈 흐름 보기" },
+  { key: "paystub", label: "월급명세서", icon: "💼", helper: "받은 돈 확인" }
 ];
 
 const products = [
@@ -77,7 +80,13 @@ function App() {
 
   return (
     <div className="student-shell">
-      <Sidebar current={page} onMove={setPage} onLogout={() => setAuthState("landing")} />
+      <Sidebar
+        current={page}
+        onMove={setPage}
+        onLogout={() => setAuthState("landing")}
+        nickname={nickname}
+        walletBalance={walletBalance}
+      />
       <main className="student-main">
         <Header title={title} envelope={envelope} />
         <section className="content-area">
@@ -106,7 +115,6 @@ function App() {
           {page === "class" && <ClassModePage />}
         </section>
       </main>
-      <RightSummary envelope={envelope} />
     </div>
   );
 }
@@ -174,9 +182,50 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (nickna
   );
 }
 
-function Sidebar({ current, onMove, onLogout }: { current: PageKey; onMove: (page: PageKey) => void; onLogout: () => void }) {
+function Sidebar({
+  current,
+  onMove,
+  onLogout,
+  nickname,
+  walletBalance
+}: {
+  current: PageKey;
+  onMove: (page: PageKey) => void;
+  onLogout: () => void;
+  nickname: string;
+  walletBalance: number;
+}) {
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  function moveFromProfile(nextPage: PageKey) {
+    onMove(nextPage);
+    setProfileOpen(false);
+  }
+
   return (
     <aside className="sidebar">
+      <div className="profile-bar">
+        <button className="notification-button" aria-label="알림">🔔</button>
+        <button className="profile-button" onClick={() => setProfileOpen((open) => !open)} aria-expanded={profileOpen}>
+          <span className="avatar-head" />
+          <span className="avatar-body" />
+        </button>
+      </div>
+      {profileOpen && (
+        <section className="profile-popover">
+          <p className="eyebrow">{nickname}의 프로필</p>
+          <strong>{walletBalance}비빔</strong>
+          <div className="profile-actions">
+            {profileItems.map((item) => (
+              <button key={item.key} onClick={() => moveFromProfile(item.key)}>
+                <span>{item.icon}</span>
+                <b>{item.label}</b>
+                <small>{item.helper}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="brand">
         <span>🏘️</span>
         <div>
@@ -224,7 +273,7 @@ function StatusBanner({ message }: { message: string }) {
 
 function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
   const cards = useMemo(() => [
-    ...moduleCards,
+    ...moduleCards.filter((card) => card.id !== "paystub" && card.id !== "character"),
     { id: "trade", title: "친구 거래소", subtitle: "친구와 아이템·비빔 거래를 제안해요", icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
     { id: "quiz", title: "오늘의 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", state: "active", cta: "풀러가기" } as ModuleCard
   ], []);
@@ -482,18 +531,6 @@ function ClassModePage() {
       <h2>수업이 시작되면 이 화면으로 전환돼요</h2>
       <p>지도 활동, 퀴즈, 공개 화면은 선생님이 시작한 세션 상태에 따라 열려요.</p>
     </section>
-  );
-}
-
-function RightSummary({ envelope }: { envelope: typeof studentHomeEnvelope }) {
-  return (
-    <aside className="right-summary" aria-label="학생 상태 요약">
-      <p className="eyebrow">내 상태</p>
-      <strong>{envelope.studentView.walletBalance}{envelope.classroom.currencyName}</strong>
-      <span>{envelope.classroom.dayIndex}일차 · {envelope.mode}</span>
-      <div className="summary-line" />
-      <p>돈이 바뀌는 활동은 선생님이 정한 규칙에 맞춰 반영돼요.</p>
-    </aside>
   );
 }
 
