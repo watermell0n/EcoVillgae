@@ -92,6 +92,18 @@ public class ClassroomStudent {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void updateRosterAndRole(
+        int rosterNumber,
+        String nickname,
+        UUID salaryRoleId,
+        Instant changedAt
+    ) {
+        this.rosterNumber = positiveRosterNumber(rosterNumber);
+        this.nickname = validNickname(nickname);
+        this.salaryRoleId = Objects.requireNonNull(salaryRoleId, "salaryRoleId must not be null");
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public void changeNickname(String nickname, Instant changedAt) {
         this.nickname = validNickname(nickname);
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");

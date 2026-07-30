@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,8 +22,13 @@ import com.b201.ecovillage.classroom.application.AutonomousScheduleCommand;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
+import com.b201.ecovillage.classroom.application.ClassroomRosterService;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
 import com.b201.ecovillage.classroom.application.CreateClassroomResult;
+import com.b201.ecovillage.classroom.application.SalaryRoleCommand;
+import com.b201.ecovillage.classroom.application.StudentRosterCommand;
+import com.b201.ecovillage.classroom.application.UpdateRosterCommand;
+import com.b201.ecovillage.classroom.application.UpdateRosterResult;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -33,19 +39,66 @@ public class ClassroomController {
 
     private final ClassroomCreationService creationService;
     private final ClassroomConfigurationService configurationService;
+    private final ClassroomRosterService rosterService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public ClassroomController(
         ClassroomCreationService creationService,
         ClassroomConfigurationService configurationService,
+        ClassroomRosterService rosterService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.creationService = creationService;
         this.configurationService = configurationService;
+        this.rosterService = rosterService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PutMapping("/{classroomId}/roster-and-salaries")
+    public ApiResponse<RosterAndSalariesResponse> updateRoster(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody RosterAndSalariesRequest request,
+        Principal principal
+    ) {
+        List<StudentRosterCommand> students = request.students().stream()
+            .map(student -> new StudentRosterCommand(
+                student.studentId(),
+                student.attendanceNumber(),
+                student.nickname(),
+                student.roleCode()
+            ))
+            .toList();
+        List<SalaryRoleCommand> salaryRoles = request.salaryRoles().stream()
+            .map(role -> new SalaryRoleCommand(
+                role.roleCode(),
+                role.name(),
+                role.grossAmount(),
+                role.deductions(),
+                role.sortOrder()
+            ))
+            .toList();
+        UpdateRosterResult result = rosterService.update(
+            new UpdateRosterCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                students,
+                salaryRoles,
+                request.expectedPolicyVersion(),
+                request.expectedStateVersion()
+            )
+        );
+        RosterAndSalariesResponse data = new RosterAndSalariesResponse(
+            result.classroomId(),
+            result.studentCount(),
+            result.salaryRoleCount(),
+            result.stateVersion()
+        );
+        return new ApiResponse<>(data, meta(requestId, correlationId));
     }
 
     @PostMapping

@@ -43,4 +43,6 @@ public interface ClassroomStudentRepository extends JpaRepository<ClassroomStude
         UUID classroomId,
         ClassroomStudentStatus status
     );
+
+    long countByClassroomIdAndStatus(UUID classroomId, ClassroomStudentStatus status);
 }
