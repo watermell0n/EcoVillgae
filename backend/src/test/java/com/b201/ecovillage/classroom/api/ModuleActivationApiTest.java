@@ -20,9 +20,12 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.SalaryRole;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
@@ -287,6 +290,64 @@ class ModuleActivationApiTest {
             .andExpect(jsonPath("$.error.code").value("STATE_VERSION_CONFLICT"));
 
         assertTrue(policyRepository.findAll().isEmpty());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    void rollsBackPolicyAndModuleStateWhenPolicyStorageFails() throws Exception {
+        jdbcTemplate.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_test_salary_roles_name
+                ON salary_roles (classroom_id, name)
+            """);
+        salaryRoleRepository.save(SalaryRole.create(
+            UUID.randomUUID(),
+            classroomId,
+            "EXISTING",
+            "Duplicate Name",
+            1_000,
+            Map.of(),
+            1,
+            NOW
+        ));
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "ROLE_SALARY",
+            NOW
+        ));
+        String conflictingPolicy = """
+            {
+              "roles": [
+                {
+                  "role_code": "NEW_ROLE",
+                  "name": "Duplicate Name",
+                  "weight": 1.0,
+                  "gross_amount": 1000,
+                  "deductions": {},
+                  "sort_order": 2
+                }
+              ]
+            }
+            """;
+
+        mockMvc.perform(activationRequest(
+            "ROLE_SALARY",
+            UUID.randomUUID(),
+            0,
+            conflictingPolicy
+        ))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("POLICY_VERSION_CONFLICT"));
+
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "ROLE_SALARY")
+            .orElseThrow();
+        assertEquals("DISABLED", module.getStatus());
+        assertEquals(0, module.getStateVersion());
+        assertEquals(0, policyRepository.count());
+        assertEquals(1, salaryRoleRepository.count());
+        assertEquals("ACTIVE", salaryRoleRepository.findAll().getFirst().getStatus());
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
