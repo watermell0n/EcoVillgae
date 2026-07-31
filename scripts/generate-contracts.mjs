@@ -130,6 +130,7 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-005",
   "API-AUTH-006",
   "API-AUTH-007",
+  "API-AUTH-008",
   "API-READ-001",
   "API-READ-003",
   "API-READ-028",
@@ -920,14 +921,59 @@ const responseFieldOverrides = {
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
     { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "session_id", schema: { type: "string", format: "uuid" } },
+    { name: "role", schema: { type: "string", enum: ["STU", "TCH"] } },
   ],
   "API-AUTH-006": [
     { name: "session_id", schema: { type: "string", format: "uuid" } },
-    { name: "revoked_at", schema: { type: "string", format: "date-time" } },
+    { name: "user_id", schema: { type: "string", format: "uuid" } },
+    { name: "display_name", schema: { type: "string" } },
+    { name: "role", schema: { type: "string", enum: ["STU", "TCH"] } },
+    { name: "access_token_expires_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "schools",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["school_id", "role"],
+          properties: {
+            school_id: { type: "string", format: "uuid" },
+            role: { type: "string", enum: ["TEACHER", "SCHOOL_ADMIN"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "classrooms",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["classroom_id", "classroom_code", "role"],
+          properties: {
+            classroom_id: { type: "string", format: "uuid" },
+            classroom_code: { type: "string", minLength: 8, maxLength: 8 },
+            role: { type: "string", enum: ["STU", "OWN", "COT"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
   ],
   "API-AUTH-007": [
     { name: "ticket", schema: { type: "string", minLength: 20, readOnly: true, "x-sensitive": true } },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AUTH-008": [
+    { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "session_id", schema: { type: "string", format: "uuid" } },
+    { name: "teacher_id", schema: { type: "string", format: "uuid" } },
+    { name: "display_name", schema: { type: "string" } },
+    { name: "role", schema: { type: "string", enum: ["TCH"] } },
   ],
   "API-CLS-001": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
@@ -1321,9 +1367,29 @@ function storageTargets(operation) {
   }
   if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
   if (operation.apiId === "API-AUTH-003") return ["redis.password-reset", "student_credentials", "student_sessions"];
-  if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];
-  if (operation.apiId === "API-AUTH-005") return ["external_idp.refresh-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-004") return ["redis.teacher-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-005") return ["redis.teacher-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-006") {
+    return [
+      "users",
+      "school_memberships",
+      "classroom_teachers",
+      "classrooms",
+      "classroom_students",
+      "student_sessions",
+      "redis.teacher-session",
+    ];
+  }
   if (operation.apiId === "API-AUTH-007") return ["redis.realtime-ticket"];
+  if (operation.apiId === "API-AUTH-008") {
+    return [
+      "external_idp.id-token",
+      "users",
+      "school_memberships",
+      "classroom_teachers",
+      "redis.teacher-session",
+    ];
+  }
   if (operation.apiId === "API-DSP-001") {
     return [
       "activity_sessions",
@@ -1383,6 +1449,7 @@ const exactFieldTargets = {
   ticket: "redis.realtime-ticket.token_hash",
   display_token: "redis.display-session.token_hash",
   reset_request_id: "redis.password-reset.request_id",
+  id_token: "external_idp.id-token",
 };
 
 function schemaType(schema) {
@@ -1410,6 +1477,9 @@ function manifestField(field, direction, targets) {
 function requestSchema(operation) {
   if (operation.apiId === "API-AUTH-001") {
     return { $ref: "#/components/schemas/StudentSessionRequest" };
+  }
+  if (operation.apiId === "API-AUTH-008") {
+    return { $ref: "#/components/schemas/TeacherSessionRequest" };
   }
 
   const strict = implementationStatus(operation) === "mvp-contract";
@@ -1583,7 +1653,7 @@ function parameterRefs(operation) {
 }
 
 function securityFor(operation) {
-  if (["API-AUTH-001", "API-AUTH-002"].includes(operation.apiId)) return [];
+  if (["API-AUTH-001", "API-AUTH-002", "API-AUTH-008"].includes(operation.apiId)) return [];
   if (operation.apiId === "API-AUTH-004")
     return [{ refreshCookie: [] }, { refreshHeader: [] }];
   if (operation.apiId === "API-READ-025") return [{ displayBearer: [] }];
@@ -1689,7 +1759,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 108개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -1718,7 +1788,7 @@ function buildOpenApi(operations) {
         refreshCookie: {
           type: "apiKey",
           in: "cookie",
-          name: "ECOVILLAGE_REFRESH",
+          name: "ecovillage_teacher_refresh",
           description: "교사·관리자 웹의 회전형 갱신 토큰",
         },
         refreshHeader: {
@@ -1795,6 +1865,20 @@ function buildOpenApi(operations) {
             nickname: { type: "string", minLength: 1, maxLength: 40 },
             password: { type: "string", format: "password", minLength: 8, writeOnly: true },
             device_id: { type: "string", format: "uuid" },
+          },
+          additionalProperties: false,
+        },
+        TeacherSessionRequest: {
+          type: "object",
+          required: ["id_token"],
+          properties: {
+            id_token: {
+              type: "string",
+              minLength: 1,
+              maxLength: 20000,
+              writeOnly: true,
+              description: "Authorization Code + PKCE 완료 후 외부 OIDC 제공자가 발급한 ID 토큰",
+            },
           },
           additionalProperties: false,
         },
@@ -2331,6 +2415,18 @@ const studentSessionRequestFields = [
   { name: "device_id" },
 ];
 
+const teacherSessionRequestFields = [
+  {
+    name: "id_token",
+    schema: {
+      type: "string",
+      minLength: 1,
+      maxLength: 20000,
+      writeOnly: true,
+    },
+  },
+];
+
 const acceptedResponseFields = [
   { name: "operation_id", schema: { type: "string", format: "uuid" } },
   { name: "status", schema: { type: "string", enum: ["QUEUED", "RUNNING"] } },
@@ -2344,6 +2440,7 @@ function hasRequestBody(operation) {
 function requestFieldsForManifest(operation) {
   if (!hasRequestBody(operation)) return [];
   if (operation.apiId === "API-AUTH-001") return studentSessionRequestFields;
+  if (operation.apiId === "API-AUTH-008") return teacherSessionRequestFields;
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
   return [...mutationContextFields, ...domainFields];
 }
@@ -2372,6 +2469,7 @@ function buildApiFieldMapping(operations) {
       const explicitRequest =
         !hasRequestBody(operation) ||
         operation.apiId === "API-AUTH-001" ||
+        operation.apiId === "API-AUTH-008" ||
         Object.hasOwn(requestFieldOverrides, operation.apiId);
       return {
         api_id: operation.apiId,
@@ -2412,9 +2510,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 107, `HTTP 작업 수가 107이 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 107, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 107, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 108, `HTTP 작업 수가 108이 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 108, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 108, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -2431,8 +2529,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 107,
-      "OpenAPI 작업 수가 107이 아닙니다.",
+      ) === 108,
+      "OpenAPI 작업 수가 108이 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

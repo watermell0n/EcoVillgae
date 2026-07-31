@@ -12,7 +12,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(AuthenticationProperties.class)
+@EnableConfigurationProperties({
+    AuthenticationProperties.class,
+    TeacherOidcProperties.class
+})
 public class IdentityConfiguration {
 
     @Bean

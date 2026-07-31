@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -19,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -278,6 +281,73 @@ class StudentSessionApiTest {
             .andExpect(header().exists("Retry-After"))
             .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
             .andExpect(jsonPath("$.error.retryable").value(true));
+    }
+
+    @Test
+    void authenticatesRefreshesAndRevokesStudentSession() throws Exception {
+        MvcResult login = mockMvc.perform(
+            validLoginRequest(CLASSROOM_CODE, NICKNAME, PASSWORD, UUID.randomUUID())
+                .header("Idempotency-Key", UUID.randomUUID())
+        )
+            .andExpect(status().isCreated())
+            .andReturn();
+        String accessToken = JsonPath.read(
+            login.getResponse().getContentAsString(),
+            "$.data.access_token"
+        );
+        String refreshToken = JsonPath.read(
+            login.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+
+        mockMvc.perform(
+            get("/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.user_id").value(studentId.toString()))
+            .andExpect(jsonPath("$.data.role").value("STU"))
+            .andExpect(jsonPath("$.data.classrooms[0].classroom_id")
+                .value(classroomId.toString()));
+
+        MvcResult refresh = mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", refreshToken)
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"))
+            .andReturn();
+        String rotatedAccessToken = JsonPath.read(
+            refresh.getResponse().getContentAsString(),
+            "$.data.access_token"
+        );
+        String rotatedRefreshToken = JsonPath.read(
+            refresh.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+        assertNotEquals(refreshToken, rotatedRefreshToken);
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", refreshToken)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(
+            delete("/auth/sessions/current")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + rotatedAccessToken)
+        ).andExpect(status().isNoContent());
+
+        mockMvc.perform(
+            get("/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + rotatedAccessToken)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_ACCESS_TOKEN"));
     }
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder

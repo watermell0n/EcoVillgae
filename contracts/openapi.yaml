@@ -4,7 +4,7 @@ info:
   title: "이코빌리지 Core HTTP API"
   version: "0.1.0"
   summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API"
-  description: "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
+  description: "HTTP_API_SPEC.md의 108개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
   license:
     name: "Proprietary"
     identifier: "LicenseRef-Proprietary"
@@ -391,6 +391,109 @@ paths:
                 - "new_password"
                 - "reason"
               additionalProperties: false
+  /auth/teacher-sessions:
+    post:
+      operationId: "apiAuth008"
+      x-api-id: "API-AUTH-008"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "external_idp.id-token"
+        - "users"
+        - "school_memberships"
+        - "classroom_teachers"
+        - "redis.teacher-session"
+      x-ui-action-ids:
+        - "UIA-AUTH-004"
+      x-roles:
+        - "인증 전 교사"
+      x-permission-ids:
+        - "PM-AUTH-003"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AUTH-002"
+        - "AUTH-008"
+      tags:
+        - "Authentication"
+      summary: "OIDC Authorization Code + PKCE 완료 후 받은 id_token → 서명, 발급자, audience 검증, 등록 교사 확인, 토큰, 교사 다중 세션"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 교사.\n\n핵심 계약: OIDC Authorization Code + PKCE 완료 후 받은 id_token → 서명, 발급자, audience 검증, 등록 교사 확인, 토큰, 교사 다중 세션."
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        201:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "access_token"
+                      - "refresh_token"
+                      - "expires_at"
+                      - "session_id"
+                      - "teacher_id"
+                      - "display_name"
+                      - "role"
+                    properties:
+                      access_token:
+                        type: "string"
+                        readOnly: true
+                        x-sensitive: true
+                      refresh_token:
+                        type: "string"
+                        readOnly: true
+                        x-sensitive: true
+                      expires_at:
+                        type: "string"
+                        format: "date-time"
+                      session_id:
+                        type: "string"
+                        format: "uuid"
+                      teacher_id:
+                        type: "string"
+                        format: "uuid"
+                      display_name:
+                        type: "string"
+                      role:
+                        type: "string"
+                        enum:
+                          - "TCH"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherSessionRequest"
   /auth/token-refreshes:
     post:
       operationId: "apiAuth004"
@@ -398,7 +501,7 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "external_idp.refresh-session"
+        - "redis.teacher-session"
         - "student_sessions"
       x-roles:
         - "갱신 토큰 보유 사용자"
@@ -432,6 +535,8 @@ paths:
                       - "access_token"
                       - "refresh_token"
                       - "expires_at"
+                      - "session_id"
+                      - "role"
                     properties:
                       access_token:
                         type: "string"
@@ -444,6 +549,14 @@ paths:
                       expires_at:
                         type: "string"
                         format: "date-time"
+                      session_id:
+                        type: "string"
+                        format: "uuid"
+                      role:
+                        type: "string"
+                        enum:
+                          - "STU"
+                          - "TCH"
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -473,7 +586,7 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "external_idp.refresh-session"
+        - "redis.teacher-session"
         - "student_sessions"
       x-roles:
         - "인증 사용자"
@@ -518,10 +631,13 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
+        - "users"
+        - "school_memberships"
+        - "classroom_teachers"
         - "classrooms"
         - "classroom_students"
-        - "student_credentials"
         - "student_sessions"
+        - "redis.teacher-session"
       x-roles:
         - "인증 사용자"
       x-permission-ids: []
@@ -529,8 +645,8 @@ paths:
       x-rtm-ids: []
       tags:
         - "Authentication"
-      summary: "현재 사용자, 역할, 학교, 담당 학급과 세션 정책 조회"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 현재 사용자, 역할, 학교, 담당 학급과 세션 정책 조회."
+      summary: "현재 세션, 사용자, 역할, 학교, 담당 학급과 액세스 토큰 만료 조회"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 현재 세션, 사용자, 역할, 학교, 담당 학급과 액세스 토큰 만료 조회."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -551,14 +667,69 @@ paths:
                     type: "object"
                     required:
                       - "session_id"
-                      - "revoked_at"
+                      - "user_id"
+                      - "display_name"
+                      - "role"
+                      - "access_token_expires_at"
+                      - "schools"
+                      - "classrooms"
                     properties:
                       session_id:
                         type: "string"
                         format: "uuid"
-                      revoked_at:
+                      user_id:
+                        type: "string"
+                        format: "uuid"
+                      display_name:
+                        type: "string"
+                      role:
+                        type: "string"
+                        enum:
+                          - "STU"
+                          - "TCH"
+                      access_token_expires_at:
                         type: "string"
                         format: "date-time"
+                      schools:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "school_id"
+                            - "role"
+                          properties:
+                            school_id:
+                              type: "string"
+                              format: "uuid"
+                            role:
+                              type: "string"
+                              enum:
+                                - "TEACHER"
+                                - "SCHOOL_ADMIN"
+                          additionalProperties: false
+                      classrooms:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "classroom_id"
+                            - "classroom_code"
+                            - "role"
+                          properties:
+                            classroom_id:
+                              type: "string"
+                              format: "uuid"
+                            classroom_code:
+                              type: "string"
+                              minLength: 8
+                              maxLength: 8
+                            role:
+                              type: "string"
+                              enum:
+                                - "STU"
+                                - "OWN"
+                                - "COT"
+                          additionalProperties: false
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -11333,7 +11504,7 @@ components:
     refreshCookie:
       type: "apiKey"
       in: "cookie"
-      name: "ECOVILLAGE_REFRESH"
+      name: "ecovillage_teacher_refresh"
       description: "교사·관리자 웹의 회전형 갱신 토큰"
     refreshHeader:
       type: "apiKey"
@@ -11520,6 +11691,18 @@ components:
         device_id:
           type: "string"
           format: "uuid"
+      additionalProperties: false
+    TeacherSessionRequest:
+      type: "object"
+      required:
+        - "id_token"
+      properties:
+        id_token:
+          type: "string"
+          minLength: 1
+          maxLength: 20000
+          writeOnly: true
+          description: "Authorization Code + PKCE 완료 후 외부 OIDC 제공자가 발급한 ID 토큰"
       additionalProperties: false
     Period:
       type: "object"

@@ -4,9 +4,9 @@
 
 | 파일 | 역할 | 기준 문서 |
 | --- | --- | --- |
-| [openapi.yaml](openapi.yaml) | 107개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
+| [openapi.yaml](openapi.yaml) | 108개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
 | [asyncapi.yaml](asyncapi.yaml) | 10개 논리 채널·48개 서버 이벤트·4개 연결 제어 메시지 계약 | [WebSocket 명세](../docs/WEBSOCKET_SPEC.md) |
-| [api-field-mapping.json](api-field-mapping.json) | 107개 작업의 MVP/후속 분류와 요청·응답 필드·저장 경계 | [API·스키마 정합성 검토](../docs/reviews/API_SCHEMA_FIELD_AUDIT.md) |
+| [api-field-mapping.json](api-field-mapping.json) | 108개 작업의 MVP/후속 분류와 요청·응답 필드·저장 경계 | [API·스키마 정합성 검토](../docs/reviews/API_SCHEMA_FIELD_AUDIT.md) |
 
 ## 적용 순서
 
@@ -30,11 +30,11 @@ pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 
 생성기는 다음 불변식을 검사합니다.
 
-- OpenAPI 작업 107건, API ID·메서드·경로 중복 0건
+- OpenAPI 작업 108건, API ID·메서드·경로 중복 0건
 - AsyncAPI 논리 채널 10건, 이벤트 ID·`event_type` 중복 0건
 - 사람이 읽는 명세와 계약 파일 사이 API·채널·이벤트 ID 누락 0건
-- MVP·필수 지원 API 68건의 명시적 strict DTO와 저장·조회 경계
-- 후속 API 39건의 `planned` 상태
+- MVP·필수 지원 API 70건의 명시적 strict DTO와 저장·조회 경계
+- 후속 API 38건의 `planned` 상태
 
 ## 구현 경계
 
