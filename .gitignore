@@ -30,6 +30,7 @@ student-app/coverage/
 teacher-web/.next/
 teacher-web/out/
 teacher-web/coverage/
+**/*.tsbuildinfo
 
 # Python
 ai-service/.venv/

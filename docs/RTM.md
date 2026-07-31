@@ -7,7 +7,7 @@
 
 ## 1. 사용 방법
 
-RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널 `WS-*`와 이벤트 `EVT-*`, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_11`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_13`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -50,7 +50,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | --- | --- | --- | --- | --- | --- | --- |
 | CLS-001 | MVP·DEC | 교사 | 경제교실 생성 | 학년·규모·기간·인원·급여·모듈·자율시간 저장 | 생성 E2E | SM-CLS-001·SM-MOD-001 · PM-CLS-001·PM-CLS-005·PM-CLS-007 · SCR-WEB-003 / DBT-002 · TEST TBD |
 | CLS-002 | DEC | 교사 | 모듈 상태 | 추가 가능, 중지는 활성 데이터별 정산 규칙 적용 | 상태 전이 테스트 | SM-MOD-001 · PM-MOD-001 · SCR-WEB-005 / TEST TBD |
-| CLS-003 | DEC | 학생 | 앱 운영 상태 | CLOSED·AUTONOMOUS·GUIDED별 허용 화면이 다름 | 상태별 UI 테스트 | SM-APP-001 · PM-CLS-008·PM-RBAC-002 · SCR-STU-003 / TEST TBD |
+| CLS-003 | MVP·DEC | 학생 | 앱 운영 상태 | CLOSED·AUTONOMOUS·GUIDED별 허용 화면이 다름 | 상태별 UI 테스트 | SM-APP-001 · PM-CLS-008·PM-RBAC-002 · SCR-STU-003 / TEST TBD |
 | CLS-004 | DEC | 교사·시스템 | 상태 우선순위 | GUIDED가 수동·반복 일정에 우선함 | 우선순위 테스트 | SM-APP-001 · PM-CLS-007·PM-CLS-008·PM-ACT-001 · SCR-STU-003·SCR-TCH-003 / TEST TBD |
 | CLS-005 | DEC | 학생·교사 | 자율시간 | 종료 5분·1분 알림과 연장 동작 | 시간 제어 테스트 | SM-APP-001 · PM-CLS-007·PM-CLS-008 · SCR-STU-003·SCR-TCH-003·SCR-WEB-008 / TEST TBD |
 | CLS-006 | DEC | 시스템 | 종료 경계 거래 | 접수 거래 완료, 미제출 초안 미실행 | 동시성 테스트 | SM-APP-001·SM-TXN-001 · PM-CLS-008·PM-TXN-001 · SCR-STU-003·SCR-TCH-003 / TEST TBD |
@@ -59,7 +59,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | CLS-009 | MVP·DEC | 학생·교사 | 지도 활동·공용 화면 | 시작 시 학생은 활동 전용 화면으로 이동하고 공용 화면에는 공개 정보만 표시 | 실시간 화면 E2E | SM-ACT-001·SM-APP-001 · PM-ACT-001·PM-DSP-001 · SCR-TCH-004·SCR-TCH-007·SCR-STU-021·SCR-WEB-028·SCR-PUB-002 / TEST TBD |
 | CRS-001 | MVP·CRS | 교사 | 규모 라벨 | 라벨과 실제 날짜·활동 횟수가 독립적으로 저장됨 | 설정 테스트 | PM-CLS-005 · SCR-WEB-004 / TEST TBD |
 | CRS-002 | MVP·CRS | 학생 | 1회 코스 | 퀴즈·게임 외 모듈·지갑·화폐 보상이 생성되지 않음 | 코스 E2E | PM-CLS-005·PM-MOD-001·PM-RBAC-002 · SCR-WEB-004·SCR-STU-003 / TEST TBD |
-| CRS-003 | CRS | 교사 | 추천표 | 12개 조합과 데이터 버전을 조회할 수 있음 | 데이터 검증 | PM-CLS-005 · SCR-WEB-004 / TEST TBD |
+| CRS-003 | MVP·CRS | 교사 | 추천표 | 12개 조합과 데이터 버전을 조회할 수 있음 | 데이터 검증 | PM-CLS-005 · SCR-WEB-004 / API-CRS-001 · `CourseRecommendationSeedTest` |
 | CRS-004 | CRS | 학생·교사 | 난이도 | 학년별 문장·숫자·계산·리포트 프로필 적용 | 콘텐츠 검수 | PM-CLS-005·PM-SVC-001 · SCR-WEB-004·SCR-STU-021·SCR-STU-022·SCR-STU-024 / TEST TBD |
 | CRS-005 | CRS | 교사 | 추천 수정 | 추가·제외 시 선수 모듈과 학습 영향 표시 | 추천 UI 테스트 | PM-CLS-005·PM-MOD-001 · SCR-WEB-004·SCR-WEB-005 / TEST TBD |
 | CRS-006 | MVP·CRS | 학생 | 모듈 노출 | 미선택 모듈 경로·메뉴·명령 접근 차단 | 권한·UI 테스트 | SM-MOD-001 · PM-MOD-001·PM-RBAC-002 · SCR-STU-003·SCR-WEB-005 / TEST TBD |
@@ -76,7 +76,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | ECO-005 | MVP | 교사·학생 | 상점 | 디지털·실제 상품 구매와 상품별 부가세 계산 | 구매 E2E | SM-SHP-001·SM-TXN-001 · PM-SHP-001·PM-SHP-002·PM-SHP-003 · SCR-STU-006·SCR-STU-007·SCR-WEB-011·SCR-TCH-010 / DBT-012·DBT-013 · TEST TBD |
 | ECO-006 | MVP·DEC | 학생·교사 | 환불·복구 | 학생 환불 경로 없음, 운영 오류는 복구 거래 | 권한·복구 테스트 | SM-SHP-001·SM-TXN-001 · PM-SHP-002·PM-TXN-003 · SCR-STU-007·SCR-WEB-012 / TEST TBD |
 | ECO-007 | MVP | 학생 | 캐릭터 | 구매·보유·장착 상태와 소유권 일치 | 아이템 E2E | SM-ITM-001 · PM-CNT-001·PM-ITM-001·PM-SHP-001·PM-SHP-002 · SCR-STU-008·SCR-WEB-011 / TEST TBD |
-| ECO-008 | MVP·DEC | 학생·교사 | 공동기금·투표 | 기금 잔액·예산·익명 투표·사용내역 일치 | 투표·원장 테스트 | SM-ACT-001·SM-TXN-001 · PM-POL-002·PM-ACT-001·PM-ACT-002 · SCR-STU-012·SCR-TCH-006·SCR-WEB-010·SCR-PUB-003 / DBT-014 · TEST TBD |
+| ECO-008 | MVP·DEC | 학생·교사 | 공동기금·투표 | 기금 잔액·예산·익명 투표·사용내역 일치 | 투표·원장 테스트 | SM-ACT-001·SM-TXN-001 · PM-POL-002·PM-ACT-001·PM-ACT-002 · SCR-STU-012·SCR-TCH-006·SCR-WEB-010·SCR-PUB-003 / DBT-014 · `VoteTest`·`VoteCommandServiceTest`·`VoteBallotServiceTest`·`VoteQueryServiceTest`·`LedgerAccountTest` |
 | ECO-009 | MVP·DEC | 교사 | 세금 사용처 | 기본 사용처가 제공되고 이름·설명·예산 항목 수정 가능 | 설정 E2E | PM-POL-002 · SCR-WEB-010 / TEST TBD |
 | ECO-010 | MVP·DEC | 운영자 | 캐릭터 원작 | 배포 지역 퍼블릭 도메인·출처·권리 검토일이 등록된 원작만 게시 가능 | 콘텐츠 승인 테스트 | PM-CNT-001 · SCR-OPS-003·SCR-WEB-011 / TEST TBD |
 | TRD-001 | MVP·DEC | 학생·교사 | 개인거래 | 제안·동의·승인 전에는 자산 이전 없음 | 상태 머신 E2E | SM-TRD-001 · PM-TRD-001·PM-TRD-002·PM-TRD-003 · SCR-STU-009·SCR-STU-010·SCR-STU-011·SCR-TCH-008·SCR-TCH-009 / TEST TBD |
@@ -283,7 +283,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 계약 | 사람이 읽는 기준 | 계약 수 | ID 차이 | 규격 검사 |
 | --- | --- | ---: | ---: | --- |
-| OpenAPI 3.1 | HTTP API 106개 | 작업 106개 | 0 | PASS |
+| OpenAPI 3.1 | HTTP API 107개 | 작업 107개 | 0 | PASS |
 | AsyncAPI 3.1 | 채널 10개·이벤트 48개 | 채널 10개·이벤트 48개 | 0 | PASS |
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
@@ -311,7 +311,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 부분·핵심 유일성 | 18 | UK-001~018과 `classroom_code` 전역 UQ |
 | 검사 제약 | 39 | CK-001~039 |
 | 조회 인덱스 | 37 | IX-001~037 |
-| DB 인수 기준 | 19 | DBT-001~019 |
+| DB 인수 기준 | 20 | DBT-001~020 |
 
 물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 85개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
@@ -319,17 +319,20 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P11 | `backend/src/main/resources/db/migration/V1_1~V1_11` | 85개 테이블과 학급 식별·공개 순위·MVP 필드 보강 |
+| Flyway P1~P13 | `backend/src/main/resources/db/migration/V1_1~V1_13` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 보강 |
 | 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
-| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~019 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 65개 strict, 후속 41개 planned |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 68개 strict, 후속 39개 planned |
 
-Java 21 테스트 코드 컴파일과 PostgreSQL 17에서의 Flyway `V1_1`~`V1_11`
-직접 적용·제약 검증은 성공했습니다. Testcontainers 20개 전체 실행은 Docker 사용
-가능 Jenkins 에이전트의 결과를 최종 PASS 기준으로 삼습니다.
+Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
+데이터베이스에서 Flyway `V1_1`~`V1_13` 직접 적용, 85개 물리 테이블과 Hibernate
+스키마 검증, 데이터베이스 삭제·재생성 후 전체 재적용을 완료했습니다. 같은
+격리 데이터베이스에서 테이블 생성 검사와 DBT-001~020 총 21개를 건너뜀 없이
+통과했습니다.
+Testcontainers 21개 전체 실행은 Docker 사용 Jenkins에서 최종 검증합니다.
 
 ## 14. 커버리지 요약
 

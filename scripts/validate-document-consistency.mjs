@@ -91,7 +91,7 @@ const definitionSources = [
   },
   {
     name: "HTTP API",
-    expected: 114,
+    expected: 115,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
@@ -140,7 +140,7 @@ const definitionSources = [
   },
   {
     name: "DB 인수 기준",
-    expected: 19,
+    expected: 20,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (DBT-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(DBT-\d{3})(?!\d)/g,
@@ -276,6 +276,7 @@ assert(
 const forbiddenStalePhrases = [
   "PDM-",
   "Testcontainers 18개",
+  "Testcontainers 20개",
   "DBT-001~017",
   "RTM v1.1",
   "기준 Git 커밋",

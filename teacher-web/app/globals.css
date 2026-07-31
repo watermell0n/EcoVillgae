@@ -1,0 +1,415 @@
+:root {
+  --bg: #f6fafb;
+  --surface: #ffffff;
+  --ink: #1d2939;
+  --muted: #667085;
+  --line: #dbe7eb;
+  --line-strong: #a6bdc6;
+  --blue: #4d9ed8;
+  --green: #5daa72;
+  --orange: #df8743;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.teacher-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+}
+
+.side {
+  padding: 28px 18px;
+  border-right: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand > span {
+  font-size: 28px;
+}
+
+.brand strong,
+.brand small {
+  display: block;
+}
+
+.brand strong {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.brand small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.side nav {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+}
+
+.side nav button {
+  min-height: 42px;
+  border: 0;
+  border-left: 3px solid transparent;
+  padding: 0 10px;
+  color: var(--muted);
+  background: transparent;
+  text-align: left;
+  font-weight: 850;
+}
+
+.side nav button.active {
+  border-left-color: var(--blue);
+  color: var(--ink);
+  background: #eef8fc;
+}
+
+.workspace {
+  min-width: 0;
+}
+
+.topbar {
+  min-height: 128px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 42px 24px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(100deg, #dff3ff 0%, #e4f7e6 58%, #fff8da 100%);
+}
+
+.topbar p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1.1;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.teacher-meta {
+  min-width: 150px;
+  text-align: right;
+}
+
+.teacher-meta span,
+.teacher-meta b {
+  display: block;
+}
+
+.teacher-meta span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teacher-meta b {
+  margin-top: 5px;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.page-flow {
+  display: grid;
+  gap: 34px;
+  padding: 34px 42px 60px;
+}
+
+.plain-section {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.plain-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.section-title h2 {
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.25;
+  font-weight: 950;
+}
+
+.section-title p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 750;
+}
+
+.definition-list {
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.definition-list div {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.definition-list dt {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.definition-list dd {
+  margin: 0;
+}
+
+.definition-list dd strong,
+.definition-list dd span {
+  display: block;
+}
+
+.definition-list dd strong {
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.definition-list dd span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: transparent;
+}
+
+.data-table th {
+  padding: 0 12px 12px 0;
+  border-bottom: 2px solid var(--line-strong);
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.data-table td {
+  padding: 18px 12px 18px 0;
+  border-bottom: 1px solid var(--line);
+  font-weight: 780;
+  vertical-align: top;
+}
+
+.data-table td:first-child {
+  font-weight: 950;
+}
+
+.action-line {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.action-line:first-of-type {
+  border-top: 1px solid var(--line);
+}
+
+.action-line b,
+.action-line span {
+  display: block;
+}
+
+.action-line b {
+  font-size: 17px;
+  font-weight: 950;
+}
+
+.action-line span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.action-line button {
+  min-width: 94px;
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.action-line button:hover {
+  border-color: var(--blue);
+  color: #176b9c;
+}
+
+.shop-admin-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.shop-admin-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.shop-admin-form input,
+.shop-admin-form select {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.image-upload {
+  grid-column: span 2;
+}
+
+.image-upload input {
+  padding-top: 10px;
+}
+
+.image-upload span {
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.image-preview {
+  grid-column: span 2;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--muted);
+  font-weight: 850;
+  overflow: hidden;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.wide-action {
+  grid-column: span 2;
+  min-height: 46px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--orange);
+  font-weight: 950;
+}
+
+@media (max-width: 900px) {
+  .teacher-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .side nav {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .side nav button {
+    white-space: nowrap;
+  }
+
+  .topbar,
+  .page-flow {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+
+  .plain-section {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .shop-admin-form {
+    grid-template-columns: 1fr;
+  }
+
+  .image-upload,
+  .image-preview,
+  .wide-action {
+    grid-column: auto;
+  }
+
+  .topbar {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .teacher-meta {
+    text-align: left;
+  }
+}

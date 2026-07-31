@@ -132,6 +132,8 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-007",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-028",
+  "API-READ-029",
   "API-READ-030",
 ]);
 
@@ -413,6 +415,14 @@ const requestFieldOverrides = {
           additionalProperties: false,
         },
       },
+    },
+  ],
+  "API-CLS-007": [
+    { name: "command", values: ["OPEN", "CLOSE", "EXTEND"] },
+    {
+      name: "duration_minutes",
+      optional: true,
+      schema: { type: "integer", minimum: 1, maximum: 480 },
     },
   ],
   "API-CLS-008": [
@@ -714,7 +724,50 @@ const requestFieldOverrides = {
     { name: "description" },
   ],
   "API-VOT-001": [
-    { name: "command", values: ["CLOSE", "CONFIRM_RESULT"] },
+    {
+      name: "command",
+      values: ["CREATE", "OPEN", "CLOSE", "CONFIRM_RESULT"],
+    },
+    { name: "title", optional: true },
+    { name: "description", optional: true },
+    {
+      name: "options",
+      optional: true,
+      schema: {
+        type: "array",
+        minItems: 2,
+        maxItems: 10,
+        items: {
+          type: "object",
+          required: ["label", "budget_amount"],
+          properties: {
+            label: { type: "string", minLength: 1, maxLength: 160 },
+            description: { type: ["string", "null"], maxLength: 2000 },
+            budget_amount: {
+              type: "integer",
+              format: "int64",
+              minimum: 0,
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "participant_ids",
+      optional: true,
+      schema: {
+        type: "array",
+        minItems: 1,
+        uniqueItems: true,
+        items: { type: "string", format: "uuid" },
+      },
+    },
+    {
+      name: "public_display_enabled",
+      optional: true,
+      schema: { type: "boolean" },
+    },
     { name: "selected_use", optional: true },
   ],
   "API-VOT-002": [{ name: "option_id" }],
@@ -777,6 +830,75 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-CRS-001": [
+    {
+      name: "recommendations",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "recommended_course_id",
+            "template_code",
+            "name",
+            "grade",
+            "course_size",
+            "version",
+            "data_version",
+            "published_at",
+            "difficulty_profile",
+            "learning_focus",
+            "recommendation_reason",
+            "modules",
+          ],
+          properties: {
+            recommended_course_id: { type: "string", format: "uuid" },
+            template_code: { type: "string" },
+            name: { type: "string" },
+            grade: { type: "integer", enum: [4, 5, 6] },
+            course_size: {
+              type: "string",
+              enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"],
+            },
+            version: { type: "integer", minimum: 1 },
+            data_version: { type: "string" },
+            published_at: { type: "string", format: "date-time" },
+            difficulty_profile: { type: "object", additionalProperties: true },
+            learning_focus: { type: "string" },
+            recommendation_reason: { type: "string" },
+            modules: {
+              type: "array",
+              items: {
+                type: "object",
+                required: [
+                  "module_code",
+                  "label",
+                  "recommendation_level",
+                  "prerequisites",
+                ],
+                properties: {
+                  module_code: { type: "string" },
+                  label: { type: "string" },
+                  recommendation_level: {
+                    type: "string",
+                    enum: ["FOUNDATION", "CORE", "OPTIONAL"],
+                  },
+                  prerequisites: {
+                    type: "array",
+                    uniqueItems: true,
+                    items: { type: "string" },
+                  },
+                  exclusion_impact: { type: ["string", "null"] },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
   "API-AUTH-001": [
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
     { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
@@ -823,6 +945,20 @@ const responseFieldOverrides = {
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "student_count", schema: { type: "integer", minimum: 0 } },
     { name: "salary_role_count", schema: { type: "integer", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-CLS-007": [
+    { name: "mode", schema: { type: "string", enum: ["CLOSED", "AUTONOMOUS"] } },
+    { name: "source", schema: { type: "string", enum: ["MANUAL"] } },
+    {
+      name: "expires_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "module_codes",
+      schema: { type: "array", items: { type: "string" }, uniqueItems: true },
+    },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
   "API-ACT-001": [
@@ -933,7 +1069,104 @@ const responseFieldOverrides = {
     { name: "summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
     { name: "leaderboard", optional: true, schema: projectionItems({ rank: { type: "integer", minimum: 1, maximum: 3 }, nickname: { type: "string" }, character_code: { type: ["string", "null"] } }) },
   ],
-  "API-READ-023": [{ name: "options", schema: projectionItems({ count: { type: "integer", minimum: 0 } }) }],
+  "API-VOT-001": [
+    { name: "vote_id", schema: { type: "string", format: "uuid" } },
+    {
+      name: "status",
+      schema: {
+        type: "string",
+        enum: ["READY", "OPEN", "CLOSED", "RESULT_PUBLISHED"],
+      },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
+    {
+      name: "selected_option_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+    {
+      name: "transaction_group_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+  ],
+  "API-VOT-002": [
+    { name: "receipt_hash", schema: { type: "string" } },
+    { name: "cast_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-READ-023": [
+    { name: "vote_id", schema: { type: "string", format: "uuid" } },
+    { name: "title", schema: { type: "string" } },
+    { name: "description", optional: true, schema: { type: ["string", "null"] } },
+    { name: "anonymous", schema: { type: "boolean", const: true } },
+    {
+      name: "status",
+      schema: {
+        type: "string",
+        enum: ["READY", "OPEN", "CLOSED", "RESULT_PUBLISHED"],
+      },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
+    { name: "opens_at", optional: true, schema: { type: ["string", "null"], format: "date-time" } },
+    { name: "closes_at", optional: true, schema: { type: ["string", "null"], format: "date-time" } },
+    { name: "public_fund_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "participant_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "ballot_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "eligible", optional: true, schema: { type: ["boolean", "null"] } },
+    { name: "has_voted", optional: true, schema: { type: ["boolean", "null"] } },
+    { name: "selected_option_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "selected_use", optional: true, schema: { type: ["string", "null"] } },
+    { name: "transaction_group_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    {
+      name: "options",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["option_id", "label", "budget_amount"],
+          properties: {
+            option_id: { type: "string", format: "uuid" },
+            label: { type: "string" },
+            description: { type: ["string", "null"] },
+            budget_amount: { type: "integer", format: "int64", minimum: 0 },
+            vote_count: { type: ["integer", "null"], format: "int64", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-READ-028": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    {
+      name: "period",
+      schema: {
+        type: "object",
+        required: ["from", "to"],
+        properties: {
+          from: { type: "string", format: "date-time" },
+          to: { type: "string", format: "date-time" },
+        },
+        additionalProperties: false,
+      },
+    },
+    { name: "total_currency_amount", schema: { type: "integer", format: "int64" } },
+    { name: "wallet_balance_amount", schema: { type: "integer", format: "int64" } },
+    { name: "average_wallet_balance", schema: { type: "integer", format: "int64" } },
+    { name: "spending_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "savings_principal_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "public_fund_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "active_student_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "quiz_participant_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "quiz_submission_count", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "generated_at", schema: { type: "string", format: "date-time" } },
+  ],
   "API-READ-024": [
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
@@ -944,6 +1177,38 @@ const responseFieldOverrides = {
     { name: "scene", schema: { type: "string" } },
     { name: "timer", optional: true, schema: { type: "object", required: ["server_time", "ends_at"], properties: { server_time: { type: "string", format: "date-time" }, ends_at: { type: "string", format: "date-time" } }, additionalProperties: false } },
     { name: "public_data", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean", "array", "object", "null"] } } },
+  ],
+  "API-READ-029": [
+    {
+      name: "items",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "audit_event_id",
+            "actor_type",
+            "action",
+            "target_type",
+            "occurred_at",
+          ],
+          properties: {
+            audit_event_id: { type: "string", format: "uuid" },
+            actor_type: { type: "string" },
+            actor_id: { type: ["string", "null"], format: "uuid" },
+            action: { type: "string" },
+            target_type: { type: "string" },
+            target_id: { type: ["string", "null"], format: "uuid" },
+            request_id: { type: ["string", "null"] },
+            correlation_id: { type: ["string", "null"] },
+            before_summary: { type: ["object", "null"], additionalProperties: true },
+            after_summary: { type: ["object", "null"], additionalProperties: true },
+            occurred_at: { type: "string", format: "date-time" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
   ],
   "API-READ-030": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
@@ -981,11 +1246,12 @@ function responseFields(operation) {
 
 const storageByDomain = {
   AUTH: ["classrooms", "classroom_students", "student_credentials", "student_sessions"],
+  CRS: ["course_templates", "course_template_versions", "course_template_modules"],
   CLS: ["classrooms", "classroom_teachers", "classroom_students", "salary_roles", "classroom_modules", "autonomous_schedules", "autonomous_schedule_modules"],
   MOD: ["classroom_modules", "state_transitions"],
   POL: ["classroom_policy_versions", "policy_snapshots"],
-  ACT: ["activity_sessions", "activity_participants", "realtime_streams", "outbox_events"],
-  DSP: ["activity_sessions", "redis.display-session"],
+  ACT: ["activity_sessions", "activity_participants", "realtime_streams", "outbox_events", "audit_events"],
+  DSP: ["activity_sessions", "redis.display-session", "realtime_streams", "outbox_events", "audit_events"],
   TXN: ["transaction_groups", "ledger_entries", "ledger_accounts", "policy_snapshots"],
   SHP: ["store_products", "store_product_versions", "store_stocks", "store_orders", "store_order_items"],
   ITM: ["inventory_items"],
@@ -1018,19 +1284,80 @@ const storageByReadApi = {
   "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
   "API-READ-021": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
   "API-READ-022": ["quiz_result_versions", "quiz_student_results", "view.public_quiz_leaderboard"],
-  "API-READ-023": ["view.public_vote_aggregates"],
+  "API-READ-023": [
+    "votes",
+    "vote_options",
+    "vote_eligibilities",
+    "vote_ballots",
+    "ledger_accounts",
+    "transaction_groups",
+    "transaction_business_refs",
+  ],
   "API-READ-024": ["activity_sessions", "activity_participants"],
-  "API-READ-025": ["view.public_quiz_leaderboard", "view.public_vote_aggregates", "view.public_fund_summary", "view.public_investment_market"],
+  "API-READ-025": ["activity_sessions", "activity_participants", "redis.display-session", "realtime_streams", "outbox_events"],
+  "API-READ-028": [
+    "classroom_students",
+    "ledger_accounts",
+    "ledger_entries",
+    "transaction_groups",
+    "deposit_accounts",
+    "savings_accounts",
+    "quiz_sessions",
+    "quiz_submissions",
+  ],
+  "API-READ-029": ["audit_events"],
   "API-READ-030": ["async_operations"],
 };
 
 function storageTargets(operation) {
+  if (operation.apiId === "API-AUTH-001") {
+    return [
+      "classrooms",
+      "classroom_students",
+      "student_credentials",
+      "device_links",
+      "student_sessions",
+    ];
+  }
   if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
   if (operation.apiId === "API-AUTH-003") return ["redis.password-reset", "student_credentials", "student_sessions"];
   if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];
   if (operation.apiId === "API-AUTH-005") return ["external_idp.refresh-session", "student_sessions"];
   if (operation.apiId === "API-AUTH-007") return ["redis.realtime-ticket"];
-  if (operation.apiId === "API-DSP-001") return ["activity_sessions", "redis.display-session"];
+  if (operation.apiId === "API-DSP-001") {
+    return [
+      "activity_sessions",
+      "redis.display-session",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
+  if (operation.apiId === "API-CLS-007") {
+    return [
+      "classrooms",
+      "classroom_policy_versions",
+      "classroom_modules",
+      "autonomous_schedules",
+      "autonomous_schedule_modules",
+      "activity_sessions",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
+  if (operation.apiId === "API-TRD-004") {
+    return [
+      "trades",
+      "trade_money_legs",
+      "trade_item_legs",
+      "trade_decisions",
+      "transaction_groups",
+      "realtime_streams",
+      "outbox_events",
+      "audit_events",
+    ];
+  }
   if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
   if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
   if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];
@@ -1134,6 +1461,7 @@ function tagForApi(apiId) {
   const domain = apiId.split("-")[1];
   const tags = {
     AUTH: "Authentication",
+    CRS: "Course recommendations",
     CLS: "Classrooms",
     MOD: "Modules",
     POL: "Policies",
@@ -1192,6 +1520,43 @@ function parameterRefs(operation) {
   if (operation.method !== "GET") {
     parameters.push({ $ref: "#/components/parameters/IdempotencyKey" });
   }
+  if (operation.apiId === "API-CRS-001") {
+    parameters.push(
+      {
+        name: "grade",
+        in: "query",
+        required: false,
+        schema: { type: "integer", enum: [4, 5, 6] },
+        description: "course_size와 함께 지정하거나 둘 다 생략합니다.",
+      },
+      {
+        name: "course_size",
+        in: "query",
+        required: false,
+        schema: {
+          type: "string",
+          enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"],
+        },
+        description: "grade와 함께 지정하거나 둘 다 생략합니다.",
+      },
+    );
+  }
+  if (operation.apiId === "API-READ-028") {
+    parameters.push(
+      {
+        name: "from",
+        in: "query",
+        required: true,
+        schema: { type: "string", format: "date-time" },
+      },
+      {
+        name: "to",
+        in: "query",
+        required: true,
+        schema: { type: "string", format: "date-time" },
+      },
+    );
+  }
 
   const pagedQueries = new Set([
     "API-READ-008",
@@ -1203,7 +1568,6 @@ function parameterRefs(operation) {
     "API-READ-019",
     "API-READ-020",
     "API-READ-027",
-    "API-READ-028",
     "API-READ-029",
     "API-READ-031",
     "API-READ-032",
@@ -1325,7 +1689,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 106개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -2048,9 +2412,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 106, `HTTP 작업 수가 106이 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 106, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 106, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 107, `HTTP 작업 수가 107이 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 107, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 107, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -2067,8 +2431,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 106,
-      "OpenAPI 작업 수가 106이 아닙니다.",
+      ) === 107,
+      "OpenAPI 작업 수가 107이 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

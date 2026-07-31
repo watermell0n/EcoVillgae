@@ -4,7 +4,7 @@ info:
   title: "이코빌리지 Core HTTP API"
   version: "0.1.0"
   summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API"
-  description: "HTTP_API_SPEC.md의 106개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
+  description: "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
   license:
     name: "Proprietary"
     identifier: "LicenseRef-Proprietary"
@@ -16,6 +16,8 @@ servers:
 tags:
   - name: "Authentication"
     description: "Authentication 영역의 HTTP 작업"
+  - name: "Course recommendations"
+    description: "Course recommendations 영역의 HTTP 작업"
   - name: "Classrooms"
     description: "Classrooms 영역의 HTTP 작업"
   - name: "Modules"
@@ -63,6 +65,7 @@ paths:
         - "classrooms"
         - "classroom_students"
         - "student_credentials"
+        - "device_links"
         - "student_sessions"
       x-ui-action-ids:
         - "UIA-AUTH-001"
@@ -685,6 +688,179 @@ paths:
               required:
                 - "channel_ids"
               additionalProperties: false
+  "/course-recommendations?grade={4..6}&course_size={label}":
+    get:
+      operationId: "apiCrs001"
+      x-api-id: "API-CRS-001"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "course_templates"
+        - "course_template_versions"
+        - "course_template_modules"
+      x-roles:
+        - "인증 교사"
+      x-permission-ids:
+        - "PM-CLS-005"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "CRS-003"
+        - "CRS-004"
+        - "CRS-005"
+      tags:
+        - "Course recommendations"
+      summary: "학년, 규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전, 난이도, 학습 중점, 핵심/선택/기반 모듈, 선수개념, 제외 영향"
+      description: "사람이 검토하는 원문 기준: `API-CRS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 교사.\n\n핵심 계약: 학년, 규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전, 난이도, 학습 중점, 핵심/선택/기반 모듈, 선수개념, 제외 영향."
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/4..6Path"
+        - $ref: "#/components/parameters/LabelPath"
+        - name: "grade"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            enum:
+              - 4
+              - 5
+              - 6
+          description: "course_size와 함께 지정하거나 둘 다 생략합니다."
+        - name: "course_size"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            enum:
+              - "ONE_SESSION"
+              - "ONE_WEEK"
+              - "ONE_MONTH"
+              - "SEMESTER"
+          description: "grade와 함께 지정하거나 둘 다 생략합니다."
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "recommendations"
+                    properties:
+                      recommendations:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "recommended_course_id"
+                            - "template_code"
+                            - "name"
+                            - "grade"
+                            - "course_size"
+                            - "version"
+                            - "data_version"
+                            - "published_at"
+                            - "difficulty_profile"
+                            - "learning_focus"
+                            - "recommendation_reason"
+                            - "modules"
+                          properties:
+                            recommended_course_id:
+                              type: "string"
+                              format: "uuid"
+                            template_code:
+                              type: "string"
+                            name:
+                              type: "string"
+                            grade:
+                              type: "integer"
+                              enum:
+                                - 4
+                                - 5
+                                - 6
+                            course_size:
+                              type: "string"
+                              enum:
+                                - "ONE_SESSION"
+                                - "ONE_WEEK"
+                                - "ONE_MONTH"
+                                - "SEMESTER"
+                            version:
+                              type: "integer"
+                              minimum: 1
+                            data_version:
+                              type: "string"
+                            published_at:
+                              type: "string"
+                              format: "date-time"
+                            difficulty_profile:
+                              type: "object"
+                              additionalProperties: true
+                            learning_focus:
+                              type: "string"
+                            recommendation_reason:
+                              type: "string"
+                            modules:
+                              type: "array"
+                              items:
+                                type: "object"
+                                required:
+                                  - "module_code"
+                                  - "label"
+                                  - "recommendation_level"
+                                  - "prerequisites"
+                                properties:
+                                  module_code:
+                                    type: "string"
+                                  label:
+                                    type: "string"
+                                  recommendation_level:
+                                    type: "string"
+                                    enum:
+                                      - "FOUNDATION"
+                                      - "CORE"
+                                      - "OPTIONAL"
+                                  prerequisites:
+                                    type: "array"
+                                    uniqueItems: true
+                                    items:
+                                      type: "string"
+                                  exclusion_impact:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                additionalProperties: false
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
   /classrooms:
     post:
       operationId: "apiCls001"
@@ -1589,16 +1765,18 @@ paths:
     post:
       operationId: "apiCls007"
       x-api-id: "API-CLS-007"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "classrooms"
-        - "classroom_teachers"
-        - "classroom_students"
-        - "salary_roles"
+        - "classroom_policy_versions"
         - "classroom_modules"
         - "autonomous_schedules"
         - "autonomous_schedule_modules"
+        - "activity_sessions"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-CLS-007"
       x-roles:
@@ -1626,7 +1804,50 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "mode"
+                      - "source"
+                      - "module_codes"
+                      - "state_version"
+                    properties:
+                      mode:
+                        type: "string"
+                        enum:
+                          - "CLOSED"
+                          - "AUTONOMOUS"
+                      source:
+                        type: "string"
+                        enum:
+                          - "MANUAL"
+                      expires_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      module_codes:
+                        type: "array"
+                        items:
+                          type: "string"
+                        uniqueItems: true
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -1651,7 +1872,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-CLS-007는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-CLS-007 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -1674,10 +1895,11 @@ paths:
                     - "EXTEND"
                 duration_minutes:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
+                  maximum: 480
               required:
                 - "command"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/closure-operations":
     post:
       operationId: "apiCls008"
@@ -2209,6 +2431,7 @@ paths:
         - "activity_participants"
         - "realtime_streams"
         - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-ACT-001"
       x-roles:
@@ -2331,6 +2554,7 @@ paths:
         - "activity_participants"
         - "realtime_streams"
         - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-ACT-002"
       x-roles:
@@ -2447,6 +2671,9 @@ paths:
       x-storage-targets:
         - "activity_sessions"
         - "redis.display-session"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-DSP-001"
       x-roles:
@@ -2579,8 +2806,8 @@ paths:
         - "ECO-004"
       tags:
         - "Ledger"
-      summary: "지급 유형, 대상 학생, 정책 기준액, 사유 → 원장 거래 그룹, 명세서"
-      description: "사람이 검토하는 원문 기준: `API-TXN-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 지급 유형, 대상 학생, 정책 기준액, 사유 → 원장 거래 그룹, 명세서."
+      summary: "지급 유형, 대상 학생, 급여 회차 키(period_key), 정책 기준액, 사유 → 원장 거래 그룹, 명세서"
+      description: "사람이 검토하는 원문 기준: `API-TXN-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 지급 유형, 대상 학생, 급여 회차 키(period_key), 정책 기준액, 사유 → 원장 거래 그룹, 명세서."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -4232,6 +4459,9 @@ paths:
         - "trade_item_legs"
         - "trade_decisions"
         - "transaction_groups"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
       x-ui-action-ids:
         - "UIA-TRD-004"
       x-roles:
@@ -6812,8 +7042,8 @@ paths:
         - "ECO-008"
       tags:
         - "Vote"
-      summary: "command=CLOSE|CONFIRM_RESULT, selected_use? → 익명 집계, 활동 완료"
-      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CLOSE|CONFIRM_RESULT, selected_use? → 익명 집계, 활동 완료."
+      summary: "command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행"
+      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -6838,16 +7068,32 @@ paths:
                     required:
                       - "vote_id"
                       - "status"
+                      - "state_version"
                     properties:
                       vote_id:
                         type: "string"
                         format: "uuid"
                       status:
                         type: "string"
+                        enum:
+                          - "READY"
+                          - "OPEN"
+                          - "CLOSED"
+                          - "RESULT_PUBLISHED"
                       state_version:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      selected_option_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      transaction_group_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -6894,8 +7140,47 @@ paths:
                 command:
                   type: "string"
                   enum:
+                    - "CREATE"
+                    - "OPEN"
                     - "CLOSE"
                     - "CONFIRM_RESULT"
+                title:
+                  type: "string"
+                description:
+                  type: "string"
+                options:
+                  type: "array"
+                  minItems: 2
+                  maxItems: 10
+                  items:
+                    type: "object"
+                    required:
+                      - "label"
+                      - "budget_amount"
+                    properties:
+                      label:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 160
+                      description:
+                        type:
+                          - "string"
+                          - "null"
+                        maxLength: 2000
+                      budget_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                participant_ids:
+                  type: "array"
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: "string"
+                    format: "uuid"
+                public_display_enabled:
+                  type: "boolean"
                 selected_use:
                   type: "string"
               required:
@@ -10089,7 +10374,13 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "view.public_vote_aggregates"
+        - "votes"
+        - "vote_options"
+        - "vote_eligibilities"
+        - "vote_ballots"
+        - "ledger_accounts"
+        - "transaction_groups"
+        - "transaction_business_refs"
       x-roles:
         - "STU"
         - "OWN"
@@ -10102,8 +10393,8 @@ paths:
         - "ECO-008"
       tags:
         - "Queries"
-      summary: "참여 여부, 선택지, 익명 집계, 기금 사용 결과"
-      description: "사람이 검토하는 원문 기준: `API-READ-023` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 참여 여부, 선택지, 익명 집계, 기금 사용 결과."
+      summary: "참여 여부, 예산 선택지, 익명 집계, 현재 공동기금, 확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김"
+      description: "사람이 검토하는 원문 기준: `API-READ-023` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 참여 여부, 예산 선택지, 익명 집계, 현재 공동기금, 확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -10125,29 +10416,110 @@ paths:
                   data:
                     type: "object"
                     required:
+                      - "vote_id"
+                      - "title"
+                      - "anonymous"
+                      - "status"
+                      - "state_version"
+                      - "public_fund_balance"
+                      - "participant_count"
+                      - "ballot_count"
                       - "options"
                     properties:
+                      vote_id:
+                        type: "string"
+                        format: "uuid"
+                      title:
+                        type: "string"
+                      description:
+                        type:
+                          - "string"
+                          - "null"
+                      anonymous:
+                        type: "boolean"
+                        const: true
+                      status:
+                        type: "string"
+                        enum:
+                          - "READY"
+                          - "OPEN"
+                          - "CLOSED"
+                          - "RESULT_PUBLISHED"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      opens_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      closes_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      public_fund_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      participant_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      ballot_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      eligible:
+                        type:
+                          - "boolean"
+                          - "null"
+                      has_voted:
+                        type:
+                          - "boolean"
+                          - "null"
+                      selected_option_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      selected_use:
+                        type:
+                          - "string"
+                          - "null"
+                      transaction_group_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
                       options:
                         type: "array"
                         items:
                           type: "object"
+                          required:
+                            - "option_id"
+                            - "label"
+                            - "budget_amount"
                           properties:
-                            resource_id:
+                            option_id:
                               type: "string"
                               format: "uuid"
                             label:
                               type: "string"
-                            status:
-                              type: "string"
-                            version:
-                              type: "integer"
-                              minimum: 0
-                            state_version:
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            budget_amount:
                               type: "integer"
                               format: "int64"
                               minimum: 0
-                            count:
-                              type: "integer"
+                            vote_count:
+                              type:
+                                - "integer"
+                                - "null"
+                              format: "int64"
                               minimum: 0
                           additionalProperties: false
                     additionalProperties: false
@@ -10257,10 +10629,11 @@ paths:
       x-implementation-status: "mvp-contract"
       x-schema-closure: "strict"
       x-storage-targets:
-        - "view.public_quiz_leaderboard"
-        - "view.public_vote_aggregates"
-        - "view.public_fund_summary"
-        - "view.public_investment_market"
+        - "activity_sessions"
+        - "activity_participants"
+        - "redis.display-session"
+        - "realtime_streams"
+        - "outbox_events"
       x-roles:
         - "DSP"
       x-permission-ids: []
@@ -10451,40 +10824,137 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
-  "/classrooms/{classroom_id}/reports":
+  "/classrooms/{classroom_id}/reports?from={instant}&to={instant}":
     get:
       operationId: "apiRead028"
       x-api-id: "API-READ-028"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "service_projection"
+        - "classroom_students"
+        - "ledger_accounts"
+        - "ledger_entries"
+        - "transaction_groups"
+        - "deposit_accounts"
+        - "savings_accounts"
+        - "quiz_sessions"
+        - "quiz_submissions"
       x-roles:
-        - "STU"
         - "OWN"
         - "COT"
       x-permission-ids: []
       x-state-machine-ids: []
       x-rtm-ids:
-        - "STU-024"
         - "WEB-024"
         - "DAT-001"
         - "DAT-003"
       tags:
         - "Queries"
-      summary: "학생은 본인, 교사는 개인, 학급, 최종 스냅샷"
-      description: "사람이 검토하는 원문 기준: `API-READ-028` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 본인, 교사는 개인, 학급, 최종 스냅샷."
+      summary: "기간 내 학급 화폐, 지갑, 소비, 예적금 원금, 공동기금, 활성 학생, 퀴즈 참여 집계. 개인 식별자, 닉네임, 개인 잔액은 반환하지 않음"
+      description: "사람이 검토하는 원문 기준: `API-READ-028` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 기간 내 학급 화폐, 지갑, 소비, 예적금 원금, 공동기금, 활성 학생, 퀴즈 참여 집계. 개인 식별자, 닉네임, 개인 잔액은 반환하지 않음."
       security:
         - bearerAuth: []
         - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/InstantPath"
+        - $ref: "#/components/parameters/InstantPath"
+        - name: "from"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "to"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            format: "date-time"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "classroom_id"
+                      - "period"
+                      - "total_currency_amount"
+                      - "wallet_balance_amount"
+                      - "average_wallet_balance"
+                      - "spending_amount"
+                      - "savings_principal_amount"
+                      - "public_fund_balance"
+                      - "active_student_count"
+                      - "quiz_participant_count"
+                      - "quiz_submission_count"
+                      - "generated_at"
+                    properties:
+                      classroom_id:
+                        type: "string"
+                        format: "uuid"
+                      period:
+                        type: "object"
+                        required:
+                          - "from"
+                          - "to"
+                        properties:
+                          from:
+                            type: "string"
+                            format: "date-time"
+                          to:
+                            type: "string"
+                            format: "date-time"
+                        additionalProperties: false
+                      total_currency_amount:
+                        type: "integer"
+                        format: "int64"
+                      wallet_balance_amount:
+                        type: "integer"
+                        format: "int64"
+                      average_wallet_balance:
+                        type: "integer"
+                        format: "int64"
+                      spending_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      savings_principal_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      public_fund_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      active_student_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      quiz_participant_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      quiz_submission_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      generated_at:
+                        type: "string"
+                        format: "date-time"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10507,10 +10977,10 @@ paths:
     get:
       operationId: "apiRead029"
       x-api-id: "API-READ-029"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "service_projection"
+        - "audit_events"
       x-roles:
         - "OWN"
         - "COT"
@@ -10536,7 +11006,76 @@ paths:
         - $ref: "#/components/parameters/Limit"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "items"
+                    properties:
+                      items:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "audit_event_id"
+                            - "actor_type"
+                            - "action"
+                            - "target_type"
+                            - "occurred_at"
+                          properties:
+                            audit_event_id:
+                              type: "string"
+                              format: "uuid"
+                            actor_type:
+                              type: "string"
+                            actor_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            action:
+                              type: "string"
+                            target_type:
+                              type: "string"
+                            target_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            request_id:
+                              type:
+                                - "string"
+                                - "null"
+                            correlation_id:
+                              type:
+                                - "string"
+                                - "null"
+                            before_summary:
+                              type:
+                                - "object"
+                                - "null"
+                              additionalProperties: true
+                            after_summary:
+                              type:
+                                - "object"
+                                - "null"
+                              additionalProperties: true
+                            occurred_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10854,6 +11393,22 @@ components:
       schema:
         type: "string"
         format: "uuid"
+    4..6Path:
+      name: "4..6"
+      in: "path"
+      required: true
+      description: "4..6 식별자"
+      schema:
+        type: "string"
+        format: "uuid"
+    LabelPath:
+      name: "label"
+      in: "path"
+      required: true
+      description: "label 식별자"
+      schema:
+        type: "string"
+        format: "uuid"
     ModuleCodePath:
       name: "module_code"
       in: "path"
@@ -10898,6 +11453,14 @@ components:
       in: "path"
       required: true
       description: "display_session_id 식별자"
+      schema:
+        type: "string"
+        format: "uuid"
+    InstantPath:
+      name: "instant"
+      in: "path"
+      required: true
+      description: "instant 식별자"
       schema:
         type: "string"
         format: "uuid"

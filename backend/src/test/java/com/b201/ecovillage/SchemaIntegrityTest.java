@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -16,35 +18,109 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-@Testcontainers(disabledWithoutDocker = true)
 class SchemaIntegrityTest {
 
-    @Container
-    static final PostgreSQLContainer POSTGRES =
-        new PostgreSQLContainer("postgres:17-alpine")
-            .withDatabaseName("ecovillage")
-            .withUsername("ecovillage")
-            .withPassword("ecovillage");
+    static PostgreSQLContainer postgres;
+    static Flyway flyway;
+    static String jdbcUrl;
+    static String databaseUsername;
+    static String databasePassword;
 
     @BeforeAll
     static void migrate() {
-        Flyway.configure()
-            .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+        configureDatabase();
+        flyway = Flyway.configure()
+            .dataSource(jdbcUrl, databaseUsername, databasePassword)
             .locations("classpath:db/migration")
-            .load()
-            .migrate();
+            .cleanDisabled(false)
+            .load();
+        flyway.migrate();
+    }
+
+    @AfterAll
+    static void stopContainer() {
+        if (postgres != null) {
+            postgres.stop();
+        }
+    }
+
+    private static void configureDatabase() {
+        String externalJdbcUrl = System.getenv("TEST_POSTGRES_JDBC_URL");
+        if (externalJdbcUrl != null && !externalJdbcUrl.isBlank()) {
+            requireSafeExternalDatabase(externalJdbcUrl);
+            jdbcUrl = externalJdbcUrl;
+            databaseUsername = requiredEnvironment("TEST_POSTGRES_USERNAME");
+            databasePassword = requiredEnvironment("TEST_POSTGRES_PASSWORD");
+            return;
+        }
+
+        assumeTrue(
+            DockerClientFactory.instance().isDockerAvailable(),
+            "Docker or a guarded external PostgreSQL test database is required."
+        );
+        postgres = new PostgreSQLContainer("postgres:17-alpine")
+            .withDatabaseName("ecovillage")
+            .withUsername("ecovillage")
+            .withPassword("ecovillage");
+        postgres.start();
+        jdbcUrl = postgres.getJdbcUrl();
+        databaseUsername = postgres.getUsername();
+        databasePassword = postgres.getPassword();
+    }
+
+    private static void requireSafeExternalDatabase(String externalJdbcUrl) {
+        if (!"true".equalsIgnoreCase(System.getenv("ALLOW_EXTERNAL_DB_CLEAN"))) {
+            throw new IllegalStateException(
+                "ALLOW_EXTERNAL_DB_CLEAN=true is required for the external DB test."
+            );
+        }
+        if (!externalJdbcUrl.startsWith("jdbc:postgresql://")) {
+            throw new IllegalStateException("Only a PostgreSQL JDBC URL is allowed.");
+        }
+        URI uri = URI.create(externalJdbcUrl.substring("jdbc:".length()));
+        String databaseName = uri.getPath() == null
+            ? ""
+            : uri.getPath().replaceFirst("^/", "");
+        boolean localHost = "localhost".equalsIgnoreCase(uri.getHost())
+            || "127.0.0.1".equals(uri.getHost());
+        if (!localHost || !"ecovillage_migration_test".equals(databaseName)) {
+            throw new IllegalStateException(
+                "External DB tests may clean only local ecovillage_migration_test."
+            );
+        }
+    }
+
+    private static String requiredEnvironment(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(name + " is required.");
+        }
+        return value;
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_11 creates all 85 physical tables")
+    @DisplayName("DBT-000: Flyway V1_1~V1_13 creates all 85 physical tables")
     void allMigrationsCreateEightyFiveTables() throws SQLException {
+        assertEquals(85, physicalTableCount());
+    }
+
+    @Test
+    @DisplayName("DBT-020: an isolated database can be cleaned and recreated from all migrations")
+    void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
+        flyway.clean();
+        assertEquals(0, physicalTableCount());
+        assertEquals(13, flyway.migrate().migrationsExecuted);
+        assertEquals(85, physicalTableCount());
+    }
+
+    private static int physicalTableCount() throws SQLException {
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement("""
                  SELECT count(*)
@@ -55,7 +131,7 @@ class SchemaIntegrityTest {
                  """);
              ResultSet result = statement.executeQuery()) {
             assertTrue(result.next());
-            assertEquals(85, result.getInt(1));
+            return result.getInt(1);
         }
     }
 
@@ -608,7 +684,7 @@ class SchemaIntegrityTest {
 
     private static Connection connection() throws SQLException {
         return DriverManager.getConnection(
-            POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+            jdbcUrl, databaseUsername, databasePassword);
     }
 
     private static Seed seed(boolean withStudent) throws SQLException {

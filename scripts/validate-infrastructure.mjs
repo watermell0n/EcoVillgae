@@ -34,6 +34,38 @@ requirePattern(
   /otel\/opentelemetry-collector:0\.157\.0/,
   "compose: pinned OpenTelemetry Collector image missing",
 );
+requirePattern(
+  compose,
+  /AUTH_JWT_SECRET:\s*\$\{AUTH_JWT_SECRET:/,
+  "compose: backend JWT secret is not wired from the environment",
+);
+requirePattern(
+  compose,
+  /AUTH_TOKEN_PEPPER:\s*\$\{AUTH_TOKEN_PEPPER:/,
+  "compose: backend token pepper is not wired from the environment",
+);
+
+if (existsSync(resolve(root, "backend/src/main/java/com/b201/ecovillage/EcoVillageApplication.java"))) {
+  requirePattern(compose, /^\s{2}backend:\s*$/m, "compose: backend service missing");
+  requirePattern(compose, /dockerfile:\s+backend\/Dockerfile/, "compose: backend Dockerfile missing");
+
+  const buildGradle = read("backend/build.gradle");
+  requirePattern(
+    buildGradle,
+    /spring-boot-starter-flyway/,
+    "backend dependencies: Spring Boot Flyway starter missing",
+  );
+  requirePattern(
+    buildGradle,
+    /flyway-database-postgresql/,
+    "backend dependencies: PostgreSQL Flyway module missing",
+  );
+
+  const dockerfile = read("backend/Dockerfile");
+  requirePattern(dockerfile, /eclipse-temurin:21-jdk/, "backend image: Java 21 build image missing");
+  requirePattern(dockerfile, /eclipse-temurin:21-jre/, "backend image: Java 21 runtime image missing");
+  requirePattern(dockerfile, /USER spring:spring/, "backend image: non-root runtime user missing");
+}
 
 const env = read(".env.example");
 for (const key of [
@@ -42,6 +74,8 @@ for (const key of [
   "POSTGRES_PASSWORD",
   "POSTGRES_HOST",
   "REDIS_HOST",
+  "AUTH_JWT_SECRET",
+  "AUTH_TOKEN_PEPPER",
   "AWS_REGION",
   "OTEL_GRPC_PORT",
   "OTEL_HTTP_PORT",
@@ -51,6 +85,16 @@ for (const key of [
 }
 
 const jenkins = read("Jenkinsfile");
+requirePattern(
+  jenkins,
+  /name:\s*'REQUIRE_DB_TESTS'[\s\S]*?defaultValue:\s*true/,
+  "Jenkinsfile: PostgreSQL Testcontainers guard must be enabled by default",
+);
+requirePattern(
+  jenkins,
+  /grep -q '<testcase' "\$report"/,
+  "Jenkinsfile: PostgreSQL Testcontainers report must contain test cases",
+);
 for (const stage of [
   "Toolchain",
   "Contracts and Schema",
