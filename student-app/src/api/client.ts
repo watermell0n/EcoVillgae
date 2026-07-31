@@ -32,6 +32,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const SESSION_KEY = "ecovillage.student.session";
 
 function joinUrl(path: string) {
   return `${API_BASE_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
@@ -47,6 +48,18 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   if (!headers.has("Idempotency-Key") && init.method && init.method !== "GET") {
     headers.set("Idempotency-Key", crypto.randomUUID());
+  }
+
+  const savedSession = localStorage.getItem(SESSION_KEY);
+  if (savedSession && !headers.has("Authorization")) {
+    try {
+      const session = JSON.parse(savedSession) as { accessToken?: string };
+      if (session.accessToken && !session.accessToken.startsWith("mock-")) {
+        headers.set("Authorization", `Bearer ${session.accessToken}`);
+      }
+    } catch {
+      localStorage.removeItem(SESSION_KEY);
+    }
   }
 
   const response = await fetch(joinUrl(path), {
