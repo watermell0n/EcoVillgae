@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: ecovillage-api
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:ecovillage}
+    username: ${POSTGRES_USER:ecovillage}
+    password: ${POSTGRES_PASSWORD:ecovillage_dev}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: true
+
+server:
+  port: ${BACKEND_PORT:8080}
+
+ecovillage:
+  auth:
+    issuer: ecovillage-api
+    access-token-ttl: ${AUTH_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${AUTH_REFRESH_TOKEN_TTL:14d}
+    jwt-secret: ${AUTH_JWT_SECRET:local-development-jwt-secret-change-before-deploy}
+    token-pepper: ${AUTH_TOKEN_PEPPER:local-development-token-pepper-change-before-deploy}
+    login-attempt-limit: ${AUTH_LOGIN_ATTEMPT_LIMIT:20}
+    login-attempt-window: ${AUTH_LOGIN_ATTEMPT_WINDOW:1m}
+    refresh-cookie-name: ${AUTH_REFRESH_COOKIE_NAME:ecovillage_teacher_refresh}
+    refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+  teacher-oidc:
+    enabled: ${TEACHER_OIDC_ENABLED:false}
+    issuer: ${TEACHER_OIDC_ISSUER:}
+    jwk-set-uri: ${TEACHER_OIDC_JWK_SET_URI:}
+    client-id: ${TEACHER_OIDC_CLIENT_ID:}
+    name-claim: ${TEACHER_OIDC_NAME_CLAIM:name}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

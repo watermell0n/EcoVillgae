@@ -37,6 +37,7 @@
 - 학생은 학교에서 지급한 개인 태블릿을 사용합니다.
 - 개인 잔액, 금융상품, 세금과 평가 결과는 다른 학생이나 공용 화면에 공개하지 않습니다.
 - 교사용 앱과 관리 웹은 같은 API와 권한 정책을 사용합니다.
+- 교사는 학교 계정 OIDC로 로그인하며 백엔드는 서명·발급자·대상·만료와 사전 등록 계정을 검증합니다. 외부 계정 비밀번호는 이코빌리지에 입력하거나 저장하지 않습니다.
 - 경제교실에는 학급 소유 교사 1명과 공동 담당 교사 0명 이상을 둘 수 있습니다.
 - 소유 교사는 학급 구조·경제정책·모듈·종료를, 공동 담당 교사는 수업·승인·일상 운영을 담당합니다.
 
@@ -68,6 +69,7 @@
 ### 5.1 공통 기반
 
 - 학급 코드·출석번호·닉네임·비밀번호 기반 로그인
+- 교사용 학교 계정 OIDC 로그인과 앱·웹 다중 세션
 - 서버 생성 전역 유일 학급 코드와 개설 후 변경할 수 없는 학급 화폐 단위명
 - 로그인 실패 횟수로 학생 계정을 잠그지 않으며, 비밀번호 재설정은 기존 이코빌리지 본인 확인 절차를 재사용
 - 경제교실과 역할·권한
@@ -207,11 +209,17 @@ docs/                 제품·API·데이터·UX·AI·디자인 문서
 scripts/              문서·계약·스키마 정적 검사
 ```
 
-로컬 PostgreSQL 17과 Redis는 `.env.example`을 `.env`로 복사한 뒤 다음과 같이
-실행합니다.
+로컬 PostgreSQL 17, Redis와 OpenTelemetry Collector는 `.env.example`을
+`.env`로 복사한 뒤 다음과 같이 실행합니다.
 
 ```bash
 docker compose up -d
+```
+
+백엔드까지 컨테이너로 함께 실행할 때는 `app` 프로필을 사용합니다.
+
+```bash
+docker compose --profile app up -d --build
 ```
 
 학교 태블릿에서 앱을 실행할 때는 `EXPO_PUBLIC_API_BASE_URL`의 `localhost`를
@@ -240,9 +248,9 @@ docker compose up -d
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
 - [API 공통 규칙 v0.5](docs/API_COMMON_RULES.md)
-- [HTTP API 명세 v0.7](docs/HTTP_API_SPEC.md)
+- [HTTP API 명세 v0.8](docs/HTTP_API_SPEC.md)
 - [WebSocket 명세 v0.4](docs/WEBSOCKET_SPEC.md)
-- [요구사항 기준선·용어집 v0.7](docs/REQUIREMENTS_BASELINE.md)
+- [요구사항 기준선·용어집 v0.8](docs/REQUIREMENTS_BASELINE.md)
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)
 - [AsyncAPI 3.1 WebSocket 계약](contracts/asyncapi.yaml)
 - [API 필드·저장 경계 매핑](contracts/api-field-mapping.json)

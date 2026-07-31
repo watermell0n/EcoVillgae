@@ -97,7 +97,7 @@ Jenkins 에이전트에는 Java 21, Node.js, Terraform, Docker와 Python을 설�
 2. `terraform fmt`, `init -backend=false`, `validate`
 3. 백엔드 테스트·패키징과 JUnit 결과 수집
 4. 프로젝트가 초기화된 학생 앱·교사 웹·AI 서비스만 조건부 검사
-5. `REQUIRE_DB_TESTS=true`일 때 PostgreSQL Testcontainers skip을 실패 처리
+5. 기본값이 `true`인 `REQUIRE_DB_TESTS`로 PostgreSQL Testcontainers skip을 실패 처리
 
 배포 단계는 아직 넣지 않습니다. AWS 계정·환경과 승인 방식이 확정된 후 별도
 단계로 추가합니다.

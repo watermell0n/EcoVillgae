@@ -1,8 +1,8 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.7
-- 기준일: 2026-07-30
-- 상태: AI v1.2 선택형 모듈·추천/허용 범위 계약 반영·기계 OpenAPI와 필드 매핑 동기화 예정
+- 버전: v0.8
+- 기준일: 2026-07-31
+- 상태: 화면 행동 69건 HTTP 매핑·AI v1.2 선택형 모듈 계약·OpenAPI 3.1·API 필드 저장 매핑 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
@@ -64,6 +64,7 @@
 | API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
+| API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 서명·발급자·audience 검증, 등록 교사 확인, 토큰·교사 다중 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |
 
 ### 3.1 세션 지원 API
 
@@ -71,7 +72,7 @@
 | --- | --- | --- |
 | API-AUTH-004 | `POST /auth/token-refreshes` | 회전형 갱신 토큰으로 새 앱 토큰 발급 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
-| API-AUTH-006 | `GET /auth/me` | 현재 사용자·역할·학교·담당 학급과 세션 정책 조회 |
+| API-AUTH-006 | `GET /auth/me` | 현재 세션·사용자·역할·학교·담당 학급과 액세스 토큰 만료 조회 |
 | API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
 
 비밀번호·토큰·재설정 증명값은 응답 이후 다시 조회할 수 없고 감사 로그에도 저장하지 않습니다.
@@ -80,6 +81,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
+| API-CRS-001 | `GET /course-recommendations?grade={4..6}&course_size={label}` | 인증 교사 | 학년·규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전·난이도·학습 중점·핵심/선택/기반 모듈·선수개념·제외 영향 | PM-CLS-005 · SM — | `AUTH_REQUIRED`, `ROLE_NOT_ALLOWED`, `VALIDATION_ERROR`, `COURSE_VERSION_MISSING` | CRS-003·CRS-004·CRS-005 |
 | API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 `module_codes`, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`, `ACTIVE` 학급, 선택 모듈의 `DISABLED` 등록 상태 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
 | API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전, 학급 코드·화폐 단위명 변경 불가 | PM-CLS-005 · SM-CLS-001 | `IMMUTABLE_CLASSROOM_FIELD`, `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
 | API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임, 역할·급여 모듈 활성 시 선택형 역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001·SM-MOD-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `MODULE_NOT_ACTIVE`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
@@ -112,7 +114,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-TXN-001 · UIA-TXN-001 | `POST /classrooms/{C}/payouts` | OWN·COT | 지급 유형, 대상 학생, 정책 기준액, 사유 → 원장 거래 그룹·명세서 | PM-TXN-002 · SM-TXN-001 | `DUPLICATE_PAYOUT`, `POLICY_VIOLATION`, `CLASS_NOT_ACTIVE` | ECO-001·ECO-004 |
+| API-TXN-001 · UIA-TXN-001 | `POST /classrooms/{C}/payouts` | OWN·COT | 지급 유형, 대상 학생, 급여 회차 키(`period_key`), 정책 기준액, 사유 → 원장 거래 그룹·명세서 | PM-TXN-002 · SM-TXN-001 | `DUPLICATE_PAYOUT`, `POLICY_VIOLATION`, `CLASS_NOT_ACTIVE` | ECO-001·ECO-004 |
 | API-TXN-002 · UIA-TXN-002 | `POST /classrooms/{C}/ledger-transactions/{R}/recoveries` | OWN·COT | 복구 유형, 금액·아이템 조정, 필수 사유 → 원거래 연결 복구 거래 | PM-TXN-003 · SM-TXN-001 | `ORIGINAL_TRANSACTION_NOT_COMMITTED`, `RECOVERY_ALREADY_EXISTS`, `VALIDATION_ERROR` | ECO-002·ECO-006·QZ-009 |
 
 ### 5.2 상점·캐릭터
@@ -167,7 +169,7 @@
 | API-QZ-007 · UIA-QZ-007 | `POST /classrooms/{C}/quiz-sessions/{R}/result-commands` | OWN·COT | `command=CONFIRM\|PUBLISH\|CLOSE, leaderboard_public?` → 결과 버전·보상 원장·공개 상태. `leaderboard_public=true`는 GAME에서만 허용하고 TEST는 항상 `false` | PM-QZ-002 · SM-QZS-001·SM-TXN-001 | `SCORING_NOT_FINISHED`, `INVALID_STATE_TRANSITION`, `PUBLIC_DATA_ONLY` | QZ-003·QZ-004·QZ-005 |
 | API-QZ-008 · UIA-QZ-008 | `POST /classrooms/{C}/quiz-sessions/{R}/question-issue-reports` | STU | `question_id, reason_code, description` → `UNDER_REVIEW` 신고 | PM-QZ-003 · SM-QAD-001 | `NOT_EXAMINEE`, `DUPLICATE_REPORT`, `VALIDATION_ERROR` | QZ-009 |
 | API-QZ-009 · UIA-QZ-009 | `POST /classrooms/{C}/quiz-sessions/{R}/regrade-operations` | OWN·COT | 무효 문항, 판정 사유 → `202 operation_id`, 새 결과 버전·복구 거래 | PM-QZ-002·PM-QZ-003·PM-TXN-003 · SM-QAD-001·SM-QZS-001·SM-TXN-001 | `QUESTION_NOT_UNDER_REVIEW`, `REGRADING_ALREADY_RUNNING` | QZ-009 |
-| API-VOT-001 · UIA-VOT-001 | `POST /classrooms/{C}/votes/{R}/commands` | OWN·COT | `command=CLOSE\|CONFIRM_RESULT, selected_use?` → 익명 집계·활동 완료 | PM-ACT-002 · SM-ACT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `VOTE_COUNT_MISMATCH` | ECO-008 |
+| API-VOT-001 · UIA-VOT-001 | `POST /classrooms/{C}/votes/{R}/commands` | OWN·COT | `command=CREATE\|OPEN\|CLOSE\|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use?` → 예산안 생성·익명 투표 진행·기금 집행 | PM-ACT-002 · SM-ACT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `VOTE_COUNT_MISMATCH`, `BUDGET_EXCEEDS_FUND`, `INSUFFICIENT_BALANCE`, `NOT_PARTICIPANT` | ECO-008 |
 | API-VOT-002 · UIA-VOT-002 | `POST /classrooms/{C}/votes/{R}/ballots` | STU | `option_id` → 익명 투표 접수 영수증 | PM-ACT-001 · SM-ACT-001 | `VOTE_NOT_LIVE`, `ALREADY_VOTED`, `NOT_PARTICIPANT` | ECO-008 |
 
 ## 8. AI·데이터 API
@@ -235,12 +237,12 @@
 | API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
 | API-READ-021 | `GET /classrooms/{C}/quiz-sessions/{R}` | STU·OWN·COT | 역할별 진행 상태·문항 스냅샷·제출 상태 | SCR-TCH-005·SCR-STU-021·SCR-STU-022 / QZ-003·QZ-004 |
 | API-READ-022 | `GET /classrooms/{C}/quiz-sessions/{R}/results` | STU·OWN·COT | 학생은 본인, 교사는 학급 결과·무효화 상태 | SCR-STU-023·SCR-WEB-019 / QZ-003·QZ-004·QZ-009 |
-| API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·선택지·익명 집계·기금 사용 결과 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
+| API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·예산 선택지·익명 집계·현재 공동기금·확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
 | API-READ-024 | `GET /classrooms/{C}/guided-activities/{R}` | STU·OWN·COT | 역할별 활동·참여·GUIDED·공개 설정 | SCR-TCH-004·SCR-STU-021 / CLS-009 |
 | API-READ-025 | `GET /public/display-sessions/{display_session_id}/bootstrap` | DSP | 문제·타이머·익명 집계·허용된 공개 결과만 | SCR-PUB-001·SCR-PUB-002·SCR-PUB-003·SCR-PUB-004 / AUTH-004·CLS-009·QZ-003 |
 | API-READ-026 | `GET /classrooms/{C}/teacher-dashboard` | OWN·COT | 승인·수령·정산·활동 알림, OBSERVE·WARN 경제 알림과 학급 요약 | SCR-TCH-002·SCR-TCH-012 / AI-010·DAT-003 |
 | API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | 설정 점검·수동·자동 실행, 근거·검증·심각도·중복키·확인·승인 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008·AI-009·AI-010 |
-| API-READ-028 | `GET /classrooms/{C}/reports` | STU·OWN·COT | 학생은 본인, 교사는 개인·학급·최종 스냅샷 | SCR-STU-024·SCR-WEB-024 / DAT-001·DAT-003 |
+| API-READ-028 | `GET /classrooms/{C}/reports?from={instant}&to={instant}` | OWN·COT | 기간 내 학급 화폐·지갑·소비·예적금 원금·공동기금·활성 학생·퀴즈 참여 집계. 개인 식별자·닉네임·개인 잔액은 반환하지 않음 | SCR-WEB-024 / DAT-001·DAT-003 |
 | API-READ-029 | `GET /classrooms/{C}/audit-events` | OWN·COT·SAD | 역할 범위별 감사 이벤트·요청번호·전후상태 | SCR-WEB-025·SCR-ADM-005 / AI-008·DAT-004 |
 | API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | 비동기 작업 상태·실패코드·만료 다운로드 URL | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
 | API-READ-031 | `GET /schools/{school_id}/teachers` | SAD | 학교 교사 계정·소속·상태 | SCR-ADM-002 / AUTH-002 |
@@ -318,13 +320,13 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 14. 커버리지
 
-- 화면 행동: 68개
-- HTTP 연결 대상 행동: 68개
+- 화면 행동: 69개
+- HTTP 연결 대상 행동: 69개
 - 명령 API ID: 69개
 - 세션 지원 API: 4개
 - 조회 API: 34개
-- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 107개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) PASS, MVP 68개 strict·후속 39개 planned
+- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 109개 작업
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 73개 strict·후속 36개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업

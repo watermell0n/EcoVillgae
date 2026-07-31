@@ -1,0 +1,13 @@
+package com.b201.ecovillage.ledger.domain;
+
+public enum LedgerAccountType {
+    STUDENT_WALLET,
+    CLASSROOM_FUND,
+    STORE_REVENUE,
+    MONEY_ISSUANCE,
+    DEPOSIT_LIABILITY,
+    SAVINGS_LIABILITY,
+    INVESTMENT_CLEARING,
+    LOAN_RECEIVABLE,
+    PUBLIC_SPENDING
+}

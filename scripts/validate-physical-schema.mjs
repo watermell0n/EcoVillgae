@@ -77,7 +77,7 @@ function validateSequentialIds(prefix, expectedCount) {
 validateSequentialIds("UK", 18);
 validateSequentialIds("CK", 39);
 validateSequentialIds("IX", 37);
-validateSequentialIds("DBT", 19);
+validateSequentialIds("DBT", 20);
 
 const requiredRules = [
   "UNIQUE (classroom_id, id)",
@@ -90,6 +90,7 @@ const requiredRules = [
   "published_at IS NULL",
   "UUID v7",
   "DBT-019",
+  "DBT-020",
 ];
 for (const rule of requiredRules) {
   if (!physical.includes(rule)) {
@@ -115,5 +116,5 @@ if (errors.length > 0) {
 
 console.log(
   `Physical schema validation PASS: ${physicalTables.length} tables, ` +
-    "18 core uniqueness rules, 39 checks, 37 indexes, 19 DB tests",
+    "18 core uniqueness rules, 39 checks, 37 indexes, 20 DB tests",
 );

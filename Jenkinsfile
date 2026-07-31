@@ -4,7 +4,7 @@ pipeline {
     parameters {
         booleanParam(
             name: 'REQUIRE_DB_TESTS',
-            defaultValue: false,
+            defaultValue: true,
             description: 'Docker 기반 PostgreSQL Testcontainers 테스트의 skip을 실패로 처리'
         )
     }
@@ -79,6 +79,7 @@ pipeline {
                 sh '''
                     report="backend/build/test-results/test/TEST-com.b201.ecovillage.SchemaIntegrityTest.xml"
                     test -f "$report"
+                    grep -q '<testcase' "$report"
                     if grep -Eq 'skipped="[1-9][0-9]*"' "$report"; then
                         echo "PostgreSQL Testcontainers tests were skipped."
                         exit 1

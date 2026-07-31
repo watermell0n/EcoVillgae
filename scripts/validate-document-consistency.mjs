@@ -66,7 +66,7 @@ assert(brokenLinks.length === 0, `깨진 로컬 문서 링크\n${brokenLinks.joi
 const definitionSources = [
   {
     name: "요구사항",
-    expected: 81,
+    expected: 82,
     files: ["docs/REQUIREMENTS_BASELINE.md"],
     pattern: /^\| ((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3})(?!\d)/g,
@@ -80,7 +80,7 @@ const definitionSources = [
   },
   {
     name: "권한 규칙",
-    expected: 57,
+    expected: 58,
     files: ["docs/PERMISSION_MATRIX.md"],
     pattern: /^\| (PM-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(PM-[A-Z]+-\d{3})(?!\d)/g,
@@ -94,14 +94,14 @@ const definitionSources = [
   },
   {
     name: "화면 행동",
-    expected: 68,
+    expected: 69,
     files: ["docs/SCREEN_SPEC.md"],
     pattern: /^\| (UIA-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UIA-[A-Z]+-\d{3})(?!\d)/g,
   },
   {
     name: "HTTP API",
-    expected: 115,
+    expected: 117,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
@@ -150,7 +150,7 @@ const definitionSources = [
   },
   {
     name: "DB 인수 기준",
-    expected: 19,
+    expected: 20,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (DBT-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(DBT-\d{3})(?!\d)/g,
@@ -286,6 +286,7 @@ assert(
 const forbiddenStalePhrases = [
   "PDM-",
   "Testcontainers 18개",
+  "Testcontainers 20개",
   "DBT-001~017",
   "RTM v1.1",
   "기준 Git 커밋",

@@ -167,6 +167,7 @@ erDiagram
 - 학생 비밀번호 해시는 `student_credentials`에 분리하고 닉네임 변경과 비밀번호 재설정을 같은 기능으로 취급하지 않습니다.
 - 학생 세션은 한 학생당 활성 세션 1개만 허용합니다. 새 학교 태블릿 연결 시 기존 활성 세션을 종료합니다.
 - 교사용 앱과 관리 웹의 동시 로그인은 허용하므로 교사 사용자에는 단일 활성 세션 제약을 두지 않습니다.
+- 교사 회전형 갱신 세션은 Redis `auth:teacher-session:v1:{session_id}`와 해시된 갱신 토큰 인덱스에 14일 TTL로 보관합니다. PostgreSQL `users.external_subject`는 설정된 단일 OIDC issuer의 `sub`와 매핑합니다.
 - `classrooms.scale_label`은 추천 깊이만 나타내며 실제 운영 날짜를 계산하거나 고정하지 않습니다.
 - `classrooms.planned_student_count`는 개설 시 받은 양의 예상 인원이며 실제 활성 학생 수와 별도로 보존합니다.
 - `salary_roles.role_code`는 학급 안에서 유일한 영문 대문자 기반 안정 코드입니다. 표시명 변경과 학생 배정 DTO는 이 코드를 기준으로 연결합니다.
@@ -529,6 +530,7 @@ erDiagram
         string status
         uuid policy_snapshot_id FK
         bool public_display_enabled
+        jsonb public_fields
         datetime starts_at
         datetime ends_at
         bigint state_version
@@ -722,7 +724,7 @@ erDiagram
 
 | 요구사항 | 데이터 엔티티 |
 | --- | --- |
-| AUTH-001~007 | `classrooms`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships` |
+| AUTH-001~008 | `classrooms`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships`, Redis 교사 세션 |
 | CLS-001~010·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `autonomous_schedule_modules`, `salary_roles`, `course_template_versions`, `activity_sessions` |
 | ECO-001~010 | `ledger_accounts`, `transaction_groups`, `ledger_entries`, `policy_snapshots`, `payslips`, `store_*`, `inventory_items`, `character_catalog` |
 | TRD-001~005 | `trades`, `trade_money_legs`, `trade_item_legs`, `trade_decisions`, `idempotency_records` |
@@ -743,8 +745,8 @@ erDiagram
 
 ## 12. 구현 상태와 후속 작업
 
-Flyway `V1_1`~`V1_11`과 DBT-001~019에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드와 공개 GAME 순위 경계를 반영했습니다.
+Flyway `V1_1`~`V1_13`과 DBT-001~020에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계, 추천 코스 제품 데이터와 활동 공개 필드 allowlist를 반영했습니다.
 
-1. Docker 사용 가능 Jenkins에서 Testcontainers 20개를 모두 실행합니다.
+1. Docker 사용 가능 Jenkins에서 Testcontainers 21개를 모두 실행합니다.
 2. [API·스키마 필드 매핑](../contracts/api-field-mapping.json)을 구현 DTO·영속 계층과 동기화합니다.
 3. 서비스·E2E 인수 테스트를 RTM에 연결합니다.

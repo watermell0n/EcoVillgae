@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이코빌리지 교사 콘솔 v3</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --surface-2: #fbfcfd;
+      --border: #e5e8eb;
+      --border-strong: #d0d6dc;
+      --text: #202632;
+      --muted: #6b7684;
+      --subtle: #8b95a1;
+      --blue: #2f6fed;
+      --blue-weak: #edf3ff;
+      --green: #12825c;
+      --green-weak: #eaf7f1;
+      --orange: #b35c00;
+      --orange-weak: #fff4e5;
+      --red: #d92d20;
+      --red-weak: #fff1f0;
+      --radius: 8px;
+      --font: "Inter", "Pretendard", "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 236px minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .side {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: grid;
+      grid-template-rows: 64px minmax(0, 1fr) 64px;
+      min-height: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      background: #1f2937;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 2px;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .nav {
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .nav-title {
+      margin: 16px 8px 6px;
+      color: var(--subtle);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .nav button {
+      width: 100%;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 9px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #4e5968;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .nav button:hover { background: #f3f5f7; }
+    .nav button.active {
+      background: #edf3ff;
+      color: #1d4ed8;
+      font-weight: 800;
+    }
+
+    .key {
+      width: 50px;
+      flex: 0 0 50px;
+      color: var(--subtle);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .side-foot {
+      border-top: 1px solid var(--border);
+      padding: 12px 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 64px minmax(0, 1fr);
+    }
+
+    .top {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+    }
+
+    .context {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .context b {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #f2f4f6;
+      color: #4e5968;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .status.good { background: var(--green-weak); color: var(--green); }
+    .status.warn { background: var(--orange-weak); color: var(--orange); }
+    .status.bad { background: var(--red-weak); color: var(--red); }
+    .status.blue { background: var(--blue-weak); color: var(--blue); }
+
+    .button {
+      height: 34px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: #344054;
+      padding: 0 11px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .button.danger {
+      border-color: #ffd0cc;
+      background: var(--red-weak);
+      color: var(--red);
+    }
+
+    .page {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+      padding: 22px 24px;
+      overflow: hidden;
+    }
+
+    .head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0 0 7px;
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 850;
+    }
+
+    .desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .metric b {
+      display: block;
+      margin-top: 7px;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .work {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 332px;
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .panel {
+      min-width: 0;
+      min-height: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .search, .select, .input {
+      height: 34px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+      outline: 0;
+      font-size: 13px;
+    }
+
+    .search { width: 220px; }
+
+    .table-wrap {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      height: 38px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      height: 46px;
+      padding: 0 12px;
+      border-bottom: 1px solid #edf0f2;
+      color: #344054;
+      white-space: nowrap;
+    }
+
+    tr:hover td { background: #fafbfc; }
+
+    .name strong {
+      display: block;
+      color: var(--text);
+      font-weight: 750;
+    }
+
+    .name span {
+      display: block;
+      margin-top: 2px;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .drawer {
+      min-height: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .drawer-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .drawer-head small {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .drawer-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.3;
+    }
+
+    .drawer-body {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px 16px;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .section-title {
+      margin: 2px 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 8px;
+      margin: 7px 0;
+      font-size: 13px;
+    }
+
+    .kv dt {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .kv dd {
+      margin: 0;
+      color: #344054;
+      min-width: 0;
+    }
+
+    .drawer-foot {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    .form {
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      color: #4e5968;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .field .input,
+    .field .select {
+      width: 100%;
+    }
+
+    .empty {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty h2 {
+      margin: 0 0 8px;
+      font-size: 21px;
+    }
+
+    .empty p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .login {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 392px minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      align-self: start;
+    }
+
+    .login-card h2 {
+      margin: 0 0 7px;
+      font-size: 22px;
+    }
+
+    .login-card p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    .quiet-preview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr);
+    }
+
+    @media (max-width: 1080px) {
+      .app {
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: 1fr;
+        overflow: auto;
+      }
+
+      .side {
+        max-height: 300px;
+      }
+
+      .main {
+        min-height: 900px;
+      }
+
+      .work,
+      .login {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-row,
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <div class="mark">EV</div>
+        <div>
+          <strong>이코빌리지</strong>
+          <span>교사 운영 콘솔</span>
+        </div>
+      </div>
+      <nav id="nav" class="nav"></nav>
+      <div class="side-foot">기준 화면: 1280x800<br />학생용 화면과 시각 톤 분리</div>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <div class="context">
+          <span>햇살초 5학년 2반</span>
+          <span>/</span>
+          <b id="crumb">학급 경제 현황</b>
+        </div>
+        <div class="top-actions">
+          <span class="status good">운영 중</span>
+          <span class="status blue">공용 화면 연결</span>
+          <span class="status warn">승인 대기 4건</span>
+          <button class="button">활동 잠금</button>
+        </div>
+      </header>
+
+      <section class="page">
+        <div class="head">
+          <div>
+            <h1 id="title"></h1>
+            <p id="desc" class="desc"></p>
+          </div>
+          <div class="top-actions" id="actions"></div>
+        </div>
+        <div id="metrics" class="summary-row"></div>
+        <div id="content"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const groups = [
+      ["178 로그인·선택", [
+        ["T-178-01", "교사 로그인", "교사 계정으로 로그인하고 경제교실 목록으로 진입한다.", "login"],
+        ["T-178-02", "경제교실 목록·선택", "운영 중인 경제교실과 임시 저장 교실을 확인한다.", "classrooms"],
+        ["T-178-03", "경제교실 미생성 빈 상태", "교실이 없는 경우 첫 개설 행동을 안내한다.", "empty"]
+      ]],
+      ["179 교실 개설", [
+        ["T-179-01", "경제교실 기본 정보", "교실 이름, 학교, 학년, 반, 화폐명을 입력한다.", "form-basic"],
+        ["T-179-02", "학년·운영기간 설정", "운영 유형, 시작일, 종료일, 활동 가능 시간을 정한다.", "form-period"],
+        ["T-179-03", "개설 완료·초기 안내", "개설 후 학생 등록, 추천 코스, 대시보드 이동을 안내한다.", "post-create"]
+      ]],
+      ["180 코스 추천", [
+        ["T-180-01", "추천 조건 입력", "학급 상황과 운영 목표를 입력한다.", "form-recommend"],
+        ["T-180-02", "추천 코스 결과", "제품 데이터 기반 추천 코스를 비교한다.", "recommend"],
+        ["T-180-03", "추천 이유 상세", "추천 근거와 적용 영향을 검토한다.", "recommend-detail"]
+      ]],
+      ["181 모듈·일정", [
+        ["T-181-01", "추천 모듈 선택", "사용 모듈과 학생 노출 여부를 설정한다.", "modules"],
+        ["T-181-02", "운영 일정 편집", "활동 일정과 모듈별 운영 상태를 편집한다.", "schedule"],
+        ["T-181-03", "자율 이용 허용 설정", "학생 자율 이용과 교사 승인 정책을 설정한다.", "permissions"]
+      ]],
+      ["182 대시보드", [
+        ["T-182-01", "학급 경제 현황", "총 화폐량, 평균 잔액, 공공기금, 참여율을 확인한다.", "dashboard"],
+        ["T-182-02", "위험·운영 알림", "운영 중 처리해야 할 이슈를 확인한다.", "alerts"],
+        ["T-182-03", "오늘 활동 빠른 실행", "월급, 세금, 퀴즈, 투표를 빠르게 시작한다.", "quick"]
+      ]],
+      ["183 학생 관리", [
+        ["T-183-01", "학생 목록", "학생 계정, 접속 상태, 잔액, 참여율을 관리한다.", "students"],
+        ["T-183-02", "학생 상세·개인 기록", "개별 학생의 거래와 활동 기록을 확인한다.", "student-detail"],
+        ["T-183-03", "계정 등록·비밀번호 초기화", "학생 계정을 등록하고 접속 문제를 해결한다.", "form-student"]
+      ]],
+      ["184 급여·세금", [
+        ["T-184-01", "역할별 월급 설정", "역할별 지급액과 지급 주기를 설정한다.", "salary"],
+        ["T-184-02", "소득세·부가세 정책 설정", "세금과 공공기금 적립 규칙을 정한다.", "tax"],
+        ["T-184-03", "월급명세서 미리보기", "학생에게 표시될 지급 결과를 사전에 확인한다.", "paystub"]
+      ]],
+      ["185 상점·거래", [
+        ["T-185-01", "상품·재고 목록", "상품 가격, 재고, 판매 상태를 관리한다.", "products"],
+        ["T-185-02", "상품 등록·수정", "상품 상세 정보와 판매 옵션을 편집한다.", "form-product"],
+        ["T-185-03", "개인거래 검토·승인", "학생 간 거래 요청을 검토하고 승인 또는 반려한다.", "trades"]
+      ]]
+    ];
+
+    const screens = groups.flatMap(([group, items]) => items.map(([id, title, desc, type]) => ({ group, id, title, desc, type })));
+    let activeId = "T-182-01";
+
+    const datasets = {
+      classrooms: {
+        columns: ["교실", "대상", "상태", "학생", "최근 작업"],
+        rows: [
+          ["햇살초 5-2 경제마을", "5학년 2반", "ACTIVE", "24명", "승인 대기 4건"],
+          ["소비와 저축 프로젝트", "4학년 1반", "DRAFT", "0명", "학생 명단 필요"],
+          ["공공예산 체험반", "6학년 3반", "READ_ONLY", "23명", "최종 리포트"]
+        ]
+      },
+      activity: {
+        columns: ["항목", "분류", "값", "상태", "메모"],
+        rows: [
+          ["월급 지급", "경제", "24명", "완료", "장부 반영"],
+          ["상점 구매", "상점", "3건", "완료", "소비세 포함"],
+          ["개인 거래", "거래", "4건", "승인 대기", "교사 확인"],
+          ["공공기금", "세금", "7,400", "정상", "투표 대기"]
+        ]
+      },
+      alerts: {
+        columns: ["종류", "내용", "중요도", "상태", "연결 화면"],
+        rows: [
+          ["거래", "개인거래 승인 대기", "높음", "처리 필요", "거래 승인"],
+          ["접속", "미접속 학생 2명", "보통", "확인", "학생 목록"],
+          ["일정", "투표와 퀴즈 시간이 겹침", "보통", "검토", "일정 편집"],
+          ["경제", "상위 잔액 집중도 증가", "낮음", "관찰", "리포트"]
+        ]
+      },
+      students: {
+        columns: ["학생", "닉네임", "접속", "잔액", "참여율"],
+        rows: [
+          ["김도윤", "상점왕", "온라인", "2,400", "91%"],
+          ["이서연", "저축요정", "온라인", "3,100", "97%"],
+          ["박민준", "세금탐정", "오프라인", "1,800", "74%"],
+          ["최하은", "예산지킴이", "온라인", "2,050", "88%"],
+          ["정지우", "거래마스터", "온라인", "3,800", "95%"]
+        ]
+      },
+      modules: {
+        columns: ["모듈", "구분", "학생 노출", "자율 이용", "승인"],
+        rows: [
+          ["지갑", "필수", "노출", "허용", "없음"],
+          ["월급", "권장", "노출", "교사 실행", "필요"],
+          ["상점", "권장", "노출", "허용", "선택"],
+          ["개인 거래", "선택", "노출", "허용", "필수"],
+          ["AI 운영 보조", "선택", "비노출", "교사 전용", "필수"]
+        ]
+      },
+      schedule: {
+        columns: ["날짜", "활동", "모듈", "상태", "공용 화면"],
+        rows: [
+          ["7/30", "첫 월급 지급", "월급", "예약", "미사용"],
+          ["7/31", "상점 열기", "상점", "준비", "미사용"],
+          ["8/01", "공공예산 투표", "투표", "검토 필요", "사용"],
+          ["8/02", "경제 퀴즈", "퀴즈", "예약", "사용"]
+        ]
+      },
+      products: {
+        columns: ["상품", "가격", "재고", "판매 상태", "정책"],
+        rows: [
+          ["자리 선택권", "500", "12", "판매 중", "승인 없음"],
+          ["숙제 패스권", "2,000", "2", "승인 필요", "1인 1회"],
+          ["칭찬 배지", "300", "무제한", "판매 중", "장착 가능"],
+          ["급식 우선권", "800", "0", "품절", "재고 필요"]
+        ]
+      },
+      trades: {
+        columns: ["요청자", "상대", "거래 내용", "상태", "검토"],
+        rows: [
+          ["김도윤", "이서연", "칭찬 배지 / 300", "승인 대기", "잔액 정상"],
+          ["박민준", "최하은", "자리 선택권 / 500", "위험", "반복 거래"],
+          ["정지우", "한유나", "100 코인 송금", "승인 대기", "사유 확인"]
+        ]
+      },
+      salary: {
+        columns: ["역할", "지급액", "주기", "학생", "실행"],
+        rows: [
+          ["기본 학생", "1,000", "매주", "24명", "자동"],
+          ["은행원", "1,300", "매주", "2명", "자동"],
+          ["상점 매니저", "1,200", "매주", "2명", "수동"]
+        ]
+      },
+      tax: {
+        columns: ["세금", "세율", "적용 시점", "상태", "적립"],
+        rows: [
+          ["소득세", "10%", "월급 지급", "ON", "공공기금"],
+          ["소비세", "5%", "상점 구매", "ON", "공공기금"],
+          ["벌금", "고정", "교사 수동", "ON", "학급 정책"]
+        ]
+      },
+      recommend: {
+        columns: ["코스", "기간", "난이도", "포함 모듈", "상태"],
+        rows: [
+          ["소비와 저축 마을", "1주", "쉬움", "지갑·상점·퀴즈", "추천"],
+          ["세금과 공공재 마을", "1달", "보통", "세금·공공기금·투표", "추천"],
+          ["한 학기 경제 운영", "1학기", "확장", "예금·거래 포함", "선택 가능"]
+        ]
+      }
+    };
+
+    const metricsByType = {
+      dashboard: [["총 화폐량", "48,200"], ["평균 잔액", "2,008"], ["공공기금", "7,400"], ["참여 학생", "22/24"]],
+      alerts: [["처리 필요", "4건"], ["미접속", "2명"], ["일정 충돌", "1건"], ["위험 거래", "1건"]],
+      students: [["전체 학생", "24명"], ["온라인", "22명"], ["평균 잔액", "2,008"], ["평균 참여율", "89%"]],
+      products: [["판매 상품", "12개"], ["품절", "1개"], ["승인 필요", "2개"], ["오늘 구매", "3건"]],
+      trades: [["승인 대기", "4건"], ["위험 표시", "1건"], ["오늘 승인", "6건"], ["반려", "1건"]],
+      salary: [["월급 대상", "24명"], ["예상 지급", "27,800"], ["역할 수", "3개"], ["다음 지급", "7/30"]],
+      tax: [["소득세", "10%"], ["소비세", "5%"], ["공공기금", "7,400"], ["정책 상태", "ON"]],
+      default: [["운영 상태", "ACTIVE"], ["학생", "24명"], ["모듈", "7개"], ["승인 대기", "4건"]]
+    };
+
+    function badge(value) {
+      const text = String(value);
+      let cls = "";
+      if (/ACTIVE|온라인|완료|정상|노출|허용|판매 중|예약|추천|ON|자동/.test(text)) cls = "good";
+      if (/대기|필요|검토|DRAFT|보통|선택|준비|수동/.test(text)) cls = "warn";
+      if (/READ_ONLY|오프라인|위험|품절|높음|비노출/.test(text)) cls = "bad";
+      if (/사용|교사 전용/.test(text)) cls = "blue";
+      return `<span class="status ${cls}">${text}</span>`;
+    }
+
+    function renderNav() {
+      nav.innerHTML = groups.map(([label, items]) => `
+        <div class="nav-title">${label}</div>
+        ${items.map(([id, title]) => `
+          <button class="${id === activeId ? "active" : ""}" onclick="openScreen('${id}')">
+            <span class="key">${id.replace("T-", "")}</span>
+            <span>${title}</span>
+          </button>
+        `).join("")}
+      `).join("");
+    }
+
+    function renderMetrics(screen) {
+      const key = ["dashboard", "alerts", "students", "products", "trades", "salary", "tax"].find((type) => screen.type.includes(type));
+      const metrics = metricsByType[key] || metricsByType.default;
+      document.getElementById("metrics").innerHTML = metrics.map(([label, value]) => `
+        <div class="metric"><span>${label}</span><b>${value}</b></div>
+      `).join("");
+    }
+
+    function renderActions(screen) {
+      const primary = {
+        login: "로그인",
+        empty: "경제교실 만들기",
+        "form-basic": "다음",
+        "form-period": "개설하기",
+        dashboard: "활동 시작",
+        alerts: "선택 처리",
+        quick: "활동 시작",
+        students: "학생 추가",
+        products: "상품 추가",
+        trades: "선택 승인",
+        salary: "저장",
+        tax: "저장"
+      }[screen.type] || "저장";
+
+      document.getElementById("actions").innerHTML = `
+        <button class="button">공유</button>
+        <button class="button">변경 이력</button>
+        <button class="button primary">${primary}</button>
+      `;
+    }
+
+    function tableView(datasetKey, drawerTitle) {
+      const data = datasets[datasetKey] || datasets.activity;
+      return `
+        <div class="work">
+          <section class="panel">
+            <div class="toolbar">
+              <div class="filters">
+                <input class="search" placeholder="검색" />
+                <select class="select"><option>상태 전체</option><option>처리 필요</option><option>정상</option></select>
+                <select class="select"><option>최근 업데이트순</option><option>이름순</option></select>
+              </div>
+              <button class="button">필터 저장</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>${data.columns.map((col) => `<th>${col}</th>`).join("")}<th></th></tr></thead>
+                <tbody>
+                  ${data.rows.map((row) => `
+                    <tr>
+                      ${row.map((cell, i) => `<td>${i === 0 ? nameCell(cell) : decorate(cell)}</td>`).join("")}
+                      <td><button class="button">상세</button></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          ${drawer(drawerTitle, data.rows[0])}
+        </div>
+      `;
+    }
+
+    function nameCell(text) {
+      return `<div class="name"><strong>${text}</strong><span>최근 업데이트 12분 전</span></div>`;
+    }
+
+    function decorate(text) {
+      return /ACTIVE|READ_ONLY|DRAFT|온라인|오프라인|완료|정상|대기|필요|검토|위험|품절|ON|OFF|판매|예약|추천|비노출|허용|사용|자동|수동/.test(String(text))
+        ? badge(text)
+        : text;
+    }
+
+    function drawer(titleText, row) {
+      const item = row || ["선택 항목", "상세", "상태", "메모"];
+      return `
+        <aside class="drawer">
+          <div class="drawer-head">
+            <small>DETAIL</small>
+            <h2>${titleText}</h2>
+          </div>
+          <div class="drawer-body">
+            <div>
+              <div class="section-title">선택 항목</div>
+              <dl class="kv"><dt>이름</dt><dd>${item[0]}</dd></dl>
+              <dl class="kv"><dt>상태</dt><dd>${decorate(item[3] || item[2])}</dd></dl>
+              <dl class="kv"><dt>메모</dt><dd>${item[4] || "변경 영향 없음"}</dd></dl>
+            </div>
+            <div>
+              <div class="section-title">운영 규칙</div>
+              <dl class="kv"><dt>권한</dt><dd>교사만 수정 가능</dd></dl>
+              <dl class="kv"><dt>감사 로그</dt><dd>저장 시 변경 전후 값 기록</dd></dl>
+              <dl class="kv"><dt>학생 노출</dt><dd>필요한 상태만 알림으로 전달</dd></dl>
+            </div>
+          </div>
+          <div class="drawer-foot">
+            <button class="button primary">적용</button>
+            <button class="button">보류</button>
+            <button class="button danger">반려</button>
+          </div>
+        </aside>
+      `;
+    }
+
+    function formView(kind) {
+      const fields = {
+        "form-basic": ["교실 이름", "학교명", "학년", "반", "화폐명", "교실 설명"],
+        "form-period": ["운영 유형", "시작일", "종료일", "운영 요일", "활동 시작 시간", "활동 종료 시간"],
+        "form-recommend": ["운영 기간", "학년", "학생 수", "수업 목표", "난이도", "사용할 모듈"],
+        "form-student": ["출석번호", "이름", "초기 닉네임", "초기 비밀번호", "CSV 파일", "메모"],
+        "form-product": ["상품명", "설명", "가격", "재고", "판매 기간", "구매 승인 여부"]
+      }[kind] || ["이름", "설명", "상태", "옵션"];
+
+      return `
+        <div class="work">
+          <section class="panel">
+            <div class="toolbar">
+              <div class="filters">
+                <span class="status blue">자동 저장</span>
+                <span class="status warn">검토 필요</span>
+              </div>
+              <button class="button">이전 단계</button>
+            </div>
+            <div class="form">
+              <div class="form-grid">
+                ${fields.map((field) => `
+                  <div class="field">
+                    <label>${field}</label>
+                    <input class="input" placeholder="${field} 입력" />
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </section>
+          ${drawer("설정 요약", ["작성 중 설정", "입력값", "DRAFT", "검토 필요", "필수값 확인"])}
+        </div>
+      `;
+    }
+
+    function loginView() {
+      return `
+        <div class="login">
+          <section class="login-card">
+            <h2>교사 로그인</h2>
+            <p>학교 계정으로 안전하게 인증한 뒤 운영할 경제교실을 선택합니다.</p>
+            <div class="notice">이코빌리지는 학교 계정 비밀번호를 입력받거나 저장하지 않습니다.</div>
+            <div style="height:18px"></div>
+            <button class="button primary" style="width:100%">학교 계정으로 로그인</button>
+          </section>
+          <section class="quiet-preview">
+            <div class="toolbar"><b>운영 요약 예시</b><span class="status good">샘플</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>항목</th><th>상태</th><th>다음 작업</th></tr></thead>
+                <tbody>
+                  <tr><td>경제교실</td><td>${badge("ACTIVE")}</td><td>대시보드 확인</td></tr>
+                  <tr><td>학생 접속</td><td>${badge("22/24")}</td><td>미접속 확인</td></tr>
+                  <tr><td>개인거래</td><td>${badge("승인 대기")}</td><td>검토</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function emptyView() {
+      return `
+        <div class="work">
+          <section class="panel">
+            <div class="empty">
+              <div>
+                <h2>경제교실이 아직 없습니다</h2>
+                <p>기본 정보와 운영 기간을 입력하면 학생 명단, 추천 코스, 모듈 설정으로 이어집니다.</p>
+                <button class="button primary">경제교실 만들기</button>
+              </div>
+            </div>
+          </section>
+          ${drawer("첫 개설 안내", ["새 경제교실", "기본 정보", "DRAFT", "검토 필요", "학생 명단 필요"])}
+        </div>
+      `;
+    }
+
+    function contentFor(screen) {
+      const map = {
+        login: () => loginView(),
+        empty: () => emptyView(),
+        classrooms: () => tableView("classrooms", "교실 상세"),
+        dashboard: () => tableView("activity", "최근 활동 상세"),
+        alerts: () => tableView("alerts", "알림 상세"),
+        quick: () => tableView("activity", "빠른 실행 상세"),
+        students: () => tableView("students", "학생 상세"),
+        "student-detail": () => tableView("activity", "학생 개인 기록"),
+        modules: () => tableView("modules", "모듈 상세"),
+        permissions: () => tableView("modules", "자율 이용 정책"),
+        schedule: () => tableView("schedule", "일정 상세"),
+        products: () => tableView("products", "상품 상세"),
+        trades: () => tableView("trades", "거래 상세"),
+        salary: () => tableView("salary", "월급 정책 상세"),
+        tax: () => tableView("tax", "세금 정책 상세"),
+        recommend: () => tableView("recommend", "추천 코스 상세"),
+        "recommend-detail": () => tableView("recommend", "추천 이유 상세"),
+        "post-create": () => tableView("alerts", "다음 작업"),
+        paystub: () => tableView("salary", "월급명세서 상세")
+      };
+      if (screen.type.startsWith("form")) return formView(screen.type);
+      return (map[screen.type] || map.dashboard)();
+    }
+
+    function openScreen(id) {
+      activeId = id;
+      render();
+    }
+
+    function render() {
+      const screen = screens.find((s) => s.id === activeId) || screens[0];
+      document.getElementById("crumb").textContent = screen.title;
+      document.getElementById("title").textContent = `${screen.id} ${screen.title}`;
+      document.getElementById("desc").textContent = screen.desc;
+      renderActions(screen);
+      renderMetrics(screen);
+      document.getElementById("content").innerHTML = contentFor(screen);
+      renderNav();
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>이코빌리지 교사 관리 콘솔 v2</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f9fbff;
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      --text: #172033;
+      --muted: #64748b;
+      --subtle: #94a3b8;
+      --brand: #2563eb;
+      --brand-soft: #eaf1ff;
+      --green: #15945b;
+      --green-soft: #e8f8ef;
+      --yellow: #a16207;
+      --yellow-soft: #fff6db;
+      --red: #dc2626;
+      --red-soft: #fff1f1;
+      --purple: #6d5bd0;
+      --purple-soft: #f0edff;
+      --radius: 8px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.05);
+      font-family: Inter, "Pretendard", "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .shell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .sidebar {
+      background: #101827;
+      color: #dbe4f0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .brand {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #8fd4ff, #7edca5);
+      display: grid;
+      place-items: center;
+      color: #0f172a;
+      font-weight: 900;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 2px;
+      color: #8ea0b8;
+      font-size: 12px;
+    }
+
+    .nav {
+      padding: 14px 10px;
+      overflow: auto;
+    }
+
+    .nav-section {
+      margin: 14px 10px 7px;
+      color: #7890ab;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .nav-btn {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: #c9d5e4;
+      padding: 0 10px;
+      text-align: left;
+    }
+
+    .nav-btn:hover,
+    .nav-btn.active {
+      background: rgba(255,255,255,0.08);
+      color: #ffffff;
+    }
+
+    .nav-btn.active {
+      box-shadow: inset 3px 0 0 #8fd4ff;
+    }
+
+    .nav-no {
+      width: 54px;
+      color: #8ea0b8;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 68px minmax(0, 1fr);
+    }
+
+    .topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      min-width: 0;
+    }
+
+    .crumb {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .crumb strong {
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: var(--brand-soft);
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.green {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .badge.yellow {
+      background: var(--yellow-soft);
+      color: var(--yellow);
+    }
+
+    .badge.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .badge.purple {
+      background: var(--purple-soft);
+      color: var(--purple);
+    }
+
+    .btn {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: #334155;
+      font-weight: 750;
+    }
+
+    .btn:hover {
+      background: #f8fafc;
+    }
+
+    .btn.primary {
+      border-color: #1d4ed8;
+      background: var(--brand);
+      color: #ffffff;
+    }
+
+    .btn.danger {
+      border-color: #fecaca;
+      color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .workspace {
+      min-height: 0;
+      padding: 22px 24px;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .page-head h1 {
+      margin: 0 0 7px;
+      font-size: 25px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .page-head p {
+      margin: 0;
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      border-bottom: 1px solid var(--line);
+      overflow: auto;
+    }
+
+    .tab {
+      min-height: 40px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      padding: 0 13px;
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    .content-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 344px;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .panel {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-toolbar {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .search {
+      width: 230px;
+      height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #ffffff;
+      padding: 0 11px;
+      outline: none;
+    }
+
+    .select {
+      height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #ffffff;
+      padding: 0 10px;
+      color: #334155;
+      outline: none;
+    }
+
+    .table-wrap {
+      height: calc(100% - 58px);
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fbfdff;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 850;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      white-space: nowrap;
+    }
+
+    td {
+      border-bottom: 1px solid #edf2f7;
+      padding: 12px;
+      vertical-align: middle;
+      color: #334155;
+    }
+
+    tr:hover td {
+      background: #f8fbff;
+    }
+
+    .name-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #eef6ff;
+      color: #2563eb;
+      font-weight: 850;
+      flex-shrink: 0;
+    }
+
+    .name-cell strong {
+      display: block;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .name-cell span {
+      display: block;
+      margin-top: 2px;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .drawer {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .drawer-head {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .drawer-head span {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--subtle);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .drawer-head h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .drawer-body {
+      overflow: auto;
+      padding: 14px 16px;
+      display: grid;
+      align-content: start;
+      gap: 14px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .kv dt {
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .kv dd {
+      margin: 0;
+      color: #334155;
+    }
+
+    .drawer-actions {
+      display: flex;
+      gap: 8px;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      background: var(--panel-soft);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 13px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      padding: 0 10px;
+      outline: none;
+    }
+
+    .empty {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 34px;
+    }
+
+    .empty strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+
+    .empty p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .auth-layout {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .login-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      align-self: start;
+    }
+
+    .login-card h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    .login-card p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .preview {
+      min-height: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.94)),
+        url("./ecovillage-background-1280x800-v2.png") center / cover no-repeat;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      padding: 18px;
+      display: grid;
+      align-content: end;
+    }
+
+    .preview .stat {
+      max-width: 520px;
+    }
+
+    @media (max-width: 1120px) {
+      .shell {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+      }
+
+      .sidebar {
+        max-height: 310px;
+      }
+
+      .main {
+        min-height: 900px;
+      }
+
+      .content-grid,
+      .auth-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .stats,
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">E</div>
+        <div>
+          <strong>이코빌리지 콘솔</strong>
+          <span>Teacher Admin v2</span>
+        </div>
+      </div>
+      <nav id="nav" class="nav"></nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb">
+          <span>햇살초 5학년 2반</span>
+          <span>/</span>
+          <strong id="crumbTitle">대시보드</strong>
+        </div>
+        <div class="top-actions">
+          <span class="badge green">ACTIVE</span>
+          <span class="badge">공용 화면 연결</span>
+          <span class="badge yellow">승인 4</span>
+          <button class="btn">알림</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <div class="page-head">
+          <div>
+            <h1 id="pageTitle"></h1>
+            <p id="pageDesc"></p>
+          </div>
+          <div class="top-actions" id="pageActions"></div>
+        </div>
+        <div id="tabs" class="tabs"></div>
+        <div id="view"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const modules = [
+      {
+        group: "178 로그인·선택",
+        items: [
+          ["T-178-01", "교사 로그인", "교사가 서비스에 진입하고 경제교실 목록으로 이동합니다.", "auth"],
+          ["T-178-02", "경제교실 목록·선택", "운영할 경제교실을 선택하거나 새 경제교실을 만듭니다.", "classrooms"],
+          ["T-178-03", "경제교실 미생성 빈 상태", "아직 교실이 없는 교사에게 첫 생성 행동을 안내합니다.", "empty"]
+        ]
+      },
+      {
+        group: "179 교실 개설",
+        items: [
+          ["T-179-01", "경제교실 기본 정보", "교실 이름과 기본 학급 정보를 설정합니다.", "form"],
+          ["T-179-02", "학년·운영기간", "운영 유형과 기간, 활동 시간을 정합니다.", "form"],
+          ["T-179-03", "개설 완료·초기 안내", "학생 접속 링크와 다음 설정 작업을 확인합니다.", "completion"]
+        ]
+      },
+      {
+        group: "180 코스 추천",
+        items: [
+          ["T-180-01", "추천 조건 입력", "학급 상황에 맞는 추천 조건을 입력합니다.", "form"],
+          ["T-180-02", "추천 코스 결과", "추천 코스를 비교하고 선택합니다.", "recommend"],
+          ["T-180-03", "추천 이유 상세", "추천 근거와 적용 변경 사항을 확인합니다.", "detail"]
+        ]
+      },
+      {
+        group: "181 모듈·일정",
+        items: [
+          ["T-181-01", "추천 모듈 선택", "사용할 경제 모듈과 학생 메뉴 구성을 결정합니다.", "moduleTable"],
+          ["T-181-02", "운영 일정 편집", "모듈별 운영 일정을 조정합니다.", "schedule"],
+          ["T-181-03", "자율 이용 허용", "학생 자율 이용 가능 기능을 정합니다.", "permission"]
+        ]
+      },
+      {
+        group: "182 대시보드",
+        items: [
+          ["T-182-01", "학급 경제 현황", "오늘의 학급 경제 상태를 한눈에 확인합니다.", "dashboard"],
+          ["T-182-02", "위험·운영 알림", "놓치면 안 되는 운영 이슈를 처리합니다.", "alerts"],
+          ["T-182-03", "오늘 활동 빠른 실행", "수업 중 자주 쓰는 활동을 빠르게 시작합니다.", "quick"]
+        ]
+      },
+      {
+        group: "183 학생 관리",
+        items: [
+          ["T-183-01", "학생 목록", "전체 학생 계정과 접속 상태를 관리합니다.", "students"],
+          ["T-183-02", "학생 상세·개인 기록", "한 학생의 참여와 경제 기록을 확인합니다.", "studentDetail"],
+          ["T-183-03", "계정 등록·초기화", "학생 계정을 만들거나 접속 문제를 해결합니다.", "form"]
+        ]
+      },
+      {
+        group: "184 급여·세금",
+        items: [
+          ["T-184-01", "역할별 월급 설정", "학생 역할별 월급과 지급 주기를 설정합니다.", "salary"],
+          ["T-184-02", "세금 정책 설정", "소득세, 소비세, 공공기금 규칙을 정합니다.", "tax"],
+          ["T-184-03", "월급명세서 미리보기", "학생에게 보일 지급 결과를 사전에 확인합니다.", "paystub"]
+        ]
+      },
+      {
+        group: "185 상점·거래",
+        items: [
+          ["T-185-01", "상품·재고 목록", "상품과 재고, 판매 상태를 관리합니다.", "products"],
+          ["T-185-02", "상품 등록·수정", "상품 정보를 만들거나 수정합니다.", "form"],
+          ["T-185-03", "개인거래 검토·승인", "학생 간 거래 요청을 승인 또는 반려합니다.", "trades"]
+        ]
+      }
+    ];
+
+    const screens = modules.flatMap((module) => module.items.map((item) => ({
+      id: item[0],
+      title: item[1],
+      desc: item[2],
+      type: item[3],
+      group: module.group
+    })));
+
+    let activeId = "T-182-01";
+
+    const rows = {
+      classrooms: [
+        ["햇살초 5-2 경제마을", "5학년 2반", "24명", "ACTIVE", "오늘 3개 작업"],
+        ["소비와 저축 프로젝트", "4학년 1반", "임시 저장", "DRAFT", "학생 명단 필요"],
+        ["공공예산 체험반", "6학년 3반", "종료", "READ_ONLY", "리포트 확인"]
+      ],
+      students: [
+        ["김도윤", "상점왕", "온라인", "2,400", "91%"],
+        ["이서연", "저축요정", "온라인", "3,100", "97%"],
+        ["박민준", "세금탐정", "오프라인", "1,800", "74%"],
+        ["최하은", "예산지킴이", "온라인", "2,050", "88%"],
+        ["정지우", "거래마스터", "온라인", "3,800", "95%"]
+      ],
+      alerts: [
+        ["거래", "승인 대기 4건", "높음", "처리 필요", "거래 승인으로 이동"],
+        ["접속", "미접속 학생 2명", "보통", "확인", "학생 목록으로 이동"],
+        ["일정", "투표 일정 충돌", "보통", "검토", "일정 편집으로 이동"],
+        ["경제", "상위 3명 잔액 집중", "낮음", "관찰", "리포트로 이동"]
+      ],
+      products: [
+        ["자리 선택권", "500", "12", "판매 중", "승인 없음"],
+        ["숙제 패스권", "2,000", "2", "승인 필요", "1인 1회"],
+        ["칭찬 배지", "300", "무제한", "판매 중", "캐릭터 장착"],
+        ["급식 우선권", "800", "0", "품절", "재고 필요"]
+      ],
+      trades: [
+        ["김도윤", "이서연", "칭찬 배지 / 300", "대기", "잔액 정상"],
+        ["박민준", "최하은", "자리 선택권 / 500", "위험", "최근 반복"],
+        ["정지우", "한유나", "100 코인 송금", "대기", "사유 확인"]
+      ],
+      salary: [
+        ["기본 학생", "1,000", "매주", "24명", "자동"],
+        ["은행원", "1,300", "매주", "2명", "자동"],
+        ["상점 매니저", "1,200", "매주", "2명", "수동"]
+      ],
+      tax: [
+        ["소득세", "10%", "월급 지급 시", "ON", "공공기금"],
+        ["소비세", "5%", "상점 구매 시", "ON", "공공기금"],
+        ["벌금", "고정", "교사 수동", "ON", "학급 정책"]
+      ],
+      modules: [
+        ["지갑", "필수", "학생 노출", "자율 ON", "승인 없음"],
+        ["월급", "권장", "학생 노출", "수동/자동", "교사 실행"],
+        ["상점", "권장", "학생 노출", "자율 ON", "선택 승인"],
+        ["개인 거래", "선택", "학생 노출", "자율 ON", "교사 승인"],
+        ["AI 운영 보조", "선택", "교사 전용", "학생 비노출", "교사 승인"]
+      ],
+      schedule: [
+        ["7/30", "첫 월급 지급", "월급", "예약", "공용 화면 불필요"],
+        ["7/31", "상점 열기", "상점", "준비", "학생 알림"],
+        ["8/01", "공공예산 투표", "투표", "검토 필요", "공용 화면 사용"],
+        ["8/02", "경제 퀴즈", "퀴즈", "예약", "GUIDED"]
+      ],
+      recommend: [
+        ["소비와 저축 마을", "1주", "쉬움", "지갑·상점·퀴즈", "추천"],
+        ["세금과 공공재 마을", "1달", "보통", "세금·공공기금·투표", "추천"],
+        ["한 학기 경제 운영", "1학기", "확장", "예금·거래 포함", "선택"]
+      ]
+    };
+
+    function statusBadge(value) {
+      const text = String(value);
+      let cls = "";
+      if (/ACTIVE|ON|온라인|판매 중|예약|추천|정상|자동|학생 노출/.test(text)) cls = "green";
+      if (/DRAFT|대기|검토|필요|임시|보통|선택/.test(text)) cls = "yellow";
+      if (/위험|품절|오프라인|높음|READ_ONLY|종료/.test(text)) cls = "red";
+      if (/교사 전용|GUIDED/.test(text)) cls = "purple";
+      return `<span class="badge ${cls}">${text}</span>`;
+    }
+
+    function renderNav() {
+      const nav = document.getElementById("nav");
+      nav.innerHTML = modules.map((module) => `
+        <div class="nav-section">${module.group}</div>
+        ${module.items.map(([id, title]) => `
+          <button class="nav-btn ${id === activeId ? "active" : ""}" onclick="setActive('${id}')">
+            <span class="nav-no">${id.replace("T-", "")}</span>
+            <span>${title}</span>
+          </button>
+        `).join("")}
+      `).join("");
+    }
+
+    function renderTabs(screen) {
+      const current = modules.find((module) => module.group === screen.group);
+      document.getElementById("tabs").innerHTML = current.items.map(([id, title]) => `
+        <button class="tab ${id === activeId ? "active" : ""}" onclick="setActive('${id}')">${title}</button>
+      `).join("");
+    }
+
+    function pageButtons(screen) {
+      const base = ["내보내기", "변경 이력"];
+      const primaryByType = {
+        auth: "로그인",
+        empty: "경제교실 만들기",
+        form: "저장하고 다음",
+        dashboard: "활동 시작",
+        alerts: "선택 알림 처리",
+        quick: "공용 화면 열기",
+        trades: "선택 승인",
+        products: "상품 추가",
+        salary: "월급 정책 저장",
+        tax: "세금 정책 저장"
+      };
+      return [...base, primaryByType[screen.type] || "저장"].map((label, index, arr) => `
+        <button class="btn ${index === arr.length - 1 ? "primary" : ""}">${label}</button>
+      `).join("");
+    }
+
+    function stats() {
+      return `
+        <div class="stats">
+          <div class="stat"><span>총 화폐량</span><strong>48,200</strong></div>
+          <div class="stat"><span>평균 잔액</span><strong>2,008</strong></div>
+          <div class="stat"><span>공공기금</span><strong>7,400</strong></div>
+          <div class="stat"><span>참여 학생</span><strong>22/24</strong></div>
+        </div>
+      `;
+    }
+
+    function tablePanel(title, columns, data, drawerTitle) {
+      return `
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-toolbar">
+              <div class="filters">
+                <input class="search" placeholder="${title} 검색" />
+                <select class="select"><option>상태 전체</option><option>처리 필요</option><option>정상</option></select>
+                <select class="select"><option>최근순</option><option>이름순</option><option>금액순</option></select>
+              </div>
+              <button class="btn">필터 저장</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>${columns.map((c) => `<th>${c}</th>`).join("")}<th>작업</th></tr></thead>
+                <tbody>
+                  ${data.map((row, i) => `
+                    <tr>
+                      ${row.map((cell, j) => `<td>${j === 0 ? nameCell(cell, i) : statusBadge(cell)}</td>`).join("")}
+                      <td><button class="btn">상세</button></td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          ${drawer(drawerTitle, data[0])}
+        </div>
+      `;
+    }
+
+    function nameCell(value, index) {
+      return `
+        <div class="name-cell">
+          <div class="avatar">${String(value).slice(0, 1)}</div>
+          <div><strong>${value}</strong><span>ID ${String(index + 1).padStart(3, "0")}</span></div>
+        </div>
+      `;
+    }
+
+    function drawer(title, selected) {
+      const values = selected || ["선택 항목", "상세 정보", "상태", "처리"];
+      return `
+        <aside class="drawer">
+          <div class="drawer-head">
+            <span>선택 항목 상세</span>
+            <h2>${title}</h2>
+          </div>
+          <div class="drawer-body">
+            <dl class="kv"><dt>이름</dt><dd>${values[0]}</dd></dl>
+            <dl class="kv"><dt>상태</dt><dd>${statusBadge(values[3] || values[2])}</dd></dl>
+            <dl class="kv"><dt>검토</dt><dd>${values[4] || "변경 영향 없음"}</dd></dl>
+            <dl class="kv"><dt>원칙</dt><dd>돈이 이동하는 작업은 최종 확인 모달을 거칩니다.</dd></dl>
+            <dl class="kv"><dt>다음 이동</dt><dd>저장 후 관련 장부와 학생 알림에 반영됩니다.</dd></dl>
+          </div>
+          <div class="drawer-actions">
+            <button class="btn primary">적용</button>
+            <button class="btn">보류</button>
+            <button class="btn danger">반려</button>
+          </div>
+        </aside>
+      `;
+    }
+
+    function formView(screen) {
+      const labelsById = {
+        "T-179-01": ["교실 이름", "학교명", "학년", "반", "화폐명", "설명"],
+        "T-179-02": ["운영 유형", "시작일", "종료일", "운영 요일", "활동 시간", "종료 후 조회 기간"],
+        "T-180-01": ["운영 기간", "학년", "학생 수", "수업 목표", "난이도", "사용 모듈"],
+        "T-183-03": ["출석번호", "이름", "초기 닉네임", "초기 비밀번호", "CSV 업로드", "메모"],
+        "T-185-02": ["상품명", "설명", "가격", "재고", "판매 기간", "구매 승인 여부"]
+      };
+      const labels = labelsById[screen.id] || ["이름", "설명", "상태", "옵션", "시작일", "종료일"];
+      return `
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-toolbar">
+              <div class="filters">
+                <span class="badge">Step ${screen.id.split("-")[2]}</span>
+                <span class="badge green">자동 저장됨</span>
+                <span class="badge yellow">검토 필요 1</span>
+              </div>
+              <button class="btn">이전 단계</button>
+            </div>
+            <div class="form-grid">
+              ${labels.map((label) => `
+                <div class="field">
+                  <label>${label}</label>
+                  <input class="input" placeholder="${label} 입력" />
+                </div>
+              `).join("")}
+            </div>
+          </section>
+          ${drawer("설정 미리보기", [screen.title, screen.group, "작성 중", "DRAFT", "필수값 확인"])}
+        </div>
+      `;
+    }
+
+    function authView() {
+      return `
+        <div class="auth-layout">
+          <section class="login-card">
+            <h2>교사 로그인</h2>
+            <p>학교 계정으로 안전하게 인증한 뒤 운영할 경제교실을 선택하세요.</p>
+            <div class="notice">이코빌리지는 학교 계정 비밀번호를 입력받거나 저장하지 않습니다.</div>
+            <div style="height:18px"></div>
+            <button class="btn primary" style="width:100%">학교 계정으로 로그인</button>
+          </section>
+          <section class="preview">
+            <div class="stat">
+              <span>오늘의 운영 예시</span>
+              <strong>학급 경제 현황, 승인 대기, 공용 화면 연결을 한 곳에서 관리합니다.</strong>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function emptyView() {
+      return `
+        <div class="content-grid">
+          <section class="panel">
+            <div class="empty">
+              <div>
+                <strong>아직 만든 경제교실이 없습니다</strong>
+                <p>첫 경제교실을 만들면 학생 명단, 추천 코스, 운영 정책을 이어서 설정할 수 있습니다.</p>
+                <button class="btn primary">경제교실 만들기</button>
+              </div>
+            </div>
+          </section>
+          ${drawer("초기 설정 안내", ["새 경제교실", "교실 생성", "준비", "DRAFT", "학생 명단 필요"])}
+        </div>
+      `;
+    }
+
+    function renderView(screen) {
+      if (screen.type === "auth") return authView();
+      if (screen.type === "empty") return emptyView();
+      if (screen.type === "form") return formView(screen);
+      if (screen.type === "dashboard") {
+        return `${stats()}${tablePanel("최근 경제 활동", ["항목", "분류", "금액/수량", "상태", "비고"], [
+          ["월급 지급", "급여", "24명", "완료", "자동 장부 반영"],
+          ["상점 구매", "상점", "3건", "완료", "소비세 반영"],
+          ["개인 거래", "거래", "4건", "처리 필요", "교사 승인 대기"],
+          ["공공기금", "세금", "7,400", "정상", "투표 대기"]
+        ], "최근 활동 상세")}`;
+      }
+      if (screen.type === "classrooms") return tablePanel("경제교실", ["교실", "대상", "학생/상태", "운영", "다음 작업"], rows.classrooms, "교실 상세");
+      if (screen.type === "students") return tablePanel("학생", ["학생", "닉네임", "접속", "잔액", "참여율"], rows.students, "학생 상세");
+      if (screen.type === "studentDetail") return `${stats()}${tablePanel("개인 기록", ["기록", "분류", "금액", "상태", "비고"], [
+        ["김도윤", "월급", "+1,000", "완료", "7/29 지급"],
+        ["김도윤", "상점", "-500", "완료", "자리 선택권"],
+        ["김도윤", "거래", "-300", "대기", "교사 승인 필요"]
+      ], "김도윤 상세")}`;
+      if (screen.type === "alerts") return tablePanel("운영 알림", ["종류", "내용", "중요도", "상태", "이동"], rows.alerts, "알림 상세");
+      if (screen.type === "quick") return tablePanel("빠른 실행", ["활동", "분류", "대상", "상태", "비고"], [
+        ["월급 지급", "경제", "24명", "준비", "확인 후 실행"],
+        ["세금 징수", "경제", "24명", "준비", "공공기금 반영"],
+        ["퀴즈 시작", "학습", "22명", "예약", "공용 화면 사용"],
+        ["투표 시작", "공공예산", "24명", "검토", "안건 확인"]
+      ], "빠른 실행 상세");
+      if (screen.type === "products") return tablePanel("상품", ["상품", "가격", "재고", "상태", "정책"], rows.products, "상품 상세");
+      if (screen.type === "trades") return tablePanel("개인거래", ["요청자", "상대", "내용", "상태", "검토"], rows.trades, "거래 상세");
+      if (screen.type === "salary") return tablePanel("월급 정책", ["역할", "지급액", "주기", "학생", "실행"], rows.salary, "월급 정책 상세");
+      if (screen.type === "tax") return tablePanel("세금 정책", ["세금", "세율", "적용 시점", "상태", "적립"], rows.tax, "세금 정책 상세");
+      if (screen.type === "moduleTable" || screen.type === "permission") return tablePanel("모듈", ["모듈", "구분", "노출", "이용", "승인"], rows.modules, "모듈 상세");
+      if (screen.type === "schedule") return tablePanel("운영 일정", ["날짜", "활동", "모듈", "상태", "비고"], rows.schedule, "일정 상세");
+      if (screen.type === "recommend") return tablePanel("추천 코스", ["코스", "기간", "난이도", "모듈", "상태"], rows.recommend, "추천 코스 상세");
+      if (screen.type === "detail") return tablePanel("추천 근거", ["근거", "기준", "평가", "상태", "영향"], [
+        ["학년 적합도", "5학년", "높음", "추천", "문장 길이 적합"],
+        ["운영 기간", "1주", "높음", "추천", "활동 4개"],
+        ["금융 모듈", "예금", "낮음", "보류", "기간 짧음"]
+      ], "추천 이유 상세");
+      if (screen.type === "completion") return tablePanel("개설 후 작업", ["작업", "분류", "대상", "상태", "다음 이동"], [
+        ["학생 명단 등록", "필수", "교사", "처리 필요", "학생 관리"],
+        ["추천 코스 선택", "권장", "교사", "대기", "코스 추천"],
+        ["공용 화면 연결", "선택", "교실", "정상", "대시보드"]
+      ], "개설 완료 상세");
+      if (screen.type === "paystub") return tablePanel("월급명세서", ["학생", "기본 월급", "세금", "최종 지급", "상태"], [
+        ["김도윤", "1,000", "-100", "1,100", "미리보기"],
+        ["이서연", "1,000", "-100", "900", "미리보기"],
+        ["박민준", "1,000", "-100", "1,300", "보너스 포함"]
+      ], "명세서 상세");
+      return tablePanel("목록", ["항목", "분류", "값", "상태", "비고"], rows.alerts, "상세");
+    }
+
+    function setActive(id) {
+      activeId = id;
+      render();
+    }
+
+    function render() {
+      const screen = screens.find((item) => item.id === activeId) || screens[0];
+      document.getElementById("crumbTitle").textContent = screen.title;
+      document.getElementById("pageTitle").textContent = `${screen.id} ${screen.title}`;
+      document.getElementById("pageDesc").textContent = screen.desc;
+      document.getElementById("pageActions").innerHTML = pageButtons(screen);
+      document.getElementById("view").innerHTML = renderView(screen);
+      renderNav();
+      renderTabs(screen);
+    }
+
+    render();
+  </script>
+</body>
+</html>
