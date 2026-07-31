@@ -1,6 +1,6 @@
 {
   "evaluation_set_version": "common-evaluation-v1",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "expected_case_count": 60,
   "features": [
     {"id": "setup-precheck", "factory": "setup_precheck", "endpoint": "/internal/v1/generations/balancing"},

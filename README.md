@@ -240,7 +240,7 @@ docker compose up -d
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
 - [API 공통 규칙 v0.5](docs/API_COMMON_RULES.md)
-- [HTTP API 명세 v0.6](docs/HTTP_API_SPEC.md)
+- [HTTP API 명세 v0.7](docs/HTTP_API_SPEC.md)
 - [WebSocket 명세 v0.4](docs/WEBSOCKET_SPEC.md)
 - [요구사항 기준선·용어집 v0.7](docs/REQUIREMENTS_BASELINE.md)
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)

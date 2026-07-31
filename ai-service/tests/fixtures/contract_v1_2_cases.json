@@ -1,9 +1,15 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "success": [
     {
       "id": "setup-classroom",
       "factory": "setup_classroom",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "setup-module-activation",
+      "factory": "setup_module_activation",
       "endpoint": "/internal/v1/generations/balancing",
       "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
     },
@@ -84,6 +90,20 @@
     }
   ],
   "invalid": [
+    {
+      "id": "setup-classroom-candidate",
+      "factory": "setup_module_activation",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "setup-module-missing-id",
+      "factory": "setup_module_activation",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
     {
       "id": "setup-unrelated-target",
       "factory": "setup_product",

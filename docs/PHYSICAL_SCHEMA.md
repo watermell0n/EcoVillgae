@@ -4,7 +4,7 @@
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
 - 입력: [논리 데이터 모델 v0.5](DATA_MODEL.md)
-- 상태: MVP 물리 기준선·AI v1.1 컬럼 설계 반영, 관련 Flyway 구현 예정
+- 상태: MVP 물리 기준선·AI v1.2 선택형 모듈 계약 반영, 관련 Flyway 구현 예정
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
@@ -167,6 +167,8 @@ ON DELETE RESTRICT
 | `salary_roles` | S | `role_code varchar(40)`, `name varchar(80)`, `gross_amount bigint`, `deductions_json jsonb D={}`, `sort_order integer D=0` | `(classroom_id,role_code) UQ`, `(classroom_id,lower(name)) UQ`, 코드 형식, 금액 0 이상 |
 | `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
 | `school_ai_setting_versions` | 없음 | `id uuid PK`, `school_id uuid FK(schools)`, `version integer`, `enabled boolean`, `reason text`, `effective_from timestamptz`, `superseded_at timestamptz?`, `created_by_user_id uuid FK(users)`, `created_at timestamptz D=now()` | `(school_id,version) UQ`, 학교별 현재 버전 1개, 이력 불변 |
+
+전역 필수 모듈은 없습니다. 역할·급여 모듈이 비활성화된 학급은 `salary_roles`와 `payslips` 행을 만들지 않으며 `classroom_students.salary_role_id`를 `NULL`로 유지할 수 있습니다. 금액 모듈이 처음 활성화될 때 필요한 `ledger_accounts`를 생성하므로 지갑·원장은 교사가 고르는 기능 모듈이나 방 생성의 필수 데이터가 아닙니다. 초기 정책이 필요한 모듈은 `classroom_policy_versions` 저장과 `classroom_modules` 활성 전이를 같은 서비스 트랜잭션에서 처리합니다.
 
 ### 4.2 거래 원장·멱등성·상태·이벤트·감사
 
@@ -547,7 +549,7 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - PostgreSQL 17에 Flyway `V1_1`~`V1_11` 직접 적용과 핵심 제약 검증 성공
 - Testcontainers 20개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
 
-`ai_runs`, `ai_proposals`, `ai_decisions`, `economic_event_drafts`의 AI v1.1 추가 컬럼은
+`ai_runs`, `ai_proposals`, `ai_decisions`, `economic_event_drafts`의 AI v1.2 계약 컬럼은
 설계만 반영된 상태입니다. 기존 `V1_1`~`V1_11`을 소급 수정하지 않고 다음 단계에서 새
 Flyway 마이그레이션과 DB 무결성 테스트로 구현합니다.
 
@@ -558,4 +560,4 @@ Flyway 마이그레이션과 DB 무결성 테스트로 구현합니다.
 3. 서비스 계층에서 OWNER 0명 방지, 같은 멱등 키의 요청 hash 비교·기존 응답 반환, READ_ONLY 명령 차단 인수 테스트
 4. 금융·퀴즈 버전 불변성과 투자·대출 음수 값 거부를 포함한 서비스·DB 통합 테스트 보강
 5. 실제 쿼리 기반 `EXPLAIN ANALYZE` 후 인덱스 조정
-6. AI v1.1 실행 트리거·알림 중복키·투자 뉴스 가격 단계 연결 컬럼과 제약 구현
+6. AI v1.2 실행 트리거·알림 중복키·투자 뉴스 가격 단계 연결 컬럼과 제약 구현

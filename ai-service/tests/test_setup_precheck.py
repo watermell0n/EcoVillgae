@@ -46,7 +46,7 @@ class MutatingSetupProvider(CountingSetupProvider):
         if self.mutation == "VALUE_CHANGED":
             candidate["proposed_value"] += 1
         elif self.mutation == "RANGE_CHANGED":
-            candidate["min_value"] += 1
+            candidate["recommended_min_value"] += 1
         elif self.mutation == "SEVERITY_CHANGED":
             check["severity"] = "WARN"
         elif self.mutation == "AUTO_APPLY":
@@ -84,53 +84,77 @@ def _client(settings: Settings, provider: object) -> TestClient:
     return TestClient(create_app(settings=settings, provider=provider))
 
 
-def _classroom_candidates() -> list[dict[str, Any]]:
-    return [
-        {
-            "action_id": "salary-default",
-            "target_type": "ROLE_SALARY",
-            "target_id": None,
-            "proposed_value": 1000,
-            "min_value": 500,
-            "max_value": 2000,
-            "unit": "AMOUNT",
-            "reason_codes": ["EXPECTED_PURCHASING_POWER"],
-            "label": "기본 역할 급여",
-        },
-        {
-            "action_id": "income-tax-default",
-            "target_type": "INCOME_TAX_RATE",
-            "target_id": None,
-            "proposed_value": 500,
-            "min_value": 0,
-            "max_value": 2000,
-            "unit": "RATE_BPS",
-            "reason_codes": ["INCOME_RECOVERY_BALANCE"],
-            "label": "소득세율",
-        },
-        {
-            "action_id": "deposit-rate-default",
-            "target_type": "DEPOSIT_RATE",
-            "target_id": None,
-            "proposed_value": 300,
-            "min_value": 0,
-            "max_value": 1000,
-            "unit": "RATE_BPS",
-            "reason_codes": ["SAVINGS_INCENTIVE"],
-            "label": "예금금리",
-        },
-        {
-            "action_id": "loan-rate-default",
-            "target_type": "LOAN_RATE",
-            "target_id": None,
-            "proposed_value": 600,
-            "min_value": 0,
-            "max_value": 2000,
-            "unit": "RATE_BPS",
-            "reason_codes": ["LOAN_REPAYMENT_BURDEN"],
-            "label": "대출금리",
-        },
-    ]
+def _module_candidate(module_code: str) -> dict[str, Any]:
+    values = {
+        "ROLE_SALARY": (
+            "ROLE_SALARY",
+            1000,
+            850,
+            1150,
+            100,
+            2000,
+            "AMOUNT",
+            "EXPECTED_PURCHASING_POWER",
+            "기본 역할 급여",
+        ),
+        "INCOME_TAX": (
+            "INCOME_TAX_RATE",
+            500,
+            400,
+            600,
+            300,
+            800,
+            "RATE_BPS",
+            "INCOME_RECOVERY_BALANCE",
+            "소득세율",
+        ),
+        "DEPOSIT": (
+            "DEPOSIT_RATE",
+            300,
+            200,
+            400,
+            100,
+            600,
+            "RATE_BPS",
+            "SAVINGS_INCENTIVE",
+            "예금금리",
+        ),
+        "LOAN": (
+            "LOAN_RATE",
+            700,
+            600,
+            800,
+            500,
+            1200,
+            "RATE_BPS",
+            "LOAN_REPAYMENT_BURDEN",
+            "대출금리",
+        ),
+    }
+    (
+        target_type,
+        proposed,
+        rec_min,
+        rec_max,
+        allow_min,
+        allow_max,
+        unit,
+        reason,
+        label,
+    ) = values[module_code]
+    return {
+        "action_id": f"{module_code.lower()}-default",
+        "target_type": target_type,
+        "target_id": str(TARGET_ID),
+        "proposed_value": proposed,
+        "recommended_min_value": rec_min,
+        "recommended_max_value": rec_max,
+        "allowed_min_value": allow_min,
+        "allowed_max_value": allow_max,
+        "unit": unit,
+        "reason_codes": [reason],
+        "label": label,
+    }
 
 
 def _setup_body(case: dict[str, Any], grade: int) -> dict[str, Any]:
@@ -143,16 +167,18 @@ def _setup_body(case: dict[str, Any], grade: int) -> dict[str, Any]:
     context["expected_students"] = 12 + grade * 2
 
     if context_type == "CLASSROOM_SETUP":
-        context["active_modules"] = (
-            ["QUIZ"]
-            if case["course_scale"] == "ONE_SHOT"
-            else ["WALLET", "SHOP", "DEPOSIT", "LOAN"]
-        )
-        body["payload"]["candidates"] = _classroom_candidates()
+        context["active_modules"] = []
+        body["payload"]["candidates"] = []
+    elif context_type == "MODULE_ACTIVATION":
+        module_code = case.get("module_code", "ROLE_SALARY")
+        context["module_code"] = module_code
+        context["module_id"] = str(TARGET_ID)
+        context["active_modules"] = ["DEPOSIT"] if module_code == "LOAN" else []
+        body["payload"]["candidates"] = [_module_candidate(module_code)]
     elif context_type == "PRODUCT_DRAFT":
-        context["active_modules"] = ["WALLET", "SHOP"]
+        context["active_modules"] = ["SHOP"]
     else:
-        context["active_modules"] = ["WALLET", "QUIZ"]
+        context["active_modules"] = ["QUIZ"]
         context["quiz_mode"] = case.get("quiz_mode", "GAME")
 
     if case.get("no_candidates"):
@@ -249,8 +275,10 @@ def test_setup_precheck_evaluation_set(
             "target_type",
             "label",
             "proposed_value",
-            "min_value",
-            "max_value",
+            "recommended_min_value",
+            "recommended_max_value",
+            "allowed_min_value",
+            "allowed_max_value",
             "unit",
         ):
             assert explanation[field] == candidate[field]
@@ -339,8 +367,10 @@ def test_sensitive_setup_input_is_rejected_before_provider_call(
 @pytest.mark.parametrize(
     "mutation",
     [
-        "ONE_SHOT_WITH_CANDIDATE",
-        "CLASSROOM_WITH_TARGET_ID",
+        "CLASSROOM_WITH_CANDIDATE",
+        "MODULE_WITHOUT_CONTEXT_ID",
+        "MODULE_TARGET_MISMATCH",
+        "MODULE_TARGET_TYPE_MISMATCH",
         "PRODUCT_WITHOUT_TARGET_ID",
         "DUPLICATE_ACTIVE_MODULE",
         "DUPLICATE_CHECK_SUBJECT",
@@ -352,15 +382,19 @@ def test_invalid_setup_input_context_is_rejected(
     if mutation == "PRODUCT_WITHOUT_TARGET_ID":
         body = setup_precheck_request("PRODUCT_DRAFT")
         body["payload"]["candidates"][0]["target_id"] = None
+    elif mutation == "CLASSROOM_WITH_CANDIDATE":
+        body = setup_precheck_request("CLASSROOM_SETUP")
+        body["payload"]["candidates"] = [_module_candidate("ROLE_SALARY")]
     else:
         body = setup_precheck_request()
-        if mutation == "ONE_SHOT_WITH_CANDIDATE":
-            body["payload"]["context"]["course_scale"] = "ONE_SHOT"
-            body["payload"]["context"]["operation_period_days"] = 1
-        elif mutation == "CLASSROOM_WITH_TARGET_ID":
-            body["payload"]["candidates"][0]["target_id"] = str(TARGET_ID)
+        if mutation == "MODULE_WITHOUT_CONTEXT_ID":
+            body["payload"]["context"]["module_id"] = None
+        elif mutation == "MODULE_TARGET_MISMATCH":
+            body["payload"]["candidates"][0]["target_id"] = "00000000-0000-0000-0000-000000000002"
+        elif mutation == "MODULE_TARGET_TYPE_MISMATCH":
+            body["payload"]["candidates"][0]["target_type"] = "DEPOSIT_RATE"
         elif mutation == "DUPLICATE_ACTIVE_MODULE":
-            body["payload"]["context"]["active_modules"] = ["WALLET", "WALLET"]
+            body["payload"]["context"]["active_modules"] = ["SHOP", "SHOP"]
         else:
             action_id = body["payload"]["candidates"][0]["action_id"]
             body["payload"]["checks"][0]["subject_action_ids"] = [

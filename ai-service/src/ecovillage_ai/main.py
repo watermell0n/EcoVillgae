@@ -127,7 +127,7 @@ def create_app(
             service=resolved_settings.app_name,
             version=resolved_settings.app_version,
             provider=resolved_settings.provider_name,
-            schema_version="1.1",
+            schema_version="1.2",
             prompt_versions=list(SUPPORTED_PROMPT_VERSIONS),
             provider_routes={
                 kind: {

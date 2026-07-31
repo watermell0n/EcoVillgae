@@ -1,6 +1,6 @@
 {
   "release_profile_version": "ai-mvp-release-v1",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "minimum_evaluation_cases": 350,
   "prompt_versions": [
     "setup-precheck-v1",

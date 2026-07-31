@@ -5,7 +5,7 @@
 | 파일 | 역할 | 기준 문서 |
 | --- | --- | --- |
 | [openapi.yaml](openapi.yaml) | 107개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
-| [ai-internal-openapi.yaml](ai-internal-openapi.yaml) | Spring과 FastAPI 사이 schema v1.1, 4개 내부 생성 API 계약 | [내부 AI API 계약](../docs/ai/INTERNAL_API_CONTRACT.md) |
+| [ai-internal-openapi.yaml](ai-internal-openapi.yaml) | Spring과 FastAPI 사이 schema v1.2, 4개 내부 생성 API 계약 | [내부 AI API 계약](../docs/ai/INTERNAL_API_CONTRACT.md) |
 | [asyncapi.yaml](asyncapi.yaml) | 10개 논리 채널·48개 서버 이벤트·4개 연결 제어 메시지 계약 | [WebSocket 명세](../docs/WEBSOCKET_SPEC.md) |
 | [api-field-mapping.json](api-field-mapping.json) | 107개 작업의 MVP/후속 분류와 요청·응답 필드·저장 경계 | [API·스키마 정합성 검토](../docs/reviews/API_SCHEMA_FIELD_AUDIT.md) |
 
@@ -38,7 +38,7 @@ pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 - 사람이 읽는 명세와 계약 파일 사이 API·채널·이벤트 ID 누락 0건
 - MVP·필수 지원 API 68건의 명시적 strict DTO와 저장·조회 경계
 - 후속 API 39건의 `planned` 상태
-- 내부 AI API 4건, schema v1.1 fixture 성공 12건·실패 7건, 이벤트 템플릿 7종,
+- 내부 AI API 4건, schema v1.2 fixture 성공 13건·실패 9건, 이벤트 템플릿 7종,
   분석 모드·설정 문맥·이벤트 출처·투자 단계 연결·퀴즈 난이도와 금지 입력 교차 참조
 
 ## 구현 경계

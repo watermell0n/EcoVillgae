@@ -106,6 +106,7 @@ class SampleStatus(StrEnum):
 
 class SetupContextType(StrEnum):
     CLASSROOM_SETUP = "CLASSROOM_SETUP"
+    MODULE_ACTIVATION = "MODULE_ACTIVATION"
     PRODUCT_DRAFT = "PRODUCT_DRAFT"
     QUIZ_SESSION_DRAFT = "QUIZ_SESSION_DRAFT"
 
@@ -259,12 +260,21 @@ class SetupContext(ContractModel):
     expected_students: Annotated[StrictInt, Field(ge=1, le=100)]
     operation_period_days: Annotated[StrictInt, Field(ge=1, le=365)]
     active_modules: Annotated[list[ShortText], Field(max_length=30)]
-    quiz_mode: QuizRunMode | None = None
+    module_code: ShortText | None
+    module_id: UUID | None
+    quiz_mode: QuizRunMode | None
 
     @model_validator(mode="after")
     def validate_quiz_mode(self) -> SetupContext:
         if len(self.active_modules) != len(set(self.active_modules)):
             raise ValueError("활성 모듈은 중복될 수 없습니다.")
+        if self.context_type is SetupContextType.MODULE_ACTIVATION:
+            if self.module_code is None or self.module_id is None:
+                raise ValueError("모듈 활성화 문맥에는 module_code와 module_id가 필요합니다.")
+        elif self.module_code is not None or self.module_id is not None:
+            raise ValueError(
+                "모듈 활성화 외 문맥에는 module_code와 module_id를 지정할 수 없습니다."
+            )
         if self.context_type is SetupContextType.QUIZ_SESSION_DRAFT:
             if self.quiz_mode is None:
                 raise ValueError("퀴즈 세션 설정 문맥에는 quiz_mode가 필요합니다.")
@@ -278,16 +288,27 @@ class SetupCandidate(ContractModel):
     target_type: SetupRecommendationTargetType
     target_id: UUID | None = None
     proposed_value: Annotated[StrictInt, Field(ge=0)]
-    min_value: Annotated[StrictInt, Field(ge=0)]
-    max_value: Annotated[StrictInt, Field(ge=0)]
+    recommended_min_value: Annotated[StrictInt, Field(ge=0)]
+    recommended_max_value: Annotated[StrictInt, Field(ge=0)]
+    allowed_min_value: Annotated[StrictInt, Field(ge=0)]
+    allowed_max_value: Annotated[StrictInt, Field(ge=0)]
     unit: MetricUnit
     reason_codes: Annotated[list[ReasonCode], Field(min_length=1, max_length=20)]
     label: Annotated[str, Field(min_length=1, max_length=100)]
 
     @model_validator(mode="after")
     def validate_range(self) -> SetupCandidate:
-        if not self.min_value <= self.proposed_value <= self.max_value:
-            raise ValueError("설정 후보값은 min_value와 max_value 범위 안이어야 합니다.")
+        if not (
+            self.allowed_min_value
+            <= self.recommended_min_value
+            <= self.proposed_value
+            <= self.recommended_max_value
+            <= self.allowed_max_value
+        ):
+            raise ValueError(
+                "설정 후보값은 허용 최소 <= 추천 최소 <= 제안값 <= "
+                "추천 최대 <= 허용 최대여야 합니다."
+            )
         if len(self.reason_codes) != len(set(self.reason_codes)):
             raise ValueError("설정 후보의 reason_codes는 중복될 수 없습니다.")
         return self
@@ -323,7 +344,8 @@ class SetupPrecheckPayload(ContractModel):
             raise ValueError("시작 전 점검 check_id는 중복될 수 없습니다.")
 
         allowed_targets = {
-            SetupContextType.CLASSROOM_SETUP: {
+            SetupContextType.CLASSROOM_SETUP: set(),
+            SetupContextType.MODULE_ACTIVATION: {
                 SetupRecommendationTargetType.ROLE_SALARY,
                 SetupRecommendationTargetType.INCOME_TAX_RATE,
                 SetupRecommendationTargetType.DEPOSIT_RATE,
@@ -337,23 +359,43 @@ class SetupPrecheckPayload(ContractModel):
             for candidate in self.candidates
         ):
             raise ValueError("설정 문맥에서 허용하지 않는 추천 대상입니다.")
-        if self.context.course_scale is CourseScale.ONE_SHOT and self.candidates:
-            raise ValueError("1회 코스에는 경제 설정·화폐 보상 후보를 둘 수 없습니다.")
         if self.context.context_type is SetupContextType.QUIZ_SESSION_DRAFT and (
             self.context.quiz_mode is QuizRunMode.TEST
         ):
             if self.candidates:
-                raise ValueError("TEST와 1회 코스 퀴즈에는 화폐 보상 후보를 둘 수 없습니다.")
+                raise ValueError("TEST 퀴즈에는 화폐 보상 후보를 둘 수 없습니다.")
 
         if self.context.context_type is SetupContextType.CLASSROOM_SETUP and any(
             candidate.target_id is not None for candidate in self.candidates
         ):
             raise ValueError("학급 개설 설정 후보에는 개별 target_id를 둘 수 없습니다.")
         if self.context.context_type in {
+            SetupContextType.MODULE_ACTIVATION,
             SetupContextType.PRODUCT_DRAFT,
             SetupContextType.QUIZ_SESSION_DRAFT,
         } and any(candidate.target_id is None for candidate in self.candidates):
-            raise ValueError("상품·퀴즈 설정 후보에는 대상 target_id가 필요합니다.")
+            raise ValueError("모듈·상품·퀴즈 설정 후보에는 대상 target_id가 필요합니다.")
+        if self.context.context_type is SetupContextType.MODULE_ACTIVATION and any(
+            candidate.target_id != self.context.module_id for candidate in self.candidates
+        ):
+            raise ValueError("모듈 설정 후보의 target_id는 context.module_id와 같아야 합니다.")
+        if self.context.context_type is SetupContextType.MODULE_ACTIVATION:
+            target_by_module = {
+                "ROLE_SALARY": SetupRecommendationTargetType.ROLE_SALARY,
+                "SALARY": SetupRecommendationTargetType.ROLE_SALARY,
+                "INCOME_TAX": SetupRecommendationTargetType.INCOME_TAX_RATE,
+                "DEPOSIT": SetupRecommendationTargetType.DEPOSIT_RATE,
+                "LOAN": SetupRecommendationTargetType.LOAN_RATE,
+            }
+            expected_target = target_by_module.get(self.context.module_code or "")
+            if self.candidates and (
+                expected_target is None
+                or any(
+                    candidate.target_type is not expected_target
+                    for candidate in self.candidates
+                )
+            ):
+                raise ValueError("대상 모듈과 설정 후보의 target_type이 일치하지 않습니다.")
 
         known_ids = set(candidate_ids)
         if any(
@@ -615,7 +657,7 @@ class CommonGenerationRequest(ContractModel):
     ai_run_id: UUID
     request_id: UUID
     correlation_id: UUID
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.2"]
     prompt_version: Annotated[str, Field(pattern=r"^[a-z0-9-]+-v[1-9][0-9]*$")]
     attempt: Annotated[StrictInt, Field(ge=1, le=2)]
     deadline_at: datetime
@@ -744,8 +786,10 @@ class SetupCandidateExplanation(ContractModel):
     target_type: SetupRecommendationTargetType
     label: Annotated[str, Field(min_length=1, max_length=100)]
     proposed_value: Annotated[StrictInt, Field(ge=0)]
-    min_value: Annotated[StrictInt, Field(ge=0)]
-    max_value: Annotated[StrictInt, Field(ge=0)]
+    recommended_min_value: Annotated[StrictInt, Field(ge=0)]
+    recommended_max_value: Annotated[StrictInt, Field(ge=0)]
+    allowed_min_value: Annotated[StrictInt, Field(ge=0)]
+    allowed_max_value: Annotated[StrictInt, Field(ge=0)]
     unit: MetricUnit
     evidence_reason_codes: Annotated[list[ReasonCode], Field(min_length=1, max_length=20)]
     rationale: Annotated[str, Field(min_length=1, max_length=1000)]
@@ -999,7 +1043,7 @@ class Usage(ContractModel):
 
 class ResponseMetadata(ContractModel):
     ai_run_id: UUID
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.2"]
     prompt_version: Annotated[str, Field(pattern=r"^[a-z0-9-]+-v[1-9][0-9]*$")]
     provider: Annotated[str, Field(min_length=1, max_length=50)]
     model_id: Annotated[str, Field(min_length=1, max_length=200)]
@@ -1067,6 +1111,6 @@ class HealthResponse(ContractModel):
     service: str
     version: str
     provider: str
-    schema_version: Literal["1.1"]
+    schema_version: Literal["1.2"]
     prompt_versions: list[str]
     provider_routes: dict[str, ProviderRouteHealth]

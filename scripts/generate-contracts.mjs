@@ -341,7 +341,6 @@ const requestFieldOverrides = {
     { name: "ends_on", schema: { type: "string", format: "date" } },
     { name: "student_count", schema: { type: "integer", minimum: 1 } },
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
-    { name: "salary_policy", schema: { type: "object", additionalProperties: true } },
     {
       name: "module_codes",
       schema: { type: "array", uniqueItems: true, items: { type: "string" } },
@@ -374,12 +373,12 @@ const requestFieldOverrides = {
         type: "array",
         items: {
           type: "object",
-          required: ["attendance_number", "nickname", "role_code"],
+          required: ["attendance_number", "nickname"],
           properties: {
             student_id: { type: "string", format: "uuid" },
             attendance_number: { type: "integer", minimum: 1 },
             nickname: { type: "string", minLength: 1, maxLength: 40 },
-            role_code: { type: "string" },
+            role_code: { type: ["string", "null"] },
           },
           additionalProperties: false,
         },
@@ -387,6 +386,7 @@ const requestFieldOverrides = {
     },
     {
       name: "salary_roles",
+      optional: true,
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
@@ -424,7 +424,22 @@ const requestFieldOverrides = {
     { name: "reason" },
   ],
   "API-MOD-001": [
+    { name: "expected_state_version", schema: { type: "integer", minimum: 0 } },
     { name: "confirm_prerequisites", schema: { type: "boolean", const: true } },
+    {
+      name: "initial_policy_values",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    {
+      name: "recommendation_action_ids",
+      optional: true,
+      schema: {
+        type: "array",
+        uniqueItems: true,
+        items: { type: "string", minLength: 1, maxLength: 100 },
+      },
+    },
   ],
   "API-POL-001": [
     { name: "price_adjustment_bps", schema: { type: "integer", format: "int32" } },

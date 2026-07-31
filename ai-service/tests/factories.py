@@ -28,7 +28,7 @@ def common(prompt_version: str) -> dict[str, object]:
         "ai_run_id": str(AI_RUN_ID),
         "request_id": str(REQUEST_ID),
         "correlation_id": str(CORRELATION_ID),
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "prompt_version": prompt_version,
         "attempt": 1,
         "deadline_at": (now + timedelta(seconds=30)).isoformat(),
@@ -111,7 +111,7 @@ def auto_monitor_request() -> dict[str, object]:
     return deepcopy(body)
 
 
-def setup_precheck_request(context_type: str = "CLASSROOM_SETUP") -> dict[str, object]:
+def setup_precheck_request(context_type: str = "MODULE_ACTIVATION") -> dict[str, object]:
     body = common("setup-precheck-v1")
     body["analysis_mode"] = "SETUP_PRECHECK"
     body["trigger_type"] = "TEACHER_REQUEST"
@@ -120,18 +120,26 @@ def setup_precheck_request(context_type: str = "CLASSROOM_SETUP") -> dict[str, o
         "course_scale": "ONE_MONTH",
         "expected_students": 24,
         "operation_period_days": 30,
-        "active_modules": ["WALLET", "SHOP", "DEPOSIT"],
+        "active_modules": [],
+        "module_code": None,
+        "module_id": None,
         "quiz_mode": None,
     }
     if context_type == "CLASSROOM_SETUP":
+        candidates = []
+    elif context_type == "MODULE_ACTIVATION":
+        context["module_code"] = "ROLE_SALARY"
+        context["module_id"] = str(TARGET_ID)
         candidates = [
             {
                 "action_id": "salary-default",
                 "target_type": "ROLE_SALARY",
-                "target_id": None,
+                "target_id": str(TARGET_ID),
                 "proposed_value": 1000,
-                "min_value": 500,
-                "max_value": 2000,
+                "recommended_min_value": 850,
+                "recommended_max_value": 1150,
+                "allowed_min_value": 100,
+                "allowed_max_value": 2000,
                 "unit": "AMOUNT",
                 "reason_codes": ["EXPECTED_PURCHASING_POWER"],
                 "label": "기본 역할 급여",
@@ -144,8 +152,10 @@ def setup_precheck_request(context_type: str = "CLASSROOM_SETUP") -> dict[str, o
                 "target_type": "PRODUCT_PRICE",
                 "target_id": str(TARGET_ID),
                 "proposed_value": 300,
-                "min_value": 200,
-                "max_value": 500,
+                "recommended_min_value": 255,
+                "recommended_max_value": 345,
+                "allowed_min_value": 1,
+                "allowed_max_value": 500,
                 "unit": "AMOUNT",
                 "reason_codes": ["SALARY_PRICE_BALANCE"],
                 "label": "상품 가격",
@@ -159,8 +169,10 @@ def setup_precheck_request(context_type: str = "CLASSROOM_SETUP") -> dict[str, o
                 "target_type": "GAME_REWARD",
                 "target_id": str(TARGET_ID),
                 "proposed_value": 50,
-                "min_value": 0,
-                "max_value": 100,
+                "recommended_min_value": 43,
+                "recommended_max_value": 58,
+                "allowed_min_value": 0,
+                "allowed_max_value": 100,
                 "unit": "AMOUNT",
                 "reason_codes": ["REWARD_ISSUANCE_SHARE"],
                 "label": "게임 퀴즈 보상",

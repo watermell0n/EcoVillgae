@@ -22,13 +22,14 @@ from tests.factories import (
     teacher_chat_request,
 )
 
-FIXTURE_CATALOG_PATH = Path(__file__).parent / "fixtures" / "contract_v1_1_cases.json"
+FIXTURE_CATALOG_PATH = Path(__file__).parent / "fixtures" / "contract_v1_2_cases.json"
 CATALOG = json.loads(FIXTURE_CATALOG_PATH.read_text(encoding="utf-8"))
 
 RequestFactory = Callable[[], dict[str, Any]]
 
 FACTORIES: dict[str, RequestFactory] = {
     "setup_classroom": lambda: setup_precheck_request("CLASSROOM_SETUP"),
+    "setup_module_activation": lambda: setup_precheck_request("MODULE_ACTIVATION"),
     "setup_product": lambda: setup_precheck_request("PRODUCT_DRAFT"),
     "setup_quiz_game": lambda: setup_precheck_request("QUIZ_SESSION_DRAFT"),
     "setup_quiz_test_no_reward": setup_no_reward_request,
@@ -44,7 +45,13 @@ FACTORIES: dict[str, RequestFactory] = {
 
 
 def _mutate_invalid(case_id: str, body: dict[str, Any]) -> None:
-    if case_id == "setup-unrelated-target":
+    if case_id == "setup-classroom-candidate":
+        body["payload"]["context"]["context_type"] = "CLASSROOM_SETUP"
+        body["payload"]["context"]["module_code"] = None
+        body["payload"]["context"]["module_id"] = None
+    elif case_id == "setup-module-missing-id":
+        body["payload"]["context"]["module_id"] = None
+    elif case_id == "setup-unrelated-target":
         body["payload"]["candidates"][0]["target_type"] = "ROLE_SALARY"
     elif case_id == "setup-test-reward":
         body["payload"]["context"]["quiz_mode"] = "TEST"
@@ -72,15 +79,15 @@ def _mutate_invalid(case_id: str, body: dict[str, Any]) -> None:
 def test_fixture_catalog_is_complete_and_unique() -> None:
     cases = [*CATALOG["success"], *CATALOG["invalid"]]
 
-    assert CATALOG["schema_version"] == "1.1"
-    assert len(CATALOG["success"]) == 12
-    assert len(CATALOG["invalid"]) == 7
+    assert CATALOG["schema_version"] == "1.2"
+    assert len(CATALOG["success"]) == 13
+    assert len(CATALOG["invalid"]) == 9
     assert len({case["id"] for case in cases}) == len(cases)
     assert {case["factory"] for case in cases} <= FACTORIES.keys()
 
 
 @pytest.mark.parametrize("case", CATALOG["success"], ids=lambda case: case["id"])
-def test_success_fixtures_follow_v1_1_contract(
+def test_success_fixtures_follow_v1_2_contract(
     client: TestClient, case: dict[str, Any]
 ) -> None:
     response = client.post(

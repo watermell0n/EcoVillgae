@@ -718,8 +718,8 @@ paths:
         - "CRS-002"
       tags:
         - "Classrooms"
-      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code와 ACTIVE 학급"
-      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code와 ACTIVE 학급."
+      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태"
+      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -840,9 +840,6 @@ paths:
                 timezone:
                   type: "string"
                   default: "Asia/Seoul"
-                salary_policy:
-                  type: "object"
-                  additionalProperties: true
                 module_codes:
                   type: "array"
                   uniqueItems: true
@@ -862,7 +859,6 @@ paths:
                 - "ends_on"
                 - "student_count"
                 - "timezone"
-                - "salary_policy"
                 - "module_codes"
               additionalProperties: false
   "/classrooms/{classroom_id}/course-configuration":
@@ -1036,13 +1032,14 @@ paths:
         - "PM-CLS-005"
       x-state-machine-ids:
         - "SM-CLS-001"
+        - "SM-MOD-001"
       x-rtm-ids:
         - "CLS-001"
         - "ECO-004"
       tags:
         - "Classrooms"
-      summary: "학생 번호, 닉네임, 역할, 역할급여 → 검증된 명단, 정책 버전"
-      description: "사람이 검토하는 원문 기준: `API-CLS-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 역할급여 → 검증된 명단, 정책 버전."
+      summary: "학생 번호, 닉네임, 역할, 급여 모듈 활성 시 선택형 역할, 역할급여 → 검증된 명단, 정책 버전"
+      description: "사람이 검토하는 원문 기준: `API-CLS-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 급여 모듈 활성 시 선택형 역할, 역할급여 → 검증된 명단, 정책 버전."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -1132,7 +1129,6 @@ paths:
                     required:
                       - "attendance_number"
                       - "nickname"
-                      - "role_code"
                     properties:
                       student_id:
                         type: "string"
@@ -1145,7 +1141,9 @@ paths:
                         minLength: 1
                         maxLength: 40
                       role_code:
-                        type: "string"
+                        type:
+                          - "string"
+                          - "null"
                     additionalProperties: false
                 salary_roles:
                   type: "array"
@@ -1157,7 +1155,6 @@ paths:
                   minimum: 0
               required:
                 - "students"
-                - "salary_roles"
                 - "expected_policy_version"
               additionalProperties: false
     get:
@@ -1608,15 +1605,17 @@ paths:
         - "PM-CLS-008"
       x-state-machine-ids:
         - "SM-APP-001"
+        - "SM-AIR-001"
       x-rtm-ids:
         - "CLS-003"
         - "CLS-004"
         - "CLS-005"
         - "CLS-006"
+        - "AI-009"
       tags:
         - "Classrooms"
-      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes? → 계산된 앱 모드, 종료시각"
-      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes? → 계산된 앱 모드, 종료시각."
+      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각"
+      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -1675,6 +1674,8 @@ paths:
                 duration_minutes:
                   type: "integer"
                   format: "int64"
+                preflight_warning_acknowledgements:
+                  type: "string"
               required:
                 - "command"
               additionalProperties: true
@@ -1786,16 +1787,19 @@ paths:
         - "OWN"
       x-permission-ids:
         - "PM-MOD-001"
+        - "PM-AI-003"
       x-state-machine-ids:
         - "SM-MOD-001"
+        - "SM-AIR-001"
       x-rtm-ids:
         - "CLS-002"
         - "CRS-005"
         - "CRS-006"
+        - "AI-009"
       tags:
         - "Modules"
-      summary: "선수 모듈, 학년 정책 확인 → DISABLED → ACTIVE"
-      description: "사람이 검토하는 원문 기준: `API-MOD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 선수 모듈, 학년 정책 확인 → DISABLED → ACTIVE."
+      summary: "expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리"
+      description: "사람이 검토하는 원문 기준: `API-MOD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -1862,7 +1866,6 @@ paths:
               properties:
                 expected_state_version:
                   type: "integer"
-                  format: "int64"
                   minimum: 0
                 screen_id:
                   type: "string"
@@ -1876,7 +1879,18 @@ paths:
                 confirm_prerequisites:
                   type: "boolean"
                   const: true
+                initial_policy_values:
+                  type: "object"
+                  additionalProperties: true
+                recommendation_action_ids:
+                  type: "array"
+                  uniqueItems: true
+                  items:
+                    type: "string"
+                    minLength: 1
+                    maxLength: 100
               required:
+                - "expected_state_version"
                 - "confirm_prerequisites"
               additionalProperties: false
   "/classrooms/{classroom_id}/modules/{module_code}/stop-commands":
@@ -5032,10 +5046,11 @@ paths:
       x-rtm-ids:
         - "FIN-005"
         - "FIN-007"
+        - "AI-011"
       tags:
         - "Finance"
-      summary: "가상자산 4종, 가격 단계, 이벤트, 한도, 손실상한 → DRAFT 시나리오 버전"
-      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 가상자산 4종, 가격 단계, 이벤트, 한도, 손실상한 → DRAFT 시나리오 버전."
+      summary: "교사, 제품 데이터가 정한 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. AI 기업 생성과 가격 결정은 포함하지 않음"
+      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 교사, 제품 데이터가 정한 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. AI 기업 생성과 가격 결정은 포함하지 않음."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7217,10 +7232,12 @@ paths:
         - "AI-001"
         - "AI-003"
         - "AI-004"
+        - "AI-009"
+        - "AI-010"
       tags:
         - "AI"
-      summary: "분석 기간, 대상 지표 → 202 operation_id, 제안 목록"
-      description: "사람이 검토하는 원문 기준: `API-AI-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 분석 기간, 대상 지표 → 202 operation_id, 제안 목록."
+      summary: "analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록"
+      description: "사람이 검토하는 원문 기준: `API-AI-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7299,6 +7316,7 @@ paths:
         - "UIA-AI-003"
       x-roles:
         - "OWN"
+        - "COT는 확인만"
       x-permission-ids:
         - "PM-AI-004"
         - "PM-POL-001"
@@ -7307,11 +7325,13 @@ paths:
       x-rtm-ids:
         - "AI-002"
         - "AI-003"
+        - "AI-009"
+        - "AI-010"
         - "FIN-011"
       tags:
         - "AI"
-      summary: "command=APPLY|REJECT, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version"
-      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=APPLY|REJECT, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version."
+      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version"
+      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7482,10 +7502,11 @@ paths:
       x-rtm-ids:
         - "AI-001"
         - "AI-007"
+        - "AI-011"
       tags:
         - "AI"
-      summary: "template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context? → 202 operation_id"
-      description: "사람이 검토하는 원문 기준: `API-AI-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context? → 202 operation_id."
+      summary: "source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets? → 202 operation_id"
+      description: "사람이 검토하는 원문 기준: `API-AI-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets? → 202 operation_id."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -7689,14 +7710,16 @@ paths:
       x-state-machine-ids:
         - "SM-AIR-001"
         - "SM-ACT-001"
+        - "SM-IVT-001"
       x-rtm-ids:
         - "AI-001"
         - "AI-002"
         - "AI-007"
+        - "AI-011"
       tags:
         - "AI"
-      summary: "decision=APPROVE|REJECT, edits?, reason, expected_event_version → event_id, ai_run_id, status, state_version, published_at?"
-      description: "사람이 검토하는 원문 기준: `API-AI-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: decision=APPROVE|REJECT, edits?, reason, expected_event_version → event_id, ai_run_id, status, state_version, published_at?."
+      summary: "decision=APPROVE|REJECT, edits?, reason, expected_event_version → 일반 이벤트는 게시 상태, 투자 뉴스는 연결 가격 단계의 공개 대기 상태"
+      description: "사람이 검토하는 원문 기준: `API-AI-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: decision=APPROVE|REJECT, edits?, reason, expected_event_version → 일반 이벤트는 게시 상태, 투자 뉴스는 연결 가격 단계의 공개 대기 상태."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -9857,10 +9880,11 @@ paths:
         - "WEB-015"
         - "FIN-005"
         - "FIN-007"
+        - "AI-011"
       tags:
         - "Queries"
-      summary: "시장 상태, 가격 버전, 선 그래프, 한도"
-      description: "사람이 검토하는 원문 기준: `API-READ-016` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 시장 상태, 가격 버전, 선 그래프, 한도."
+      summary: "시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 미래 가격, 미공개 뉴스 제외"
+      description: "사람이 검토하는 원문 기준: `API-READ-016` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 미래 가격, 미공개 뉴스 제외."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -10643,11 +10667,12 @@ paths:
       x-rtm-ids:
         - "TCH-002"
         - "TCH-012"
+        - "AI-010"
         - "DAT-003"
       tags:
         - "Queries"
-      summary: "승인, 수령, 정산, 활동 알림과 요약"
-      description: "사람이 검토하는 원문 기준: `API-READ-026` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 승인, 수령, 정산, 활동 알림과 요약."
+      summary: "승인, 수령, 정산, 활동 알림, OBSERVE, WARN 경제 알림과 학급 요약"
+      description: "사람이 검토하는 원문 기준: `API-READ-026` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 승인, 수령, 정산, 활동 알림, OBSERVE, WARN 경제 알림과 학급 요약."
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -10699,10 +10724,12 @@ paths:
         - "AI-003"
         - "AI-005"
         - "AI-008"
+        - "AI-009"
+        - "AI-010"
       tags:
         - "Queries"
-      summary: "AI 실행, 근거, 검증, 승인 상태, 학생 개인 원문 제외"
-      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: AI 실행, 근거, 검증, 승인 상태, 학생 개인 원문 제외."
+      summary: "설정 점검, 수동, 자동 실행, 근거, 검증, 심각도, 중복키, 확인, 승인 상태, 학생 개인 원문 제외"
+      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 설정 점검, 수동, 자동 실행, 근거, 검증, 심각도, 중복키, 확인, 승인 상태, 학생 개인 원문 제외."
       security:
         - bearerAuth: []
         - cookieAuth: []

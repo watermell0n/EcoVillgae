@@ -22,7 +22,7 @@ const investmentNewsDoc = read("docs/ai/INVESTMENT_NEWS.md");
 const releaseEvaluationDoc = read("docs/ai/MVP_RELEASE_EVALUATION.md");
 const publicSpec = read("docs/HTTP_API_SPEC.md");
 const fixtureCatalog = JSON.parse(
-  read("ai-service/tests/fixtures/contract_v1_1_cases.json"),
+  read("ai-service/tests/fixtures/contract_v1_2_cases.json"),
 );
 const teacherChatEvaluation = JSON.parse(
   read("ai-service/tests/fixtures/teacher_chat_evaluation_v1.json"),
@@ -59,9 +59,9 @@ const openaiSource = read("ai-service/src/ecovillage_ai/providers/openai.py");
 const configSource = read("ai-service/src/ecovillage_ai/config.py");
 
 assert(/^openapi: 3\.1\.0$/m.test(contract), "내부 AI 계약은 OpenAPI 3.1.0이어야 합니다.");
-assert(/^  version: 1\.1\.0$/m.test(contract), "내부 AI 계약 버전은 1.1.0이어야 합니다.");
-assert(internalDoc.includes("- 버전: v1.1"), "사람용 내부 AI 계약 버전은 v1.1이어야 합니다.");
-assert(fixtureCatalog.schema_version === "1.1", "AI fixture schema_version은 1.1이어야 합니다.");
+assert(/^  version: 1\.2\.0$/m.test(contract), "내부 AI 계약 버전은 1.2.0이어야 합니다.");
+assert(internalDoc.includes("- 버전: v1.2"), "사람용 내부 AI 계약 버전은 v1.2이어야 합니다.");
+assert(fixtureCatalog.schema_version === "1.2", "AI fixture schema_version은 1.2이어야 합니다.");
 assert(promptFiles.length === 13, `v1 시스템 프롬프트 파일은 13개여야 합니다: ${promptFiles.length}`);
 assert(
   read("ai-service/src/ecovillage_ai/prompts/v1/common.txt").includes(
@@ -145,7 +145,7 @@ for (const eventType of eventTypes) {
 }
 
 const analysisModes = ["SETUP_PRECHECK", "ON_DEMAND", "AUTO_MONITOR"];
-const setupContexts = ["CLASSROOM_SETUP", "PRODUCT_DRAFT", "QUIZ_SESSION_DRAFT"];
+const setupContexts = ["CLASSROOM_SETUP", "MODULE_ACTIVATION", "PRODUCT_DRAFT", "QUIZ_SESSION_DRAFT"];
 const eventSources = ["TEACHER_REQUEST", "MONITOR_RECOMMENDATION"];
 const quizDifficulties = ["INTRODUCTORY", "STANDARD", "ADVANCED"];
 for (const value of [
@@ -170,6 +170,12 @@ for (const field of [
   "response_mode",
   "causes",
   "limitation_codes",
+  "module_code",
+  "module_id",
+  "recommended_min_value",
+  "recommended_max_value",
+  "allowed_min_value",
+  "allowed_max_value",
 ]) {
   assert(contract.includes(`${field}:`), `내부 AI 계약 필드 누락: ${field}`);
   assert(internalDoc.includes(field), `내부 AI 문서 필드 누락: ${field}`);
@@ -349,11 +355,11 @@ assert(
 );
 
 const fixtureCases = [...fixtureCatalog.success, ...fixtureCatalog.invalid];
-assert(fixtureCatalog.success.length === 12, "AI v1.1 성공 fixture는 12건이어야 합니다.");
-assert(fixtureCatalog.invalid.length === 7, "AI v1.1 실패 fixture는 7건이어야 합니다.");
+assert(fixtureCatalog.success.length === 13, "AI v1.2 성공 fixture는 13건이어야 합니다.");
+assert(fixtureCatalog.invalid.length === 9, "AI v1.2 실패 fixture는 9건이어야 합니다.");
 assert(
   new Set(fixtureCases.map((fixture) => fixture.id)).size === fixtureCases.length,
-  "AI v1.1 fixture id가 중복되었습니다.",
+  "AI v1.2 fixture id가 중복되었습니다.",
 );
 
 const validationStages = [

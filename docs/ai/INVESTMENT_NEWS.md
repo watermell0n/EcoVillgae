@@ -105,7 +105,7 @@ Authorize에 `local-development-token`을 입력합니다. `X-Correlation-Id`와
   "ai_run_id": "11111111-1111-4111-8111-111111111111",
   "request_id": "22222222-2222-4222-8222-222222222222",
   "correlation_id": "33333333-3333-4333-8333-333333333333",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "prompt_version": "economic-event-v1",
   "attempt": 1,
   "deadline_at": "2099-12-31T23:59:59+09:00",

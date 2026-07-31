@@ -281,7 +281,7 @@ def _catalog_case_count(rule: str, catalog: dict[str, Any]) -> int:
 
 def _runtime_summary(settings: Settings, prompt_versions: list[str]) -> dict[str, Any]:
     return {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "provider_routes": {
             kind: {
                 "provider": settings.route_for(kind).provider_name,
@@ -426,7 +426,7 @@ def _run_docker_smoke() -> CommandCheck:
         if (
             health is None
             or health.get("status") != "UP"
-            or health.get("schema_version") != "1.1"
+            or health.get("schema_version") != "1.2"
             or set(health.get("prompt_versions", [])) != expected_prompts
             or any(
                 route.get("provider") != "FAKE"

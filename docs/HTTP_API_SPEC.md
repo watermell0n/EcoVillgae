@@ -1,8 +1,8 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.6
+- 버전: v0.7
 - 기준일: 2026-07-30
-- 상태: AI v1.1 사람 검토 계약 반영·기계 OpenAPI와 필드 매핑 동기화 예정
+- 상태: AI v1.2 선택형 모듈·추천/허용 범위 계약 반영·기계 OpenAPI와 필드 매핑 동기화 예정
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
@@ -80,9 +80,9 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`와 `ACTIVE` 학급 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
+| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 `module_codes`, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`, `ACTIVE` 학급, 선택 모듈의 `DISABLED` 등록 상태 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
 | API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전, 학급 코드·화폐 단위명 변경 불가 | PM-CLS-005 · SM-CLS-001 | `IMMUTABLE_CLASSROOM_FIELD`, `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
-| API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임·역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
+| API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임, 역할·급여 모듈 활성 시 선택형 역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001·SM-MOD-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `MODULE_NOT_ACTIVE`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
 | API-CLS-004 · UIA-CLS-004 | `POST /classrooms/{C}/co-teacher-commands` | OWN | `command=INVITE\|REMOVE, teacher_id, reason` → 담당 교사 목록 | PM-CLS-002 · SM-CLS-001 | `TEACHER_NOT_IN_SCHOOL`, `OWNER_REQUIRED`, `LAST_OWNER_REQUIRED` | AUTH-002 |
 | API-CLS-005 · UIA-CLS-005 | `POST /classrooms/{C}/ownership-transfer-commands` | OWN·대상 COT | `command=REQUEST\|ACCEPT\|CANCEL, transfer_id?, target_teacher_id?` → OWN·COT 원자 교환 | PM-CLS-003 · SM-CLS-001 | `TARGET_NOT_CO_TEACHER`, `TRANSFER_EXPIRED`, `INVALID_STATE_TRANSITION` | AUTH-002 |
 | API-CLS-006 · UIA-CLS-006 | `PUT /classrooms/{C}/autonomous-schedules` | OWN | 시간대, 요일·현지 시작/종료, 사용 모듈 → 일정 버전 | PM-CLS-007 · SM-APP-001 | `INVALID_TIME_RANGE`, `POLICY_VERSION_CONFLICT` | CLS-004·CLS-005 |
@@ -93,7 +93,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-MOD-001 · UIA-MOD-001 | `POST /classrooms/{C}/modules/{module_code}/activation-commands` | OWN | 선수 모듈·학년 정책 확인 → `DISABLED → ACTIVE` | PM-MOD-001 · SM-MOD-001 | `PREREQUISITE_MODULE_REQUIRED`, `GRADE_POLICY_VIOLATION`, `INVALID_STATE_TRANSITION` | CLS-002·CRS-005·CRS-006 |
+| API-MOD-001 · UIA-MOD-001 | `POST /classrooms/{C}/modules/{module_code}/activation-commands` | OWN | `expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids?` → 조건부 선행 관계·초기 정책 검증 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 · SM-MOD-001·SM-AIR-001 | `PREREQUISITE_MODULE_REQUIRED`, `INITIAL_POLICY_REQUIRED`, `POLICY_VIOLATION`, `GRADE_POLICY_VIOLATION`, `STATE_VERSION_CONFLICT`, `INVALID_STATE_TRANSITION` | CLS-002·CRS-005·CRS-006·AI-009 |
 | API-MOD-002 · UIA-MOD-002 | `POST /classrooms/{C}/modules/{module_code}/stop-commands` | OWN | `reason` → `ACTIVE → STOPPING`, 정리 작업 | PM-MOD-001 · SM-MOD-001 | `LIVE_ACTIVITY_EXISTS`, `MODULE_NOT_ACTIVE`, `SETTLEMENT_REQUIRED` | CLS-002·TRD-004 |
 | API-POL-001 · UIA-POL-001 | `PUT /classrooms/{C}/economic-policy` | OWN | 가격·재고·보상·세율·물가·예금·대출 금리·한도 → 새 정책 버전 | PM-POL-001 · SM-CLS-001 | `POLICY_VERSION_CONFLICT`, `POLICY_VIOLATION` | FIN-011·AI-003 |
 | API-POL-002 · UIA-POL-002 | `PUT /classrooms/{C}/public-fund-policy` | OWN | 세금·기금 기본/커스텀 사용처와 예산 항목 → 정책 버전 | PM-POL-002 · SM-CLS-001 | `INVALID_BUDGET_ALLOCATION`, `POLICY_VERSION_CONFLICT` | ECO-008·ECO-009 |
@@ -183,7 +183,7 @@
 | API-AI-005 · UIA-AI-005 | `PUT /classrooms/{C}/ai-settings` | OWN | `enabled=false, reason` → 학급 AI 설정 버전 | PM-AI-005 · SM-AIR-001 | `OWNER_REQUIRED`, `AI_APPLICATION_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | AI-001 |
 | API-AI-006 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-events/{R}/decisions` | OWN·COT | `decision=APPROVE\|REJECT, edits?, reason, expected_event_version` → 일반 이벤트는 게시 상태, 투자 뉴스는 연결 가격 단계의 공개 대기 상태 | PM-AI-002 · SM-AIR-001·SM-ACT-001·SM-IVT-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `PROPOSAL_EXPIRED`, `INVALID_INVESTMENT_STEP_BINDING` | AI-001·AI-002·AI-007·AI-011 |
 
-`SETUP_PRECHECK`는 학생·거래 최소 표본 규칙을 적용하지 않습니다. 개설 마법사에서는 급여·세율·예금금리·대출금리, 상품 작성 문맥에서는 가격, 퀴즈 세션 작성 문맥에서는 GAME 보상만 추천합니다. `ON_DEMAND`와 `AUTO_MONITOR`만 운영 지표와 AI-004 데이터 충분성 규칙을 사용합니다. 추천 수치는 Spring 규칙 엔진이 계산하며 AI 실패 시에도 수치·정적 점검 결과는 반환합니다.
+`SETUP_PRECHECK`는 학생·거래 최소 표본 규칙을 적용하지 않습니다. 개설 마법사에서는 공통 필수값만 점검하고, 역할·급여·소득세·예금·대출은 해당 모듈 활성화 문맥에서 초기 정책을 추천합니다. 상품 작성 문맥에서는 가격, 퀴즈 세션 작성 문맥에서는 GAME 보상만 추천합니다. `ON_DEMAND`와 `AUTO_MONITOR`만 운영 지표와 AI-004 데이터 충분성 규칙을 사용합니다. 추천 수치는 Spring 규칙 엔진이 계산하며 AI 실패 시에도 수치·정적 점검 결과는 반환합니다.
 
 `AUTO_MONITOR`는 사용자 호출이 아니라 서버 스케줄러가 같은 애플리케이션 서비스를 실행하는 트리거입니다. `NORMAL`은 제안을 만들지 않고 실행만 완료하며 `OBSERVE·WARN`은 교사 확인 대상을 만듭니다. 설정·정책은 `API-AI-003 command=APPLY` 전까지 변경되지 않습니다.
 
@@ -329,7 +329,7 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v1.4](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 관리합니다. AI v1.1 사람 검토 계약의 기계 동기화 대상은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [API 필드 매핑](../contracts/api-field-mapping.json)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v1.4](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 관리합니다. AI v1.2 사람 검토 계약의 기계 동기화 대상은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [API 필드 매핑](../contracts/api-field-mapping.json)입니다.
 
 1. OpenAPI·[필드 매핑](../contracts/api-field-mapping.json) 기반 TypeScript 클라이언트·Spring 인터페이스 생성
 2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결

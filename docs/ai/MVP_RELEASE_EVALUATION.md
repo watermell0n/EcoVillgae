@@ -97,7 +97,7 @@ Docker Desktop이 실행 중일 때 다음 옵션을 추가합니다.
 실행기는 `ai-service/Dockerfile`로 이미지를 만들고 임시 컨테이너의 `/healthz`에서 다음을
 검사한 뒤 그 컨테이너만 제거합니다.
 
-- `status=UP`, `schema_version=1.1`
+- `status=UP`, `schema_version=1.2`
 - 기능별 선택 공급자와 모델 ID
 - `setup-precheck-v1`, `balancing-v1`, `teacher-chat-v1`, `economic-event-v1`,
   `quiz-draft-v1`

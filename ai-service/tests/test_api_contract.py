@@ -59,7 +59,7 @@ def test_generation_endpoints_follow_success_envelope(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["ai_run_id"] == str(AI_RUN_ID)
-    assert body["schema_version"] == "1.1"
+    assert body["schema_version"] == "1.2"
     assert body["provider"] == "FAKE"
     assert body["safety_status"] == "PASSED"
     assert output_fields <= body["output"].keys()
@@ -76,7 +76,7 @@ def test_health_check(client: TestClient) -> None:
         "service": "이코빌리지 AI 서비스",
         "version": "0.1.0",
         "provider": "FAKE",
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "prompt_versions": [
             "setup-precheck-v1",
             "balancing-v1",
@@ -156,7 +156,8 @@ def test_quiz_ox_output_has_exact_ox_choices(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "context_type", ["CLASSROOM_SETUP", "PRODUCT_DRAFT", "QUIZ_SESSION_DRAFT"]
+    "context_type",
+    ["CLASSROOM_SETUP", "MODULE_ACTIVATION", "PRODUCT_DRAFT", "QUIZ_SESSION_DRAFT"],
 )
 def test_setup_precheck_contexts_return_exact_candidates(
     client: TestClient, context_type: str
@@ -281,14 +282,14 @@ def test_openapi_exposes_exact_internal_generation_paths(client: TestClient) -> 
     assert security_scheme["scheme"] == "bearer"
 
 
-def test_openapi_and_pydantic_expose_v1_1_feature_dimensions(client: TestClient) -> None:
+def test_openapi_and_pydantic_expose_v1_2_feature_dimensions(client: TestClient) -> None:
     generated = client.get("/openapi.json").json()
     contract_path = Path(__file__).parents[2] / "contracts" / "ai-internal-openapi.yaml"
     contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
     generated_schemas = generated["components"]["schemas"]
     contract_schemas = contract["components"]["schemas"]
 
-    assert contract["info"]["version"] == "1.1.0"
+    assert contract["info"]["version"] == "1.2.0"
     assert generated_schemas["AnalysisMode"]["enum"] == [
         "SETUP_PRECHECK",
         "ON_DEMAND",
@@ -296,9 +297,16 @@ def test_openapi_and_pydantic_expose_v1_1_feature_dimensions(client: TestClient)
     ]
     assert contract_schemas["SetupContext"]["properties"]["context_type"]["enum"] == [
         "CLASSROOM_SETUP",
+        "MODULE_ACTIVATION",
         "PRODUCT_DRAFT",
         "QUIZ_SESSION_DRAFT",
     ]
+    assert {
+        "recommended_min_value",
+        "recommended_max_value",
+        "allowed_min_value",
+        "allowed_max_value",
+    } <= set(contract_schemas["SetupCandidate"]["required"])
     assert contract_schemas["EconomicEventPayload"]["properties"]["source_type"][
         "enum"
     ] == ["TEACHER_REQUEST", "MONITOR_RECOMMENDATION"]

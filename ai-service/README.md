@@ -4,7 +4,7 @@ Spring 핵심 API가 권한·집계·정책 범위를 확정한 뒤 호출하는
 서비스입니다. 로컬·테스트에서는 결정적 fake provider로 계약을 재현하고, 운영에서는
 Bedrock을 기본 실제 공급자로 사용하며 명시적으로 허용한 경우 OpenAI를 선택할 수 있습니다.
 
-내부 계약은 schema v1.1입니다. `balancing` 한 경로에서 시작 전 설정 점검,
+내부 계약은 schema v1.2입니다. `balancing` 한 경로에서 시작 전 설정 점검,
 교사 요청 분석, 자동 모니터링을 모드로 구분하고, 경제 이벤트는 교사 요청과 모니터링
 제안 경로 및 가상 자산 가격 단계 연결을 지원합니다. 퀴즈 초안은 난이도와 개념을 입력과
 출력에서 함께 검증합니다.
@@ -72,8 +72,8 @@ ruff check .
 JSON 결과 저장 방법은
 [`docs/ai/MVP_RELEASE_EVALUATION.md`](../docs/ai/MVP_RELEASE_EVALUATION.md)를 따릅니다.
 
-계약 v1.1의 대표 성공 12건과 실패 7건은
-[`tests/fixtures/contract_v1_1_cases.json`](tests/fixtures/contract_v1_1_cases.json)에
+계약 v1.2의 대표 성공 13건과 실패 9건은
+[`tests/fixtures/contract_v1_2_cases.json`](tests/fixtures/contract_v1_2_cases.json)에
 정리되어 있으며 테스트가 이 목록을 직접 실행합니다.
 
 교사용 챗봇은 근거가 붙은 `ANSWER`와 근거를 만들지 않는 `LIMITED`를 구분합니다.

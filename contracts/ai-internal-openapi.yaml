@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 이코빌리지 Spring-FastAPI 내부 AI API
-  version: 1.1.0
+  version: 1.2.0
   summary: Spring과 FastAPI 사이의 내부 AI 생성 계약
   description: |
     Spring 통합 API가 집계·권한·정책 범위를 확정한 뒤 FastAPI 생성 서비스에
@@ -257,7 +257,7 @@ components:
           format: uuid
         schema_version:
           type: string
-          const: '1.1'
+          const: '1.2'
         prompt_version:
           type: string
           pattern: '^[a-z0-9-]+-v[1-9][0-9]*$'
@@ -404,11 +404,13 @@ components:
         - expected_students
         - operation_period_days
         - active_modules
+        - module_code
+        - module_id
         - quiz_mode
       properties:
         context_type:
           type: string
-          enum: [CLASSROOM_SETUP, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
+          enum: [CLASSROOM_SETUP, MODULE_ACTIVATION, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
         course_scale:
           type: string
           enum: [ONE_SHOT, ONE_WEEK, ONE_MONTH, ONE_SEMESTER]
@@ -428,6 +430,15 @@ components:
             type: string
             minLength: 1
             maxLength: 100
+        module_code:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+          description: MODULE_ACTIVATION에서만 필수인 대상 모듈 코드
+        module_id:
+          type: [string, 'null']
+          format: uuid
+          description: MODULE_ACTIVATION에서만 필수인 대상 모듈 UUID
         quiz_mode:
           type: [string, 'null']
           enum: [GAME, TEST, null]
@@ -439,8 +450,10 @@ components:
         - target_type
         - target_id
         - proposed_value
-        - min_value
-        - max_value
+        - recommended_min_value
+        - recommended_max_value
+        - allowed_min_value
+        - allowed_max_value
         - unit
         - reason_codes
         - label
@@ -464,10 +477,16 @@ components:
         proposed_value:
           type: integer
           minimum: 0
-        min_value:
+        recommended_min_value:
           type: integer
           minimum: 0
-        max_value:
+        recommended_max_value:
+          type: integer
+          minimum: 0
+        allowed_min_value:
+          type: integer
+          minimum: 0
+        allowed_max_value:
           type: integer
           minimum: 0
         unit:
@@ -523,9 +542,10 @@ components:
           type: array
           maxItems: 30
           description: >-
-            ONE_SHOT 코스와 TEST 퀴즈에는 후보를 전달하지 않는다. CLASSROOM_SETUP은
-            target_id가 null이고 PRODUCT_DRAFT와 QUIZ_SESSION_DRAFT 후보에는 대상 UUID가
-            필요하다.
+            CLASSROOM_SETUP에는 수치 후보를 전달하지 않고 TEST 퀴즈에도 보상 후보를
+            전달하지 않는다. MODULE_ACTIVATION 후보의 target_id는 context.module_id와 같아야
+            하고 module_code와 target_type 조합도 일치해야 한다. PRODUCT_DRAFT와
+            QUIZ_SESSION_DRAFT 후보에도 대상 UUID가 필요하다.
           items:
             $ref: '#/components/schemas/SetupCandidate'
         checks:
@@ -756,8 +776,10 @@ components:
         - target_type
         - label
         - proposed_value
-        - min_value
-        - max_value
+        - recommended_min_value
+        - recommended_max_value
+        - allowed_min_value
+        - allowed_max_value
         - unit
         - evidence_reason_codes
         - rationale
@@ -783,10 +805,16 @@ components:
         proposed_value:
           type: integer
           minimum: 0
-        min_value:
+        recommended_min_value:
           type: integer
           minimum: 0
-        max_value:
+        recommended_max_value:
+          type: integer
+          minimum: 0
+        allowed_min_value:
+          type: integer
+          minimum: 0
+        allowed_max_value:
           type: integer
           minimum: 0
         unit:
@@ -864,7 +892,7 @@ components:
           const: REVIEW_REQUIRED
         context_type:
           type: string
-          enum: [CLASSROOM_SETUP, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
+          enum: [CLASSROOM_SETUP, MODULE_ACTIVATION, PRODUCT_DRAFT, QUIZ_SESSION_DRAFT]
         overall_severity:
           type: string
           enum: [PASS, WARN, BLOCK]
@@ -1464,7 +1492,7 @@ components:
           format: uuid
         schema_version:
           type: string
-          const: '1.1'
+          const: '1.2'
         prompt_version:
           type: string
           pattern: '^[a-z0-9-]+-v[1-9][0-9]*$'

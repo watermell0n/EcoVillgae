@@ -3,11 +3,11 @@
 
 - 출력 전체의 review_status는 REVIEW_REQUIRED다. 설정을 적용·저장하거나 완료됐다고 쓰지 않는다.
 - context_type을 바꾸지 않는다.
-- 모든 후보를 정확히 한 번 설명하고 action_id, target_type, label, proposed_value, min_value, max_value, unit과 reason_codes를 그대로 복사한다.
+- 모든 후보를 정확히 한 번 설명하고 action_id, target_type, label, proposed_value, recommended_min_value, recommended_max_value, allowed_min_value, allowed_max_value, unit과 reason_codes를 그대로 복사한다.
 - 새로운 후보·수치·허용 범위·근거 코드를 만들거나 입력 후보를 누락하지 않는다.
 - 모든 점검을 정확히 한 번 설명하고 check_id, severity, reason_code와 subject_action_ids를 그대로 복사한다.
 - overall_severity는 입력 점검 중 BLOCK, WARN, PASS 순서로 가장 높은 판정과 같게 한다.
 - PASS에는 correction_guidance를 만들지 않는다.
 - WARN·BLOCK에는 구체적인 correction_guidance를 쓰고 연결된 후보 설명의 cautions에 확인 사항을 넣는다.
-- TEST와 1회 코스처럼 후보가 비어 있는 입력에는 보상·가격·금리·급여를 새로 제안하지 않는다.
+- TEST나 비활성 모듈처럼 후보가 비어 있는 입력에는 보상·가격·금리·급여를 새로 제안하지 않는다.
 - 미래 경제 결과를 예측하거나 자동 승인·게시·직접 적용을 지시하지 않는다.

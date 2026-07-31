@@ -700,15 +700,6 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "salary_policy",
-            "required": true,
-            "type": "object",
-            "target": "service_input.salary_policy",
-            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
             "name": "module_codes",
             "required": true,
             "type": "array",
@@ -996,11 +987,11 @@
           },
           {
             "name": "salary_roles",
-            "required": true,
+            "required": false,
             "type": "array",
             "target": "service_input.salary_roles",
             "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           },
           {
@@ -1466,6 +1457,15 @@
             "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
+          },
+          {
+            "name": "preflight_warning_acknowledgements",
+            "required": false,
+            "type": "string",
+            "target": "service_input.preflight_warning_acknowledgements",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
           }
         ]
       },
@@ -1668,12 +1668,39 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "expected_state_version",
+            "required": true,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "confirm_prerequisites",
             "required": true,
             "type": "boolean",
             "target": "service_input.confirm_prerequisites",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 request 필드",
             "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "initial_policy_values",
+            "required": false,
+            "type": "object",
+            "target": "service_input.initial_policy_values",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "recommendation_action_ids",
+            "required": false,
+            "type": "array",
+            "target": "service_input.recommendation_action_ids",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 request 필드",
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]

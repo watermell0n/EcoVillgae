@@ -121,7 +121,7 @@ X-Correlation-Id: b18b92c5-1273-4bed-832e-4d33bcf85f4f
   "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
   "request_id": "b4d6c65d-df46-4d4b-a83c-a1c8d95ee8fe",
   "correlation_id": "b18b92c5-1273-4bed-832e-4d33bcf85f4f",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "prompt_version": "teacher-chat-v1",
   "attempt": 1,
   "deadline_at": "실행 시점보다 미래인 ISO 8601 시각",

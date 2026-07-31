@@ -1,6 +1,6 @@
 # 이코빌리지 내부 AI API 계약
 
-- 버전: v1.1
+- 버전: v1.2
 - 기준일: 2026-07-30
 - 상태: MVP 구현 기준선
 - 호출 관계: Spring 핵심 API·비동기 작업자 → FastAPI AI 서비스
@@ -73,7 +73,7 @@
   "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
   "request_id": "b4d6c65d-df46-4d4b-a83c-a1c8d95ee8fe",
   "correlation_id": "b18b92c5-1273-4bed-832e-4d33bcf85f4f",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "prompt_version": "balancing-v1",
   "attempt": 1,
   "deadline_at": "2026-07-30T05:30:20.000Z",
@@ -96,7 +96,7 @@
 ```json
 {
   "ai_run_id": "5fc425a8-7b5f-4984-a483-afd57ba2e706",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "prompt_version": "balancing-v1",
   "provider": "BEDROCK",
   "model_id": "configured-model-id",
@@ -131,11 +131,19 @@
 | `ON_DEMAND` | 교사가 요청한 분석 구간, 지표, 허용 조정안 | 요약·원인·근거·우선순위 조정 제안 |
 | `AUTO_MONITOR` | 현재·이전 비중첩 동일 길이 구간, OBSERVE·WARN 지표, 허용 조정안 | 자동 알림 후보에 사용할 설명과 조정 제안 |
 
-`SETUP_PRECHECK`의 `context_type`은 다음 세 가지입니다.
+`SETUP_PRECHECK`의 `context_type`은 다음 네 가지입니다.
 
-- `CLASSROOM_SETUP`: 역할 급여, 소득세율, 예금금리, 대출금리 후보
+- `CLASSROOM_SETUP`: 수치 후보 없이 통화명·실제 운영기간 등 공통 설정 점검
+- `MODULE_ACTIVATION`: 활성화하려는 역할·급여, 소득세, 예금 또는 대출 모듈의 초기 정책 후보
 - `PRODUCT_DRAFT`: 교사가 등록 중인 상품의 가격 후보
-- `QUIZ_SESSION_DRAFT`: GAME 퀴즈 보상 후보. TEST와 1회성 코스에는 보상 후보를 두지 않음
+- `QUIZ_SESSION_DRAFT`: GAME 퀴즈 보상 후보. TEST에는 보상 후보를 두지 않음
+
+`MODULE_ACTIVATION`의 `SetupContext`에는 대상 `module_code`와 `module_id`가 필요하며 다른
+문맥에서는 두 값을 `null`로 보냅니다. 각 `SetupCandidate`는 `proposed_value`,
+`recommended_min_value`, `recommended_max_value`, `allowed_min_value`, `allowed_max_value`를
+분리해 전달합니다. 추천 구간 이탈과 저장 불가능한 허용 구간 이탈을 같은 의미로 취급하지
+않습니다. 모듈 코드와 후보 `target_type`의 조합이 맞지 않거나 후보 `target_id`가
+`module_id`와 다르면 입력 계약 위반입니다.
 
 후보 숫자와 `PASS·WARN·BLOCK` 판정은 규칙 엔진이 계산합니다. FastAPI는
 `action_id`, 후보값, 허용 범위, 근거 코드, 점검 심각도를 그대로 인용해 설명하며 값을
@@ -312,16 +320,18 @@ FastAPI는 공급자 호출 전에 주제·개념·학습목표의 민감정보,
 5. 외부 필드가 바뀌면 `docs/HTTP_API_SPEC.md`와 생성된 `contracts/openapi.yaml`,
    `contracts/api-field-mapping.json`을 함께 갱신합니다.
 
-## 10. v1.1 반영 결과
+## 10. v1.2 반영 결과
 
-2026-07-30 제품 결정을 사람용 계약, OpenAPI, Pydantic 모델과 로컬 fixture에
-반영했습니다. Spring DTO·DB·외부 API 연결은 독립 AI MVP 이후 통합 단계에서 진행합니다.
+2026-07-31 선택형 모듈, 모듈 활성화 시점 추천, 추천·허용 범위 분리 결정을 사람용 계약,
+OpenAPI, Pydantic 모델과 로컬 fixture에 반영했습니다. Spring DTO·DB·외부 API 연결은
+통합 단계에서 진행합니다.
 
 ### 10.1 설정 추천·자동 모니터링
 
 - 밸런싱 요청에 `analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR`를 추가합니다.
-- `SETUP_PRECHECK` 입력은 학년·코스·예상 학생 수·활성 모듈과 Spring이 계산한
-  급여·세율·예금·대출금리·상품 가격·GAME 보상 후보로 제한합니다.
+- `SETUP_PRECHECK` 입력은 학년·코스·예상 학생 수·활성 모듈·선택형 대상 모듈과 Spring이
+  계산한 급여·세율·예금·대출금리·상품 가격·GAME 보상 후보로 제한합니다. 방 개설에는
+  수치 후보를 두지 않고 역할·급여·예금·대출 값은 해당 모듈 활성화 시에만 보냅니다.
 - 규칙 기반 숫자와 BLOCK·WARN 판정만 필요하면 FastAPI를 호출하지 않습니다. 설명을
   요청할 때도 FastAPI는 입력 `action_id`, 후보값과 허용 범위를 바꿀 수 없습니다.
 - `AUTO_MONITOR`의 NORMAL은 FastAPI를 호출하지 않고 Spring에서 완료합니다.

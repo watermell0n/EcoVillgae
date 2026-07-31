@@ -399,8 +399,10 @@ def _validate_range(request: GenerationRequest, output: GenerationOutput) -> lis
             if candidate is not None and explanation.proposed_value != candidate.proposed_value:
                 codes.append("PROPOSED_VALUE_CHANGED")
             if candidate is not None and (
-                explanation.min_value != candidate.min_value
-                or explanation.max_value != candidate.max_value
+                explanation.recommended_min_value != candidate.recommended_min_value
+                or explanation.recommended_max_value != candidate.recommended_max_value
+                or explanation.allowed_min_value != candidate.allowed_min_value
+                or explanation.allowed_max_value != candidate.allowed_max_value
             ):
                 codes.append("SETUP_RANGE_CHANGED")
             if candidate is not None and explanation.unit is not candidate.unit:

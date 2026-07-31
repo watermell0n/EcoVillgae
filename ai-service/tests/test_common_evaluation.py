@@ -83,7 +83,7 @@ def _cases() -> list[dict[str, Any]]:
         for scenario in CATALOG["scenarios"]
     ]
     assert CATALOG["evaluation_set_version"] == "common-evaluation-v1"
-    assert CATALOG["schema_version"] == "1.1"
+    assert CATALOG["schema_version"] == "1.2"
     assert len(FACTORIES) == len(CATALOG["features"]) == 6
     assert len(CATALOG["scenarios"]) == 10
     assert len(cases) == CATALOG["expected_case_count"] == 60
