@@ -62,7 +62,7 @@ public class ClassroomConfigurationService {
                 "경제교실을 찾을 수 없습니다."
             ));
         List<String> moduleCodes = classroomModuleRepository
-            .findAllByClassroomIdAndStatusOrderByModuleCode(classroomId, "ACTIVE")
+            .findAllByClassroomIdOrderByModuleCode(classroomId)
             .stream()
             .map(module -> module.getModuleCode())
             .toList();

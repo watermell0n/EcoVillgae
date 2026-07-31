@@ -11,6 +11,10 @@ public enum ClassroomPermission {
         "PM-CLS-004",
         Set.of(ClassroomActorRole.OWN)
     ),
+    MANAGE_MODULES(
+        "PM-MOD-001",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     MANAGE_PAYOUTS(
         "PM-TXN-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)

@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -30,8 +29,8 @@ public record CreateClassroomRequest(
     @NotNull LocalDate endsOn,
     @Min(1) int studentCount,
     @NotBlank String timezone,
-    @NotNull Map<String, Object> salaryPolicy,
-    @NotEmpty List<@NotBlank String> moduleCodes,
+    Map<String, Object> salaryPolicy,
+    @NotNull List<@NotBlank String> moduleCodes,
     List<@Valid AutonomousScheduleRequest> autonomousSchedules
 ) {
 }

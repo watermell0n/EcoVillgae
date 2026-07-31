@@ -18,10 +18,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
+import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -69,7 +72,13 @@ class ClassroomRosterApiTest {
     private ClassroomPolicyVersionRepository policyVersionRepository;
 
     @Autowired
+    private ClassroomModuleRepository moduleRepository;
+
+    @Autowired
     private UserAccountRepository userAccountRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private UUID classroomId;
     private Principal ownerPrincipal;
@@ -116,10 +125,34 @@ class ClassroomRosterApiTest {
                 NOW
             )
         );
+        ClassroomModule salaryModule = ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "ROLE_SALARY",
+            NOW
+        );
+        salaryModule.activate(Map.of(), NOW);
+        moduleRepository.save(salaryModule);
+        jdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS ai_runs (
+                classroom_id uuid NOT NULL,
+                run_type varchar(40) NOT NULL,
+                status varchar(40) NOT NULL,
+                state_version bigint NOT NULL,
+                status_changed_at timestamp with time zone NOT NULL,
+                updated_at timestamp with time zone NOT NULL
+            )
+            """);
     }
 
     @Test
     void bulkRegistersStudentsAndSalaryRoles() throws Exception {
+        jdbcTemplate.update(
+            "INSERT INTO ai_runs VALUES (?, 'SETUP_PRECHECK', 'COMPLETED', 0, ?, ?)",
+            classroomId,
+            NOW,
+            NOW
+        );
         mockMvc.perform(
             rosterRequest(bulkBody(1, null))
         )
@@ -138,6 +171,11 @@ class ClassroomRosterApiTest {
         );
         assertEquals(2, salaryRoleRepository.count());
         assertEquals(2, currentPolicyVersion());
+        assertEquals("EXPIRED", jdbcTemplate.queryForObject(
+            "SELECT status FROM ai_runs WHERE classroom_id = ?",
+            String.class,
+            classroomId
+        ));
     }
 
     @Test
@@ -217,6 +255,30 @@ class ClassroomRosterApiTest {
         )
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error.code").value("CLASS_NOT_ASSIGNED"));
+    }
+
+    @Test
+    void registersRolelessStudentsWhenSalaryModuleIsDisabled() throws Exception {
+        ClassroomModule salaryModule = moduleRepository.findAll().getFirst();
+        salaryModule.disable(NOW.plusSeconds(30));
+        moduleRepository.saveAndFlush(salaryModule);
+
+        mockMvc.perform(rosterRequest("""
+            {
+              "students": [
+                {"attendance_number": 1, "nickname": "NoJob"}
+              ],
+              "salary_roles": []
+            }
+            """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.student_count").value(1))
+            .andExpect(jsonPath("$.data.salary_role_count").value(0));
+
+        assertEquals(1, studentRepository.count());
+        assertEquals(null, studentRepository.findAll().getFirst().getSalaryRoleId());
+        assertEquals(0, salaryRoleRepository.count());
+        assertEquals(1, currentPolicyVersion());
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder

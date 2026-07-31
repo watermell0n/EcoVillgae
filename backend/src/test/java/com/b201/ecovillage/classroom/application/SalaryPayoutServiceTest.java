@@ -27,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.domain.SalaryRole;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.PayslipRepository;
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -62,6 +63,7 @@ class SalaryPayoutServiceTest {
     private ClassroomStudentRepository studentRepository;
     private SalaryRoleRepository salaryRoleRepository;
     private ClassroomPolicyVersionRepository policyVersionRepository;
+    private ClassroomModuleRepository moduleRepository;
     private PayslipRepository payslipRepository;
     private UserAccountRepository userAccountRepository;
     private LedgerAccountRepository ledgerAccountRepository;
@@ -78,6 +80,7 @@ class SalaryPayoutServiceTest {
         studentRepository = mock(ClassroomStudentRepository.class);
         salaryRoleRepository = mock(SalaryRoleRepository.class);
         policyVersionRepository = mock(ClassroomPolicyVersionRepository.class);
+        moduleRepository = mock(ClassroomModuleRepository.class);
         payslipRepository = mock(PayslipRepository.class);
         userAccountRepository = mock(UserAccountRepository.class);
         ledgerAccountRepository = mock(LedgerAccountRepository.class);
@@ -92,6 +95,7 @@ class SalaryPayoutServiceTest {
             studentRepository,
             salaryRoleRepository,
             policyVersionRepository,
+            moduleRepository,
             payslipRepository,
             userAccountRepository,
             ledgerAccountRepository,
@@ -146,6 +150,11 @@ class SalaryPayoutServiceTest {
             policyVersionRepository
                 .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "SALARY")
         ).thenReturn(Optional.of(policy));
+        when(moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            classroomId,
+            "ROLE_SALARY",
+            "ACTIVE"
+        )).thenReturn(true);
         when(
             studentRepository.findAllForUpdate(
                 eq(classroomId),
@@ -230,6 +239,24 @@ class SalaryPayoutServiceTest {
         );
 
         assertEquals("DUPLICATE_PAYOUT", exception.getCode());
+        verify(payslipRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsSalaryPayoutWhenRoleSalaryModuleIsInactive() {
+        when(moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            classroomId,
+            "ROLE_SALARY",
+            "ACTIVE"
+        )).thenReturn(false);
+
+        ClassroomOperationException exception = assertThrows(
+            ClassroomOperationException.class,
+            () -> service.pay(command("SESSION-03"))
+        );
+
+        assertEquals("MODULE_NOT_ACTIVE", exception.getCode());
+        verify(transactionService, never()).execute(any(UUID.class), any(), anyList());
         verify(payslipRepository, never()).saveAll(any());
     }
 

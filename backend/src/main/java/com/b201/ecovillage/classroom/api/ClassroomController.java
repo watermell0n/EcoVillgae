@@ -26,6 +26,9 @@ import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
 import com.b201.ecovillage.classroom.application.ClassroomRosterService;
+import com.b201.ecovillage.classroom.application.ModuleActivationCommand;
+import com.b201.ecovillage.classroom.application.ModuleActivationResult;
+import com.b201.ecovillage.classroom.application.ModuleActivationService;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
 import com.b201.ecovillage.classroom.application.CreateClassroomResult;
 import com.b201.ecovillage.classroom.application.SalaryRoleCommand;
@@ -44,6 +47,7 @@ public class ClassroomController {
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
     private final AccessModeCommandService accessModeCommandService;
+    private final ModuleActivationService moduleActivationService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -52,6 +56,7 @@ public class ClassroomController {
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
         AccessModeCommandService accessModeCommandService,
+        ModuleActivationService moduleActivationService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -59,8 +64,49 @@ public class ClassroomController {
         this.configurationService = configurationService;
         this.rosterService = rosterService;
         this.accessModeCommandService = accessModeCommandService;
+        this.moduleActivationService = moduleActivationService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/{classroomId}/modules/{moduleCode}/activation-commands")
+    public ApiResponse<ModuleActivationResponse> activateModule(
+        @PathVariable UUID classroomId,
+        @PathVariable String moduleCode,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ModuleActivationCommandRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        ModuleActivationResult result = moduleActivationService.activate(
+            new ModuleActivationCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                moduleCode,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.confirmPrerequisites(),
+                request.initialPolicyValues(),
+                request.recommendationActionIds()
+            )
+        );
+        return new ApiResponse<>(
+            new ModuleActivationResponse(
+                result.moduleCode(),
+                result.status(),
+                result.stateVersion(),
+                result.policyArea(),
+                result.policyVersion(),
+                result.policyVersionId(),
+                result.ruleVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
     }
 
     @PostMapping("/{classroomId}/access-mode-commands")
@@ -113,7 +159,9 @@ public class ClassroomController {
                 student.roleCode()
             ))
             .toList();
-        List<SalaryRoleCommand> salaryRoles = request.salaryRoles().stream()
+        List<SalaryRoleCommand> salaryRoles = (request.salaryRoles() == null
+            ? List.<SalaryRoleRequest>of()
+            : request.salaryRoles()).stream()
             .map(role -> new SalaryRoleCommand(
                 role.roleCode(),
                 role.name(),

@@ -116,6 +116,26 @@ public class ClassroomPolicyVersion {
         );
     }
 
+    public static ClassroomPolicyVersion policy(
+        UUID id,
+        UUID classroomId,
+        String policyArea,
+        int version,
+        Map<String, Object> policyValues,
+        String source,
+        Instant effectiveFrom
+    ) {
+        return new ClassroomPolicyVersion(
+            id,
+            classroomId,
+            policyArea,
+            version,
+            policyValues,
+            source,
+            effectiveFrom
+        );
+    }
+
     public void supersede(Instant changedAt) {
         this.status = "SUPERSEDED";
         this.supersededAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
