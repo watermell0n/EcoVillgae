@@ -23,6 +23,7 @@ import com.b201.ecovillage.identity.application.ClassroomNotActiveException;
 import com.b201.ecovillage.identity.application.InvalidCredentialsException;
 import com.b201.ecovillage.identity.application.InvalidLoginRequestException;
 import com.b201.ecovillage.identity.application.LoginRateLimitedException;
+import com.b201.ecovillage.identity.application.TeacherAuthenticationException;
 import com.b201.ecovillage.ledger.application.LedgerTransactionValidationException;
 import com.b201.ecovillage.ledger.domain.InsufficientLedgerBalanceException;
 import com.b201.ecovillage.store.domain.InsufficientStoreStockException;
@@ -49,6 +50,21 @@ public class ApiExceptionHandler {
             "INVALID_CREDENTIALS",
             "로그인 정보를 확인해 주세요.",
             false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(TeacherAuthenticationException.class)
+    ResponseEntity<ApiErrorResponse> handleTeacherAuthentication(
+        TeacherAuthenticationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.getStatus(),
+            exception.getCode(),
+            exception.getMessage(),
+            exception.isRetryable(),
             List.of(),
             request
         );

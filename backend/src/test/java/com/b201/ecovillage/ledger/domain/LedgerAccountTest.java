@@ -49,6 +49,25 @@ class LedgerAccountTest {
     }
 
     @Test
+    void rejectsPublicFundOverspendingWithoutChangingAccount() {
+        LedgerAccount fund = LedgerAccount.systemAccount(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "CLASSROOM_FUND",
+            LedgerAccountType.CLASSROOM_FUND,
+            OPENED_AT
+        );
+        fund.post(100, OPENED_AT.plusSeconds(1));
+
+        assertThrows(
+            InsufficientLedgerBalanceException.class,
+            () -> fund.post(-101, OPENED_AT.plusSeconds(2))
+        );
+        assertEquals(100, fund.getCurrentBalance());
+        assertEquals(2, fund.getNextEntrySequence());
+    }
+
+    @Test
     void preventsStudentAndSystemOwnershipFromBeingMixed() {
         assertThrows(
             IllegalArgumentException.class,

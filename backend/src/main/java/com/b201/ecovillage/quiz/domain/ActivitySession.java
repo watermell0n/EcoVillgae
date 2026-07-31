@@ -2,6 +2,7 @@ package com.b201.ecovillage.quiz.domain;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -9,6 +10,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "activity_sessions")
@@ -32,6 +36,10 @@ public class ActivitySession {
 
     @Column(name = "public_display_enabled", nullable = false)
     private boolean publicDisplayEnabled;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "public_fields", nullable = false)
+    private Set<String> publicFields;
 
     @Column(name = "starts_at")
     private Instant startsAt;
@@ -61,9 +69,11 @@ public class ActivitySession {
     private ActivitySession(
         UUID id,
         UUID classroomId,
+        String activityType,
         UUID createdByUserId,
         boolean publicDisplayEnabled,
-        Instant startedAt
+        String status,
+        Instant createdAt
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.classroomId = Objects.requireNonNull(classroomId, "classroomId must not be null");
@@ -71,13 +81,14 @@ public class ActivitySession {
             createdByUserId,
             "createdByUserId must not be null"
         );
-        this.activityType = "QUIZ";
+        this.activityType = requiredText(activityType, "activityType");
         this.publicDisplayEnabled = publicDisplayEnabled;
-        this.startsAt = Objects.requireNonNull(startedAt, "startedAt must not be null");
-        this.status = "LIVE";
-        this.statusChangedAt = startedAt;
-        this.createdAt = startedAt;
-        this.updatedAt = startedAt;
+        this.publicFields = Set.of();
+        this.startsAt = "LIVE".equals(status) ? createdAt : null;
+        this.status = requiredText(status, "status");
+        this.statusChangedAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.createdAt = createdAt;
+        this.updatedAt = createdAt;
     }
 
     public static ActivitySession liveQuiz(
@@ -90,22 +101,115 @@ public class ActivitySession {
         return new ActivitySession(
             id,
             classroomId,
+            "QUIZ",
             createdByUserId,
             publicDisplayEnabled,
+            "LIVE",
             startedAt
         );
+    }
+
+    public static ActivitySession ready(
+        UUID id,
+        UUID classroomId,
+        String activityType,
+        UUID createdByUserId,
+        boolean publicDisplayEnabled,
+        Instant createdAt
+    ) {
+        return new ActivitySession(
+            id,
+            classroomId,
+            activityType,
+            createdByUserId,
+            publicDisplayEnabled,
+            "READY",
+            createdAt
+        );
+    }
+
+    public void start(Instant changedAt, Set<String> publicFields) {
+        if (!"READY".equals(status)) {
+            throw new IllegalStateException("only a ready activity can start");
+        }
+        this.publicFields = Set.copyOf(
+            Objects.requireNonNull(publicFields, "publicFields must not be null")
+        );
+        startsAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        changeStatus("LIVE", changedAt);
     }
 
     public void beginFinalizing(Instant changedAt) {
         if (!"LIVE".equals(status)) {
             throw new IllegalStateException("only a live activity can begin finalizing");
         }
-        status = "FINALIZING";
+        endsAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        changeStatus("FINALIZING", changedAt);
+    }
+
+    public void cancel(Instant changedAt) {
+        if (!"READY".equals(status) && !"LIVE".equals(status)) {
+            throw new IllegalStateException("only a ready or live activity can be canceled");
+        }
+        endsAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        changeStatus("CANCELED", changedAt);
+    }
+
+    public void complete(Instant changedAt) {
+        if (!"FINALIZING".equals(status)) {
+            throw new IllegalStateException(
+                "only a finalizing activity can be completed"
+            );
+        }
+        changeStatus("COMPLETED", changedAt);
+    }
+
+    private void changeStatus(String nextStatus, Instant changedAt) {
+        status = nextStatus;
         statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
         updatedAt = changedAt;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
+    public String getActivityType() {
+        return activityType;
+    }
+
+    public boolean isPublicDisplayEnabled() {
+        return publicDisplayEnabled;
+    }
+
+    public Set<String> getPublicFields() {
+        return Set.copyOf(publicFields);
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
+
     public Instant getStartsAt() {
         return startsAt;
+    }
+
+    public Instant getEndsAt() {
+        return endsAt;
+    }
+
+    private static String requiredText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value.trim();
     }
 }

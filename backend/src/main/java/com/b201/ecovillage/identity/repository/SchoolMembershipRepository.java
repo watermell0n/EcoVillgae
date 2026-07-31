@@ -15,4 +15,9 @@ public interface SchoolMembershipRepository extends JpaRepository<SchoolMembersh
         UUID userId,
         AccountStatus status
     );
+
+    List<SchoolMembership> findAllByUserIdAndStatus(
+        UUID userId,
+        AccountStatus status
+    );
 }

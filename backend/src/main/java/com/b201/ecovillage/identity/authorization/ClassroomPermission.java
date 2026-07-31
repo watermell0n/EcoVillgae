@@ -47,6 +47,50 @@ public enum ClassroomPermission {
         "PM-QZ-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    CONTROL_CLASSROOM_ACCESS(
+        "PM-CLS-008",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    MANAGE_GUIDED_ACTIVITIES(
+        "PM-ACT-001",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_GUIDED_ACTIVITY(
+        "PM-ACT-001",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
+    CONTROL_PUBLIC_DISPLAY(
+        "PM-DSP-001",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_AUDIT_EVENTS(
+        "PM-DAT-005",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_CLASSROOM_REPORT(
+        "PM-DAT-002",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    MANAGE_PUBLIC_FUND_VOTE(
+        "PM-ACT-002",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_PUBLIC_FUND_VOTE(
+        "PM-ACT-001",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
+    CAST_PUBLIC_FUND_VOTE(
+        "PM-ACT-001",
+        Set.of(ClassroomActorRole.STU)
+    ),
     PARTICIPATE_QUIZ(
         "PM-QZ-002",
         Set.of(ClassroomActorRole.STU)

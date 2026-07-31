@@ -45,8 +45,9 @@
 
 ### 3.2 교사·관리자
 
+- 교사 로그인은 외부 OIDC의 Authorization Code + PKCE 흐름을 사용합니다. 핵심 API는 `id_token`의 서명, `issuer`, `audience`, 만료와 사전 등록된 `users.external_subject`를 검증하며 외부 비밀번호를 받거나 저장하지 않습니다.
 - 교사용 앱은 Bearer 액세스 토큰과 회전형 갱신 토큰을 사용합니다.
-- 교사·관리자 웹은 `HttpOnly`, `Secure`, `SameSite` 쿠키 세션과 CSRF 방어를 사용합니다.
+- 교사·관리자 웹의 갱신 토큰은 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Strict` 쿠키에 저장합니다. 액세스 토큰은 짧게 유지하며 상태 변경 요청에는 기존 멱등성 방어를 함께 적용합니다.
 - 교사는 수업 중 앱과 관리 웹을 함께 사용할 수 있으므로 학생의 단일 태블릿 세션 정책을 적용하지 않습니다.
 - 비밀번호 재설정은 기존 이코빌리지의 본인 확인 절차를 호출하고 닉네임 재설정 경로는 만들지 않습니다.
 
@@ -299,7 +300,7 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 계약과 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml), [API 필드 매핑](../contracts/api-field-mapping.json), [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 비밀번호 재설정·WebSocket 티켓·공용 화면 토큰은 [임시 인증정보 저장 계약](EPHEMERAL_AUTH_STORAGE.md)을 따릅니다. 물리 제약·원장 지연 제약 트리거와 추천 코스 제품 데이터는 Flyway `V1_1`~`V1_12`, 핵심 DB 검증은 DBT-001~020에 반영했습니다.
+화면 행동 `UIA-*` 69건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml), [API 필드 매핑](../contracts/api-field-mapping.json), [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 교사 회전형 세션·비밀번호 재설정·WebSocket 티켓·공용 화면 토큰은 [임시 인증정보 저장 계약](EPHEMERAL_AUTH_STORAGE.md)을 따릅니다. 물리 제약·원장 지연 제약 트리거, 추천 코스 제품 데이터와 활동 공개 필드 allowlist는 Flyway `V1_1`~`V1_13`, 핵심 DB 검증은 DBT-001~020에 반영했습니다.
 
 1. 계약 기반 클라이언트·서버 인터페이스 생성
 2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
