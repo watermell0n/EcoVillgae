@@ -43,6 +43,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AUTH-005 | MVP·DEC | 학생 | 로그인 실패 | 연속 실패 후에도 계정 잠금 상태가 생성되지 않음 | 인증 경계값 테스트 | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
 | AUTH-006 | MVP·DEC | 학생·교사 | 비밀번호 재설정 | 기존 본인 확인 흐름으로 비밀번호만 재설정되고 닉네임 재설정 경로는 없음 | 인증 E2E | PM-AUTH-002·PM-CLS-004 · SCR-STU-002·SCR-WEB-006 / TEST TBD |
 | AUTH-007 | DEC | 교사·학생·시스템 | 학급 코드 | 서버가 혼동 문자를 제외한 8자 코드를 전역 유일하게 생성하고 로그인에서 정규화하며 생성 후 변경하지 않음 | 생성·충돌·로그인 테스트 | SM-CLS-001 · PM-CLS-001 · SCR-WEB-003·SCR-WEB-004·SCR-STU-001 / API-CLS-001·API-AUTH-001 · DBT-018 · TEST TBD |
+| AUTH-008 | MVP·TECH·DEC | 교사 | 로그인·세션 | OIDC ID 토큰의 서명·issuer·audience·만료와 등록 교사 상태를 검증하고, 교사 앱·웹의 동시 세션과 회전형 갱신 토큰을 허용 | 인증 API 통합·토큰 재사용 거절 테스트 | PM-AUTH-003·PM-RBAC-001 · SCR-TCH-001·SCR-WEB-001 / API-AUTH-004·API-AUTH-005·API-AUTH-006·API-AUTH-008 · TEST `TeacherSessionApiTest` |
 
 ## 3. 경제교실·코스
 
@@ -155,12 +156,13 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AI-007 | API-AI-004 |
 | AI-008 | API-ADM-004·API-OPS-001·API-READ-027·API-READ-029 |
 | AUTH-001 | API-AUTH-001 |
-| AUTH-002 | API-ADM-001·API-ADM-003·API-CLS-004·API-CLS-005·API-OPS-002·API-READ-001·API-READ-005·API-READ-031 |
+| AUTH-002 | API-ADM-001·API-ADM-003·API-AUTH-008·API-CLS-004·API-CLS-005·API-OPS-002·API-READ-001·API-READ-005·API-READ-031 |
 | AUTH-003 | API-ADM-002·API-AUTH-001·API-READ-032 |
 | AUTH-004 | API-DSP-001·API-READ-025 |
 | AUTH-005 | API-AUTH-001 |
 | AUTH-006 | API-AUTH-002·API-AUTH-003 |
 | AUTH-007 | API-AUTH-001·API-CLS-001·API-READ-002·API-READ-003 |
+| AUTH-008 | API-AUTH-004·API-AUTH-005·API-AUTH-006·API-AUTH-008 |
 | CLS-001 | API-CLS-001·API-CLS-003·API-READ-002 |
 | CLS-002 | API-MOD-001·API-MOD-002·API-READ-006 |
 | CLS-003 | API-CLS-007 |
@@ -283,7 +285,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 계약 | 사람이 읽는 기준 | 계약 수 | ID 차이 | 규격 검사 |
 | --- | --- | ---: | ---: | --- |
-| OpenAPI 3.1 | HTTP API 107개 | 작업 107개 | 0 | PASS |
+| OpenAPI 3.1 | HTTP API 108개 | 작업 108개 | 0 | PASS |
 | AsyncAPI 3.1 | 채널 10개·이벤트 48개 | 채널 10개·이벤트 48개 | 0 | PASS |
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
@@ -300,7 +302,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | AI | `ai_runs` | `school_ai_setting_versions`, `ai_artifacts`, `ai_proposals`, `ai_decisions`, `economic_event_drafts` |
 | 데이터·운영 | `audit_events`, `async_operations` | `report_snapshots`, `export_operations`, `idempotency_records`, `outbox_events`, `state_transitions` |
 
-세부 관계와 불변 규칙은 DM-001~DM-014 및 6개 ERD로 정의했습니다. 모든 78개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
+세부 관계와 불변 규칙은 DM-001~DM-014 및 6개 ERD로 정의했습니다. 모든 79개 요구사항 영역이 하나 이상의 논리 집계 루트와 연결됩니다.
 
 ## 13. 물리 데이터 모델 커버리지
 
@@ -325,7 +327,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 68개 strict, 후속 39개 planned |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 70개 strict, 후속 38개 planned |
 
 Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
 데이터베이스에서 Flyway `V1_1`~`V1_13` 직접 적용, 85개 물리 테이블과 Hibernate
@@ -338,16 +340,16 @@ Testcontainers 21개 전체 실행은 Docker 사용 Jenkins에서 최종 검증�
 
 | 영역 | 요구사항 수 | 기준선 | 상태 머신 | 권한 규칙 | 화면 | HTTP API | OpenAPI | WS 대상 | WS 연결 | AsyncAPI | 설계 하나 이상 | DBT 연결 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 플랫폼·인증 | 12 | 12 | 2 | 12 | 12 | 11 | 11 | 3 | 3 | 3 | 12 | 6 |
+| 플랫폼·인증 | 13 | 13 | 2 | 13 | 13 | 12 | 12 | 3 | 3 | 3 | 13 | 6 |
 | 경제교실·코스 | 16 | 16 | 11 | 16 | 16 | 16 | 16 | 9 | 9 | 9 | 16 | 3 |
 | 경제·개인거래 | 15 | 15 | 13 | 15 | 15 | 15 | 15 | 10 | 10 | 10 | 15 | 7 |
 | 금융 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 1 |
 | 퀴즈 | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 5 | 5 | 5 | 9 | 2 |
 | AI | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 3 | 3 | 3 | 8 | 0 |
 | 데이터·운영 | 6 | 6 | 3 | 6 | 6 | 6 | 6 | 2 | 2 | 2 | 6 | 1 |
-| 합계 | 78 | 78 | 58 | 78 | 78 | 77 | 77 | 44 | 44 | 44 | 78 | 20 |
+| 합계 | 79 | 79 | 58 | 79 | 79 | 78 | 78 | 44 | 44 | 44 | 79 | 20 |
 
-현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 78/78입니다. 상태 또는 불변 생명주기 규칙이 필요한 요구사항 58개는 상태 머신과 연결했습니다. 화면 행동 68개는 모두 HTTP 명령 API와 연결했고 HTTP·OpenAPI 대상 요구사항은 77/77입니다. WebSocket·AsyncAPI 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. 테스트 열은 하나 이상의 자동 DB 무결성 테스트 `DBT-*`가 연결된 요구사항 수이며, 서비스·E2E 인수 테스트는 `TEST TBD`로 구분합니다. `SYS-004`는 Terraform에서 연결합니다.
+현재 요구사항 기준선·권한 규칙·화면 커버리지는 각각 79/79입니다. 상태 또는 불변 생명주기 규칙이 필요한 요구사항 58개는 상태 머신과 연결했습니다. 화면 행동 69개는 모두 HTTP 명령 API와 연결했고 HTTP·OpenAPI 대상 요구사항은 78/78입니다. WebSocket·AsyncAPI 대상 요구사항 44개도 채널·이벤트와 모두 연결했습니다. 테스트 열은 하나 이상의 자동 DB 무결성 테스트 `DBT-*`가 연결된 요구사항 수이며, 교사 인증은 서비스 통합 테스트 `TeacherSessionApiTest`로 연결했습니다. `SYS-004`는 Terraform에서 연결합니다.
 
 ## 15. 다음 갱신
 

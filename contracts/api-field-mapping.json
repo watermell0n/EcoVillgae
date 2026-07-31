@@ -377,12 +377,108 @@
       }
     },
     {
+      "api_id": "API-AUTH-008",
+      "method": "POST",
+      "path": "/auth/teacher-sessions",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "external_idp.id-token",
+        "users",
+        "school_memberships",
+        "classroom_teachers",
+        "redis.teacher-session"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "id_token",
+            "required": true,
+            "type": "string",
+            "target": "external_idp.id-token",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
+            "visibility": "secret-input"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "access_token",
+            "required": true,
+            "type": "string",
+            "target": "projection.access_token",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "one-time-secret"
+          },
+          {
+            "name": "refresh_token",
+            "required": true,
+            "type": "string",
+            "target": "projection.refresh_token",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "one-time-secret"
+          },
+          {
+            "name": "expires_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.expires_at",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "session_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.session_id",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "teacher_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.teacher_id",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "display_name",
+            "required": true,
+            "type": "string",
+            "target": "projection.display_name",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "role",
+            "required": true,
+            "type": "string",
+            "target": "projection.role",
+            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-AUTH-004",
       "method": "POST",
       "path": "/auth/token-refreshes",
       "implementation_status": "mvp-contract",
       "storage_targets": [
-        "external_idp.refresh-session",
+        "redis.teacher-session",
         "student_sessions"
       ],
       "request": {
@@ -398,7 +494,7 @@
             "required": true,
             "type": "string",
             "target": "projection.access_token",
-            "transform": "external_idp.refresh-session, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -407,7 +503,7 @@
             "required": true,
             "type": "string",
             "target": "projection.refresh_token",
-            "transform": "external_idp.refresh-session, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -416,7 +512,25 @@
             "required": true,
             "type": "string",
             "target": "projection.expires_at",
-            "transform": "external_idp.refresh-session, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "session_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.session_id",
+            "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "role",
+            "required": true,
+            "type": "string",
+            "target": "projection.role",
+            "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -429,7 +543,7 @@
       "path": "/auth/sessions/current",
       "implementation_status": "mvp-contract",
       "storage_targets": [
-        "external_idp.refresh-session",
+        "redis.teacher-session",
         "student_sessions"
       ],
       "request": {
@@ -448,10 +562,13 @@
       "path": "/auth/me",
       "implementation_status": "mvp-contract",
       "storage_targets": [
+        "users",
+        "school_memberships",
+        "classroom_teachers",
         "classrooms",
         "classroom_students",
-        "student_credentials",
-        "student_sessions"
+        "student_sessions",
+        "redis.teacher-session"
       ],
       "request": {
         "mode": "none",
@@ -466,16 +583,61 @@
             "required": true,
             "type": "string",
             "target": "projection.session_id",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "revoked_at",
+            "name": "user_id",
             "required": true,
             "type": "string",
-            "target": "projection.revoked_at",
-            "transform": "classrooms, classroom_students, student_credentials, student_sessions에서 검증·조합하는 response 필드",
+            "target": "projection.user_id",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "display_name",
+            "required": true,
+            "type": "string",
+            "target": "projection.display_name",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "role",
+            "required": true,
+            "type": "string",
+            "target": "projection.role",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "access_token_expires_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.access_token_expires_at",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "schools",
+            "required": true,
+            "type": "array",
+            "target": "projection.schools",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "classrooms",
+            "required": true,
+            "type": "array",
+            "target": "projection.classrooms",
+            "transform": "users, school_memberships, classroom_teachers, classrooms, classroom_students, student_sessions, redis.teacher-session에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }

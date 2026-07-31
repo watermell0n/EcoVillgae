@@ -2,7 +2,7 @@
 
 - 버전: v0.5
 - 기준일: 2026-07-30
-- 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1·API 필드 저장 매핑 완료
+- 상태: 화면 행동 69건 HTTP 매핑·OpenAPI 3.1·API 필드 저장 매핑 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
@@ -64,6 +64,7 @@
 | API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
+| API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 서명·발급자·audience 검증, 등록 교사 확인, 토큰·교사 다중 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |
 
 ### 3.1 세션 지원 API
 
@@ -71,7 +72,7 @@
 | --- | --- | --- |
 | API-AUTH-004 | `POST /auth/token-refreshes` | 회전형 갱신 토큰으로 새 앱 토큰 발급 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
-| API-AUTH-006 | `GET /auth/me` | 현재 사용자·역할·학교·담당 학급과 세션 정책 조회 |
+| API-AUTH-006 | `GET /auth/me` | 현재 세션·사용자·역할·학교·담당 학급과 액세스 토큰 만료 조회 |
 | API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
 
 비밀번호·토큰·재설정 증명값은 응답 이후 다시 조회할 수 없고 감사 로그에도 저장하지 않습니다.
@@ -314,13 +315,13 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 14. 커버리지
 
-- 화면 행동: 68개
-- HTTP 연결 대상 행동: 68개
-- 명령 API ID: 68개
+- 화면 행동: 69개
+- HTTP 연결 대상 행동: 69개
+- 명령 API ID: 69개
 - 세션 지원 API: 4개
 - 조회 API: 34개
-- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 107개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 68개 strict·후속 39개 planned
+- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 108개 작업
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 70개 strict·후속 38개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업

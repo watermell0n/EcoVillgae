@@ -106,6 +106,25 @@ node scripts/validate-api-schema-consistency.mjs
 로컬 기본 키는 개발 전용입니다. 배포 환경에서는 `.env.example`의
 `AUTH_JWT_SECRET`, `AUTH_TOKEN_PEPPER`를 Secrets Manager 등에서 주입해야 합니다.
 
+## 교사 OIDC 로그인 API
+
+`POST /auth/teacher-sessions`는 OpenAPI `API-AUTH-008` 계약을 구현합니다.
+
+- 교사 웹은 외부 OIDC에서 Authorization Code + PKCE를 완료하고 `id_token`을 전달합니다.
+- 백엔드는 ID 토큰의 서명, issuer, client ID audience, 만료를 검증합니다.
+- 검증된 `sub`가 활성 `users.external_subject` 교사 계정과 일치해야 로그인됩니다.
+- 액세스 토큰은 15분 JWT, 갱신 토큰은 Redis에 HMAC 해시만 14일 보관합니다.
+- 교사 앱·웹의 동시 로그인을 허용하며 각 세션은 독립적으로 갱신·로그아웃됩니다.
+- `POST /auth/token-refreshes`는 갱신 토큰을 회전하고 이전 토큰 재사용을 거절합니다.
+- `DELETE /auth/sessions/current`, `GET /auth/me`로 현재 세션 폐기와 역할·담당 학급 조회를 지원합니다.
+- 교사 웹 갱신 토큰은 `HttpOnly`, `SameSite=Strict` 쿠키로도 발급하며 운영에서는
+  `AUTH_REFRESH_COOKIE_SECURE=true`로 설정합니다.
+
+로컬에서는 `TEACHER_OIDC_ENABLED=false`가 기본이므로 교사 로그인 요청은
+`AUTH_PROVIDER_UNAVAILABLE`을 반환합니다. 실제 제공자의 issuer, JWK Set URI,
+client ID를 `.env` 또는 배포 비밀로 설정한 뒤 활성화합니다. 이코빌리지 서버는
+외부 계정 비밀번호를 받거나 저장하지 않습니다.
+
 ## 로컬 개발 데이터베이스 재생성
 
 아래 절차는 저장소의 로컬 Compose PostgreSQL 데이터만 삭제합니다. 공유·운영
