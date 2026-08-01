@@ -2,7 +2,6 @@ package com.b201.ecovillage.identity.application;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Optional;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -50,31 +49,33 @@ public class SessionRefreshService {
     }
 
     @Transactional
-    public SessionRefreshResult refresh(String refreshToken) {
+    public SessionRefreshResult refreshStudent(String refreshToken) {
+        String normalizedToken = requireRefreshToken(refreshToken);
+        if (normalizedToken.startsWith("tch_")) {
+            throw invalidRefreshToken();
+        }
+        String tokenHash = secretHasher.hashRefreshToken(normalizedToken);
+        return refreshStudent(
+            studentSessionRepository
+                .findForRefreshByTokenHash(tokenHash)
+                .orElseThrow(SessionRefreshService::invalidRefreshToken)
+        );
+    }
+
+    @Transactional
+    public SessionRefreshResult refreshTeacher(String refreshToken) {
+        String normalizedToken = requireRefreshToken(refreshToken);
+        if (normalizedToken.startsWith("stu_")) {
+            throw invalidRefreshToken();
+        }
+        return refreshTeacherFromStore(secretHasher.hashRefreshToken(normalizedToken));
+    }
+
+    private static String requireRefreshToken(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw invalidRefreshToken();
         }
-        String normalizedToken = refreshToken.trim();
-        String tokenHash = secretHasher.hashRefreshToken(normalizedToken);
-        if (normalizedToken.startsWith("stu_")) {
-            return refreshStudent(
-                studentSessionRepository
-                    .findForRefreshByTokenHash(tokenHash)
-                    .orElseThrow(SessionRefreshService::invalidRefreshToken)
-            );
-        }
-        if (normalizedToken.startsWith("tch_")) {
-            return refreshTeacherFromStore(tokenHash);
-        }
-
-        // Prefixes were added after the first student-session implementation.
-        // Keep unprefixed tokens valid until their normal 14-day expiry.
-        Optional<StudentSession> studentSession =
-            studentSessionRepository.findForRefreshByTokenHash(tokenHash);
-        if (studentSession.isPresent()) {
-            return refreshStudent(studentSession.get());
-        }
-        return refreshTeacherFromStore(tokenHash);
+        return refreshToken.trim();
     }
 
     private SessionRefreshResult refreshTeacherFromStore(String tokenHash) {

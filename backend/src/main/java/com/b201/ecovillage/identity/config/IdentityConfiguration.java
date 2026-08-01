@@ -14,7 +14,8 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     AuthenticationProperties.class,
-    TeacherOidcProperties.class
+    TeacherOidcProperties.class,
+    WebClientProperties.class
 })
 public class IdentityConfiguration {
 

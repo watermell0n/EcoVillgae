@@ -81,12 +81,17 @@
 
 | 헤더 | 적용 | 규칙 |
 | --- | --- | --- |
-| `Authorization` | 앱·내부 서비스 | `Bearer {token}` |
-| `X-Refresh-Token` | 앱 토큰 갱신 | `API-AUTH-004`에서만 SecureStore의 회전형 갱신 토큰 전송, 로그 마스킹 |
+| `Authorization` | 학생 앱·교사 웹·내부 서비스 | `Bearer {access_token}`. 학생 앱과 교사 웹 모두 짧은 수명의 액세스 토큰만 메모리에 유지 |
+| `X-Refresh-Token` | 학생 앱 토큰 갱신 | `API-AUTH-004`에서만 Expo SecureStore의 회전형 갱신 토큰 전송, 로그 마스킹. 교사 웹은 사용 금지 |
 | `Idempotency-Key` | 모든 변경 명령 | 클라이언트가 사용자 행동마다 생성한 UUID, 화면의 `request_id`와 같은 값 |
 | `X-Correlation-Id` | 모든 요청 | 분산 추적 ID, 없으면 게이트웨이가 생성 |
 | `Accept-Language` | 선택 | 기본 `ko-KR`, 화면 메시지 언어 선택 |
 | `Content-Type` | 본문 요청 | `application/json` |
+
+교사 웹의 갱신 토큰은 `ecovillage_teacher_refresh` HttpOnly·Secure·SameSite=Strict
+쿠키로만 전송합니다. 보호 API는 구현되지 않은 일반 세션 쿠키를 허용하지 않고
+`Authorization` Bearer 액세스 토큰을 요구합니다. 교사 쿠키와 학생 갱신 헤더를 한
+요청에 함께 보내면 `AMBIGUOUS_REFRESH_TOKEN`으로 거절합니다.
 
 ### 5.2 명령 본문 컨텍스트
 

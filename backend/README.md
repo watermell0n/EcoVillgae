@@ -114,11 +114,15 @@ node scripts/validate-api-schema-consistency.mjs
 - 백엔드는 ID 토큰의 서명, issuer, client ID audience, 만료를 검증합니다.
 - 검증된 `sub`가 활성 `users.external_subject` 교사 계정과 일치해야 로그인됩니다.
 - 액세스 토큰은 15분 JWT, 갱신 토큰은 Redis에 HMAC 해시만 14일 보관합니다.
-- 교사 앱·웹의 동시 로그인을 허용하며 각 세션은 독립적으로 갱신·로그아웃됩니다.
+- 교사의 복수 브라우저 로그인을 허용하며 각 세션은 독립적으로 갱신·로그아웃됩니다.
 - `POST /auth/token-refreshes`는 갱신 토큰을 회전하고 이전 토큰 재사용을 거절합니다.
 - `DELETE /auth/sessions/current`, `GET /auth/me`로 현재 세션 폐기와 역할·담당 학급 조회를 지원합니다.
-- 교사 웹 갱신 토큰은 `HttpOnly`, `SameSite=Strict` 쿠키로도 발급하며 운영에서는
+- 교사 웹 갱신 토큰은 JSON 본문에 노출하지 않고 `HttpOnly`, `SameSite=Strict`
+  쿠키로만 발급하며 운영에서는
   `AUTH_REFRESH_COOKIE_SECURE=true`로 설정합니다.
+- 보호 API는 학생 앱과 교사 웹 모두 `Authorization: Bearer {access_token}`을
+  사용합니다. 교사 웹은 액세스 토큰을 메모리에만 유지합니다.
+- 로컬 교사 웹 CORS 원본은 `WEB_ALLOWED_ORIGINS`에 명시하며 `*`는 허용하지 않습니다.
 
 로컬에서는 `TEACHER_OIDC_ENABLED=false`가 기본이므로 교사 로그인 요청은
 `AUTH_PROVIDER_UNAVAILABLE`을 반환합니다. 실제 제공자의 issuer, JWK Set URI,
