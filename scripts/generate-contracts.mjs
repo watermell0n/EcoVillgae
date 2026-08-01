@@ -1096,7 +1096,14 @@ const responseFieldOverrides = {
   ],
   "API-READ-008": [{ name: "payslips", schema: projectionItems({ net_amount: { type: "integer", format: "int64" }, issued_at: { type: "string", format: "date-time" } }) }],
   "API-READ-009": [{ name: "transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) }],
-  "API-READ-010": [{ name: "products", schema: projectionItems({ unit_price: { type: "integer", format: "int64", minimum: 0 }, product_kind: { type: "string" } }) }],
+  "API-READ-010": [{
+    name: "products",
+    schema: projectionItems({
+      unit_price: { type: "integer", format: "int64", minimum: 0 },
+      product_kind: { type: "string" },
+      character_code: { type: ["string", "null"] },
+    }),
+  }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
   "API-READ-012": [{ name: "inventory_items", schema: projectionItems({ character_code: { type: "string" }, equipped: { type: "boolean" } }) }],
   "API-READ-013": [{ name: "trades", schema: projectionItems({ counterpart_nickname: { type: "string" }, direction: { type: "string" } }) }],
