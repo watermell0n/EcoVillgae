@@ -117,7 +117,12 @@ function now() {
   return new Date().toISOString();
 }
 
-export async function purchaseStoreItem(classroomId: string, productId = ids.product, quantity = 1) {
+export async function purchaseStoreItem(
+  classroomId: string,
+  productId = ids.product,
+  quantity = 1,
+  expectedProductVersion = 1
+) {
   if (MOCK_FEATURES) {
     return {
       orderId: crypto.randomUUID(),
@@ -136,7 +141,7 @@ export async function purchaseStoreItem(classroomId: string, productId = ids.pro
       client_occurred_at: now(),
       product_id: productId,
       quantity,
-      expected_product_version: 1
+      expected_product_version: expectedProductVersion
     })
   });
 }

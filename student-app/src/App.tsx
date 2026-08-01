@@ -21,6 +21,11 @@ import {
   type VoteView
 } from "./api/studentFeatures";
 import { moduleCards, studentHomeEnvelope, transactions } from "./data/studentHome";
+import {
+  CharacterShop,
+  CharacterWardrobe
+} from "./features/character/components/CharacterStore";
+import type { CharacterStoreItem } from "./features/character/characterApi";
 import type { ModuleCard } from "./types/screen";
 
 type AuthState = "landing" | "login" | "app";
@@ -74,13 +79,6 @@ const pageTitles: Record<PageKey, string> = {
   profile: "프로필",
   class: "선생님 수업"
 };
-
-const products = [
-  { id: "hoodie", name: "파란 후드", price: 50, stock: 99, type: "캐릭터", category: "digital", owned: true, image: "👕" },
-  { id: "cap", name: "빨간 모자", price: 30, stock: 99, type: "캐릭터", category: "digital", owned: true, image: "🧢" },
-  { id: "pencil", name: "연필 교환권", price: 30, stock: 12, type: "실물 상품", category: "teacher", owned: false, image: "✏️" },
-  { id: "snack", name: "간식 우선권", price: 50, stock: 4, type: "권리 상품", category: "teacher", owned: false, image: "🍪" }
-];
 
 const financeProducts = [
   { id: "deposit-1", title: "3일 예금", description: "오늘 넣으면 3일차에 이자를 받아요", amount: 100, rate: "10%" },
@@ -203,6 +201,16 @@ function App() {
     ...studentHomeEnvelope,
     studentView: { ...studentHomeEnvelope.studentView, nickname, walletBalance }
   };
+  const savedBalance = walletBalance
+    + deposits.reduce((total, account) => total + account.principalAmount, 0);
+  const storeSpendTotal = walletTransactions.reduce(
+    (total, transaction) => (
+      transaction.amount < 0 && transaction.memo === "상점에서 구매했어요"
+        ? total + Math.abs(transaction.amount)
+        : total
+    ),
+    0
+  );
   const title = pageTitles[page];
 
   return (
@@ -232,19 +240,27 @@ function App() {
           {page === "paystub" && <PaystubPage />}
           {page === "shop" && (
             <ShopPage
+              classroomId={activeClassroomId}
               walletBalance={walletBalance}
-              onBuy={async (price, name) => {
-                if (walletBalance < price) {
+              savedBalance={savedBalance}
+              spendTotal={storeSpendTotal}
+              onBuy={async (item) => {
+                if (walletBalance < item.price) {
                   return false;
                 }
-                await purchaseStoreItem(activeClassroomId);
-                const nextBalance = walletBalance - price;
+                await purchaseStoreItem(
+                  activeClassroomId,
+                  item.productId,
+                  1,
+                  item.productVersion
+                );
+                const nextBalance = walletBalance - item.price;
                 setWalletBalance(nextBalance);
                 setWalletTransactions((items) => [
                   {
                     id: `purchase-${Date.now()}`,
-                    title: name,
-                    amount: -price,
+                    title: item.name,
+                    amount: -item.price,
                     after: nextBalance,
                     memo: "상점에서 구매했어요"
                   },
@@ -286,7 +302,13 @@ function App() {
               }}
             />
           )}
-          {page === "character" && <CharacterPage />}
+          {page === "character" && (
+            <CharacterPage
+              classroomId={activeClassroomId}
+              savedBalance={savedBalance}
+              spendTotal={storeSpendTotal}
+            />
+          )}
           {page === "profile" && (
             <ProfileSettingsPage
               nickname={nickname}
@@ -601,41 +623,28 @@ function ReceiptRow({ label, amount, danger }: { label: string; amount: string; 
   );
 }
 
-function ShopPage({ walletBalance, onBuy }: { walletBalance: number; onBuy: (price: number, name: string) => Promise<boolean> }) {
-  const [selectedCategory, setSelectedCategory] = useState<"digital" | "teacher">("digital");
-  const [purchaseMessage, setPurchaseMessage] = useState("");
-  const visibleProducts = products.filter((product) => product.category === selectedCategory);
-
-  async function buyProduct(price: number, name: string) {
-    try {
-      const ok = await onBuy(price, name);
-      setPurchaseMessage(ok ? `${name}을 샀어요. 지갑 내역에 기록했어요.` : "비빔이 부족해요.");
-    } catch {
-      setPurchaseMessage("구매가 잘 되지 않았어요. 잠시 뒤 다시 해봐요.");
-    }
-  }
-
+function ShopPage({
+  classroomId,
+  walletBalance,
+  savedBalance,
+  spendTotal,
+  onBuy
+}: {
+  classroomId: string;
+  walletBalance: number;
+  savedBalance: number;
+  spendTotal: number;
+  onBuy: (item: CharacterStoreItem) => Promise<boolean>;
+}) {
   return (
-    <section className="panel shop-panel">
-      <div className="category-tabs">
-        <button className={selectedCategory === "digital" ? "active" : ""} onClick={() => setSelectedCategory("digital")}>디지털 상품</button>
-        <button className={selectedCategory === "teacher" ? "active" : ""} onClick={() => setSelectedCategory("teacher")}>선생님 상품</button>
-      </div>
-      {purchaseMessage && <p className="shop-message">{purchaseMessage}</p>}
-      <div className="product-grid">
-        {visibleProducts.map((product) => {
-          const disabled = walletBalance < product.price;
-          return (
-            <article className="product-card" key={product.id}>
-              <span className="product-image">{product.image}</span>
-              <b>{product.name}</b>
-              <p>{product.price}비빔 · 재고 {product.stock}</p>
-              <small>{product.owned ? "보유 중" : product.type}</small>
-              <button disabled={disabled} onClick={() => buyProduct(product.price, product.name)}>{disabled ? "잔액 부족" : "구매하기"}</button>
-            </article>
-          );
-        })}
-      </div>
+    <section className="shop-page">
+      <CharacterShop
+        classroomId={classroomId}
+        walletBalance={walletBalance}
+        savedBalance={savedBalance}
+        spendTotal={spendTotal}
+        onBuy={onBuy}
+      />
     </section>
   );
 }
@@ -785,23 +794,21 @@ function QuizPage() {
   );
 }
 
-function CharacterPage() {
+function CharacterPage({
+  classroomId,
+  savedBalance,
+  spendTotal
+}: {
+  classroomId: string;
+  savedBalance: number;
+  spendTotal: number;
+}) {
   return (
-    <section className="character-layout">
-      <div className="character-slot">
-        <span>캐릭터<br />이미지 자리</span>
-      </div>
-      <div className="panel">
-        <p className="eyebrow">캐릭터 슬롯</p>
-        <h2>아이템 상태</h2>
-        {["빨간 모자", "파란 후드", "줄무늬 바지", "노란 백팩"].map((item, index) => (
-          <div className={index === 1 ? "item-row equipped" : "item-row"} key={item}>
-            <b>{item}</b>
-            <span>{index === 1 ? "착용 중" : "보유 중"}</span>
-          </div>
-        ))}
-      </div>
-    </section>
+    <CharacterWardrobe
+      classroomId={classroomId}
+      savedBalance={savedBalance}
+      spendTotal={spendTotal}
+    />
   );
 }
 

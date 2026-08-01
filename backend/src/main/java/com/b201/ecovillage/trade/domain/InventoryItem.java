@@ -151,6 +151,39 @@ public class InventoryItem {
         changeStatus(InventoryItemStatus.AVAILABLE, changedAt);
     }
 
+    public void equip(UUID expectedOwnerId, Instant changedAt) {
+        requireOwner(expectedOwnerId);
+        if (status != InventoryItemStatus.AVAILABLE) {
+            throw new TradeOperationException(
+                "INVALID_STATE_TRANSITION",
+                "보유 중인 아이템만 장착할 수 있습니다."
+            );
+        }
+        equippedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        changeStatus(InventoryItemStatus.EQUIPPED, changedAt);
+    }
+
+    public void unequip(UUID expectedOwnerId, Instant changedAt) {
+        requireOwner(expectedOwnerId);
+        if (status != InventoryItemStatus.EQUIPPED) {
+            throw new TradeOperationException(
+                "INVALID_STATE_TRANSITION",
+                "장착 중인 아이템만 해제할 수 있습니다."
+            );
+        }
+        equippedAt = null;
+        changeStatus(InventoryItemStatus.AVAILABLE, changedAt);
+    }
+
+    private void requireOwner(UUID expectedOwnerId) {
+        if (!classroomStudentId.equals(expectedOwnerId)) {
+            throw new TradeOperationException(
+                "RESOURCE_NOT_OWNED",
+                "본인이 보유한 아이템만 변경할 수 있습니다."
+            );
+        }
+    }
+
     private void changeStatus(InventoryItemStatus next, Instant changedAt) {
         status = next;
         statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
@@ -169,11 +202,27 @@ public class InventoryItem {
         return classroomStudentId;
     }
 
+    public UUID getCharacterCatalogId() {
+        return characterCatalogId;
+    }
+
+    public UUID getSourceOrderItemId() {
+        return sourceOrderItemId;
+    }
+
     public UUID getLockedTradeId() {
         return lockedTradeId;
     }
 
     public InventoryItemStatus getStatus() {
         return status;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
+
+    public Instant getEquippedAt() {
+        return equippedAt;
     }
 }

@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.character.domain.ClassroomCharacter;
+import com.b201.ecovillage.character.repository.ClassroomCharacterRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -44,6 +46,7 @@ import com.b201.ecovillage.store.domain.InsufficientStoreStockException;
 import com.b201.ecovillage.store.domain.StoreOrder;
 import com.b201.ecovillage.store.domain.StoreOrderItem;
 import com.b201.ecovillage.store.domain.StoreProduct;
+import com.b201.ecovillage.store.domain.StoreProductKind;
 import com.b201.ecovillage.store.domain.StoreProductVersion;
 import com.b201.ecovillage.store.domain.StoreStock;
 import com.b201.ecovillage.store.repository.StoreOrderItemRepository;
@@ -51,6 +54,8 @@ import com.b201.ecovillage.store.repository.StoreOrderRepository;
 import com.b201.ecovillage.store.repository.StoreProductRepository;
 import com.b201.ecovillage.store.repository.StoreProductVersionRepository;
 import com.b201.ecovillage.store.repository.StoreStockRepository;
+import com.b201.ecovillage.trade.domain.InventoryItem;
+import com.b201.ecovillage.trade.repository.InventoryItemRepository;
 
 @Service
 public class StorePurchaseService {
@@ -65,6 +70,8 @@ public class StorePurchaseService {
     private final StoreProductRepository productRepository;
     private final StoreProductVersionRepository productVersionRepository;
     private final StoreStockRepository stockRepository;
+    private final ClassroomCharacterRepository classroomCharacterRepository;
+    private final InventoryItemRepository inventoryItemRepository;
     private final StoreOrderRepository orderRepository;
     private final StoreOrderItemRepository orderItemRepository;
     private final LedgerAccountRepository ledgerAccountRepository;
@@ -81,6 +88,8 @@ public class StorePurchaseService {
         StoreProductRepository productRepository,
         StoreProductVersionRepository productVersionRepository,
         StoreStockRepository stockRepository,
+        ClassroomCharacterRepository classroomCharacterRepository,
+        InventoryItemRepository inventoryItemRepository,
         StoreOrderRepository orderRepository,
         StoreOrderItemRepository orderItemRepository,
         LedgerAccountRepository ledgerAccountRepository,
@@ -96,6 +105,8 @@ public class StorePurchaseService {
         this.productRepository = productRepository;
         this.productVersionRepository = productVersionRepository;
         this.stockRepository = stockRepository;
+        this.classroomCharacterRepository = classroomCharacterRepository;
+        this.inventoryItemRepository = inventoryItemRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.ledgerAccountRepository = ledgerAccountRepository;
@@ -212,6 +223,42 @@ public class StorePurchaseService {
                 "OUT_OF_STOCK",
                 "상품 재고 정보를 찾을 수 없습니다."
             ));
+
+        ClassroomCharacter classroomCharacter =
+            productVersion.getProductKind() == StoreProductKind.CHARACTER
+                ? classroomCharacterRepository
+                    .findByClassroomIdAndStoreProductId(
+                        command.classroomId(),
+                        product.getId()
+                    )
+                    .orElseThrow(() -> operation(
+                        HttpStatus.CONFLICT,
+                        "CHARACTER_PRODUCT_NOT_CONFIGURED",
+                        "캐릭터 상품 연결 정보를 찾을 수 없습니다."
+                    ))
+                : null;
+        if (classroomCharacter != null && command.quantity() != 1) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "캐릭터 상품은 한 번에 1개만 구매할 수 있습니다."
+            );
+        }
+        if (
+            classroomCharacter != null
+                && inventoryItemRepository
+                    .existsByClassroomIdAndClassroomStudentIdAndCharacterCatalogId(
+                        command.classroomId(),
+                        student.getId(),
+                        classroomCharacter.getCharacterCatalogId()
+                    )
+        ) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "ALREADY_OWNED",
+                "이미 보유한 캐릭터 아이템입니다."
+            );
+        }
         if (stock.getAvailableQuantity() < command.quantity()) {
             throw new InsufficientStoreStockException(
                 stock.getAvailableQuantity(),
@@ -334,6 +381,16 @@ public class StorePurchaseService {
             tax,
             now
         );
+        InventoryItem acquiredCharacter = classroomCharacter == null
+            ? null
+            : InventoryItem.acquire(
+                uuidGenerator.generate(),
+                command.classroomId(),
+                student.getId(),
+                classroomCharacter.getCharacterCatalogId(),
+                item.getId(),
+                now
+            );
         LedgerDomainMutation purchaseMutation = new LedgerDomainMutation() {
             @Override
             public void validate() {
@@ -351,6 +408,9 @@ public class StorePurchaseService {
                 stockRepository.save(stock);
                 orderRepository.save(order);
                 orderItemRepository.save(item);
+                if (acquiredCharacter != null) {
+                    inventoryItemRepository.save(acquiredCharacter);
+                }
             }
         };
 

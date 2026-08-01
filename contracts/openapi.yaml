@@ -9685,6 +9685,10 @@ paths:
                               minimum: 0
                             product_kind:
                               type: "string"
+                            character_code:
+                              type:
+                                - "string"
+                                - "null"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
