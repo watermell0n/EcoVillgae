@@ -3,7 +3,7 @@
 - 버전: v0.3
 - 기준일: 2026-07-29
 - 상태: 채널·이벤트·권한·재연결·AsyncAPI 3.1 계약 확정
-- 범위: 학생·교사용 앱, 교사 관리 웹, 교실 공용 화면, 핵심 API 실시간 게이트웨이
+- 범위: 학생 앱, 교사 웹, 교실 공용 화면, 핵심 API 실시간 게이트웨이
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [HTTP API 명세](HTTP_API_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 핵심 원칙

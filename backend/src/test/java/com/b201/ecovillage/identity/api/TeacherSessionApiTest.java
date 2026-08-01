@@ -1,10 +1,13 @@
 package com.b201.ecovillage.identity.api;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,7 +98,7 @@ class TeacherSessionApiTest {
             .andExpect(status().isCreated())
             .andExpect(cookie().httpOnly("ecovillage_teacher_refresh", true))
             .andExpect(jsonPath("$.data.access_token").isString())
-            .andExpect(jsonPath("$.data.refresh_token").isString())
+            .andExpect(jsonPath("$.data.refresh_token").doesNotExist())
             .andExpect(jsonPath("$.data.session_id").isString())
             .andExpect(jsonPath("$.data.teacher_id").value(teacherId.toString()))
             .andExpect(jsonPath("$.data.display_name").value(DISPLAY_NAME))
@@ -117,29 +122,88 @@ class TeacherSessionApiTest {
     @Test
     void rotatesRefreshTokenAndRejectsReplay() throws Exception {
         MvcResult login = login();
-        String firstRefreshToken = read(login, "$.data.refresh_token");
+        Cookie firstRefreshCookie = login.getResponse().getCookie(
+            "ecovillage_teacher_refresh"
+        );
+        assertNotNull(firstRefreshCookie);
 
         MvcResult refresh = mockMvc.perform(
             post("/auth/token-refreshes")
                 .header("Idempotency-Key", UUID.randomUUID())
-                .header("X-Refresh-Token", firstRefreshToken)
+                .cookie(firstRefreshCookie)
         )
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.access_token").isString())
-            .andExpect(jsonPath("$.data.refresh_token").isString())
+            .andExpect(jsonPath("$.data.refresh_token").doesNotExist())
             .andExpect(jsonPath("$.data.role").value("TCH"))
+            .andExpect(cookie().httpOnly("ecovillage_teacher_refresh", true))
             .andReturn();
 
-        String secondRefreshToken = read(refresh, "$.data.refresh_token");
-        assertNotEquals(firstRefreshToken, secondRefreshToken);
+        Cookie secondRefreshCookie = refresh.getResponse().getCookie(
+            "ecovillage_teacher_refresh"
+        );
+        assertNotNull(secondRefreshCookie);
+        assertNotEquals(firstRefreshCookie.getValue(), secondRefreshCookie.getValue());
 
         mockMvc.perform(
             post("/auth/token-refreshes")
                 .header("Idempotency-Key", UUID.randomUUID())
-                .header("X-Refresh-Token", firstRefreshToken)
+                .cookie(firstRefreshCookie)
         )
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+    }
+
+    @Test
+    void rejectsTeacherRefreshTokenInStudentHeaderAndAmbiguousTransport() throws Exception {
+        MvcResult login = login();
+        Cookie teacherCookie = login.getResponse().getCookie("ecovillage_teacher_refresh");
+        assertNotNull(teacherCookie);
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", teacherCookie.getValue())
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", "stu_unrelated-token")
+                .cookie(teacherCookie)
+        )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("AMBIGUOUS_REFRESH_TOKEN"));
+    }
+
+    @Test
+    void allowsOnlyConfiguredCredentialedWebOrigin() throws Exception {
+        mockMvc.perform(
+            options("/auth/token-refreshes")
+                .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                .header(
+                    HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
+                    "Idempotency-Key,Content-Type"
+                )
+        )
+            .andExpect(status().isOk())
+            .andExpect(header().string(
+                HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                "http://localhost:3000"
+            ))
+            .andExpect(header().string(
+                HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS,
+                "true"
+            ));
+
+        mockMvc.perform(
+            options("/auth/token-refreshes")
+                .header(HttpHeaders.ORIGIN, "https://untrusted.example")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+        ).andExpect(status().isForbidden());
     }
 
     @Test

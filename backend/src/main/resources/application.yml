@@ -49,6 +49,8 @@ ecovillage:
     jwk-set-uri: ${TEACHER_OIDC_JWK_SET_URI:}
     client-id: ${TEACHER_OIDC_CLIENT_ID:}
     name-claim: ${TEACHER_OIDC_NAME_CLAIM:name}
+  web:
+    allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:3000}
 
 management:
   endpoints:

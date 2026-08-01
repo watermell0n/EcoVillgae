@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import jakarta.servlet.http.Cookie;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -317,6 +319,7 @@ class StudentSessionApiTest {
         )
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.role").value("STU"))
+            .andExpect(jsonPath("$.data.refresh_token").isString())
             .andReturn();
         String rotatedAccessToken = JsonPath.read(
             refresh.getResponse().getContentAsString(),
@@ -332,6 +335,14 @@ class StudentSessionApiTest {
             post("/auth/token-refreshes")
                 .header("Idempotency-Key", UUID.randomUUID())
                 .header("X-Refresh-Token", refreshToken)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .cookie(new Cookie("ecovillage_teacher_refresh", rotatedRefreshToken))
         )
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
