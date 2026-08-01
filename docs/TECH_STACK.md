@@ -2,13 +2,13 @@
 
 - 확정일: 2026-07-29
 - 상태: MVP 목표 기술 스택 확정
-- 적용 범위: 학생·교사용 앱, 관리자·교사 관리 웹, API, AI, AWS 인프라와 배포
+- 적용 범위: 학생 앱, 교사·관리자 웹, 교실 공용 화면, API, AI, AWS 인프라와 배포
 
 ## 1. 확정 기술
 
 | 영역 | 확정 기술 |
 | --- | --- |
-| 학생·교사용 앱 | React Native + Expo + TypeScript |
+| 학생 앱 | React Native + Expo + TypeScript |
 | 앱 라우팅 | Expo Router |
 | 서버 상태 | TanStack Query |
 | 앱 로컬 상태 | Zustand |
@@ -16,7 +16,7 @@
 | 애니메이션·제스처 | Reanimated + Gesture Handler |
 | 민감 토큰 저장 | Expo SecureStore |
 | 푸시·카메라·QR | Expo Notifications + Expo Camera |
-| 관리자·교사 관리 웹 | Next.js App Router |
+| 교사·관리자 웹·교실 공용 화면 | Next.js App Router |
 | 핵심 API 서버 | Java 21 + Spring Boot 4.1 |
 | 실시간 수업 | WebSocket + Redis Pub/Sub |
 | 메인 데이터베이스 | PostgreSQL 17 |
@@ -32,21 +32,27 @@
 
 ## 2. 클라이언트 구성
 
-### 2.1 학생·교사용 앱
+### 2.1 학생 앱
 
-- 학교 지급 태블릿에서 React Native와 Expo 기반 앱을 사용합니다.
-- Expo Router로 학생·교사 역할별 화면과 접근 권한을 분리합니다.
+- 학교 지급 Galaxy Tab에서 React Native와 Expo 기반 앱을 사용합니다.
+- Expo Router로 학생 화면과 접근 조건을 분리합니다.
 - 서버 데이터는 TanStack Query, 기기 내 UI 상태는 Zustand로 관리합니다.
 - 입력 폼은 React Hook Form과 Zod로 검증합니다.
 - 인증 토큰과 민감한 기기 정보는 Expo SecureStore에 저장합니다.
 - 알림은 Expo Notifications, QR 인식은 Expo Camera를 사용합니다.
 - 잔액·아이템·금융상품·거래 변경은 온라인 상태에서만 서버가 확정합니다.
 
-### 2.2 관리자·교사 관리 웹
+### 2.2 교사·관리자 웹과 교실 공용 화면
 
-- Next.js App Router 기반으로 경제교실 개설, 정책·모듈 설정, 거래 승인, AI 운영 지원과 리포트를 제공합니다.
+- Next.js App Router 기반으로 수업 진행, 경제교실 개설, 정책·모듈 설정, 거래 승인, AI 운영 지원과 리포트를 제공합니다.
 - 교실 공용 화면은 관리 웹의 발표용 경로로 제공하고 학생 개인 금융정보를 노출하지 않습니다.
-- 교사용 앱과 관리 웹은 같은 API와 권한 정책을 사용합니다.
+- 교사의 빠른 수업 진행 화면과 상세 관리 화면은 같은 Next.js 애플리케이션, 인증 세션, API와 권한 정책을 사용합니다.
+
+### 2.3 학생 클라이언트 전환 상태
+
+- `student-app/`의 현재 React·Vite 구현은 Expo 이전에 참고하는 UI 프로토타입이며 최종 배포 기술이 아닙니다.
+- 신규 학생 기능은 Expo 전환 브랜치에서 구현하고, 로그인·라우팅·핵심 화면·실기기 빌드가 검증될 때까지 Vite 코드를 삭제하지 않습니다.
+- 교사용 Expo 앱은 MVP 범위에 포함하지 않습니다.
 
 ## 3. 서버와 데이터
 

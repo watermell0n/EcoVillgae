@@ -79,7 +79,7 @@
 
 | ID | 요구사항 | 우선순위 | 상태 |
 | --- | --- | --- | --- |
-| SYS-001 | 학생·교사용 앱은 React Native·Expo, 관리 웹·공용 화면은 Next.js로 제공해야 한다. | P0 | BASELINED |
+| SYS-001 | 학생 앱은 React Native·Expo, 교사·관리자 웹과 교실 공용 화면은 Next.js로 제공해야 한다. | P0 | BASELINED |
 | SYS-002 | 핵심 거래 API는 Java 21·Spring Boot 4.1, AI 모듈은 Python·FastAPI·Pydantic으로 분리해야 한다. | P0 | BASELINED |
 | SYS-003 | 실시간 수업은 WebSocket과 Redis Pub/Sub를 사용하고 최종 거래 판단은 핵심 API가 수행해야 한다. | P0 | BASELINED |
 | SYS-004 | AWS 서울 리전, ECS Fargate·RDS·ElastiCache·S3·CloudFront·SQS를 사용하고 Terraform으로 관리해야 한다. | P0 | BASELINED |

@@ -166,7 +166,7 @@ erDiagram
 - `classrooms.currency_name`은 NFKC 정규화 후 한글·영문·숫자 1~10자와 금칙어 검증을 통과한 필수값입니다. 학급 코드와 화폐 단위명은 생성 후 변경하지 않습니다.
 - 학생 비밀번호 해시는 `student_credentials`에 분리하고 닉네임 변경과 비밀번호 재설정을 같은 기능으로 취급하지 않습니다.
 - 학생 세션은 한 학생당 활성 세션 1개만 허용합니다. 새 학교 태블릿 연결 시 기존 활성 세션을 종료합니다.
-- 교사용 앱과 관리 웹의 동시 로그인은 허용하므로 교사 사용자에는 단일 활성 세션 제약을 두지 않습니다.
+- 교사 웹은 허용된 복수 브라우저 세션을 지원하므로 교사 사용자에는 학생용 단일 활성 태블릿 세션 제약을 두지 않습니다.
 - 교사 회전형 갱신 세션은 Redis `auth:teacher-session:v1:{session_id}`와 해시된 갱신 토큰 인덱스에 14일 TTL로 보관합니다. PostgreSQL `users.external_subject`는 설정된 단일 OIDC issuer의 `sub`와 매핑합니다.
 - `classrooms.scale_label`은 추천 깊이만 나타내며 실제 운영 날짜를 계산하거나 고정하지 않습니다.
 - `classrooms.planned_student_count`는 개설 시 받은 양의 예상 인원이며 실제 활성 학생 수와 별도로 보존합니다.

@@ -36,7 +36,7 @@
 
 ```mermaid
 flowchart LR
-    APP["학생·교사 앱"] --> ALB["ALB·TLS"]
+    APP["학생 Expo 앱"] --> ALB["ALB·TLS"]
     WEB["교사 웹·공용 화면"] --> CDN["CloudFront"]
     CDN --> S3["S3 정적·학습자료"]
     ALB --> API["ECS Fargate 핵심 API"]
