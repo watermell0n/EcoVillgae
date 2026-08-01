@@ -81,12 +81,13 @@ class ClassroomRosterApiTest {
     private JdbcTemplate jdbcTemplate;
 
     private UUID classroomId;
+    private UUID teacherId;
     private Principal ownerPrincipal;
 
     @BeforeEach
     void setUp() {
         classroomId = UUID.randomUUID();
-        UUID teacherId = UUID.randomUUID();
+        teacherId = UUID.randomUUID();
         ownerPrincipal = () -> OWNER_SUBJECT;
         userAccountRepository.save(
             UserAccount.createTeacher(teacherId, OWNER_SUBJECT, "담임 교사", NOW)
@@ -148,8 +149,20 @@ class ClassroomRosterApiTest {
     @Test
     void bulkRegistersStudentsAndSalaryRoles() throws Exception {
         jdbcTemplate.update(
-            "INSERT INTO ai_runs VALUES (?, 'SETUP_PRECHECK', 'COMPLETED', 0, ?, ?)",
+            """
+            INSERT INTO ai_runs (
+                id, classroom_id, requested_by_user_id, run_type, trigger_type,
+                model_provider, model_id, prompt_version, input_scope, requested_at,
+                retention_until, status, state_version, status_changed_at, created_at, updated_at
+            ) VALUES (?, ?, ?, 'SETUP_PRECHECK', 'TEACHER_REQUEST', 'TEST', 'TEST',
+                      'setup-precheck-v1', '{}', ?, ?, 'COMPLETED', 0, ?, ?, ?)
+            """,
+            UUID.randomUUID(),
             classroomId,
+            teacherId,
+            NOW,
+            NOW.plusSeconds(3600),
+            NOW,
             NOW,
             NOW
         );

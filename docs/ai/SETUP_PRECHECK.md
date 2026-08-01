@@ -2,7 +2,7 @@
 
 - 프롬프트 버전: `setup-precheck-v1`
 - 평가 세트: `setup-precheck-evaluation-v1`
-- 상태: 독립 AI MVP 6단계 구현
+- 상태: Spring 규칙 엔진·FastAPI 계약 v1.2 실행 흐름 통합
 
 ## 1. 역할과 책임
 
@@ -174,3 +174,17 @@ Swagger의 **Authorize**에는 `local-development-token`만 입력합니다. 요
 `overall_severity=WARN`, 수정 안내와 후보 주의점이 포함되는 흐름을 확인할 수 있습니다.
 FAKE 공급자는 실제 API key나 토큰을 소비하지 않습니다. 실제 Bedrock·OpenAI 문장 품질
 확인은 자격증명을 연결한 뒤 별도 opt-in smoke 테스트로 수행합니다.
+
+## 6. Spring 통합 동작
+
+Spring의 `POST /classrooms/{classroom_id}/ai/balancing-analysis-operations`는 규칙 엔진
+결과를 먼저 확정한 뒤 FastAPI에 설명을 요청합니다. FastAPI 응답의 후보값, 추천·허용
+범위, 단위, 판정, 대상과 사유 코드가 원본과 다르면 응답 전체를 폐기하고 Spring 규칙
+결과로 fallback 설명을 만듭니다. timeout, 인증 실패, 429·5xx와 잘못된 출력도 같은
+fallback 경계로 처리하므로 설명 서비스 장애가 설정 점검 숫자를 잃게 만들지 않습니다.
+
+실행 결과는 `async_operations`, `ai_runs`, `ai_artifacts`, `ai_proposals`에 저장됩니다.
+교사는 제안을 확인·거절·적용할 수 있지만 확인만으로 정책은 바뀌지 않습니다. 적용할 때는
+Spring이 최신 정책 버전, 후보 허용 범위, 모듈 상태와 규칙 엔진 action을 다시 검증하고
+기존 모듈 활성화 서비스가 초기 정책 저장과 `DISABLED → ACTIVE`를 같은 트랜잭션에서
+수행합니다. 같은 멱등 키의 실행·결정 요청은 기존 결과를 재생합니다.

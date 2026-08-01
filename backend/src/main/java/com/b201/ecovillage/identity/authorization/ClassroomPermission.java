@@ -79,6 +79,18 @@ public enum ClassroomPermission {
         "PM-DAT-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    REQUEST_AI_ANALYSIS(
+        "PM-AI-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    ACKNOWLEDGE_AI_PROPOSAL(
+        "PM-AI-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    APPLY_AI_PROPOSAL(
+        "PM-AI-004",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     MANAGE_PUBLIC_FUND_VOTE(
         "PM-ACT-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)

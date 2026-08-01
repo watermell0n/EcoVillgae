@@ -410,12 +410,14 @@ Spring `RuleEngineService`와 불변 입력·출력 모델을 추가했습니다
 
 ### 8.5 단계 4 — Spring과 FastAPI 실행 흐름 통합
 
-1. Spring 내부 DTO와 계약 테스트를 내부 AI schema `v1.2`에 맞춥니다.
-2. 규칙 엔진 결과를 `SETUP_PRECHECK`에 연결하고 숫자·판정 보존과 AI 장애 fallback을
+**상태: 완료 (2026-08-01, `S15P11B201-257`, `S15P11B201-258`)**
+
+1. [x] Spring 내부 DTO와 계약 테스트를 내부 AI schema `v1.2`에 맞춥니다.
+2. [x] 규칙 엔진 결과를 `SETUP_PRECHECK`에 연결하고 숫자·판정 보존과 AI 장애 fallback을
    검증합니다.
-3. AI 실행·산출물·제안·교사 결정을 저장하고 승인·거절·확인과 최신 정책 재검증을
+3. [x] AI 실행·산출물·제안·교사 결정을 저장하고 승인·거절·확인과 최신 정책 재검증을
    연결합니다.
-4. `ON_DEMAND`, `AUTO_MONITOR`, 7일 스케줄, 멱등성, 중복 알림 억제를 실제 집계에
+4. [x] `ON_DEMAND`, `AUTO_MONITOR`, 7일 스케줄, 멱등성, 중복 알림 억제를 실제 집계에
    연결합니다.
 
 완료 기준은 FastAPI가 설명만 담당하고 Spring이 모든 수치 계산·저장·적용 권한을
