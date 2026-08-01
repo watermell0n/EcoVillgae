@@ -64,13 +64,13 @@
 | API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
-| API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 서명·발급자·audience 검증, 등록 교사 확인, 토큰·교사 다중 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |
+| API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 등록 교사 확인, 본문의 단기 액세스 토큰과 HttpOnly 갱신 쿠키, 교사 다중 브라우저 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |
 
 ### 3.1 세션 지원 API
 
 | API ID | 메서드·경로 | 설명 |
 | --- | --- | --- |
-| API-AUTH-004 | `POST /auth/token-refreshes` | 회전형 갱신 토큰으로 새 앱 토큰 발급 |
+| API-AUTH-004 | `POST /auth/token-refreshes` | STU는 SecureStore의 갱신 토큰을 `X-Refresh-Token`으로 보내고 새 액세스·갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
 | API-AUTH-006 | `GET /auth/me` | 현재 세션·사용자·역할·학교·담당 학급과 액세스 토큰 만료 조회 |
 | API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
