@@ -1,6 +1,14 @@
-# 학생 웹
+# 학생 앱 전환 작업 영역
 
-React, Vite, TypeScript를 사용하는 학생 웹 작업 영역입니다.
+최종 목표는 학교 지급 Galaxy Tab에서 사용하는 React Native·Expo·TypeScript 학생 앱입니다.
+현재 저장된 React·Vite 구현은 화면 흐름과 디자인을 Expo로 이전하기 위한 프로토타입이며 최종 배포 대상이 아닙니다.
+
+## 전환 규칙
+
+- 신규 학생 기능은 Expo 전환 브랜치에서 구현합니다.
+- 현재 Vite 코드는 로그인·라우팅·핵심 화면·Galaxy Tab 설치 빌드가 검증될 때까지 삭제하지 않습니다.
+- TypeScript 타입, 데이터 구조, 디자인 토큰과 에셋은 재사용할 수 있지만 HTML·CSS·DOM 코드는 React Native UI로 다시 작성합니다.
+- 교사 화면은 이 디렉터리에 추가하지 않고 `teacher-web/`의 Next.js 경로에서 구현합니다.
 
 ## 소유 범위
 
@@ -16,13 +24,13 @@ React, Vite, TypeScript를 사용하는 학생 웹 작업 영역입니다.
 
 초기 React 프로젝트는 이 디렉터리 안에서만 생성하고 루트 공통 설정을 임의로 변경하지 않습니다.
 
-## 현재 UI 구현
+## 현재 Vite 프로토타입
 
-- `src/App.tsx`: 사이드바 기반 학생 웹, 마을 광장, 지갑, 월급명세서, 상점, 캐릭터 슬롯 화면
+- `src/App.tsx`: 사이드바 기반 학생 UI 프로토타입, 마을 광장, 지갑, 월급명세서, 상점, 캐릭터 슬롯 화면
 - `src/data/`: 백엔드 DTO 형태를 따라 만든 임시 화면 데이터
 - `src/styles.css`: `docs/design/FE_SCREEN_GENERATION_SPEC.md`의 색상·레이아웃 규칙
 
-## 실행
+## 현재 프로토타입 실행
 
 ```bash
 npm install

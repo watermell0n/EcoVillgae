@@ -31,7 +31,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 
 | 요구사항 ID | 출처 | 역할 | 대상 | 핵심 인수 기준 | 검증 방법 | 설계·테스트 연결 |
 | --- | --- | --- | --- | --- | --- | --- |
-| SYS-001 | TECH | 학생·교사·관리자 | 앱·관리 웹 | Expo 앱과 Next.js 관리 웹에서 역할별 진입 가능 | 빌드·수동 시나리오 | PM-RBAC-001·PM-DSP-001·PM-OPS-001 · SCR-STU-003·SCR-TCH-002·SCR-WEB-002·SCR-ADM-001·SCR-PUB-001 / TEST TBD |
+| SYS-001 | TECH | 학생·교사·관리자 | 학생 앱·교사/관리자 웹 | 학생은 Expo 앱, 교사·관리자는 Next.js 웹에서 역할별 진입 가능 | 빌드·수동 시나리오 | PM-RBAC-001·PM-DSP-001·PM-OPS-001 · SCR-STU-003·SCR-TCH-002·SCR-WEB-002·SCR-ADM-001·SCR-PUB-001 / TEST TBD |
 | SYS-002 | TECH | 시스템 | 핵심 API·AI | Spring API와 FastAPI AI가 분리 호출됨 | 통합 테스트 | PM-SVC-001·PM-AI-006 · SCR-OPS-002 / TEST TBD |
 | SYS-003 | TECH | 시스템 | 실시간 수업 | 다중 서버에서 동일 수업 상태를 수신하고 거래 최종값은 서버가 결정 | WebSocket 통합 | SM-ACT-001·SM-TXN-001 · PM-SVC-001·PM-DSP-001 · SCR-TCH-005·SCR-STU-021·SCR-PUB-002 / DBT-015 · TEST TBD |
 | SYS-004 | TECH | 운영자 | AWS 인프라 | 서울 리전 자원이 Terraform으로 재현됨 | IaC plan·배포 검증 | PM-OPS-002 · SCR-OPS-001 / TEST TBD |
@@ -43,7 +43,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | AUTH-005 | MVP·DEC | 학생 | 로그인 실패 | 연속 실패 후에도 계정 잠금 상태가 생성되지 않음 | 인증 경계값 테스트 | PM-AUTH-001 · SCR-STU-001 / TEST TBD |
 | AUTH-006 | MVP·DEC | 학생·교사 | 비밀번호 재설정 | 기존 본인 확인 흐름으로 비밀번호만 재설정되고 닉네임 재설정 경로는 없음 | 인증 E2E | PM-AUTH-002·PM-CLS-004 · SCR-STU-002·SCR-WEB-006 / TEST TBD |
 | AUTH-007 | DEC | 교사·학생·시스템 | 학급 코드 | 서버가 혼동 문자를 제외한 8자 코드를 전역 유일하게 생성하고 로그인에서 정규화하며 생성 후 변경하지 않음 | 생성·충돌·로그인 테스트 | SM-CLS-001 · PM-CLS-001 · SCR-WEB-003·SCR-WEB-004·SCR-STU-001 / API-CLS-001·API-AUTH-001 · DBT-018 · TEST TBD |
-| AUTH-008 | MVP·TECH·DEC | 교사 | 로그인·세션 | OIDC ID 토큰의 서명·issuer·audience·만료와 등록 교사 상태를 검증하고, 교사 앱·웹의 동시 세션과 회전형 갱신 토큰을 허용 | 인증 API 통합·토큰 재사용 거절 테스트 | PM-AUTH-003·PM-RBAC-001 · SCR-TCH-001·SCR-WEB-001 / API-AUTH-004·API-AUTH-005·API-AUTH-006·API-AUTH-008 · TEST `TeacherSessionApiTest` |
+| AUTH-008 | MVP·TECH·DEC | 교사 | 로그인·세션 | OIDC ID 토큰의 서명·issuer·audience·만료와 등록 교사 상태를 검증하고, 교사 웹의 허용된 복수 브라우저 세션과 회전형 갱신 토큰을 지원 | 인증 API 통합·토큰 재사용 거절 테스트 | PM-AUTH-003·PM-RBAC-001 · SCR-TCH-001·SCR-WEB-001 / API-AUTH-004·API-AUTH-005·API-AUTH-006·API-AUTH-008 · TEST `TeacherSessionApiTest` |
 
 ## 3. 경제교실·코스
 
