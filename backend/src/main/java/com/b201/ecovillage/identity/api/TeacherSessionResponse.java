@@ -5,7 +5,6 @@ import java.util.UUID;
 
 public record TeacherSessionResponse(
     String accessToken,
-    String refreshToken,
     Instant expiresAt,
     UUID sessionId,
     UUID teacherId,

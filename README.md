@@ -29,14 +29,14 @@
 
 | 사용자·화면 | 기술·역할 |
 | --- | --- |
-| 학생 앱 | React Native·Expo 태블릿 앱에서 지갑, 상점, 캐릭터, 개인거래, 금융상품, 퀴즈·투표와 개인 리포트 사용 |
-| 교사용 앱 | React Native·Expo 앱에서 수업 진행, 자율시간 제어, 알림과 간단한 승인 처리 |
-| 관리자·교사 관리 웹 | Next.js에서 경제교실 개설, 코스·정책 설정, 콘텐츠 관리, 거래 승인, AI 운영 지원과 리포트 제공 |
+| 학생 앱 | React Native·Expo 기반 Galaxy Tab 앱에서 지갑, 상점, 캐릭터, 개인거래, 금융상품, 퀴즈·투표와 개인 리포트 사용 |
+| 교사 웹 | Next.js에서 수업 진행, 자율시간 제어, 경제교실 개설, 정책·콘텐츠 관리, 거래 승인, AI 운영 지원과 리포트 제공 |
+| 학교·플랫폼 관리자 웹 | Next.js에서 학교 범위 지원과 플랫폼 운영 기능 제공 |
 | 교실 공용 화면 | Next.js 발표용 화면에서 문제, 타이머, 익명 집계와 공개 가능한 결과만 표시 |
 
 - 학생은 학교에서 지급한 개인 태블릿을 사용합니다.
 - 개인 잔액, 금융상품, 세금과 평가 결과는 다른 학생이나 공용 화면에 공개하지 않습니다.
-- 교사용 앱과 관리 웹은 같은 API와 권한 정책을 사용합니다.
+- 교사의 수업 진행 화면과 관리 화면은 하나의 Next.js 웹 안에서 같은 인증 세션, API와 권한 정책을 사용합니다.
 - 교사는 학교 계정 OIDC로 로그인하며 백엔드는 서명·발급자·대상·만료와 사전 등록 계정을 검증합니다. 외부 계정 비밀번호는 이코빌리지에 입력하거나 저장하지 않습니다.
 - 경제교실에는 학급 소유 교사 1명과 공동 담당 교사 0명 이상을 둘 수 있습니다.
 - 소유 교사는 학급 구조·경제정책·모듈·종료를, 공동 담당 교사는 수업·승인·일상 운영을 담당합니다.
@@ -175,15 +175,15 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 8. 기술 기준
 
-- 학생·교사용 앱: React Native + Expo + TypeScript
-- 관리자·교사 관리 웹: Next.js App Router
+- 학생 앱: React Native + Expo + TypeScript
+- 교사·관리자 웹과 교실 공용 화면: Next.js App Router
 - 핵심 API: Java 21 + Spring Boot 4.1
 - AI 모듈: Python + FastAPI + Pydantic
 - 기본 AI: AWS Bedrock + OpenAI 어댑터
 - 클라우드: AWS 서울 리전, ECS Fargate, RDS, ElastiCache, S3, CloudFront, SQS
 - CI/CD·인프라: Jenkins, EAS, Terraform
 
-세부 내용은 [기술 스택](docs/TECH_STACK.md)을 따릅니다.
+세부 내용은 [기술 스택](docs/TECH_STACK.md)과 [학생 앱·교사 웹 전환 계획](docs/CLIENT_ARCHITECTURE_TRANSITION.md)을 따릅니다.
 
 ## 9. MVP 제외
 
@@ -198,7 +198,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 ## 10. 저장소 구조
 
 ```text
-student-app/          React Native·Expo 태블릿 앱
+student-app/          React Native·Expo 태블릿 앱 목표 영역(현재 Vite UI는 이전용 프로토타입)
 teacher-web/          Next.js 교사 관리 웹·교실 공용 화면
 backend/              Spring Boot 핵심 API·Flyway·DB 테스트
 ai-service/           FastAPI AI 서비스

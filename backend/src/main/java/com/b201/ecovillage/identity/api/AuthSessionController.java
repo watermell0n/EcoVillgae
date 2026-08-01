@@ -60,12 +60,22 @@ public class AuthSessionController {
         @RequestHeader(name = "X-Refresh-Token", required = false) String headerToken,
         HttpServletRequest request
     ) {
-        SessionRefreshResult result = sessionRefreshService.refresh(
-            firstNonBlank(headerToken, refreshCookie(request))
-        );
+        String studentHeaderToken = trimToNull(headerToken);
+        String teacherCookieToken = trimToNull(refreshCookie(request));
+        if (studentHeaderToken != null && teacherCookieToken != null) {
+            throw new TeacherAuthenticationException(
+                HttpStatus.BAD_REQUEST,
+                "AMBIGUOUS_REFRESH_TOKEN",
+                "학생용 갱신 헤더와 교사용 갱신 쿠키를 동시에 보낼 수 없습니다.",
+                false
+            );
+        }
+        SessionRefreshResult result = teacherCookieToken != null
+            ? sessionRefreshService.refreshTeacher(teacherCookieToken)
+            : sessionRefreshService.refreshStudent(studentHeaderToken);
         SessionRefreshResponse data = new SessionRefreshResponse(
             result.accessToken(),
-            result.refreshToken(),
+            "STU".equals(result.role()) ? result.refreshToken() : null,
             result.accessTokenExpiresAt(),
             result.sessionId(),
             result.role()
@@ -148,8 +158,11 @@ public class AuthSessionController {
         );
     }
 
-    private static String firstNonBlank(String first, String second) {
-        return first != null && !first.isBlank() ? first : second;
+    private static String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private static EcoVillagePrincipal authenticated(Principal principal) {

@@ -1,0 +1,24 @@
+{
+  "name": "character-pixi-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "이코빌리지 캐릭터 코스메틱 페이퍼돌 렌더링 스파이크 (React + PixiJS). 기존 Vue 앱과 완전 독립.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.7"
+  }
+}

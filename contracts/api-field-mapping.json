@@ -416,15 +416,6 @@
             "visibility": "one-time-secret"
           },
           {
-            "name": "refresh_token",
-            "required": true,
-            "type": "string",
-            "target": "projection.refresh_token",
-            "transform": "external_idp.id-token, users, school_memberships, classroom_teachers, redis.teacher-session에서 검증·조합하는 response 필드",
-            "nullable": false,
-            "visibility": "one-time-secret"
-          },
-          {
             "name": "expires_at",
             "required": true,
             "type": "string",
@@ -500,11 +491,11 @@
           },
           {
             "name": "refresh_token",
-            "required": true,
+            "required": false,
             "type": "string",
             "target": "projection.refresh_token",
             "transform": "redis.teacher-session, student_sessions에서 검증·조합하는 response 필드",
-            "nullable": false,
+            "nullable": true,
             "visibility": "one-time-secret"
           },
           {

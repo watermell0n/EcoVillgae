@@ -57,6 +57,7 @@
 | --- | --- |
 | [문서 충돌 검사](reviews/DOCUMENT_CONSISTENCY_AUDIT.md) | 문서 간 충돌·누락과 해결 기록 |
 | [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) | API DTO와 저장·projection 매핑 검토 |
+| [학생 앱·교사 웹 인증 계약 점검](reviews/CLIENT_AUTH_CONTRACT_AUDIT.md) | 클라이언트별 토큰 저장·갱신·CORS·CSRF·WebSocket 연결 기준 |
 
 `reviews/` 문서는 검토 시점의 판정 근거입니다. 제품 정책이나 구현 계약을 변경할 때는
 먼저 루트의 기준 문서를 수정하고 계약·검증 파일을 재생성한 뒤 검토 기록을 갱신합니다.

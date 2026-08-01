@@ -51,7 +51,6 @@ public class TeacherSessionController {
         TeacherLoginResult result = teacherLoginService.login(request.idToken());
         TeacherSessionResponse data = new TeacherSessionResponse(
             result.accessToken(),
-            result.refreshToken(),
             result.accessTokenExpiresAt(),
             result.sessionId(),
             result.teacherId(),

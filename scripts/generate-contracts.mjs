@@ -997,7 +997,11 @@ const responseFieldOverrides = {
   ],
   "API-AUTH-004": [
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
-    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    {
+      name: "refresh_token",
+      optional: true,
+      schema: { type: "string", readOnly: true, "x-sensitive": true },
+    },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
     { name: "session_id", schema: { type: "string", format: "uuid" } },
     { name: "role", schema: { type: "string", enum: ["STU", "TCH"] } },
@@ -1046,7 +1050,6 @@ const responseFieldOverrides = {
   ],
   "API-AUTH-008": [
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
-    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
     { name: "session_id", schema: { type: "string", format: "uuid" } },
     { name: "teacher_id", schema: { type: "string", format: "uuid" } },
@@ -1242,7 +1245,14 @@ const responseFieldOverrides = {
   ],
   "API-READ-008": [{ name: "payslips", schema: projectionItems({ net_amount: { type: "integer", format: "int64" }, issued_at: { type: "string", format: "date-time" } }) }],
   "API-READ-009": [{ name: "transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) }],
-  "API-READ-010": [{ name: "products", schema: projectionItems({ unit_price: { type: "integer", format: "int64", minimum: 0 }, product_kind: { type: "string" } }) }],
+  "API-READ-010": [{
+    name: "products",
+    schema: projectionItems({
+      unit_price: { type: "integer", format: "int64", minimum: 0 },
+      product_kind: { type: "string" },
+      character_code: { type: ["string", "null"] },
+    }),
+  }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
   "API-READ-012": [{ name: "inventory_items", schema: projectionItems({ character_code: { type: "string" }, equipped: { type: "boolean" } }) }],
   "API-READ-013": [{ name: "trades", schema: projectionItems({ counterpart_nickname: { type: "string" }, direction: { type: "string" } }) }],
@@ -1729,6 +1739,39 @@ function requestSchema(operation) {
 
 function successResponseSchema(operation) {
   const fields = responseFields(operation);
+  if (operation.apiId === "API-AUTH-004") {
+    const dataSchema = (selectedFields, role) => {
+      const properties = {};
+      const required = [];
+      for (const field of selectedFields) {
+        properties[field.name] = field.name === "role"
+          ? { type: "string", enum: [role] }
+          : schemaForField(field);
+        required.push(field.name);
+      }
+      return {
+        type: "object",
+        title: role === "STU" ? "StudentTokenRefresh" : "TeacherTokenRefresh",
+        required,
+        properties,
+        additionalProperties: false,
+      };
+    };
+    return {
+      type: "object",
+      required: ["data", "meta"],
+      properties: {
+        data: {
+          oneOf: [
+            dataSchema(fields, "STU"),
+            dataSchema(fields.filter((field) => field.name !== "refresh_token"), "TCH"),
+          ],
+        },
+        meta: { $ref: "#/components/schemas/Meta" },
+      },
+      additionalProperties: false,
+    };
+  }
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -1881,7 +1924,7 @@ function securityFor(operation) {
   if (operation.apiId === "API-AUTH-004")
     return [{ refreshCookie: [] }, { refreshHeader: [] }];
   if (operation.apiId === "API-READ-025") return [{ displayBearer: [] }];
-  return [{ bearerAuth: [] }, { cookieAuth: [] }];
+  return [{ bearerAuth: [] }];
 }
 
 function buildOpenApi(operations) {
@@ -1908,6 +1951,9 @@ function buildOpenApi(operations) {
         `사람이 검토하는 원문 기준: \`${operation.apiId}\` in \`docs/HTTP_API_SPEC.md\`.`,
         operation.roles ? `허용 역할: ${operation.roles}.` : "",
         operation.contract ? `핵심 계약: ${operation.contract}.` : "",
+        operation.apiId === "API-AUTH-004"
+          ? "학생 앱은 X-Refresh-Token 헤더를 사용하고 새 갱신 토큰을 본문으로 받습니다. 교사 웹은 HttpOnly 갱신 쿠키를 사용하며 갱신 토큰을 본문으로 받지 않습니다."
+          : "",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -1936,6 +1982,15 @@ function buildOpenApi(operations) {
         "503": { $ref: "#/components/responses/ServiceUnavailable" },
       },
     };
+
+    if (["API-AUTH-004", "API-AUTH-008"].includes(operation.apiId)) {
+      op.responses[status].headers = {
+        "Set-Cookie": {
+          description: "교사 웹에서만 사용하는 HttpOnly 회전형 갱신 쿠키. 학생 응답에는 설정하지 않습니다.",
+          schema: { type: "string" },
+        },
+      };
+    }
 
     if (!["GET", "DELETE"].includes(operation.method) && operation.apiId !== "API-AUTH-004") {
       op.requestBody = {
@@ -2001,13 +2056,7 @@ function buildOpenApi(operations) {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
-          description: "학생·교사용 앱과 내부 서비스의 짧은 수명 액세스 토큰",
-        },
-        cookieAuth: {
-          type: "apiKey",
-          in: "cookie",
-          name: "ECOVILLAGE_SESSION",
-          description: "교사·관리자 웹의 HttpOnly·Secure 세션 쿠키",
+          description: "학생 Expo 앱과 교사·관리자 웹이 메모리에 유지하는 짧은 수명 액세스 토큰",
         },
         refreshCookie: {
           type: "apiKey",
@@ -2019,7 +2068,7 @@ function buildOpenApi(operations) {
           type: "apiKey",
           in: "header",
           name: "X-Refresh-Token",
-          description: "Expo SecureStore에서 읽어 전송하는 학생·교사용 앱의 회전형 갱신 토큰",
+          description: "Expo SecureStore에서 읽어 전송하는 학생 앱의 회전형 갱신 토큰",
         },
         displayBearer: {
           type: "http",

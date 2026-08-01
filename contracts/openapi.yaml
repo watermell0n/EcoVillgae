@@ -298,7 +298,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AUTH-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=COMPLETE, reset_request_id, new_password, reason → 원문 비밀번호 비저장, 일회용 재설정 결과."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -415,8 +414,8 @@ paths:
         - "AUTH-008"
       tags:
         - "Authentication"
-      summary: "OIDC Authorization Code + PKCE 완료 후 받은 id_token → 서명, 발급자, audience 검증, 등록 교사 확인, 토큰, 교사 다중 세션"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 교사.\n\n핵심 계약: OIDC Authorization Code + PKCE 완료 후 받은 id_token → 서명, 발급자, audience 검증, 등록 교사 확인, 토큰, 교사 다중 세션."
+      summary: "OIDC Authorization Code + PKCE 완료 후 받은 id_token → 등록 교사 확인, 본문의 단기 액세스 토큰과 HttpOnly 갱신 쿠키, 교사 다중 브라우저 세션"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 교사.\n\n핵심 계약: OIDC Authorization Code + PKCE 완료 후 받은 id_token → 등록 교사 확인, 본문의 단기 액세스 토큰과 HttpOnly 갱신 쿠키, 교사 다중 브라우저 세션."
       security: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
@@ -436,7 +435,6 @@ paths:
                     type: "object"
                     required:
                       - "access_token"
-                      - "refresh_token"
                       - "expires_at"
                       - "session_id"
                       - "teacher_id"
@@ -444,10 +442,6 @@ paths:
                       - "role"
                     properties:
                       access_token:
-                        type: "string"
-                        readOnly: true
-                        x-sensitive: true
-                      refresh_token:
                         type: "string"
                         readOnly: true
                         x-sensitive: true
@@ -470,6 +464,11 @@ paths:
                   meta:
                     $ref: "#/components/schemas/Meta"
                 additionalProperties: false
+          headers:
+            Set-Cookie:
+              description: "교사 웹에서만 사용하는 HttpOnly 회전형 갱신 쿠키. 학생 응답에는 설정하지 않습니다."
+              schema:
+                type: "string"
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -510,8 +509,8 @@ paths:
       x-rtm-ids: []
       tags:
         - "Authentication"
-      summary: "회전형 갱신 토큰으로 새 앱 토큰 발급"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 갱신 토큰 보유 사용자.\n\n핵심 계약: 회전형 갱신 토큰으로 새 앱 토큰 발급."
+      summary: "STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 갱신 토큰 보유 사용자.\n\n핵심 계약: STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다.\n\n학생 앱은 X-Refresh-Token 헤더를 사용하고 새 갱신 토큰을 본문으로 받습니다. 교사 웹은 HttpOnly 갱신 쿠키를 사용하며 갱신 토큰을 본문으로 받지 않습니다."
       security:
         - refreshCookie: []
         - refreshHeader: []
@@ -530,37 +529,66 @@ paths:
                   - "meta"
                 properties:
                   data:
-                    type: "object"
-                    required:
-                      - "access_token"
-                      - "refresh_token"
-                      - "expires_at"
-                      - "session_id"
-                      - "role"
-                    properties:
-                      access_token:
-                        type: "string"
-                        readOnly: true
-                        x-sensitive: true
-                      refresh_token:
-                        type: "string"
-                        readOnly: true
-                        x-sensitive: true
-                      expires_at:
-                        type: "string"
-                        format: "date-time"
-                      session_id:
-                        type: "string"
-                        format: "uuid"
-                      role:
-                        type: "string"
-                        enum:
-                          - "STU"
-                          - "TCH"
-                    additionalProperties: false
+                    oneOf:
+                      - type: "object"
+                        title: "StudentTokenRefresh"
+                        required:
+                          - "access_token"
+                          - "refresh_token"
+                          - "expires_at"
+                          - "session_id"
+                          - "role"
+                        properties:
+                          access_token:
+                            type: "string"
+                            readOnly: true
+                            x-sensitive: true
+                          refresh_token:
+                            type: "string"
+                            readOnly: true
+                            x-sensitive: true
+                          expires_at:
+                            type: "string"
+                            format: "date-time"
+                          session_id:
+                            type: "string"
+                            format: "uuid"
+                          role:
+                            type: "string"
+                            enum:
+                              - "STU"
+                        additionalProperties: false
+                      - type: "object"
+                        title: "TeacherTokenRefresh"
+                        required:
+                          - "access_token"
+                          - "expires_at"
+                          - "session_id"
+                          - "role"
+                        properties:
+                          access_token:
+                            type: "string"
+                            readOnly: true
+                            x-sensitive: true
+                          expires_at:
+                            type: "string"
+                            format: "date-time"
+                          session_id:
+                            type: "string"
+                            format: "uuid"
+                          role:
+                            type: "string"
+                            enum:
+                              - "TCH"
+                        additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
                 additionalProperties: false
+          headers:
+            Set-Cookie:
+              description: "교사 웹에서만 사용하는 HttpOnly 회전형 갱신 쿠키. 학생 응답에는 설정하지 않습니다."
+              schema:
+                type: "string"
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -599,7 +627,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AUTH-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 현재 앱 또는 웹 세션 폐기."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -649,7 +676,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AUTH-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 현재 세션, 사용자, 역할, 학교, 담당 학급과 액세스 토큰 만료 조회."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
       responses:
@@ -771,7 +797,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AUTH-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 인증 세션과 요청 채널 범위로 60초, 1회용 WebSocket 접속 티켓 발급."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -884,7 +909,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CRS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 교사.\n\n핵심 계약: 학년, 규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전, 난이도, 학습 중점, 핵심/선택/기반 모듈, 선수개념, 제외 영향."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/4..6Path"
@@ -1069,7 +1093,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -1241,7 +1264,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학년, 규모, 기간, 코스, 난이도 → 새 설정 버전, 학급 코드, 화폐 단위명 변경 불가."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1389,7 +1411,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 급여 모듈 활성 시 선택형 역할, 역할급여 → 검증된 명단, 정책 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1526,7 +1547,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 급여, COT는 제한된 수정 권한."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1654,7 +1674,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=INVITE|REMOVE, teacher_id, reason → 담당 교사 목록."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1747,7 +1766,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, 대상 COT.\n\n핵심 계약: command=REQUEST|ACCEPT|CANCEL, transfer_id?, target_teacher_id? → OWN, COT 원자 교환."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1840,7 +1858,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 시간대, 요일, 현지 시작/종료, 사용 모듈 → 일정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -1967,7 +1984,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2103,7 +2119,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CLS-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 재인증 증명, 영향 확인, 사유 → 202 operation_id, 학급 CLOSING."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2193,7 +2208,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-MOD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2310,7 +2324,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-MOD-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: reason → ACTIVE → STOPPING, 정리 작업."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2389,7 +2402,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-POL-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 가격, 재고, 보상, 세율, 물가, 예금, 대출 금리, 한도 → 새 정책 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2511,7 +2523,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-POL-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 세금, 기금 기본/커스텀 사용처와 예산 항목 → 정책 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2633,7 +2644,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ACT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: participant_ids, public_fields → READY → LIVE, GUIDED 계산."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2756,7 +2766,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ACT-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=END|CANCEL, reason? → FINALIZING 또는 CANCELED."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2875,7 +2884,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-DSP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CONNECT|DISCONNECT, display_session_id? → 단기 공개 연결 토큰 또는 폐기."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -2993,7 +3001,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TXN-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 지급 유형, 대상 학생, 급여 회차 키(period_key), 정책 기준액, 사유 → 원장 거래 그룹, 명세서."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3129,7 +3136,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TXN-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 복구 유형, 금액, 아이템 조정, 필수 사유 → 원거래 연결 복구 거래."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3256,7 +3262,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → 상품 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3406,7 +3411,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-SHP-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: product_id, quantity, expected_product_version → 결제, 세금, 지급 또는 수령 대기 주문."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3525,7 +3529,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-011` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 본인 주문, 교사는 수령 대기, 처리 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3625,7 +3628,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-SHP-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 준비 완료 → PAID → READY_FOR_PICKUP."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3732,7 +3734,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-SHP-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학생 확인 정보 → READY_FOR_PICKUP → RECEIVED."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3838,7 +3839,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ITM-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=EQUIP|UNEQUIP → AVAILABLE ↔ EQUIPPED."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -3945,7 +3945,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CNT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: POP.\n\n핵심 계약: command=APPROVE|REJECT|PUBLISH|UNPUBLISH, 출처, 지역, 권리, 검토일, 증적 → 전역 게시 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ResourceIdPath"
@@ -4080,7 +4079,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-CNT-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 전역 캐릭터 ID, 학급 표시명, 판매 여부 → 학급 카탈로그 항목."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4201,7 +4199,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TRD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 상대 학생, 주고받을 금액, 아이템, 설명 → AWAITING_COUNTERPART, 아이템 잠금."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4335,7 +4332,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-013` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 관련 거래, 교사는 담당 학급 승인, 기록."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4433,7 +4429,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TRD-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 제안 STU.\n\n핵심 계약: command=CANCEL → 취소, 아이템 잠금 해제."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4545,7 +4540,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TRD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 상대 STU.\n\n핵심 계약: decision=ACCEPT|REJECT, reason? → 교사 대기 또는 취소, 잠금 해제."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4667,7 +4661,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-TRD-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: decision=APPROVE|REJECT, reason → 세금, 금액, 아이템 원자 이전 또는 취소."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4786,7 +4779,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=CREATE|UPDATE|PUBLISH|STOP, 예금, 적금 조건 → 상품 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -4949,7 +4941,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: product_id, principal, expected_product_version → ACTIVE 계좌, 출금 원장."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5070,7 +5061,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=EARLY_TERMINATE → 지급 원장, EARLY_TERMINATED."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5186,7 +5176,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: product_id, installment_amount → 계좌, 2~12회 일정, 첫 납입."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5276,7 +5265,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=RETRY_PAYMENT → MISSED → PAID와 원장."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5364,7 +5352,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=EARLY_TERMINATE → 지급 원장, EARLY_TERMINATED."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5452,7 +5439,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 교사, 제품 데이터가 정한 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. AI 기업 생성과 가격 결정은 포함하지 않음."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5570,7 +5556,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|RESUME|PAUSE|CLOSE → 시장 상태, 종료 시 자동 정산."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5660,7 +5645,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: side=BUY|SELL, asset_id, quantity, expected_price_version → 체결, 원장, 보유량."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5762,7 +5746,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 한도, 기간금리, 회차, 유예, 신용 조정 → 신규 신청 정책 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5871,7 +5854,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-011` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=APPLY|CANCEL, application_id?, amount?, installments? → APPLIED 또는 취소."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -5969,7 +5951,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-012` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: decision=APPROVE|REJECT, reason → 승인 시 원금, 계좌 원자 생성."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6062,7 +6043,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-FIN-013` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=RETRY_DUE_PAYMENT|PREPAY_ALL → 상환 원장, 상태, 신용 재계산."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6152,7 +6132,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|UPDATE, 유형, 문항, 선택지, 정답, 해설 → DRAFT 또는 새 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6314,7 +6293,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학년, 주제, ECONOMY/NONSENSE, 객관식/OX, 개수 → 202 operation_id, REVIEW_REQUIRED 초안."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6426,7 +6404,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=APPROVE|PUBLISH|RETIRE, reason? → 허용 상태 전이."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6547,7 +6524,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|CLOSE_SUBMISSIONS, 문제 버전, 참가자, 보상, 공개범위 → OPEN 또는 SCORING."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6696,7 +6672,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: question_id, option_id, client_answered_at → 서버 접수시각, 답안 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6815,7 +6790,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 문항별 답안과 저장 버전 → 개인 답안지 버전, 제출 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -6922,7 +6896,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CONFIRM|PUBLISH|CLOSE, leaderboard_public? → 결과 버전, 보상 원장, 공개 상태. leaderboard_public=true는 GAME에서만 허용하고 TEST는 항상 false."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7041,7 +7014,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: question_id, reason_code, description → UNDER_REVIEW 신고."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7136,7 +7108,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-QZ-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 무효 문항, 판정 사유 → 202 operation_id, 새 결과 버전, 복구 거래."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7230,7 +7201,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7398,7 +7368,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-VOT-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: option_id → 익명 투표 접수 영수증."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7508,7 +7477,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: question, period, metric_scopes, include_policy_history? → ai_run_id, answer, period, data_as_of, evidence, recommendations."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7694,7 +7662,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7788,7 +7755,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -7963,7 +7929,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets? → 202 operation_id."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -8057,7 +8022,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: enabled=false, reason → 학급 AI 설정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -8176,7 +8140,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-AI-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: decision=APPROVE|REJECT, edits?, reason, expected_event_version → 일반 이벤트는 게시 상태, 투자 뉴스는 연결 가격 단계의 공개 대기 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -8344,7 +8307,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-DAT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: format=PDF|CSV, report_type, period, student_scope?, reason? → 202 operation_id."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -8441,7 +8403,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-DAT-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 원본 학급, 코스, 모듈, 승인 퀴즈 선택 → 202 operation_id, 새 초안."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -8532,7 +8493,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ADM-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: 계정 상태, 학교 소속, 운영 메타데이터 → 교사 계정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -8619,7 +8579,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ADM-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: command=LINK|UNLINK|MARK_LOST, device_id, student_session_id? → 기기, 세션 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -8709,7 +8668,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ADM-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: 새 OWN, 기존 COT 확인, 필수 사유 → OWN 1명 원자 보장."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -8798,7 +8756,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-ADM-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: enabled=false, reason → 학교 AI 설정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -8913,7 +8870,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-OPS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: POP.\n\n핵심 계약: 공급자, 전역 한도, 모델 라우팅, 승인 참조 → 전역 설정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -9000,7 +8956,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-033` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: POP.\n\n핵심 계약: 공급자, 모델 라우팅, 전역 한도, 설정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
       responses:
@@ -9049,7 +9004,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-OPS-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: POP.\n\n핵심 계약: command=ISSUE|REVOKE, service, audience, scopes, expires_at → 1회 자격증명 또는 폐기 결과."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -9146,7 +9100,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 사용자.\n\n핵심 계약: 세션, 역할별 학급, 유효 시작 화면."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
       responses:
@@ -9254,7 +9207,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT, SAD.\n\n핵심 계약: 역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9357,7 +9309,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 읽기 전용 학급 코드, 화폐 단위명, 코스, 난이도, 기간, 자율시간, 설정 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9485,7 +9436,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 담당 교사, 소유권 이전 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9538,7 +9488,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-006` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 활성 모듈, 공개 정책, 교사용 전체 정책 버전."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9652,7 +9601,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 잔액, 최근 거래, 정책 기준."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9745,7 +9693,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 총소득, 공제, 세금, 실수령액."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9841,7 +9788,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 필터, 전후잔액, 정책 스냅샷, 복구 연결."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9938,7 +9884,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 상품, 가격, 세금, 재고."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -9983,6 +9928,10 @@ paths:
                               minimum: 0
                             product_kind:
                               type: "string"
+                            character_code:
+                              type:
+                                - "string"
+                                - "null"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -10029,7 +9978,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-012` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 캐릭터, 아이템, 장착, 잠금 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10123,7 +10071,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-014` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 예금, 적금, 대출 상품과 신규 적용 정책."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10218,7 +10165,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-015` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 예금, 적금 계좌, 납입, 만기, 해지 예상."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10341,7 +10287,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-016` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 미래 가격, 미공개 뉴스 제외."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10388,7 +10333,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-017` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 보유량, 체결, 손익, 수익률."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10437,7 +10381,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-018` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 대출, 상환일정, 연체, 신용 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10486,7 +10429,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-019` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신 신용, 활성 대출, 정책과 승인 대기."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10541,7 +10483,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-020` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 문제은행, 버전, 검토, 게시 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10640,7 +10581,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-021` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 진행 상태, 문항 스냅샷, 제출 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10750,7 +10690,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-022` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 본인, 교사는 학급 결과, 무효화 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -10867,7 +10806,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-023` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 참여 여부, 예산 선택지, 익명 집계, 현재 공동기금, 확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11039,7 +10977,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-024` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 활동, 참여, GUIDED, 공개 설정."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11217,7 +11154,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-026` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 승인, 수령, 정산, 활동 알림, OBSERVE, WARN 경제 알림과 학급 요약."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11274,7 +11210,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 설정 점검, 수동, 자동 실행, 근거, 검증, 심각도, 중복키, 확인, 승인 상태, 학생 개인 원문 제외."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11456,7 +11391,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-028` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 기간 내 학급 화폐, 지갑, 소비, 예적금 원금, 공동기금, 활성 학생, 퀴즈 참여 집계. 개인 식별자, 닉네임, 개인 잔액은 반환하지 않음."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11600,7 +11534,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-029` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT, SAD.\n\n핵심 계약: 역할 범위별 감사 이벤트, 요청번호, 전후상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
@@ -11718,7 +11651,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-030` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 요청 실행자, 허용 담당자.\n\n핵심 계약: 비동기 작업 상태, 실패코드, 만료 다운로드 URL."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/OperationIdPath"
@@ -11797,7 +11729,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-031` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: 학교 교사 계정, 소속, 상태."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -11846,7 +11777,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-032` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: SAD.\n\n핵심 계약: 학교 지급 기기, 분실, 연결, 세션 메타데이터."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/SchoolIdPath"
@@ -11894,7 +11824,6 @@ paths:
       description: "사람이 검토하는 원문 기준: `API-READ-034` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: POP.\n\n핵심 계약: 자격증명 메타데이터만, 비밀값 제외."
       security:
         - bearerAuth: []
-        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/Cursor"
@@ -11926,12 +11855,7 @@ components:
       type: "http"
       scheme: "bearer"
       bearerFormat: "JWT"
-      description: "학생·교사용 앱과 내부 서비스의 짧은 수명 액세스 토큰"
-    cookieAuth:
-      type: "apiKey"
-      in: "cookie"
-      name: "ECOVILLAGE_SESSION"
-      description: "교사·관리자 웹의 HttpOnly·Secure 세션 쿠키"
+      description: "학생 Expo 앱과 교사·관리자 웹이 메모리에 유지하는 짧은 수명 액세스 토큰"
     refreshCookie:
       type: "apiKey"
       in: "cookie"
@@ -11941,7 +11865,7 @@ components:
       type: "apiKey"
       in: "header"
       name: "X-Refresh-Token"
-      description: "Expo SecureStore에서 읽어 전송하는 학생·교사용 앱의 회전형 갱신 토큰"
+      description: "Expo SecureStore에서 읽어 전송하는 학생 앱의 회전형 갱신 토큰"
     displayBearer:
       type: "http"
       scheme: "bearer"

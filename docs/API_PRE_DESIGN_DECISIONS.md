@@ -15,7 +15,7 @@
 | I-05 | AI 밸런싱 | 가격·재고·보상·세율·물가·예금금리·대출금리를 제안하고 교사 승인 후 적용 |
 | I-06 | AI 이벤트 | 물가·공급·세금·금리·투자 뉴스·보상·공동기금 7종 템플릿 사용 |
 | I-07 | AI 퀴즈 | 교사용 객관식·OX 초안 생성만 MVP에 포함하고 승인 필수 |
-| I-08 | 앱·웹 배포 | 학생·교사용 React Native·Expo 앱, Next.js 관리 웹, EAS 배포 |
+| I-08 | 앱·웹 배포 | 학생 React Native·Expo 앱, 교사·관리자 Next.js 웹, 학생 앱 EAS 배포 |
 | I-09 | 학교 이용 통제 | `CLOSED·AUTONOMOUS·GUIDED` 상태와 반복 일정·수동 제어 사용, GPS 미사용 |
 | I-10 | 경제교실 종료 | `ACTIVE→CLOSING→READ_ONLY→ARCHIVED`, 정산 후 최종 스냅샷 |
 | I-11 | 가상 투자 | 가상 자산 4종, 규칙 기반 가격, 시장가·정수 매매, 한도·손실상한과 종료 정산 |
@@ -192,7 +192,7 @@ APPLIED → APPROVED → ACTIVE → REPAID
 - 공동 담당 교사는 지도 활동, 거래·대출 승인, 상품 수령, 복구 거래와 리포트를 담당합니다.
 - 공동 담당 교사는 다른 담당 교사, 학급 구조, 경제정책과 종료 상태를 변경할 수 없습니다.
 - 학교 관리자와 플랫폼 운영자는 교사의 수업 권한을 자동으로 상속하지 않습니다.
-- 교사용 앱과 관리 웹은 같은 역할·권한 규칙을 사용합니다.
+- 교사 웹의 수업 진행 화면과 관리 화면은 같은 역할·권한 규칙을 사용합니다.
 
 ### 7.2 로그인
 
@@ -241,8 +241,8 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 기술 기준은 [TECH_STACK.md](TECH_STACK.md)를 따릅니다.
 
-- React Native + Expo + TypeScript
-- Next.js App Router
+- 학생 앱: React Native + Expo + TypeScript
+- 교사·관리자 웹과 교실 공용 화면: Next.js App Router
 - Java 21 + Spring Boot 4.1
 - PostgreSQL 17, Redis Pub/Sub, S3·CloudFront, SQS
 - Python + FastAPI + Pydantic
