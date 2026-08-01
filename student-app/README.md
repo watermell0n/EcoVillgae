@@ -30,6 +30,15 @@
 - `src/data/`: 백엔드 DTO 형태를 따라 만든 임시 화면 데이터
 - `src/styles.css`: `docs/design/FE_SCREEN_GENERATION_SPEC.md`의 색상·레이아웃 규칙
 
+## Expo 전환 앱
+
+- 위치: `expo/`
+- 실행: `cd expo && npm install && npm run android`
+- Expo Router, TanStack Query, React Hook Form·Zod, Expo SecureStore 기반입니다.
+- 학생 액세스 토큰은 메모리에만, 갱신 토큰은 SecureStore에 저장합니다.
+- Expo 로그인·홈·지갑·월급명세서·상점·은행·투자·거래·퀴즈·수업·캐릭터·프로필 화면 흐름을 이관했습니다.
+- 서버 계약이 아직 확정되지 않은 투자 주문과 캐릭터 장착은 조회형 UI로 두고 확정 API 연결 후 활성화합니다.
+
 ## 현재 프로토타입 실행
 
 ```bash
