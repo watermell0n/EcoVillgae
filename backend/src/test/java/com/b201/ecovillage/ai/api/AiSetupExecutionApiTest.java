@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -336,6 +337,58 @@ class AiSetupExecutionApiTest {
 
         assertEquals("DISABLED", moduleRepository.findById(moduleId).orElseThrow().getStatus());
         assertEquals(0, decisionRepository.count());
+    }
+
+    @Test
+    void rejectsApplyForUnsupportedSetupProposalWithoutSideEffects() throws Exception {
+        MvcResult analysis = mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(moduleAnalysisBody()))
+            .andExpect(status().isAccepted())
+            .andReturn();
+        UUID proposalId = UUID.fromString(
+            objectMapper.readTree(analysis.getResponse().getContentAsString())
+                .path("data")
+                .path("proposal_id")
+                .asText()
+        );
+        var proposal = proposalRepository.findById(proposalId).orElseThrow();
+        proposal.replaceProposedValues(Map.of(
+            "context_type", "PRODUCT_DRAFT",
+            "unit_price", 300
+        ), NOW.plusSeconds(1));
+        proposalRepository.saveAndFlush(proposal);
+
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-proposals/{proposalId}/commands",
+                classroomId,
+                proposalId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "command": "APPLY",
+                      "reason": "지원되지 않는 대상의 적용 차단을 확인합니다.",
+                      "expected_policy_version": 0
+                    }
+                    """))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("INVALID_RECOMMENDATION_CONTEXT"));
+
+        assertEquals("DISABLED", moduleRepository.findById(moduleId).orElseThrow().getStatus());
+        assertEquals(0, policyRepository.count());
+        assertEquals(0, decisionRepository.count());
+        assertEquals(
+            "AWAITING_TEACHER",
+            proposalRepository.findById(proposalId).orElseThrow().getStatus()
+        );
     }
 
     private String moduleAnalysisBody() {

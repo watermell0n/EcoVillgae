@@ -730,7 +730,7 @@
     {
       "api_id": "API-CRS-001",
       "method": "GET",
-      "path": "/course-recommendations?grade={4..6}&course_size={label}",
+      "path": "/course-recommendations",
       "implementation_status": "mvp-contract",
       "storage_targets": [
         "course_templates",
@@ -881,6 +881,15 @@
             "target": "classrooms.time_zone",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
             "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "salary_policy",
+            "required": false,
+            "type": "object",
+            "target": "service_input.salary_policy",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
             "visibility": "role-scoped"
           },
           {
@@ -1904,10 +1913,10 @@
         "mode": "strict",
         "fields": [
           {
-            "name": "module_id",
+            "name": "module_code",
             "required": true,
             "type": "string",
-            "target": "projection.module_id",
+            "target": "projection.module_code",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
@@ -1923,11 +1932,56 @@
           },
           {
             "name": "state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "projection.state_version",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "policy_area",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.policy_area",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "policy_version",
+            "required": false,
+            "type": "integer|null",
+            "target": "projection.policy_version",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "policy_version_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.policy_version_id",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "rule_version",
+            "required": true,
+            "type": "string",
+            "target": "projection.rule_version",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "replayed",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.replayed",
+            "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -2709,6 +2763,15 @@
             "required": true,
             "type": "array",
             "target": "service_input.student_ids",
+            "transform": "transaction_groups, ledger_entries, ledger_accounts, policy_snapshots에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "period_key",
+            "required": true,
+            "type": "string",
+            "target": "service_input.period_key",
             "transform": "transaction_groups, ledger_entries, ledger_accounts, policy_snapshots에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
@@ -6447,7 +6510,7 @@
       "api_id": "API-QZ-006",
       "method": "PUT",
       "path": "/classrooms/{classroom_id}/quiz-sessions/{resource_id}/test-answer-sheet",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "quiz_questions",
         "quiz_question_versions",
@@ -6458,7 +6521,7 @@
         "quiz_result_versions"
       ],
       "request": {
-        "mode": "planned",
+        "mode": "strict",
         "schema_source": "explicit",
         "fields": [
           {
@@ -6527,7 +6590,7 @@
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
             "name": "quiz_resource_id",
@@ -7331,57 +7394,39 @@
         "schema_source": "explicit",
         "fields": [
           {
-            "name": "expected_state_version",
-            "required": false,
-            "type": "integer",
-            "target": "service_validation.state_version",
-            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "screen_id",
-            "required": false,
+            "name": "analysis_mode",
+            "required": true,
             "type": "string",
-            "target": "service_input.screen_id",
+            "target": "service_input.analysis_mode",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "ui_action_id",
+            "name": "trigger_context",
             "required": false,
-            "type": "string",
-            "target": "service_input.ui_action_id",
-            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "client_occurred_at",
-            "required": false,
-            "type": "string",
-            "target": "service_input.client_occurred_at",
+            "type": "object",
+            "target": "service_input.trigger_context",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
           {
             "name": "period",
-            "required": true,
+            "required": false,
             "type": "#/components/schemas/Period",
             "target": "service_input.period",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           },
           {
             "name": "metric_scopes",
-            "required": true,
+            "required": false,
             "type": "array",
             "target": "service_input.metric_scopes",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]
@@ -7399,21 +7444,138 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "status",
+            "name": "ai_run_id",
             "required": true,
             "type": "string",
-            "target": "projection.status",
+            "target": "projection.ai_run_id",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "status_url",
+            "name": "operation_status",
             "required": true,
             "type": "string",
-            "target": "projection.status_url",
+            "target": "projection.operation_status",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
             "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "run_status",
+            "required": true,
+            "type": "string",
+            "target": "projection.run_status",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "fallback_used",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.fallback_used",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "fallback_code",
+            "required": true,
+            "type": "string|null",
+            "target": "projection.fallback_code",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "proposal_id",
+            "required": true,
+            "type": "string|null",
+            "target": "projection.proposal_id",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "summary",
+            "required": true,
+            "type": "string",
+            "target": "projection.summary",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "overall_severity",
+            "required": false,
+            "type": "string",
+            "target": "projection.overall_severity",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "candidates",
+            "required": false,
+            "type": "array",
+            "target": "projection.candidates",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "checks",
+            "required": false,
+            "type": "array",
+            "target": "projection.checks",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "analysis_mode",
+            "required": false,
+            "type": "string",
+            "target": "projection.analysis_mode",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "analysis_severity",
+            "required": false,
+            "type": "string",
+            "target": "projection.analysis_severity",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "sample",
+            "required": false,
+            "type": "object",
+            "target": "projection.sample",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "insufficient_codes",
+            "required": false,
+            "type": "array",
+            "target": "projection.insufficient_codes",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "metrics",
+            "required": false,
+            "type": "array",
+            "target": "projection.metrics",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]
@@ -7436,42 +7598,6 @@
         "mode": "strict",
         "schema_source": "explicit",
         "fields": [
-          {
-            "name": "expected_state_version",
-            "required": false,
-            "type": "integer",
-            "target": "service_validation.state_version",
-            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "screen_id",
-            "required": false,
-            "type": "string",
-            "target": "service_input.screen_id",
-            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "ui_action_id",
-            "required": false,
-            "type": "string",
-            "target": "service_input.ui_action_id",
-            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "client_occurred_at",
-            "required": false,
-            "type": "string",
-            "target": "service_input.client_occurred_at",
-            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 request 필드",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
           {
             "name": "command",
             "required": true,
@@ -7545,6 +7671,15 @@
             "required": false,
             "type": "integer",
             "target": "projection.policy_version",
+            "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "policy_version_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.policy_version_id",
             "transform": "ai_runs, ai_artifacts, ai_proposals, ai_decisions, economic_event_drafts, classroom_policy_versions에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
@@ -10208,7 +10343,7 @@
     {
       "api_id": "API-READ-028",
       "method": "GET",
-      "path": "/classrooms/{classroom_id}/reports?from={instant}&to={instant}",
+      "path": "/classrooms/{classroom_id}/reports",
       "implementation_status": "mvp-contract",
       "storage_targets": [
         "classroom_students",

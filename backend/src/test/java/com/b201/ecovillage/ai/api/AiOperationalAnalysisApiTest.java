@@ -38,6 +38,7 @@ import com.b201.ecovillage.ai.application.OperationalAnalysisCommand;
 import com.b201.ecovillage.ai.application.OperationalAnalysisResult;
 import com.b201.ecovillage.ai.application.OperationalAnalysisService;
 import com.b201.ecovillage.ai.contract.BalancingContract;
+import com.b201.ecovillage.ai.infrastructure.AiServiceCallException;
 import com.b201.ecovillage.ai.infrastructure.BalancingAiClient;
 import com.b201.ecovillage.ai.repository.AiDecisionRepository;
 import com.b201.ecovillage.ai.repository.AiProposalRepository;
@@ -151,6 +152,7 @@ class AiOperationalAnalysisApiTest {
 
     @BeforeEach
     void setUp() {
+        aiClient.mode = Mode.SUCCESS;
         aiClient.calls.set(0);
         classroomId = UUID.randomUUID();
         teacherId = UUID.randomUUID();
@@ -279,6 +281,33 @@ class AiOperationalAnalysisApiTest {
         assertEquals("COMPLETED", normal.runStatus());
         assertEquals(BalancingContract.AnalysisSeverity.NORMAL, normal.analysisSeverity());
         assertEquals(0, aiClient.calls.get());
+    }
+
+    @Test
+    void fallsBackToValidatedRuleOutputWhenFastApiFails() throws Exception {
+        addPurchases(P1_FROM, P2_FROM);
+        addPurchases(P2_FROM, P2_TO);
+        entityManager.flush();
+        aiClient.mode = Mode.FAIL;
+
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(onDemandBody(P2_FROM, P2_TO)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.data.run_status").value("AWAITING_TEACHER"))
+            .andExpect(jsonPath("$.data.fallback_used").value(true))
+            .andExpect(jsonPath("$.data.fallback_code").value("AI_TIMEOUT"))
+            .andExpect(jsonPath("$.data.analysis_severity").value("WARN"))
+            .andExpect(jsonPath("$.data.proposal_id").isNotEmpty());
+
+        assertEquals(1, aiClient.calls.get());
+        assertEquals(1, runRepository.count());
+        assertEquals(1, proposalRepository.count());
     }
 
     @Test
@@ -442,10 +471,16 @@ class AiOperationalAnalysisApiTest {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 
+    enum Mode {
+        SUCCESS,
+        FAIL
+    }
+
     static class CountingBalancingAiClient implements BalancingAiClient {
 
         private final BalancingFallbackFactory fallbackFactory;
         private final AtomicInteger calls = new AtomicInteger();
+        private Mode mode = Mode.SUCCESS;
 
         CountingBalancingAiClient(BalancingFallbackFactory fallbackFactory) {
             this.fallbackFactory = fallbackFactory;
@@ -454,6 +489,9 @@ class AiOperationalAnalysisApiTest {
         @Override
         public BalancingContract.Response explain(BalancingContract.Request request) {
             calls.incrementAndGet();
+            if (mode == Mode.FAIL) {
+                throw new AiServiceCallException("AI_TIMEOUT", "simulated timeout");
+            }
             BalancingContract.Response fallback = fallbackFactory.create(request, "FAKE_PROVIDER");
             return new BalancingContract.Response(
                 fallback.aiRunId(),

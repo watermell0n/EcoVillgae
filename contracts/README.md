@@ -26,18 +26,28 @@ node scripts/generate-contracts.mjs
 node scripts/validate-contract-coverage.mjs
 node scripts/validate-api-schema-consistency.mjs
 node scripts/validate-ai-internal-contract.mjs
+node scripts/validate-spring-openapi-contract.mjs
 pnpm --package=@redocly/cli dlx redocly lint contracts/openapi.yaml
 pnpm --package=@redocly/cli dlx redocly lint contracts/ai-internal-openapi.yaml
 pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 ```
+
+`validate-spring-openapi-contract.mjs`는 실제 Spring Controller의 method/path와 record DTO 최상위
+필드를 OpenAPI 계약과 비교합니다. 현재 검토가 끝난 차이는
+`spring-openapi-baseline.json`에 기록하며, 새로운 차이 또는 해소된 차이가 생기면 CI가 실패해
+명세와 구현 중 어느 쪽을 갱신할지 검토하도록 합니다.
+
+학생 클라이언트의 최종 대상은 Expo 앱입니다. Expo에서는 OpenAPI 생성 타입을 그대로 사용하거나
+API 경계의 단일 mapper에서만 `snake_case`를 camelCase로 바꾸며, 현재 Vite 프로토타입의 수동
+응답 타입을 신규 계약의 기준으로 사용하지 않습니다.
 
 생성기는 다음 불변식을 검사합니다.
 
 - OpenAPI 작업 109건, API ID·메서드·경로 중복 0건
 - AsyncAPI 논리 채널 10건, 이벤트 ID·`event_type` 중복 0건
 - 사람이 읽는 명세와 계약 파일 사이 API·채널·이벤트 ID 누락 0건
-- MVP·필수 지원 API 73건의 명시적 strict DTO와 저장·조회 경계
-- 후속 API 36건의 `planned` 상태
+- MVP·필수 지원 API 74건의 명시적 strict DTO와 저장·조회 경계
+- 후속 API 35건의 `planned` 상태
 - 내부 AI API 4건, schema v1.2 fixture 성공 13건·실패 9건, 이벤트 템플릿 7종,
   분석 모드·설정 문맥·이벤트 출처·투자 단계 연결·퀴즈 난이도와 금지 입력 교차 참조
 

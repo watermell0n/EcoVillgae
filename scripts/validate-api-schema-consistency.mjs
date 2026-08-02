@@ -42,8 +42,8 @@ function requireCondition(condition, message) {
 
 requireCondition(operations.length === 109, `expected 109 operations, found ${operations.length}`);
 requireCondition(new Set(apiIds).size === 109, "api-field-mapping has duplicate API IDs");
-requireCondition(mvp.length === 73, `expected 73 MVP/support contracts, found ${mvp.length}`);
-requireCondition(planned.length === 36, `expected 36 planned contracts, found ${planned.length}`);
+requireCondition(mvp.length === 74, `expected 74 MVP/support contracts, found ${mvp.length}`);
+requireCondition(planned.length === 35, `expected 35 planned contracts, found ${planned.length}`);
 
 const openapiStatusCount = [...openapi.matchAll(/^\s+x-implementation-status:/gm)].length;
 const openapiStrictCount = [

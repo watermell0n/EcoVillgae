@@ -11,8 +11,8 @@
 
 | 분류 | 수 | 계약 수준 |
 | --- | ---: | --- |
-| `mvp-contract` | 73 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
-| `planned` | 36 | 소유권 이전, 학교 지급 기기, 플랫폼 설정·자격증명 등 후속 작업. 경로·권한·추적성은 유지하되 구현 스프린트에서 DTO 확정 |
+| `mvp-contract` | 74 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
+| `planned` | 35 | 소유권 이전, 학교 지급 기기, 플랫폼 설정·자격증명 등 후속 작업. 경로·권한·추적성은 유지하되 구현 스프린트에서 DTO 확정 |
 
 이 분류는 OpenAPI 각 operation의 `x-implementation-status`, `x-schema-closure`,
 `x-storage-targets`에 기록됩니다. 기계 판독 기준은
@@ -66,7 +66,7 @@ DBT-019는 양의 예상 학생 수, 역할 코드 유일성, 일정-모듈 학�
 
 ## 5. 후속 범위로 남긴 항목
 
-다음 36개 `planned` 작업은 누락이 아니라 의도적으로 구현 범위 밖에 둔 계약입니다.
+다음 35개 `planned` 작업은 누락이 아니라 의도적으로 구현 범위 밖에 둔 계약입니다.
 
 AI 구현 착수 전 계약 보완에서 밸런싱 적용 `API-AI-003`과 실행·제안 조회
 `API-READ-027`을 MVP strict 계약으로 승격했습니다. 경제 이벤트는 비동기 초안 생성
@@ -87,9 +87,9 @@ AI 구현 착수 전 계약 보완에서 밸런싱 적용 `API-AI-003`과 실행
 `scripts/validate-api-schema-consistency.mjs`는 다음을 검사합니다.
 
 - 작업 109개가 중복 없이 매핑됨
-- MVP·지원 작업 73개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
-- 후속 작업 36개는 `planned`로 명시됨
+- MVP·지원 작업 74개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
+- 후속 작업 35개는 `planned`로 명시됨
 - 모든 MVP 작업에 PostgreSQL·View·Redis·외부 저장 경계가 존재함
 - V1_11의 4개 저장 보강과 임시 인증정보 키·TTL 규칙이 존재함
 
-현재 결과는 `109 operations, 73 strict MVP/support contracts, 36 planned contracts`로 PASS입니다.
+현재 결과는 `109 operations, 74 strict MVP/support contracts, 35 planned contracts`로 PASS입니다.

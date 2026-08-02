@@ -47,6 +47,7 @@ function camelFromId(id) {
 
 function normalizeHttpPath(rawPath) {
   return rawPath
+    .split("?", 1)[0]
     .replaceAll("{C}", "{classroom_id}")
     .replaceAll("{S}", "{student_id}")
     .replaceAll("{R}", "{resource_id}");
@@ -133,6 +134,7 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-006",
   "API-AUTH-007",
   "API-AUTH-008",
+  "API-QZ-006",
   "API-READ-001",
   "API-READ-003",
   "API-READ-027",
@@ -345,6 +347,11 @@ const requestFieldOverrides = {
     { name: "student_count", schema: { type: "integer", minimum: 1 } },
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
     {
+      name: "salary_policy",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    {
       name: "module_codes",
       schema: { type: "array", uniqueItems: true, items: { type: "string" } },
     },
@@ -482,6 +489,7 @@ const requestFieldOverrides = {
       values: ["SALARY", "ACTIVITY", "QUIZ", "MANUAL_COMPENSATION"],
     },
     { name: "student_ids" },
+    { name: "period_key", schema: { type: "string", minLength: 1, maxLength: 40 } },
     { name: "amount", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "reason" },
@@ -588,10 +596,20 @@ const requestFieldOverrides = {
     { name: "include_policy_history", optional: true, schema: { type: "boolean" } },
   ],
   "API-AI-002": [
-    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
+    {
+      name: "analysis_mode",
+      values: ["SETUP_PRECHECK", "ON_DEMAND", "AUTO_MONITOR"],
+    },
+    {
+      name: "trigger_context",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    { name: "period", optional: true, schema: { $ref: "#/components/schemas/Period" } },
     {
       name: "metric_scopes",
-      schema: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string" } },
+      optional: true,
+      schema: { type: "array", uniqueItems: true, items: { type: "string" } },
     },
   ],
   "API-AI-003": [
@@ -604,9 +622,9 @@ const requestFieldOverrides = {
         maxItems: 100,
         items: {
           type: "object",
-          required: ["proposal_item_id", "proposed_value"],
+          required: ["action_id", "proposed_value"],
           properties: {
-            proposal_item_id: { type: "string", format: "uuid" },
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
             proposed_value: { type: "integer", minimum: 0 },
           },
           additionalProperties: false,
@@ -887,6 +905,12 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
+function mutationContextFor(operation) {
+  return ["API-AI-002", "API-AI-003"].includes(operation.apiId)
+    ? []
+    : mutationContextFields;
+}
+
 function projectionItemSchema(extraProperties = {}, required = []) {
   return {
     type: "object",
@@ -1063,6 +1087,16 @@ const responseFieldOverrides = {
     { name: "status", schema: { type: "string" } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-MOD-001": [
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "policy_area", optional: true, schema: { type: ["string", "null"] } },
+    { name: "policy_version", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "rule_version", schema: { type: "string" } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
   "API-CLS-002": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "policy_version", schema: { type: "integer", minimum: 1 } },
@@ -1170,11 +1204,30 @@ const responseFieldOverrides = {
       },
     },
   ],
+  "API-AI-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "operation_status", schema: { type: "string" } },
+    { name: "run_status", schema: { type: "string" } },
+    { name: "fallback_used", schema: { type: "boolean" } },
+    { name: "fallback_code", schema: { type: ["string", "null"] } },
+    { name: "proposal_id", schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "summary", schema: { type: "string" } },
+    { name: "overall_severity", optional: true, schema: { type: "string" } },
+    { name: "candidates", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "checks", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "analysis_mode", optional: true, schema: { type: "string" } },
+    { name: "analysis_severity", optional: true, schema: { type: "string" } },
+    { name: "sample", optional: true, schema: { type: "object", additionalProperties: true } },
+    { name: "insufficient_codes", optional: true, schema: { type: "array", items: { type: "string" } } },
+    { name: "metrics", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
   "API-AI-003": [
     { name: "proposal_id", schema: { type: "string", format: "uuid" } },
     { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
     { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED"] } },
     { name: "policy_version", optional: true, schema: { type: "integer", minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
     {
       name: "applied_values",
       schema: {
@@ -1182,9 +1235,9 @@ const responseFieldOverrides = {
         maxItems: 100,
         items: {
           type: "object",
-          required: ["proposal_item_id", "proposed_value", "unit"],
+          required: ["action_id", "proposed_value", "unit"],
           properties: {
-            proposal_item_id: { type: "string", format: "uuid" },
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
             proposed_value: { type: "integer", minimum: 0 },
             unit: { type: "string", enum: ["AMOUNT", "COUNT", "RATE_BPS"] },
           },
@@ -1718,7 +1771,7 @@ function requestSchema(operation) {
 
   const strict = implementationStatus(operation) === "mvp-contract";
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  const fields = [...mutationContextFields, ...domainFields];
+  const fields = [...mutationContextFor(operation), ...domainFields];
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -1963,7 +2016,7 @@ function buildOpenApi(operations) {
         [status]:
           status === "204"
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
-            : status === "202"
+            : status === "202" && operation.apiId !== "API-AI-002"
               ? { $ref: "#/components/responses/Accepted" }
               : contractStatus === "mvp-contract"
                 ? {
@@ -2107,16 +2160,6 @@ function buildOpenApi(operations) {
         ...pathParameters,
       },
       schemas: {
-        MutationContext: {
-          type: "object",
-          properties: {
-            expected_state_version: { type: "integer", format: "int64", minimum: 0 },
-            screen_id: { type: "string", pattern: "^SCR-[A-Z]+-\\d{3}$" },
-            ui_action_id: { type: "string", pattern: "^UIA-[A-Z]+-\\d{3}$" },
-            client_occurred_at: { type: "string", format: "date-time" },
-          },
-          additionalProperties: true,
-        },
         StudentSessionRequest: {
           type: "object",
           required: [
@@ -2715,13 +2758,13 @@ function requestFieldsForManifest(operation) {
   if (operation.apiId === "API-AUTH-001") return studentSessionRequestFields;
   if (operation.apiId === "API-AUTH-008") return teacherSessionRequestFields;
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  return [...mutationContextFields, ...domainFields];
+  return [...mutationContextFor(operation), ...domainFields];
 }
 
 function responseFieldsForManifest(operation) {
   const status = successStatus(operation);
   if (status === "204") return [];
-  if (status === "202") return acceptedResponseFields;
+  if (status === "202" && operation.apiId !== "API-AI-002") return acceptedResponseFields;
   return responseFields(operation);
 }
 
