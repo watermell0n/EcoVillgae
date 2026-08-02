@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.b201.ecovillage.ai.application.AiProposalCommand;
 import com.b201.ecovillage.ai.application.AiProposalCommandResult;
 import com.b201.ecovillage.ai.application.AiProposalCommandService;
+import com.b201.ecovillage.ai.application.EconomicEventDraftCommand;
+import com.b201.ecovillage.ai.application.EconomicEventDraftResult;
+import com.b201.ecovillage.ai.application.EconomicEventDraftService;
 import com.b201.ecovillage.ai.application.OperationalAnalysisCommand;
 import com.b201.ecovillage.ai.application.OperationalAnalysisResult;
 import com.b201.ecovillage.ai.application.OperationalAnalysisService;
@@ -32,6 +35,7 @@ import com.b201.ecovillage.ai.application.TeacherChatCommand;
 import com.b201.ecovillage.ai.application.TeacherChatResult;
 import com.b201.ecovillage.ai.application.TeacherChatService;
 import com.b201.ecovillage.ai.contract.BalancingContract;
+import com.b201.ecovillage.ai.contract.EconomicEventContract;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
@@ -44,6 +48,7 @@ public class AiController {
     private final SetupPrecheckOperationService precheckService;
     private final OperationalAnalysisService operationalAnalysisService;
     private final AiProposalCommandService proposalCommandService;
+    private final EconomicEventDraftService economicEventDraftService;
     private final TeacherChatService teacherChatService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -52,6 +57,7 @@ public class AiController {
         SetupPrecheckOperationService precheckService,
         OperationalAnalysisService operationalAnalysisService,
         AiProposalCommandService proposalCommandService,
+        EconomicEventDraftService economicEventDraftService,
         TeacherChatService teacherChatService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -59,9 +65,57 @@ public class AiController {
         this.precheckService = precheckService;
         this.operationalAnalysisService = operationalAnalysisService;
         this.proposalCommandService = proposalCommandService;
+        this.economicEventDraftService = economicEventDraftService;
         this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/economic-event-draft-operations")
+    public ResponseEntity<ApiResponse<AsyncOperationAcceptedResponse>> createEconomicEventDraft(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody EconomicEventDraftRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        EconomicEventContract.TemplateType templateType;
+        EconomicEventContract.InterestRateScope interestRateScope;
+        try {
+            templateType = EconomicEventContract.TemplateType.valueOf(request.templateType());
+            interestRateScope = request.interestRateScope() == null
+                ? null
+                : EconomicEventContract.InterestRateScope.valueOf(request.interestRateScope());
+        } catch (IllegalArgumentException exception) {
+            throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "template_type or interest_rate_scope contains an unsupported value."
+            );
+        }
+        EconomicEventDraftResult result = economicEventDraftService.create(
+            new EconomicEventDraftCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                templateType,
+                interestRateScope,
+                request.teacherContext(),
+                null
+            )
+        );
+        AsyncOperationAcceptedResponse response = new AsyncOperationAcceptedResponse(
+            result.operationId(),
+            result.status(),
+            result.statusUrl()
+        );
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
+            new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))
+        );
     }
 
     @PostMapping("/chat-requests")
