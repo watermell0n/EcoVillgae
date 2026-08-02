@@ -227,7 +227,8 @@ PRICE | SUPPLY | TAX | INTEREST_RATE | INVESTMENT_NEWS | REWARD | PUBLIC_FUND
 템플릿과 대출금리를 사용할 수 있습니다.
 
 핵심 API가 코스 규모를 `course_scale`로, 수치 효과를 `effect_summary`라는 설명용 읽기 전용
-데이터로 전달합니다. `ONE_SHOT` 코스는 공급자 호출 전에 거절합니다.
+데이터로 전달합니다. `ONE_SHOT`은 추천 문맥일 뿐 자동 거절 조건이 아니며, 핵심 API가
+교사의 모듈 선택과 실제 일정·정책을 검증한 요청은 생성할 수 있습니다.
 FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않고 제목·이야기·선택지·진행
 문구만 포함합니다.
 

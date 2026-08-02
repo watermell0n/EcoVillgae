@@ -16,7 +16,6 @@ from ecovillage_ai.features.teacher_chat import (
     UUID_PATTERN,
 )
 from ecovillage_ai.models import (
-    CourseScale,
     EconomicEventGenerationRequest,
     EconomicEventOutput,
     ErrorCode,
@@ -68,8 +67,6 @@ def validate_economic_event_input(request: EconomicEventGenerationRequest) -> No
     validate_investment_news_input(request)
     payload = request.payload
     codes: list[str] = []
-    if payload.course_scale is CourseScale.ONE_SHOT:
-        codes.append("ONE_SHOT_EVENT_NOT_ALLOWED")
     if payload.template_type not in ALLOWED_TEMPLATES_BY_GRADE[request.grade]:
         codes.append("GRADE_POLICY_VIOLATION")
     if (
@@ -83,7 +80,7 @@ def validate_economic_event_input(request: EconomicEventGenerationRequest) -> No
     raise ServiceError(
         status_code=422,
         code=ErrorCode.OUTPUT_SAFETY_REJECTED,
-        message="요청한 경제 이벤트는 현재 학년 또는 코스에서 사용할 수 없습니다.",
+        message="요청한 경제 이벤트는 현재 학년 정책에서 사용할 수 없습니다.",
         retryable=False,
         validation_codes=list(dict.fromkeys(codes)),
         validation_stage="GRADE_AND_EFFECT",

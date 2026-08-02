@@ -103,8 +103,9 @@ JSON 결과 저장 방법은
 따릅니다.
 
 경제 이벤트는 교사 요청과 모니터링 추천에서 PRICE·SUPPLY·PUBLIC_FUND·TAX·
-INTEREST_RATE·INVESTMENT_NEWS·REWARD 전용 프롬프트를 선택합니다. 학년·1회 코스,
-출처·근거·효과·승인 경계를 결정적으로 검사하며, 42개 평가 사례와 Swagger 직접 테스트는
+INTEREST_RATE·INVESTMENT_NEWS·REWARD 전용 프롬프트를 선택합니다. `ONE_SHOT`은 추천
+문맥으로만 사용하며 학년·입력 안전·출처·근거·효과·승인 경계를 결정적으로 검사합니다.
+42개 평가 사례와 Swagger 직접 테스트는
 [`docs/ai/ECONOMIC_EVENT.md`](../docs/ai/ECONOMIC_EVENT.md)를 따릅니다.
 
 가상 투자 뉴스는 시나리오·자산·목표 가격 단계·자산명·기호를 보존하고, 기업·가격·

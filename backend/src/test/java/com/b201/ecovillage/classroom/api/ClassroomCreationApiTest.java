@@ -202,7 +202,7 @@ class ClassroomCreationApiTest {
     }
 
     @Test
-    void restrictsOneSessionToQuizModules() throws Exception {
+    void allowsTeacherSelectedModulesForOneSession() throws Exception {
         mockMvc.perform(
             post("/classrooms")
                 .principal(principal)
@@ -210,10 +210,13 @@ class ClassroomCreationApiTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validCreationBody("에코", "ONE_SESSION"))
         )
-            .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.error.code").value("POLICY_VIOLATION"));
+            .andExpect(status().isCreated());
 
-        assertTrue(classroomRepository.findAll().isEmpty());
+        assertEquals(1, classroomRepository.count());
+        assertEquals(2, classroomModuleRepository.count());
+        assertTrue(classroomModuleRepository.findAll().stream().allMatch(
+            module -> "DISABLED".equals(module.getStatus())
+        ));
     }
 
     @Test

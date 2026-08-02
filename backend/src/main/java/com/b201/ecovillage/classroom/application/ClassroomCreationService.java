@@ -27,7 +27,6 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
-import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
@@ -180,16 +179,6 @@ public class ClassroomCreationService {
             );
         }
         List<String> moduleCodes = normalizeModuleCodes(command.moduleCodes());
-        if (
-            command.courseSize() == CourseSize.ONE_SESSION
-                && moduleCodes.stream().anyMatch(code -> !isQuizOnlyModule(code))
-        ) {
-            throw new ClassroomOperationException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "POLICY_VIOLATION",
-                "1회 코스는 퀴즈·게임 모듈만 사용할 수 있습니다."
-            );
-        }
         if (command.autonomousSchedules() == null) {
             return new ValidatedCreation(currencyName, moduleCodes);
         }
@@ -226,13 +215,6 @@ public class ClassroomCreationService {
             throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
         }
         return normalized;
-    }
-
-    private static boolean isQuizOnlyModule(String moduleCode) {
-        return moduleCode.equals("QUIZ")
-            || moduleCode.equals("GAME")
-            || moduleCode.equals("TEST")
-            || moduleCode.startsWith("QUIZ_");
     }
 
     private static void validateSchedule(

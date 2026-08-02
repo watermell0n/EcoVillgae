@@ -501,13 +501,6 @@ function CreateClassroomFlow({
       period,
       endDate: calculateEndDate(current.startDate, period)
     }));
-    if (period === "1회 체험") {
-      setSelectedModules((current) => new Set([...current].filter((name) => name === "퀴즈")));
-      setModules((items) => items.map((module) => ({
-        ...module,
-        status: module.name === "퀴즈" && selectedModules.has("퀴즈") ? "선택됨" : "미선택"
-      })));
-    }
   }
 
   function changeStartDate(startDate: string) {
@@ -654,7 +647,6 @@ function CreateClassroomFlow({
                 const isOpen = selectedModules.has(moduleName);
                 const isRequired = !selectedModules.has(moduleName)
                   && [...selectedModules].some((selectedModule) => getRequiredModules(selectedModule).includes(moduleName));
-                const oneSessionUnavailable = settings.period === "1회 체험" && moduleName !== "퀴즈";
 
                 return (
                   <div className={`module-card ${isOpen ? "selected" : ""} ${isRequired ? "required" : ""}`} key={moduleName}>
@@ -662,13 +654,11 @@ function CreateClassroomFlow({
                       type="button"
                       className="module-main-button"
                       aria-pressed={isOpen}
-                      disabled={oneSessionUnavailable}
                       onClick={() => {
-                        if (!isRequired && !oneSessionUnavailable) toggleModule(moduleName);
+                        if (!isRequired) toggleModule(moduleName);
                       }}
                     >
                       <strong>{moduleName}</strong>
-                      {oneSessionUnavailable ? <small>1회 코스 미지원</small> : null}
                     </button>
                     <button
                       type="button"
@@ -682,6 +672,11 @@ function CreateClassroomFlow({
                 );
               })}
             </div>
+            {settings.period === "1회 체험" ? (
+              <p className="helper-text">
+                1회 코스에는 퀴즈·게임을 기본 추천하지만, 수업 일정과 정책을 확인해 다른 모듈도 선택할 수 있습니다.
+              </p>
+            ) : null}
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep("period")}>이전</button>
               <button type="button" className="primary" onClick={() => setShowConfirmation(true)}>개설하기</button>
