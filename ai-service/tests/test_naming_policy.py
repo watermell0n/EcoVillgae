@@ -6,6 +6,8 @@ from ecovillage_ai.config import Settings
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 EXCLUDED_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".pnpm-store"}
+# docs/legacy는 다른 프로젝트에서 가져온 참고용 스냅샷이라 이름 규칙 적용 대상이 아닙니다.
+EXCLUDED_PREFIXES = ("docs/legacy/",)
 TEXT_SUFFIXES = {
     ".env",
     ".example",
@@ -37,6 +39,8 @@ def test_obsolete_demo_name_is_absent_from_repository() -> None:
     for path in REPOSITORY_ROOT.rglob("*"):
         relative_path = path.relative_to(REPOSITORY_ROOT)
         if any(part in EXCLUDED_PARTS for part in relative_path.parts):
+            continue
+        if relative_path.as_posix().startswith(EXCLUDED_PREFIXES):
             continue
         if obsolete_name in relative_path.as_posix().casefold():
             path_matches.append(relative_path.as_posix())
