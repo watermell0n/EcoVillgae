@@ -28,6 +28,9 @@ import com.b201.ecovillage.ai.application.OperationalAnalysisService;
 import com.b201.ecovillage.ai.application.SetupPrecheckOperationCommand;
 import com.b201.ecovillage.ai.application.SetupPrecheckOperationResult;
 import com.b201.ecovillage.ai.application.SetupPrecheckOperationService;
+import com.b201.ecovillage.ai.application.TeacherChatCommand;
+import com.b201.ecovillage.ai.application.TeacherChatResult;
+import com.b201.ecovillage.ai.application.TeacherChatService;
 import com.b201.ecovillage.ai.contract.BalancingContract;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.common.api.ApiMeta;
@@ -41,6 +44,7 @@ public class AiController {
     private final SetupPrecheckOperationService precheckService;
     private final OperationalAnalysisService operationalAnalysisService;
     private final AiProposalCommandService proposalCommandService;
+    private final TeacherChatService teacherChatService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -48,14 +52,74 @@ public class AiController {
         SetupPrecheckOperationService precheckService,
         OperationalAnalysisService operationalAnalysisService,
         AiProposalCommandService proposalCommandService,
+        TeacherChatService teacherChatService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.precheckService = precheckService;
         this.operationalAnalysisService = operationalAnalysisService;
         this.proposalCommandService = proposalCommandService;
+        this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/chat-requests")
+    public ResponseEntity<ApiResponse<TeacherChatResponse>> createChatRequest(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody TeacherChatRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        Set<BalancingContract.MetricCode> metricCodes;
+        try {
+            metricCodes = request.metricScopes().stream()
+                .map(BalancingContract.MetricCode::valueOf)
+                .collect(Collectors.toUnmodifiableSet());
+        } catch (IllegalArgumentException exception) {
+            throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "metric_scopes contains an unsupported value."
+            );
+        }
+        TeacherChatResult result = teacherChatService.ask(new TeacherChatCommand(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            requestId,
+            resolvedCorrelationId,
+            request.question(),
+            request.period().from(),
+            request.period().to(),
+            metricCodes
+        ));
+        TeacherChatResponse response = new TeacherChatResponse(
+            result.aiRunId(),
+            result.answer(),
+            new TeacherChatResponse.PeriodPayload(result.periodFrom(), result.periodTo()),
+            result.dataAsOf(),
+            result.evidence().stream()
+                .map(item -> new TeacherChatResponse.EvidenceItem(
+                    item.factId(),
+                    item.label(),
+                    item.value(),
+                    item.unit()
+                ))
+                .toList(),
+            result.recommendations().stream()
+                .map(item -> new TeacherChatResponse.RecommendationItem(
+                    item.text(),
+                    item.sideEffects()
+                ))
+                .toList()
+        );
+        return ResponseEntity.ok(
+            new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))
+        );
     }
 
     @PostMapping("/balancing-analysis-operations")

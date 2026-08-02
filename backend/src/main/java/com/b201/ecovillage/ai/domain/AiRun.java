@@ -144,6 +144,22 @@ public class AiRun {
         transition("COMPLETED", now);
     }
 
+    /**
+     * 교사 승인이 필요 없는 실행을 모델 정보와 함께 종료한다.
+     */
+    public void completeWithModel(
+        String provider,
+        String modelId,
+        Map<String, Object> validationResult,
+        Instant now
+    ) {
+        this.modelProvider = required(provider, 40);
+        this.modelId = required(modelId, 120);
+        this.validationResult = new LinkedHashMap<>(validationResult);
+        this.completedAt = now;
+        transition("COMPLETED", now);
+    }
+
     public void awaitTeacher(
         String provider,
         String modelId,
@@ -197,6 +213,14 @@ public class AiRun {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getRunType() {
+        return runType;
+    }
+
+    public String getModelProvider() {
+        return modelProvider;
     }
 
     private static String required(String value, int maximumLength) {
