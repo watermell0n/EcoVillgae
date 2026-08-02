@@ -389,27 +389,42 @@ export type AiProposalCommandResponse = {
 export const MODULE_DEFINITIONS = [
   { code: "ROLE_SALARY", name: "역할·급여", description: "직업 역할과 역할별 급여를 설정합니다." },
   { code: "INCOME_TAX", name: "소득세", description: "급여에서 공동기금으로 회수할 소득세율을 설정합니다." },
-  { code: "STORE", name: "상점", description: "상품 판매와 학생 소비 활동을 운영합니다." },
+  { code: "STORE", name: "상점·소비", description: "상품 판매와 학생 소비 활동을 운영합니다." },
+  { code: "BUDGET", name: "예산 관리", description: "수입과 지출 예산을 계획하고 비교합니다." },
+  { code: "PAYSLIP", name: "급여명세서", description: "급여와 공제 내역을 명세서로 제공합니다." },
+  { code: "PUBLIC_FUND", name: "공동기금", description: "학급 공동기금의 조성과 사용을 운영합니다." },
+  { code: "PUBLIC_BUDGET", name: "공공예산·투표", description: "공공예산 항목과 익명 투표를 운영합니다." },
+  { code: "DEPOSIT", name: "정기예금", description: "정기예금 상품과 이자율을 설정합니다." },
+  { code: "SAVINGS", name: "정기적금", description: "정기적금 상품과 납입 일정을 운영합니다." },
+  { code: "CREDIT", name: "신용 기초", description: "신용과 성실도 개념을 학습합니다." },
+  { code: "LOAN", name: "대출·상환", description: "교육용 대출 금리와 상환을 설정합니다." },
+  { code: "INVESTMENT", name: "가상 투자", description: "가상 투자 상품과 손익 활동을 운영합니다." },
+  { code: "RISK_MANAGEMENT", name: "투자 위험관리", description: "투자의 위험과 분산 원칙을 학습합니다." },
+  { code: "MARKET_PRICE", name: "가격 변화", description: "시장 가격 변화를 경제 활동에 반영합니다." },
+  { code: "TRADE", name: "개인거래", description: "학생 간 제안·동의·교사 승인 거래를 사용합니다." },
+  { code: "PHYSICAL_STORE", name: "실제 상품", description: "교실의 실제 상품 판매와 재고를 운영합니다." },
   { code: "CHARACTER", name: "캐릭터", description: "학생 캐릭터와 꾸미기 아이템을 사용합니다." },
-  { code: "TRADE", name: "개인 거래", description: "학생 간 제안·동의·교사 승인 거래를 사용합니다." },
-  { code: "DEPOSIT", name: "예금·적금", description: "예금·적금 상품과 이자율을 설정합니다." },
-  { code: "LOAN", name: "대출", description: "교육용 대출 금리와 상환을 설정합니다." },
-  { code: "INVESTMENT", name: "투자", description: "가상 투자 상품과 손익 활동을 운영합니다." },
-  { code: "PUBLIC_FUND", name: "공공 예산/투표", description: "공동기금 사용처와 익명 투표를 운영합니다." },
-  { code: "QUIZ_GAME", name: "퀴즈", description: "게임형 경제 퀴즈를 운영합니다." }
+  { code: "QUIZ_GAME", name: "게임형 퀴즈", description: "점수와 선택적 순위가 있는 퀴즈를 운영합니다." },
+  { code: "QUIZ_TEST", name: "평가형 퀴즈", description: "비공개 결과를 사용하는 평가형 퀴즈를 운영합니다." },
+  { code: "AI_EVENT", name: "AI 경제 이벤트", description: "검토 가능한 AI 경제 이벤트를 운영합니다." },
+  { code: "CUMULATIVE_REPORT", name: "누적 리포트", description: "장기 활동의 누적 결과를 제공합니다." }
 ] as const;
 
 export type ModuleCode = typeof MODULE_DEFINITIONS[number]["code"];
 
 export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
-  "상점",
+  "상점·소비",
   "캐릭터",
-  "개인 거래",
-  "예금·적금",
-  "대출",
-  "투자",
-  "공공 예산/투표",
-  "퀴즈"
+  "개인거래",
+  "정기예금",
+  "정기적금",
+  "대출·상환",
+  "가상 투자",
+  "공동기금",
+  "공공예산·투표",
+  "실제 상품",
+  "게임형 퀴즈",
+  "평가형 퀴즈"
 ];
 
 export const MODULE_PREREQUISITES: Partial<Record<ModuleCode, ModuleCode[]>> = {

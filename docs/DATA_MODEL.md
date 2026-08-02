@@ -174,6 +174,7 @@ erDiagram
 - 전역 필수 모듈은 없습니다. 역할·급여 모듈이 비활성화되면 `salary_roles`와 `payslips`를 만들지 않고 학생의 `salary_role_id`는 `null`로 둡니다. 미선택 상태 자체는 무결성 오류가 아닙니다.
 - 방 생성에서 선택한 모듈은 `classroom_modules`에 `DISABLED`로 먼저 등록할 수 있으며, 초기 정책이 필요한 모듈은 정책 저장과 활성 전이를 같은 트랜잭션으로 처리합니다.
 - 지갑·원장은 선택형 기능 모듈이 아니라 금액을 사용하는 활성 모듈이 처음 필요로 할 때 준비하는 기술 인프라입니다. 금액 모듈이 전혀 없는 학급에 학생 지갑을 미리 만들 필요는 없습니다.
+- `classroom_modules`, `autonomous_schedule_modules`, `course_template_modules`의 `module_code`는 [정식 선택 모듈 카탈로그](MODULE_CATALOG.md)의 canonical code만 저장합니다. 입력 별칭은 애플리케이션 경계에서 정규화하고 DB 제약으로 임의 코드를 차단합니다.
 - 자율시간의 `module_codes` 배열은 `autonomous_schedule_modules`의 행들로 저장하며 복합 FK로 다른 학급의 일정·모듈을 연결할 수 없습니다.
 - `classroom_policy_versions`는 새 거래 적용용 정책입니다. 실제 거래가 참조하는 결합 결과는 별도 `policy_snapshots`에 저장합니다.
 - 학교 AI 활성화 여부는 `school_ai_setting_versions`의 현재 행으로 조회하고, 변경 시 이전 행을 종료한 뒤 새 버전을 추가합니다.
