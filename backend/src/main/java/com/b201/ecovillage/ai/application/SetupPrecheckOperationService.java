@@ -144,7 +144,7 @@ public class SetupPrecheckOperationService {
         UUID operationId = uuidGenerator.generate();
         UUID aiRunId = uuidGenerator.generate();
         Instant now = clock.instant();
-        AsyncOperation asyncOperation = AsyncOperation.running(
+        AsyncOperation operationDraft = AsyncOperation.running(
             operationId,
             classroom.getId(),
             teacher.getId(),
@@ -160,7 +160,7 @@ public class SetupPrecheckOperationService {
             ruleRequest,
             rules
         );
-        AiRun run = AiRun.generating(
+        AiRun runDraft = AiRun.generating(
             aiRunId,
             classroom.getId(),
             operationId,
@@ -171,8 +171,10 @@ public class SetupPrecheckOperationService {
             toMap(request.payload()),
             now
         );
-        operationRepository.save(asyncOperation);
-        runRepository.save(run);
+        // @Version이 primitive라 save()가 merge로 동작한다. 이후 상태 변경이 반영되도록
+        // 반환된 관리 인스턴스를 사용한다.
+        AsyncOperation asyncOperation = operationRepository.save(operationDraft);
+        AiRun run = runRepository.save(runDraft);
 
         boolean fallbackUsed = false;
         String fallbackCode = null;

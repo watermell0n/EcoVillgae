@@ -37,6 +37,7 @@ import com.b201.ecovillage.ai.infrastructure.SetupPrecheckAiClient;
 import com.b201.ecovillage.ai.repository.AiArtifactRepository;
 import com.b201.ecovillage.ai.repository.AiDecisionRepository;
 import com.b201.ecovillage.ai.repository.AiProposalRepository;
+import com.b201.ecovillage.ai.domain.AiRun;
 import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.ai.repository.AsyncOperationRepository;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
@@ -269,6 +270,9 @@ class AiSetupExecutionApiTest {
 
         assertEquals(1, artifactRepository.count());
         assertEquals(1, proposalRepository.count());
+        AiRun run = runRepository.findAll().getFirst();
+        assertEquals("AWAITING_TEACHER", run.getStatus());
+        assertEquals("SPRING_FALLBACK", run.getModelProvider());
     }
 
     @Test

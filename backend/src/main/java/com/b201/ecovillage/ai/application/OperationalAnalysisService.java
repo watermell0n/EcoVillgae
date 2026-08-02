@@ -189,7 +189,7 @@ public class OperationalAnalysisService {
         UUID operationId = uuidGenerator.generate();
         UUID aiRunId = uuidGenerator.generate();
         Instant now = clock.instant();
-        AsyncOperation asyncOperation = AsyncOperation.running(
+        AsyncOperation operationDraft = AsyncOperation.running(
             operationId,
             classroom.getId(),
             system ? null : actorId,
@@ -204,7 +204,7 @@ public class OperationalAnalysisService {
             actions,
             now
         );
-        AiRun run = AiRun.generating(
+        AiRun runDraft = AiRun.generating(
             aiRunId,
             classroom.getId(),
             operationId,
@@ -215,9 +215,11 @@ public class OperationalAnalysisService {
             toMap(request.payload()),
             now
         );
-        run.setAnalysisPeriod(command.periodFrom(), command.periodTo());
-        operationRepository.save(asyncOperation);
-        runRepository.save(run);
+        runDraft.setAnalysisPeriod(command.periodFrom(), command.periodTo());
+        // @Version이 primitive라 save()가 merge로 동작한다. 이후 상태 변경이 반영되도록
+        // 반환된 관리 인스턴스를 사용한다.
+        AsyncOperation asyncOperation = operationRepository.save(operationDraft);
+        AiRun run = runRepository.save(runDraft);
 
         if (!evaluation.sufficient()) {
             return completeWithoutModel(
