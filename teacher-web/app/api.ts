@@ -1,3 +1,8 @@
+"use client";
+
+// 액세스 토큰을 모듈 메모리에 두므로 클라이언트 전용 모듈로 고정합니다.
+// 서버 컴포넌트에서 import하면 모듈 상태가 모든 요청에 공유되어 토큰이 섞입니다.
+
 export type ApiMeta = {
   request_id: string;
   correlation_id: string;
@@ -33,23 +38,22 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-const TEACHER_SESSION_KEY = "ecovillage.teacher.session";
 
 function joinUrl(path: string) {
   return `${API_BASE_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 }
 
-function savedAccessToken() {
-  if (typeof window === "undefined") return null;
-  const saved = window.sessionStorage.getItem(TEACHER_SESSION_KEY);
-  if (!saved) return null;
-  try {
-    const session = JSON.parse(saved) as { accessToken?: string };
-    return session.accessToken ?? null;
-  } catch {
-    window.sessionStorage.removeItem(TEACHER_SESSION_KEY);
-    return null;
-  }
+// 액세스 토큰은 메모리에만 보관합니다. sessionStorage·localStorage에 저장하면
+// 페이지의 모든 스크립트가 읽을 수 있어 XSS에 그대로 노출됩니다.
+// 갱신 토큰은 클라이언트가 보관하지 않고 HttpOnly 쿠키로만 주고받습니다.
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function clearAccessToken() {
+  accessToken = null;
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -61,9 +65,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (!headers.has("Idempotency-Key") && init.method && init.method !== "GET") {
     headers.set("Idempotency-Key", crypto.randomUUID());
   }
-  const token = savedAccessToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   const response = await fetch(joinUrl(path), {
@@ -181,6 +184,18 @@ export const MODULE_DEFINITIONS = [
 ] as const;
 
 export type ModuleCode = typeof MODULE_DEFINITIONS[number]["code"];
+
+// 활성화하면 학생 화면에 바로 노출되는 모듈입니다. 나머지는 교사 설정 단계를 더 거칩니다.
+export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
+  "상점",
+  "캐릭터",
+  "개인 거래",
+  "예금·적금",
+  "대출",
+  "투자",
+  "공공 예산/투표",
+  "퀴즈"
+];
 
 export const MODULE_PREREQUISITES: Partial<Record<ModuleCode, ModuleCode[]>> = {
   INCOME_TAX: ["ROLE_SALARY"],

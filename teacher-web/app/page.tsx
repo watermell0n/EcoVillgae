@@ -5,44 +5,24 @@ import {
   ApiError,
   MODULE_DEFINITIONS,
   MODULE_PREREQUISITES,
+  STUDENT_ACCESS_MODULE_NAMES,
   apiRequest,
   periodToCourseSize,
-  valueForDisplay,
-  type AiProposalCommandResponse,
   type CreateClassroomResponse,
-  type ModuleActivationResponse,
   type ModuleCode,
-  type SetupCandidate,
   type SetupPrecheckResponse
 } from "./api";
+import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import type { ClassSettings, LogTone, ModuleRow, RunAction, StudentRow } from "./types";
+import { PlainSection } from "./ui";
 
 type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "modules" | "complete";
-type LogTone = "success" | "warning" | "error";
-
 type LogEntry = {
   id: string;
   tone: LogTone;
   message: string;
-};
-
-type StudentRow = {
-  attendance: string;
-  nickname: string;
-  role: string;
-  salary: string;
-  status: string;
-};
-
-type ModuleRow = {
-  code: ModuleCode;
-  name: string;
-  status: string;
-  studentState: string;
-  teacherTodo: string;
-  stateVersion: number;
-  policyVersion: number | null;
 };
 
 type ProductRow = {
@@ -60,31 +40,6 @@ type ApprovalRow = {
   amount: string;
   status: string;
 };
-
-type ClassSettings = {
-  classroomId: string;
-  schoolId: string;
-  stateVersion: number;
-  className: string;
-  schoolName: string;
-  grade: string;
-  classNumber: string;
-  description: string;
-  classCode: string;
-  startDate: string;
-  endDate: string;
-  currency: string;
-  period: string;
-  studentCount: string;
-  incomeTax: string;
-};
-
-type RunAction = <T>(
-  label: string,
-  path: string,
-  init: RequestInit,
-  onSuccess: (data: T) => void
-) => Promise<T | null>;
 
 type LessonMaterial = {
   id: string;
@@ -152,7 +107,6 @@ const initialLessonMaterials: LessonMaterial[] = [
 ];
 
 const selectableModuleNames: string[] = MODULE_DEFINITIONS.map((module) => module.name);
-const studentAccessModuleNames: string[] = ["상점", "캐릭터", "개인 거래", "예금·적금", "대출", "투자", "공공 예산/투표", "퀴즈"];
 const moduleDescriptions = Object.fromEntries(MODULE_DEFINITIONS.map((module) => [module.name, module.description]));
 
 function getRequiredModules(moduleName: string): string[] {
@@ -835,21 +789,6 @@ function CreationSummary({ settings, modules }: Readonly<{ settings: ClassSettin
   );
 }
 
-function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrecheckResponse }>) {
-  return (
-    <section className={`ai-precheck-summary ${result.overall_severity.toLowerCase()}`}>
-      <div>
-        <span>AI 시작 전 점검 · {result.overall_severity}</span>
-        <strong>{result.summary}</strong>
-      </div>
-      {result.fallback_used ? <p>AI 설명 연결에 실패해 Spring 규칙 결과를 그대로 표시했습니다.</p> : null}
-      {result.checks.map((check) => (
-        <p key={check.check_id}><b>{check.severity}</b> {check.explanation}{check.correction_guidance ? ` · ${check.correction_guidance}` : ""}</p>
-      ))}
-    </section>
-  );
-}
-
 function CoursePlanning({
   modules,
   setModules,
@@ -867,7 +806,7 @@ function CoursePlanning({
   ]);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([0]));
   const openModules = modules.filter(
-    (module) => module.status === "사용 중" && studentAccessModuleNames.includes(module.name)
+    (module) => module.status === "사용 중" && STUDENT_ACCESS_MODULE_NAMES.includes(module.name)
   );
 
   const courses = [
@@ -1057,130 +996,7 @@ function Setup({
   runAction: RunAction;
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
 }>) {
-  const [prechecks, setPrechecks] = useState<Partial<Record<ModuleCode, SetupPrecheckResponse>>>({});
-  const [editedValues, setEditedValues] = useState<Partial<Record<ModuleCode, Record<string, string>>>>({});
   const selectedModules = modules.filter((module) => module.status !== "미선택");
-  const policyModuleCodes = new Set<ModuleCode>(["ROLE_SALARY", "INCOME_TAX", "DEPOSIT", "LOAN"]);
-
-  function updateModuleState(code: ModuleCode, response: ModuleActivationResponse | AiProposalCommandResponse) {
-    setModules((items) => items.map((item) => item.code === code ? {
-      ...item,
-      status: "사용 중",
-      studentState: studentAccessModuleNames.includes(item.name) ? "학생 노출" : "교사 설정",
-      teacherTodo: "활성화 완료",
-      stateVersion: "module_code" in response ? response.state_version : item.stateVersion,
-      policyVersion: response.policy_version
-    } : item));
-  }
-
-  function missingPrerequisites(module: ModuleRow) {
-    return (MODULE_PREREQUISITES[module.code] ?? []).filter((requiredCode) => (
-      !modules.some((candidate) => candidate.code === requiredCode && candidate.status === "사용 중")
-    ));
-  }
-
-  async function requestPrecheck(module: ModuleRow) {
-    if (!settings.classroomId) {
-      addLog("먼저 백엔드에서 학급을 생성해야 추천을 요청할 수 있습니다.", "warning");
-      return;
-    }
-    const prerequisites = missingPrerequisites(module);
-    if (prerequisites.length > 0) {
-      addLog(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`, "warning");
-      return;
-    }
-    const salaryPolicy = module.code === "ROLE_SALARY" ? {
-      roles: [{
-        role_code: "DEFAULT_ROLE",
-        name: "기본 역할",
-        weight: 1,
-        confirmed_salary: null,
-        assigned_student_count: Math.max(students.length, Number(settings.studentCount) || 0),
-        active: true
-      }],
-      pay_interval_days: 7,
-      first_pay_on: settings.startDate,
-      default_role_salary: 1000
-    } : undefined;
-    await runAction<SetupPrecheckResponse>(
-      `${module.name} AI 시작 전 점검`,
-      `/classrooms/${settings.classroomId}/ai/balancing-analysis-operations`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          analysis_mode: "SETUP_PRECHECK",
-          trigger_context: {
-            context_type: "MODULE_ACTIVATION",
-            active_student_count: Math.max(students.length, Number(settings.studentCount) || 0),
-            module_activation: { module_code: module.code },
-            ...(salaryPolicy ? { salary_policy: salaryPolicy } : {})
-          }
-        })
-      },
-      (result) => {
-        setPrechecks((current) => ({ ...current, [module.code]: result }));
-        setEditedValues((current) => ({
-          ...current,
-          [module.code]: Object.fromEntries(result.candidates.map((candidate) => [candidate.action_id, String(candidate.proposed_value)]))
-        }));
-      }
-    );
-  }
-
-  async function activateWithoutPolicy(module: ModuleRow) {
-    const prerequisites = missingPrerequisites(module);
-    if (prerequisites.length > 0) {
-      addLog(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`, "warning");
-      return;
-    }
-    await runAction<ModuleActivationResponse>(
-      `${module.name} 활성화`,
-      `/classrooms/${settings.classroomId}/modules/${module.code}/activation-commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          expected_state_version: module.stateVersion,
-          screen_id: "SCR-WEB-003",
-          ui_action_id: "UIA-MOD-001",
-          client_occurred_at: new Date().toISOString(),
-          confirm_prerequisites: true,
-          initial_policy_values: {},
-          recommendation_action_ids: []
-        })
-      },
-      (result) => updateModuleState(module.code, result)
-    );
-  }
-
-  async function applyRecommendation(module: ModuleRow, result: SetupPrecheckResponse) {
-    if (!result.proposal_id || result.overall_severity === "BLOCK") return;
-    const values = editedValues[module.code] ?? {};
-    const invalid = result.candidates.some((candidate) => {
-      const value = Number(values[candidate.action_id]);
-      return !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
-    });
-    if (invalid) {
-      addLog("허용 구간 밖의 값은 적용할 수 없습니다.", "warning");
-      return;
-    }
-    await runAction<AiProposalCommandResponse>(
-      `${module.name} 추천안 적용`,
-      `/classrooms/${settings.classroomId}/ai/balancing-proposals/${result.proposal_id}/commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          command: "APPLY",
-          edited_values: result.candidates.map((candidate) => ({
-            action_id: candidate.action_id,
-            proposed_value: Number(values[candidate.action_id])
-          })),
-          reason: "교사가 추천값과 허용 구간을 검토하고 초기 정책을 확정함",
-          expected_policy_version: 0
-        })
-      },
-      (response) => updateModuleState(module.code, response)
-    );
-  }
 
   return (
     <div className="page-flow">
@@ -1205,75 +1021,14 @@ function Setup({
         ]} />
         <p className="contract-warning">학급 기본 설정 변경 API는 아직 백엔드에 없어 이 화면에서는 조회만 제공합니다.</p>
       </PlainSection>
-      <PlainSection title="선택 모듈 활성화" description="방 생성 때 선택한 모듈만 표시합니다. 정책 모듈은 AI 점검 후 교사가 값을 확정해야 활성화됩니다.">
-        <div className="module-activation-list">
-          {selectedModules.length === 0 ? <p className="empty-copy">선택한 모듈이 없습니다. 학생은 직업 없이 기본 학급 흐름만 이용합니다.</p> : null}
-          {selectedModules.map((module) => {
-            const result = prechecks[module.code];
-            const values = editedValues[module.code] ?? {};
-            const prerequisites = missingPrerequisites(module);
-            const needsPolicy = policyModuleCodes.has(module.code);
-            const invalidValue = result?.candidates.some((candidate) => {
-              const value = Number(values[candidate.action_id]);
-              return !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
-            }) ?? false;
-            return (
-              <article className="module-activation-card" key={module.code}>
-                <header>
-                  <div><strong>{module.name}</strong><small>{module.code}</small></div>
-                  <b className={`module-status ${module.status === "사용 중" ? "active" : ""}`}>{module.status}</b>
-                </header>
-                {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
-                {module.status !== "사용 중" && needsPolicy ? (
-                  <button type="button" disabled={!settings.classroomId || prerequisites.length > 0} onClick={() => requestPrecheck(module)}>
-                    {result ? "추천 다시 확인" : "AI 추천 확인"}
-                  </button>
-                ) : null}
-                {module.status !== "사용 중" && !needsPolicy ? (
-                  <button type="button" disabled={!settings.classroomId || prerequisites.length > 0} onClick={() => activateWithoutPolicy(module)}>
-                    활성화
-                  </button>
-                ) : null}
-                {result ? (
-                  <div className="module-recommendation">
-                    <SetupPrecheckSummary result={result} />
-                    {result.candidates.map((candidate) => {
-                      const value = Number(values[candidate.action_id]);
-                      const outsideRecommended = Number.isFinite(value) && (value < candidate.recommended_min_value || value > candidate.recommended_max_value);
-                      const outsideAllowed = !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
-                      return (
-                        <label className={outsideAllowed ? "value-blocked" : outsideRecommended ? "value-warning" : ""} key={candidate.action_id}>
-                          {candidate.label}
-                          <input
-                            type="number"
-                            step="1"
-                            value={values[candidate.action_id] ?? ""}
-                            onChange={(event) => setEditedValues((current) => ({
-                              ...current,
-                              [module.code]: { ...(current[module.code] ?? {}), [candidate.action_id]: event.target.value }
-                            }))}
-                          />
-                          <small>
-                            추천 {valueForDisplay(candidate.recommended_min_value, candidate.unit)} ~ {valueForDisplay(candidate.recommended_max_value, candidate.unit)} · 허용 {valueForDisplay(candidate.allowed_min_value, candidate.unit)} ~ {valueForDisplay(candidate.allowed_max_value, candidate.unit)}
-                          </small>
-                          {outsideAllowed ? <em>허용 구간 밖이라 적용할 수 없습니다.</em> : outsideRecommended ? <em>추천 구간 밖입니다. 검토 후 적용할 수 있습니다.</em> : null}
-                        </label>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      disabled={!result.proposal_id || result.overall_severity === "BLOCK" || invalidValue}
-                      onClick={() => applyRecommendation(module, result)}
-                    >
-                      추천값 검토 완료 · 활성화
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-      </PlainSection>
+      <ModuleActivationPanel
+        settings={settings}
+        modules={modules}
+        students={students}
+        addLog={addLog}
+        runAction={runAction}
+        setModules={setModules}
+      />
     </div>
   );
 }
@@ -1900,22 +1655,6 @@ function Approvals({
         />
       </PlainSection>
     </div>
-  );
-}
-
-function PlainSection({
-  title,
-  description,
-  children
-}: Readonly<{ title: string; description?: string; children: React.ReactNode }>) {
-  return (
-    <section className="plain-section">
-      <div className="section-title">
-        <h2>{title}</h2>
-        {description ? <p>{description}</p> : null}
-      </div>
-      {children}
-    </section>
   );
 }
 
