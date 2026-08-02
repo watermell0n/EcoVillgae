@@ -61,6 +61,7 @@ public class OperationalAnalysisService {
     private final BalancingAiClient aiClient;
     private final BalancingOutputValidator outputValidator;
     private final BalancingFallbackFactory fallbackFactory;
+    private final ClassroomAiSettings aiSettings;
     private final AsyncOperationRepository operationRepository;
     private final AiRunRepository runRepository;
     private final AiArtifactRepository artifactRepository;
@@ -81,6 +82,7 @@ public class OperationalAnalysisService {
         BalancingAiClient aiClient,
         BalancingOutputValidator outputValidator,
         BalancingFallbackFactory fallbackFactory,
+        ClassroomAiSettings aiSettings,
         AsyncOperationRepository operationRepository,
         AiRunRepository runRepository,
         AiArtifactRepository artifactRepository,
@@ -100,6 +102,7 @@ public class OperationalAnalysisService {
         this.aiClient = aiClient;
         this.outputValidator = outputValidator;
         this.fallbackFactory = fallbackFactory;
+        this.aiSettings = aiSettings;
         this.operationRepository = operationRepository;
         this.runRepository = runRepository;
         this.artifactRepository = artifactRepository;
@@ -253,14 +256,21 @@ public class OperationalAnalysisService {
         boolean fallbackUsed = false;
         String fallbackCode = null;
         BalancingContract.Response response;
-        try {
-            response = aiClient.explain(request);
-            outputValidator.validate(request, response);
-        } catch (AiServiceCallException exception) {
+        if (!aiSettings.enabled(classroom.getId())) {
             fallbackUsed = true;
-            fallbackCode = exception.getCode();
+            fallbackCode = "AI_DISABLED_FOR_CLASSROOM";
             response = fallbackFactory.create(request, fallbackCode);
             outputValidator.validate(request, response);
+        } else {
+            try {
+                response = aiClient.explain(request);
+                outputValidator.validate(request, response);
+            } catch (AiServiceCallException exception) {
+                fallbackUsed = true;
+                fallbackCode = exception.getCode();
+                response = fallbackFactory.create(request, fallbackCode);
+                outputValidator.validate(request, response);
+            }
         }
         Instant completedAt = clock.instant();
         Map<String, Object> validation = validation(evaluation);

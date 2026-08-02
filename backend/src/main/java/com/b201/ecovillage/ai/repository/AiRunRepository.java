@@ -17,4 +17,6 @@ public interface AiRunRepository extends JpaRepository<AiRun, UUID> {
         String runType,
         Instant from
     );
+
+    boolean existsByClassroomIdAndStatus(UUID classroomId, String status);
 }

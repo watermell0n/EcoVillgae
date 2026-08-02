@@ -33,9 +33,12 @@ class AutoMonitorSchedulerTest {
         AiMonitorProperties properties = new AiMonitorProperties();
         Classroom classroom = classroom();
         when(classrooms.findAll()).thenReturn(List.of(classroom));
+        ClassroomAiSettings aiSettings = mock(ClassroomAiSettings.class);
+        when(aiSettings.enabled(any())).thenReturn(true);
         AutoMonitorScheduler scheduler = new AutoMonitorScheduler(
             classrooms,
             service,
+            aiSettings,
             properties,
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -55,9 +58,12 @@ class AutoMonitorSchedulerTest {
         OperationalAnalysisService service = mock(OperationalAnalysisService.class);
         AiMonitorProperties properties = new AiMonitorProperties();
         properties.setEnabled(false);
+        ClassroomAiSettings aiSettings = mock(ClassroomAiSettings.class);
+        when(aiSettings.enabled(any())).thenReturn(true);
         AutoMonitorScheduler scheduler = new AutoMonitorScheduler(
             classrooms,
             service,
+            aiSettings,
             properties,
             Clock.fixed(NOW, ZoneOffset.UTC)
         );

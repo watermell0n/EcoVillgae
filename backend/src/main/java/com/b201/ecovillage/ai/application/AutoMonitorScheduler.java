@@ -37,17 +37,20 @@ public class AutoMonitorScheduler {
 
     private final ClassroomRepository classroomRepository;
     private final OperationalAnalysisService analysisService;
+    private final ClassroomAiSettings aiSettings;
     private final AiMonitorProperties properties;
     private final Clock clock;
 
     public AutoMonitorScheduler(
         ClassroomRepository classroomRepository,
         OperationalAnalysisService analysisService,
+        ClassroomAiSettings aiSettings,
         AiMonitorProperties properties,
         Clock clock
     ) {
         this.classroomRepository = classroomRepository;
         this.analysisService = analysisService;
+        this.aiSettings = aiSettings;
         this.properties = properties;
         this.clock = clock;
     }
@@ -58,6 +61,9 @@ public class AutoMonitorScheduler {
             return;
         }
         for (Classroom classroom : classroomRepository.findAll()) {
+            if (!aiSettings.enabled(classroom.getId())) {
+                continue;
+            }
             ScheduledPeriod period = scheduledPeriod(classroom, clock.instant());
             if (period == null) {
                 continue;

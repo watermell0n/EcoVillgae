@@ -67,6 +67,7 @@ public class SetupPrecheckOperationService {
     private final SetupPrecheckAiClient aiClient;
     private final SetupPrecheckOutputValidator outputValidator;
     private final SetupPrecheckFallbackFactory fallbackFactory;
+    private final ClassroomAiSettings aiSettings;
     private final AsyncOperationRepository operationRepository;
     private final AiRunRepository runRepository;
     private final AiArtifactRepository artifactRepository;
@@ -87,6 +88,7 @@ public class SetupPrecheckOperationService {
         SetupPrecheckAiClient aiClient,
         SetupPrecheckOutputValidator outputValidator,
         SetupPrecheckFallbackFactory fallbackFactory,
+        ClassroomAiSettings aiSettings,
         AsyncOperationRepository operationRepository,
         AiRunRepository runRepository,
         AiArtifactRepository artifactRepository,
@@ -106,6 +108,7 @@ public class SetupPrecheckOperationService {
         this.aiClient = aiClient;
         this.outputValidator = outputValidator;
         this.fallbackFactory = fallbackFactory;
+        this.aiSettings = aiSettings;
         this.operationRepository = operationRepository;
         this.runRepository = runRepository;
         this.artifactRepository = artifactRepository;
@@ -174,14 +177,21 @@ public class SetupPrecheckOperationService {
         boolean fallbackUsed = false;
         String fallbackCode = null;
         SetupPrecheckContract.Response response;
-        try {
-            response = aiClient.explain(request);
-            outputValidator.validate(request, response);
-        } catch (AiServiceCallException exception) {
+        if (!aiSettings.enabled(classroom.getId())) {
             fallbackUsed = true;
-            fallbackCode = exception.getCode();
+            fallbackCode = "AI_DISABLED_FOR_CLASSROOM";
             response = fallbackFactory.create(request, rules.ruleVersion(), fallbackCode);
             outputValidator.validate(request, response);
+        } else {
+            try {
+                response = aiClient.explain(request);
+                outputValidator.validate(request, response);
+            } catch (AiServiceCallException exception) {
+                fallbackUsed = true;
+                fallbackCode = exception.getCode();
+                response = fallbackFactory.create(request, rules.ruleVersion(), fallbackCode);
+                outputValidator.validate(request, response);
+            }
         }
 
         Instant completedAt = clock.instant();

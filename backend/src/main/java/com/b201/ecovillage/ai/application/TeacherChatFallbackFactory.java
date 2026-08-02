@@ -55,13 +55,11 @@ public class TeacherChatFallbackFactory {
         );
     }
 
-    public TeacherChatContract.Response insufficientEvidence(
-        TeacherChatContract.Request request
-    ) {
+    public TeacherChatContract.Response disabled(TeacherChatContract.Request request) {
         return create(
             request,
-            "CHAT_INSUFFICIENT_EVIDENCE",
-            "답변에 사용할 학급 집계 근거가 아직 충분하지 않습니다. 경제활동이 쌓인 뒤 다시 질문해 주세요."
+            "AI_DISABLED_FOR_CLASSROOM",
+            "이 학급은 AI 기능을 꺼 두었습니다. 학급 지표는 운영 현황 화면에서 확인해 주세요."
         );
     }
 }

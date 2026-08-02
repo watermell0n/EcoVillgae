@@ -91,6 +91,10 @@ public enum ClassroomPermission {
         "PM-AI-004",
         Set.of(ClassroomActorRole.OWN)
     ),
+    MANAGE_AI_SETTINGS(
+        "PM-AI-005",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     MANAGE_PUBLIC_FUND_VOTE(
         "PM-ACT-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)

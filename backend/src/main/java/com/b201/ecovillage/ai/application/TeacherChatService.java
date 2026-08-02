@@ -55,6 +55,7 @@ public class TeacherChatService {
     private final EconomicMetricEvaluator evaluator;
     private final TeacherChatAiClient aiClient;
     private final TeacherChatFallbackFactory fallbackFactory;
+    private final ClassroomAiSettings aiSettings;
     private final AiRunRepository runRepository;
     private final AiArtifactRepository artifactRepository;
     private final UuidV7Generator uuidGenerator;
@@ -70,6 +71,7 @@ public class TeacherChatService {
         EconomicMetricEvaluator evaluator,
         TeacherChatAiClient aiClient,
         TeacherChatFallbackFactory fallbackFactory,
+        ClassroomAiSettings aiSettings,
         AiRunRepository runRepository,
         AiArtifactRepository artifactRepository,
         UuidV7Generator uuidGenerator,
@@ -84,6 +86,7 @@ public class TeacherChatService {
         this.evaluator = evaluator;
         this.aiClient = aiClient;
         this.fallbackFactory = fallbackFactory;
+        this.aiSettings = aiSettings;
         this.runRepository = runRepository;
         this.artifactRepository = artifactRepository;
         this.uuidGenerator = uuidGenerator;
@@ -182,12 +185,18 @@ public class TeacherChatService {
         boolean fallbackUsed = false;
         String fallbackCode = null;
         TeacherChatContract.Response response;
-        try {
-            response = aiClient.answer(request);
-        } catch (AiServiceCallException exception) {
+        if (!aiSettings.enabled(classroom.getId())) {
             fallbackUsed = true;
-            fallbackCode = exception.getCode();
-            response = fallbackFactory.unavailable(request, fallbackCode);
+            fallbackCode = "AI_DISABLED_FOR_CLASSROOM";
+            response = fallbackFactory.disabled(request);
+        } else {
+            try {
+                response = aiClient.answer(request);
+            } catch (AiServiceCallException exception) {
+                fallbackUsed = true;
+                fallbackCode = exception.getCode();
+                response = fallbackFactory.unavailable(request, fallbackCode);
+            }
         }
 
         Instant completedAt = clock.instant();
