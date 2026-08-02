@@ -25,6 +25,9 @@ import com.b201.ecovillage.ai.application.AiProposalCommandService;
 import com.b201.ecovillage.ai.application.EconomicEventDraftCommand;
 import com.b201.ecovillage.ai.application.EconomicEventDraftResult;
 import com.b201.ecovillage.ai.application.EconomicEventDraftService;
+import com.b201.ecovillage.ai.application.QuizDraftCommand;
+import com.b201.ecovillage.ai.application.QuizDraftResult;
+import com.b201.ecovillage.ai.application.QuizDraftService;
 import com.b201.ecovillage.ai.application.OperationalAnalysisCommand;
 import com.b201.ecovillage.ai.application.OperationalAnalysisResult;
 import com.b201.ecovillage.ai.application.OperationalAnalysisService;
@@ -36,6 +39,7 @@ import com.b201.ecovillage.ai.application.TeacherChatResult;
 import com.b201.ecovillage.ai.application.TeacherChatService;
 import com.b201.ecovillage.ai.contract.BalancingContract;
 import com.b201.ecovillage.ai.contract.EconomicEventContract;
+import com.b201.ecovillage.ai.contract.QuizDraftContract;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
@@ -49,6 +53,7 @@ public class AiController {
     private final OperationalAnalysisService operationalAnalysisService;
     private final AiProposalCommandService proposalCommandService;
     private final EconomicEventDraftService economicEventDraftService;
+    private final QuizDraftService quizDraftService;
     private final TeacherChatService teacherChatService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -58,6 +63,7 @@ public class AiController {
         OperationalAnalysisService operationalAnalysisService,
         AiProposalCommandService proposalCommandService,
         EconomicEventDraftService economicEventDraftService,
+        QuizDraftService quizDraftService,
         TeacherChatService teacherChatService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -66,9 +72,55 @@ public class AiController {
         this.operationalAnalysisService = operationalAnalysisService;
         this.proposalCommandService = proposalCommandService;
         this.economicEventDraftService = economicEventDraftService;
+        this.quizDraftService = quizDraftService;
         this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/quiz-draft-operations")
+    public ResponseEntity<ApiResponse<AsyncOperationAcceptedResponse>> createQuizDraft(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody QuizDraftOperationRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        QuizDraftContract.Category category;
+        QuizDraftContract.QuestionType questionType;
+        try {
+            category = QuizDraftContract.Category.valueOf(request.contentType());
+            questionType = QuizDraftContract.QuestionType.valueOf(request.questionType());
+        } catch (IllegalArgumentException exception) {
+            throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "content_type or question_type contains an unsupported value."
+            );
+        }
+        QuizDraftResult result = quizDraftService.create(new QuizDraftCommand(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            requestId,
+            resolvedCorrelationId,
+            request.grade(),
+            request.topic(),
+            request.learningObjective(),
+            category,
+            questionType,
+            request.questionCount()
+        ));
+        AsyncOperationAcceptedResponse response = new AsyncOperationAcceptedResponse(
+            result.operationId(),
+            result.status(),
+            result.statusUrl()
+        );
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
+            new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))
+        );
     }
 
     @PostMapping("/economic-event-draft-operations")
