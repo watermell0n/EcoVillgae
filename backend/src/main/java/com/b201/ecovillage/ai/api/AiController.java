@@ -12,16 +12,20 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.b201.ecovillage.ai.application.AiProposalCommand;
 import com.b201.ecovillage.ai.application.AiProposalCommandResult;
 import com.b201.ecovillage.ai.application.AiProposalCommandService;
+import com.b201.ecovillage.ai.application.AiHistoryQueryService;
+import com.b201.ecovillage.ai.application.AiRunHistoryPage;
 import com.b201.ecovillage.ai.application.EconomicEventDraftCommand;
 import com.b201.ecovillage.ai.application.EconomicEventDraftResult;
 import com.b201.ecovillage.ai.application.EconomicEventDraftService;
@@ -50,6 +54,7 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 public class AiController {
 
     private final SetupPrecheckOperationService precheckService;
+    private final AiHistoryQueryService historyQueryService;
     private final OperationalAnalysisService operationalAnalysisService;
     private final AiProposalCommandService proposalCommandService;
     private final EconomicEventDraftService economicEventDraftService;
@@ -60,6 +65,7 @@ public class AiController {
 
     public AiController(
         SetupPrecheckOperationService precheckService,
+        AiHistoryQueryService historyQueryService,
         OperationalAnalysisService operationalAnalysisService,
         AiProposalCommandService proposalCommandService,
         EconomicEventDraftService economicEventDraftService,
@@ -69,6 +75,7 @@ public class AiController {
         Clock clock
     ) {
         this.precheckService = precheckService;
+        this.historyQueryService = historyQueryService;
         this.operationalAnalysisService = operationalAnalysisService;
         this.proposalCommandService = proposalCommandService;
         this.economicEventDraftService = economicEventDraftService;
@@ -76,6 +83,35 @@ public class AiController {
         this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @GetMapping("/runs-and-proposals")
+    public ApiResponse<AiRunsAndProposalsResponse> findRunsAndProposals(
+        @PathVariable UUID classroomId,
+        @RequestParam(required = false) String cursor,
+        @RequestParam(required = false) Integer limit,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        AiRunHistoryPage page = historyQueryService.findAll(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            cursor,
+            limit
+        );
+        return new ApiResponse<>(
+            new AiRunsAndProposalsResponse(page.items()),
+            new ApiMeta(
+                requestId,
+                resolvedCorrelationId,
+                clock.instant(),
+                new ApiMeta.PageMeta(page.nextCursor(), page.hasMore())
+            )
+        );
     }
 
     @PostMapping("/quiz-draft-operations")

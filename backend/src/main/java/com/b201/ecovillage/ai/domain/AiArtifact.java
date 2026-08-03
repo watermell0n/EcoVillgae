@@ -1,6 +1,7 @@
 package com.b201.ecovillage.ai.domain;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -67,5 +68,21 @@ public class AiArtifact {
         artifact.safetyStatus = Objects.requireNonNull(safetyStatus);
         artifact.createdAt = Objects.requireNonNull(now);
         return artifact;
+    }
+
+    public UUID getAiRunId() {
+        return aiRunId;
+    }
+
+    public Map<String, Object> getContent() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(content));
+    }
+
+    public String getSafetyStatus() {
+        return safetyStatus;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

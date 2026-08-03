@@ -87,6 +87,10 @@ public enum ClassroomPermission {
         "PM-AI-003",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    READ_AI_HISTORY(
+        "PM-AI-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
     ACKNOWLEDGE_AI_PROPOSAL(
         "PM-AI-004",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)

@@ -241,10 +241,10 @@
 | API-READ-024 | `GET /classrooms/{C}/guided-activities/{R}` | STU·OWN·COT | 역할별 활동·참여·GUIDED·공개 설정 | SCR-TCH-004·SCR-STU-021 / CLS-009 |
 | API-READ-025 | `GET /public/display-sessions/{display_session_id}/bootstrap` | DSP | 문제·타이머·익명 집계·허용된 공개 결과만 | SCR-PUB-001·SCR-PUB-002·SCR-PUB-003·SCR-PUB-004 / AUTH-004·CLS-009·QZ-003 |
 | API-READ-026 | `GET /classrooms/{C}/teacher-dashboard` | OWN·COT | 승인·수령·정산·활동 알림, OBSERVE·WARN 경제 알림과 학급 요약 | SCR-TCH-002·SCR-TCH-012 / AI-010·DAT-003 |
-| API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | 설정 점검·수동·자동 실행, 근거·검증·심각도·중복키·확인·승인 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008·AI-009·AI-010 |
+| API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | 최신순 cursor, run/trigger·규칙 버전·provider/fallback·검증 코드와 제안 target ID/version·허용 범위·결정 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008·AI-009·AI-010 |
 | API-READ-028 | `GET /classrooms/{C}/reports?from={instant}&to={instant}` | OWN·COT | 기간 내 학급 화폐·지갑·소비·예적금 원금·공동기금·활성 학생·퀴즈 참여 집계. 개인 식별자·닉네임·개인 잔액은 반환하지 않음 | SCR-WEB-024 / DAT-001·DAT-003 |
 | API-READ-029 | `GET /classrooms/{C}/audit-events` | OWN·COT·SAD | 역할 범위별 감사 이벤트·요청번호·전후상태 | SCR-WEB-025·SCR-ADM-005 / AI-008·DAT-004 |
-| API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | 비동기 작업 상태·실패코드·만료 다운로드 URL | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
+| API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | `RUNNING/COMPLETED/FAILED`, 진행률·결과 URL·실패 코드·완료/만료 시각 | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
 | API-READ-031 | `GET /schools/{school_id}/teachers` | SAD | 학교 교사 계정·소속·상태 | SCR-ADM-002 / AUTH-002 |
 | API-READ-032 | `GET /schools/{school_id}/devices` | SAD | 학교 지급 기기·분실·연결·세션 메타데이터 | SCR-ADM-003 / AUTH-003·DAT-005 |
 | API-READ-033 | `GET /platform/ai-settings` | POP | 공급자·모델 라우팅·전역 한도·설정 버전 | SCR-OPS-002 / SYS-002·AI-006 |
