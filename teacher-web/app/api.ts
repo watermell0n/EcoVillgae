@@ -1,52 +1,163 @@
 "use client";
 
-// 액세스 토큰을 모듈 메모리에 두므로 클라이언트 전용 모듈로 고정합니다.
-// 서버 컴포넌트에서 import하면 모듈 상태가 모든 요청에 공유되어 토큰이 섞입니다.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8_000);
 
-export type ApiMeta = {
-  request_id: string;
-  correlation_id: string;
-  timestamp: string;
-};
+let accessToken: string | null = null;
+let refreshPromise: Promise<void> | null = null;
 
 type ApiEnvelope<T> = {
   data: T;
-  meta: ApiMeta;
-};
-
-type ApiErrorEnvelope = {
-  error?: {
-    code?: string;
-    message?: string;
-    retryable?: boolean;
-    details?: Array<{ field?: string; reason?: string }>;
+  meta?: {
+    trace_id?: string;
   };
 };
 
-export class ApiError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly retryable: boolean;
+type ApiErrorPayload = {
+  code?: string;
+  message?: string;
+  trace_id?: string;
+  field_errors?: Record<string, string[]>;
+};
 
-  constructor(message: string, code: string, status: number, retryable = false) {
-    super(message);
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  traceId?: string;
+  fieldErrors?: Record<string, string[]>;
+
+  constructor(status: number, payload: ApiErrorPayload = {}) {
+    super(payload.message ?? `요청을 처리하지 못했어요. (${status})`);
     this.name = "ApiError";
-    this.code = code;
     this.status = status;
-    this.retryable = retryable;
+    this.code = payload.code ?? "UNKNOWN_ERROR";
+    this.traceId = payload.trace_id;
+    this.fieldErrors = payload.field_errors;
   }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+export type TeacherSession = {
+  access_token: string;
+  expires_at: string;
+  session_id: string;
+  teacher_id: string;
+  display_name: string;
+  role: "TCH";
+};
 
-function joinUrl(path: string) {
-  return `${API_BASE_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+export type BootstrapClassroom = {
+  resource_id: string;
+  label: string;
+  status: string;
+  version?: number;
+  state_version?: number;
+  classroom_code?: string;
+  currency_name?: string;
+};
+
+export type TeacherBootstrap = {
+  user_id: string;
+  roles: string[];
+  classrooms: BootstrapClassroom[];
+  start_screen: string;
+};
+
+export type ClassroomServerState = {
+  configuration?: Record<string, unknown>;
+  modulesAndPolicies?: Record<string, unknown>;
+  rosterAndSalaries?: Record<string, unknown>;
+  failures: string[];
+};
+
+function makeHeaders(init: RequestInit, idempotencyKey?: string) {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
+  return headers;
 }
 
-// 액세스 토큰은 메모리에만 보관합니다. sessionStorage·localStorage에 저장하면
-// 페이지의 모든 스크립트가 읽을 수 있어 XSS에 그대로 노출됩니다.
-// 갱신 토큰은 클라이언트가 보관하지 않고 HttpOnly 쿠키로만 주고받습니다.
-let accessToken: string | null = null;
+async function parseResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let body: Record<string, any> = {};
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { error: { message: text } };
+    }
+  }
+  if (!response.ok) {
+    const error = body?.error ?? body;
+    throw new ApiError(response.status, {
+      code: error?.code,
+      message: error?.message,
+      trace_id: error?.trace_id ?? body?.meta?.trace_id,
+      field_errors: error?.field_errors
+    });
+  }
+  return ((body as ApiEnvelope<T>).data ?? body) as T;
+}
+
+async function refreshTeacherAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const response = await fetch(`${API_BASE_URL}/auth/token-refreshes`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID()
+        },
+        body: JSON.stringify({})
+      });
+      const refreshed = await parseResponse<{ access_token: string }>(response);
+      accessToken = refreshed.access_token;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+export async function apiRequest<T>(path: string, init: RequestInit = {}, allowRefresh = true): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const idempotencyKey = method === "GET" || method === "HEAD"
+    ? undefined
+    : new Headers(init.headers).get("Idempotency-Key") ?? crypto.randomUUID();
+
+  const sendOnce = async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(`${API_BASE_URL}${path}`, {
+        ...init,
+        credentials: "include",
+        headers: makeHeaders(init, idempotencyKey),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  const send = async () => {
+    try {
+      return await sendOnce();
+    } catch (error) {
+      if (error instanceof Error && ["AbortError", "TypeError"].includes(error.name)) return sendOnce();
+      throw error;
+    }
+  };
+
+  let response = await send();
+  if (response.status === 401 && allowRefresh && path !== "/auth/token-refreshes") {
+    await refreshTeacherAccessToken();
+    response = await send();
+  }
+  return parseResponse<T>(response);
+}
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -56,45 +167,70 @@ export function clearAccessToken() {
   accessToken = null;
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (!headers.has("Idempotency-Key") && init.method && init.method !== "GET") {
-    headers.set("Idempotency-Key", crypto.randomUUID());
-  }
-  if (accessToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
+export async function createTeacherSession(idToken: string) {
+  const session = await apiRequest<TeacherSession>("/auth/teacher-sessions", {
+    method: "POST",
+    body: JSON.stringify({ id_token: idToken })
+  }, false);
+  setAccessToken(session.access_token);
+  return session;
+}
 
-  const response = await fetch(joinUrl(path), {
-    ...init,
-    credentials: "include",
-    headers
-  });
-  const text = await response.text();
-  let parsed: ApiEnvelope<T> | ApiErrorEnvelope | null = null;
-  if (text) {
-    try {
-      parsed = JSON.parse(text) as ApiEnvelope<T> | ApiErrorEnvelope;
-    } catch {
-      throw new ApiError("서버 응답 형식을 확인할 수 없습니다.", "INVALID_RESPONSE", response.status);
-    }
-  }
+export async function restoreTeacherSession() {
+  await refreshTeacherAccessToken();
+  return getTeacherBootstrap(false);
+}
 
-  if (!response.ok) {
-    const body = parsed as ApiErrorEnvelope | null;
-    throw new ApiError(
-      body?.error?.message ?? "요청을 처리하지 못했습니다.",
-      body?.error?.code ?? "HTTP_ERROR",
-      response.status,
-      body?.error?.retryable ?? false
-    );
+export async function logoutTeacher() {
+  try {
+    await apiRequest("/auth/sessions/current", { method: "DELETE" }, false);
+  } finally {
+    clearAccessToken();
   }
+}
 
-  return (parsed as ApiEnvelope<T>).data;
+export async function getTeacherBootstrap(allowRefresh = true): Promise<TeacherBootstrap> {
+  try {
+    return await apiRequest<TeacherBootstrap>("/auth/bootstrap", {}, allowRefresh);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    const current = await apiRequest<{
+      user_id: string;
+      role: string;
+      classrooms: Array<{ classroom_id: string; classroom_code: string; role: string }>;
+    }>("/auth/me", {}, allowRefresh);
+    return {
+      user_id: current.user_id,
+      roles: [current.role, ...new Set(current.classrooms.map((classroom) => classroom.role))],
+      classrooms: current.classrooms.map((classroom) => ({
+        resource_id: classroom.classroom_id,
+        label: classroom.classroom_code,
+        status: "ACTIVE",
+        classroom_code: classroom.classroom_code
+      })),
+      start_screen: "classrooms"
+    };
+  }
+}
+
+export async function getClassroomServerState(classroomId: string): Promise<ClassroomServerState> {
+  const results = await Promise.allSettled([
+    apiRequest<Record<string, unknown>>(`/classrooms/${classroomId}/configuration`),
+    apiRequest<Record<string, unknown>>(`/classrooms/${classroomId}/modules-and-policies`),
+    apiRequest<Record<string, unknown>>(`/classrooms/${classroomId}/roster-and-salaries`)
+  ]);
+  const labels = ["학급 설정", "모듈·정책", "학생·급여"];
+  const failures = results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []);
+  if (failures.length === results.length) {
+    const rejected = results[0] as PromiseRejectedResult;
+    throw rejected.reason;
+  }
+  return {
+    configuration: results[0].status === "fulfilled" ? results[0].value : undefined,
+    modulesAndPolicies: results[1].status === "fulfilled" ? results[1].value : undefined,
+    rosterAndSalaries: results[2].status === "fulfilled" ? results[2].value : undefined,
+    failures
+  };
 }
 
 export type CourseSize = "ONE_SESSION" | "ONE_WEEK" | "ONE_MONTH" | "SEMESTER";
@@ -185,7 +321,6 @@ export const MODULE_DEFINITIONS = [
 
 export type ModuleCode = typeof MODULE_DEFINITIONS[number]["code"];
 
-// 활성화하면 학생 화면에 바로 노출되는 모듈입니다. 나머지는 교사 설정 단계를 더 거칩니다.
 export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
   "상점",
   "캐릭터",
