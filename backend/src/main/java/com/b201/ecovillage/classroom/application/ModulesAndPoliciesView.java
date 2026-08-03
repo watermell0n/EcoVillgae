@@ -25,7 +25,8 @@ public record ModulesAndPoliciesView(
         String status,
         int version,
         long stateVersion,
-        String policyArea
+        String policyArea,
+        Map<String, Object> values
     ) {
     }
 }

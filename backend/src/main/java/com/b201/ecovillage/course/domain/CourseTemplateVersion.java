@@ -98,8 +98,16 @@ public class CourseTemplateVersion {
         return id;
     }
 
+    public UUID getCourseTemplateId() {
+        return courseTemplateId;
+    }
+
     public int getVersion() {
         return version;
+    }
+
+    public boolean isPublished() {
+        return "PUBLISHED".equals(status);
     }
 
     public Map<String, Object> getDifficultyProfile() {

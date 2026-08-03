@@ -2,11 +2,21 @@ package com.b201.ecovillage.classroom.application;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
+
+import com.b201.ecovillage.identity.domain.CourseSize;
 
 public record ClassroomConfigurationResult(
     UUID classroomId,
     String classroomCode,
     String currencyName,
+    int grade,
+    CourseSize courseSize,
+    LocalDate startsOn,
+    LocalDate endsOn,
+    UUID recommendedCourseId,
+    String difficultyProfile,
+    long stateVersion,
     List<String> moduleCodes,
     List<ScheduleResult> autonomousSchedules,
     List<PolicyVersionResult> policyVersions

@@ -113,6 +113,10 @@ public class CourseTemplate {
         return courseSize;
     }
 
+    public boolean isPublished() {
+        return "PUBLISHED".equals(status);
+    }
+
     private static String required(String value, int maxLength, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");
