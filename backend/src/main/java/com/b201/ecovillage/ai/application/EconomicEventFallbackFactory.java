@@ -71,9 +71,14 @@ public class EconomicEventFallbackFactory {
             context.scenarioVersionId(),
             context.assetId(),
             context.priceStepId(),
+            context.targetPriceStepId(),
             context.assetName(),
             context.assetSymbol(),
-            context.currentStepIndex()
+            context.investmentMode(),
+            context.scenarioSource(),
+            context.settlementRule(),
+            context.currentStepIndex(),
+            context.targetStepIndex()
         );
     }
 

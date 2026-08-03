@@ -170,6 +170,7 @@ public class ModuleActivationService {
                 )
                 .orElse(null);
         Map<String, Object> initialValues = copyValues(command.initialPolicyValues());
+        String investmentMode = investmentMode(moduleCode, initialValues);
         if (
             INITIAL_POLICY_MODULES.contains(moduleCode)
                 && currentPolicy == null
@@ -253,6 +254,9 @@ public class ModuleActivationService {
             moduleConfig.put("policy_area", appliedPolicy.getPolicyArea());
             moduleConfig.put("policy_version", appliedPolicy.getVersion());
             moduleConfig.put("policy_version_id", appliedPolicy.getId().toString());
+        }
+        if (investmentMode != null) {
+            moduleConfig.put("investment_mode", investmentMode);
         }
         module.activate(moduleConfig, now);
         classroom.touch(now);
@@ -611,6 +615,27 @@ public class ModuleActivationService {
             case "LOAN" -> "LOAN_RATE";
             default -> null;
         };
+    }
+
+    private static String investmentMode(
+        String moduleCode,
+        Map<String, Object> initialValues
+    ) {
+        if (!"INVESTMENT".equals(moduleCode)) {
+            return null;
+        }
+        Object raw = initialValues.getOrDefault("investment_mode", "LONG_TERM");
+        String normalized = raw == null
+            ? ""
+            : raw.toString().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("SHORT_TERM", "LONG_TERM").contains(normalized)) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_INVESTMENT_MODE",
+                "investment_mode must be SHORT_TERM or LONG_TERM."
+            );
+        }
+        return normalized;
     }
 
     private static boolean isSalaryModule(String moduleCode) {

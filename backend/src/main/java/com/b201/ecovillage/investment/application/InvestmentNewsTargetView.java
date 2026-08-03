@@ -1,6 +1,7 @@
 package com.b201.ecovillage.investment.application;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,9 +15,17 @@ public record InvestmentNewsTargetView(
     UUID scenarioVersionId,
     UUID assetId,
     UUID priceStepId,
+    UUID targetPriceStepId,
     String assetName,
     String assetSymbol,
+    String fictionalCompanyProfile,
+    String investmentMode,
+    String scenarioSource,
+    String settlementRule,
     int currentStepIndex,
+    int targetStepIndex,
+    String targetDirection,
+    HistoricalIndexReference historicalIndexReference,
     List<PriceFact> publicPriceFacts
 ) {
 
@@ -29,6 +38,16 @@ public record InvestmentNewsTargetView(
         long price,
         int changeRateBps,
         Instant revealedAt
+    ) {
+    }
+
+    public record HistoricalIndexReference(
+        String seriesCode,
+        String eventName,
+        String sourceName,
+        String sourceUrl,
+        LocalDate periodStart,
+        LocalDate periodEnd
     ) {
     }
 }

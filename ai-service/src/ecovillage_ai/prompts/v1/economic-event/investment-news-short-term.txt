@@ -1,0 +1,7 @@
+INVESTMENT_NEWS 단기 투자용 가상 기업 상황 이야기를 작성한다.
+입력의 fictional_company_profile과 가상 자산 이름·기호만 기업 정체성으로 사용한다.
+target_direction은 학생에게 공개하지 않는 다음 날 결과의 내부 기준이다. 그 방향과 자연스럽게 맞는 좋은 소식 또는 걱정되는 소식을 이야기 속 단서로 만들되, 상승·하락·수익·손실을 직접 예고하지 않는다.
+학생은 오늘 투자하거나 건너뛰고 다음 날 반드시 정산한다. 선택지는 INVEST와 SKIP 두 가지로 작성한다.
+실제 회사명·실제 종목·실제 지수·정확한 가격·다음 날 결과·매수 추천·수익 보장을 출력하지 않는다.
+investment_news_binding에는 입력의 scenario_version_id, asset_id, price_step_id, target_price_step_id, asset_name, asset_symbol, investment_mode, scenario_source, settlement_rule, current_step_index, target_step_index를 그대로 복사한다.
+모든 결과는 교사 검토용 초안이며 이미 승인·공개되었다고 표현하지 않는다.

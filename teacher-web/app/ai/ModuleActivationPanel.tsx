@@ -65,6 +65,7 @@ export function ModuleActivationPanel({
 }>) {
   const [prechecks, setPrechecks] = useState<Record<string, SetupPrecheckResponse>>({});
   const [editedValues, setEditedValues] = useState<Record<string, Record<string, string>>>({});
+  const [investmentModes, setInvestmentModes] = useState<Record<string, "SHORT_TERM" | "LONG_TERM">>({});
   const [busyCode, setBusyCode] = useState("");
   const [message, setMessage] = useState("");
 
@@ -163,6 +164,8 @@ export function ModuleActivationPanel({
 
   async function activateWithoutPolicy(module: AiModuleRow) {
     const code = module.code!;
+    const investmentMode = investmentModes[code]
+      ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
     const prerequisites = missingPrerequisites(module);
     if (prerequisites.length > 0) {
       setMessage(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`);
@@ -181,7 +184,9 @@ export function ModuleActivationPanel({
             ui_action_id: "UIA-MOD-001",
             client_occurred_at: new Date().toISOString(),
             confirm_prerequisites: true,
-            initial_policy_values: {},
+            initial_policy_values: code === "INVESTMENT"
+              ? { investment_mode: investmentMode }
+              : {},
             recommendation_action_ids: []
           })
         }
@@ -234,7 +239,7 @@ export function ModuleActivationPanel({
   return (
     <PlainSection
       title="선택 모듈 활성화"
-      description="개설 때 선택한 모듈만 표시합니다. 급여·소득세·예금·대출은 AI 점검 후 교사가 값을 확정해야 활성화됩니다."
+      description="개설 때 선택한 모듈만 표시합니다. 투자 모듈은 단기 또는 장기 운영 방식을 고른 뒤 활성화합니다."
     >
       {!canManage ? (
         <div className="inline-notice"><AlertTriangle size={17} /> 모듈 활성화는 학급 소유 교사만 실행할 수 있어요.</div>
@@ -252,6 +257,8 @@ export function ModuleActivationPanel({
           const isActive = module.status === ACTIVE_STATUS;
           const busy = busyCode === code;
           const blocked = !canManage || busy || prerequisites.length > 0;
+          const investmentMode = investmentModes[code]
+            ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
           return (
             <article className="module-activation-card" key={code}>
               <header>
@@ -261,6 +268,32 @@ export function ModuleActivationPanel({
                 </b>
               </header>
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
+              {code === "INVESTMENT" && !isActive ? (
+                <label className="investment-mode-selector">
+                  투자 운영 방식
+                  <select
+                    value={investmentMode}
+                    disabled={blocked}
+                    onChange={(event) => setInvestmentModes((current) => ({
+                      ...current,
+                      [code]: event.target.value as "SHORT_TERM" | "LONG_TERM"
+                    }))}
+                  >
+                    <option value="SHORT_TERM">단기 투자 · 오늘 투자하고 다음 날 의무 정산</option>
+                    <option value="LONG_TERM">장기 투자 · 매일 조정하고 마지막 날 최종 정산</option>
+                  </select>
+                  <small>
+                    {investmentMode === "SHORT_TERM"
+                      ? "AI가 다음 날 결과에 맞는 가상 기업 단서 이야기를 만듭니다."
+                      : "역사 지수 흐름을 우선 사용하고, 불가능하면 AI 생성 가격 흐름을 사용합니다."}
+                  </small>
+                </label>
+              ) : null}
+              {code === "INVESTMENT" && isActive ? (
+                <p className="inline-notice">
+                  운영 방식: {investmentMode === "SHORT_TERM" ? "단기 투자" : "장기 투자"}
+                </p>
+              ) : null}
               {!isActive && needsPolicy ? (
                 <button type="button" disabled={blocked} onClick={() => void requestPrecheck(module)}>
                   {busy ? "점검하는 중" : result ? "추천 다시 확인" : "AI 추천 확인"}

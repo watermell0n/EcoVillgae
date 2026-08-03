@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
@@ -152,6 +152,27 @@ class InterestRateScope(StrEnum):
 class EventSourceType(StrEnum):
     TEACHER_REQUEST = "TEACHER_REQUEST"
     MONITOR_RECOMMENDATION = "MONITOR_RECOMMENDATION"
+
+
+class InvestmentMode(StrEnum):
+    SHORT_TERM = "SHORT_TERM"
+    LONG_TERM = "LONG_TERM"
+
+
+class InvestmentScenarioSource(StrEnum):
+    AI_GENERATED = "AI_GENERATED"
+    HISTORICAL_INDEX = "HISTORICAL_INDEX"
+
+
+class InvestmentSettlementRule(StrEnum):
+    NEXT_DAY_MANDATORY = "NEXT_DAY_MANDATORY"
+    COURSE_END_FINAL = "COURSE_END_FINAL"
+
+
+class InvestmentTargetDirection(StrEnum):
+    RISE = "RISE"
+    FALL = "FALL"
+    FLAT = "FLAT"
 
 
 class QuizCategory(StrEnum):
@@ -544,13 +565,36 @@ class InvestmentPriceFact(ContractModel):
         return value
 
 
+class HistoricalIndexReference(ContractModel):
+    series_code: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9_.-]{1,39}$")]
+    event_name: Annotated[str, Field(min_length=1, max_length=120)]
+    source_name: Annotated[str, Field(min_length=1, max_length=120)]
+    source_url: Annotated[str, Field(min_length=1, max_length=500)]
+    period_start: date
+    period_end: date
+
+    @model_validator(mode="after")
+    def validate_period(self) -> HistoricalIndexReference:
+        if self.period_start >= self.period_end:
+            raise ValueError("역사 지수 기준 구간은 시작일이 종료일보다 빨라야 합니다.")
+        return self
+
+
 class InvestmentNewsContext(ContractModel):
     scenario_version_id: UUID
     asset_id: UUID
     price_step_id: UUID
+    target_price_step_id: UUID
     asset_name: Annotated[str, Field(min_length=1, max_length=100)]
     asset_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{1,9}$")]
+    fictional_company_profile: Annotated[str, Field(min_length=1, max_length=1000)]
+    investment_mode: InvestmentMode
+    scenario_source: InvestmentScenarioSource
+    settlement_rule: InvestmentSettlementRule
     current_step_index: Annotated[StrictInt, Field(ge=1)]
+    target_step_index: Annotated[StrictInt, Field(ge=2)]
+    target_direction: InvestmentTargetDirection
+    historical_index_reference: HistoricalIndexReference | None = None
     public_price_facts: Annotated[
         list[InvestmentPriceFact], Field(min_length=1, max_length=100)
     ]
@@ -572,6 +616,30 @@ class InvestmentNewsContext(ContractModel):
             for previous, current in zip(revealed_times, revealed_times[1:], strict=False)
         ):
             raise ValueError("공개 가격 사실의 시각은 단계 순서대로 증가해야 합니다.")
+        if self.target_step_index != self.current_step_index + 1:
+            raise ValueError("이야기의 목표 단계는 현재 공개 단계의 바로 다음 단계여야 합니다.")
+        if self.target_price_step_id == self.price_step_id:
+            raise ValueError("현재 공개 단계와 숨은 목표 단계는 서로 달라야 합니다.")
+        if self.investment_mode is InvestmentMode.SHORT_TERM:
+            if self.settlement_rule is not InvestmentSettlementRule.NEXT_DAY_MANDATORY:
+                raise ValueError("단기 투자는 다음 날 의무 정산 규칙을 사용해야 합니다.")
+            if self.scenario_source is not InvestmentScenarioSource.AI_GENERATED:
+                raise ValueError("단기 투자는 독립적인 AI 생성 시나리오를 사용해야 합니다.")
+            if self.historical_index_reference is not None:
+                raise ValueError("단기 투자에는 역사 지수 기준을 지정할 수 없습니다.")
+        else:
+            if self.settlement_rule is not InvestmentSettlementRule.COURSE_END_FINAL:
+                raise ValueError("장기 투자는 서비스 종료일 최종 정산 규칙을 사용해야 합니다.")
+            if (
+                self.scenario_source is InvestmentScenarioSource.HISTORICAL_INDEX
+                and self.historical_index_reference is None
+            ):
+                raise ValueError("역사 지수 장기 시나리오에는 출처와 기준 구간이 필요합니다.")
+            if (
+                self.scenario_source is InvestmentScenarioSource.AI_GENERATED
+                and self.historical_index_reference is not None
+            ):
+                raise ValueError("AI 생성 장기 시나리오에는 역사 지수 기준을 둘 수 없습니다.")
         return self
 
 
@@ -924,9 +992,14 @@ class InvestmentNewsBinding(ContractModel):
     scenario_version_id: UUID
     asset_id: UUID
     price_step_id: UUID
+    target_price_step_id: UUID
     asset_name: Annotated[str, Field(min_length=1, max_length=100)]
     asset_symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{1,9}$")]
+    investment_mode: InvestmentMode
+    scenario_source: InvestmentScenarioSource
+    settlement_rule: InvestmentSettlementRule
     current_step_index: Annotated[StrictInt, Field(ge=1)]
+    target_step_index: Annotated[StrictInt, Field(ge=2)]
 
 
 class EconomicEventOutput(ContractModel):

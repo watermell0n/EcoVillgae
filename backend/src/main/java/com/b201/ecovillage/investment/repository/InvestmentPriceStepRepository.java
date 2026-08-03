@@ -1,6 +1,7 @@
 package com.b201.ecovillage.investment.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,4 +18,10 @@ public interface InvestmentPriceStepRepository extends JpaRepository<InvestmentP
             UUID classroomId,
             UUID investmentAssetId
         );
+
+    Optional<InvestmentPriceStep> findByClassroomIdAndInvestmentAssetIdAndStepNumber(
+        UUID classroomId,
+        UUID investmentAssetId,
+        int stepNumber
+    );
 }

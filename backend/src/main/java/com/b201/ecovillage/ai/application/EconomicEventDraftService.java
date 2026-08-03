@@ -394,9 +394,14 @@ public class EconomicEventDraftService {
         boolean same = context.scenarioVersionId().equals(binding.scenarioVersionId())
             && context.assetId().equals(binding.assetId())
             && context.priceStepId().equals(binding.priceStepId())
+            && context.targetPriceStepId().equals(binding.targetPriceStepId())
             && context.assetName().equals(binding.assetName())
             && context.assetSymbol().equals(binding.assetSymbol())
-            && context.currentStepIndex() == binding.currentStepIndex();
+            && context.investmentMode() == binding.investmentMode()
+            && context.scenarioSource() == binding.scenarioSource()
+            && context.settlementRule() == binding.settlementRule()
+            && context.currentStepIndex() == binding.currentStepIndex()
+            && context.targetStepIndex() == binding.targetStepIndex();
         if (!same) {
             throw new AiServiceCallException(
                 "AI_OUTPUT_CONTRACT_VIOLATION",
@@ -421,7 +426,22 @@ public class EconomicEventDraftService {
                 "The classroom has no revealed investment price step to attach news to."
             );
         }
-        return targets.stream()
+        String configuredMode = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
+            .map(ClassroomModule::getConfig)
+            .map(config -> config.getOrDefault("investment_mode", "LONG_TERM").toString())
+            .orElse("LONG_TERM");
+        List<InvestmentNewsTargetView> modeTargets = targets.stream()
+            .filter(target -> configuredMode.equals(target.investmentMode()))
+            .toList();
+        if (modeTargets.isEmpty()) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "INVESTMENT_MODE_MISMATCH",
+                "The active investment scenario does not match the teacher-selected mode."
+            );
+        }
+        return modeTargets.stream()
             .filter(target -> !draftRepository
                 .existsByClassroomIdAndInvestmentPriceStepIdAndStatusNot(
                     classroomId,
@@ -446,9 +466,17 @@ public class EconomicEventDraftService {
             target.scenarioVersionId(),
             target.assetId(),
             target.priceStepId(),
+            target.targetPriceStepId(),
             target.assetName(),
             target.assetSymbol(),
+            target.fictionalCompanyProfile(),
+            EconomicEventContract.InvestmentMode.valueOf(target.investmentMode()),
+            EconomicEventContract.InvestmentScenarioSource.valueOf(target.scenarioSource()),
+            EconomicEventContract.InvestmentSettlementRule.valueOf(target.settlementRule()),
             target.currentStepIndex(),
+            target.targetStepIndex(),
+            EconomicEventContract.InvestmentTargetDirection.valueOf(target.targetDirection()),
+            historicalReference(target.historicalIndexReference()),
             target.publicPriceFacts().stream()
                 .map(fact -> new EconomicEventContract.InvestmentPriceFact(
                     fact.stepIndex(),
@@ -457,6 +485,22 @@ public class EconomicEventDraftService {
                     fact.revealedAt()
                 ))
                 .toList()
+        );
+    }
+
+    private static EconomicEventContract.HistoricalIndexReference historicalReference(
+        InvestmentNewsTargetView.HistoricalIndexReference reference
+    ) {
+        if (reference == null) {
+            return null;
+        }
+        return new EconomicEventContract.HistoricalIndexReference(
+            reference.seriesCode(),
+            reference.eventName(),
+            reference.sourceName(),
+            reference.sourceUrl(),
+            reference.periodStart(),
+            reference.periodEnd()
         );
     }
 

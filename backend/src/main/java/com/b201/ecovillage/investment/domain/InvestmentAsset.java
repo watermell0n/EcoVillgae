@@ -44,6 +44,9 @@ public class InvestmentAsset {
     @Column(nullable = false, length = 120)
     private String name;
 
+    @Column(name = "fictional_company_profile", nullable = false, length = 1000)
+    private String fictionalCompanyProfile;
+
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 
@@ -75,18 +78,52 @@ public class InvestmentAsset {
         int displayOrder,
         Instant now
     ) {
+        return active(
+            id,
+            classroomId,
+            scenarioVersionId,
+            symbol,
+            name,
+            name + "은 학급 투자 활동을 위해 만든 가상 기업입니다.",
+            displayOrder,
+            now
+        );
+    }
+
+    public static InvestmentAsset active(
+        UUID id,
+        UUID classroomId,
+        UUID scenarioVersionId,
+        String symbol,
+        String name,
+        String fictionalCompanyProfile,
+        int displayOrder,
+        Instant now
+    ) {
         InvestmentAsset asset = new InvestmentAsset();
         asset.id = Objects.requireNonNull(id);
         asset.classroomId = Objects.requireNonNull(classroomId);
         asset.scenarioVersionId = Objects.requireNonNull(scenarioVersionId);
         asset.symbol = requireContractSymbol(symbol);
         asset.name = requireContractName(name);
+        asset.fictionalCompanyProfile = requireCompanyProfile(fictionalCompanyProfile);
         asset.displayOrder = displayOrder;
         asset.status = ACTIVE;
         asset.statusChangedAt = now;
         asset.createdAt = now;
         asset.updatedAt = now;
         return asset;
+    }
+
+    private static String requireCompanyProfile(String value) {
+        Objects.requireNonNull(value, "fictionalCompanyProfile must not be null");
+        String normalized = value.trim();
+        if (normalized.isEmpty() || normalized.length() > 1000) {
+            throw new IllegalArgumentException(
+                "fictional company profile must be 1 to 1000 characters"
+            );
+        }
+        return normalized;
     }
 
     private static String requireContractName(String value) {
@@ -129,6 +166,10 @@ public class InvestmentAsset {
 
     public String getName() {
         return name;
+    }
+
+    public String getFictionalCompanyProfile() {
+        return fictionalCompanyProfile;
     }
 
     public int getDisplayOrder() {

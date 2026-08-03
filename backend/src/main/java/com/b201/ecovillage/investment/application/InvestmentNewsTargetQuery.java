@@ -11,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.investment.domain.InvestmentAsset;
 import com.b201.ecovillage.investment.domain.InvestmentMarket;
 import com.b201.ecovillage.investment.domain.InvestmentPriceStep;
+import com.b201.ecovillage.investment.domain.InvestmentScenarioVersion;
 import com.b201.ecovillage.investment.repository.InvestmentAssetRepository;
 import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
 import com.b201.ecovillage.investment.repository.InvestmentPriceStepRepository;
+import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionRepository;
 
 /**
  * AI 투자 뉴스가 쓸 수 있는 공개 시세만 골라 조회하는 진입점이다.
@@ -29,15 +31,18 @@ public class InvestmentNewsTargetQuery {
     private final InvestmentMarketRepository marketRepository;
     private final InvestmentAssetRepository assetRepository;
     private final InvestmentPriceStepRepository priceStepRepository;
+    private final InvestmentScenarioVersionRepository scenarioRepository;
 
     public InvestmentNewsTargetQuery(
         InvestmentMarketRepository marketRepository,
         InvestmentAssetRepository assetRepository,
-        InvestmentPriceStepRepository priceStepRepository
+        InvestmentPriceStepRepository priceStepRepository,
+        InvestmentScenarioVersionRepository scenarioRepository
     ) {
         this.marketRepository = marketRepository;
         this.assetRepository = assetRepository;
         this.priceStepRepository = priceStepRepository;
+        this.scenarioRepository = scenarioRepository;
     }
 
     /**
@@ -55,6 +60,13 @@ public class InvestmentNewsTargetQuery {
         if (market == null) {
             return List.of();
         }
+        InvestmentScenarioVersion scenario = scenarioRepository
+            .findByClassroomIdAndId(classroomId, market.getActiveScenarioVersionId())
+            .filter(candidate -> InvestmentScenarioVersion.PUBLISHED.equals(candidate.getStatus()))
+            .orElse(null);
+        if (scenario == null) {
+            return List.of();
+        }
         List<InvestmentNewsTargetView> targets = new ArrayList<>();
         for (InvestmentAsset asset : assetRepository
             .findAllByClassroomIdAndScenarioVersionIdAndStatusOrderByDisplayOrder(
@@ -62,7 +74,7 @@ public class InvestmentNewsTargetQuery {
                 market.getActiveScenarioVersionId(),
                 InvestmentAsset.ACTIVE
             )) {
-            toTarget(classroomId, market, asset).ifPresent(targets::add);
+            toTarget(classroomId, market, scenario, asset).ifPresent(targets::add);
         }
         return List.copyOf(targets);
     }
@@ -82,15 +94,23 @@ public class InvestmentNewsTargetQuery {
         if (market == null) {
             return Optional.empty();
         }
+        InvestmentScenarioVersion scenario = scenarioRepository
+            .findByClassroomIdAndId(classroomId, market.getActiveScenarioVersionId())
+            .filter(candidate -> InvestmentScenarioVersion.PUBLISHED.equals(candidate.getStatus()))
+            .orElse(null);
+        if (scenario == null) {
+            return Optional.empty();
+        }
         return assetRepository.findByClassroomIdAndId(classroomId, assetId)
             .filter(InvestmentAsset::isActive)
             .filter(asset -> asset.getScenarioVersionId().equals(market.getActiveScenarioVersionId()))
-            .flatMap(asset -> toTarget(classroomId, market, asset));
+            .flatMap(asset -> toTarget(classroomId, market, scenario, asset));
     }
 
     private Optional<InvestmentNewsTargetView> toTarget(
         UUID classroomId,
         InvestmentMarket market,
+        InvestmentScenarioVersion scenario,
         InvestmentAsset asset
     ) {
         List<InvestmentPriceStep> revealed = priceStepRepository
@@ -102,6 +122,17 @@ public class InvestmentNewsTargetQuery {
             return Optional.empty();
         }
         InvestmentPriceStep currentStep = revealed.get(revealed.size() - 1);
+        InvestmentPriceStep targetStep = priceStepRepository
+            .findByClassroomIdAndInvestmentAssetIdAndStepNumber(
+                classroomId,
+                asset.getId(),
+                market.getCurrentStep() + 1
+            )
+            .filter(step -> !step.isRevealed())
+            .orElse(null);
+        if (targetStep == null) {
+            return Optional.empty();
+        }
         List<InvestmentNewsTargetView.PriceFact> facts = revealed.stream()
             .map(step -> new InvestmentNewsTargetView.PriceFact(
                 step.getStepNumber(),
@@ -114,11 +145,47 @@ public class InvestmentNewsTargetQuery {
             market.getActiveScenarioVersionId(),
             asset.getId(),
             currentStep.getId(),
+            targetStep.getId(),
             asset.getName(),
             asset.getSymbol(),
+            asset.getFictionalCompanyProfile(),
+            scenario.getInvestmentMode().name(),
+            scenario.getScenarioSource().name(),
+            scenario.getInvestmentMode().settlementRule(),
             currentStep.getStepNumber(),
+            targetStep.getStepNumber(),
+            direction(targetStep.getChangeRateBps()),
+            historicalReference(scenario),
             facts
         ));
+    }
+
+    private static String direction(int changeRateBps) {
+        if (changeRateBps > 0) {
+            return "RISE";
+        }
+        if (changeRateBps < 0) {
+            return "FALL";
+        }
+        return "FLAT";
+    }
+
+    private static InvestmentNewsTargetView.HistoricalIndexReference historicalReference(
+        InvestmentScenarioVersion scenario
+    ) {
+        com.b201.ecovillage.investment.domain.HistoricalIndexReference reference =
+            scenario.getHistoricalIndexReference();
+        if (reference == null) {
+            return null;
+        }
+        return new InvestmentNewsTargetView.HistoricalIndexReference(
+            reference.seriesCode(),
+            reference.eventName(),
+            reference.sourceName(),
+            reference.sourceUrl(),
+            reference.periodStart(),
+            reference.periodEnd()
+        );
     }
 
     /**

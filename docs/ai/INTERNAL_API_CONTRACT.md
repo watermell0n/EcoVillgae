@@ -242,13 +242,15 @@ FastAPI 출력에는 효과 수치나 정책 변경 명령을 포함하지 않�
 `source_evidence_codes`가 반드시 있어야 합니다. 출력은 `source_type`, 원본 제안 ID,
 근거 코드와 `interest_rate_scope`를 그대로 보존하고 항상 두 개 이상의 선택지를 반환합니다.
 
-`INVESTMENT_NEWS`는 별도 기업을 생성하지 않습니다. 입력에 있는
-`scenario_version_id`, `asset_id`, `price_step_id`, 가상 자산 이름·기호,
-`current_step_index`와 목표 단계까지의 `public_price_facts`만 사용합니다. 출력의
-`investment_news_binding`은 같은 세 ID·자산명·기호·단계를 반환하며 제목 또는 본문에도
-입력 자산을 명시합니다. 다음 단계 가격, 기업·재무정보, 수익 예측과 매매 추천은 만들 수
-없습니다. 시장 시작 전 단계별 초안은 Spring이 목표 단계별 prefix 입력으로 같은 API를
-반복 호출하며, 승인·저장·학생 공개는 이 생성 계약 밖에서 처리합니다. 상세 검증과
+`INVESTMENT_NEWS`는 `SHORT_TERM`과 `LONG_TERM`을 서로 다른 정적 프롬프트로 처리합니다.
+입력에는 `scenario_version_id`, `asset_id`, 현재 공개 단계의 `price_step_id`와 숨은 다음 결과의
+`target_price_step_id`, `current_step_index`, `public_price_facts`, 모드,
+정산 규칙, 다음 방향, 제품이 정한 가상 기업 프로필을 함께 전달합니다. 장기
+`HISTORICAL_INDEX` 시나리오는 출처·사건·기간 메타데이터도 전달하고, 자료가 없으면
+`AI_GENERATED`로 명시적으로 폴백합니다. 출력의 `investment_news_binding`은 방향을 제외한
+ID·자산명·기호·모드·단계를 그대로 반환합니다. AI는 다음 단계 방향과 맞는 단서를 만들 수 있지만
+정확한 가격, 상승·하락 직접 예고, 실제 회사·지수명, 수익 예측과 매매 추천은 출력할 수 없습니다.
+승인·저장·학생 공개와 모드별 정산은 이 생성 계약 밖에서 Spring이 처리합니다. 상세 검증과
 실행법은 [가상 투자 단계별 AI 뉴스](INVESTMENT_NEWS.md)를 따릅니다.
 
 ### 6.4 퀴즈 초안
@@ -349,9 +351,11 @@ OpenAPI, Pydantic 모델과 로컬 fixture에 반영했습니다. Spring DTO·DB
 
 - 경제 이벤트 입력에 `source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION`과 선택적인
   `source_proposal_id`를 추가합니다.
-- `INVESTMENT_NEWS`에는 `scenario_version_id`, `asset_id`, `price_step_id`, 자산명·기호와
-  목표 단계까지의 가격 사실을 전달합니다. 목표 단계 이후 가격과 다른 뉴스는 전달하지 않습니다.
-- FastAPI는 기업·재무정보·가격·수익률을 생성하지 않고 연결된 단계의 제목·뉴스 본문·
-  교사용 설명과 입력을 그대로 보존한 연결 정보를 반환합니다.
-- 시장 시작 전 단계별 생성 작업, 교사 승인 상태 저장과 학생 공개 시점 제어는 Spring
+- `INVESTMENT_NEWS`에는 현재 단계와 숨은 바로 다음 단계의 ID, `SHORT_TERM|LONG_TERM`, 정산 규칙,
+  숨은 방향, 가상 기업 프로필과 현재까지 공개된 가격 사실을 전달합니다.
+- 장기 `HISTORICAL_INDEX`는 제품이 승인한 지수 출처·사건·기간을 고정하며, 사용 불가 시
+  `AI_GENERATED` 가격 경로로 폴백합니다.
+- FastAPI는 모드별 전용 프롬프트로 단서 이야기를 만들고, 가격·방향·실제 회사·지수명·수익률을
+  학생 문구에 노출하지 않으며 입력을 그대로 보존한 연결 정보를 반환합니다.
+- 교사 승인, 현재 단계 이야기 공개, 단기 다음 날 의무 정산, 장기 종료일 최종 정산은 Spring
   통합 단계의 책임입니다.

@@ -5136,6 +5136,33 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "investment_mode",
+            "required": true,
+            "type": "string",
+            "target": "service_input.investment_mode",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "scenario_source",
+            "required": true,
+            "type": "string",
+            "target": "service_input.scenario_source",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "historical_index_reference",
+            "required": false,
+            "type": "object",
+            "target": "service_input.historical_index_reference",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "assets",
             "required": true,
             "type": "array",

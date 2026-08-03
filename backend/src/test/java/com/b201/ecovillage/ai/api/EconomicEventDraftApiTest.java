@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.persistence.EntityManager;
@@ -46,8 +47,11 @@ import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.investment.domain.InvestmentAsset;
+import com.b201.ecovillage.investment.domain.HistoricalIndexReference;
 import com.b201.ecovillage.investment.domain.InvestmentMarket;
+import com.b201.ecovillage.investment.domain.InvestmentMode;
 import com.b201.ecovillage.investment.domain.InvestmentPriceStep;
+import com.b201.ecovillage.investment.domain.InvestmentScenarioSource;
 import com.b201.ecovillage.investment.domain.InvestmentScenarioVersion;
 import com.b201.ecovillage.investment.repository.InvestmentAssetRepository;
 import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
@@ -159,6 +163,16 @@ class EconomicEventDraftApiTest {
             marketId,
             1,
             "기본 시나리오",
+            InvestmentMode.LONG_TERM,
+            InvestmentScenarioSource.HISTORICAL_INDEX,
+            new HistoricalIndexReference(
+                "SP500",
+                "급격한 시장 충격과 회복 구간",
+                "Federal Reserve Bank of St. Louis FRED",
+                "https://fred.stlouisfed.org/series/SP500",
+                LocalDate.parse("2020-02-19"),
+                LocalDate.parse("2020-08-18")
+            ),
             NOW
         ));
         assetRepository.save(InvestmentAsset.active(
@@ -167,6 +181,7 @@ class EconomicEventDraftApiTest {
             scenarioId,
             "ECOCORP",
             "에코마을 상사",
+            "친환경 생활용품을 만드는 가상의 마을 기업",
             0,
             NOW
         ));
@@ -203,13 +218,17 @@ class EconomicEventDraftApiTest {
     }
 
     private void activateModule(String moduleCode) {
+        activateModule(moduleCode, Map.of());
+    }
+
+    private void activateModule(String moduleCode, Map<String, Object> config) {
         ClassroomModule module = ClassroomModule.disabled(
             UUID.randomUUID(),
             classroomId,
             moduleCode,
             NOW
         );
-        module.activate(java.util.Map.of(), NOW);
+        module.activate(config, NOW);
         moduleRepository.save(module);
         entityManager.flush();
     }
@@ -301,6 +320,14 @@ class EconomicEventDraftApiTest {
             aiClient.lastRequest.payload().investmentNewsContext();
         assertNotNull(context, "투자 문맥이 AI에 전달된다.");
         assertEquals(3, context.currentStepIndex());
+        assertEquals(4, context.targetStepIndex());
+        assertEquals(EconomicEventContract.InvestmentTargetDirection.RISE, context.targetDirection());
+        assertEquals(EconomicEventContract.InvestmentMode.LONG_TERM, context.investmentMode());
+        assertEquals(
+            EconomicEventContract.InvestmentScenarioSource.HISTORICAL_INDEX,
+            context.scenarioSource()
+        );
+        assertEquals("SP500", context.historicalIndexReference().seriesCode());
         assertEquals("ECOCORP", context.assetSymbol());
         // 뉴스가 학생이 이미 본 시세와 어긋나지 않도록 1단계부터 현재까지 전부 넘긴다.
         assertEquals(
@@ -336,6 +363,32 @@ class EconomicEventDraftApiTest {
         mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_STEP_BINDING"));
+
+        assertEquals(0, aiClient.calls);
+    }
+
+    @Test
+    void rejectsInvestmentNewsWhenCurrentStepIsTheFinalSettlementStep() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(4);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_STEP_BINDING"));
+
+        assertEquals(0, aiClient.calls);
+    }
+
+    @Test
+    void rejectsScenarioThatDoesNotMatchTeacherSelectedInvestmentMode() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT", Map.of("investment_mode", "SHORT_TERM"));
+        openInvestmentMarket(1);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("INVESTMENT_MODE_MISMATCH"));
 
         assertEquals(0, aiClient.calls);
     }
@@ -508,9 +561,14 @@ class EconomicEventDraftApiTest {
                             UUID.randomUUID(),
                             UUID.randomUUID(),
                             UUID.randomUUID(),
+                            UUID.randomUUID(),
                             "몰래 바꾼 종목",
                             "HACKED",
-                            99
+                            EconomicEventContract.InvestmentMode.SHORT_TERM,
+                            EconomicEventContract.InvestmentScenarioSource.AI_GENERATED,
+                            EconomicEventContract.InvestmentSettlementRule.NEXT_DAY_MANDATORY,
+                            99,
+                            100
                         )
                         : binding(payload.investmentNewsContext())
                 )
@@ -527,9 +585,14 @@ class EconomicEventDraftApiTest {
                 context.scenarioVersionId(),
                 context.assetId(),
                 context.priceStepId(),
+                context.targetPriceStepId(),
                 context.assetName(),
                 context.assetSymbol(),
-                context.currentStepIndex()
+                context.investmentMode(),
+                context.scenarioSource(),
+                context.settlementRule(),
+                context.currentStepIndex(),
+                context.targetStepIndex()
             );
         }
     }

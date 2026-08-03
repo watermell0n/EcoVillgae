@@ -7,6 +7,7 @@ import {
   createTrade,
   fetchDepositAndSavings,
   fetchGuidedActivity,
+  fetchInvestmentModuleState,
   fetchQuizQuestions,
   fetchQuizSession,
   fetchVote,
@@ -15,6 +16,7 @@ import {
   submitGameAnswer,
   type DepositAccountView,
   type GuidedActivity,
+  type InvestmentMode,
   type QuizQuestion,
   type QuizSession,
   type TradeCommandResponse,
@@ -136,6 +138,7 @@ function App() {
   const [vote, setVote] = useState<VoteView | null>(null);
   const [guidedActivity, setGuidedActivity] = useState<GuidedActivity | null>(null);
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
+  const [investmentMode, setInvestmentMode] = useState<InvestmentMode>("LONG_TERM");
   const [actionMessage, setActionMessage] = useState("");
   const [profilePassword, setProfilePassword] = useState("economy123!");
   const activeClassroomId = session?.classroomId ?? studentHomeEnvelope.classroom.id;
@@ -148,12 +151,13 @@ function App() {
     let ignore = false;
     async function loadStudentFeatures() {
       try {
-        const [accountData, questionData, sessionData, voteData, activityData] = await Promise.all([
+        const [accountData, questionData, sessionData, voteData, activityData, investmentState] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
           fetchQuizSession(activeClassroomId),
           fetchVote(activeClassroomId),
-          fetchGuidedActivity(activeClassroomId)
+          fetchGuidedActivity(activeClassroomId),
+          fetchInvestmentModuleState(activeClassroomId)
         ]);
 
         if (ignore) {
@@ -165,6 +169,7 @@ function App() {
         setQuizSession(sessionData);
         setVote(voteData);
         setGuidedActivity(activityData);
+        setInvestmentMode(investmentState.investmentMode);
       } catch (error) {
         if (!ignore) {
           setActionMessage(error instanceof Error ? error.message : "학생 데이터를 불러오지 못했어요.");
@@ -281,7 +286,7 @@ function App() {
               }}
             />
           )}
-          {page === "investment" && <InvestmentPage />}
+          {page === "investment" && <InvestmentPage mode={investmentMode} />}
           {page === "trade" && (
             <TradeApiPage
               tradeResult={tradeResult}
@@ -682,18 +687,19 @@ function BankPage({ deposits, onSubscribe }: { deposits: DepositAccountView[]; o
   );
 }
 
-function InvestmentPage() {
-  const [tab, setTab] = useState<"short" | "long">("short");
+function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
   const [investmentMessage, setInvestmentMessage] = useState("");
+  const isShortTerm = mode === "SHORT_TERM";
 
   return (
     <section className="panel section-tabs-panel">
-      <div className="category-tabs">
-        <button className={tab === "short" ? "active" : ""} onClick={() => setTab("short")}>단기투자</button>
-        <button className={tab === "long" ? "active" : ""} onClick={() => setTab("long")}>장기투자</button>
+      <div className="category-tabs" aria-label="선생님이 선택한 투자 운영 방식">
+        <button className="active" disabled>
+          {isShortTerm ? "단기투자" : "장기투자"}
+        </button>
       </div>
       {investmentMessage && <p className="shop-message">{investmentMessage}</p>}
-      {tab === "short" ? (
+      {isShortTerm ? (
         <div className="investment-flow">
           <div className="section-title compact-title">
             <h2>단기투자</h2>

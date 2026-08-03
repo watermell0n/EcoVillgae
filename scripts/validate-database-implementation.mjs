@@ -42,6 +42,7 @@ const expectedMigrations = [
   "V1_13__activity_public_fields.sql",
   "V1_14__ai_v1_2_execution.sql",
   "V1_15__quiz_result_workflow.sql",
+  "V1_16__investment_modes_and_historical_reference.sql",
 ];
 
 function unique(values) {

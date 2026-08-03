@@ -541,6 +541,25 @@ const requestFieldOverrides = {
     { name: "description", optional: true },
   ],
   "API-FIN-007": [
+    { name: "investment_mode", values: ["SHORT_TERM", "LONG_TERM"] },
+    { name: "scenario_source", values: ["AI_GENERATED", "HISTORICAL_INDEX"] },
+    {
+      name: "historical_index_reference",
+      optional: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["series_code", "event_name", "source_name", "source_url", "period_start", "period_end"],
+        properties: {
+          series_code: { type: "string", pattern: "^[A-Z][A-Z0-9_.-]{1,39}$" },
+          event_name: { type: "string", minLength: 1, maxLength: 120 },
+          source_name: { type: "string", minLength: 1, maxLength: 120 },
+          source_url: { type: "string", minLength: 1, maxLength: 500 },
+          period_start: { type: "string", format: "date" },
+          period_end: { type: "string", format: "date" },
+        },
+      },
+    },
     {
       name: "assets",
       schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } },

@@ -18,6 +18,7 @@ from tests.factories import (
     auto_monitor_request,
     balancing_request,
     economic_event_request,
+    investment_news_request,
     quiz_draft_request,
     setup_precheck_request,
     teacher_chat_request,
@@ -42,6 +43,11 @@ def _request_model(kind: GenerationKind, body: dict[str, Any]) -> Any:
         (GenerationKind.BALANCING, auto_monitor_request, "auto-monitor"),
         (GenerationKind.TEACHER_CHAT, teacher_chat_request, "answer"),
         (GenerationKind.ECONOMIC_EVENT, economic_event_request, "tax"),
+        (
+            GenerationKind.ECONOMIC_EVENT,
+            investment_news_request,
+            "investment-news-long-term",
+        ),
         (
             GenerationKind.QUIZ_DRAFT,
             quiz_draft_request,

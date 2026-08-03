@@ -1,6 +1,7 @@
 package com.b201.ecovillage.investment.domain;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -38,6 +39,30 @@ public class InvestmentScenarioVersion {
     @Column(name = "scenario_seed", length = 128)
     private String scenarioSeed;
 
+    @Column(name = "investment_mode", nullable = false, length = 20)
+    private String investmentMode;
+
+    @Column(name = "scenario_source", nullable = false, length = 30)
+    private String scenarioSource;
+
+    @Column(name = "reference_series_code", length = 40)
+    private String referenceSeriesCode;
+
+    @Column(name = "reference_event_name", length = 120)
+    private String referenceEventName;
+
+    @Column(name = "reference_source_name", length = 120)
+    private String referenceSourceName;
+
+    @Column(name = "reference_source_url", length = 500)
+    private String referenceSourceUrl;
+
+    @Column(name = "reference_period_start")
+    private LocalDate referencePeriodStart;
+
+    @Column(name = "reference_period_end")
+    private LocalDate referencePeriodEnd;
+
     @Column(nullable = false, length = 40)
     private String status;
 
@@ -58,12 +83,65 @@ public class InvestmentScenarioVersion {
         String name,
         Instant now
     ) {
+        return published(
+            id,
+            classroomId,
+            investmentMarketId,
+            version,
+            name,
+            InvestmentMode.LONG_TERM,
+            InvestmentScenarioSource.AI_GENERATED,
+            null,
+            now
+        );
+    }
+
+    public static InvestmentScenarioVersion published(
+        UUID id,
+        UUID classroomId,
+        UUID investmentMarketId,
+        int version,
+        String name,
+        InvestmentMode investmentMode,
+        InvestmentScenarioSource scenarioSource,
+        HistoricalIndexReference historicalIndexReference,
+        Instant now
+    ) {
+        Objects.requireNonNull(investmentMode, "investmentMode must not be null");
+        Objects.requireNonNull(scenarioSource, "scenarioSource must not be null");
+        if (investmentMode == InvestmentMode.SHORT_TERM) {
+            if (
+                scenarioSource != InvestmentScenarioSource.AI_GENERATED
+                    || historicalIndexReference != null
+            ) {
+                throw new IllegalArgumentException(
+                    "Short-term investment must use an AI-generated scenario"
+                );
+            }
+        } else if (
+            (scenarioSource == InvestmentScenarioSource.HISTORICAL_INDEX)
+                != (historicalIndexReference != null)
+        ) {
+            throw new IllegalArgumentException(
+                "Historical long-term scenarios require exactly one index reference"
+            );
+        }
         InvestmentScenarioVersion scenario = new InvestmentScenarioVersion();
         scenario.id = Objects.requireNonNull(id);
         scenario.classroomId = Objects.requireNonNull(classroomId);
         scenario.investmentMarketId = Objects.requireNonNull(investmentMarketId);
         scenario.version = version;
         scenario.name = Objects.requireNonNull(name);
+        scenario.investmentMode = investmentMode.name();
+        scenario.scenarioSource = scenarioSource.name();
+        if (historicalIndexReference != null) {
+            scenario.referenceSeriesCode = historicalIndexReference.seriesCode();
+            scenario.referenceEventName = historicalIndexReference.eventName();
+            scenario.referenceSourceName = historicalIndexReference.sourceName();
+            scenario.referenceSourceUrl = historicalIndexReference.sourceUrl();
+            scenario.referencePeriodStart = historicalIndexReference.periodStart();
+            scenario.referencePeriodEnd = historicalIndexReference.periodEnd();
+        }
         scenario.status = PUBLISHED;
         scenario.publishedAt = now;
         scenario.createdAt = now;
@@ -88,5 +166,27 @@ public class InvestmentScenarioVersion {
 
     public String getStatus() {
         return status;
+    }
+
+    public InvestmentMode getInvestmentMode() {
+        return InvestmentMode.valueOf(investmentMode);
+    }
+
+    public InvestmentScenarioSource getScenarioSource() {
+        return InvestmentScenarioSource.valueOf(scenarioSource);
+    }
+
+    public HistoricalIndexReference getHistoricalIndexReference() {
+        if (getScenarioSource() != InvestmentScenarioSource.HISTORICAL_INDEX) {
+            return null;
+        }
+        return new HistoricalIndexReference(
+            referenceSeriesCode,
+            referenceEventName,
+            referenceSourceName,
+            referenceSourceUrl,
+            referencePeriodStart,
+            referencePeriodEnd
+        );
     }
 }

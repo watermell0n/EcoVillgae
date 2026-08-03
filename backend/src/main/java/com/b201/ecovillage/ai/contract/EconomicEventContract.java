@@ -1,6 +1,7 @@
 package com.b201.ecovillage.ai.contract;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,9 +72,17 @@ public final class EconomicEventContract {
         UUID scenarioVersionId,
         UUID assetId,
         UUID priceStepId,
+        UUID targetPriceStepId,
         String assetName,
         String assetSymbol,
+        String fictionalCompanyProfile,
+        InvestmentMode investmentMode,
+        InvestmentScenarioSource scenarioSource,
+        InvestmentSettlementRule settlementRule,
         int currentStepIndex,
+        int targetStepIndex,
+        InvestmentTargetDirection targetDirection,
+        HistoricalIndexReference historicalIndexReference,
         List<InvestmentPriceFact> publicPriceFacts
     ) {
         public InvestmentNewsContext {
@@ -89,6 +98,16 @@ public final class EconomicEventContract {
     ) {
     }
 
+    public record HistoricalIndexReference(
+        String seriesCode,
+        String eventName,
+        String sourceName,
+        String sourceUrl,
+        LocalDate periodStart,
+        LocalDate periodEnd
+    ) {
+    }
+
     /**
      * AI가 출력에서 되돌려주는 단계 연결이다. 입력과 다르면 출력을 거절한다.
      */
@@ -96,9 +115,14 @@ public final class EconomicEventContract {
         UUID scenarioVersionId,
         UUID assetId,
         UUID priceStepId,
+        UUID targetPriceStepId,
         String assetName,
         String assetSymbol,
-        int currentStepIndex
+        InvestmentMode investmentMode,
+        InvestmentScenarioSource scenarioSource,
+        InvestmentSettlementRule settlementRule,
+        int currentStepIndex,
+        int targetStepIndex
     ) {
     }
 
@@ -171,5 +195,26 @@ public final class EconomicEventContract {
         DEPOSIT,
         SAVINGS,
         LOAN
+    }
+
+    public enum InvestmentMode {
+        SHORT_TERM,
+        LONG_TERM
+    }
+
+    public enum InvestmentScenarioSource {
+        AI_GENERATED,
+        HISTORICAL_INDEX
+    }
+
+    public enum InvestmentSettlementRule {
+        NEXT_DAY_MANDATORY,
+        COURSE_END_FINAL
+    }
+
+    public enum InvestmentTargetDirection {
+        RISE,
+        FALL,
+        FLAT
     }
 }
