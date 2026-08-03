@@ -7,6 +7,18 @@ public enum ClassroomPermission {
         "PM-RBAC-001",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    READ_ROSTER(
+        "PM-CLS-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_MODULES_AND_POLICIES(
+        "PM-RBAC-002",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
     MANAGE_ROSTER(
         "PM-CLS-004",
         Set.of(ClassroomActorRole.OWN)
