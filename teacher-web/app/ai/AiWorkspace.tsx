@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Bot, Check, ShieldOff } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
+import type { AiModuleRow, AiPolicyVersionRow } from "../types";
 import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
+import { ModuleActivationPanel } from "./ModuleActivationPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -27,6 +29,9 @@ export function AiWorkspace({
   initialPolicyVersion,
   canManage,
   products,
+  modules,
+  policyVersions,
+  startDate,
   quizSessionId,
   activeStudentCount,
   effectiveTaxBps,
@@ -41,6 +46,9 @@ export function AiWorkspace({
   initialReason: string;
   initialPolicyVersion: number;
   canManage: boolean;
+  modules: readonly AiModuleRow[];
+  policyVersions: readonly AiPolicyVersionRow[];
+  startDate: string;
   products: Array<{
     name: string;
     price: string;
@@ -177,9 +185,21 @@ export function AiWorkspace({
         {message ? <div className="inline-notice" role="status">{message}</div> : null}
       </section>
 
+      <ModuleActivationPanel
+        classroomId={classroomId}
+        modules={modules}
+        policyVersions={policyVersions}
+        activeStudentCount={activeStudentCount}
+        startDate={startDate}
+        canManage={canManage}
+        onReload={onReload}
+        onStateVersionChange={onStateVersionChange}
+      />
+
       <DraftRecommendationPanel
         classroomId={classroomId}
         products={products}
+        policyVersions={policyVersions}
         quizSessionId={quizSessionId}
         activeStudentCount={activeStudentCount}
         effectiveTaxBps={effectiveTaxBps}

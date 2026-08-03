@@ -75,6 +75,11 @@ type ProductRow = {
   vatRateBps?: number;
 };
 
+type PolicyVersionRow = {
+  policy_area?: string;
+  version?: number;
+};
+
 type AiSettingsSnapshot = {
   enabled: boolean;
   reason: string;
@@ -299,6 +304,8 @@ export default function TeacherConsole() {
     version: 0,
     stateVersion: 0
   });
+  // AI 제안 적용은 정책 영역별 현재 버전을 그대로 되돌려 보내야 하므로 원본을 보관합니다.
+  const [policyVersions, setPolicyVersions] = useState<PolicyVersionRow[]>([]);
   const [approvals, setApprovals] = useState<ApprovalRow[]>(initialApprovals);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [settings, setSettings] = useState<ClassSettings>(initialSettings);
@@ -418,6 +425,7 @@ export default function TeacherConsole() {
           config: module.config
         })));
       }
+      setPolicyVersions(modulesState.policy_versions ?? []);
       const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
       const nextAiSettings: AiSettingsSnapshot = {
         enabled: aiPolicy?.values?.enabled !== false,
@@ -639,6 +647,9 @@ export default function TeacherConsole() {
               initialPolicyVersion={aiSettings.version}
               canManage={teacherRoles.includes("OWN")}
               products={products}
+              modules={modules}
+              policyVersions={policyVersions}
+              startDate={settings.startDate}
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
               quizSessionId={String(
