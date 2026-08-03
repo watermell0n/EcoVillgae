@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "summary": {
+    "openapi_operations": 109,
+    "spring_endpoints": 42,
+    "matched_spring_endpoints": 42,
+    "current_known_differences": 0
+  },
+  "differences": []
+}

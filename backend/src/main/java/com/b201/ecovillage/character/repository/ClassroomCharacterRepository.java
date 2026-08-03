@@ -14,4 +14,14 @@ public interface ClassroomCharacterRepository
         UUID classroomId,
         UUID storeProductId
     );
+
+    Optional<ClassroomCharacter> findByClassroomIdAndId(
+        UUID classroomId,
+        UUID id
+    );
+
+    Optional<ClassroomCharacter> findByClassroomIdAndCharacterCatalogId(
+        UUID classroomId,
+        UUID characterCatalogId
+    );
 }

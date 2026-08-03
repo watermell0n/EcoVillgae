@@ -6,7 +6,6 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 public record RosterAndSalariesRequest(
@@ -15,7 +14,7 @@ public record RosterAndSalariesRequest(
     @Pattern(regexp = "^UIA-[A-Z]+-\\d{3}$") String uiActionId,
     Instant clientOccurredAt,
     @NotEmpty List<@Valid StudentRosterRequest> students,
-    @NotEmpty List<@Valid SalaryRoleRequest> salaryRoles,
-    @NotNull @Min(0) Long expectedPolicyVersion
+    List<@Valid SalaryRoleRequest> salaryRoles,
+    @Min(0) Long expectedPolicyVersion
 ) {
 }

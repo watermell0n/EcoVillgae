@@ -47,6 +47,7 @@ function camelFromId(id) {
 
 function normalizeHttpPath(rawPath) {
   return rawPath
+    .split("?", 1)[0]
     .replaceAll("{C}", "{classroom_id}")
     .replaceAll("{S}", "{student_id}")
     .replaceAll("{R}", "{resource_id}");
@@ -126,13 +127,21 @@ function parseMvpRequirementIds(markdown) {
 
 const mvpRequirementIds = parseMvpRequirementIds(rtmMarkdown);
 const mvpSupportApiIds = new Set([
+  "API-AI-003",
+  "API-AI-006",
   "API-AUTH-004",
   "API-AUTH-005",
   "API-AUTH-006",
   "API-AUTH-007",
   "API-AUTH-008",
+  "API-MOD-002",
+  "API-POL-001",
+  "API-QZ-006",
+  "API-QZ-008",
+  "API-QZ-009",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-027",
   "API-READ-028",
   "API-READ-029",
   "API-READ-030",
@@ -341,7 +350,11 @@ const requestFieldOverrides = {
     { name: "ends_on", schema: { type: "string", format: "date" } },
     { name: "student_count", schema: { type: "integer", minimum: 1 } },
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
-    { name: "salary_policy", schema: { type: "object", additionalProperties: true } },
+    {
+      name: "salary_policy",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
     {
       name: "module_codes",
       schema: { type: "array", uniqueItems: true, items: { type: "string" } },
@@ -366,6 +379,16 @@ const requestFieldOverrides = {
       values: ["GRADE_4_BASIC", "GRADE_5_STANDARD", "GRADE_6_ADVANCED"],
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    {
+      name: "classroom_code",
+      optional: true,
+      schema: { type: "string", minLength: 8, maxLength: 8 },
+    },
+    {
+      name: "currency_name",
+      optional: true,
+      schema: { type: "string", minLength: 1, maxLength: 10 },
+    },
   ],
   "API-CLS-003": [
     {
@@ -374,12 +397,12 @@ const requestFieldOverrides = {
         type: "array",
         items: {
           type: "object",
-          required: ["attendance_number", "nickname", "role_code"],
+          required: ["attendance_number", "nickname"],
           properties: {
             student_id: { type: "string", format: "uuid" },
             attendance_number: { type: "integer", minimum: 1 },
             nickname: { type: "string", minLength: 1, maxLength: 40 },
-            role_code: { type: "string" },
+            role_code: { type: ["string", "null"] },
           },
           additionalProperties: false,
         },
@@ -387,6 +410,7 @@ const requestFieldOverrides = {
     },
     {
       name: "salary_roles",
+      optional: true,
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
@@ -432,16 +456,34 @@ const requestFieldOverrides = {
     { name: "reason" },
   ],
   "API-MOD-001": [
+    { name: "expected_state_version", schema: { type: "integer", minimum: 0 } },
     { name: "confirm_prerequisites", schema: { type: "boolean", const: true } },
+    {
+      name: "initial_policy_values",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    {
+      name: "recommendation_action_ids",
+      optional: true,
+      schema: {
+        type: "array",
+        uniqueItems: true,
+        items: { type: "string", minLength: 1, maxLength: 100 },
+      },
+    },
+  ],
+  "API-MOD-002": [
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 500 } },
   ],
   "API-POL-001": [
-    { name: "price_adjustment_bps", schema: { type: "integer", format: "int32" } },
-    { name: "inflation_rate_bps", schema: { type: "integer", format: "int32" } },
+    { name: "price_adjustment_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
+    { name: "inflation_rate_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
     { name: "income_tax_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "vat_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "trade_tax_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
-    { name: "deposit_rate_bps", schema: { type: "integer", format: "int32" } },
-    { name: "loan_rate_bps", schema: { type: "integer", format: "int32" } },
+    { name: "deposit_rate_bps", schema: { type: "integer", format: "int32", minimum: 0, maximum: 10000 } },
+    { name: "loan_rate_bps", schema: { type: "integer", format: "int32", minimum: 0, maximum: 10000 } },
     { name: "stock_policy", schema: { type: "object", additionalProperties: true } },
     { name: "reward_policy", schema: { type: "object", additionalProperties: true } },
     { name: "limits", schema: { type: "object", additionalProperties: true } },
@@ -464,6 +506,7 @@ const requestFieldOverrides = {
       values: ["SALARY", "ACTIVITY", "QUIZ", "MANUAL_COMPENSATION"],
     },
     { name: "student_ids" },
+    { name: "period_key", schema: { type: "string", minLength: 1, maxLength: 40 } },
     { name: "amount", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "reason" },
@@ -570,11 +613,43 @@ const requestFieldOverrides = {
     { name: "include_policy_history", optional: true, schema: { type: "boolean" } },
   ],
   "API-AI-002": [
-    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
+    {
+      name: "analysis_mode",
+      values: ["SETUP_PRECHECK", "ON_DEMAND", "AUTO_MONITOR"],
+    },
+    {
+      name: "trigger_context",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    { name: "period", optional: true, schema: { $ref: "#/components/schemas/Period" } },
     {
       name: "metric_scopes",
-      schema: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string" } },
+      optional: true,
+      schema: { type: "array", uniqueItems: true, items: { type: "string" } },
     },
+  ],
+  "API-AI-003": [
+    { name: "command", values: ["APPLY", "REJECT", "ACKNOWLEDGE"] },
+    {
+      name: "edited_values",
+      optional: true,
+      schema: {
+        type: "array",
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["action_id", "proposed_value"],
+          properties: {
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
+            proposed_value: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
+    { name: "expected_policy_version", optional: true, schema: { type: "integer", minimum: 0 } },
   ],
   "API-DAT-002": [
     { name: "source_classroom_id" },
@@ -614,6 +689,7 @@ const requestFieldOverrides = {
     { name: "display_session_id", optional: true },
   ],
   "API-SHP-001": [
+    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "UNPUBLISH"] },
     { name: "product_id", optional: true },
     { name: "name" },
@@ -701,7 +777,7 @@ const requestFieldOverrides = {
     { name: "reason", optional: true },
   ],
   "API-QZ-004": [
-    { name: "command", values: ["START", "CLOSE_SUBMISSIONS"] },
+    { name: "command", values: ["START", "UPDATE_REWARD", "CLOSE_SUBMISSIONS"] },
     { name: "question_version_ids" },
     { name: "participant_ids" },
     { name: "mode", values: ["GAME", "TEST"] },
@@ -773,14 +849,52 @@ const requestFieldOverrides = {
   ],
   "API-VOT-002": [{ name: "option_id" }],
   "API-AI-004": [
-    { name: "command", values: ["REQUEST_DRAFT", "APPROVE", "REJECT"] },
-    { name: "template_type" },
-    { name: "event_id", optional: true },
-    { name: "edits", optional: true, schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
+    {
+      name: "template_type",
+      values: ["PRICE", "SUPPLY", "TAX", "INTEREST_RATE", "INVESTMENT_NEWS", "REWARD", "PUBLIC_FUND"],
+    },
+    { name: "interest_rate_scope", optional: true, values: ["DEPOSIT", "SAVINGS", "LOAN"] },
+    { name: "teacher_context", optional: true, schema: { type: "string", maxLength: 1000 } },
   ],
   "API-AI-005": [
     { name: "enabled", schema: { type: "boolean", const: false } },
     { name: "reason", schema: { type: "string", minLength: 1 } },
+  ],
+  "API-AI-006": [
+    { name: "decision", values: ["APPROVE", "REJECT"] },
+    {
+      name: "edits",
+      optional: true,
+      schema: {
+        type: "object",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 150 },
+          narrative: { type: "string", minLength: 1, maxLength: 2000 },
+          choices: {
+            type: "array",
+            maxItems: 5,
+            items: {
+              type: "object",
+              required: ["choice_key", "label"],
+              properties: {
+                choice_key: { type: "string", pattern: "^[A-Z][A-Z0-9_]{0,31}$" },
+                label: { type: "string", minLength: 1, maxLength: 200 },
+              },
+              additionalProperties: false,
+            },
+          },
+          progress_messages: {
+            type: "array",
+            minItems: 1,
+            maxItems: 10,
+            items: { type: "string", minLength: 1, maxLength: 300 },
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
+    { name: "expected_event_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-DAT-001": [
     { name: "format", values: ["PDF", "CSV"] },
@@ -809,6 +923,16 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
+function mutationContextFor(operation) {
+  if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  if (operation.apiId === "API-SHP-001") {
+    return mutationContextFields.map((field) => field.name === "expected_state_version"
+      ? { ...field, optional: false }
+      : field);
+  }
+  return mutationContextFields;
+}
+
 function projectionItemSchema(extraProperties = {}, required = []) {
   return {
     type: "object",
@@ -831,6 +955,12 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-SHP-001": [
+    { name: "product_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+  ],
   "API-CRS-001": [
     {
       name: "recommendations",
@@ -985,10 +1115,40 @@ const responseFieldOverrides = {
     { name: "status", schema: { type: "string" } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-MOD-001": [
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "policy_area", optional: true, schema: { type: ["string", "null"] } },
+    { name: "policy_version", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "rule_version", schema: { type: "string" } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-MOD-002": [
+    { name: "module_id", schema: { type: "string", format: "uuid" } },
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["STOPPING"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "cleanup_required", schema: { type: "boolean", const: true } },
+    {
+      name: "cleanup_blockers",
+      schema: { type: "array", items: { type: "string" }, uniqueItems: true },
+    },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-POL-001": [
+    { name: "policy_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "policy_version", schema: { type: "integer", minimum: 1 } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
   "API-CLS-002": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "policy_version", schema: { type: "integer", minimum: 1 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
   ],
   "API-CLS-003": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
@@ -1047,10 +1207,100 @@ const responseFieldOverrides = {
     { name: "cast_at", schema: { type: "string", format: "date-time" } },
   ],
   "API-AI-001": [
-    { name: "answer", schema: { type: "string" } },
-    { name: "metric_summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "number", "boolean"] } } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "answer", schema: { type: "string", minLength: 1, maxLength: 3000 } },
+    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
     { name: "data_as_of", schema: { type: "string", format: "date-time" } },
-    { name: "source_labels", schema: { type: "array", items: { type: "string" } } },
+    {
+      name: "evidence",
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["fact_id", "label", "value", "unit"],
+          properties: {
+            fact_id: { type: "string", minLength: 1, maxLength: 100 },
+            label: { type: "string", minLength: 1, maxLength: 150 },
+            value: { type: ["string", "integer"] },
+            unit: { type: "string", enum: ["AMOUNT", "COUNT", "RATE_BPS", "STATUS", "TEXT"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "recommendations",
+      schema: {
+        type: "array",
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["text", "side_effects"],
+          properties: {
+            text: { type: "string", minLength: 1, maxLength: 700 },
+            side_effects: {
+              type: "array",
+              minItems: 1,
+              maxItems: 5,
+              items: { type: "string", minLength: 1, maxLength: 300 },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-AI-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "operation_status", schema: { type: "string" } },
+    { name: "run_status", schema: { type: "string" } },
+    { name: "fallback_used", schema: { type: "boolean" } },
+    { name: "fallback_code", schema: { type: ["string", "null"] } },
+    { name: "proposal_id", schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "summary", schema: { type: "string" } },
+    { name: "overall_severity", optional: true, schema: { type: "string" } },
+    { name: "candidates", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "checks", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "analysis_mode", optional: true, schema: { type: "string" } },
+    { name: "analysis_severity", optional: true, schema: { type: "string" } },
+    { name: "sample", optional: true, schema: { type: "object", additionalProperties: true } },
+    { name: "insufficient_codes", optional: true, schema: { type: "array", items: { type: "string" } } },
+    { name: "metrics", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-AI-003": [
+    { name: "proposal_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED", "ACKNOWLEDGED"] } },
+    { name: "policy_version", optional: true, schema: { type: "integer", minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    {
+      name: "applied_values",
+      schema: {
+        type: "array",
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["action_id", "proposed_value", "unit"],
+          properties: {
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
+            proposed_value: { type: "integer", minimum: 0 },
+            unit: { type: "string", enum: ["AMOUNT", "COUNT", "RATE_BPS"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-AI-006": [
+    { name: "event_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["APPROVED", "REJECTED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "published_at", optional: true, schema: { type: "string", format: "date-time" } },
   ],
   "API-ADM-004": [
     { name: "school_id", schema: { type: "string", format: "uuid" } },
@@ -1078,6 +1328,13 @@ const responseFieldOverrides = {
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "classroom_code", schema: { type: "string" } },
     { name: "currency_name", schema: { type: "string" } },
+    { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
+    { name: "course_size", schema: { type: "string", enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"] } },
+    { name: "starts_on", schema: { type: ["string", "null"], format: "date" } },
+    { name: "ends_on", schema: { type: ["string", "null"], format: "date" } },
+    { name: "recommended_course_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "difficulty_profile", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "module_codes", schema: { type: "array", items: { type: "string" }, uniqueItems: true } },
     { name: "autonomous_schedules", schema: projectionItems({ module_codes: { type: "array", items: { type: "string" }, uniqueItems: true } }) },
     { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
@@ -1088,7 +1345,7 @@ const responseFieldOverrides = {
   ],
   "API-READ-006": [
     { name: "modules", schema: projectionItems({ module_code: { type: "string" }, config: { type: "object", additionalProperties: true } }) },
-    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
+    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" }, values: { type: "object", additionalProperties: true } }) },
   ],
   "API-READ-007": [
     { name: "balance", schema: { type: "integer", format: "int64" } },
@@ -1100,6 +1357,8 @@ const responseFieldOverrides = {
     name: "products",
     schema: projectionItems({
       unit_price: { type: "integer", format: "int64", minimum: 0 },
+      vat_rate_bps: { type: "integer", minimum: 0, maximum: 10000 },
+      stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
     }),
@@ -1234,6 +1493,201 @@ const responseFieldOverrides = {
     { name: "timer", optional: true, schema: { type: "object", required: ["server_time", "ends_at"], properties: { server_time: { type: "string", format: "date-time" }, ends_at: { type: "string", format: "date-time" } }, additionalProperties: false } },
     { name: "public_data", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean", "array", "object", "null"] } } },
   ],
+  "API-READ-027": [
+    {
+      name: "items",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "ai_run_id",
+            "feature_type",
+            "run_type",
+            "trigger_type",
+            "status",
+            "requested_at",
+            "prompt_version",
+            "fallback_used",
+            "validation_codes",
+            "evidence_codes",
+            "rule_versions",
+            "proposals",
+          ],
+          properties: {
+            ai_run_id: { type: "string", format: "uuid" },
+            operation_id: { type: ["string", "null"], format: "uuid" },
+            feature_type: {
+              type: "string",
+              enum: ["BALANCING", "TEACHER_CHAT", "ECONOMIC_EVENT", "QUIZ_DRAFT"],
+            },
+            run_type: {
+              type: "string",
+              enum: [
+                "SETUP_PRECHECK",
+                "ON_DEMAND",
+                "AUTO_MONITOR",
+                "TEACHER_CHAT",
+                "ECONOMIC_EVENT_DRAFT",
+                "QUIZ_DRAFT",
+              ],
+            },
+            trigger_type: { type: "string" },
+            status: {
+              type: "string",
+              enum: [
+                "REQUESTED",
+                "DATA_CHECK",
+                "INSUFFICIENT_DATA",
+                "GENERATING",
+                "VALIDATING",
+                "AWAITING_TEACHER",
+                "ACKNOWLEDGED",
+                "COMPLETED",
+                "FAILED",
+                "TIMED_OUT",
+                "REJECTED_OUTPUT",
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "APPLYING",
+                "APPLY_FAILED",
+              ],
+            },
+            requested_at: { type: "string", format: "date-time" },
+            completed_at: { type: ["string", "null"], format: "date-time" },
+            data_as_of: { type: ["string", "null"], format: "date-time" },
+            prompt_version: { type: "string" },
+            provider: { type: ["string", "null"] },
+            model_id: { type: ["string", "null"] },
+            safety_status: { type: ["string", "null"] },
+            fallback_used: { type: "boolean" },
+            fallback_code: { type: ["string", "null"] },
+            severity: {
+              type: ["string", "null"],
+              enum: ["PASS", "WARN", "BLOCK", null],
+            },
+            validation_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
+            evidence_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
+            rule_versions: {
+              type: "object",
+              additionalProperties: { type: "string" },
+            },
+            proposals: {
+              type: "array",
+              maxItems: 100,
+              items: {
+                type: "object",
+                required: [
+                  "proposal_id",
+                  "proposal_type",
+                  "source_type",
+                  "status",
+                  "summary",
+                  "proposed_values",
+                  "allowed_ranges",
+                  "created_at",
+                  "expires_at",
+                  "status_changed_at",
+                  "state_version",
+                ],
+                properties: {
+                  proposal_id: { type: "string", format: "uuid" },
+                  proposal_type: { type: "string" },
+                  source_type: { type: "string" },
+                  status: { type: "string" },
+                  severity: {
+                    type: ["string", "null"],
+                    enum: ["PASS", "WARN", "BLOCK", null],
+                  },
+                  metric_code: { type: ["string", "null"] },
+                  direction: { type: ["string", "null"] },
+                  dedupe_key: { type: ["string", "null"] },
+                  summary: { type: "string", maxLength: 1500 },
+                  context_type: { type: ["string", "null"] },
+                  target_type: { type: ["string", "null"] },
+                  target_id: { type: ["string", "null"], format: "uuid" },
+                  target_version: {
+                    type: ["integer", "null"],
+                    format: "int64",
+                    minimum: 0,
+                  },
+                  proposed_values: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "target_type",
+                        "target_id",
+                        "proposed_value",
+                        "unit",
+                        "label",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        target_type: { type: ["string", "null"] },
+                        target_id: { type: ["string", "null"], format: "uuid" },
+                        proposed_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        unit: { type: ["string", "null"] },
+                        label: { type: ["string", "null"] },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  allowed_ranges: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "allowed_min_value",
+                        "allowed_max_value",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        allowed_min_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        allowed_max_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  created_at: { type: "string", format: "date-time" },
+                  expires_at: { type: "string", format: "date-time" },
+                  status_changed_at: { type: "string", format: "date-time" },
+                  decision_status: { type: ["string", "null"] },
+                  decided_at: { type: ["string", "null"], format: "date-time" },
+                  policy_version: { type: ["integer", "null"], minimum: 1 },
+                  applied_policy_version_id: {
+                    type: ["string", "null"],
+                    format: "uuid",
+                  },
+                  state_version: {
+                    type: "integer",
+                    format: "int64",
+                    minimum: 0,
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
   "API-READ-029": [
     {
       name: "items",
@@ -1268,10 +1722,33 @@ const responseFieldOverrides = {
   ],
   "API-READ-030": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
-    { name: "status", schema: { type: "string" } },
+    { name: "operation_type", schema: { type: "string" } },
+    {
+      name: "status",
+      schema: { type: "string", enum: ["RUNNING", "COMPLETED", "FAILED"] },
+    },
     { name: "progress_percent", schema: { type: "integer", minimum: 0, maximum: 100 } },
-    { name: "result_url", optional: true, schema: { type: "string", format: "uri-reference" } },
-    { name: "error_code", optional: true, schema: { type: "string" } },
+    {
+      name: "result_url",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uri-reference" },
+    },
+    { name: "error_code", optional: true, schema: { type: ["string", "null"] } },
+    { name: "started_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "completed_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "expires_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
   ],
 };
 
@@ -1351,6 +1828,7 @@ const storageByReadApi = {
   ],
   "API-READ-024": ["activity_sessions", "activity_participants"],
   "API-READ-025": ["activity_sessions", "activity_participants", "redis.display-session", "realtime_streams", "outbox_events"],
+  "API-READ-027": ["ai_runs", "ai_artifacts", "ai_proposals", "ai_decisions", "economic_event_drafts"],
   "API-READ-028": [
     "classroom_students",
     "ledger_accounts",
@@ -1436,6 +1914,30 @@ function storageTargets(operation) {
   }
   if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
   if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
+  if (operation.apiId === "API-QZ-008") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "activity_participants",
+      "quiz_question_issues",
+      "idempotency_records",
+    ];
+  }
+  if (operation.apiId === "API-QZ-009") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "quiz_submissions",
+      "quiz_answers",
+      "quiz_result_versions",
+      "quiz_student_results",
+      "quiz_question_issues",
+      "regrading_runs",
+      "transaction_groups",
+      "ledger_entries",
+      "idempotency_records",
+    ];
+  }
   if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];
   return storageByDomain[operation.apiId.split("-")[1]] ?? ["service_projection"];
 }
@@ -1494,7 +1996,7 @@ function requestSchema(operation) {
 
   const strict = implementationStatus(operation) === "mvp-contract";
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  const fields = [...mutationContextFields, ...domainFields];
+  const fields = [...mutationContextFor(operation), ...domainFields];
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -1739,7 +2241,7 @@ function buildOpenApi(operations) {
         [status]:
           status === "204"
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
-            : status === "202"
+            : status === "202" && operation.apiId !== "API-AI-002"
               ? { $ref: "#/components/responses/Accepted" }
               : contractStatus === "mvp-contract"
                 ? {
@@ -1814,7 +2316,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 108개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 109개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -1883,16 +2385,6 @@ function buildOpenApi(operations) {
         ...pathParameters,
       },
       schemas: {
-        MutationContext: {
-          type: "object",
-          properties: {
-            expected_state_version: { type: "integer", format: "int64", minimum: 0 },
-            screen_id: { type: "string", pattern: "^SCR-[A-Z]+-\\d{3}$" },
-            ui_action_id: { type: "string", pattern: "^UIA-[A-Z]+-\\d{3}$" },
-            client_occurred_at: { type: "string", format: "date-time" },
-          },
-          additionalProperties: true,
-        },
         StudentSessionRequest: {
           type: "object",
           required: [
@@ -2491,13 +2983,13 @@ function requestFieldsForManifest(operation) {
   if (operation.apiId === "API-AUTH-001") return studentSessionRequestFields;
   if (operation.apiId === "API-AUTH-008") return teacherSessionRequestFields;
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  return [...mutationContextFields, ...domainFields];
+  return [...mutationContextFor(operation), ...domainFields];
 }
 
 function responseFieldsForManifest(operation) {
   const status = successStatus(operation);
   if (status === "204") return [];
-  if (status === "202") return acceptedResponseFields;
+  if (status === "202" && operation.apiId !== "API-AI-002") return acceptedResponseFields;
   return responseFields(operation);
 }
 
@@ -2559,9 +3051,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 108, `HTTP 작업 수가 108이 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 108, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 108, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 109, `HTTP 작업 수가 109가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 109, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 109, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -2578,8 +3070,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 108,
-      "OpenAPI 작업 수가 108이 아닙니다.",
+      ) === 109,
+      "OpenAPI 작업 수가 109가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

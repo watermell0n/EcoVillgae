@@ -1,7 +1,7 @@
 # 이코빌리지 화면 ID·행동 명세
 
-- 버전: v0.4
-- 기준일: 2026-07-29
+- 버전: v0.5
+- 기준일: 2026-07-30
 - 상태: MVP 화면 경계·진입 조건·주요 행동 기준선
 - 범위: 학생 앱, 교사 웹, 학교 관리 웹, 플랫폼 운영 콘솔, 교실 공용 화면
 
@@ -92,7 +92,7 @@
 | 퀴즈·투표·이벤트 시작·종료 | 주 화면 | 사전 계획·결과 상세 |
 | 개인거래·대출 승인 | 주 화면 | 대량 조회·상세 감사 |
 | 실제 상품 수령 | 주 화면 | 주문·상품 설정 |
-| 경제교실 개설·학생 명단·역할급여 | 조회·알림 | 주 화면 |
+| 경제교실 개설·학생 명단·선택형 역할급여 | 조회·알림 | 주 화면 |
 | 모듈·경제정책·상품·금융 정책 | 조회 | 주 화면 |
 | AI 챗봇 | 빠른 질의 | 긴 분석·근거 |
 | 리포트 | 요약 | PDF·CSV·감사 상세 |
@@ -109,7 +109,7 @@
 | SCR-STU-002 | 비밀번호 재설정 | 기존 본인 확인 절차, 비밀번호만 재설정 | 인증 전·복구 요청 | PM-AUTH-002 |
 | SCR-STU-003 | 경제교실 홈·상태 안내 | 앱 모드, 공지, 활성 모듈, 종료 안내 | 인증 후 | SM-CLS-001·SM-APP-001·SM-MOD-001 / PM-RBAC-001·PM-DAT-001 |
 | SCR-STU-004 | 지갑·거래내역 | 잔액, 거래 그룹, 전후 잔액, 정책 스냅샷 | 지갑이 있는 코스·본인 | SM-TXN-001 / PM-TXN-001 |
-| SCR-STU-005 | 월급명세서 | 총급여·소득세·공제·실수령액 | 급여 사용 코스·본인 | SM-TXN-001 / PM-TXN-001 |
+| SCR-STU-005 | 급여명세서 | 총급여·소득세·공제·실수령액 | 역할·급여 모듈 `ACTIVE`·본인. 미선택 시 메뉴 숨김 | SM-MOD-001·SM-TXN-001 / PM-TXN-001 |
 | SCR-STU-006 | 상점 목록 | 상품·가격·부가세·재고 | `AUTONOMOUS + 상점 ACTIVE` | SM-SHP-001 / PM-SHP-001 |
 | SCR-STU-007 | 상품 상세·구매 | 최종 결제액, 실제·디지털 구분, 환불 불가 안내 | `AUTONOMOUS + 상점 ACTIVE` | SM-SHP-001·SM-TXN-001 / PM-SHP-002 |
 | SCR-STU-008 | 보유 아이템·캐릭터 | AVAILABLE·EQUIPPED·LOCKED_TRADE, 장착 캐릭터 | 아이템 보유·본인 | SM-ITM-001 / PM-ITM-001 |
@@ -144,7 +144,7 @@
 | SCR-TCH-008 | 승인함 | 개인거래·대출·복구 요청의 대기 건수 | 담당 학급 | PM-TRD-003·PM-FIN-006·PM-TXN-003 |
 | SCR-TCH-009 | 승인 상세 | 최신 잔액·소유권·세율·신용·정책 재검증 결과 | 대기 리소스·담당 학급 | SM-TRD-001·SM-LON-001 / PM-TRD-003·PM-FIN-006 |
 | SCR-TCH-010 | 실제 상품 수령 | PAID·READY_FOR_PICKUP 주문, 준비·수령 처리 | 실제 상품 주문·담당 학급 | SM-SHP-001 / PM-SHP-003 |
-| SCR-TCH-011 | 급여·활동 보상 | 역할·대상·정책 미리보기, 지급 결과 | `ACTIVE`, 담당 학급 | SM-TXN-001 / PM-TXN-002 |
+| SCR-TCH-011 | 급여·활동 보상 | 활성화된 지급 유형·대상·정책 미리보기, 지급 결과 | 학급 `ACTIVE`, 해당 지급 모듈 `ACTIVE`, 담당 학급 | SM-MOD-001·SM-TXN-001 / PM-TXN-002 |
 | SCR-TCH-012 | 알림·요약 리포트 | 종료·승인·정산 알림, 학급 요약, 내보내기 진입 | 담당, 운영 중 또는 READ_ONLY 전환 후 1년 이내 | PM-DAT-002·PM-DAT-003 |
 
 ### 4.3 교사 관리 웹
@@ -153,27 +153,27 @@
 | --- | --- | --- | --- | --- |
 | SCR-WEB-001 | 교사 로그인 | 학교 계정 OIDC 로그인, HttpOnly 갱신 쿠키 | 동일 | PM-AUTH-003·PM-RBAC-001 |
 | SCR-WEB-002 | 학급 대시보드 | 상태·잔액 집계·모듈·활동·승인·위험 알림 | 동일 조회 | PM-DAT-001·PM-RBAC-001 |
-| SCR-WEB-003 | 경제교실 개설 마법사 | 학년·규모·기간·인원·급여·모듈·자율시간·필수 화폐 단위명, 생성 완료 후 서버 발급 학급 코드 | OWN 생성 | SM-CLS-001·SM-MOD-001 / PM-CLS-001·PM-CLS-005·PM-CLS-007 |
+| SCR-WEB-003 | 경제교실 개설 마법사 | 학년·규모·기간·인원·0개 이상의 선택 모듈·자율시간·필수 화폐 단위명, 공통값 점검, 생성 완료 후 서버 발급 학급 코드. 역할·급여를 포함해 필수 모듈 없음 | OWN 생성 | SM-CLS-001·SM-MOD-001·SM-AIR-001 / PM-CLS-001·PM-CLS-005·PM-CLS-007·PM-AI-003 |
 | SCR-WEB-004 | 학급 기본·코스 설정 | 학급 코드·화폐 단위명 읽기 전용 표시, 학년·규모·실제 일정·난이도·추천 수정 영향 | OWN 수정, COT 읽기, 코드·단위명은 모두 읽기 전용 | PM-CLS-005 |
-| SCR-WEB-005 | 모듈 관리 | 선수 모듈, 추가, 중지 영향·정리 진행률 | OWN 실행, COT 읽기 | SM-MOD-001 / PM-MOD-001 |
-| SCR-WEB-006 | 학생 명단·역할급여 | 학급 번호·닉네임·역할·급여, 비밀번호 재설정 처리 | OWN 수정, COT 조회·재설정 | PM-CLS-004·PM-CLS-005·PM-AUTH-002 |
+| SCR-WEB-005 | 모듈 관리 | 전역 필수 모듈 없음, 조건부 선행 모듈, 추가 시 초기 정책 추천·확인, 중지 영향·정리 진행률 | OWN 실행·추천 적용, COT 읽기 | SM-MOD-001·SM-AIR-001 / PM-MOD-001·PM-AI-003 |
+| SCR-WEB-006 | 학생 명단·선택형 역할급여 | 학급 번호·닉네임, 역할·급여 모듈 활성 시 역할 배정·급여, 비밀번호 재설정 처리. 비활성 시 역할 필드 숨김 | OWN 수정, COT 조회·재설정 | SM-MOD-001 / PM-CLS-004·PM-CLS-005·PM-AUTH-002 |
 | SCR-WEB-007 | 담당 교사·소유권 | COT 초대·해제·OWN 이전·감사 이력 | OWN 실행, COT 이전 수락 | PM-CLS-002·PM-CLS-003 |
 | SCR-WEB-008 | 자율시간 일정 | 반복 일정, 수동 상태 이력, 종료 알림 | OWN 일정 수정, COT 조회 | SM-APP-001 / PM-CLS-007·PM-CLS-008 |
 | SCR-WEB-009 | 경제정책 | 가격·재고·급여·세율·금리·물가·투자·대출 한도 | OWN 수정, COT 읽기 | SM-TXN-001 / PM-POL-001 |
 | SCR-WEB-010 | 세금·공동기금 설정 | 기본 사용처, 이름·설명·예산 항목, 투표 연결 | OWN 수정, COT 읽기 | PM-POL-002 |
-| SCR-WEB-011 | 상점·캐릭터 카탈로그 | 공식 상품, 부가세, 재고, 실제 상품, 승인 캐릭터 | OWN 수정, COT 읽기 | SM-SHP-001 / PM-SHP-001·PM-CNT-001 |
+| SCR-WEB-011 | 상점·캐릭터 카탈로그 | 공식 상품, 부가세, 재고, 실제 상품, 승인 캐릭터, 상품 작성 중 현재 정책 기반 가격 추천 | OWN 수정·추천값 선택, COT 읽기 | SM-SHP-001·SM-AIR-001 / PM-SHP-001·PM-CNT-001·PM-AI-003 |
 | SCR-WEB-012 | 거래 원장·복구 | 거래 그룹, 전후 잔액, 정책 스냅샷, 복구 연결 | 둘 다 조회·복구 요청 | SM-TXN-001 / PM-TXN-001·PM-TXN-003 |
 | SCR-WEB-013 | 개인거래 관리 | 제안·동의·승인·취소·실패, 아이템 잠금 상태 | 둘 다 조회·승인 | SM-TRD-001·SM-ITM-001 / PM-TRD-003 |
 | SCR-WEB-014 | 예금·적금 상품 | 금리·일정·유예·해지 정책, 활성 계좌 영향 | OWN 정책, COT 읽기 | SM-DEP-001·SM-SAV-001·SM-SAV-002 / PM-FIN-001 |
-| SCR-WEB-015 | 투자 시나리오·시장 | 가상 자산·가격 단계·한도·시장 제어·정산 | OWN 정책, 둘 다 시장 제어 | SM-IVT-001·SM-IVT-002 / PM-FIN-001·PM-FIN-004 |
+| SCR-WEB-015 | 투자 시나리오·시장 | 가상 자산·가격 단계·한도·시장 제어·정산, 단계별 AI 뉴스 사전 생성·검토·승인·공개 상태 | OWN 시나리오·뉴스 승인, 둘 다 시장 제어 | SM-IVT-001·SM-IVT-002·SM-AIR-001 / PM-FIN-001·PM-FIN-004·PM-AI-002 |
 | SCR-WEB-016 | 대출·신용 정책 | 기간·금리·한도·상환·유예·신용 임계치 | OWN 정책, COT 읽기 | SM-LON-001·SM-CRD-001 / PM-FIN-001·PM-FIN-008 |
 | SCR-WEB-017 | 퀴즈 문제은행 | ECONOMY·NONSENSE, GAME·TEST, 상태·버전·검색 | 둘 다 작성·검토 | SM-QST-001 / PM-QZ-001 |
-| SCR-WEB-018 | 퀴즈 편집·AI 초안 | 직접 작성, 객관식·OX AI 초안, 안전·보상 경고 | 둘 다 작성·승인 | SM-QST-001·SM-AIR-001 / PM-QZ-001·PM-AI-002 |
+| SCR-WEB-018 | 퀴즈 편집·AI 초안 | 직접 작성, 객관식·OX AI 초안, GAME 세션 보상 추천과 전체 발행액 30% 상한, TEST 보상 금지와 안전 경고 | 둘 다 작성·승인 | SM-QST-001·SM-AIR-001 / PM-QZ-001·PM-AI-002·PM-AI-003 |
 | SCR-WEB-019 | 퀴즈 세션·결과 | 세션 스냅샷, 채점·무효화·재채점·결과 확정 | 둘 다 운영 | SM-QZS-001·SM-QAD-001 / PM-QZ-002·PM-QZ-003 |
 | SCR-WEB-020 | 지도 활동 계획 | 퀴즈·투표·이벤트 일정, 대상·공개 범위 | 둘 다 계획 | SM-ACT-001 / PM-ACT-001 |
-| SCR-WEB-021 | AI 경제 밸런싱·학급 AI 설정 | 데이터 충분성, 제안·근거·영향·정책 비교, 학급 AI 끄기 | 둘 다 조회, OWN 적용·끄기 | SM-AIR-001 / PM-AI-003·PM-AI-004·PM-AI-005 |
+| SCR-WEB-021 | AI 경제 설정·모니터링·학급 AI 설정 | 시작 전 BLOCK·WARN 점검, 설정 추천, 수동·자동 분석, NORMAL·OBSERVE·WARN 알림, 중복 억제·확인, 제안·근거·영향·정책 비교, 학급 AI 끄기 | 둘 다 조회·알림 확인, OWN 적용·끄기 | SM-AIR-001 / PM-AI-003·PM-AI-004·PM-AI-005 |
 | SCR-WEB-022 | 교사용 AI 챗봇 | 학급 집계 질의, 근거·기간·대응안·부작용 | 둘 다 사용 | SM-AIR-001 / PM-AI-001 |
-| SCR-WEB-023 | AI 경제 이벤트 | 7종 템플릿, 학년 검증, 초안·승인·거절 | 둘 다 작성·승인 | SM-AIR-001·SM-ACT-001 / PM-AI-002 |
+| SCR-WEB-023 | AI 경제 이벤트 | 교사 요청·모니터링 추천 출처, 7종 템플릿, 근거, 중복 억제, 학년 검증, 초안·승인·거절 | 둘 다 요청·승인 | SM-AIR-001·SM-ACT-001 / PM-AI-002 |
 | SCR-WEB-024 | 리포트·내보내기 | 개인·학급 리포트, PDF·CSV, 최종 스냅샷 | 둘 다 실행 | PM-DAT-002·PM-DAT-003 |
 | SCR-WEB-025 | 감사 기록 | 실행자·PM 규칙·전후 상태·사유·요청번호 | 둘 다 담당 범위 | PM-DAT-005 |
 | SCR-WEB-026 | 경제교실 종료 | CLOSING 사전 점검·정산 진행률·최종 스냅샷 | OWN 시작, COT 보조 | SM-CLS-001 / PM-CLS-006·PM-FIN-009 |
@@ -217,15 +217,15 @@
 | UIA-AUTH-002 | SCR-STU-002 재설정 요청 | STU | 기존 본인 확인 절차 통과 | PM-AUTH-002 |
 | UIA-AUTH-003 | SCR-WEB-006 비밀번호 재설정 처리 | OWN·COT | 담당 학급 요청, 닉네임 변경 없음 | PM-AUTH-002 |
 | UIA-AUTH-004 | SCR-TCH-001·SCR-WEB-001 학교 계정으로 로그인 | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 ID 토큰 검증, 등록·활성 교사이면 세션 발급 | PM-AUTH-003·PM-RBAC-001 |
-| UIA-CLS-001 | SCR-WEB-003 경제교실 개설 | OWN | 화폐 단위명 필수·형식·금칙어 검증, 서버 학급 코드 생성 후 `ACTIVE`, 선택 모듈 활성화 | PM-CLS-001·PM-CLS-005·PM-CLS-007 / SM-CLS-001·SM-MOD-001 |
+| UIA-CLS-001 | SCR-WEB-003 경제교실 개설 | OWN | 화폐 단위명 필수·형식·금칙어 검증, 서버 학급 코드 생성 후 `ACTIVE`. 모듈 목록은 비어 있을 수 있고 선택 모듈은 `DISABLED`로 등록한 뒤 각 활성화 단계에서 초기 정책을 확정 | PM-CLS-001·PM-CLS-005·PM-CLS-007 / SM-CLS-001·SM-MOD-001 |
 | UIA-CLS-002 | SCR-WEB-004 기본·코스 저장 | OWN | `ACTIVE`, 진행 활동·정산과 충돌 없음 | PM-CLS-005 |
-| UIA-CLS-003 | SCR-WEB-006 학생·역할급여 저장 | OWN | `ACTIVE`, 학급 범위·중복 번호 검증 | PM-CLS-004·PM-CLS-005 |
+| UIA-CLS-003 | SCR-WEB-006 학생·선택형 역할급여 저장 | OWN | 학급 `ACTIVE`, 학급 범위·중복 번호 검증. 역할·급여 비활성 시 학생 역할은 `null` | PM-CLS-004·PM-CLS-005 |
 | UIA-CLS-004 | SCR-WEB-007 COT 초대·해제 | OWN | 대상 교사 학교 소속, OWN 1명 유지 | PM-CLS-002 |
 | UIA-CLS-005 | SCR-WEB-007 소유권 이전 요청·수락 | OWN·대상 COT | 대상이 현재 COT, 원자적 역할 교환 | PM-CLS-003 |
 | UIA-CLS-006 | SCR-WEB-008 반복 일정 저장 | OWN | `ACTIVE`, 유효 시간대 | PM-CLS-007 / SM-APP-001 |
 | UIA-CLS-007 | SCR-TCH-003 지금 열기·닫기 | OWN·COT | `ACTIVE`, GUIDED가 아니면 수동 모드 반영 | PM-CLS-008 / SM-APP-001 |
 | UIA-CLS-008 | SCR-WEB-026 종료 시작 | OWN | `ACTIVE → CLOSING`, 영향 확인·재인증 | PM-CLS-006 / SM-CLS-001 |
-| UIA-MOD-001 | SCR-WEB-005 모듈 추가 | OWN | 선수 모듈·학년 정책 통과, `DISABLED → ACTIVE` | PM-MOD-001 / SM-MOD-001 |
+| UIA-MOD-001 | SCR-WEB-005 모듈 추가 | OWN | 조건부 선행 모듈·학년 정책 통과, 추천 초기 정책 확인 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 / SM-MOD-001·SM-AIR-001 |
 | UIA-MOD-002 | SCR-WEB-005 모듈 중지 | OWN | `ACTIVE → STOPPING`, LIVE 활동 없음 | PM-MOD-001 / SM-MOD-001 |
 | UIA-POL-001 | SCR-WEB-009 경제정책 저장 | OWN | 최신 정책 버전, 이후 거래·신규 상품부터 적용 | PM-POL-001 |
 | UIA-POL-002 | SCR-WEB-010 세금·기금 사용처 저장 | OWN | 기본 항목 유지 가능, 예산 규칙 검증 | PM-POL-002 |
@@ -237,7 +237,7 @@
 
 | 행동 ID | 화면·버튼 | 실행 역할 | 활성 조건·전이 | 권한 |
 | --- | --- | --- | --- | --- |
-| UIA-TXN-001 | SCR-TCH-011 급여·보상 지급 | OWN·COT | `ACTIVE`, 정책·대상·중복 요청 검증 후 원장 커밋 | PM-TXN-002 / SM-TXN-001 |
+| UIA-TXN-001 | SCR-TCH-011 급여·보상 지급 | OWN·COT | 학급·해당 지급 모듈 `ACTIVE`, 정책·대상·중복 요청 검증 후 원장 커밋 | PM-TXN-002 / SM-MOD-001·SM-TXN-001 |
 | UIA-TXN-002 | SCR-WEB-012 복구 거래 요청 | OWN·COT | 완료 원거래·사유 필수, 새 원장 거래 생성 | PM-TXN-003 / SM-TXN-001 |
 | UIA-SHP-001 | SCR-WEB-011 상품 저장·게시 | OWN | `ACTIVE`, 가격·부가세·재고·유형 검증 | PM-SHP-001 |
 | UIA-SHP-002 | SCR-STU-007 상품 구매 | STU | `ACTIVE + AUTONOMOUS + MOD ACTIVE`, 잔액·재고 검증 | PM-SHP-002 / SM-SHP-001·SM-TXN-001 |
@@ -290,9 +290,9 @@
 | 행동 ID | 화면·버튼 | 실행 역할 | 활성 조건·전이 | 권한 |
 | --- | --- | --- | --- | --- |
 | UIA-AI-001 | SCR-WEB-022 AI 챗봇 질의 | OWN·COT | AI 켜짐, 집계 범위, 30회·20초·1회 재시도 | PM-AI-001 / SM-AIR-001 |
-| UIA-AI-002 | SCR-WEB-021 밸런싱 분석 요청 | OWN·COT | 학생 5명 미만 또는 관련 거래 10건 미만이면 데이터 부족 처리 | PM-AI-003 / SM-AIR-001 |
-| UIA-AI-003 | SCR-WEB-021 밸런싱 정책 적용 | OWN | `AWAITING_TEACHER → APPROVED → APPLYING`, 최신 정책 재검증 | PM-AI-004 / SM-AIR-001 |
-| UIA-AI-004 | SCR-WEB-023 경제 이벤트 초안 요청·승인·거절 | OWN·COT | AI 켜짐, 7종 템플릿·학년·금지효과 검증 | PM-AI-002 / SM-AIR-001 |
+| UIA-AI-002 | SCR-WEB-003·011·018·021 설정 점검·밸런싱 분석 요청 | OWN·COT | `SETUP_PRECHECK`는 정적 설정 검증, `ON_DEMAND·AUTO_MONITOR`는 학생 5명·관련 거래 10건 충분성 적용 | PM-AI-003 / SM-AIR-001 |
+| UIA-AI-003 | SCR-WEB-021 제안 적용·거절·알림 확인 | OWN·COT | COT는 `ACKNOWLEDGE`만, OWN 적용은 `AWAITING_TEACHER → APPROVED → APPLYING`과 최신 정책 재검증 | PM-AI-004 / SM-AIR-001 |
+| UIA-AI-004 | SCR-WEB-015·023 경제 이벤트·투자 뉴스 초안 요청·승인·거절 | OWN·COT | 교사 요청·모니터링 추천 출처 검증, `API-AI-004` 생성과 `API-AI-006` 승인 분리, 투자 뉴스는 시나리오·자산·가격 단계 연결 필수 | PM-AI-002 / SM-AIR-001·SM-IVT-001 |
 | UIA-AI-005 | SCR-WEB-021 학급 AI 끄기 | OWN | 담당 학급, 진행 AI 적용과 충돌 없음 | PM-AI-005 |
 | UIA-DAT-001 | SCR-WEB-024 PDF·CSV 내보내기 | OWN·COT | 담당, 운영 중 또는 READ_ONLY 전환 후 1년 이내, 실행자·범위 감사 | PM-DAT-003 |
 | UIA-DAT-002 | SCR-WEB-027 학급 템플릿 복사 | OWN·COT | 학생 데이터 제외, 코스·모듈·승인 퀴즈만 | PM-DAT-004 |
@@ -349,8 +349,8 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     A["SCR-WEB-003 개설"] --> B["SCR-WEB-004 코스"]
-    B --> C["SCR-WEB-005 모듈"]
-    C --> D["SCR-WEB-006 학생·급여"]
+    B --> C["SCR-WEB-005 선택 모듈·초기 정책"]
+    C --> D["SCR-WEB-006 학생·선택형 역할"]
     D --> E["SCR-WEB-008 자율시간"]
     E --> F["ACTIVE 운영"]
     F --> G["SCR-WEB-026 종료 사전 점검"]

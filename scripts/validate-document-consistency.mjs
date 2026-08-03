@@ -3,7 +3,17 @@ import path from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
-const excludedDirectories = new Set([".git", ".gradle", "build", "node_modules"]);
+const excludedDirectories = new Set([
+  ".codex",
+  ".docker-config",
+  ".git",
+  ".gradle",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  "build",
+  "node_modules",
+]);
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -56,7 +66,7 @@ assert(brokenLinks.length === 0, `깨진 로컬 문서 링크\n${brokenLinks.joi
 const definitionSources = [
   {
     name: "요구사항",
-    expected: 79,
+    expected: 82,
     files: ["docs/REQUIREMENTS_BASELINE.md"],
     pattern: /^\| ((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3})(?!\d)/g,
@@ -91,7 +101,7 @@ const definitionSources = [
   },
   {
     name: "HTTP API",
-    expected: 116,
+    expected: 117,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,

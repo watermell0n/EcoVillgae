@@ -1,17 +1,17 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.5
+- 버전: v0.6
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
-- 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
-- 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
+- 입력: [논리 데이터 모델 v0.5](DATA_MODEL.md)
+- 상태: MVP 물리 기준선·AI v1.2 선택형 모듈 계약 반영, 관련 Flyway 구현 예정
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
 
 이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_13`과 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_15`와 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -168,6 +168,8 @@ ON DELETE RESTRICT
 | `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
 | `school_ai_setting_versions` | 없음 | `id uuid PK`, `school_id uuid FK(schools)`, `version integer`, `enabled boolean`, `reason text`, `effective_from timestamptz`, `superseded_at timestamptz?`, `created_by_user_id uuid FK(users)`, `created_at timestamptz D=now()` | `(school_id,version) UQ`, 학교별 현재 버전 1개, 이력 불변 |
 
+전역 필수 모듈은 없습니다. 역할·급여 모듈이 비활성화된 학급은 `salary_roles`와 `payslips` 행을 만들지 않으며 `classroom_students.salary_role_id`를 `NULL`로 유지할 수 있습니다. 금액 모듈이 처음 활성화될 때 필요한 `ledger_accounts`를 생성하므로 지갑·원장은 교사가 고르는 기능 모듈이나 방 생성의 필수 데이터가 아닙니다. 초기 정책이 필요한 모듈은 `classroom_policy_versions` 저장과 `classroom_modules` 활성 전이를 같은 서비스 트랜잭션에서 처리합니다.
+
 ### 4.2 거래 원장·멱등성·상태·이벤트·감사
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
@@ -239,8 +241,8 @@ ON DELETE RESTRICT
 | `quiz_answers` | I | `quiz_submission_id uuid FK(quiz_submissions)`, `quiz_session_question_id uuid FK(quiz_session_questions)`, `selected_option_key varchar(20)?`, `free_text text?`, `is_correct boolean?`, `score_awarded integer?`, `response_time_ms integer?`, `answered_at timestamptz D=now()` | `(quiz_submission_id,quiz_session_question_id) UQ` |
 | `quiz_result_versions` | I | `quiz_session_id uuid FK(quiz_sessions)`, `version integer`, `status varchar(40)`, `reward_transaction_group_id uuid? FK(transaction_groups)`, `published_at timestamptz?`, `supersedes_result_version_id uuid? FK(quiz_result_versions)` | `(quiz_session_id,version) UQ`, 게시 후 불변 |
 | `quiz_student_results` | I | `quiz_result_version_id uuid FK(quiz_result_versions)`, `classroom_student_id uuid FK(classroom_students)`, `score integer`, `correct_count integer`, `rank integer?`, `reward_amount bigint D=0`, `total_response_time_ms bigint?` | `(quiz_result_version_id,classroom_student_id) UQ` |
-| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | SM-QAD-001 |
-| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
+| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | 학생별·세션 문항별 신고 1회 부분 UQ, SM-QAD-001 |
+| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 세션별 활성 재채점 1개 부분 UQ, 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
 | `votes` | 없음 | `activity_session_id uuid PK FK(activity_sessions)`, `classroom_id uuid`, `title varchar(160)`, `description text?`, `anonymous boolean D=true`, `status varchar(40)`, `state_version bigint D=0`, `opens_at timestamptz?`, `closes_at timestamptz?`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | 상태 `READY·OPEN·CLOSED·RESULT_PUBLISHED` |
 | `vote_options` | I | `vote_id uuid FK(votes)`, `label varchar(160)`, `description text?`, `sort_order integer`, `budget_amount bigint?` | `(vote_id,sort_order) UQ` |
 | `vote_eligibilities` | I | `vote_id uuid FK(votes)`, `classroom_student_id uuid FK(classroom_students)`, `eligibility_token_hash varchar(128)`, `used_at timestamptz?` | `(vote_id,classroom_student_id) UQ`, `(vote_id,eligibility_token_hash) UQ |
@@ -250,11 +252,11 @@ ON DELETE RESTRICT
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
 | --- | --- | --- | --- |
-| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid FK(users)`, `run_type varchar(40)`, `model_provider varchar(40)`, `model_id varchar(120)`, `prompt_version varchar(40)`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
+| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid? FK(users)`, `run_type varchar(40)`, `trigger_type varchar(40)`, `analysis_period_from timestamptz?`, `analysis_period_to timestamptz?`, `model_provider varchar(40)?`, `model_id varchar(120)?`, `prompt_version varchar(40)?`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | 자동·규칙 전용 실행은 요청 사용자·모델 메타 NULL, `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
 | `ai_artifacts` | I | `ai_run_id uuid FK(ai_runs)`, `artifact_type varchar(40)`, `content jsonb`, `schema_version varchar(20)`, `safety_status varchar(40)` | 생성 후 불변 |
-| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED` |
-| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 제안당 최종 결정 1개 UQ |
-| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·APPLIED·CANCELED` |
+| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `source_type varchar(40)`, `severity varchar(20)?`, `metric_code varchar(80)?`, `direction varchar(20)?`, `dedupe_key varchar(200)?`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·ACKNOWLEDGED·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED`, 같은 자동 분석 구간의 dedupe key는 서비스에서 멱등 저장 |
+| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 결정 `ACKNOWLEDGE·APPROVE·REJECT`, 정책 적용 최종 결정은 1개 UQ |
+| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `source_type varchar(40)`, `source_proposal_id uuid? FK(ai_proposals)`, `investment_price_step_id uuid? FK(investment_price_steps)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?`, `revealed_at timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·REVEALED·APPLIED·CANCELED`, INVESTMENT_NEWS는 가격 단계 연결 필수·단계당 활성 뉴스 1개 |
 | `async_operations` | S | `operation_type varchar(40)`, `requested_by_user_id uuid? FK(users)`, `progress_percent integer D=0`, `result_location varchar(512)?`, `error_code varchar(80)?`, `error_detail text?`, `started_at timestamptz?`, `completed_at timestamptz?`, `expires_at timestamptz?` | 진행률 0~100 |
 | `export_operations` | 없음 | `async_operation_id uuid PK FK(async_operations)`, `classroom_id uuid`, `requested_by_user_id uuid FK(users)`, `export_type varchar(40)`, `filter_snapshot jsonb`, `result_s3_key varchar(512)?`, `retention_until timestamptz`, `created_at timestamptz D=now()` | 비밀 URL 저장 금지 |
 | `report_snapshots` | I | `classroom_student_id uuid? FK(classroom_students)`, `report_type varchar(40)`, `schema_version varchar(20)`, `snapshot jsonb`, `as_of timestamptz`, `retention_until timestamptz` | 개인·학급 리포트 구분, 생성 후 불변 |
@@ -491,8 +493,10 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P11 | `V1_11__mvp_schema_alignment.sql` | 예상 학생 수·안정 역할 코드·자율시간 모듈 연결·학교 AI 설정 버전 |
 | P12 | `V1_12__seed_course_recommendations.sql` | 초4~6 × 1회·1주·1달·1학기 12개 추천 코스와 버전·모듈 제품 데이터 |
 | P13 | `V1_13__activity_public_fields.sql` | 지도 활동별 교사 승인 공용 화면 필드 allowlist |
+| P14 | `V1_14__ai_v1_2_execution.sql` | AI 실행 메타데이터·확인 결정·모니터 중복 방지 |
+| P15 | `V1_15__quiz_result_workflow.sql` | 학생별 중복 신고·세션별 동시 재채점 방지 부분 UQ |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_13`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_15`로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -544,13 +548,25 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_13`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 구현
+- Flyway `V1_1`~`V1_15`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터·퀴즈 신고/재채점 동시성 제약 구현
 - Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
-- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_13` 13개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
-- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_13` 전체 재적용 성공
+- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_14` 14개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
+- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_14` 전체 재적용 성공
 - 안전장치가 있는 로컬 외부 DB 경로로 테이블 생성 검사와 DBT-001~020 총 21개 실행, 건너뜀 0건으로 성공
+- `ai_runs` 분석 구간과 `ai_proposals.dedupe_key`를 `ON_DEMAND`·`AUTO_MONITOR` 실제
+  집계 서비스에 연결하고, 확인된 알림도 다음 7일 구간에서 다시 발생하면 새 제안으로
+  저장하도록 구현
 - Testcontainers 21개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
+
+`V1_14__ai_v1_2_execution.sql`은 기존 마이그레이션을 소급 수정하지 않고 `ai_runs`의
+트리거·분석 구간, `ai_proposals`의 출처·심각도·지표·방향·중복키,
+`ai_decisions`의 확인 후 승인 가능 제약, `economic_event_drafts`의 출처 제안 연결을
+추가합니다. `ACKNOWLEDGED`는 최종 거절이 아니므로 같은 제안에 확인 결정 1개와 최종
+승인·거절 결정 1개를 각각 허용합니다.
+
+`V1_15__quiz_result_workflow.sql`은 학생별 같은 세션 문항 중복 신고와 같은 세션의
+활성 재채점 중복 실행을 부분 유일 인덱스로 차단합니다.
 
 후속 작업:
 

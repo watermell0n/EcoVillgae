@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.domain.SalaryRole;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -45,6 +46,8 @@ public class ClassroomRosterService {
     private final ClassroomStudentRepository studentRepository;
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
+    private final ClassroomModuleRepository moduleRepository;
+    private final SetupPrecheckInvalidator precheckInvalidator;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -54,6 +57,8 @@ public class ClassroomRosterService {
         ClassroomStudentRepository studentRepository,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
+        ClassroomModuleRepository moduleRepository,
+        SetupPrecheckInvalidator precheckInvalidator,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -62,6 +67,8 @@ public class ClassroomRosterService {
         this.studentRepository = studentRepository;
         this.salaryRoleRepository = salaryRoleRepository;
         this.policyVersionRepository = policyVersionRepository;
+        this.moduleRepository = moduleRepository;
+        this.precheckInvalidator = precheckInvalidator;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -99,6 +106,36 @@ public class ClassroomRosterService {
             );
         }
 
+        boolean salaryModuleActive = salaryModuleActive(command.classroomId());
+        List<ValidatedStudent> students = validateStudents(
+            command.students(),
+            salaryModuleActive
+        );
+        if (!salaryModuleActive) {
+            rejectSalaryFieldsWithoutModule(command, students);
+            Instant now = clock.instant();
+            upsertStudents(command.classroomId(), students, Map.of(), now);
+            classroom.touch(now);
+            try {
+                studentRepository.flush();
+                classroomRepository.flush();
+            } catch (DataIntegrityViolationException exception) {
+                throw translateConstraintViolation(exception);
+            }
+            precheckInvalidator.invalidate(command.classroomId());
+            return new UpdateRosterResult(
+                classroom.getId(),
+                Math.toIntExact(studentRepository.countByClassroomIdAndStatus(
+                    classroom.getId(),
+                    ClassroomStudentStatus.ACTIVE
+                )),
+                0,
+                classroom.getStateVersion()
+            );
+        }
+        if (command.expectedPolicyVersion() == null) {
+            throw validation("expected_policy_version is required while salary is active.");
+        }
         ClassroomPolicyVersion currentPolicy = policyVersionRepository
             .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
                 command.classroomId(),
@@ -118,7 +155,6 @@ public class ClassroomRosterService {
         }
 
         List<ValidatedSalaryRole> salaryRoles = validateSalaryRoles(command.salaryRoles());
-        List<ValidatedStudent> students = validateStudents(command.students());
         Instant now = clock.instant();
         Map<String, SalaryRole> rolesByCode = upsertSalaryRoles(
             command.classroomId(),
@@ -148,6 +184,7 @@ public class ClassroomRosterService {
         } catch (DataIntegrityViolationException exception) {
             throw translateConstraintViolation(exception);
         }
+        precheckInvalidator.invalidate(command.classroomId());
 
         return new UpdateRosterResult(
             classroom.getId(),
@@ -238,7 +275,9 @@ public class ClassroomRosterService {
             student.updateRosterAndRole(
                 command.attendanceNumber(),
                 command.nickname(),
-                rolesByCode.get(command.roleCode()).getId(),
+                command.roleCode() == null
+                    ? null
+                    : rolesByCode.get(command.roleCode()).getId(),
                 now
             );
             changed.add(student);
@@ -286,7 +325,8 @@ public class ClassroomRosterService {
     }
 
     private static List<ValidatedStudent> validateStudents(
-        List<StudentRosterCommand> commands
+        List<StudentRosterCommand> commands,
+        boolean roleRequired
     ) {
         if (commands == null || commands.isEmpty()) {
             throw validation("students는 하나 이상이어야 합니다.");
@@ -304,7 +344,8 @@ public class ClassroomRosterService {
                 command.attendanceNumber() <= 0
                     || nickname.isEmpty()
                     || nickname.length() > 40
-                    || !ROLE_CODE.matcher(roleCode).matches()
+                    || (roleRequired && !ROLE_CODE.matcher(roleCode).matches())
+                    || (!roleCode.isEmpty() && !ROLE_CODE.matcher(roleCode).matches())
             ) {
                 throw validation("학생 번호·닉네임·역할을 확인해 주세요.");
             }
@@ -322,11 +363,38 @@ public class ClassroomRosterService {
                     command.studentId(),
                     command.attendanceNumber(),
                     nickname,
-                    roleCode
+                    roleCode.isEmpty() ? null : roleCode
                 )
             );
         }
         return validated;
+    }
+
+    private boolean salaryModuleActive(UUID classroomId) {
+        return moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            classroomId,
+            "ROLE_SALARY",
+            "ACTIVE"
+        ) || moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            classroomId,
+            "SALARY",
+            "ACTIVE"
+        );
+    }
+
+    private static void rejectSalaryFieldsWithoutModule(
+        UpdateRosterCommand command,
+        List<ValidatedStudent> students
+    ) {
+        boolean hasRoles = command.salaryRoles() != null && !command.salaryRoles().isEmpty();
+        boolean hasAssignments = students.stream().anyMatch(student -> student.roleCode() != null);
+        if (hasRoles || hasAssignments || command.expectedPolicyVersion() != null) {
+            throw new ClassroomOperationException(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                "Salary roles can be configured only while the role and salary module is active."
+            );
+        }
     }
 
     private static void validateRoleReferences(

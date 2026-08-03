@@ -22,6 +22,11 @@ public interface DepositAccountRepository extends JpaRepository<DepositAccount, 
         UUID openingTransactionGroupId
     );
 
+    boolean existsByClassroomIdAndStatus(
+        UUID classroomId,
+        DepositAccountStatus status
+    );
+
     List<DepositAccount> findAllByClassroomIdAndClassroomStudentIdOrderByOpenedAtDesc(
         UUID classroomId,
         UUID classroomStudentId

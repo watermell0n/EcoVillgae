@@ -1,7 +1,7 @@
 # 이코빌리지 핵심 상태 머신
 
-- 버전: v0.4
-- 기준일: 2026-07-29
+- 버전: v0.5
+- 기준일: 2026-07-30
 - 상태: 요구사항 기준선 기반 설계
 - 범위: 경제교실, 학생 앱, 모듈, 지도 활동, 거래, 상점, 금융, 퀴즈, AI
 
@@ -112,10 +112,12 @@ stateDiagram-v2
 
 | 전이 | 필수 조건·효과 |
 | --- | --- |
-| DISABLED → ACTIVE | 선수 모듈 활성, 학년 정책 검증, 학생 메뉴·명령 공개 |
+| DISABLED → ACTIVE | 조건부 선수 모듈·학년 정책 검증, 필요한 초기 정책과 활성 상태를 한 트랜잭션으로 저장, 학생 메뉴·명령 공개 |
 | ACTIVE → STOPPING | 진행 중 지도 활동이 없어야 함. 즉시 신규 사용 차단 |
 | STOPPING → DISABLED | 모듈별 활성 데이터 정리 완료, 기존 기록 보존 |
 | STOPPING → ACTIVE | 정리 트랜잭션이 반영되지 않았거나 교사가 확정 전에 중단 |
+
+전역 필수 모듈은 없습니다. 방 생성에서 고른 모듈도 먼저 `DISABLED`로 등록하며, 교사가 고른 모듈이 하나도 없어도 됩니다. 역할(직업)·급여를 `DISABLED`로 두면 학생은 역할과 급여 없이 다른 활성 모듈만 이용합니다. 지갑·원장은 선택 모듈이 아니라 금액을 다루는 활성 모듈이 필요할 때 서비스가 준비하는 기술 인프라입니다. 소득세→역할·급여, 대출→예금처럼 계산 불변식에 필요한 관계만 조건부 선행 모듈로 둡니다. 추천을 확인하지 않았거나 초기 정책 저장이 실패하면 상태는 `DISABLED`에 남습니다.
 
 모듈별 중지 규칙:
 
@@ -386,7 +388,7 @@ stateDiagram-v2
 
 - GAME의 OPEN은 실시간 타이머·속도 점수를 사용하고 TEST는 개인별 응시창을 사용합니다.
 - TEST는 순위·속도 보너스·화폐 보상을 생성하지 않습니다.
-- 1회 코스는 GAME과 TEST 모두 화폐 보상을 생성하지 않습니다.
+- 코스 라벨만으로 GAME 화폐 보상을 금지하지 않습니다. GAME 보상은 실제 운영기간의 비보상 발행액과 기존·신규 보상 합계로 상한을 검증합니다.
 - 보상 거래가 필요한 경우 SM-TXN-001 COMMITTED 후 CLOSED로 전이합니다.
 - RESULT_PUBLISHED 이후 오류는 결과 버전을 추가하고 복구 거래를 만들며 과거 상태로 되돌리지 않습니다.
 
@@ -413,6 +415,8 @@ stateDiagram-v2
     [*] --> REQUESTED
     REQUESTED --> DATA_CHECK
     DATA_CHECK --> INSUFFICIENT_DATA: 최소 데이터 미충족
+    DATA_CHECK --> AWAITING_TEACHER: 규칙 기반 설정 추천·시작 점검
+    DATA_CHECK --> COMPLETED: 자동 모니터링 NORMAL
     DATA_CHECK --> GENERATING: 입력·권한 검증 성공
     GENERATING --> VALIDATING: 모델 응답 수신
     GENERATING --> TIMED_OUT: 제한시간 초과
@@ -421,6 +425,7 @@ stateDiagram-v2
     VALIDATING --> COMPLETED: 읽기 전용 챗봇 답변
     VALIDATING --> REJECTED_OUTPUT: 스키마·안전검사 실패
     AWAITING_TEACHER --> APPROVED: 교사 승인
+    AWAITING_TEACHER --> ACKNOWLEDGED: 알림 확인·추천 건너뛰기
     AWAITING_TEACHER --> REJECTED: 교사 거절
     AWAITING_TEACHER --> EXPIRED: 검토기한 종료
     APPROVED --> APPLYING: 핵심 API에 적용 요청
@@ -429,9 +434,13 @@ stateDiagram-v2
 ```
 
 - DATA_CHECK에서 권한, AI 기능 켜짐, 최소 데이터와 입력 최소화를 검증합니다.
-- 경제 밸런싱은 학생 5명 미만 또는 관련 거래 10건 미만이면 INSUFFICIENT_DATA입니다.
+- `SETUP_PRECHECK`는 학생·거래 최소 표본 없이 규칙 기반 추천·정적 검증을 만들며 모델 실패가 수치 결과를 막지 않습니다.
+- `ON_DEMAND·AUTO_MONITOR` 경제 밸런싱은 학생 5명 미만 또는 관련 거래 10건 미만이면 INSUFFICIENT_DATA입니다.
+- `AUTO_MONITOR`의 NORMAL은 교사 검토 대상을 만들지 않고 COMPLETED가 되며 OBSERVE·WARN만 AWAITING_TEACHER로 이동합니다.
 - 챗봇은 구조화 검증 후 교사에게만 표시하므로 AWAITING_TEACHER 없이 COMPLETED가 됩니다.
 - 밸런싱·이벤트·퀴즈 초안은 교사 승인 없이는 적용·게시하지 않습니다.
+- ACKNOWLEDGED는 알림을 확인했거나 추천을 건너뛴 종료 상태이며 정책 적용을 뜻하지 않습니다. 다음 분석 구간의 재발은 새 실행을 만듭니다.
+- 투자 뉴스 생성 실행은 시나리오·자산·가격 단계 연결을 검증한 뒤 AWAITING_TEACHER로 이동하고 승인 후에도 연결 단계 전에는 공개하지 않습니다.
 - APPROVED 이후에도 핵심 API가 최신 상태와 허용 범위를 다시 검증합니다.
 - AI는 APPLYING 과정에서 데이터베이스나 학생 계좌를 직접 변경하지 않습니다.
 - 모든 종료 상태에 AI 실행 ID, 모델·프롬프트 버전, 검증 결과와 교사 결정을 남깁니다.

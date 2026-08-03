@@ -100,7 +100,7 @@ public class ClassroomStudent {
     ) {
         this.rosterNumber = positiveRosterNumber(rosterNumber);
         this.nickname = validNickname(nickname);
-        this.salaryRoleId = Objects.requireNonNull(salaryRoleId, "salaryRoleId must not be null");
+        this.salaryRoleId = salaryRoleId;
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
