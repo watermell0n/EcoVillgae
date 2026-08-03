@@ -1,0 +1,35 @@
+{
+  "evaluation_set_version": "balancing-evaluation-v1",
+  "prompt_version": "balancing-v1",
+  "grades": [4, 5, 6],
+  "success_cases": [
+    {"id": "on-demand-normal-liquidity", "mode": "ON_DEMAND", "severity": "NORMAL", "metric_codes": ["LIQUID_MONEY_CHANGE_RATE_BPS"]},
+    {"id": "on-demand-observe-issuance", "mode": "ON_DEMAND", "severity": "OBSERVE", "metric_codes": ["ISSUANCE_AMOUNT"], "action_type": "PRODUCT_PRICE"},
+    {"id": "on-demand-warn-recovery", "mode": "ON_DEMAND", "severity": "WARN", "metric_codes": ["RECOVERY_AMOUNT"], "action_type": "PRODUCT_STOCK"},
+    {"id": "on-demand-observe-balance-rate", "mode": "ON_DEMAND", "severity": "OBSERVE", "metric_codes": ["ISSUANCE_RECOVERY_RATE_BPS"], "action_type": "ACTIVITY_REWARD"},
+    {"id": "on-demand-warn-wallet-average", "mode": "ON_DEMAND", "severity": "WARN", "metric_codes": ["WALLET_AVERAGE_CHANGE_RATE_BPS"], "action_type": "GAME_REWARD"},
+    {"id": "auto-observe-wallet-median", "mode": "AUTO_MONITOR", "severity": "OBSERVE", "metric_codes": ["WALLET_MEDIAN_CHANGE_RATE_BPS"], "action_type": "QUIZ_REWARD"},
+    {"id": "auto-warn-concentration", "mode": "AUTO_MONITOR", "severity": "WARN", "metric_codes": ["ASSET_CONCENTRATION_TOP20_BPS"], "action_type": "TAX_RATE"},
+    {"id": "auto-observe-consumption", "mode": "AUTO_MONITOR", "severity": "OBSERVE", "metric_codes": ["CONSUMPTION_RATE_BPS"], "action_type": "INFLATION_RATE"},
+    {"id": "auto-warn-sell-through", "mode": "AUTO_MONITOR", "severity": "WARN", "metric_codes": ["PRODUCT_SELL_THROUGH_RATE_BPS"], "action_type": "DEPOSIT_RATE"},
+    {"id": "auto-observe-stockout", "mode": "AUTO_MONITOR", "severity": "OBSERVE", "metric_codes": ["PRODUCT_STOCKOUT_SHARE_BPS"], "action_type": "SAVINGS_RATE"},
+    {"id": "auto-warn-finance-participation", "mode": "AUTO_MONITOR", "severity": "WARN", "metric_codes": ["FINANCIAL_PARTICIPATION_RATE_BPS"], "action_type": "LOAN_RATE"},
+    {"id": "on-demand-warn-remaining-metrics", "mode": "ON_DEMAND", "severity": "WARN", "metric_codes": ["PAYMENT_MISS_RATE_BPS", "INVESTMENT_PARTICIPATION_RATE_BPS", "INVESTMENT_MEDIAN_RETURN_BPS", "INVESTMENT_LOSS_PARTICIPANT_RATE_BPS", "REWARD_ISSUANCE_SHARE_BPS"], "action_type": "PRODUCT_PRICE"}
+  ],
+  "pre_provider_rejection_cases": [
+    {"id": "insufficient-active-students", "mutation": "INSUFFICIENT_STUDENTS", "validation_code": "ACTIVE_STUDENTS_LT_5"},
+    {"id": "insufficient-related-transactions", "mutation": "INSUFFICIENT_TRANSACTIONS", "validation_code": "RELATED_TRANSACTIONS_LT_10"},
+    {"id": "auto-monitor-normal", "mutation": "AUTO_MONITOR_NORMAL", "validation_code": "AUTO_MONITOR_NORMAL_MODEL_CALL_FORBIDDEN"},
+    {"id": "no-available-metric", "mutation": "NO_AVAILABLE_METRIC", "validation_code": "NO_AVAILABLE_METRIC"}
+  ],
+  "invalid_output_cases": [
+    {"id": "fabricated-metric", "mutation": "FABRICATED_METRIC", "validation_code": "FABRICATED_EVIDENCE"},
+    {"id": "unknown-action", "mutation": "UNKNOWN_ACTION", "validation_code": "UNKNOWN_ACTION_ID"},
+    {"id": "out-of-range", "mutation": "OUT_OF_RANGE", "validation_code": "PROPOSED_VALUE_OUT_OF_RANGE"},
+    {"id": "approval-bypass", "mutation": "AUTO_APPLY", "validation_code": "APPROVAL_BOUNDARY_VIOLATION"}
+  ],
+  "expected_success_case_count": 36,
+  "expected_pre_provider_rejection_count": 12,
+  "expected_invalid_output_case_count": 12,
+  "expected_case_count": 60
+}

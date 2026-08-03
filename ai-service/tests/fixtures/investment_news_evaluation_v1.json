@@ -1,0 +1,68 @@
+{
+  "evaluation_set_version": "investment-news-evaluation-v1",
+  "prompt_version": "economic-event-v1",
+  "expected_case_count": 32,
+  "expected_success_case_count": 8,
+  "expected_pre_provider_rejection_count": 4,
+  "expected_invalid_output_case_count": 20,
+  "assets": [
+    {
+      "asset_id": "10000000-0000-4000-8000-000000000001",
+      "scenario_version_id": "20000000-0000-4000-8000-000000000001",
+      "asset_name": "푸른별",
+      "asset_symbol": "BLUE",
+      "steps": [
+        {"price_step_id": "30000000-0000-4000-8000-000000000011", "price": 100, "change_rate_bps": 0},
+        {"price_step_id": "30000000-0000-4000-8000-000000000012", "price": 105, "change_rate_bps": 500},
+        {"price_step_id": "30000000-0000-4000-8000-000000000013", "price": 98, "change_rate_bps": -667},
+        {"price_step_id": "30000000-0000-4000-8000-000000000014", "price": 102, "change_rate_bps": 408}
+      ]
+    },
+    {
+      "asset_id": "10000000-0000-4000-8000-000000000002",
+      "scenario_version_id": "20000000-0000-4000-8000-000000000002",
+      "asset_name": "햇살열매",
+      "asset_symbol": "SUN",
+      "steps": [
+        {"price_step_id": "30000000-0000-4000-8000-000000000021", "price": 80, "change_rate_bps": 0},
+        {"price_step_id": "30000000-0000-4000-8000-000000000022", "price": 76, "change_rate_bps": -500},
+        {"price_step_id": "30000000-0000-4000-8000-000000000023", "price": 82, "change_rate_bps": 789},
+        {"price_step_id": "30000000-0000-4000-8000-000000000024", "price": 85, "change_rate_bps": 366}
+      ]
+    },
+    {
+      "asset_id": "10000000-0000-4000-8000-000000000003",
+      "scenario_version_id": "20000000-0000-4000-8000-000000000003",
+      "asset_name": "바람씨앗",
+      "asset_symbol": "WIND",
+      "steps": [
+        {"price_step_id": "30000000-0000-4000-8000-000000000031", "price": 120, "change_rate_bps": 0},
+        {"price_step_id": "30000000-0000-4000-8000-000000000032", "price": 126, "change_rate_bps": 500},
+        {"price_step_id": "30000000-0000-4000-8000-000000000033", "price": 119, "change_rate_bps": -556},
+        {"price_step_id": "30000000-0000-4000-8000-000000000034", "price": 124, "change_rate_bps": 420}
+      ]
+    },
+    {
+      "asset_id": "10000000-0000-4000-8000-000000000004",
+      "scenario_version_id": "20000000-0000-4000-8000-000000000004",
+      "asset_name": "물결조각",
+      "asset_symbol": "WAVE",
+      "steps": [
+        {"price_step_id": "30000000-0000-4000-8000-000000000041", "price": 90, "change_rate_bps": 0},
+        {"price_step_id": "30000000-0000-4000-8000-000000000042", "price": 94, "change_rate_bps": 444},
+        {"price_step_id": "30000000-0000-4000-8000-000000000043", "price": 91, "change_rate_bps": -319},
+        {"price_step_id": "30000000-0000-4000-8000-000000000044", "price": 97, "change_rate_bps": 659}
+      ]
+    }
+  ],
+  "scenarios": [
+    {"id": "current-step-success", "kind": "SUCCESS"},
+    {"id": "premarket-batch-success", "kind": "BATCH_SUCCESS"},
+    {"id": "future-step-input-rejected", "kind": "PRE_PROVIDER"},
+    {"id": "company-output-rejected", "kind": "INVALID_OUTPUT", "mutation": "COMPANY", "validation_code": "INVESTMENT_COMPANY_GENERATION"},
+    {"id": "price-output-rejected", "kind": "INVALID_OUTPUT", "mutation": "PRICE", "validation_code": "INVESTMENT_PRICE_GENERATION"},
+    {"id": "future-output-rejected", "kind": "INVALID_OUTPUT", "mutation": "FUTURE", "validation_code": "INVESTMENT_FUTURE_INFORMATION"},
+    {"id": "trading-advice-rejected", "kind": "INVALID_OUTPUT", "mutation": "TRADING_ADVICE", "validation_code": "INVESTMENT_TRADING_ADVICE"},
+    {"id": "approval-reveal-rejected", "kind": "INVALID_OUTPUT", "mutation": "REVEALED", "validation_code": "APPROVAL_BOUNDARY_VIOLATION"}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "evaluation_set_version": "setup-precheck-evaluation-v1",
+  "prompt_version": "setup-precheck-v1",
+  "grades": [4, 5, 6],
+  "success_cases": [
+    {"id": "classroom-no-modules-pass", "context_type": "CLASSROOM_SETUP", "course_scale": "ONE_WEEK", "severity": "PASS"},
+    {"id": "classroom-period-warn", "context_type": "CLASSROOM_SETUP", "course_scale": "ONE_MONTH", "severity": "WARN"},
+    {"id": "classroom-currency-block", "context_type": "CLASSROOM_SETUP", "course_scale": "ONE_SEMESTER", "severity": "BLOCK"},
+    {"id": "module-role-pass", "context_type": "MODULE_ACTIVATION", "module_code": "ROLE_SALARY", "course_scale": "ONE_WEEK", "severity": "PASS"},
+    {"id": "module-deposit-warn", "context_type": "MODULE_ACTIVATION", "module_code": "DEPOSIT", "course_scale": "ONE_MONTH", "severity": "WARN"},
+    {"id": "module-loan-block", "context_type": "MODULE_ACTIVATION", "module_code": "LOAN", "course_scale": "ONE_SEMESTER", "severity": "BLOCK"},
+    {"id": "product-one-shot-pass", "context_type": "PRODUCT_DRAFT", "course_scale": "ONE_SHOT", "severity": "PASS"},
+    {"id": "product-one-month-warn", "context_type": "PRODUCT_DRAFT", "course_scale": "ONE_MONTH", "severity": "WARN"},
+    {"id": "quiz-game-one-shot-pass", "context_type": "QUIZ_SESSION_DRAFT", "course_scale": "ONE_SHOT", "quiz_mode": "GAME", "severity": "PASS"},
+    {"id": "quiz-game-one-month-warn", "context_type": "QUIZ_SESSION_DRAFT", "course_scale": "ONE_MONTH", "quiz_mode": "GAME", "severity": "WARN"},
+    {"id": "quiz-game-one-semester-block", "context_type": "QUIZ_SESSION_DRAFT", "course_scale": "ONE_SEMESTER", "quiz_mode": "GAME", "severity": "BLOCK"},
+    {"id": "quiz-test-no-reward", "context_type": "QUIZ_SESSION_DRAFT", "course_scale": "ONE_MONTH", "quiz_mode": "TEST", "severity": "PASS", "no_candidates": true}
+  ],
+  "invalid_output_cases": [
+    {"id": "candidate-value-changed", "mutation": "VALUE_CHANGED", "validation_code": "PROPOSED_VALUE_CHANGED"},
+    {"id": "candidate-range-changed", "mutation": "RANGE_CHANGED", "validation_code": "SETUP_RANGE_CHANGED"},
+    {"id": "preflight-severity-changed", "mutation": "SEVERITY_CHANGED", "validation_code": "PREFLIGHT_SEVERITY_CHANGED"},
+    {"id": "approval-boundary-bypassed", "mutation": "AUTO_APPLY", "validation_code": "APPROVAL_BOUNDARY_VIOLATION"}
+  ],
+  "expected_success_case_count": 36,
+  "expected_invalid_case_count": 12,
+  "expected_case_count": 48
+}

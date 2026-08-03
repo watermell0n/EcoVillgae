@@ -1,8 +1,8 @@
 # 이코빌리지 WebSocket 명세
 
-- 버전: v0.3
-- 기준일: 2026-07-29
-- 상태: 채널·이벤트·권한·재연결·AsyncAPI 3.1 계약 확정
+- 버전: v0.4
+- 기준일: 2026-07-30
+- 상태: AI 모니터링·투자 뉴스 사람 검토 계약 반영, AsyncAPI 3.1 동기화 예정
 - 범위: 학생 앱, 교사 웹, 교실 공용 화면, 핵심 API 실시간 게이트웨이
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [HTTP API 명세](HTTP_API_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
@@ -201,7 +201,7 @@ WebSocket으로 허용하는 클라이언트 메시지는 연결 관리뿐입니
 | EVT-ACT-004 | `activity.participation.updated` | WS-TCH-001·TEACHER | 제출·접속 상태 커밋 | `activity_id, joined_count, submitted_count, total_count` | CLS-009 |
 | EVT-ACT-005 | `activity.finished` | WS-ACT-001·PARTICIPANT/TEACHER | API-ACT-002·SM-ACT-001 | `result_status, next_app_mode, summary_url?` | CLS-004·CLS-009 |
 | EVT-ACT-006 | `activity.canceled` | WS-ACT-001·PARTICIPANT/TEACHER | API-ACT-002·SM-ACT-001 | `reason_code, next_app_mode` | CLS-004·CLS-009 |
-| EVT-ACT-007 | `economic_event.published` | WS-ACT-001·WS-ECO-001·PARTICIPANT/CLASSROOM | API-AI-004 승인 커밋 | `event_id, template_type, title, description, effective_from` | AI-007 |
+| EVT-ACT-007 | `economic_event.published` | WS-ACT-001·WS-ECO-001·PARTICIPANT/CLASSROOM | API-AI-006 승인 커밋 | `event_id, template_type, title, description, effective_from` | AI-007 |
 
 타이머는 매초 이벤트를 보내지 않습니다. 서버의 `ends_at`을 기준으로 클라이언트가 표시하고 단계 전환 및 10초 간격 동기화 이벤트로 오차를 보정합니다.
 
@@ -244,12 +244,15 @@ WebSocket으로 허용하는 클라이언트 메시지는 연결 관리뿐입니
 | 이벤트 ID | event_type | 채널·audience | 커밋 원인 | 핵심 payload | RTM |
 | --- | --- | --- | --- | --- | --- |
 | EVT-IVT-001 | `investment.market.status_changed` | WS-IVT-001·CLASSROOM | API-FIN-008·SM-IVT-001 | `status, price_version, next_step_at?` | FIN-005·FIN-007 |
-| EVT-IVT-002 | `investment.price.changed` | WS-IVT-001·CLASSROOM | 규칙 기반 가격 단계 커밋 | `asset_id, price, change_rate_bps, price_version, occurred_at` | FIN-005·FIN-007 |
+| EVT-IVT-002 | `investment.price.changed` | WS-IVT-001·CLASSROOM | 규칙 기반 가격 단계 커밋 | `asset_id, price, change_rate_bps, price_version, approved_news_id?, approved_news_title?, occurred_at` | FIN-005·FIN-007·AI-011 |
 | EVT-IVT-003 | `investment.order.executed` | WS-STU-001·SELF | API-FIN-009 | `order_id, side, asset_id, quantity, executed_price, transaction_id` | FIN-006 |
 | EVT-IVT-004 | `investment.portfolio.changed` | WS-STU-001·SELF | API-FIN-009·시장 종료 정산 | `portfolio_version, total_cost, current_value, realized_profit` | FIN-006·FIN-007 |
 | EVT-IVT-005 | `investment.market.settlement_progress` | WS-IVT-001·WS-TCH-001·CLASSROOM/TEACHER | 시장 CLOSE·교실 종료 | `status, processed_count, total_count, failed_count` | FIN-007·FIN-012 |
 
-가격 이벤트는 자산별 최대 초당 1회로 제한합니다. 학생별 보유량·매수 가격·손익은 시장 채널이 아니라 본인 개인 채널로만 전달합니다.
+가격 이벤트는 자산별 최대 초당 1회로 제한합니다. 연결 가격 단계에 교사가 승인한 뉴스만
+식별자와 제목을 포함하며 본문은 `API-READ-016`에서 조회합니다. 다음 단계 가격과 미승인
+뉴스는 이벤트에 포함하지 않습니다. 학생별 보유량·매수 가격·손익은 시장 채널이 아니라
+본인 개인 채널로만 전달합니다.
 
 ## 12. 공용 화면 이벤트
 
@@ -271,10 +274,12 @@ WebSocket으로 허용하는 클라이언트 메시지는 연결 관리뿐입니
 | 이벤트 ID | event_type | 채널·audience | 핵심 payload | RTM |
 | --- | --- | --- | --- | --- |
 | EVT-OPS-001 | `operation.progress_changed` | WS-OPS-001·SELF/TEACHER | `operation_id, status, progress_percent, current_step` | AI-006·DAT-003 |
-| EVT-OPS-002 | `operation.succeeded` | WS-OPS-001·SELF/TEACHER | `operation_id, result_url?, result_resource_id?, expires_at?` | AI-006·DAT-003 |
+| EVT-OPS-002 | `operation.succeeded` | WS-OPS-001·SELF/TEACHER | `operation_id, result_type?, severity?, result_url?, result_resource_id?, expires_at?` | AI-006·AI-010·DAT-003 |
 | EVT-OPS-003 | `operation.failed` | WS-OPS-001·SELF/TEACHER | `operation_id, error_code, retryable, fallback_action` | AI-006·DAT-003 |
 
-WebSocket 작업 이벤트는 편의를 위한 알림입니다. 최종 결과는 `API-READ-030 GET /operations/{operation_id}`로 확인합니다.
+자동 모니터링 성공은 담당 교사에게 `result_type=AI_MONITORING`과 심각도만 알리고 지표·
+제안 본문은 푸시하지 않습니다. WebSocket 작업 이벤트는 편의를 위한 알림이며 최종 결과는
+`API-READ-027`과 `API-READ-030 GET /operations/{operation_id}`로 확인합니다.
 
 ## 14. 초기 동기화와 재연결
 
@@ -421,7 +426,7 @@ Gateway가 다음 제어 메시지를 보내고 해당 구독의 도메인 이�
 
 다음 작업:
 
-WebSocket ID의 요구사항 역방향 연결은 [RTM v1.3](RTM.md), 이벤트 저장 구조와 outbox·stream DDL은 [논리 데이터 모델](DATA_MODEL.md), [물리 스키마](PHYSICAL_SCHEMA.md), Flyway에 반영했습니다. 구현 기준 파일은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
+WebSocket ID의 요구사항 역방향 연결은 [RTM v1.4](RTM.md), 이벤트 저장 구조와 outbox·stream DDL은 [논리 데이터 모델](DATA_MODEL.md), [물리 스키마](PHYSICAL_SCHEMA.md), Flyway에서 관리합니다. AI 모니터링·투자 뉴스 payload의 다음 동기화 대상은 [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다.
 
 1. outbox publisher의 미발행 재시도·replay·Gateway 통합 테스트
 2. AsyncAPI 기반 이벤트 타입·Gateway 인터페이스 생성

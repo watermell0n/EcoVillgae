@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.2",
+  "success": [
+    {
+      "id": "setup-classroom",
+      "factory": "setup_classroom",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "setup-module-activation",
+      "factory": "setup_module_activation",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "setup-product",
+      "factory": "setup_product",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "setup-quiz-game",
+      "factory": "setup_quiz_game",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "setup-quiz-test-no-reward",
+      "factory": "setup_quiz_test_no_reward",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["context_type", "candidate_explanations", "check_explanations"]
+    },
+    {
+      "id": "balancing-on-demand",
+      "factory": "balancing_on_demand",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["summary", "evidence_metric_codes", "proposals"]
+    },
+    {
+      "id": "balancing-auto-monitor",
+      "factory": "balancing_auto_monitor",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_output_fields": ["summary", "evidence_metric_codes", "proposals"]
+    },
+    {
+      "id": "teacher-chat",
+      "factory": "teacher_chat",
+      "endpoint": "/internal/v1/generations/teacher-chat",
+      "expected_output_fields": [
+        "response_mode",
+        "answer",
+        "evidence_fact_ids",
+        "causes",
+        "recommendations",
+        "limitation_codes",
+        "period",
+        "data_as_of"
+      ]
+    },
+    {
+      "id": "event-teacher",
+      "factory": "event_teacher",
+      "endpoint": "/internal/v1/generations/economic-event",
+      "expected_output_fields": ["review_status", "narrative"]
+    },
+    {
+      "id": "event-monitor",
+      "factory": "event_monitor",
+      "endpoint": "/internal/v1/generations/economic-event",
+      "expected_output_fields": ["review_status", "narrative"]
+    },
+    {
+      "id": "investment-news",
+      "factory": "investment_news",
+      "endpoint": "/internal/v1/generations/economic-event",
+      "expected_output_fields": ["review_status", "narrative", "investment_news_binding"]
+    },
+    {
+      "id": "quiz-economy-multiple-choice",
+      "factory": "quiz_economy_multiple_choice",
+      "endpoint": "/internal/v1/generations/quiz-draft",
+      "expected_output_fields": ["review_status", "questions"]
+    },
+    {
+      "id": "quiz-nonsense-ox",
+      "factory": "quiz_nonsense_ox",
+      "endpoint": "/internal/v1/generations/quiz-draft",
+      "expected_output_fields": ["review_status", "questions"]
+    }
+  ],
+  "invalid": [
+    {
+      "id": "setup-classroom-candidate",
+      "factory": "setup_module_activation",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "setup-module-missing-id",
+      "factory": "setup_module_activation",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "setup-unrelated-target",
+      "factory": "setup_product",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "setup-test-reward",
+      "factory": "setup_quiz_game",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "auto-monitor-missing-previous-period",
+      "factory": "balancing_auto_monitor",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "auto-monitor-normal-model-call",
+      "factory": "balancing_auto_monitor",
+      "endpoint": "/internal/v1/generations/balancing",
+      "expected_status": 422,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "monitor-event-missing-reference",
+      "factory": "event_teacher",
+      "endpoint": "/internal/v1/generations/economic-event",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "investment-future-price-fact",
+      "factory": "investment_news",
+      "endpoint": "/internal/v1/generations/economic-event",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    },
+    {
+      "id": "quiz-missing-concepts",
+      "factory": "quiz_economy_multiple_choice",
+      "endpoint": "/internal/v1/generations/quiz-draft",
+      "expected_status": 400,
+      "expected_error": "AI_INPUT_SCHEMA_INVALID"
+    }
+  ]
+}

@@ -1,10 +1,10 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.5
+- 버전: v0.6
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
-- 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
-- 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
+- 입력: [논리 데이터 모델 v0.5](DATA_MODEL.md)
+- 상태: MVP 물리 기준선·AI v1.2 선택형 모듈 계약 반영, 관련 Flyway 구현 예정
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
@@ -168,6 +168,8 @@ ON DELETE RESTRICT
 | `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
 | `school_ai_setting_versions` | 없음 | `id uuid PK`, `school_id uuid FK(schools)`, `version integer`, `enabled boolean`, `reason text`, `effective_from timestamptz`, `superseded_at timestamptz?`, `created_by_user_id uuid FK(users)`, `created_at timestamptz D=now()` | `(school_id,version) UQ`, 학교별 현재 버전 1개, 이력 불변 |
 
+전역 필수 모듈은 없습니다. 역할·급여 모듈이 비활성화된 학급은 `salary_roles`와 `payslips` 행을 만들지 않으며 `classroom_students.salary_role_id`를 `NULL`로 유지할 수 있습니다. 금액 모듈이 처음 활성화될 때 필요한 `ledger_accounts`를 생성하므로 지갑·원장은 교사가 고르는 기능 모듈이나 방 생성의 필수 데이터가 아닙니다. 초기 정책이 필요한 모듈은 `classroom_policy_versions` 저장과 `classroom_modules` 활성 전이를 같은 서비스 트랜잭션에서 처리합니다.
+
 ### 4.2 거래 원장·멱등성·상태·이벤트·감사
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
@@ -250,11 +252,11 @@ ON DELETE RESTRICT
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
 | --- | --- | --- | --- |
-| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid FK(users)`, `run_type varchar(40)`, `model_provider varchar(40)`, `model_id varchar(120)`, `prompt_version varchar(40)`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
+| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid? FK(users)`, `run_type varchar(40)`, `trigger_type varchar(40)`, `analysis_period_from timestamptz?`, `analysis_period_to timestamptz?`, `model_provider varchar(40)?`, `model_id varchar(120)?`, `prompt_version varchar(40)?`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | 자동·규칙 전용 실행은 요청 사용자·모델 메타 NULL, `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
 | `ai_artifacts` | I | `ai_run_id uuid FK(ai_runs)`, `artifact_type varchar(40)`, `content jsonb`, `schema_version varchar(20)`, `safety_status varchar(40)` | 생성 후 불변 |
-| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED` |
-| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 제안당 최종 결정 1개 UQ |
-| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·APPLIED·CANCELED` |
+| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `source_type varchar(40)`, `severity varchar(20)?`, `metric_code varchar(80)?`, `direction varchar(20)?`, `dedupe_key varchar(200)?`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·ACKNOWLEDGED·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED`, 같은 자동 분석 구간의 dedupe key는 서비스에서 멱등 저장 |
+| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 결정 `ACKNOWLEDGE·APPROVE·REJECT`, 정책 적용 최종 결정은 1개 UQ |
+| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `source_type varchar(40)`, `source_proposal_id uuid? FK(ai_proposals)`, `investment_price_step_id uuid? FK(investment_price_steps)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?`, `revealed_at timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·REVEALED·APPLIED·CANCELED`, INVESTMENT_NEWS는 가격 단계 연결 필수·단계당 활성 뉴스 1개 |
 | `async_operations` | S | `operation_type varchar(40)`, `requested_by_user_id uuid? FK(users)`, `progress_percent integer D=0`, `result_location varchar(512)?`, `error_code varchar(80)?`, `error_detail text?`, `started_at timestamptz?`, `completed_at timestamptz?`, `expires_at timestamptz?` | 진행률 0~100 |
 | `export_operations` | 없음 | `async_operation_id uuid PK FK(async_operations)`, `classroom_id uuid`, `requested_by_user_id uuid FK(users)`, `export_type varchar(40)`, `filter_snapshot jsonb`, `result_s3_key varchar(512)?`, `retention_until timestamptz`, `created_at timestamptz D=now()` | 비밀 URL 저장 금지 |
 | `report_snapshots` | I | `classroom_student_id uuid? FK(classroom_students)`, `report_type varchar(40)`, `schema_version varchar(20)`, `snapshot jsonb`, `as_of timestamptz`, `retention_until timestamptz` | 개인·학급 리포트 구분, 생성 후 불변 |
@@ -544,13 +546,22 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_13`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 구현
+- Flyway `V1_1`~`V1_14`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터 구현
 - Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
-- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_13` 13개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
-- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_13` 전체 재적용 성공
+- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_14` 14개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
+- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_14` 전체 재적용 성공
 - 안전장치가 있는 로컬 외부 DB 경로로 테이블 생성 검사와 DBT-001~020 총 21개 실행, 건너뜀 0건으로 성공
+- `ai_runs` 분석 구간과 `ai_proposals.dedupe_key`를 `ON_DEMAND`·`AUTO_MONITOR` 실제
+  집계 서비스에 연결하고, 확인된 알림도 다음 7일 구간에서 다시 발생하면 새 제안으로
+  저장하도록 구현
 - Testcontainers 21개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
+
+`V1_14__ai_v1_2_execution.sql`은 기존 마이그레이션을 소급 수정하지 않고 `ai_runs`의
+트리거·분석 구간, `ai_proposals`의 출처·심각도·지표·방향·중복키,
+`ai_decisions`의 확인 후 승인 가능 제약, `economic_event_drafts`의 출처 제안 연결을
+추가합니다. `ACKNOWLEDGED`는 최종 거절이 아니므로 같은 제안에 확인 결정 1개와 최종
+승인·거절 결정 1개를 각각 허용합니다.
 
 후속 작업:
 

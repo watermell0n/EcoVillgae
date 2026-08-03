@@ -1,0 +1,6 @@
+INTEREST_RATE 템플릿의 검토용 경제 이벤트 초안만 작성한다.
+입력 interest_rate_scope에 맞는 예금·적금·대출금리의 역할을 학습용 마을 은행 이야기와 선택지·진행 문구로 설명한다.
+source_type, source_proposal_id, source_evidence_codes, template_type과 interest_rate_scope는 입력을 그대로 복사한다.
+effect_summary는 배경 사실로만 사용하며 숫자·비율·금액이나 금리 변경·대출 실행 명령을 출력하지 않는다.
+강제 대출, 실제 금융 조언, 특정 학생의 손익, 개인 잔액 변경과 음수 잔액을 만들지 않는다.
+두 개 이상의 서로 다른 선택지를 제공하고 모든 산출물은 교사 검토 전 초안으로 표현한다.

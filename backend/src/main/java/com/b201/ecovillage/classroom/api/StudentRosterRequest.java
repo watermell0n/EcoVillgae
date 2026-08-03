@@ -10,6 +10,6 @@ public record StudentRosterRequest(
     UUID studentId,
     @Min(1) int attendanceNumber,
     @NotBlank @Size(max = 40) String nickname,
-    @NotBlank String roleCode
+    @Size(max = 40) String roleCode
 ) {
 }

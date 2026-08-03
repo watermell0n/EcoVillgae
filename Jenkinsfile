@@ -32,6 +32,9 @@ pipeline {
         stage('Contracts and Schema') {
             steps {
                 sh 'node scripts/validate-contract-coverage.mjs'
+                sh 'node scripts/validate-api-schema-consistency.mjs'
+                sh 'node scripts/validate-ai-internal-contract.mjs'
+                sh 'node scripts/validate-spring-openapi-contract.mjs'
                 sh 'node scripts/validate-data-model.mjs'
                 sh 'node scripts/validate-physical-schema.mjs'
                 sh 'node scripts/validate-database-implementation.mjs'

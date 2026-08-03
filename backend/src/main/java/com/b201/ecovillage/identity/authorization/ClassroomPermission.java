@@ -7,8 +7,24 @@ public enum ClassroomPermission {
         "PM-RBAC-001",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    READ_ROSTER(
+        "PM-CLS-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_MODULES_AND_POLICIES(
+        "PM-RBAC-002",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
     MANAGE_ROSTER(
         "PM-CLS-004",
+        Set.of(ClassroomActorRole.OWN)
+    ),
+    MANAGE_MODULES(
+        "PM-MOD-001",
         Set.of(ClassroomActorRole.OWN)
     ),
     MANAGE_PAYOUTS(
@@ -74,6 +90,22 @@ public enum ClassroomPermission {
     READ_CLASSROOM_REPORT(
         "PM-DAT-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    REQUEST_AI_ANALYSIS(
+        "PM-AI-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    ACKNOWLEDGE_AI_PROPOSAL(
+        "PM-AI-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    APPLY_AI_PROPOSAL(
+        "PM-AI-004",
+        Set.of(ClassroomActorRole.OWN)
+    ),
+    MANAGE_AI_SETTINGS(
+        "PM-AI-005",
+        Set.of(ClassroomActorRole.OWN)
     ),
     MANAGE_PUBLIC_FUND_VOTE(
         "PM-ACT-002",

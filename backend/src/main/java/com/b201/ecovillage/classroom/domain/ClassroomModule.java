@@ -61,26 +61,47 @@ public class ClassroomModule {
         UUID id,
         UUID classroomId,
         String moduleCode,
-        Instant enabledAt
+        Instant createdAt
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.classroomId = Objects.requireNonNull(classroomId, "classroomId must not be null");
         this.moduleCode = Objects.requireNonNull(moduleCode, "moduleCode must not be null");
         this.config = Map.of();
-        this.enabledAt = Objects.requireNonNull(enabledAt, "enabledAt must not be null");
-        this.status = "ACTIVE";
-        this.statusChangedAt = enabledAt;
-        this.createdAt = enabledAt;
-        this.updatedAt = enabledAt;
+        this.status = "DISABLED";
+        this.statusChangedAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        this.createdAt = createdAt;
+        this.updatedAt = createdAt;
     }
 
-    public static ClassroomModule activate(
+    public static ClassroomModule disabled(
         UUID id,
         UUID classroomId,
         String moduleCode,
-        Instant enabledAt
+        Instant createdAt
     ) {
-        return new ClassroomModule(id, classroomId, moduleCode, enabledAt);
+        return new ClassroomModule(id, classroomId, moduleCode, createdAt);
+    }
+
+    public void activate(Map<String, Object> config, Instant changedAt) {
+        if (!"DISABLED".equals(status)) {
+            throw new IllegalStateException("Only a disabled module can be activated");
+        }
+        this.config = Map.copyOf(Objects.requireNonNull(config, "config must not be null"));
+        this.enabledAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        this.stoppedAt = null;
+        this.status = "ACTIVE";
+        this.statusChangedAt = changedAt;
+        this.updatedAt = changedAt;
+    }
+
+    public void disable(Instant changedAt) {
+        if (!"ACTIVE".equals(status)) {
+            throw new IllegalStateException("Only an active module can be disabled");
+        }
+        this.status = "DISABLED";
+        this.stoppedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        this.statusChangedAt = changedAt;
+        this.updatedAt = changedAt;
     }
 
     public UUID getId() {
@@ -97,5 +118,21 @@ public class ClassroomModule {
 
     public String getStatus() {
         return status;
+    }
+
+    public Map<String, Object> getConfig() {
+        return Map.copyOf(config);
+    }
+
+    public Instant getEnabledAt() {
+        return enabledAt;
+    }
+
+    public Instant getStoppedAt() {
+        return stoppedAt;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
     }
 }

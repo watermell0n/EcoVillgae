@@ -26,6 +26,12 @@ import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
 import com.b201.ecovillage.classroom.application.ClassroomRosterService;
+import com.b201.ecovillage.classroom.application.ClassroomReadService;
+import com.b201.ecovillage.classroom.application.ModuleActivationCommand;
+import com.b201.ecovillage.classroom.application.ModuleActivationResult;
+import com.b201.ecovillage.classroom.application.ModuleActivationService;
+import com.b201.ecovillage.classroom.application.ModulesAndPoliciesView;
+import com.b201.ecovillage.classroom.application.RosterAndSalariesView;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
 import com.b201.ecovillage.classroom.application.CreateClassroomResult;
 import com.b201.ecovillage.classroom.application.SalaryRoleCommand;
@@ -43,7 +49,9 @@ public class ClassroomController {
     private final ClassroomCreationService creationService;
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
+    private final ClassroomReadService readService;
     private final AccessModeCommandService accessModeCommandService;
+    private final ModuleActivationService moduleActivationService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -51,16 +59,60 @@ public class ClassroomController {
         ClassroomCreationService creationService,
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
+        ClassroomReadService readService,
         AccessModeCommandService accessModeCommandService,
+        ModuleActivationService moduleActivationService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.creationService = creationService;
         this.configurationService = configurationService;
         this.rosterService = rosterService;
+        this.readService = readService;
         this.accessModeCommandService = accessModeCommandService;
+        this.moduleActivationService = moduleActivationService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/{classroomId}/modules/{moduleCode}/activation-commands")
+    public ApiResponse<ModuleActivationResponse> activateModule(
+        @PathVariable UUID classroomId,
+        @PathVariable String moduleCode,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ModuleActivationCommandRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        ModuleActivationResult result = moduleActivationService.activate(
+            new ModuleActivationCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                moduleCode,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.confirmPrerequisites(),
+                request.initialPolicyValues(),
+                request.recommendationActionIds()
+            )
+        );
+        return new ApiResponse<>(
+            new ModuleActivationResponse(
+                result.moduleCode(),
+                result.status(),
+                result.stateVersion(),
+                result.policyArea(),
+                result.policyVersion(),
+                result.policyVersionId(),
+                result.ruleVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
     }
 
     @PostMapping("/{classroomId}/access-mode-commands")
@@ -113,7 +165,9 @@ public class ClassroomController {
                 student.roleCode()
             ))
             .toList();
-        List<SalaryRoleCommand> salaryRoles = request.salaryRoles().stream()
+        List<SalaryRoleCommand> salaryRoles = (request.salaryRoles() == null
+            ? List.<SalaryRoleRequest>of()
+            : request.salaryRoles()).stream()
             .map(role -> new SalaryRoleCommand(
                 role.roleCode(),
                 role.name(),
@@ -139,6 +193,32 @@ public class ClassroomController {
             result.stateVersion()
         );
         return new ApiResponse<>(data, meta(requestId, correlationId));
+    }
+
+    @GetMapping("/{classroomId}/roster-and-salaries")
+    public ApiResponse<RosterAndSalariesView> rosterAndSalaries(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        RosterAndSalariesView data = readService.rosterAndSalaries(
+            principal == null ? null : principal.getName(),
+            classroomId
+        );
+        return new ApiResponse<>(data, meta(uuidGenerator.generate(), correlationId));
+    }
+
+    @GetMapping("/{classroomId}/modules-and-policies")
+    public ApiResponse<ModulesAndPoliciesView> modulesAndPolicies(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        ModulesAndPoliciesView data = readService.modulesAndPolicies(
+            principal == null ? null : principal.getName(),
+            classroomId
+        );
+        return new ApiResponse<>(data, meta(uuidGenerator.generate(), correlationId));
     }
 
     @PostMapping

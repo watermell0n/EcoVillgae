@@ -1,0 +1,25 @@
+{
+  "evaluation_set_version": "economic-event-evaluation-v1",
+  "prompt_version": "economic-event-v1",
+  "templates": [
+    {"template_type": "PRICE", "valid_grade": 4, "boundary_mutation": "SENSITIVE_INPUT", "boundary_code": "SENSITIVE_INPUT_DETECTED"},
+    {"template_type": "SUPPLY", "valid_grade": 4, "boundary_mutation": "SECRET_INPUT", "boundary_code": "SECRET_INPUT_DETECTED"},
+    {"template_type": "PUBLIC_FUND", "valid_grade": 4, "boundary_mutation": "PROMPT_INJECTION", "boundary_code": "ECONOMIC_EVENT_PROMPT_INJECTION_INPUT"},
+    {"template_type": "TAX", "valid_grade": 5, "boundary_mutation": "GRADE_4", "boundary_code": "GRADE_POLICY_VIOLATION"},
+    {"template_type": "INTEREST_RATE", "valid_grade": 5, "boundary_mutation": "GRADE_4", "boundary_code": "GRADE_POLICY_VIOLATION"},
+    {"template_type": "INVESTMENT_NEWS", "valid_grade": 6, "boundary_mutation": "GRADE_5", "boundary_code": "GRADE_POLICY_VIOLATION"},
+    {"template_type": "REWARD", "valid_grade": 6, "boundary_mutation": "GRADE_5", "boundary_code": "GRADE_POLICY_VIOLATION"}
+  ],
+  "scenarios": [
+    {"id": "teacher-request-success", "kind": "SUCCESS", "source_type": "TEACHER_REQUEST", "course_scale": "ONE_SHOT"},
+    {"id": "monitor-recommendation-success", "kind": "SUCCESS", "source_type": "MONITOR_RECOMMENDATION"},
+    {"id": "grade-or-input-boundary", "kind": "PRE_PROVIDER"},
+    {"id": "forbidden-effect-output", "kind": "INVALID_OUTPUT", "mutation": "FORBIDDEN_EFFECT", "validation_code": "FORBIDDEN_EVENT_EFFECT"},
+    {"id": "source-context-tamper", "kind": "INVALID_OUTPUT", "mutation": "SOURCE_CHANGED", "validation_code": "EVENT_SOURCE_CHANGED"},
+    {"id": "approval-boundary-bypass", "kind": "INVALID_OUTPUT", "mutation": "APPROVAL_BYPASS", "validation_code": "APPROVAL_BOUNDARY_VIOLATION"}
+  ],
+  "expected_success_case_count": 14,
+  "expected_pre_provider_rejection_count": 7,
+  "expected_invalid_output_case_count": 21,
+  "expected_case_count": 42
+}

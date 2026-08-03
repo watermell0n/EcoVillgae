@@ -1,31 +1,28 @@
 "use client";
 
 import { ChangeEvent, useMemo, useState } from "react";
+import {
+  ApiError,
+  MODULE_DEFINITIONS,
+  MODULE_PREREQUISITES,
+  STUDENT_ACCESS_MODULE_NAMES,
+  apiRequest,
+  periodToCourseSize,
+  type CreateClassroomResponse,
+  type ModuleCode,
+  type SetupPrecheckResponse
+} from "./api";
+import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import type { ClassSettings, LogTone, ModuleRow, RunAction, StudentRow } from "./types";
+import { PlainSection } from "./ui";
 
 type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "modules" | "complete";
-type LogTone = "success" | "warning" | "error";
-
 type LogEntry = {
   id: string;
   tone: LogTone;
   message: string;
-};
-
-type StudentRow = {
-  attendance: string;
-  nickname: string;
-  role: string;
-  salary: string;
-  status: string;
-};
-
-type ModuleRow = {
-  name: string;
-  status: string;
-  studentState: string;
-  teacherTodo: string;
 };
 
 type ProductRow = {
@@ -42,20 +39,6 @@ type ApprovalRow = {
   target: string;
   amount: string;
   status: string;
-};
-
-type ClassSettings = {
-  className: string;
-  schoolName: string;
-  grade: string;
-  classNumber: string;
-  description: string;
-  classCode: string;
-  startDate: string;
-  endDate: string;
-  currency: string;
-  period: string;
-  incomeTax: string;
 };
 
 type LessonMaterial = {
@@ -76,24 +59,17 @@ const views: Array<{ key: ViewKey; label: string }> = [
   { key: "approvals", label: "승인·정산" }
 ];
 
-const classroomId = "00000000-0000-4000-8000-000000000101";
-const apiBaseUrl = "http://localhost:8080";
+const initialModules: ModuleRow[] = MODULE_DEFINITIONS.map((module) => ({
+  code: module.code,
+  name: module.name,
+  status: "미선택",
+  studentState: "학생 미노출",
+  teacherTodo: "방 생성에서 선택",
+  stateVersion: 0,
+  policyVersion: null
+}));
 
-const initialModules: ModuleRow[] = [
-  { name: "지갑", status: "열림", studentState: "기본 기능", teacherTodo: "자동 적용" },
-  { name: "상점", status: "열림", studentState: "학생 구매 가능", teacherTodo: "상품 2개 판매 중" },
-  { name: "은행", status: "열림", studentState: "예금 가입 가능", teacherTodo: "예금 상품 관리" },
-  { name: "투자", status: "결과 대기", studentState: "단기·장기 투자 확인", teacherTodo: "시장 결과 준비" },
-  { name: "거래", status: "승인 필요", studentState: "친구 거래 가능", teacherTodo: "대기 2건" },
-  { name: "퀴즈", status: "준비됨", studentState: "선생님 시작 시 참여", teacherTodo: "문항 3개" }
-];
-
-const initialStudents: StudentRow[] = [
-  { attendance: "1", nickname: "김하늘", role: "시장 분석가", salary: "150", status: "정상" },
-  { attendance: "2", nickname: "박서윤", role: "은행 매니저", salary: "150", status: "정상" },
-  { attendance: "3", nickname: "이도윤", role: "상점 도우미", salary: "130", status: "급여 확인" },
-  { attendance: "4", nickname: "최민지", role: "기록 담당", salary: "120", status: "비밀번호 재설정" }
-];
+const initialStudents: StudentRow[] = [];
 
 const initialProducts: ProductRow[] = [
   { name: "연필 교환권", price: "30", stock: "12", imageName: "", imageSrc: "" },
@@ -107,6 +83,9 @@ const initialApprovals: ApprovalRow[] = [
 ];
 
 const initialSettings: ClassSettings = {
+  classroomId: process.env.NEXT_PUBLIC_CLASSROOM_ID ?? "",
+  schoolId: process.env.NEXT_PUBLIC_SCHOOL_ID ?? "",
+  stateVersion: 0,
   className: "4학년 1반",
   schoolName: "이코초등학교",
   grade: "4",
@@ -117,6 +96,7 @@ const initialSettings: ClassSettings = {
   endDate: "2026-08-07",
   currency: "비빔",
   period: "1주 프로젝트",
+  studentCount: "24",
   incomeTax: "10"
 };
 
@@ -126,70 +106,26 @@ const initialLessonMaterials: LessonMaterial[] = [
   { id: "lesson-3", title: "예금과 투자 선택", stage: "2교시", minutes: "20", status: "수정 필요" }
 ];
 
-const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "투자", "공공 예산/투표", "퀴즈"];
-const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
-const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "투자", "공공 예산/투표", "퀴즈"];
-
-const moduleDependencies: Record<string, string[]> = {
-  월급: ["지갑"],
-  세금: ["지갑"],
-  상점: ["지갑"],
-  캐릭터: ["지갑", "상점"],
-  "개인 거래": ["지갑"],
-  예금: ["지갑", "세금"],
-  투자: ["지갑", "세금"],
-  "공공 예산/투표": ["지갑", "세금"],
-  퀴즈: []
-};
-
-const moduleDescriptions: Record<string, string> = {
-  지갑: "학생 잔액과 거래 원장을 관리하는 기본 모듈입니다.",
-  월급: "역할별 급여를 지급하고 월급명세서를 생성합니다.",
-  세금: "소득세, 부가세, 거래세를 공동기금으로 모읍니다.",
-  상점: "학생이 상품을 구매하고 재고와 결제를 처리합니다.",
-  캐릭터: "학생이 비빔으로 아이템을 사고 캐릭터를 꾸밉니다.",
-  "개인 거래": "학생 간 제안, 동의, 교사 승인 거래를 처리합니다.",
-  예금: "정기예금과 적금 가입, 이자 계산, 만기 처리를 합니다.",
-  투자: "가상 투자 상품 선택과 손익 결과 확인을 제공합니다.",
-  "공공 예산/투표": "공동기금 사용처를 정하고 익명 투표를 진행합니다.",
-  퀴즈: "경제 퀴즈와 게임형/평가형 수업 활동을 진행합니다."
-};
+const selectableModuleNames: string[] = MODULE_DEFINITIONS.map((module) => module.name);
+const moduleDescriptions = Object.fromEntries(MODULE_DEFINITIONS.map((module) => [module.name, module.description]));
 
 function getRequiredModules(moduleName: string): string[] {
+  const moduleCode = MODULE_DEFINITIONS.find((module) => module.name === moduleName)?.code;
+  if (!moduleCode) return [];
   const visited = new Set<string>();
 
-  function visit(name: string) {
-    for (const dependency of moduleDependencies[name] ?? []) {
+  function visit(code: ModuleCode) {
+    for (const dependency of MODULE_PREREQUISITES[code] ?? []) {
       if (visited.has(dependency)) continue;
       visited.add(dependency);
       visit(dependency);
     }
   }
 
-  visit(moduleName);
-  return [...visited];
-}
-
-async function apiRequest(path: string, init: RequestInit = {}) {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (!headers.has("Idempotency-Key") && init.method && init.method !== "GET") {
-    headers.set("Idempotency-Key", crypto.randomUUID());
-  }
-
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
-  const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    const message = parsed?.error?.message ?? `${response.status} ${response.statusText}`;
-    throw new Error(message);
-  }
-
-  return parsed?.data ?? parsed;
+  visit(moduleCode);
+  return [...visited]
+    .map((code) => MODULE_DEFINITIONS.find((module) => module.code === code)?.name)
+    .filter((name): name is NonNullable<typeof name> => name !== undefined);
 }
 
 export default function TeacherConsole() {
@@ -203,24 +139,30 @@ export default function TeacherConsole() {
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
   const [products, setProducts] = useState<ProductRow[]>(initialProducts);
   const [approvals, setApprovals] = useState<ApprovalRow[]>(initialApprovals);
-  const [, setLogs] = useState<LogEntry[]>([
-    { id: "init", tone: "warning", message: "교사용 인증과 일부 백 API가 준비되기 전까지는 실패 시 목업 상태로 반영됩니다." }
+  const [logs, setLogs] = useState<LogEntry[]>([
+    { id: "init", tone: "warning", message: "API 요청에 실패하면 화면 상태를 변경하지 않습니다. 교사 OIDC 연결 전에는 인증 오류가 표시될 수 있습니다." }
   ]);
   const [settings, setSettings] = useState<ClassSettings>(initialSettings);
-  const title = useMemo(() => views.find((item) => item.key === view)?.label ?? "운영 현황", [view]);
+  const roleSalaryActive = modules.some((module) => module.code === "ROLE_SALARY" && module.status === "사용 중");
+  const title = useMemo(() => {
+    if (view === "roster" && !roleSalaryActive) return "학생 명단";
+    return views.find((item) => item.key === view)?.label ?? "운영 현황";
+  }, [roleSalaryActive, view]);
 
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
 
-  async function runAction(label: string, path: string, init: RequestInit, onMockSuccess: () => void) {
+  async function runAction<T>(label: string, path: string, init: RequestInit, onSuccess: (data: T) => void) {
     try {
-      await apiRequest(path, init);
-      onMockSuccess();
+      const data = await apiRequest<T>(path, init);
+      onSuccess(data);
       addLog(`${label}: 백엔드 처리 완료`);
+      return data;
     } catch (error) {
-      onMockSuccess();
-      addLog(`${label}: 화면에는 반영했지만 백 연결은 실패했어요. ${error instanceof Error ? error.message : ""}`, "warning");
+      const detail = error instanceof ApiError ? `${error.code} · ${error.message}` : error instanceof Error ? error.message : "알 수 없는 오류";
+      addLog(`${label}: 처리되지 않았습니다. ${detail}`, "error");
+      return null;
     }
   }
 
@@ -246,6 +188,7 @@ export default function TeacherConsole() {
         hasClassroom={hasClassroom}
         hasDraft={hasDraft}
         onCreate={() => {
+          setModules(initialModules);
           setCreateStep("basic");
           setStage("create");
         }}
@@ -303,7 +246,7 @@ export default function TeacherConsole() {
         <nav>
           {views.map((item) => (
             <button key={item.key} className={view === item.key ? "active" : ""} onClick={() => setView(item.key)}>
-              {item.label}
+              {item.key === "roster" && !roleSalaryActive ? "학생 명단" : item.label}
             </button>
           ))}
         </nav>
@@ -326,6 +269,11 @@ export default function TeacherConsole() {
         </header>
 
         <div className="console-content">
+          <section className="integration-log" aria-live="polite">
+            {logs.slice(0, 3).map((entry) => (
+              <p className={entry.tone} key={entry.id}>{entry.message}</p>
+            ))}
+          </section>
           {view === "overview" && <Overview mode={mode} modules={modules} students={students} approvals={approvals} />}
           {view === "plan" && <CoursePlanning modules={modules} setModules={setModules} addLog={addLog} />}
           {view === "setup" && (
@@ -334,14 +282,16 @@ export default function TeacherConsole() {
               setSettings={setSettings}
               modules={modules}
               setModules={setModules}
+              students={students}
               addLog={addLog}
               runAction={runAction}
             />
           )}
-          {view === "roster" && <Roster settings={settings} students={students} setStudents={setStudents} runAction={runAction} addLog={addLog} />}
+          {view === "roster" && <Roster settings={settings} setSettings={setSettings} modules={modules} students={students} setStudents={setStudents} runAction={runAction} addLog={addLog} />}
           {view === "shop" && <ShopAdmin products={products} setProducts={setProducts} addLog={addLog} />}
           {view === "control" && (
             <Control
+              classroomId={settings.classroomId}
               mode={mode}
               setMode={setMode}
               modules={modules}
@@ -351,7 +301,7 @@ export default function TeacherConsole() {
             />
           )}
           {view === "approvals" && (
-            <Approvals approvals={approvals} setApprovals={setApprovals} runAction={runAction} addLog={addLog} />
+            <Approvals classroomId={settings.classroomId} approvals={approvals} setApprovals={setApprovals} runAction={runAction} addLog={addLog} />
           )}
         </div>
       </section>
@@ -485,7 +435,7 @@ function CreateClassroomFlow({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: RunAction;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
@@ -493,8 +443,9 @@ function CreateClassroomFlow({
 }>) {
   const [focusedModule, setFocusedModule] = useState("투자");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [precheck, setPrecheck] = useState<SetupPrecheckResponse | null>(null);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => new Set(
-    selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status === "열림"))
+    selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status !== "미선택"))
   ));
 
   function updateSettings(field: keyof ClassSettings, value: string) {
@@ -514,13 +465,13 @@ function CreateClassroomFlow({
     }
 
     setSelectedModules(next);
-    setModules((items) => enabledModuleNames.reduce<ModuleRow[]>((result, name) => {
+    setModules((items) => selectableModuleNames.reduce<ModuleRow[]>((result, name) => {
       const existing = items.find((item) => item.name === name);
-      const status = modulesToOpen.has(name) ? "열림" : "닫힘";
+      const status = modulesToOpen.has(name) ? "선택됨" : "미선택";
       return [...result, existing
         ? { ...existing, status }
-        : { name, status, studentState: "학생 노출", teacherTodo: "설정 확인" }];
-    }, items.filter((item) => !enabledModuleNames.includes(item.name))));
+        : { code: MODULE_DEFINITIONS.find((module) => module.name === name)!.code, name, status, studentState: "학생 미노출", teacherTodo: "활성화 전 설정 확인", stateVersion: 0, policyVersion: null }];
+    }, items.filter((item) => !selectableModuleNames.includes(item.name))));
   }
 
   function calculateEndDate(startDate: string, period: string) {
@@ -560,28 +511,68 @@ function CreateClassroomFlow({
     }));
   }
 
-  function createClassroom() {
-    runAction(
+  async function createClassroom() {
+    if (!settings.schoolId) return;
+    const selectedCodes = modules
+      .filter((module) => selectedModules.has(module.name))
+      .map((module) => module.code);
+    const created = await runAction<CreateClassroomResponse>(
       "경제교실 개설",
       "/classrooms",
       {
         method: "POST",
         body: JSON.stringify({
-          name: settings.className,
-          school_name: settings.schoolName,
-          grade: Number(settings.grade),
-          class_number: settings.classNumber,
-          description: settings.description,
+          expected_state_version: 0,
+          screen_id: "SCR-WEB-002",
+          ui_action_id: "UIA-CLS-001",
+          client_occurred_at: new Date().toISOString(),
+          school_id: settings.schoolId,
           currency_name: settings.currency,
+          grade: Number(settings.grade),
+          course_size: periodToCourseSize(settings.period),
           starts_on: settings.startDate,
           ends_on: settings.endDate,
-          recommended_scale: settings.period
+          student_count: Number(settings.studentCount),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul",
+          salary_policy: null,
+          module_codes: selectedCodes,
+          autonomous_schedules: []
         })
       },
-      () => {
+      (data) => {
+        setSettings((current) => ({
+          ...current,
+          classroomId: data.classroom_id,
+          classCode: data.classroom_code,
+          stateVersion: data.state_version
+        }));
+        setModules((items) => items.map((module) => ({
+          ...module,
+          status: selectedCodes.includes(module.code) ? "설정 필요" : "미선택",
+          studentState: "학생 미노출",
+          teacherTodo: selectedCodes.includes(module.code) ? "추천 확인 후 활성화" : "선택하지 않음",
+          stateVersion: 0,
+          policyVersion: null
+        })));
         setShowConfirmation(false);
         setStep("complete");
       }
+    );
+    if (!created) return;
+    await runAction<SetupPrecheckResponse>(
+      "AI 시작 전 공통 점검",
+      `/classrooms/${created.classroom_id}/ai/balancing-analysis-operations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          analysis_mode: "SETUP_PRECHECK",
+          trigger_context: {
+            context_type: "CLASSROOM_SETUP",
+            active_student_count: Number(settings.studentCount)
+          }
+        })
+      },
+      setPrecheck
     );
   }
 
@@ -612,9 +603,11 @@ function CreateClassroomFlow({
               <label>학교명<input value={settings.schoolName} onChange={(event) => updateSettings("schoolName", event.target.value)} /></label>
               <label>학년<input value={settings.grade} onChange={(event) => updateSettings("grade", event.target.value)} /></label>
               <label>반<input value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} /></label>
+              <label>예상 학생 수<input type="number" min="1" value={settings.studentCount} onChange={(event) => updateSettings("studentCount", event.target.value)} /></label>
               <label className="wide-field">수업 대상 설명<input value={settings.description} onChange={(event) => updateSettings("description", event.target.value)} /></label>
               <label>화폐명<input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} /></label>
             </div>
+            {!settings.schoolId ? <p className="contract-warning">교사 인증 화면이 아직 OIDC와 연결되지 않았습니다. 실제 개설 테스트에는 <code>NEXT_PUBLIC_SCHOOL_ID</code>가 필요합니다.</p> : null}
             <div className="wizard-actions">
               <button type="button" className="primary" disabled={!settings.className.trim()} onClick={() => setStep("period")}>다음</button>
             </div>
@@ -651,7 +644,7 @@ function CreateClassroomFlow({
             <h1>모듈 선택</h1>
             <div className="module-card-grid">
               {selectableModuleNames.map((moduleName) => {
-                const isOpen = modules.some((module) => module.name === moduleName && module.status === "열림");
+                const isOpen = selectedModules.has(moduleName);
                 const isRequired = !selectedModules.has(moduleName)
                   && [...selectedModules].some((selectedModule) => getRequiredModules(selectedModule).includes(moduleName));
 
@@ -679,6 +672,11 @@ function CreateClassroomFlow({
                 );
               })}
             </div>
+            {settings.period === "1회 체험" ? (
+              <p className="helper-text">
+                1회 코스에는 퀴즈·게임을 기본 추천하지만, 수업 일정과 정책을 확인해 다른 모듈도 선택할 수 있습니다.
+              </p>
+            ) : null}
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep("period")}>이전</button>
               <button type="button" className="primary" onClick={() => setShowConfirmation(true)}>개설하기</button>
@@ -696,7 +694,7 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" disabled={!settings.schoolId} onClick={createClassroom}>확정하고 개설하기</button>
             </div>
           </section>
         </div>
@@ -707,6 +705,7 @@ function CreateClassroomFlow({
           <span>완료</span>
           <h1>경제교실이 열렸어요</h1>
           <p>입장 코드 {settings.classCode}로 학생들이 접속할 수 있어요.</p>
+          {precheck ? <SetupPrecheckSummary result={precheck} /> : <p className="contract-warning">공통 점검 결과를 받지 못했습니다. 모듈 활성화 전에 다시 점검해주세요.</p>}
           <div className="next-task-list">
             <button type="button" onClick={() => onDone("roster")}>학생 명단 등록하기</button>
             <button type="button" onClick={() => onDone("plan")}>운영 계획 세우기</button>
@@ -724,12 +723,12 @@ function ModuleDependencyPanel({
   settings,
   modules
 }: Readonly<{ moduleName: string; settings: ClassSettings; modules: ModuleRow[] }>) {
-  const requiredModules = getRequiredModules(moduleName).filter((dependency) => dependency !== "지갑");
-  const isOpen = modules.some((module) => module.name === moduleName && module.status === "열림");
+  const requiredModules = getRequiredModules(moduleName);
+  const isOpen = modules.some((module) => module.name === moduleName && module.status !== "미선택");
 
   return (
     <aside className="module-help-panel">
-      <span>{isOpen ? "사용 중" : "선택 전"}</span>
+      <span>{isOpen ? "선택됨 · 활성화 전" : "선택 전"}</span>
       <h2>{moduleName}</h2>
       <p>{moduleDescriptions[moduleName]}</p>
       <div>
@@ -767,7 +766,7 @@ function Stepper({ active }: Readonly<{ active: CreateStep }>) {
 
 function CreationSummary({ settings, modules }: Readonly<{ settings: ClassSettings; modules: ModuleRow[] }>) {
   const openModules = modules
-    .filter((module) => module.status === "열림" && selectableModuleNames.includes(module.name))
+    .filter((module) => module.status !== "미선택" && selectableModuleNames.includes(module.name))
     .map((module) => module.name)
     .slice(0, 6);
 
@@ -802,20 +801,20 @@ function CoursePlanning({
   ]);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([0]));
   const openModules = modules.filter(
-    (module) => module.status === "열림" && studentAccessModuleNames.includes(module.name)
+    (module) => module.status === "사용 중" && STUDENT_ACCESS_MODULE_NAMES.includes(module.name)
   );
 
   const courses = [
-    { name: "생활 경제 기초", description: "월급, 세금, 상점으로 돈의 흐름을 익혀요.", modules: ["지갑", "월급", "세금", "상점"] },
-    { name: "저축과 투자", description: "예금과 투자의 차이를 선택 활동으로 배워요.", modules: ["지갑", "세금", "예금", "투자"] },
-    { name: "우리 반 경제 공동체", description: "거래와 공동기금 투표까지 함께 운영해요.", modules: ["지갑", "세금", "개인 거래", "공공 예산/투표"] }
+    { name: "생활 경제 기초", description: "역할·급여, 소득세, 상점으로 돈의 흐름을 익혀요.", modules: ["역할·급여", "소득세", "상점"] },
+    { name: "저축과 투자", description: "예금과 투자의 차이를 선택 활동으로 배워요.", modules: ["예금·적금", "투자"] },
+    { name: "우리 반 경제 공동체", description: "거래와 공동기금 투표까지 함께 운영해요.", modules: ["개인 거래", "공공 예산/투표"] }
   ];
   const lessonOptions = [
-    { id: "salary", title: "월급과 실수령액", module: "월급", minutes: "15분" },
-    { id: "tax", title: "세금과 공동기금", module: "세금", minutes: "10분" },
+    { id: "salary", title: "월급과 실수령액", module: "역할·급여", minutes: "15분" },
+    { id: "tax", title: "세금과 공동기금", module: "소득세", minutes: "10분" },
     { id: "spending", title: "합리적인 소비", module: "상점", minutes: "15분" },
     { id: "shop", title: "우리 반 상점 운영", module: "상점", minutes: "20분" },
-    { id: "saving", title: "예금과 적금", module: "예금", minutes: "15분" },
+    { id: "saving", title: "예금과 적금", module: "예금·적금", minutes: "15분" },
     { id: "investment", title: "단기·장기 투자", module: "투자", minutes: "20분" },
     { id: "trade", title: "친구와 안전하게 거래하기", module: "개인 거래", minutes: "15분" },
     { id: "budget", title: "공동기금 사용처 정하기", module: "공공 예산/투표", minutes: "20분" },
@@ -824,14 +823,7 @@ function CoursePlanning({
 
   function applyCourse(courseName: string, moduleNames: string[]) {
     setSelectedCourse(courseName);
-    setModules((items) => moduleNames.reduce((current, name) => {
-      const exists = current.some((item) => item.name === name);
-      if (!exists) {
-        return [...current, { name, status: "열림", studentState: "학생 노출", teacherTodo: "일정 확인" }];
-      }
-      return current.map((item) => item.name === name ? { ...item, status: "열림" } : item);
-    }, items));
-    addLog(`${courseName} 운영 계획을 적용했어요.`);
+    addLog(`${courseName} 추천안을 선택했습니다. 코스 설정 저장 API가 구현되기 전에는 기존 모듈을 변경하지 않습니다.`, "warning");
   }
 
   function togglePermission(moduleName: string) {
@@ -872,7 +864,7 @@ function CoursePlanning({
             >
               <strong>{course.name}</strong>
               <span>{course.description}</span>
-              <small>{course.modules.filter((moduleName) => moduleName !== "지갑").join(" · ")}</small>
+              <small>{course.modules.join(" · ")}</small>
             </button>
           ))}
         </div>
@@ -985,8 +977,8 @@ function Overview({
 
 function Setup({
   settings,
-  setSettings,
   modules,
+  students,
   addLog,
   runAction,
   setModules
@@ -994,25 +986,16 @@ function Setup({
   settings: ClassSettings;
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
+  students: StudentRow[];
   addLog: (message: string, tone?: LogTone) => void;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: RunAction;
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
 }>) {
-  function updateSettings(field: keyof ClassSettings, value: string) {
-    setSettings((current) => ({ ...current, [field]: value }));
-  }
-
-  function toggleModule(moduleName: string) {
-    setModules((items) => items.map((item) => (
-      item.name === moduleName
-        ? { ...item, status: item.status === "열림" ? "닫힘" : "열림" }
-        : item
-    )));
-  }
+  const selectedModules = modules.filter((module) => module.status !== "미선택");
 
   return (
     <div className="page-flow">
-      <PlainSection title="반 수업 만들기">
+      <PlainSection title="학급 연결 상태">
         <div className="class-create-panel">
           <div>
             <span>수업방</span>
@@ -1022,109 +1005,50 @@ function Setup({
             <span>입장 코드</span>
             <strong>{settings.classCode}</strong>
           </div>
-          <button
-            type="button"
-            onClick={() => runAction(
-              "반 수업 생성",
-              "/classrooms",
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  name: settings.className,
-                  currency_name: settings.currency,
-                  start_date: settings.startDate,
-                  operation_period: settings.period
-                })
-              },
-              () => addLog("반 수업을 만들었어요.")
-            )}
-          >
-            반 수업 만들기
-          </button>
+          <div><span>백엔드 ID</span><strong>{settings.classroomId || "연결 전"}</strong></div>
         </div>
       </PlainSection>
       <PlainSection title="학급 정보">
-        <div className="settings-form">
-          <label>
-            학급명
-            <input value={settings.className} onChange={(event) => updateSettings("className", event.target.value)} />
-          </label>
-          <label>
-            입장 코드
-            <input value={settings.classCode} onChange={(event) => updateSettings("classCode", event.target.value.toUpperCase())} />
-          </label>
-          <label>
-            시작일
-            <input type="date" value={settings.startDate} onChange={(event) => updateSettings("startDate", event.target.value)} />
-          </label>
-          <label>
-            화폐 이름
-            <input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} />
-          </label>
-          <label>
-            운영 기간
-            <input value={settings.period} onChange={(event) => updateSettings("period", event.target.value)} />
-          </label>
-          <label>
-            소득세
-            <div className="input-with-unit">
-              <input value={settings.incomeTax} onChange={(event) => updateSettings("incomeTax", event.target.value)} />
-              <span>%</span>
-            </div>
-          </label>
-        </div>
+        <DefinitionList rows={[
+          ["운영 기간", `${settings.startDate} ~ ${settings.endDate}`, settings.period],
+          ["화폐", settings.currency, "1단위 금액 사용 가능"],
+          ["선택 모듈", `${selectedModules.length}개`, "필수 모듈 없음"]
+        ]} />
+        <p className="contract-warning">학급 기본 설정 변경 API는 아직 백엔드에 없어 이 화면에서는 조회만 제공합니다.</p>
       </PlainSection>
-      <PlainSection title="사용 기능">
-        <div className="module-toggle-list">
-          {selectableModuleNames.map((moduleName) => {
-            const module = modules.find((item) => item.name === moduleName);
-            const isOpen = module?.status === "열림";
-
-            return (
-              <button
-                type="button"
-                key={moduleName}
-                className={isOpen ? "enabled" : ""}
-                onClick={() => toggleModule(moduleName)}
-              >
-                <span>{moduleName}</span>
-                <b>{isOpen ? "사용" : "미사용"}</b>
-              </button>
-            );
-          })}
-        </div>
-      </PlainSection>
-      <PlainSection title="저장">
-        <ActionLine
-          label="학급 설정 저장"
-          value={`${settings.className} · ${settings.period} · 소득세 ${settings.incomeTax}%`}
-          action="저장"
-          onClick={() => runAction(
-            "학급 설정 저장",
-            `/classrooms/${classroomId}/configuration`,
-            { method: "GET" },
-            () => addLog("학급 설정을 저장했어요.")
-          )}
-        />
-      </PlainSection>
+      <ModuleActivationPanel
+        settings={settings}
+        modules={modules}
+        students={students}
+        addLog={addLog}
+        runAction={runAction}
+        setModules={setModules}
+      />
     </div>
   );
 }
 
 function Roster({
   settings,
+  setSettings,
+  modules,
   students,
   setStudents,
   runAction,
   addLog
 }: Readonly<{
   settings: ClassSettings;
+  setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
+  modules: ModuleRow[];
   students: StudentRow[];
   setStudents: React.Dispatch<React.SetStateAction<StudentRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: RunAction;
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
+  const roleSalaryModule = modules.find((module) => module.code === "ROLE_SALARY");
+  const roleSalaryActive = roleSalaryModule?.status === "사용 중";
   const [isAdding, setIsAdding] = useState(false);
+  const [rosterSaved, setRosterSaved] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftStudent, setDraftStudent] = useState<StudentRow | null>(null);
   const [newStudent, setNewStudent] = useState<StudentRow>({
@@ -1165,8 +1089,8 @@ function Roster({
     const trimmedNickname = newStudent.nickname.trim();
     const trimmedRole = newStudent.role.trim();
 
-    if (!trimmedNickname || !trimmedRole) {
-      addLog("학생 이름과 역할을 입력해야 추가할 수 있어요.", "warning");
+    if (!trimmedNickname || (roleSalaryActive && !trimmedRole)) {
+      addLog(roleSalaryActive ? "학생 이름과 역할을 입력해야 추가할 수 있어요." : "학생 이름을 입력해야 추가할 수 있어요.", "warning");
       return;
     }
 
@@ -1174,8 +1098,8 @@ function Roster({
       ...newStudent,
       attendance: newStudent.attendance.trim() || String(students.length + 1),
       nickname: trimmedNickname,
-      role: trimmedRole,
-      salary: newStudent.salary.trim() || "150",
+      role: roleSalaryActive ? trimmedRole : "",
+      salary: roleSalaryActive ? newStudent.salary.trim() || "150" : "0",
       status: "정상"
     };
 
@@ -1192,21 +1116,24 @@ function Roster({
   }
 
   const rosterBody = {
-    expected_policy_version: 0,
-    expected_state_version: 0,
+    expected_policy_version: roleSalaryActive ? roleSalaryModule?.policyVersion : null,
+    expected_state_version: settings.stateVersion,
+    screen_id: "SCR-WEB-006",
+    ui_action_id: "UIA-CLS-003",
+    client_occurred_at: new Date().toISOString(),
     students: students.map((student, index) => ({
       student_id: null,
       attendance_number: Number(student.attendance),
       nickname: student.nickname,
-      role_code: `ROLE_${index + 1}`
+      role_code: roleSalaryActive ? `ROLE_${index + 1}` : null
     })),
-    salary_roles: students.map((student, index) => ({
+    salary_roles: roleSalaryActive ? students.map((student, index) => ({
       role_code: `ROLE_${index + 1}`,
-      name: student.role,
+      name: `${student.role} ${index + 1}`,
       gross_amount: Number(student.salary),
-      deductions: Math.floor(Number(student.salary) * 0.1),
+      deductions: {},
       sort_order: index + 1
-    }))
+    })) : null
   };
   const grossTotal = students.reduce((sum, student) => sum + Number(student.salary), 0);
   const taxTotal = Math.floor(grossTotal * (Number(settings.incomeTax) / 100));
@@ -1218,7 +1145,7 @@ function Roster({
         <div className="roster-board">
           <div className="roster-toolbar">
             <span>{students.length}명 등록됨</span>
-            <button type="button" onClick={() => setIsAdding(true)}>학생 추가</button>
+            <button type="button" disabled={rosterSaved} onClick={() => setIsAdding(true)}>학생 추가</button>
           </div>
 
           {isAdding && (
@@ -1231,14 +1158,14 @@ function Roster({
                 이름
                 <input value={newStudent.nickname} onChange={(event) => updateNewStudent("nickname", event.target.value)} placeholder="학생 이름" />
               </label>
-              <label>
+              {roleSalaryActive ? <label>
                 역할
                 <input value={newStudent.role} onChange={(event) => updateNewStudent("role", event.target.value)} placeholder="예: 은행 매니저" />
-              </label>
-              <label>
+              </label> : null}
+              {roleSalaryActive ? <label>
                 월급
                 <input value={newStudent.salary} onChange={(event) => updateNewStudent("salary", event.target.value)} />
-              </label>
+              </label> : null}
               <div className="row-actions">
                 <button type="button" onClick={addStudent}>추가</button>
                 <button className="ghost" type="button" onClick={() => setIsAdding(false)}>취소</button>
@@ -1251,8 +1178,8 @@ function Roster({
               <tr>
                 <th>번호</th>
                 <th>이름</th>
-                <th>역할</th>
-                <th>월급</th>
+                {roleSalaryActive ? <th>역할</th> : null}
+                {roleSalaryActive ? <th>월급</th> : null}
                 <th>상태</th>
                 <th aria-label="관리" />
               </tr>
@@ -1267,8 +1194,8 @@ function Roster({
                       <>
                         <td><input value={activeDraft.attendance} onChange={(event) => updateDraft("attendance", event.target.value)} /></td>
                         <td><input value={activeDraft.nickname} onChange={(event) => updateDraft("nickname", event.target.value)} /></td>
-                        <td><input value={activeDraft.role} onChange={(event) => updateDraft("role", event.target.value)} /></td>
-                        <td><input value={activeDraft.salary} onChange={(event) => updateDraft("salary", event.target.value)} /></td>
+                        {roleSalaryActive ? <td><input value={activeDraft.role} onChange={(event) => updateDraft("role", event.target.value)} /></td> : null}
+                        {roleSalaryActive ? <td><input value={activeDraft.salary} onChange={(event) => updateDraft("salary", event.target.value)} /></td> : null}
                         <td>{activeDraft.status}</td>
                         <td>
                           <div className="row-actions">
@@ -1281,12 +1208,12 @@ function Roster({
                       <>
                         <td>{student.attendance}</td>
                         <td>{student.nickname}</td>
-                        <td>{student.role}</td>
-                        <td>{student.salary}비빔</td>
+                        {roleSalaryActive ? <td>{student.role}</td> : null}
+                        {roleSalaryActive ? <td>{student.salary}{settings.currency}</td> : null}
                         <td>{student.status}</td>
                         <td>
                           <div className="row-actions">
-                            <button type="button" onClick={() => startEdit(index)}>수정</button>
+                            <button type="button" disabled={rosterSaved} onClick={() => startEdit(index)}>수정</button>
                           </div>
                         </td>
                       </>
@@ -1298,7 +1225,7 @@ function Roster({
           </table>
         </div>
       </PlainSection>
-      <PlainSection title="급여">
+      {roleSalaryActive ? <PlainSection title="급여">
         <div className="payroll-panel">
           <div className="payroll-total">
             <span>이번 지급액</span>
@@ -1310,42 +1237,27 @@ function Roster({
             <div><span>학생 수령액</span><b>{netTotal}{settings.currency}</b></div>
           </div>
         </div>
-      </PlainSection>
+      </PlainSection> : <PlainSection title="직업 없이 운영">
+        <p className="empty-copy">역할·급여 모듈을 선택하지 않았으므로 역할 배정과 급여명세서·급여 지급 기능을 표시하지 않습니다.</p>
+      </PlainSection>}
       <PlainSection title="처리">
         <ActionLine
           label="명단 저장"
           value={`${students.length}명 반영`}
           action="저장"
-          onClick={() => runAction(
+          disabled={rosterSaved || !settings.classroomId || students.length === 0 || (roleSalaryActive && roleSalaryModule?.policyVersion == null)}
+          onClick={() => runAction<{ classroom_id: string; student_count: number; salary_role_count: number; state_version: number }>(
             "명단·급여 저장",
-            `/classrooms/${classroomId}/roster-and-salaries`,
+            `/classrooms/${settings.classroomId}/roster-and-salaries`,
             { method: "PUT", body: JSON.stringify(rosterBody) },
-            () => addLog("명단과 급여 정책을 화면 상태에 저장했어요.")
+            (response) => {
+              setSettings((current) => ({ ...current, stateVersion: response.state_version }));
+              setRosterSaved(true);
+            }
           )}
         />
-        <ActionLine
-          label="급여 지급"
-          value={`${students.length}명에게 ${netTotal}${settings.currency}`}
-          action="지급"
-          onClick={() => runAction(
-            "급여 지급",
-            `/classrooms/${classroomId}/payouts`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                payoutType: "SALARY",
-                studentIds: [],
-                periodKey: "DAY-1",
-                amount: grossTotal,
-                policyVersion: 0,
-                reason: "정기 급여 지급",
-                expectedStateVersion: 0,
-                clientOccurredAt: new Date().toISOString()
-              })
-            },
-            () => addLog("급여 지급을 처리했어요.")
-          )}
-        />
+        {rosterSaved ? <p className="contract-warning">명단 조회 API가 없어 학생 ID를 복원할 수 없습니다. 중복 생성을 막기 위해 현재 세션에서는 재수정을 잠갔습니다.</p> : null}
+        {roleSalaryActive ? <p className="contract-warning">학생 ID를 돌려주는 명단 조회 API가 아직 없어, 잘못된 대상에게 지급되지 않도록 급여 지급 연결은 제외했습니다.</p> : null}
       </PlainSection>
     </div>
   );
@@ -1474,6 +1386,7 @@ function ShopAdmin({
 }
 
 function Control({
+  classroomId,
   mode,
   setMode,
   modules,
@@ -1481,11 +1394,12 @@ function Control({
   runAction,
   addLog
 }: Readonly<{
+  classroomId: string;
   mode: string;
   setMode: React.Dispatch<React.SetStateAction<string>>;
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: RunAction;
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
@@ -1672,14 +1586,16 @@ function Control({
 }
 
 function Approvals({
+  classroomId,
   approvals,
   setApprovals,
   runAction,
   addLog
 }: Readonly<{
+  classroomId: string;
   approvals: ApprovalRow[];
   setApprovals: React.Dispatch<React.SetStateAction<ApprovalRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: RunAction;
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
   function updateApproval(id: string, status: string) {
@@ -1737,22 +1653,6 @@ function Approvals({
   );
 }
 
-function PlainSection({
-  title,
-  description,
-  children
-}: Readonly<{ title: string; description?: string; children: React.ReactNode }>) {
-  return (
-    <section className="plain-section">
-      <div className="section-title">
-        <h2>{title}</h2>
-        {description ? <p>{description}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function DefinitionList({ rows }: Readonly<{ rows: string[][] }>) {
   return (
     <dl className="definition-list">
@@ -1790,15 +1690,16 @@ function ActionLine({
   label,
   value,
   action,
+  disabled = false,
   onClick
-}: Readonly<{ label: string; value: string; action: string; onClick: () => void }>) {
+}: Readonly<{ label: string; value: string; action: string; disabled?: boolean; onClick: () => void }>) {
   return (
     <div className="action-line">
       <div>
         <b>{label}</b>
         <span>{value}</span>
       </div>
-      <button onClick={onClick}>{action}</button>
+      <button disabled={disabled} onClick={onClick}>{action}</button>
     </div>
   );
 }
