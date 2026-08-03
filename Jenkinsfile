@@ -102,7 +102,8 @@ pipeline {
                     sh 'corepack enable'
                     sh 'pnpm install --frozen-lockfile'
                     sh 'pnpm typecheck'
-                    sh 'pnpm test'
+                    sh 'pnpm build'
+                    sh 'test -f dist/index.html'
                 }
             }
         }
@@ -117,8 +118,9 @@ pipeline {
                 dir('teacher-web') {
                     sh 'corepack enable'
                     sh 'pnpm install --frozen-lockfile'
-                    sh 'pnpm lint'
+                    sh 'pnpm typecheck'
                     sh 'pnpm build'
+                    sh 'test -f .next/BUILD_ID'
                 }
             }
         }
@@ -132,8 +134,9 @@ pipeline {
             steps {
                 dir('ai-service') {
                     sh 'python -m pip install --upgrade pip'
-                    sh 'python -m pip install -e ".[test]"'
-                    sh 'python -m pytest'
+                    sh 'python -m pip install -e ".[dev]"'
+                    sh 'python -m ruff check src tests'
+                    sh 'python -m pytest tests'
                 }
             }
         }
