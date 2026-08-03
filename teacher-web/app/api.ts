@@ -287,6 +287,30 @@ export type SetupPrecheckResponse = {
   checks: SetupCheck[];
 };
 
+export type TeacherChatEvidence = {
+  fact_id: string;
+  label: string;
+  value: string | number;
+  unit: "AMOUNT" | "COUNT" | "RATE_BPS" | "STATUS" | "TEXT";
+};
+
+export type TeacherChatRecommendation = {
+  text: string;
+  side_effects: string[];
+};
+
+export type TeacherChatResponse = {
+  ai_run_id: string;
+  answer: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  data_as_of: string;
+  evidence: TeacherChatEvidence[];
+  recommendations: TeacherChatRecommendation[];
+};
+
 export type ModuleActivationResponse = {
   module_code: string;
   status: "ACTIVE";

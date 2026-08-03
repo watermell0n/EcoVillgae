@@ -279,7 +279,8 @@ public class AiController {
             request.question(),
             request.period().from(),
             request.period().to(),
-            metricCodes
+            metricCodes,
+            Boolean.TRUE.equals(request.includePolicyHistory())
         ));
         TeacherChatResponse response = new TeacherChatResponse(
             result.aiRunId(),

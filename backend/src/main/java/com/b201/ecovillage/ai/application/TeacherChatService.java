@@ -25,7 +25,9 @@ import com.b201.ecovillage.ai.repository.AiArtifactRepository;
 import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -51,6 +53,7 @@ public class TeacherChatService {
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassroomModuleRepository moduleRepository;
+    private final ClassroomPolicyVersionRepository policyRepository;
     private final EconomicMetricAggregationService aggregationService;
     private final EconomicMetricEvaluator evaluator;
     private final TeacherChatAiClient aiClient;
@@ -67,6 +70,7 @@ public class TeacherChatService {
         UserAccountRepository userRepository,
         ClassroomRepository classroomRepository,
         ClassroomModuleRepository moduleRepository,
+        ClassroomPolicyVersionRepository policyRepository,
         EconomicMetricAggregationService aggregationService,
         EconomicMetricEvaluator evaluator,
         TeacherChatAiClient aiClient,
@@ -82,6 +86,7 @@ public class TeacherChatService {
         this.userRepository = userRepository;
         this.classroomRepository = classroomRepository;
         this.moduleRepository = moduleRepository;
+        this.policyRepository = policyRepository;
         this.aggregationService = aggregationService;
         this.evaluator = evaluator;
         this.aiClient = aiClient;
@@ -162,7 +167,7 @@ public class TeacherChatService {
                 command.question(),
                 new TeacherChatContract.Period(periodFrom, periodTo, now),
                 facts,
-                List.of()
+                policyChanges(command, now)
             )
         );
 
@@ -339,6 +344,37 @@ public class TeacherChatService {
             ));
         }
         return facts;
+    }
+
+    private List<TeacherChatContract.PolicyChange> policyChanges(
+        TeacherChatCommand command,
+        Instant dataAsOf
+    ) {
+        if (!command.includePolicyHistory()) {
+            return List.of();
+        }
+        Instant to = command.periodTo().isBefore(dataAsOf) ? command.periodTo() : dataAsOf;
+        List<ClassroomPolicyVersion> policies = policyRepository
+            .findAllByClassroomIdAndEffectiveFromBetweenOrderByEffectiveFromAsc(
+                command.classroomId(),
+                command.periodFrom(),
+                to
+            );
+        int firstIncluded = Math.max(0, policies.size() - 20);
+        return policies.subList(firstIncluded, policies.size())
+            .stream()
+            .map(TeacherChatService::policyChange)
+            .toList();
+    }
+
+    private static TeacherChatContract.PolicyChange policyChange(ClassroomPolicyVersion policy) {
+        String area = policy.getPolicyArea();
+        String safeArea = area.replaceAll("[^A-Z0-9_]", "_");
+        return new TeacherChatContract.PolicyChange(
+            "POLICY_CHANGE_" + safeArea + "_V" + policy.getVersion(),
+            policy.getEffectiveFrom(),
+            area + " 정책이 " + policy.getVersion() + "버전으로 변경되었습니다."
+        );
     }
 
     private static TeacherChatContract.FactUnit factUnit(BalancingContract.ValueUnit unit) {

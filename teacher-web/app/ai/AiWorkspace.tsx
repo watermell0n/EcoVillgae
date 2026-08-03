@@ -6,6 +6,7 @@ import { ApiError, apiRequest } from "../api";
 import type { AiModuleRow, AiPolicyVersionRow } from "../types";
 import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
 import { ModuleActivationPanel } from "./ModuleActivationPanel";
+import { TeacherChatPanel } from "./TeacherChatPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -184,6 +185,12 @@ export function AiWorkspace({
         )}
         {message ? <div className="inline-notice" role="status">{message}</div> : null}
       </section>
+
+      <TeacherChatPanel
+        classroomId={classroomId}
+        classroomStartDate={startDate}
+        enabled={enabled}
+      />
 
       <ModuleActivationPanel
         classroomId={classroomId}
