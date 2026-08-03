@@ -333,7 +333,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
 | DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 76개 strict, 후속 33개 planned |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 78개 strict, 후속 31개 planned |
 
 Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
 데이터베이스에서 Flyway `V1_1`~`V1_13` 직접 적용, 85개 물리 테이블과 Hibernate
