@@ -3,6 +3,9 @@ export type StudentIdentity = {
   studentId: string;
   nickname: string;
   role: "STU";
+  classroomLabel?: string;
+  currencyName?: string;
+  startScreen?: string;
 };
 export type StudentSession = StudentIdentity & {
   accessToken: string;

@@ -28,6 +28,7 @@ student-app/.expo-shared/
 student-app/dist/
 student-app/coverage/
 teacher-web/.next/
+teacher-web/.next-stale-*/
 teacher-web/out/
 teacher-web/coverage/
 **/*.tsbuildinfo

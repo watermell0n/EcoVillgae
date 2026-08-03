@@ -1,6 +1,7 @@
 "use client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8_000);
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<void> | null = null;
@@ -127,11 +128,28 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, allowR
     ? undefined
     : new Headers(init.headers).get("Idempotency-Key") ?? crypto.randomUUID();
 
-  const send = () => fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: makeHeaders(init, idempotencyKey)
-  });
+  const sendOnce = async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(`${API_BASE_URL}${path}`, {
+        ...init,
+        credentials: "include",
+        headers: makeHeaders(init, idempotencyKey),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  const send = async () => {
+    try {
+      return await sendOnce();
+    } catch (error) {
+      if (error instanceof Error && ["AbortError", "TypeError"].includes(error.name)) return sendOnce();
+      throw error;
+    }
+  };
 
   let response = await send();
   if (response.status === 401 && allowRefresh && path !== "/auth/token-refreshes") {

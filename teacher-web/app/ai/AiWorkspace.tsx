@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Bot, Check, ShieldOff } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
+import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -21,19 +22,56 @@ function errorMessage(error: unknown) {
 export function AiWorkspace({
   classroomId,
   initialStateVersion,
-  canManage
+  initialEnabled,
+  initialReason,
+  initialPolicyVersion,
+  canManage,
+  products,
+  quizSessionId,
+  activeStudentCount,
+  effectiveTaxBps,
+  onReload,
+  onStateVersionChange,
+  onSettingsChanged,
+  onProductPriceApplied
 }: Readonly<{
   classroomId: string;
   initialStateVersion: number;
+  initialEnabled: boolean;
+  initialReason: string;
+  initialPolicyVersion: number;
   canManage: boolean;
+  products: Array<{
+    name: string;
+    price: string;
+    stock: string;
+    resourceId?: string;
+    kind?: "PHYSICAL" | "DIGITAL";
+    vatRateBps?: number;
+  }>;
+  quizSessionId: string;
+  activeStudentCount: number;
+  effectiveTaxBps: number;
+  onReload: () => Promise<void>;
+  onStateVersionChange: (version: number) => void;
+  onSettingsChanged: (settings: { enabled: boolean; reason: string; version: number; stateVersion: number }) => void;
+  onProductPriceApplied: (productId: string, nextPrice: number) => void;
 }>) {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(initialEnabled);
   const [stateVersion, setStateVersion] = useState(initialStateVersion);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialReason);
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [lastChange, setLastChange] = useState<{ reason: string; at: string } | null>(null);
+
+  useEffect(() => {
+    setEnabled(initialEnabled);
+    setStateVersion(initialStateVersion);
+    setReason(initialReason);
+    setConfirming(false);
+    setLastChange(initialReason ? { reason: initialReason, at: `정책 버전 ${initialPolicyVersion}` } : null);
+  }, [initialEnabled, initialPolicyVersion, initialReason, initialStateVersion]);
 
   async function disableAi() {
     if (!reason.trim()) {
@@ -48,17 +86,28 @@ export function AiWorkspace({
         body: JSON.stringify({
           enabled: false,
           reason: reason.trim(),
-          expected_state_version: stateVersion
+          expected_state_version: stateVersion,
+          screen_id: "SCR-TCH-AI-SETTINGS",
+          ui_action_id: "UIA-AI-DISABLE",
+          client_occurred_at: new Date().toISOString()
         })
       });
+      const nextStateVersion = response.state_version ?? stateVersion + 1;
       setEnabled(false);
-      setStateVersion(response.state_version ?? stateVersion + 1);
+      setStateVersion(nextStateVersion);
+      onStateVersionChange(nextStateVersion);
+      onSettingsChanged({ enabled: false, reason: reason.trim(), version: initialPolicyVersion + 1, stateVersion: nextStateVersion });
       setLastChange({ reason: reason.trim(), at: new Date().toLocaleString("ko-KR") });
       setConfirming(false);
       setMessage("이 학급의 AI 기능을 중지했어요.");
     } catch (error) {
-      setMessage(errorMessage(error));
-      if (error instanceof ApiError && error.code === "POLICY_VERSION_CONFLICT") setConfirming(false);
+      if (error instanceof ApiError && ["POLICY_VERSION_CONFLICT", "STATE_VERSION_CONFLICT"].includes(error.code)) {
+        setConfirming(false);
+        await onReload();
+        setMessage("다른 화면에서 설정이 변경되어 최신 상태를 불러왔어요. 사유를 확인한 뒤 다시 실행해 주세요.");
+      } else {
+        setMessage(errorMessage(error));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -92,7 +141,7 @@ export function AiWorkspace({
         ) : null}
 
         {!canManage ? (
-          <div className="inline-notice"><AlertTriangle size={17} /> 부담임은 AI 사용 설정을 변경할 수 없어요.</div>
+          <div className="inline-notice"><AlertTriangle size={17} /> 학급 소유 교사만 AI 사용 설정을 변경할 수 있어요.</div>
         ) : enabled ? (
           <div className="ai-disable-form">
             <label>
@@ -128,20 +177,16 @@ export function AiWorkspace({
         {message ? <div className="inline-notice" role="status">{message}</div> : null}
       </section>
 
-      <section className="plain-section">
-        <div className="section-title-line">
-          <div>
-            <span className="section-kicker">상품·퀴즈</span>
-            <h2>AI 추천 검토</h2>
-          </div>
-          <span className="connection-pending">백엔드 연결 대기</span>
-        </div>
-        <p className="section-description">
-          상품 가격과 GAME 보상 추천은 시작 전 점검 API 계약이 develop에 합쳐진 뒤 연결됩니다.
-          TEST 퀴즈에는 보상 설정을 제공하지 않습니다.
-        </p>
-      </section>
+      <DraftRecommendationPanel
+        classroomId={classroomId}
+        products={products}
+        quizSessionId={quizSessionId}
+        activeStudentCount={activeStudentCount}
+        effectiveTaxBps={effectiveTaxBps}
+        onReload={onReload}
+        onStateVersionChange={onStateVersionChange}
+        onProductPriceApplied={onProductPriceApplied}
+      />
     </div>
   );
 }
-

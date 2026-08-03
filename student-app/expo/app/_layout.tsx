@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider } from "@/auth/AuthProvider";
+import { ClassroomProvider } from "@/features/classroom/ClassroomProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 
 export default function RootLayout() {
@@ -12,8 +13,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryProvider>
           <AuthProvider>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
+            <ClassroomProvider>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }} />
+            </ClassroomProvider>
           </AuthProvider>
         </QueryProvider>
       </SafeAreaProvider>

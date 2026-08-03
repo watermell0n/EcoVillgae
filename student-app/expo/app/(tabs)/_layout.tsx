@@ -2,6 +2,7 @@ import { Redirect, Tabs } from "expo-router";
 import { Text, useWindowDimensions } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { useClassroom } from "@/features/classroom/ClassroomProvider";
 import { colors } from "@/theme/tokens";
 
 const icons: Record<string, string> = {
@@ -13,6 +14,7 @@ const icons: Record<string, string> = {
 
 export default function StudentTabsLayout() {
   const { identity, ready } = useAuth();
+  const { enabled } = useClassroom();
   const { width } = useWindowDimensions();
   if (ready && !identity) return <Redirect href="/login" />;
 
@@ -32,8 +34,8 @@ export default function StudentTabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: "마을" }} />
-      <Tabs.Screen name="wallet" options={{ title: "지갑" }} />
-      <Tabs.Screen name="shop" options={{ title: "상점" }} />
+      <Tabs.Screen name="wallet" options={{ title: "지갑", href: enabled("wallet") ? undefined : null }} />
+      <Tabs.Screen name="shop" options={{ title: "상점", href: enabled("shop") ? undefined : null }} />
       <Tabs.Screen name="profile" options={{ title: "내 정보" }} />
     </Tabs>
   );

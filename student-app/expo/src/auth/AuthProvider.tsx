@@ -8,8 +8,8 @@ import {
   type PropsWithChildren
 } from "react";
 
-import { loginStudent, restoreStudentIdentity } from "./api";
-import { clearSession, getOrCreateDeviceId, saveSession } from "./token-vault";
+import { loginStudent, logoutStudent, restoreStudentIdentity } from "./api";
+import { clearSession, getOrCreateDeviceId, saveSession, saveSessionIdentity } from "./token-vault";
 import type { StudentIdentity } from "./types";
 
 type LoginValues = {
@@ -34,7 +34,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     restoreStudentIdentity()
-      .then(setIdentity)
+      .then(async (restored) => {
+        setIdentity(restored);
+        if (restored) {
+          await saveSessionIdentity(restored);
+        }
+      })
       .catch(clearSession)
       .finally(() => setReady(true));
   }, []);
@@ -52,8 +57,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const logout = useCallback(async () => {
-    await clearSession();
-    setIdentity(null);
+    try {
+      await logoutStudent();
+    } finally {
+      await clearSession();
+      setIdentity(null);
+    }
   }, []);
 
   const value = useMemo(() => ({ identity, ready, login, logout }), [identity, ready, login, logout]);

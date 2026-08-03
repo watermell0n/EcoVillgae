@@ -15,6 +15,26 @@ type StudentSessionResponse = {
   role: "STU";
 };
 
+type BootstrapResponse = {
+  user_id: string;
+  roles: string[];
+  classrooms: Array<{
+    resource_id?: string;
+    label?: string;
+    status?: string;
+    classroom_code?: string;
+    currency_name?: string;
+  }>;
+  start_screen: string;
+};
+
+type MeResponse = {
+  user_id: string;
+  display_name: string;
+  role: "STU" | "TCH";
+  classrooms: Array<{ classroom_id?: string; resource_id?: string }>;
+};
+
 const useMockLogin = process.env.EXPO_PUBLIC_USE_MOCK_STUDENT_LOGIN === "true";
 
 export async function loginStudent(input: StudentLoginInput): Promise<StudentSession> {
@@ -23,7 +43,7 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
       accessToken: "mock-access-token",
       refreshToken: "mock-refresh-token",
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      classroomId: "00000000-0000-4000-8000-000000000001",
+      classroomId: `mock-classroom-${input.classroomCode}`,
       studentId: `mock-student-${input.attendanceNumber}`,
       nickname: input.nickname,
       role: "STU"
@@ -34,6 +54,7 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
     method: "POST",
     auth: false,
     retryOnUnauthorized: false,
+    retryOnNetworkFailure: true,
     body: JSON.stringify({
       classroom_code: input.classroomCode,
       attendance_number: input.attendanceNumber,
@@ -54,18 +75,53 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
   };
 }
 
+export async function fetchStudentBootstrap() {
+  return apiRequest<BootstrapResponse>("/auth/bootstrap");
+}
+
+async function fetchCurrentStudent() {
+  return apiRequest<MeResponse>("/auth/me");
+}
+
 export async function restoreStudentIdentity(): Promise<StudentIdentity | null> {
-  const [identity, refreshToken] = await Promise.all([
+  const [storedIdentity, refreshToken] = await Promise.all([
     getStoredIdentity(),
     getRefreshToken()
   ]);
-  if (!identity || !refreshToken) return null;
+  if (!storedIdentity || !refreshToken) return null;
 
   if (refreshToken.startsWith("mock-")) {
     setAccessToken("mock-access-token");
-    return identity;
+    return storedIdentity;
   }
 
   await refreshStudentTokens();
-  return identity;
+  const [bootstrap, me] = await Promise.all([fetchStudentBootstrap(), fetchCurrentStudent()]);
+  if (!bootstrap.roles.includes("STU") || me.role !== "STU") return null;
+
+  const selected = bootstrap.classrooms.find((classroom) => classroom.resource_id === storedIdentity.classroomId)
+    ?? bootstrap.classrooms[0];
+  if (!selected?.resource_id) return null;
+
+  return {
+    ...storedIdentity,
+    classroomId: selected.resource_id,
+    classroomLabel: selected.label,
+    currencyName: selected.currency_name,
+    startScreen: bootstrap.start_screen,
+    nickname: me.display_name || storedIdentity.nickname,
+    studentId: me.user_id || storedIdentity.studentId
+  };
+}
+
+export async function logoutStudent() {
+  if (getAccessTokenIsMock()) return;
+  await apiRequest<void>("/auth/sessions/current", {
+    method: "DELETE",
+    retryOnNetworkFailure: true
+  });
+}
+
+function getAccessTokenIsMock() {
+  return useMockLogin;
 }

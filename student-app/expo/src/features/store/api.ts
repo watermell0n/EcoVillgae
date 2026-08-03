@@ -48,3 +48,24 @@ export async function fetchStoreCatalog(classroomId: string) {
     characterCode: product.character_code
   }));
 }
+
+export async function purchaseStoreProduct(classroomId: string, product: StoreProduct) {
+  if (process.env.EXPO_PUBLIC_USE_MOCK_STUDENT_FEATURES === "true") {
+    return { orderId: `mock-order-${product.resourceId}`, status: "PAID", totalAmount: product.unitPrice, stateVersion: 1 };
+  }
+
+  const response = await apiRequest<{ order_id: string; status: string; total_amount: number; state_version: number }>(`/classrooms/${classroomId}/store/orders`, {
+    method: "POST",
+    retryOnNetworkFailure: true,
+    body: JSON.stringify({
+      expected_state_version: 0,
+      screen_id: "SCR-STU-006",
+      ui_action_id: "UIA-SHP-002",
+      client_occurred_at: new Date().toISOString(),
+      product_id: product.resourceId,
+      quantity: 1,
+      expected_product_version: product.version
+    })
+  });
+  return { orderId: response.order_id, status: response.status, totalAmount: response.total_amount, stateVersion: response.state_version };
+}

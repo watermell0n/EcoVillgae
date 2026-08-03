@@ -55,6 +55,11 @@ type ModuleRow = {
   status: string;
   studentState: string;
   teacherTodo: string;
+  resourceId?: string;
+  code?: string;
+  stateVersion?: number;
+  version?: number;
+  config?: Record<string, unknown>;
 };
 
 type ProductRow = {
@@ -63,6 +68,18 @@ type ProductRow = {
   stock: string;
   imageName: string;
   imageSrc: string;
+  resourceId?: string;
+  version?: number;
+  stateVersion?: number;
+  kind?: "PHYSICAL" | "DIGITAL";
+  vatRateBps?: number;
+};
+
+type AiSettingsSnapshot = {
+  enabled: boolean;
+  reason: string;
+  version: number;
+  stateVersion: number;
 };
 
 type ApprovalRow = {
@@ -276,6 +293,12 @@ export default function TeacherConsole() {
   const [modules, setModules] = useState<ModuleRow[]>(initialModules);
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
   const [products, setProducts] = useState<ProductRow[]>(initialProducts);
+  const [aiSettings, setAiSettings] = useState<AiSettingsSnapshot>({
+    enabled: true,
+    reason: "",
+    version: 0,
+    stateVersion: 0
+  });
   const [approvals, setApprovals] = useState<ApprovalRow[]>(initialApprovals);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [settings, setSettings] = useState<ClassSettings>(initialSettings);
@@ -322,9 +345,11 @@ export default function TeacherConsole() {
       addLog(`${label}: 백엔드 처리 완료`);
     } catch (error) {
       const code = error instanceof ApiError ? ` (${error.code})` : "";
-      const conflictGuide = error instanceof ApiError && ["STATE_VERSION_CONFLICT", "POLICY_VERSION_CONFLICT"].includes(error.code)
-        ? " 최신 상태를 다시 불러온 뒤 변경 내용을 확인해 주세요."
-        : "";
+      const isConflict = error instanceof ApiError && ["STATE_VERSION_CONFLICT", "POLICY_VERSION_CONFLICT"].includes(error.code);
+      if (isConflict && activeClassroomId) {
+        await openClassroom(activeClassroomId);
+      }
+      const conflictGuide = isConflict ? " 최신 상태를 다시 불러왔어요. 변경 내용을 확인한 뒤 다시 실행해 주세요." : "";
       addLog(`${label}: 저장하지 못했어요${code}. ${error instanceof Error ? error.message : ""}${conflictGuide}`, "error");
     }
   }
@@ -352,13 +377,28 @@ export default function TeacherConsole() {
         classroom_code?: string;
         currency_name?: string;
         module_codes?: string[];
+        state_version?: number;
       };
       const modulesState = (serverState.modulesAndPolicies ?? {}) as {
-        modules?: Array<{ label?: string; module_code?: string; status?: string }>;
+        modules?: Array<{
+          resource_id?: string;
+          label?: string;
+          module_code?: string;
+          status?: string;
+          version?: number;
+          state_version?: number;
+          config?: Record<string, unknown>;
+        }>;
+        policy_versions?: Array<{
+          policy_area?: string;
+          version?: number;
+          state_version?: number;
+          values?: Record<string, unknown>;
+        }>;
       };
       const rosterState = (serverState.rosterAndSalaries ?? {}) as {
-        students?: Array<{ attendance_number?: number; nickname?: string; role_code?: string | null; status?: string }>;
-        salary_roles?: Array<{ role_code?: string; label?: string; gross_amount?: number }>;
+        students?: Array<{ attendance_number?: number; nickname?: string; role_code?: string | null; status?: string; state_version?: number }>;
+        salary_roles?: Array<{ role_code?: string; label?: string; gross_amount?: number; state_version?: number }>;
       };
       setSettings((current) => ({
         ...current,
@@ -370,9 +410,32 @@ export default function TeacherConsole() {
           name: module.label ?? module.module_code ?? "이름 없는 모듈",
           status: module.status === "ACTIVE" ? "열림" : "닫힘",
           studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
-          teacherTodo: ""
+          teacherTodo: "",
+          resourceId: module.resource_id,
+          code: module.module_code,
+          stateVersion: module.state_version,
+          version: module.version,
+          config: module.config
         })));
       }
+      const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
+      const nextAiSettings: AiSettingsSnapshot = {
+        enabled: aiPolicy?.values?.enabled !== false,
+        reason: typeof aiPolicy?.values?.reason === "string" ? aiPolicy.values.reason : "",
+        version: aiPolicy?.version ?? 0,
+        stateVersion: aiPolicy?.state_version ?? classroom?.state_version ?? 0
+      };
+      setAiSettings(nextAiSettings);
+      const latestStateVersion = Math.max(
+        classroom?.state_version ?? 0,
+        configuration.state_version ?? 0,
+        nextAiSettings.stateVersion,
+        ...(modulesState.modules?.map((module) => module.state_version ?? 0) ?? []),
+        ...(modulesState.policy_versions?.map((policy) => policy.state_version ?? 0) ?? []),
+        ...(rosterState.students?.map((student) => student.state_version ?? 0) ?? []),
+        ...(rosterState.salary_roles?.map((role) => role.state_version ?? 0) ?? [])
+      );
+      setActiveStateVersion(latestStateVersion);
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
         setStudents(rosterState.students.map((student) => {
@@ -542,7 +605,17 @@ export default function TeacherConsole() {
               hasSalaryModule={modules.some((module) => module.name === "월급" && module.status === "열림")}
             />
           )}
-          {view === "shop" && <ShopAdmin products={products} setProducts={setProducts} addLog={addLog} />}
+          {view === "shop" && (
+            <ShopAdmin
+              products={products}
+              setProducts={setProducts}
+              addLog={addLog}
+              classroomId={activeClassroomId}
+              stateVersion={activeStateVersion}
+              policyVersion={Number(modules.find((module) => module.code === "STORE")?.config?.policy_version ?? 0)}
+              onStateVersionChange={setActiveStateVersion}
+            />
+          )}
           {view === "control" && (
             <Control
               mode={mode}
@@ -561,7 +634,24 @@ export default function TeacherConsole() {
             <AiWorkspace
               classroomId={activeClassroomId}
               initialStateVersion={activeStateVersion}
-              canManage={!teacherRoles.includes("COT")}
+              initialEnabled={aiSettings.enabled}
+              initialReason={aiSettings.reason}
+              initialPolicyVersion={aiSettings.version}
+              canManage={teacherRoles.includes("OWN")}
+              products={products}
+              activeStudentCount={students.length}
+              effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
+              quizSessionId={String(
+                modules.find((module) => module.code === "QUIZ_GAME")?.config?.active_quiz_session_id
+                ?? modules.find((module) => module.code === "QUIZ_GAME")?.config?.quiz_session_id
+                ?? ""
+              )}
+              onStateVersionChange={setActiveStateVersion}
+              onSettingsChanged={setAiSettings}
+              onReload={() => openClassroom(activeClassroomId)}
+              onProductPriceApplied={(productId, nextPrice) => setProducts((items) => items.map((item) => (
+                item.resourceId === productId ? { ...item, price: String(nextPrice) } : item
+              )))}
             />
           )}
         </div>
@@ -1720,17 +1810,27 @@ function Roster({
 function ShopAdmin({
   products,
   setProducts,
-  addLog
+  addLog,
+  classroomId,
+  stateVersion,
+  policyVersion,
+  onStateVersionChange
 }: Readonly<{
   products: ProductRow[];
   setProducts: React.Dispatch<React.SetStateAction<ProductRow[]>>;
   addLog: (message: string, tone?: LogTone) => void;
+  classroomId: string;
+  stateVersion: number;
+  policyVersion: number;
+  onStateVersionChange: (version: number) => void;
 }>) {
   const [preview, setPreview] = useState("");
   const [fileName, setFileName] = useState("선택된 사진 없음");
   const [name, setName] = useState("연필 교환권");
   const [price, setPrice] = useState("30");
   const [stock, setStock] = useState("12");
+  const [kind, setKind] = useState<"PHYSICAL" | "DIGITAL">("PHYSICAL");
+  const [submitting, setSubmitting] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftProduct, setDraftProduct] = useState<ProductRow | null>(null);
 
@@ -1748,14 +1848,64 @@ function ShopAdmin({
     reader.readAsDataURL(file);
   }
 
-  function addProduct() {
-    setProducts((items) => [{ name, price, stock, imageName: preview ? fileName : "", imageSrc: preview }, ...items]);
-    setName("");
-    setPrice("");
-    setStock("");
-    setPreview("");
-    setFileName("선택된 사진 없음");
-    addLog("상품을 등록했어요.");
+  async function addProduct() {
+    const numericPrice = Number(price);
+    const numericStock = Number(stock);
+    if (!classroomId || !name.trim() || !Number.isInteger(numericPrice) || numericPrice < 0 || !Number.isInteger(numericStock) || numericStock < 0) {
+      addLog("상품명, 가격, 재고를 올바르게 입력해 주세요.", "warning");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await apiRequest<{
+        product_id: string;
+        status: string;
+        state_version: number;
+        version: number;
+      }>(`/classrooms/${classroomId}/store/product-commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: stateVersion,
+          expected_policy_version: policyVersion,
+          screen_id: "SCR-TCH-STORE",
+          ui_action_id: "UIA-STORE-PRODUCT-CREATE",
+          client_occurred_at: new Date().toISOString(),
+          command: "CREATE",
+          product_id: null,
+          name: name.trim(),
+          description: "",
+          product_kind: kind,
+          unit_price: numericPrice,
+          vat_rate_bps: 0,
+          stock_quantity: numericStock,
+          character_source_id: null,
+          expected_product_version: null
+        })
+      });
+      setProducts((items) => [{
+        name: name.trim(),
+        price: String(numericPrice),
+        stock: String(numericStock),
+        imageName: preview ? fileName : "",
+        imageSrc: preview,
+        resourceId: response.product_id,
+        stateVersion: response.state_version,
+        version: response.version,
+        kind,
+        vatRateBps: 0
+      }, ...items]);
+      onStateVersionChange(response.state_version);
+      setName("");
+      setPrice("");
+      setStock("");
+      setPreview("");
+      setFileName("선택된 사진 없음");
+      addLog("상품을 서버에 등록했어요.");
+    } catch (error) {
+      addLog(`상품을 등록하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function startEdit(index: number) {
@@ -1787,6 +1937,12 @@ function ShopAdmin({
           <label>상품명<input value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>가격<input value={price} onChange={(event) => setPrice(event.target.value)} /></label>
           <label>재고<input value={stock} onChange={(event) => setStock(event.target.value)} /></label>
+          <label>상품 종류
+            <select value={kind} onChange={(event) => setKind(event.target.value as "PHYSICAL" | "DIGITAL")}>
+              <option value="PHYSICAL">교사가 제공하는 상품</option>
+              <option value="DIGITAL">디지털 상품</option>
+            </select>
+          </label>
           <label className="image-upload">
             상품 사진
             <input type="file" accept="image/*" onChange={handleImageChange} />
@@ -1795,7 +1951,9 @@ function ShopAdmin({
           <div className="image-preview">
             {preview ? <img src={preview} alt="상품 사진 미리보기" /> : <span>사진 미리보기</span>}
           </div>
-          <button className="wide-action" onClick={addProduct}>상품 올리기</button>
+          <button className="wide-action" disabled={submitting} onClick={() => void addProduct()}>
+            {submitting ? "등록하는 중" : "상품 올리기"}
+          </button>
         </div>
       </PlainSection>
       <PlainSection title="상품 관리">

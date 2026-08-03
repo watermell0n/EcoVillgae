@@ -1,21 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Screen } from "@/components/Screen";
-import { fetchStoreCatalog } from "@/features/store/api";
+import { fetchStoreCatalog, purchaseStoreProduct, type StoreProduct } from "@/features/store/api";
 import { colors, radii } from "@/theme/tokens";
 
 export default function ShopScreen() {
   const { identity } = useAuth();
+  const queryClient = useQueryClient();
   const catalog = useQuery({
     queryKey: ["store-catalog", identity?.classroomId],
     queryFn: () => fetchStoreCatalog(identity!.classroomId),
     enabled: Boolean(identity?.classroomId)
   });
+  const purchase = useMutation({
+    mutationFn: (product: StoreProduct) => purchaseStoreProduct(identity!.classroomId, product),
+    onSuccess: (order) => {
+      showMessage("구매 요청 완료", `${order.totalAmount} 비빔 구매가 접수됐어요.`);
+      queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
+      queryClient.invalidateQueries({ queryKey: ["store-catalog", identity?.classroomId] });
+    }
+  });
+
+  const confirmPurchase = (product: StoreProduct) => {
+    const message = `${product.label}을(를) ${product.unitPrice} 비빔에 구매할까요?`;
+    if (Platform.OS === "web") {
+      if (globalThis.confirm(message)) purchase.mutate(product);
+      return;
+    }
+    Alert.alert("구매 확인", message, [
+      { text: "취소", style: "cancel" },
+      { text: "구매하기", onPress: () => purchase.mutate(product) }
+    ]);
+  };
 
   return (
-    <Screen title="이코 상점" subtitle="SCR-STU-006 · 재고와 가격은 서버의 최신 카탈로그를 사용합니다.">
+    <Screen title="이코 상점">
       {catalog.isPending ? (
         <View style={styles.center}><ActivityIndicator color={colors.orange500} size="large" /><Text style={styles.helper}>상품을 불러오고 있어요.</Text></View>
       ) : catalog.isError ? (
@@ -25,14 +46,14 @@ export default function ShopScreen() {
         </View>
       ) : (
         <View style={styles.grid}>
-          {catalog.data?.map((product) => (
+          {catalog.data?.length === 0 ? <Text style={styles.helper}>지금 살 수 있는 상품이 없어요.</Text> : catalog.data?.map((product) => (
             <View key={product.resourceId} style={styles.product}>
               <Text style={styles.productIcon}>{product.productKind === "DIGITAL" ? "✨" : "🎁"}</Text>
               <Text style={styles.productTitle}>{product.label}</Text>
               <Text style={styles.productKind}>{product.productKind === "DIGITAL" ? "캐릭터 아이템" : "교실 상품"}</Text>
               <Text style={styles.price}>{product.unitPrice} 비빔</Text>
-              <Pressable disabled style={styles.buyDisabled}>
-                <Text style={styles.buyDisabledText}>구매 화면 이전 예정</Text>
+              <Pressable accessibilityRole="button" disabled={purchase.isPending} onPress={() => confirmPurchase(product)} style={[styles.buy, purchase.isPending && styles.buyDisabled]}>
+                <Text style={styles.buyText}>{purchase.isPending ? "처리 중" : "구매하기"}</Text>
               </Pressable>
             </View>
           ))}
@@ -40,6 +61,14 @@ export default function ShopScreen() {
       )}
     </Screen>
   );
+}
+
+function showMessage(title: string, message: string) {
+  if (Platform.OS === "web") {
+    globalThis.alert(`${title}\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
 }
 
 const styles = StyleSheet.create({
@@ -63,6 +92,7 @@ const styles = StyleSheet.create({
   productTitle: { color: colors.ink900, fontSize: 19, fontWeight: "900" },
   productKind: { color: colors.muted600, fontSize: 13 },
   price: { color: colors.orange500, fontSize: 21, fontWeight: "900", marginTop: "auto" },
-  buyDisabled: { padding: 11, alignItems: "center", borderRadius: radii.control, backgroundColor: "#E9EEF4" },
-  buyDisabledText: { color: colors.muted600, fontWeight: "800" }
+  buy: { padding: 11, alignItems: "center", borderRadius: radii.control, backgroundColor: colors.orange500 },
+  buyDisabled: { opacity: 0.5 },
+  buyText: { color: colors.white, fontWeight: "900" }
 });

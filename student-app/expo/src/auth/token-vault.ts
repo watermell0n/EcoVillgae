@@ -80,6 +80,10 @@ export async function saveSession(session: StudentSession) {
   ]);
 }
 
+export async function saveSessionIdentity(identity: StudentIdentity) {
+  await setStoredValue(IDENTITY_KEY, JSON.stringify(identity));
+}
+
 export async function clearSession() {
   setAccessToken(null);
   await Promise.all([
