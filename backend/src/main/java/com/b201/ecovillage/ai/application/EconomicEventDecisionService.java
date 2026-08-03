@@ -26,6 +26,7 @@ import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 /**
  * API-AI-006 경제 이벤트 승인·거절을 처리한다.
@@ -46,6 +47,10 @@ public class EconomicEventDecisionService {
     private static final String APPROVED = "APPROVED";
     private static final String REJECTED = "REJECTED";
     private static final String ECONOMIC_POLICY_AREA = "ECONOMIC";
+    /** WS-ECO-001 {@code classrooms/{C}/economy} 채널의 스트림이다. */
+    private static final String ECONOMY_STREAM = "ECONOMY";
+    private static final String PUBLISHED_EVENT_TYPE = "economic_event.published";
+    private static final String EVENT_AGGREGATE_TYPE = "ECONOMIC_EVENT_DRAFT";
 
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
@@ -55,6 +60,7 @@ public class EconomicEventDecisionService {
     private final EconomicEventPolicyEffect policyEffect;
     private final ClassroomMutationSupport mutationSupport;
     private final AuditTrailService auditTrailService;
+    private final RealtimeEventPublisher realtimeEventPublisher;
     private final Clock clock;
 
     public EconomicEventDecisionService(
@@ -66,6 +72,7 @@ public class EconomicEventDecisionService {
         EconomicEventPolicyEffect policyEffect,
         ClassroomMutationSupport mutationSupport,
         AuditTrailService auditTrailService,
+        RealtimeEventPublisher realtimeEventPublisher,
         Clock clock
     ) {
         this.authorizationService = authorizationService;
@@ -76,6 +83,7 @@ public class EconomicEventDecisionService {
         this.policyEffect = policyEffect;
         this.mutationSupport = mutationSupport;
         this.auditTrailService = auditTrailService;
+        this.realtimeEventPublisher = realtimeEventPublisher;
         this.clock = clock;
     }
 
@@ -244,6 +252,9 @@ public class EconomicEventDecisionService {
             draft.getStateVersion(),
             publishedAt
         );
+        if (APPROVED.equals(status)) {
+            publishToStudents(draft, publishedAt);
+        }
         auditTrailService.record(
             command.classroomId(),
             teacher.getId(),
@@ -284,6 +295,34 @@ public class EconomicEventDecisionService {
             remembered
         );
         return result;
+    }
+
+    /**
+     * EVT-ACT-007 economic_event.published를 WS-ECO-001 스트림에 올린다.
+     *
+     * <p>아웃박스 행이 이 트랜잭션과 함께 커밋되므로 승인이 롤백되면 발행 대상도 남지 않는다.
+     * 실제 소켓 전달은 아웃박스를 비우는 쪽이 담당한다.
+     *
+     * <p>학생도 받는 채널이라 공개 안전성 검사를 켠다. 개인 식별자와 잔액은 payload에 넣지 않는다.
+     */
+    private void publishToStudents(EconomicEventDraft draft, Instant publishedAt) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("event_id", draft.getId().toString());
+        payload.put("template_type", String.valueOf(draft.getEconomicEffect().get("template_type")));
+        payload.put("title", draft.getTitle());
+        payload.put("description", draft.getContent());
+        payload.put("effective_from", publishedAt == null ? null : publishedAt.toString());
+        realtimeEventPublisher.publish(
+            draft.getClassroomId(),
+            ECONOMY_STREAM,
+            null,
+            PUBLISHED_EVENT_TYPE,
+            EVENT_AGGREGATE_TYPE,
+            draft.getId(),
+            draft.getStateVersion(),
+            payload,
+            true
+        );
     }
 
     private static EconomicEventDecisionResult replayed(Map<String, Object> replay) {

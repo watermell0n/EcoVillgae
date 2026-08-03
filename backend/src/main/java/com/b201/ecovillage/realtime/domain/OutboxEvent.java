@@ -129,6 +129,45 @@ public class OutboxEvent {
         return Map.copyOf(payload);
     }
 
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
+    public UUID getRealtimeStreamId() {
+        return realtimeStreamId;
+    }
+
+    public long getChannelSequence() {
+        return channelSequence;
+    }
+
+    public String getEventType() {
+        return eventType;
+    }
+
+    public String getAggregateType() {
+        return aggregateType;
+    }
+
+    public UUID getAggregateId() {
+        return aggregateId;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
+
+    /**
+     * 소켓 전달이 끝난 시각이다. 아웃박스를 비우는 쪽이 채우기 전까지는 null이다.
+     */
+    public Instant getPublishedAt() {
+        return publishedAt;
+    }
+
     private static String requiredText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");

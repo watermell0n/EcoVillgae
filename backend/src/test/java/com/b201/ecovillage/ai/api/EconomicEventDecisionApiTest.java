@@ -1,6 +1,7 @@
 package com.b201.ecovillage.ai.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,6 +39,8 @@ import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.realtime.domain.OutboxEvent;
+import com.b201.ecovillage.realtime.repository.OutboxEventRepository;
 
 /**
  * API-AI-006 경제 이벤트 승인·거절 검증이다. 이 경로는 AI를 호출하지 않으므로
@@ -80,6 +83,9 @@ class EconomicEventDecisionApiTest {
 
     @Autowired
     private ClassroomPolicyVersionRepository policyRepository;
+
+    @Autowired
+    private OutboxEventRepository outboxRepository;
 
     private UUID classroomId;
     private Principal owner;
@@ -395,6 +401,69 @@ class EconomicEventDecisionApiTest {
                 """.formatted(draft.getStateVersion())))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_STEP_BINDING"));
+    }
+
+    @Test
+    void publishesRealtimeEventOnApprovalOnly() throws Exception {
+        EconomicEventDraft approved = saveDraft("PUBLIC_FUND", null);
+        EconomicEventDraft rejected = saveDraft("PUBLIC_FUND", null);
+
+        mockMvc.perform(decision(owner, approved.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "reason": "학생에게 게시합니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(approved.getStateVersion())))
+            .andExpect(status().isOk());
+        mockMvc.perform(decision(owner, rejected.getId(), """
+                {
+                  "decision": "REJECT",
+                  "reason": "이건 게시하지 않습니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(rejected.getStateVersion())))
+            .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        List<OutboxEvent> events = outboxRepository.findAll().stream()
+            .filter(event -> "economic_event.published".equals(event.getEventType()))
+            .toList();
+        assertEquals(1, events.size(), "승인만 EVT-ACT-007을 남긴다.");
+        OutboxEvent event = events.get(0);
+        assertEquals(approved.getId(), event.getAggregateId());
+        assertEquals("PUBLIC_FUND", event.getPayload().get("template_type"));
+        assertEquals(approved.getId().toString(), event.getPayload().get("event_id"));
+        assertNotNull(event.getPayload().get("effective_from"));
+        assertNull(event.getPublishedAt(), "소켓 전달은 아웃박스를 비우는 쪽이 담당한다.");
+    }
+
+    @Test
+    void keepsPrivateFieldsOutOfThePublishedPayload() throws Exception {
+        EconomicEventDraft draft = saveDraft("PUBLIC_FUND", null);
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "reason": "공개 안전성을 확인합니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        OutboxEvent event = outboxRepository.findAll().stream()
+            .filter(item -> "economic_event.published".equals(item.getEventType()))
+            .findFirst()
+            .orElseThrow();
+        // WS-ECO-001은 학생도 받는 채널이다. 개인 식별자와 잔액이 들어가면 발행 자체가 실패해야 한다.
+        assertEquals(
+            java.util.Set.of("event_id", "template_type", "title", "description", "effective_from"),
+            event.getPayload().keySet(),
+            "EVT-ACT-007 명세의 다섯 필드만 내보낸다."
+        );
     }
 
     private ClassroomPolicyVersion economicPolicy() {
