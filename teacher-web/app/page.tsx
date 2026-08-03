@@ -48,6 +48,9 @@ type StudentRow = {
   role: string;
   salary: string;
   status: string;
+  presence?: "ONLINE" | "AWAY" | "OFFLINE" | "UNKNOWN";
+  currentScreen?: string;
+  lastSeenAt?: string;
 };
 
 type ModuleRow = {
@@ -133,8 +136,11 @@ const oidcConfigured = Boolean(
 const initialModules: ModuleRow[] = [
   { name: "지갑", status: "열림", studentState: "기본 기능", teacherTodo: "자동 적용" },
   { name: "상점", status: "열림", studentState: "학생 구매 가능", teacherTodo: "상품 2개 판매 중" },
-  { name: "은행", status: "열림", studentState: "예금 가입 가능", teacherTodo: "예금 상품 관리" },
-  { name: "투자", status: "결과 대기", studentState: "단기·장기 투자 확인", teacherTodo: "시장 결과 준비" },
+  { name: "예금", status: "열림", studentState: "예금 가입 가능", teacherTodo: "예금 상품 관리" },
+  { name: "적금", status: "열림", studentState: "적금 가입 가능", teacherTodo: "적금 상품 관리" },
+  { name: "대출", status: "닫힘", studentState: "학생 이용 중지", teacherTodo: "대출 정책 설정" },
+  { name: "단기 투자", status: "열림", studentState: "다음 날 결과 확인", teacherTodo: "시장 결과 준비" },
+  { name: "장기 투자", status: "열림", studentState: "매일 소식 확인", teacherTodo: "투자 뉴스 확인" },
   { name: "거래", status: "승인 필요", studentState: "친구 거래 가능", teacherTodo: "대기 2건" },
   { name: "퀴즈", status: "준비됨", studentState: "선생님 시작 시 참여", teacherTodo: "문항 3개" }
 ];
@@ -159,7 +165,10 @@ const initialStudents: StudentRow[] = studentSeed.map(([nickname, role, salary, 
   nickname,
   role,
   salary,
-  status
+  status,
+  presence: index < 17 ? "ONLINE" : index < 20 ? "AWAY" : index < 22 ? "OFFLINE" : "UNKNOWN",
+  currentScreen: index < 17 ? ["마을 광장", "이코 은행", "퀴즈"][index % 3] : "",
+  lastSeenAt: index < 20 ? new Date(Date.now() - index * 45_000).toISOString() : undefined
 }));
 
 const initialProducts: ProductRow[] = [
@@ -187,10 +196,10 @@ const courseTemplates = [
   {
     name: "저축과 투자",
     description: "소득을 나누어 예금하고 투자 결과를 비교해요.",
-    modules: ["지갑", "세금", "예금", "투자", "퀴즈"],
+    modules: ["지갑", "세금", "예금", "적금", "단기 투자", "장기 투자", "퀴즈"],
     schedule: [
       { day: "1일차", lessonIds: ["tax", "saving"] },
-      { day: "2일차", lessonIds: ["investment"] },
+      { day: "2일차", lessonIds: ["short-investment", "long-investment"] },
       { day: "3일차", lessonIds: ["quiz"] }
     ]
   },
@@ -226,9 +235,9 @@ const initialLessonMaterials: LessonMaterial[] = [
   { id: "lesson-3", title: "예금과 투자 선택", stage: "2교시", minutes: "20", status: "수정 필요" }
 ];
 
-const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "투자", "공공 예산/투표", "퀴즈"];
+const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
 const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
-const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "투자", "공공 예산/투표", "퀴즈"];
+const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
 
 const moduleDependencies: Record<string, string[]> = {
   월급: ["지갑"],
@@ -237,7 +246,10 @@ const moduleDependencies: Record<string, string[]> = {
   캐릭터: ["지갑", "상점"],
   "개인 거래": ["지갑"],
   예금: ["지갑", "세금"],
-  투자: ["지갑", "세금"],
+  적금: ["지갑", "세금"],
+  대출: ["지갑", "세금"],
+  "단기 투자": ["지갑", "세금"],
+  "장기 투자": ["지갑", "세금"],
   "공공 예산/투표": ["지갑", "세금"],
   퀴즈: []
 };
@@ -250,7 +262,10 @@ const moduleDescriptions: Record<string, string> = {
   캐릭터: "학생이 비빔으로 아이템을 사고 캐릭터를 꾸밉니다.",
   "개인 거래": "학생 간 제안, 동의, 교사 승인 거래를 처리합니다.",
   예금: "정기예금과 적금 가입, 이자 계산, 만기 처리를 합니다.",
-  투자: "가상 투자 상품 선택과 손익 결과 확인을 제공합니다.",
+  적금: "정한 금액을 회차마다 모으고 적금 진행률을 확인합니다.",
+  대출: "교육용 대출 한도와 상환 계획을 확인하고 신청합니다.",
+  "단기 투자": "오늘 투자하고 다음 날 확정되는 투자 활동입니다.",
+  "장기 투자": "매일 공개되는 소식을 보고 보유 또는 회수를 결정합니다.",
   "공공 예산/투표": "공동기금 사용처를 정하고 익명 투표를 진행합니다.",
   퀴즈: "경제 퀴즈와 게임형/평가형 수업 활동을 진행합니다."
 };
@@ -258,9 +273,23 @@ const moduleDescriptions: Record<string, string> = {
 const periodModuleRecommendations: Record<string, string[]> = {
   "1회 체험": ["퀴즈"],
   "1주 프로젝트": ["월급", "세금", "상점", "예금", "퀴즈"],
-  "1달 운영": ["월급", "세금", "상점", "캐릭터", "예금", "투자", "공공 예산/투표", "퀴즈"],
+  "1달 운영": ["월급", "세금", "상점", "캐릭터", "예금", "적금", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"],
   "1학기 운영": selectableModuleNames
 };
+
+const lessonQuizCatalog = [
+  { id: "salary", title: "월급과 실수령액", module: "월급", minutes: "15분", concept: "월급은 일을 하고 받는 돈이며, 세금을 내고 실제로 받는 금액을 실수령액이라고 해요.", question: "월급에서 세금을 낸 뒤 실제로 받는 돈을 무엇이라고 하나요?", options: ["매출액", "실수령액", "대출금"], answer: 1 },
+  { id: "tax", title: "세금과 공동기금", module: "세금", minutes: "15분", concept: "세금은 공동체에 필요한 일을 함께 해결하기 위해 구성원이 나누어 내는 돈이에요.", question: "우리 반에서 모은 소득세는 어디에 모이나요?", options: ["개인 지갑", "공동기금", "캐릭터 상점"], answer: 1 },
+  { id: "spending", title: "필요와 욕구 구분하기", module: "상점", minutes: "15분", concept: "꼭 필요한 것과 갖고 싶은 것을 구분하면 정해진 돈 안에서 더 합리적으로 소비할 수 있어요.", question: "합리적인 소비를 위해 가장 먼저 할 일은 무엇인가요?", options: ["모두 바로 사기", "필요와 욕구 구분하기", "가격을 보지 않기"], answer: 1 },
+  { id: "shop", title: "우리 반 상점 운영", module: "상점", minutes: "20분", concept: "가격과 재고를 확인하고 꼭 필요한 상품을 선택하는 과정에서 소비 계획을 연습해요.", question: "상품을 사기 전에 함께 확인할 것은 무엇인가요?", options: ["가격과 잔액", "친구의 이름", "화면 색깔"], answer: 0 },
+  { id: "saving", title: "예금과 적금", module: "예금", minutes: "20분", concept: "예금은 목돈을 한 번 맡기고, 적금은 일정한 금액을 여러 번 나누어 모으는 금융 활동이에요.", question: "매일 일정한 금액을 나누어 모으는 상품은 무엇인가요?", options: ["예금", "적금", "대출"], answer: 1 },
+  { id: "loan", title: "빌린 돈과 상환", module: "대출", minutes: "15분", concept: "대출은 필요한 돈을 빌리고 약속한 기간에 원금과 이자를 갚는 금융 활동이에요.", question: "대출받은 뒤 지켜야 할 약속은 무엇인가요?", options: ["정해진 때에 갚기", "기록 지우기", "이자를 무시하기"], answer: 0 },
+  { id: "short-investment", title: "단기 투자와 결과", module: "단기 투자", minutes: "20분", concept: "단기 투자는 가까운 시점의 결과를 예상해 투자하며 수익과 손실이 모두 생길 수 있어요.", question: "투자에서 반드시 기억해야 하는 것은 무엇인가요?", options: ["항상 수익이 난다", "손실이 생길 수 있다", "가격은 변하지 않는다"], answer: 1 },
+  { id: "long-investment", title: "장기 투자와 정보 판단", module: "장기 투자", minutes: "20분", concept: "장기 투자는 여러 날의 정보와 변화를 살피며 계속 보유할지 회수할지 판단해요.", question: "장기 투자 판단에 가장 필요한 것은 무엇인가요?", options: ["하루의 느낌", "여러 날의 정보", "친구의 추측만 듣기"], answer: 1 },
+  { id: "trade", title: "친구와 안전하게 거래하기", module: "개인 거래", minutes: "15분", concept: "개인 거래는 주고받을 금액과 물건을 서로 확인하고 동의한 뒤 진행해야 해요.", question: "안전한 개인 거래에 필요한 것은 무엇인가요?", options: ["서로의 동의", "몰래 바꾸기", "기록 삭제"], answer: 0 },
+  { id: "budget", title: "공동기금과 투표", module: "공공 예산/투표", minutes: "20분", concept: "공동기금은 모두를 위해 사용하며, 투표로 사용처를 공정하게 결정할 수 있어요.", question: "공동기금 사용처를 정하는 공정한 방법은 무엇인가요?", options: ["한 명이 결정", "익명 투표", "먼저 가져가기"], answer: 1 }
+  ,{ id: "quiz", title: "경제 개념 확인 퀴즈", module: "퀴즈", minutes: "10분", concept: "앞에서 배운 월급, 세금, 소비, 금융 개념을 짧은 문제로 다시 확인해요.", question: "경제 활동을 기록하면 좋은 점은 무엇인가요?", options: ["돈의 흐름을 알 수 있다", "잔액이 사라진다", "세금을 내지 않는다"], answer: 0 }
+] as const;
 
 function getRequiredModules(moduleName: string): string[] {
   const visited = new Set<string>();
@@ -397,7 +426,16 @@ export default function TeacherConsole() {
         }>;
       };
       const rosterState = (serverState.rosterAndSalaries ?? {}) as {
-        students?: Array<{ attendance_number?: number; nickname?: string; role_code?: string | null; status?: string; state_version?: number }>;
+        students?: Array<{
+          attendance_number?: number;
+          nickname?: string;
+          role_code?: string | null;
+          status?: string;
+          state_version?: number;
+          presence_status?: StudentRow["presence"];
+          current_screen?: string;
+          last_seen_at?: string;
+        }>;
         salary_roles?: Array<{ role_code?: string; label?: string; gross_amount?: number; state_version?: number }>;
       };
       setSettings((current) => ({
@@ -406,17 +444,26 @@ export default function TeacherConsole() {
         currency: configuration.currency_name ?? current.currency
       }));
       if (modulesState.modules?.length) {
-        setModules(modulesState.modules.map((module) => ({
-          name: module.label ?? module.module_code ?? "이름 없는 모듈",
-          status: module.status === "ACTIVE" ? "열림" : "닫힘",
-          studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
-          teacherTodo: "",
-          resourceId: module.resource_id,
-          code: module.module_code,
-          stateVersion: module.state_version,
-          version: module.version,
-          config: module.config
-        })));
+        setModules(modulesState.modules.flatMap((module) => {
+          const names = module.module_code === "DEPOSIT"
+            ? ["예금", "적금"]
+            : module.module_code === "INVESTMENT"
+              ? ["단기 투자", "장기 투자"]
+              : module.module_code === "LOAN"
+                ? ["대출"]
+                : [module.label ?? module.module_code ?? "이름 없는 모듈"];
+          return names.map((name) => ({
+            name,
+            status: module.status === "ACTIVE" ? "열림" : "닫힘",
+            studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
+            teacherTodo: "",
+            resourceId: module.resource_id,
+            code: module.module_code,
+            stateVersion: module.state_version,
+            version: module.version,
+            config: module.config
+          }));
+        }));
       }
       const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
       const nextAiSettings: AiSettingsSnapshot = {
@@ -445,7 +492,10 @@ export default function TeacherConsole() {
             nickname: student.nickname ?? "",
             role: salaryRole?.label ?? student.role_code ?? "",
             salary: String(salaryRole?.gross_amount ?? 0),
-            status: student.status ?? "정상"
+            status: student.status ?? "정상",
+            presence: student.presence_status ?? "UNKNOWN",
+            currentScreen: student.current_screen ?? "",
+            lastSeenAt: student.last_seen_at
           };
         }));
       }
@@ -582,7 +632,15 @@ export default function TeacherConsole() {
 
         <div className="console-content">
           {view === "overview" && <Overview mode={mode} modules={modules} students={students} approvals={approvals} />}
-          {view === "plan" && <CoursePlanning modules={modules} setModules={setModules} addLog={addLog} />}
+          {view === "plan" && (
+            <CoursePlanning
+              modules={modules}
+              setModules={setModules}
+              addLog={addLog}
+              runAction={runAction}
+              classroomId={activeClassroomId}
+            />
+          )}
           {view === "setup" && (
             <Setup
               settings={settings}
@@ -818,7 +876,7 @@ function CreateClassroomFlow({
   onLogout: () => void;
   onDone: (view: ViewKey) => void;
 }>) {
-  const [focusedModule, setFocusedModule] = useState("투자");
+  const [focusedModule, setFocusedModule] = useState("단기 투자");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => new Set(
     selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status === "열림"))
@@ -1119,32 +1177,54 @@ function CreationSummary({ settings, modules }: Readonly<{ settings: ClassSettin
 function CoursePlanning({
   modules,
   setModules,
-  addLog
+  addLog,
+  runAction,
+  classroomId
 }: Readonly<{
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
   addLog: (message: string, tone?: LogTone) => void;
+  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  classroomId: string;
 }>) {
   const [selectedCourse, setSelectedCourse] = useState("생활 경제 기초");
   const [schedule, setSchedule] = useState(
     courseTemplates[0].schedule.map((item) => ({ ...item, lessonIds: [...item.lessonIds] }))
   );
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set([0]));
+  const [selectedQuizLessonId, setSelectedQuizLessonId] = useState<string>(lessonQuizCatalog[0].id);
+  const [preparedQuizIds, setPreparedQuizIds] = useState<Set<string>>(new Set());
   const openModules = modules.filter(
     (module) => module.status === "열림" && studentAccessModuleNames.includes(module.name)
   );
 
-  const lessonOptions = [
-    { id: "salary", title: "월급과 실수령액", module: "월급", minutes: "15분" },
-    { id: "tax", title: "세금과 공동기금", module: "세금", minutes: "10분" },
-    { id: "spending", title: "합리적인 소비", module: "상점", minutes: "15분" },
-    { id: "shop", title: "우리 반 상점 운영", module: "상점", minutes: "20분" },
-    { id: "saving", title: "예금과 적금", module: "예금", minutes: "15분" },
-    { id: "investment", title: "단기·장기 투자", module: "투자", minutes: "20분" },
-    { id: "trade", title: "친구와 안전하게 거래하기", module: "개인 거래", minutes: "15분" },
-    { id: "budget", title: "공동기금 사용처 정하기", module: "공공 예산/투표", minutes: "20분" },
-    { id: "quiz", title: "경제 개념 확인 퀴즈", module: "퀴즈", minutes: "10분" }
-  ];
+  const lessonOptions = lessonQuizCatalog;
+  const selectedQuizLesson = lessonQuizCatalog.find((lesson) => lesson.id === selectedQuizLessonId) ?? lessonQuizCatalog[0];
+
+  function prepareQuiz() {
+    void runAction(
+      `${selectedQuizLesson.title} 퀴즈 저장`,
+      `/classrooms/${classroomId}/quiz-question-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expectedStateVersion: 0,
+          command: "CREATE",
+          contentType: "ECONOMY",
+          questionType: "MULTIPLE_CHOICE",
+          prompt: selectedQuizLesson.question,
+          options: selectedQuizLesson.options.map((option, index) => ({
+            optionKey: String.fromCharCode(65 + index),
+            optionText: option,
+            isCorrect: index === selectedQuizLesson.answer,
+            sortOrder: index + 1
+          })),
+          explanation: selectedQuizLesson.concept
+        })
+      },
+      () => setPreparedQuizIds((current) => new Set([...current, selectedQuizLesson.id]))
+    );
+  }
 
   function applyCourse(template: typeof courseTemplates[number]) {
     const selectedModules = new Set(template.modules);
@@ -1261,6 +1341,55 @@ function CoursePlanning({
           >
             + 수업일 추가
           </button>
+        </div>
+      </PlainSection>
+
+      <PlainSection title="차시별 개념과 퀴즈">
+        <div className="quiz-lesson-workspace">
+          <div className="quiz-lesson-list" role="list">
+            {lessonQuizCatalog.map((lesson) => (
+              <button
+                type="button"
+                key={lesson.id}
+                className={selectedQuizLesson.id === lesson.id ? "selected" : ""}
+                onClick={() => setSelectedQuizLessonId(lesson.id)}
+              >
+                <span>{lesson.minutes}</span>
+                <strong>{lesson.title}</strong>
+                <small>{lesson.module}</small>
+              </button>
+            ))}
+          </div>
+          <div className="quiz-lesson-detail">
+            <div className="quiz-concept">
+              <span>{selectedQuizLesson.module} · {selectedQuizLesson.minutes}</span>
+              <h3>{selectedQuizLesson.title}</h3>
+              <p>{selectedQuizLesson.concept}</p>
+            </div>
+            <div className="quiz-question-preview">
+              <span>학생에게 낼 문제</span>
+              <h4>{selectedQuizLesson.question}</h4>
+              <ol>
+                {selectedQuizLesson.options.map((option, index) => (
+                  <li className={index === selectedQuizLesson.answer ? "answer" : ""} key={option}>{option}</li>
+                ))}
+              </ol>
+            </div>
+            <div className="quiz-actions">
+              <button type="button" onClick={prepareQuiz}>
+                {preparedQuizIds.has(selectedQuizLesson.id) ? "문항 다시 저장" : "이 문항 저장"}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={!preparedQuizIds.has(selectedQuizLesson.id)}
+                title="백엔드가 문항 버전 ID와 참가자 목록을 제공하면 학생 퀴즈 세션을 열 수 있어요."
+                onClick={() => addLog("학생 퀴즈 세션 공개 API 연결이 필요해요.", "warning")}
+              >
+                학생에게 열기
+              </button>
+            </div>
+          </div>
         </div>
       </PlainSection>
 
@@ -1476,7 +1605,8 @@ function Roster({
     nickname: "",
     role: "",
     salary: "150",
-    status: "정상"
+    status: "정상",
+    presence: "UNKNOWN"
   });
 
   function updateDraft(field: keyof StudentRow, value: string) {
@@ -1533,7 +1663,8 @@ function Roster({
       nickname: "",
       role: "",
       salary: "150",
-      status: "정상"
+      status: "정상",
+      presence: "UNKNOWN"
     });
     setIsAdding(false);
     addLog(`${studentToAdd.nickname} 학생을 추가했어요.`);
@@ -1597,9 +1728,39 @@ function Roster({
       const matchesStatus = statusFilter === "전체 상태" || student.status === statusFilter;
       return matchesQuery && matchesStatus;
     });
+  const onlineStudents = students.filter((student) => student.presence === "ONLINE");
+  const awayStudents = students.filter((student) => student.presence === "AWAY");
+  const offlineStudents = students.filter((student) => student.presence === "OFFLINE");
+  const unknownStudents = students.filter((student) => !student.presence || student.presence === "UNKNOWN");
+
+  function presenceLabel(presence: StudentRow["presence"]) {
+    if (presence === "ONLINE") return "접속 중";
+    if (presence === "AWAY") return "화면 이탈";
+    if (presence === "OFFLINE") return "접속 종료";
+    return "상태 확인 대기";
+  }
 
   return (
     <div className="page-flow">
+      <PlainSection title="학생 접속 상태">
+        <div className="presence-summary">
+          <div><span className="presence-dot online" /><b>{onlineStudents.length}</b><span>접속 중</span></div>
+          <div><span className="presence-dot away" /><b>{awayStudents.length}</b><span>화면 이탈</span></div>
+          <div><span className="presence-dot offline" /><b>{offlineStudents.length}</b><span>접속 종료</span></div>
+          {unknownStudents.length > 0 ? <div><span className="presence-dot unknown" /><b>{unknownStudents.length}</b><span>연동 대기</span></div> : null}
+        </div>
+        <div className="presence-list">
+          {students.map((student) => (
+            <div className="presence-row" key={`presence-${student.attendance}-${student.nickname}`}>
+              <span className={`presence-dot ${(student.presence ?? "UNKNOWN").toLowerCase()}`} />
+              <b>{student.attendance}. {student.nickname}</b>
+              <span>{student.currentScreen || "화면 정보 없음"}</span>
+              <em>{presenceLabel(student.presence)}</em>
+            </div>
+          ))}
+        </div>
+        {unknownStudents.length === students.length ? <p className="presence-api-note">학생 접속 상태 API가 연결되면 이 목록이 자동으로 갱신됩니다.</p> : null}
+      </PlainSection>
       <PlainSection title="학생 명단">
         <div className="roster-summary">
           <div>

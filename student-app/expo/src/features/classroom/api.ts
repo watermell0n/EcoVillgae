@@ -27,6 +27,7 @@ type ModulesAndPoliciesResponse = {
     policy_area?: string;
     version?: number;
     state_version?: number;
+    values?: Record<string, unknown>;
   }>;
 };
 
@@ -37,6 +38,11 @@ export type ClassroomAccess = {
     quizSessionId?: string;
     voteId?: string;
     guidedActivityId?: string;
+  };
+  mode: "CLOSED" | "AUTONOMOUS" | "GUIDED";
+  investmentModes: {
+    shortTerm: boolean;
+    longTerm: boolean;
   };
 };
 
@@ -64,15 +70,48 @@ function firstConfiguredId(modules: ClassroomModule[], keys: string[]) {
   return undefined;
 }
 
-function createAccess(modules: ClassroomModule[]): ClassroomAccess {
+function configuredBoolean(config: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = config[key];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      if (["true", "enabled", "active"].includes(value.toLowerCase())) return true;
+      if (["false", "disabled", "inactive"].includes(value.toLowerCase())) return false;
+    }
+  }
+  return undefined;
+}
+
+function createAccess(
+  modules: ClassroomModule[],
+  policies: ModulesAndPoliciesResponse["policy_versions"] = []
+): ClassroomAccess {
   const activeModules = modules.filter((module) => module.status === "ACTIVE");
+  const accessPolicy = [...policies]
+    .filter((policy) => policy.policy_area === "ACCESS_MODE")
+    .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0];
+  const policyMode = accessPolicy?.values?.mode;
+  const guidedActivityId = firstConfiguredId(activeModules, ["active_guided_activity_id", "guided_activity_id", "activity_id"]);
+  const investment = activeModules.find((module) => module.code === "INVESTMENT");
+  const hasExplicitShort = activeModules.some((module) => ["SHORT_INVESTMENT", "INVESTMENT_SHORT_TERM"].includes(module.code));
+  const hasExplicitLong = activeModules.some((module) => ["LONG_INVESTMENT", "INVESTMENT_LONG_TERM"].includes(module.code));
+  const hasExplicitModes = hasExplicitShort || hasExplicitLong;
+  const shortConfigured = investment ? configuredBoolean(investment.config, ["short_term_enabled", "short_investment_enabled"]) : undefined;
+  const longConfigured = investment ? configuredBoolean(investment.config, ["long_term_enabled", "long_investment_enabled"]) : undefined;
   return {
     modules: activeModules,
     activeCodes: new Set(activeModules.map((module) => module.code)),
     resources: {
       quizSessionId: firstConfiguredId(activeModules, ["active_quiz_session_id", "quiz_session_id"]),
       voteId: firstConfiguredId(activeModules, ["active_vote_id", "vote_id"]),
-      guidedActivityId: firstConfiguredId(activeModules, ["active_guided_activity_id", "guided_activity_id", "activity_id"])
+      guidedActivityId
+    },
+    mode: guidedActivityId
+      ? "GUIDED"
+      : policyMode === "CLOSED" ? "CLOSED" : "AUTONOMOUS",
+    investmentModes: {
+      shortTerm: hasExplicitModes ? hasExplicitShort : shortConfigured ?? Boolean(investment),
+      longTerm: hasExplicitModes ? hasExplicitLong : longConfigured ?? Boolean(investment)
     }
   };
 }
@@ -89,15 +128,15 @@ export async function fetchClassroomAccess(classroomId: string): Promise<Classro
     stateVersion: module.state_version ?? 0,
     code: module.module_code ?? "UNKNOWN",
     config: module.config ?? {}
-  })));
+  })), response.policy_versions);
 }
 
 export const moduleGroups = {
   wallet: ["WALLET"],
   shop: ["STORE", "PHYSICAL_STORE"],
   character: ["CHARACTER"],
-  bank: ["DEPOSIT", "SAVINGS"],
-  investment: ["INVESTMENT"],
+  bank: ["DEPOSIT", "SAVINGS", "LOAN"],
+  investment: ["INVESTMENT", "SHORT_INVESTMENT", "LONG_INVESTMENT", "INVESTMENT_SHORT_TERM", "INVESTMENT_LONG_TERM"],
   trade: ["TRADE"],
   quiz: ["QUIZ_GAME", "QUIZ_TEST"],
   meeting: ["BUDGET", "VOTE"],
