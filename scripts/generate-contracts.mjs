@@ -672,6 +672,7 @@ const requestFieldOverrides = {
     { name: "display_session_id", optional: true },
   ],
   "API-SHP-001": [
+    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "UNPUBLISH"] },
     { name: "product_id", optional: true },
     { name: "name" },
@@ -906,9 +907,13 @@ const mutationContextFields = [
 ];
 
 function mutationContextFor(operation) {
-  return ["API-AI-002", "API-AI-003"].includes(operation.apiId)
-    ? []
-    : mutationContextFields;
+  if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  if (operation.apiId === "API-SHP-001") {
+    return mutationContextFields.map((field) => field.name === "expected_state_version"
+      ? { ...field, optional: false }
+      : field);
+  }
+  return mutationContextFields;
 }
 
 function projectionItemSchema(extraProperties = {}, required = []) {
@@ -933,6 +938,12 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-SHP-001": [
+    { name: "product_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+  ],
   "API-CRS-001": [
     {
       name: "recommendations",
@@ -1302,6 +1313,8 @@ const responseFieldOverrides = {
     name: "products",
     schema: projectionItems({
       unit_price: { type: "integer", format: "int64", minimum: 0 },
+      vat_rate_bps: { type: "integer", minimum: 0, maximum: 10000 },
+      stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
     }),

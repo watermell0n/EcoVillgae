@@ -2978,11 +2978,11 @@
         "fields": [
           {
             "name": "expected_state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "service_validation.state_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -3010,6 +3010,15 @@
             "target": "service_input.client_occurred_at",
             "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "expected_policy_version",
+            "required": true,
+            "type": "integer",
+            "target": "service_validation.policy_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -3127,11 +3136,20 @@
           },
           {
             "name": "state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "projection.state_version",
             "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.version",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]

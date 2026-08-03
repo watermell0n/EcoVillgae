@@ -12,11 +12,13 @@ import com.b201.ecovillage.character.repository.ClassroomCharacterRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
+import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.store.domain.StoreProductStatus;
 import com.b201.ecovillage.store.domain.StoreProductKind;
 import com.b201.ecovillage.store.domain.StoreProductVersion;
 import com.b201.ecovillage.store.repository.StoreProductRepository;
 import com.b201.ecovillage.store.repository.StoreProductVersionRepository;
+import com.b201.ecovillage.store.repository.StoreStockRepository;
 
 @Service
 public class StoreCatalogQueryService {
@@ -24,31 +26,39 @@ public class StoreCatalogQueryService {
     private final ClassroomAuthorizationService authorizationService;
     private final StoreProductRepository productRepository;
     private final StoreProductVersionRepository versionRepository;
+    private final StoreStockRepository stockRepository;
     private final ClassroomCharacterRepository classroomCharacterRepository;
     private final CharacterCatalogRepository characterCatalogRepository;
+    private final UserAccountRepository userAccountRepository;
 
     public StoreCatalogQueryService(
         ClassroomAuthorizationService authorizationService,
         StoreProductRepository productRepository,
         StoreProductVersionRepository versionRepository,
+        StoreStockRepository stockRepository,
         ClassroomCharacterRepository classroomCharacterRepository,
-        CharacterCatalogRepository characterCatalogRepository
+        CharacterCatalogRepository characterCatalogRepository,
+        UserAccountRepository userAccountRepository
     ) {
         this.authorizationService = authorizationService;
         this.productRepository = productRepository;
         this.versionRepository = versionRepository;
+        this.stockRepository = stockRepository;
         this.classroomCharacterRepository = classroomCharacterRepository;
         this.characterCatalogRepository = characterCatalogRepository;
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<StoreCatalogView> findPublished(String subject, UUID classroomId) {
-        authorize(subject, classroomId);
-        return productRepository
-            .findAllByClassroomIdAndStatusOrderByName(
+    public List<StoreCatalogView> findVisible(String subject, UUID classroomId) {
+        boolean teacher = authorize(subject, classroomId);
+        var products = teacher
+            ? productRepository.findAllByClassroomIdOrderByName(classroomId)
+            : productRepository.findAllByClassroomIdAndStatusOrderByName(
                 classroomId,
                 StoreProductStatus.PUBLISHED
-            )
+            );
+        return products
             .stream()
             .flatMap(product -> versionRepository
                 .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
@@ -56,7 +66,7 @@ public class StoreCatalogQueryService {
                     product.getId()
                 )
                 .stream()
-                .filter(StoreProductVersion::isPurchasable)
+                .filter(version -> teacher || version.isPurchasable())
                 .map(version -> new StoreCatalogView(
                     product.getId(),
                     product.getName(),
@@ -64,6 +74,11 @@ public class StoreCatalogQueryService {
                     version.getVersion(),
                     product.getStateVersion(),
                     version.getUnitPrice(),
+                    version.getVatRateBps(),
+                    stockRepository
+                        .findByClassroomIdAndStoreProductId(classroomId, product.getId())
+                        .map(stock -> stock.getAvailableQuantity())
+                        .orElse(0),
                     product.getProductKind().name(),
                     product.getProductKind() == StoreProductKind.CHARACTER
                         ? classroomCharacterRepository
@@ -81,13 +96,22 @@ public class StoreCatalogQueryService {
             .toList();
     }
 
-    private void authorize(String subject, UUID classroomId) {
+    private boolean authorize(String subject, UUID classroomId) {
         if (subject == null || subject.isBlank()) {
             throw operation(
                 HttpStatus.UNAUTHORIZED,
                 "AUTH_REQUIRED",
                 "인증이 필요합니다."
             );
+        }
+        if (userAccountRepository.findByExternalSubject(subject).isPresent()) {
+            authorizationService.authorize(
+                subject,
+                classroomId,
+                ClassroomPermission.READ_CONFIGURATION,
+                null
+            );
+            return true;
         }
         try {
             UUID studentId = UUID.fromString(subject);
@@ -97,12 +121,12 @@ public class StoreCatalogQueryService {
                 ClassroomPermission.READ_OWN_STUDENT_DATA,
                 studentId
             );
+            return false;
         } catch (IllegalArgumentException exception) {
-            authorizationService.authorize(
-                subject,
-                classroomId,
-                ClassroomPermission.READ_CONFIGURATION,
-                null
+            throw operation(
+                HttpStatus.UNAUTHORIZED,
+                "AUTH_REQUIRED",
+                "유효한 인증 주체를 확인할 수 없습니다."
             );
         }
     }

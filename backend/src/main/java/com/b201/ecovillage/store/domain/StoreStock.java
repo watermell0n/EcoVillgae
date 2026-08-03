@@ -110,6 +110,11 @@ public class StoreStock {
         updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void replaceAvailableQuantity(int quantity, Instant changedAt) {
+        availableQuantity = nonNegative(quantity, "availableQuantity");
+        updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public UUID getStoreProductId() {
         return storeProductId;
     }

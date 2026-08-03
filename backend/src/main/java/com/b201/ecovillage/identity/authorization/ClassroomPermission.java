@@ -23,6 +23,10 @@ public enum ClassroomPermission {
         "PM-SHP-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    MANAGE_STORE_PRODUCTS(
+        "PM-SHP-001",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     PROPOSE_TRADE(
         "PM-TRD-001",
         Set.of(ClassroomActorRole.STU)

@@ -29,7 +29,6 @@
 | AI 실행·제안 조회 | `GET /classrooms/{C}/ai/runs-and-proposals` (`API-READ-027`) | 현재 Spring은 `202` 응답에 완료 결과를 함께 주므로 표시 가능하지만, 향후 비동기화 시 polling·재진입을 붙일 수 없다. |
 | 학급/코스 설정 변경 저장 | 코스 구성 및 학급 설정 수정 command API | 운영 계획 추천은 로컬 미리보기만 제공하며 저장 성공으로 표시하지 않는다. |
 | 모듈 사후 추가·중지·정책 수정 | `API-MOD-002`, `API-POL-001` 및 선택 모듈 추가 API | 방 생성 때 등록하지 않은 모듈을 나중에 임의 생성하거나 활성 모듈을 중지하지 않는다. |
-| 상품 가격 추천 적용 | 상점 상품 command controller와 상품 ID·버전 조회 | `PRODUCT_DRAFT` 추천을 실제 상품에 안전하게 저장할 대상과 버전이 없다. |
 | GAME 보상 추천 적용 | AI 제안의 퀴즈 세션 target/version 결속과 프론트 세션 draft | 최신 Spring에는 퀴즈 세션 command·조회가 구현됐지만 `QUIZ_SESSION_DRAFT` 제안을 특정 세션에 승인 적용하는 라우팅이 없다. |
 | 학생 Expo 앱 모듈 메뉴 필터 | `API-READ-006` 또는 학생용 활성 모듈 조회 | Expo 앱에서 선택한 모듈만 노출하는 완료 기준은 아직 검증할 수 없다. 현재 Vite UI는 이전 참고용이다. |
 | 명단 재조회·급여 지급 | `GET /classrooms/{C}/roster-and-salaries` (`API-READ-004`) | 저장 후 학생 UUID를 알 수 없어 잘못된 지급을 막기 위해 급여 지급 연결은 제외했다. |
@@ -62,7 +61,7 @@
 
 1. 교사 OIDC 로그인과 `API-READ-006`을 먼저 구현해 새로고침 가능한 통합 기준선을 만든다.
 2. `API-READ-004`로 학생 UUID와 정책 버전을 복원한 뒤 명단 수정·급여 지급을 연결한다.
-3. 상점 상품 command를 완성하고 상품·퀴즈 proposal target/version 및 APPLY 라우팅을 구현한 뒤 두 draft 추천을 붙인다. 퀴즈 세션 command·조회 자체는 최신 Spring에 구현되어 있다.
+3. 구현된 상점 상품 command의 상품 ID·버전 계약을 사용해 상품·퀴즈 proposal target/version 및 APPLY 라우팅을 구현한 뒤 두 draft 추천을 붙인다. 퀴즈 세션 command·조회 자체는 최신 Spring에 구현되어 있다.
 4. `API-READ-027`과 WebSocket 알림을 연결해 `202` 비동기 실행과 제안 이력을 처리한다.
 5. `S15P11B201-279`의 OpenAPI-Spring 계약 diff 기준선을 유지하고, `S15P11B201-277`에서 Expo 생성 타입 또는 단일 mapper를 적용해 수동 DTO를 제거한다.
 

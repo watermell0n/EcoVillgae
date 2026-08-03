@@ -9,6 +9,8 @@ public record StoreCatalogProductResponse(
     int version,
     long stateVersion,
     long unitPrice,
+    int vatRateBps,
+    int stockQuantity,
     String productKind,
     String characterCode
 ) {

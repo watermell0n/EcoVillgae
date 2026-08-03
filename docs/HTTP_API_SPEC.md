@@ -121,7 +121,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·가격·부가세·재고·유형 → 상품 버전 | PM-SHP-001 · SM-CLS-001 | `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED`, `POLICY_VERSION_CONFLICT` | ECO-005·ECO-007 |
+| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `expected_state_version, expected_policy_version`, 수정 시 `expected_product_version`, `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·가격·부가세·재고·유형 → `product_id, status, state_version, version` | PM-SHP-001 · SM-CLS-001 | `STATE_VERSION_CONFLICT`, `POLICY_VERSION_CONFLICT`, `PRODUCT_VERSION_CONFLICT`, `PRICE_OUT_OF_RANGE`, `INVALID_STOCK`, `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED` | ECO-005·ECO-007 |
 | API-SHP-002 · UIA-SHP-002 | `POST /classrooms/{C}/store/orders` | STU | `product_id, quantity, expected_product_version` → 결제·세금·지급 또는 수령 대기 주문 | PM-SHP-002 · SM-SHP-001·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `OUT_OF_STOCK`, `PRICE_CHANGED`, `APP_MODE_BLOCKED` | ECO-001·ECO-005·ECO-006 |
 | API-SHP-003 · UIA-SHP-003 | `POST /classrooms/{C}/store/orders/{R}/ready-for-pickup-commands` | OWN·COT | 준비 완료 → `PAID → READY_FOR_PICKUP` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `ORDER_NOT_PHYSICAL` | ECO-005 |
 | API-SHP-004 · UIA-SHP-004 | `POST /classrooms/{C}/store/orders/{R}/receipt-confirmations` | OWN·COT | 학생 확인 정보 → `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `STUDENT_MISMATCH` | ECO-005 |
@@ -224,7 +224,7 @@
 | API-READ-007 | `GET /classrooms/{C}/students/me/wallet` | STU | 본인 잔액·최근 거래·정책 기준 | SCR-STU-004 / ECO-001·ECO-003 |
 | API-READ-008 | `GET /classrooms/{C}/students/me/payslips` | STU | 본인 총소득·공제·세금·실수령액 | SCR-STU-005 / ECO-004 |
 | API-READ-009 | `GET /classrooms/{C}/ledger-transactions` | OWN·COT | 필터·전후잔액·정책 스냅샷·복구 연결 | SCR-WEB-012 / ECO-001·ECO-002·ECO-003 |
-| API-READ-010 | `GET /classrooms/{C}/store/catalog` | STU·OWN·COT | 역할별 상품·가격·세금·재고 | SCR-STU-006·SCR-WEB-011 / ECO-005 |
+| API-READ-010 | `GET /classrooms/{C}/store/catalog` | STU·OWN·COT | 학생은 게시·구매 가능 상품만, 교사는 draft·게시 상태와 최신 상품 버전을 포함한 상품·가격·세금·재고 | SCR-STU-006·SCR-WEB-011 / ECO-005 |
 | API-READ-011 | `GET /classrooms/{C}/store/orders` | STU·OWN·COT | 학생은 본인 주문, 교사는 수령 대기·처리 상태 | SCR-STU-007·SCR-TCH-010 / ECO-005·ECO-006 |
 | API-READ-012 | `GET /classrooms/{C}/students/me/inventory` | STU | 본인 캐릭터·아이템·장착·잠금 상태 | SCR-STU-008 / ECO-007·TRD-002 |
 | API-READ-013 | `GET /classrooms/{C}/trades` | STU·OWN·COT | 학생은 관련 거래, 교사는 담당 학급 승인·기록 | SCR-STU-009·SCR-TCH-008·SCR-WEB-013 / TRD-001·TRD-004 |

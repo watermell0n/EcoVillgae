@@ -3286,8 +3286,8 @@ paths:
         - "ECO-007"
       tags:
         - "Store"
-      summary: "command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → 상품 버전"
-      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → 상품 버전."
+      summary: "expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version"
+      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version."
       security:
         - bearerAuth: []
       parameters:
@@ -3310,6 +3310,8 @@ paths:
                     required:
                       - "product_id"
                       - "status"
+                      - "state_version"
+                      - "version"
                     properties:
                       product_id:
                         type: "string"
@@ -3320,6 +3322,9 @@ paths:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      version:
+                        type: "integer"
+                        minimum: 1
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -3363,6 +3368,9 @@ paths:
                 client_occurred_at:
                   type: "string"
                   format: "date-time"
+                expected_policy_version:
+                  type: "integer"
+                  minimum: 0
                 command:
                   type: "string"
                   enum:
@@ -3401,6 +3409,8 @@ paths:
                   type: "integer"
                   minimum: 0
               required:
+                - "expected_state_version"
+                - "expected_policy_version"
                 - "command"
                 - "name"
                 - "product_kind"
@@ -9998,8 +10008,8 @@ paths:
         - "ECO-005"
       tags:
         - "Queries"
-      summary: "역할별 상품, 가격, 세금, 재고"
-      description: "사람이 검토하는 원문 기준: `API-READ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 상품, 가격, 세금, 재고."
+      summary: "학생은 게시, 구매 가능 상품만, 교사는 draft, 게시 상태와 최신 상품 버전을 포함한 상품, 가격, 세금, 재고"
+      description: "사람이 검토하는 원문 기준: `API-READ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 게시, 구매 가능 상품만, 교사는 draft, 게시 상태와 최신 상품 버전을 포함한 상품, 가격, 세금, 재고."
       security:
         - bearerAuth: []
       parameters:
@@ -10043,6 +10053,13 @@ paths:
                             unit_price:
                               type: "integer"
                               format: "int64"
+                              minimum: 0
+                            vat_rate_bps:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 10000
+                            stock_quantity:
+                              type: "integer"
                               minimum: 0
                             product_kind:
                               type: "string"
