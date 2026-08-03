@@ -21,7 +21,7 @@ public class ClassroomCharacter {
     @Column(name = "character_catalog_id", nullable = false, updatable = false)
     private UUID characterCatalogId;
 
-    @Column(name = "store_product_id", updatable = false)
+    @Column(name = "store_product_id")
     private UUID storeProductId;
 
     @Column(name = "display_name", nullable = false, length = 120)
@@ -33,8 +33,31 @@ public class ClassroomCharacter {
     protected ClassroomCharacter() {
     }
 
+    public void attachStoreProduct(UUID productId) {
+        UUID resolvedProductId = java.util.Objects.requireNonNull(
+            productId,
+            "productId must not be null"
+        );
+        if (storeProductId != null && !storeProductId.equals(resolvedProductId)) {
+            throw new IllegalStateException("character is already attached to another product");
+        }
+        storeProductId = resolvedProductId;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
     public UUID getCharacterCatalogId() {
         return characterCatalogId;
+    }
+
+    public UUID getStoreProductId() {
+        return storeProductId;
     }
 
     public String getDisplayName() {
@@ -43,5 +66,9 @@ public class ClassroomCharacter {
 
     public String getStatus() {
         return status;
+    }
+
+    public boolean isApproved() {
+        return "ACTIVE".equals(status) || "APPROVED".equals(status);
     }
 }

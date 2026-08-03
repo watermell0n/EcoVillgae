@@ -2978,11 +2978,11 @@
         "fields": [
           {
             "name": "expected_state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "service_validation.state_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -3010,6 +3010,15 @@
             "target": "service_input.client_occurred_at",
             "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "expected_policy_version",
+            "required": true,
+            "type": "integer",
+            "target": "service_validation.policy_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -3127,11 +3136,20 @@
           },
           {
             "name": "state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "projection.state_version",
             "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.version",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -7627,11 +7645,11 @@
           },
           {
             "name": "expected_policy_version",
-            "required": true,
+            "required": false,
             "type": "integer",
             "target": "service_validation.policy_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]
@@ -10528,6 +10546,15 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "operation_type",
+            "required": true,
+            "type": "string",
+            "target": "projection.operation_type",
+            "transform": "async_operations에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "status",
             "required": true,
             "type": "string",
@@ -10548,7 +10575,7 @@
           {
             "name": "result_url",
             "required": false,
-            "type": "string",
+            "type": "string|null",
             "target": "projection.result_url",
             "transform": "async_operations에서 검증·조합하는 response 필드",
             "nullable": true,
@@ -10557,10 +10584,46 @@
           {
             "name": "error_code",
             "required": false,
-            "type": "string",
+            "type": "string|null",
             "target": "projection.error_code",
             "transform": "async_operations에서 검증·조합하는 response 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "started_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.started_at",
+            "transform": "async_operations에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "completed_at",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.completed_at",
+            "transform": "async_operations에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "expires_at",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.expires_at",
+            "transform": "async_operations에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "async_operations에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]

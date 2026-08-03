@@ -613,7 +613,7 @@ const requestFieldOverrides = {
     },
   ],
   "API-AI-003": [
-    { name: "command", values: ["APPLY", "REJECT"] },
+    { name: "command", values: ["APPLY", "REJECT", "ACKNOWLEDGE"] },
     {
       name: "edited_values",
       optional: true,
@@ -632,7 +632,7 @@ const requestFieldOverrides = {
       },
     },
     { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
-    { name: "expected_policy_version", schema: { type: "integer", minimum: 1 } },
+    { name: "expected_policy_version", optional: true, schema: { type: "integer", minimum: 0 } },
   ],
   "API-DAT-002": [
     { name: "source_classroom_id" },
@@ -672,6 +672,7 @@ const requestFieldOverrides = {
     { name: "display_session_id", optional: true },
   ],
   "API-SHP-001": [
+    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "UNPUBLISH"] },
     { name: "product_id", optional: true },
     { name: "name" },
@@ -759,7 +760,7 @@ const requestFieldOverrides = {
     { name: "reason", optional: true },
   ],
   "API-QZ-004": [
-    { name: "command", values: ["START", "CLOSE_SUBMISSIONS"] },
+    { name: "command", values: ["START", "UPDATE_REWARD", "CLOSE_SUBMISSIONS"] },
     { name: "question_version_ids" },
     { name: "participant_ids" },
     { name: "mode", values: ["GAME", "TEST"] },
@@ -906,9 +907,13 @@ const mutationContextFields = [
 ];
 
 function mutationContextFor(operation) {
-  return ["API-AI-002", "API-AI-003"].includes(operation.apiId)
-    ? []
-    : mutationContextFields;
+  if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  if (operation.apiId === "API-SHP-001") {
+    return mutationContextFields.map((field) => field.name === "expected_state_version"
+      ? { ...field, optional: false }
+      : field);
+  }
+  return mutationContextFields;
 }
 
 function projectionItemSchema(extraProperties = {}, required = []) {
@@ -933,6 +938,12 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-SHP-001": [
+    { name: "product_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+  ],
   "API-CRS-001": [
     {
       name: "recommendations",
@@ -1225,7 +1236,7 @@ const responseFieldOverrides = {
   "API-AI-003": [
     { name: "proposal_id", schema: { type: "string", format: "uuid" } },
     { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
-    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED"] } },
+    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED", "ACKNOWLEDGED"] } },
     { name: "policy_version", optional: true, schema: { type: "integer", minimum: 1 } },
     { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
     {
@@ -1302,6 +1313,8 @@ const responseFieldOverrides = {
     name: "products",
     schema: projectionItems({
       unit_price: { type: "integer", format: "int64", minimum: 0 },
+      vat_rate_bps: { type: "integer", minimum: 0, maximum: 10000 },
+      stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
     }),
@@ -1446,19 +1459,36 @@ const responseFieldOverrides = {
           required: [
             "ai_run_id",
             "feature_type",
+            "run_type",
+            "trigger_type",
             "status",
             "requested_at",
             "prompt_version",
+            "fallback_used",
             "validation_codes",
             "evidence_codes",
+            "rule_versions",
             "proposals",
           ],
           properties: {
             ai_run_id: { type: "string", format: "uuid" },
+            operation_id: { type: ["string", "null"], format: "uuid" },
             feature_type: {
               type: "string",
               enum: ["BALANCING", "TEACHER_CHAT", "ECONOMIC_EVENT", "QUIZ_DRAFT"],
             },
+            run_type: {
+              type: "string",
+              enum: [
+                "SETUP_PRECHECK",
+                "ON_DEMAND",
+                "AUTO_MONITOR",
+                "TEACHER_CHAT",
+                "ECONOMIC_EVENT_DRAFT",
+                "QUIZ_DRAFT",
+              ],
+            },
+            trigger_type: { type: "string" },
             status: {
               type: "string",
               enum: [
@@ -1468,6 +1498,7 @@ const responseFieldOverrides = {
                 "GENERATING",
                 "VALIDATING",
                 "AWAITING_TEACHER",
+                "ACKNOWLEDGED",
                 "COMPLETED",
                 "FAILED",
                 "TIMED_OUT",
@@ -1486,20 +1517,123 @@ const responseFieldOverrides = {
             provider: { type: ["string", "null"] },
             model_id: { type: ["string", "null"] },
             safety_status: { type: ["string", "null"] },
+            fallback_used: { type: "boolean" },
+            fallback_code: { type: ["string", "null"] },
+            severity: {
+              type: ["string", "null"],
+              enum: ["PASS", "WARN", "BLOCK", null],
+            },
             validation_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
             evidence_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
+            rule_versions: {
+              type: "object",
+              additionalProperties: { type: "string" },
+            },
             proposals: {
               type: "array",
               maxItems: 100,
               items: {
                 type: "object",
-                required: ["proposal_id", "status", "summary"],
+                required: [
+                  "proposal_id",
+                  "proposal_type",
+                  "source_type",
+                  "status",
+                  "summary",
+                  "proposed_values",
+                  "allowed_ranges",
+                  "created_at",
+                  "expires_at",
+                  "status_changed_at",
+                  "state_version",
+                ],
                 properties: {
                   proposal_id: { type: "string", format: "uuid" },
+                  proposal_type: { type: "string" },
+                  source_type: { type: "string" },
                   status: { type: "string" },
+                  severity: {
+                    type: ["string", "null"],
+                    enum: ["PASS", "WARN", "BLOCK", null],
+                  },
+                  metric_code: { type: ["string", "null"] },
+                  direction: { type: ["string", "null"] },
+                  dedupe_key: { type: ["string", "null"] },
                   summary: { type: "string", maxLength: 1500 },
+                  context_type: { type: ["string", "null"] },
+                  target_type: { type: ["string", "null"] },
+                  target_id: { type: ["string", "null"], format: "uuid" },
+                  target_version: {
+                    type: ["integer", "null"],
+                    format: "int64",
+                    minimum: 0,
+                  },
+                  proposed_values: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "target_type",
+                        "target_id",
+                        "proposed_value",
+                        "unit",
+                        "label",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        target_type: { type: ["string", "null"] },
+                        target_id: { type: ["string", "null"], format: "uuid" },
+                        proposed_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        unit: { type: ["string", "null"] },
+                        label: { type: ["string", "null"] },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  allowed_ranges: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "allowed_min_value",
+                        "allowed_max_value",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        allowed_min_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        allowed_max_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  created_at: { type: "string", format: "date-time" },
+                  expires_at: { type: "string", format: "date-time" },
+                  status_changed_at: { type: "string", format: "date-time" },
                   decision_status: { type: ["string", "null"] },
+                  decided_at: { type: ["string", "null"], format: "date-time" },
                   policy_version: { type: ["integer", "null"], minimum: 1 },
+                  applied_policy_version_id: {
+                    type: ["string", "null"],
+                    format: "uuid",
+                  },
+                  state_version: {
+                    type: "integer",
+                    format: "int64",
+                    minimum: 0,
+                  },
                 },
                 additionalProperties: false,
               },
@@ -1544,10 +1678,33 @@ const responseFieldOverrides = {
   ],
   "API-READ-030": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
-    { name: "status", schema: { type: "string" } },
+    { name: "operation_type", schema: { type: "string" } },
+    {
+      name: "status",
+      schema: { type: "string", enum: ["RUNNING", "COMPLETED", "FAILED"] },
+    },
     { name: "progress_percent", schema: { type: "integer", minimum: 0, maximum: 100 } },
-    { name: "result_url", optional: true, schema: { type: "string", format: "uri-reference" } },
-    { name: "error_code", optional: true, schema: { type: "string" } },
+    {
+      name: "result_url",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uri-reference" },
+    },
+    { name: "error_code", optional: true, schema: { type: ["string", "null"] } },
+    { name: "started_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "completed_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "expires_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
   ],
 };
 

@@ -37,7 +37,7 @@ public class QuizSession {
     private QuizContentType contentType;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "reward_policy_public", nullable = false, updatable = false)
+    @Column(name = "reward_policy_public", nullable = false)
     private Map<String, Object> rewardPolicyPublic;
 
     @Column(name = "leaderboard_public", nullable = false)
@@ -115,6 +115,19 @@ public class QuizSession {
         updatedAt = changedAt;
     }
 
+    public void replaceRewardPolicy(Map<String, Object> rewardPolicy, Instant changedAt) {
+        if (mode != QuizMode.GAME) {
+            throw new IllegalStateException("a TEST session cannot receive a reward");
+        }
+        if (status != QuizSessionStatus.OPEN) {
+            throw new IllegalStateException("only an open session can change its reward");
+        }
+        this.rewardPolicyPublic = new LinkedHashMap<>(
+            Objects.requireNonNull(rewardPolicy, "rewardPolicy must not be null")
+        );
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public boolean acceptsAnswers() {
         return status == QuizSessionStatus.OPEN;
     }
@@ -129,6 +142,14 @@ public class QuizSession {
 
     public QuizContentType getContentType() {
         return contentType;
+    }
+
+    public Map<String, Object> getRewardPolicyPublic() {
+        return Map.copyOf(rewardPolicyPublic);
+    }
+
+    public boolean isLeaderboardPublic() {
+        return leaderboardPublic;
     }
 
     public QuizSessionStatus getStatus() {

@@ -35,7 +35,7 @@ public class StoreCatalogController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<StoreCatalogResponse>> findPublished(
+    public ResponseEntity<ApiResponse<StoreCatalogResponse>> findCatalog(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -45,7 +45,7 @@ public class StoreCatalogController {
             ? uuidGenerator.generate()
             : correlationId;
         StoreCatalogResponse data = new StoreCatalogResponse(
-            queryService.findPublished(subject(principal), classroomId)
+            queryService.findVisible(subject(principal), classroomId)
                 .stream()
                 .map(view -> new StoreCatalogProductResponse(
                     view.resourceId(),
@@ -54,6 +54,8 @@ public class StoreCatalogController {
                     view.version(),
                     view.stateVersion(),
                     view.unitPrice(),
+                    view.vatRateBps(),
+                    view.stockQuantity(),
                     view.productKind(),
                     view.characterCode()
                 ))

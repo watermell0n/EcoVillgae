@@ -61,4 +61,16 @@ public class AiDecision {
         value.createdAt = now;
         return value;
     }
+
+    public UUID getAiProposalId() {
+        return aiProposalId;
+    }
+
+    public String getDecision() {
+        return decision;
+    }
+
+    public Instant getDecidedAt() {
+        return decidedAt;
+    }
 }

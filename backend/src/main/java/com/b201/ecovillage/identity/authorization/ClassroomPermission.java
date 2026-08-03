@@ -35,6 +35,10 @@ public enum ClassroomPermission {
         "PM-SHP-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    MANAGE_STORE_PRODUCTS(
+        "PM-SHP-001",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     PROPOSE_TRADE(
         "PM-TRD-001",
         Set.of(ClassroomActorRole.STU)
@@ -92,6 +96,10 @@ public enum ClassroomPermission {
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
     REQUEST_AI_ANALYSIS(
+        "PM-AI-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_AI_HISTORY(
         "PM-AI-003",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),

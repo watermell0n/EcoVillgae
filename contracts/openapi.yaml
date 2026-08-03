@@ -3286,8 +3286,8 @@ paths:
         - "ECO-007"
       tags:
         - "Store"
-      summary: "command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → 상품 버전"
-      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → 상품 버전."
+      summary: "expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version"
+      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version."
       security:
         - bearerAuth: []
       parameters:
@@ -3310,6 +3310,8 @@ paths:
                     required:
                       - "product_id"
                       - "status"
+                      - "state_version"
+                      - "version"
                     properties:
                       product_id:
                         type: "string"
@@ -3320,6 +3322,9 @@ paths:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      version:
+                        type: "integer"
+                        minimum: 1
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -3363,6 +3368,9 @@ paths:
                 client_occurred_at:
                   type: "string"
                   format: "date-time"
+                expected_policy_version:
+                  type: "integer"
+                  minimum: 0
                 command:
                   type: "string"
                   enum:
@@ -3401,6 +3409,8 @@ paths:
                   type: "integer"
                   minimum: 0
               required:
+                - "expected_state_version"
+                - "expected_policy_version"
                 - "command"
                 - "name"
                 - "product_kind"
@@ -6548,8 +6558,8 @@ paths:
         - "QZ-005"
       tags:
         - "Quiz"
-      summary: "command=START|CLOSE_SUBMISSIONS, 문제 버전, 참가자, 보상, 공개범위 → OPEN 또는 SCORING"
-      description: "사람이 검토하는 원문 기준: `API-QZ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|CLOSE_SUBMISSIONS, 문제 버전, 참가자, 보상, 공개범위 → OPEN 또는 SCORING."
+      summary: "command=START|UPDATE_REWARD|CLOSE_SUBMISSIONS, 문제 버전, 참가자, GAME 보상, 공개범위 → OPEN 또는 SCORING. UPDATE_REWARD는 OPEN GAME과 일치하는 expected_state_version에서만 허용"
+      description: "사람이 검토하는 원문 기준: `API-QZ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|UPDATE_REWARD|CLOSE_SUBMISSIONS, 문제 버전, 참가자, GAME 보상, 공개범위 → OPEN 또는 SCORING. UPDATE_REWARD는 OPEN GAME과 일치하는 expected_state_version에서만 허용."
       security:
         - bearerAuth: []
       parameters:
@@ -6630,6 +6640,7 @@ paths:
                   type: "string"
                   enum:
                     - "START"
+                    - "UPDATE_REWARD"
                     - "CLOSE_SUBMISSIONS"
                 question_version_ids:
                   type: "array"
@@ -7875,8 +7886,8 @@ paths:
         - "FIN-011"
       tags:
         - "AI"
-      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version"
-      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version → proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version."
+      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환"
+      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환."
       security:
         - bearerAuth: []
       parameters:
@@ -7915,6 +7926,7 @@ paths:
                         enum:
                           - "APPLIED"
                           - "REJECTED"
+                          - "ACKNOWLEDGED"
                       policy_version:
                         type: "integer"
                         minimum: 1
@@ -7986,6 +7998,7 @@ paths:
                   enum:
                     - "APPLY"
                     - "REJECT"
+                    - "ACKNOWLEDGE"
                 edited_values:
                   type: "array"
                   maxItems: 100
@@ -8009,11 +8022,10 @@ paths:
                   maxLength: 1000
                 expected_policy_version:
                   type: "integer"
-                  minimum: 1
+                  minimum: 0
               required:
                 - "command"
                 - "reason"
-                - "expected_policy_version"
               additionalProperties: false
   "/classrooms/{classroom_id}/ai/economic-event-draft-operations":
     post:
@@ -9998,8 +10010,8 @@ paths:
         - "ECO-005"
       tags:
         - "Queries"
-      summary: "역할별 상품, 가격, 세금, 재고"
-      description: "사람이 검토하는 원문 기준: `API-READ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 상품, 가격, 세금, 재고."
+      summary: "학생은 게시, 구매 가능 상품만, 교사는 draft, 게시 상태와 최신 상품 버전을 포함한 상품, 가격, 세금, 재고"
+      description: "사람이 검토하는 원문 기준: `API-READ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학생은 게시, 구매 가능 상품만, 교사는 draft, 게시 상태와 최신 상품 버전을 포함한 상품, 가격, 세금, 재고."
       security:
         - bearerAuth: []
       parameters:
@@ -10043,6 +10055,13 @@ paths:
                             unit_price:
                               type: "integer"
                               format: "int64"
+                              minimum: 0
+                            vat_rate_bps:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 10000
+                            stock_quantity:
+                              type: "integer"
                               minimum: 0
                             product_kind:
                               type: "string"
@@ -11324,8 +11343,8 @@ paths:
         - "AI-010"
       tags:
         - "Queries"
-      summary: "설정 점검, 수동, 자동 실행, 근거, 검증, 심각도, 중복키, 확인, 승인 상태, 학생 개인 원문 제외"
-      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 설정 점검, 수동, 자동 실행, 근거, 검증, 심각도, 중복키, 확인, 승인 상태, 학생 개인 원문 제외."
+      summary: "최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외"
+      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외."
       security:
         - bearerAuth: []
       parameters:
@@ -11356,15 +11375,24 @@ paths:
                           required:
                             - "ai_run_id"
                             - "feature_type"
+                            - "run_type"
+                            - "trigger_type"
                             - "status"
                             - "requested_at"
                             - "prompt_version"
+                            - "fallback_used"
                             - "validation_codes"
                             - "evidence_codes"
+                            - "rule_versions"
                             - "proposals"
                           properties:
                             ai_run_id:
                               type: "string"
+                              format: "uuid"
+                            operation_id:
+                              type:
+                                - "string"
+                                - "null"
                               format: "uuid"
                             feature_type:
                               type: "string"
@@ -11373,6 +11401,17 @@ paths:
                                 - "TEACHER_CHAT"
                                 - "ECONOMIC_EVENT"
                                 - "QUIZ_DRAFT"
+                            run_type:
+                              type: "string"
+                              enum:
+                                - "SETUP_PRECHECK"
+                                - "ON_DEMAND"
+                                - "AUTO_MONITOR"
+                                - "TEACHER_CHAT"
+                                - "ECONOMIC_EVENT_DRAFT"
+                                - "QUIZ_DRAFT"
+                            trigger_type:
+                              type: "string"
                             status:
                               type: "string"
                               enum:
@@ -11382,6 +11421,7 @@ paths:
                                 - "GENERATING"
                                 - "VALIDATING"
                                 - "AWAITING_TEACHER"
+                                - "ACKNOWLEDGED"
                                 - "COMPLETED"
                                 - "FAILED"
                                 - "TIMED_OUT"
@@ -11418,6 +11458,21 @@ paths:
                               type:
                                 - "string"
                                 - "null"
+                            fallback_used:
+                              type: "boolean"
+                            fallback_code:
+                              type:
+                                - "string"
+                                - "null"
+                            severity:
+                              type:
+                                - "string"
+                                - "null"
+                              enum:
+                                - "PASS"
+                                - "WARN"
+                                - "BLOCK"
+                                - null
                             validation_codes:
                               type: "array"
                               items:
@@ -11428,6 +11483,10 @@ paths:
                               items:
                                 type: "string"
                               uniqueItems: true
+                            rule_versions:
+                              type: "object"
+                              additionalProperties:
+                                type: "string"
                             proposals:
                               type: "array"
                               maxItems: 100
@@ -11435,26 +11494,166 @@ paths:
                                 type: "object"
                                 required:
                                   - "proposal_id"
+                                  - "proposal_type"
+                                  - "source_type"
                                   - "status"
                                   - "summary"
+                                  - "proposed_values"
+                                  - "allowed_ranges"
+                                  - "created_at"
+                                  - "expires_at"
+                                  - "status_changed_at"
+                                  - "state_version"
                                 properties:
                                   proposal_id:
                                     type: "string"
                                     format: "uuid"
+                                  proposal_type:
+                                    type: "string"
+                                  source_type:
+                                    type: "string"
                                   status:
                                     type: "string"
+                                  severity:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                    enum:
+                                      - "PASS"
+                                      - "WARN"
+                                      - "BLOCK"
+                                      - null
+                                  metric_code:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                  direction:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                  dedupe_key:
+                                    type:
+                                      - "string"
+                                      - "null"
                                   summary:
                                     type: "string"
                                     maxLength: 1500
+                                  context_type:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                  target_type:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                  target_id:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                    format: "uuid"
+                                  target_version:
+                                    type:
+                                      - "integer"
+                                      - "null"
+                                    format: "int64"
+                                    minimum: 0
+                                  proposed_values:
+                                    type: "array"
+                                    maxItems: 100
+                                    items:
+                                      type: "object"
+                                      required:
+                                        - "action_id"
+                                        - "target_type"
+                                        - "target_id"
+                                        - "proposed_value"
+                                        - "unit"
+                                        - "label"
+                                      properties:
+                                        action_id:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        target_type:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        target_id:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                          format: "uuid"
+                                        proposed_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
+                                        unit:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        label:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                      additionalProperties: false
+                                  allowed_ranges:
+                                    type: "array"
+                                    maxItems: 100
+                                    items:
+                                      type: "object"
+                                      required:
+                                        - "action_id"
+                                        - "allowed_min_value"
+                                        - "allowed_max_value"
+                                      properties:
+                                        action_id:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        allowed_min_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
+                                        allowed_max_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
+                                      additionalProperties: false
+                                  created_at:
+                                    type: "string"
+                                    format: "date-time"
+                                  expires_at:
+                                    type: "string"
+                                    format: "date-time"
+                                  status_changed_at:
+                                    type: "string"
+                                    format: "date-time"
                                   decision_status:
                                     type:
                                       - "string"
                                       - "null"
+                                  decided_at:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                    format: "date-time"
                                   policy_version:
                                     type:
                                       - "integer"
                                       - "null"
                                     minimum: 1
+                                  applied_policy_version_id:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                    format: "uuid"
+                                  state_version:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
                                 additionalProperties: false
                           additionalProperties: false
                     additionalProperties: false
@@ -11763,8 +11962,8 @@ paths:
         - "DAT-003"
       tags:
         - "Queries"
-      summary: "비동기 작업 상태, 실패코드, 만료 다운로드 URL"
-      description: "사람이 검토하는 원문 기준: `API-READ-030` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 요청 실행자, 허용 담당자.\n\n핵심 계약: 비동기 작업 상태, 실패코드, 만료 다운로드 URL."
+      summary: "RUNNING/COMPLETED/FAILED, 진행률, 결과 URL, 실패 코드, 완료/만료 시각"
+      description: "사람이 검토하는 원문 기준: `API-READ-030` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 요청 실행자, 허용 담당자.\n\n핵심 계약: RUNNING/COMPLETED/FAILED, 진행률, 결과 URL, 실패 코드, 완료/만료 시각."
       security:
         - bearerAuth: []
       parameters:
@@ -11785,23 +11984,53 @@ paths:
                     type: "object"
                     required:
                       - "operation_id"
+                      - "operation_type"
                       - "status"
                       - "progress_percent"
+                      - "started_at"
+                      - "state_version"
                     properties:
                       operation_id:
                         type: "string"
                         format: "uuid"
+                      operation_type:
+                        type: "string"
                       status:
                         type: "string"
+                        enum:
+                          - "RUNNING"
+                          - "COMPLETED"
+                          - "FAILED"
                       progress_percent:
                         type: "integer"
                         minimum: 0
                         maximum: 100
                       result_url:
-                        type: "string"
+                        type:
+                          - "string"
+                          - "null"
                         format: "uri-reference"
                       error_code:
+                        type:
+                          - "string"
+                          - "null"
+                      started_at:
                         type: "string"
+                        format: "date-time"
+                      completed_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      expires_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"

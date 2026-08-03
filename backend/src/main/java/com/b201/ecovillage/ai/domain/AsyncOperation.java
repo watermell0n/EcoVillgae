@@ -98,11 +98,79 @@ public class AsyncOperation {
         this.updatedAt = now;
     }
 
+    public void updateProgress(int progressPercent, Instant now) {
+        if (progressPercent < 0 || progressPercent > 99) {
+            throw new IllegalArgumentException("progressPercent must be between 0 and 99.");
+        }
+        if (!"RUNNING".equals(status)) {
+            throw new IllegalStateException("Only running operations can report progress.");
+        }
+        this.progressPercent = progressPercent;
+        this.updatedAt = Objects.requireNonNull(now);
+    }
+
+    public void fail(String errorCode, String errorDetail, Instant now) {
+        this.errorCode = required(errorCode, 80);
+        this.errorDetail = errorDetail;
+        this.completedAt = Objects.requireNonNull(now);
+        this.status = "FAILED";
+        this.statusChangedAt = now;
+        this.updatedAt = now;
+    }
+
     public UUID getId() {
         return id;
     }
 
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
+    public UUID getRequestedByUserId() {
+        return requestedByUserId;
+    }
+
+    public String getOperationType() {
+        return operationType;
+    }
+
     public String getStatus() {
         return status;
+    }
+
+    public int getProgressPercent() {
+        return progressPercent;
+    }
+
+    public String getResultLocation() {
+        return resultLocation;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
+
+    private static String required(String value, int maximumLength) {
+        String required = Objects.requireNonNull(value).trim();
+        if (required.isEmpty()) {
+            throw new IllegalArgumentException("value must not be blank.");
+        }
+        return required.substring(0, Math.min(required.length(), maximumLength));
     }
 }

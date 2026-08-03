@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import jakarta.persistence.EntityManager;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +68,7 @@ public class QuizSessionCommandService {
     private final QuizOptionRepository optionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final UuidV7Generator uuidGenerator;
+    private final EntityManager entityManager;
     private final Clock clock;
 
     public QuizSessionCommandService(
@@ -81,6 +84,7 @@ public class QuizSessionCommandService {
         QuizOptionRepository optionRepository,
         IdempotencyRecordRepository idempotencyRepository,
         UuidV7Generator uuidGenerator,
+        EntityManager entityManager,
         Clock clock
     ) {
         this.authorizationService = authorizationService;
@@ -95,6 +99,7 @@ public class QuizSessionCommandService {
         this.optionRepository = optionRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.uuidGenerator = uuidGenerator;
+        this.entityManager = entityManager;
         this.clock = clock;
     }
 
@@ -134,9 +139,11 @@ public class QuizSessionCommandService {
         }
 
         Instant now = clock.instant();
-        QuizSession session = command.command() == QuizSessionCommandType.START
-            ? start(command, teacher.getId(), classroom, now)
-            : close(command, now);
+        QuizSession session = switch (command.command()) {
+            case START -> start(command, teacher.getId(), classroom, now);
+            case UPDATE_REWARD -> updateReward(command, now);
+            case CLOSE_SUBMISSIONS -> close(command, now);
+        };
         sessionRepository.flush();
         QuizResourceResult result = new QuizResourceResult(
             session.getId(),
@@ -323,7 +330,67 @@ public class QuizSessionCommandService {
                 exception.getMessage()
             );
         }
-        return sessionRepository.save(session);
+        return session;
+    }
+
+    private QuizSession updateReward(QuizSessionCommand command, Instant now) {
+        QuizSession session = sessionRepository
+            .findForUpdate(command.classroomId(), command.sessionId())
+            .orElseThrow(() -> operation(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "The quiz session could not be found."
+            ));
+        if (
+            command.expectedStateVersion() == null
+                || command.expectedStateVersion() != session.getStateVersion()
+        ) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "STATE_VERSION_CONFLICT",
+                "The quiz session state has changed."
+            );
+        }
+        if (session.getMode() == QuizMode.TEST) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "FORBIDDEN_REWARD_CONTEXT",
+                "A TEST quiz cannot receive a monetary reward."
+            );
+        }
+        if (command.rewardPolicyPublic() == null) {
+            throw validation("UPDATE_REWARD requires reward_policy_public.");
+        }
+        Object reward = command.rewardPolicyPublic().get("reward_per_person");
+        if (!(reward instanceof Number number) || number.longValue() < 0L) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "INVALID_REWARD_POLICY",
+                "reward_per_person must be a non-negative amount."
+            );
+        }
+        entityManager.detach(session);
+        int updated = sessionRepository.updateRewardPolicy(
+            command.classroomId(),
+            command.sessionId(),
+            command.expectedStateVersion(),
+            command.rewardPolicyPublic(),
+            now
+        );
+        if (updated != 1) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "STATE_VERSION_CONFLICT",
+                "The quiz session state has changed."
+            );
+        }
+        return sessionRepository
+            .findByClassroomIdAndId(command.classroomId(), command.sessionId())
+            .orElseThrow(() -> operation(
+                HttpStatus.CONFLICT,
+                "IDEMPOTENCY_RESULT_MISSING",
+                "The updated quiz session could not be reloaded."
+            ));
     }
 
     private static void validateBase(QuizSessionCommand command) {

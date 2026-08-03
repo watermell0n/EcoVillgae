@@ -107,6 +107,9 @@ public class StoreProduct {
     }
 
     public void publish(Instant changedAt) {
+        if (status == StoreProductStatus.PUBLISHED) {
+            throw new IllegalStateException("product is already published");
+        }
         changeStatus(StoreProductStatus.PUBLISHED, changedAt);
     }
 
@@ -119,6 +122,10 @@ public class StoreProduct {
 
     public boolean isPublished() {
         return status == StoreProductStatus.PUBLISHED;
+    }
+
+    public boolean canReviseDraft() {
+        return status != StoreProductStatus.PUBLISHED;
     }
 
     private void changeStatus(StoreProductStatus next, Instant changedAt) {
@@ -137,6 +144,10 @@ public class StoreProduct {
 
     public String getName() {
         return name;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public StoreProductKind getProductKind() {

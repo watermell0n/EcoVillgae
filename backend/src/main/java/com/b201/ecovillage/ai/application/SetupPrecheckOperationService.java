@@ -63,6 +63,7 @@ public class SetupPrecheckOperationService {
     private final ClassroomRepository classroomRepository;
     private final ClassroomModuleRepository moduleRepository;
     private final RuleEngineService ruleEngineService;
+    private final SetupProposalTargetSnapshotService targetSnapshotService;
     private final SetupPrecheckContractMapper contractMapper;
     private final SetupPrecheckAiClient aiClient;
     private final SetupPrecheckOutputValidator outputValidator;
@@ -84,6 +85,7 @@ public class SetupPrecheckOperationService {
         ClassroomRepository classroomRepository,
         ClassroomModuleRepository moduleRepository,
         RuleEngineService ruleEngineService,
+        SetupProposalTargetSnapshotService targetSnapshotService,
         SetupPrecheckContractMapper contractMapper,
         SetupPrecheckAiClient aiClient,
         SetupPrecheckOutputValidator outputValidator,
@@ -104,6 +106,7 @@ public class SetupPrecheckOperationService {
         this.classroomRepository = classroomRepository;
         this.moduleRepository = moduleRepository;
         this.ruleEngineService = ruleEngineService;
+        this.targetSnapshotService = targetSnapshotService;
         this.contractMapper = contractMapper;
         this.aiClient = aiClient;
         this.outputValidator = outputValidator;
@@ -395,6 +398,16 @@ public class SetupPrecheckOperationService {
         return builder.build();
     }
 
+    RuleEngineResult revalidate(UUID classroomId, SetupPrecheckInput input) {
+        Classroom classroom = classroomRepository.findById(classroomId)
+            .orElseThrow(() -> operation(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "The classroom was not found."
+            ));
+        return ruleEngineService.evaluate(ruleRequest(classroom, input));
+    }
+
     private AiProposal createProposal(
         Classroom classroom,
         SetupPrecheckInput input,
@@ -415,6 +428,22 @@ public class SetupPrecheckOperationService {
         proposed.put("context_type", rules.contextType().name());
         proposed.put("items", items);
         proposed.put("rule_version", rules.ruleVersion());
+        proposed.put("rule_input", toMap(input));
+        proposed.put(
+            "recommendation_action_ids",
+            rules.candidates().stream().map(RuleCandidate::actionId).toList()
+        );
+        SetupProposalTargetSnapshot target = targetSnapshotService.capture(
+            classroom,
+            input,
+            rules
+        );
+        proposed.put("target_type", target.targetType());
+        proposed.put("target_id", target.targetId().toString());
+        proposed.put("target_version", target.targetVersion());
+        proposed.put("policy_version", target.primaryPolicyVersion());
+        proposed.put("draft_snapshot", target.snapshot());
+        proposed.put("draft_fingerprint", target.fingerprint());
         if (input.moduleActivation() != null) {
             ClassroomModule module = moduleRepository
                 .findByClassroomIdAndModuleCode(
@@ -426,10 +455,6 @@ public class SetupPrecheckOperationService {
             proposed.put("module_id", module.getId().toString());
             proposed.put("module_state_version", module.getStateVersion());
             proposed.put("initial_policy_values", initialPolicyValues(input, rules));
-            proposed.put(
-                "recommendation_action_ids",
-                rules.candidates().stream().map(RuleCandidate::actionId).toList()
-            );
         }
         Map<String, Object> allowed = new LinkedHashMap<>();
         allowed.put("items", ranges);
@@ -523,13 +548,26 @@ public class SetupPrecheckOperationService {
         ) {
             throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Check the setup precheck request.");
         }
-        boolean moduleContext = command.input().contextType()
-            == com.b201.ecovillage.ruleengine.domain.RuleContextType.MODULE_ACTIVATION;
-        if (moduleContext != (command.input().moduleActivation() != null)) {
+        SetupPrecheckInput input = command.input();
+        boolean contextMatches = switch (input.contextType()) {
+            case CLASSROOM_SETUP -> input.moduleActivation() == null
+                && input.productDraft() == null
+                && input.quizDraft() == null;
+            case MODULE_ACTIVATION -> input.moduleActivation() != null
+                && input.productDraft() == null
+                && input.quizDraft() == null;
+            case PRODUCT_DRAFT -> input.moduleActivation() == null
+                && input.productDraft() != null
+                && input.quizDraft() == null;
+            case QUIZ_SESSION_DRAFT -> input.moduleActivation() == null
+                && input.productDraft() == null
+                && input.quizDraft() != null;
+        };
+        if (!contextMatches) {
             throw operation(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "INVALID_RECOMMENDATION_CONTEXT",
-                "The setup context and module activation input do not match."
+                "The setup context and target draft input do not match."
             );
         }
     }
