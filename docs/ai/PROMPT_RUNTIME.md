@@ -31,7 +31,53 @@
 보관합니다. 제품 정책과 수치 규칙의 기준은 계속 `docs/AI_DIRECTION.md`와 규칙 엔진이며,
 프롬프트 파일만 바꿔 정책을 변경하지 않습니다.
 
-## 3. 공급자 생성 명령
+## 3. 프롬프트 버전과 동결 규칙
+
+`prompt_version`은 파일 이름이 아니라 **여러 프롬프트 파일을 묶는 계약 식별자**입니다.
+하나의 버전이 파일 여러 개를 가리킬 수 있습니다.
+
+| 버전 | 프롬프트 파일 |
+| --- | --- |
+| `setup-precheck-v1` | `v1/balancing/setup-precheck.txt` |
+| `balancing-v1` | `v1/balancing/on-demand.txt`, `v1/balancing/auto-monitor.txt` |
+| `teacher-chat-v1` | `v1/teacher-chat.txt` |
+| `economic-event-v1` | `v1/economic-event/` 아래 7개 템플릿 파일 |
+| `quiz-draft-v1` | `v1/quiz-draft.txt` |
+
+버전은 Spring 요청에 실려 오고 `ai_runs.prompt_version`에 영구 기록되며 출시 평가
+매니페스트가 목록을 고정 검사합니다. 즉 **"이 실행이 어떤 지시문으로 만들어졌는지"를
+사후에 추적하는 유일한 단서**입니다.
+
+### 3.1 동결 시점
+
+프롬프트 튜닝 중에는 v1 파일을 자유롭게 수정합니다. **실제 수업에 처음 사용하는 시점부터
+v1을 동결하고, 그 이후의 모든 지시문 변경은 v2로 올립니다.**
+
+동결 전에는 아직 추적해야 할 실행 기록이 없으므로 같은 v1 안에서 문구를 보강해도
+재현성 문제가 생기지 않습니다. 동결 후에는 같은 버전 값이 서로 다른 지시문을 가리키게
+되어 `ai_runs` 기록만으로 결과를 설명할 수 없습니다.
+
+### 3.2 버전을 올릴 때 함께 바꿀 곳
+
+| 대상 | 내용 |
+| --- | --- |
+| 프롬프트 디렉터리 | `prompts/v2/` 신설 |
+| `prompting.py` | `SUPPORTED_PROMPT_VERSIONS`와 `_selection_parts`의 경로 |
+| Spring 계약 상수 | `SetupPrecheckContract`, `BalancingContract`, `TeacherChatContract`, `EconomicEventContract`, `QuizDraftContract`의 `PROMPT_VERSION` |
+| 출시 매니페스트 | `tests/fixtures/ai_mvp_release_v1.json`의 `prompt_versions` |
+| 평가 fixture | 기능별 평가 파일의 `prompt_version` |
+| 이 문서 | 2장 표와 위 표 |
+
+요청 버전과 선택된 프롬프트가 어긋나면 공급자 호출 전에 `PROMPT_VERSION_MISMATCH`로
+거절하므로, 위 목록 중 하나만 빠뜨려도 실행이 실패합니다.
+
+### 3.3 동결 전 변경 기록
+
+동결 전 변경은 버전을 올리지 않는 대신 커밋 메시지에 무엇을 왜 바꿨는지 남깁니다.
+실제 공급자 전환 과정에서 `strict` 구조화 출력이 배열 최소 개수를 강제하지 못해
+프롬프트가 그 규칙을 직접 명시하도록 보강한 사례가 있습니다.
+
+## 4. 공급자 생성 명령
 
 공급자는 다음 네 요소가 분리된 `GenerationCommand`만 받습니다.
 
@@ -48,7 +94,7 @@
 object가 아닌 최상위 값, 지원하지 않는 콘텐츠 형식과 Pydantic 스키마 위반을 모두
 `AI_OUTPUT_SCHEMA_INVALID`로 변환합니다.
 
-## 4. 결정적 검증 순서
+## 5. 결정적 검증 순서
 
 공급자 출력은 다음 순서에서 첫 실패 단계까지만 평가합니다.
 
@@ -98,7 +144,7 @@ object가 아닌 최상위 값, 지원하지 않는 콘텐츠 형식과 Pydantic
 승인 전 공개 표현을 결정적으로 차단합니다. 단계별 사전 생성과 32개 평가는
 [가상 투자 단계별 AI 뉴스](INVESTMENT_NEWS.md)를 따릅니다.
 
-## 5. 구조화 실행 로그
+## 6. 구조화 실행 로그
 
 성공과 실패 모두 `SafeRunEvent` 하나로 기록합니다.
 
@@ -111,7 +157,7 @@ object가 아닌 최상위 값, 지원하지 않는 콘텐츠 형식과 Pydantic
 질문·답변, 시스템 프롬프트, 신뢰 입력 JSON, 전체 payload와 공급자 원문은 로그 필드에
 존재하지 않습니다. 로그 sink 장애도 생성 성공·실패 결과를 바꾸지 않습니다.
 
-## 6. 공급자 경계
+## 7. 공급자 경계
 
 `FakeGenerationProvider`, `BedrockGenerationProvider`, `OpenAIGenerationProvider`는 모두
 같은 `GenerationCommand`와 `ProviderResult` 계약을 사용합니다. 기능별 라우터가 공급자와
