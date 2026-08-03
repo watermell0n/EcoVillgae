@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.character.repository.CharacterEquipmentRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -63,6 +64,7 @@ public class TradeCommandService {
     private final TradeItemLegRepository itemLegRepository;
     private final TradeDecisionRepository decisionRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final CharacterEquipmentRepository characterEquipmentRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -76,6 +78,7 @@ public class TradeCommandService {
         TradeItemLegRepository itemLegRepository,
         TradeDecisionRepository decisionRepository,
         InventoryItemRepository inventoryItemRepository,
+        CharacterEquipmentRepository characterEquipmentRepository,
         IdempotencyRecordRepository idempotencyRepository,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -88,6 +91,7 @@ public class TradeCommandService {
         this.itemLegRepository = itemLegRepository;
         this.decisionRepository = decisionRepository;
         this.inventoryItemRepository = inventoryItemRepository;
+        this.characterEquipmentRepository = characterEquipmentRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
@@ -320,6 +324,16 @@ public class TradeCommandService {
                 HttpStatus.NOT_FOUND,
                 "RESOURCE_NOT_FOUND",
                 "One or more trade items could not be found."
+            );
+        }
+        if (characterEquipmentRepository.existsByClassroomIdAndInventoryItemIdIn(
+            classroomId,
+            allIds
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "ITEM_LOCKED",
+                "Equipped items must be unequipped before they can be traded."
             );
         }
         Map<UUID, InventoryItem> byId = new HashMap<>();

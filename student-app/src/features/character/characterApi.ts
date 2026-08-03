@@ -9,7 +9,7 @@ export type CharacterStoreItem = CosmeticDTO & {
   inventoryItemId: string | null;
   owned: boolean;
   equipped: boolean;
-  stock: number | null;
+  vatRateBps: number;
   productVersion: number;
   inventoryStateVersion: number | null;
 };
@@ -22,9 +22,9 @@ type StoreCatalogResponse = {
     version: number;
     state_version: number;
     unit_price: number;
+    vat_rate_bps?: number;
     product_kind: string;
     character_code?: string;
-    available_quantity?: number;
   }>;
 };
 
@@ -40,21 +40,42 @@ type InventoryResponse = {
   }>;
 };
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES !== "false";
+export type CharacterProfile = {
+  profile_id: string;
+  classroom_student_id: string;
+  state_version: number;
+  equipment_changed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  equipped_inventory_items: Partial<Record<Slot, string>>;
+};
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES === "true";
 
 const mockOwned = new Set([
   "hat_red_cap",
-  "top_blue_tee",
-  "bottom_striped_pants",
-  "shoes_sneakers"
+  "top_blue_tshirt",
+  "bottom_overalls",
+  "shoes_sneakers",
+  "back_backpack",
+  "hat_straw",
+  "top_swimsuit",
+  "shoes_sandals",
+  "bg_spring"
 ]);
 
 const mockEquipped: EquippedMap = {
-  ...EMPTY_EQUIPPED,
-  HAT: "hat_red_cap",
-  TOP: "top_blue_tee",
-  BOTTOM: "bottom_striped_pants",
-  SHOES: "shoes_sneakers"
+  ...EMPTY_EQUIPPED
+};
+
+const mockProfile: CharacterProfile = {
+  profile_id: "mock-character-profile",
+  classroom_student_id: "mock-classroom-student",
+  state_version: 0,
+  equipment_changed_at: null,
+  created_at: new Date(0).toISOString(),
+  updated_at: new Date(0).toISOString(),
+  equipped_inventory_items: {}
 };
 
 function mockItems(): CharacterStoreItem[] {
@@ -64,7 +85,7 @@ function mockItems(): CharacterStoreItem[] {
     inventoryItemId: mockOwned.has(item.id) ? `mock-inventory-${item.id}` : null,
     owned: mockOwned.has(item.id),
     equipped: mockEquipped[item.slot] === item.id,
-    stock: 99,
+    vatRateBps: 0,
     productVersion: 1,
     inventoryStateVersion: mockOwned.has(item.id) ? 0 : null
   }));
@@ -88,9 +109,10 @@ export async function fetchCharacterStore(classroomId: string): Promise<Characte
     if (product.product_kind !== "CHARACTER") {
       return [];
     }
-    const cosmetic = product.character_code
-      ? CATALOG_BY_ID[product.character_code]
-      : CATALOG.find((item) => item.name === product.label);
+    if (!product.character_code) {
+      return [];
+    }
+    const cosmetic = CATALOG_BY_ID[product.character_code];
     if (!cosmetic) {
       return [];
     }
@@ -102,11 +124,18 @@ export async function fetchCharacterStore(classroomId: string): Promise<Characte
       inventoryItemId: owned?.resource_id ?? null,
       owned: Boolean(owned),
       equipped: owned?.equipped ?? false,
-      stock: product.available_quantity ?? null,
+      vatRateBps: product.vat_rate_bps ?? 0,
       productVersion: product.version,
       inventoryStateVersion: owned?.state_version ?? null
     }];
   });
+}
+
+export async function fetchCharacterProfile(classroomId: string): Promise<CharacterProfile> {
+  if (USE_MOCK) return mockProfile;
+  return apiRequest<CharacterProfile>(
+    `/classrooms/${classroomId}/students/me/character-profile`
+  );
 }
 
 export async function fetchOwnedCharacters(classroomId: string): Promise<CharacterStoreItem[]> {
@@ -128,7 +157,7 @@ export async function fetchOwnedCharacters(classroomId: string): Promise<Charact
       inventoryItemId: owned.resource_id,
       owned: true,
       equipped: owned.equipped,
-      stock: null,
+      vatRateBps: 0,
       productVersion: owned.version,
       inventoryStateVersion: owned.state_version
     }];

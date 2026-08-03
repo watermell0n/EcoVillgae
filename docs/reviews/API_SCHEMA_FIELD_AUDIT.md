@@ -7,11 +7,11 @@
 
 ## 1. 완료 기준과 범위 결정
 
-검토 대상 109개 HTTP 작업을 모두 없애거나 임의로 구현 범위에 넣지 않고 다음처럼 분류했습니다.
+검토 대상 110개 HTTP 작업을 모두 없애거나 임의로 구현 범위에 넣지 않고 다음처럼 분류했습니다.
 
 | 분류 | 수 | 계약 수준 |
 | --- | ---: | --- |
-| `mvp-contract` | 78 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
+| `mvp-contract` | 79 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
 | `planned` | 31 | 소유권 이전, 학교 지급 기기, 플랫폼 설정·자격증명 등 후속 작업. 경로·권한·추적성은 유지하되 구현 스프린트에서 DTO 확정 |
 
 이 분류는 OpenAPI 각 operation의 `x-implementation-status`, `x-schema-closure`,
@@ -86,10 +86,10 @@ AI 구현 착수 전 계약 보완에서 밸런싱 적용 `API-AI-003`과 실행
 
 `scripts/validate-api-schema-consistency.mjs`는 다음을 검사합니다.
 
-- 작업 109개가 중복 없이 매핑됨
-- MVP·지원 작업 78개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
+- 작업 110개가 중복 없이 매핑됨
+- MVP·지원 작업 79개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
 - 후속 작업 31개는 `planned`로 명시됨
 - 모든 MVP 작업에 PostgreSQL·View·Redis·외부 저장 경계가 존재함
 - V1_11의 4개 저장 보강과 임시 인증정보 키·TTL 규칙이 존재함
 
-현재 결과는 `109 operations, 78 strict MVP/support contracts, 31 planned contracts`로 PASS입니다.
+현재 결과는 `110 operations, 79 strict MVP/support contracts, 31 planned contracts`로 PASS입니다.

@@ -28,7 +28,7 @@
 | SM-ACT-001 | 교사 지도 활동 | READY·LIVE·FINALIZING·COMPLETED |
 | SM-TXN-001 | 원장 거래 명령 | RECEIVED·VALIDATING·COMMITTED·REJECTED |
 | SM-TRD-001 | 학생 개인거래 | DRAFT·AWAITING_COUNTERPART·AWAITING_TEACHER·SETTLING·COMPLETED |
-| SM-ITM-001 | 거래 대상 아이템 | AVAILABLE·EQUIPPED·LOCKED_TRADE |
+| SM-ITM-001 | 디지털 아이템 거래 가용성 | AVAILABLE·LOCKED_TRADE |
 | SM-SHP-001 | 상점 주문 | REQUESTED·PAID·READY_FOR_PICKUP·RECEIVED |
 | SM-DEP-001 | 정기예금 | ACTIVE·MATURED·EARLY_TERMINATED·CLOSE_SETTLED |
 | SM-SAV-001 | 정기적금 계좌 | ACTIVE·MATURED·EARLY_TERMINATED·CLOSE_SETTLED |
@@ -205,14 +205,13 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> AVAILABLE
-    AVAILABLE --> EQUIPPED: 학생 장착
-    EQUIPPED --> AVAILABLE: 학생 해제
     AVAILABLE --> LOCKED_TRADE: 거래 제안 등록
     LOCKED_TRADE --> AVAILABLE: 취소·거절·만료·실패
     LOCKED_TRADE --> AVAILABLE: 거래 완료·새 소유자로 이전
 ```
 
-- EQUIPPED 아이템은 해제하기 전 거래에 등록할 수 없습니다.
+- 장착은 `inventory_items.status`를 바꾸지 않고 `character_equipment` 슬롯 행을 생성·교체·삭제한다.
+- 장착 관계가 있는 AVAILABLE 아이템은 해제하기 전 거래에 등록할 수 없습니다.
 - LOCKED_TRADE에서는 장착·다른 거래 등록·삭제를 금지합니다.
 - 거래 완료 전이에서는 소유자 변경과 잠금 해제를 같은 트랜잭션으로 수행합니다.
 

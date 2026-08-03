@@ -1,12 +1,19 @@
 import { apiRequest } from "./client";
 
-const MOCK_FEATURES = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES !== "false";
+const MOCK_FEATURES = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES === "true";
 
 export type StorePurchaseResponse = {
   orderId: string;
   status: string;
   totalAmount: number;
   stateVersion: number;
+};
+
+type StorePurchaseWireResponse = {
+  order_id: string;
+  status: string;
+  total_amount: number;
+  state_version: number;
 };
 
 export type DepositAccountView = {
@@ -163,25 +170,38 @@ function now() {
   return new Date().toISOString();
 }
 
+export function calculateStoreTotal(
+  unitPrice: number,
+  quantity = 1,
+  vatRateBps = 0
+) {
+  const subtotal = unitPrice * quantity;
+  const tax = Math.floor((subtotal * vatRateBps + 5_000) / 10_000);
+  return subtotal + tax;
+}
+
 export async function purchaseStoreItem(
   classroomId: string,
   productId = ids.product,
   quantity = 1,
-  expectedProductVersion = 1
+  expectedProductVersion = 1,
+  mockUnitPrice = 50,
+  mockVatRateBps = 0,
+  idempotencyKey: string = crypto.randomUUID()
 ) {
   if (MOCK_FEATURES) {
     return {
       orderId: crypto.randomUUID(),
       status: "CREATED",
-      totalAmount: 50 * quantity,
+      totalAmount: calculateStoreTotal(mockUnitPrice, quantity, mockVatRateBps),
       stateVersion: 1
     } satisfies StorePurchaseResponse;
   }
 
-  return apiRequest<StorePurchaseResponse>(`/classrooms/${classroomId}/store/orders`, {
+  const purchase = await apiRequest<StorePurchaseWireResponse>(`/classrooms/${classroomId}/store/orders`, {
     method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-SHOP",
       ui_action_id: "BUY_PRODUCT",
       client_occurred_at: now(),
@@ -190,6 +210,12 @@ export async function purchaseStoreItem(
       expected_product_version: expectedProductVersion
     })
   });
+  return {
+    orderId: purchase.order_id,
+    status: purchase.status,
+    totalAmount: purchase.total_amount,
+    stateVersion: purchase.state_version
+  } satisfies StorePurchaseResponse;
 }
 
 export async function fetchFinancialProducts(classroomId: string) {

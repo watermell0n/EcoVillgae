@@ -16,6 +16,7 @@
 
 | 문서 | 역할 |
 | --- | --- |
+| [학생 앱 디자인 문서](design/README.md) | 단일 체형 코드 기반 도트 캐릭터와 학생 화면 구현 기준 |
 | [요구사항 기준선](REQUIREMENTS_BASELINE.md) | 확정 요구사항과 공통 용어 |
 | [추천 코스](COURSE_RECOMMENDATIONS.md) | 학년×규모별 모듈·난이도 조합 |
 | [AI 활용 방향](AI_DIRECTION.md) | AI 기능·안전·승인 경계 |

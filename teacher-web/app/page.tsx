@@ -170,9 +170,9 @@ const initialProducts: ProductRow[] = [
 ];
 
 const initialApprovals: ApprovalRow[] = [
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30비빔", status: "교사 승인 대기" },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000비빔", status: "권리 상품 확인" },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340비빔", status: "결과 정산 대기" }
+  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30", status: "교사 승인 대기" },
+  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000", status: "권리 상품 확인" },
+  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340", status: "결과 정산 대기" }
 ];
 
 const courseTemplates = [
@@ -249,7 +249,7 @@ const moduleDescriptions: Record<string, string> = {
   월급: "역할별 급여를 지급하고 월급명세서를 생성합니다.",
   세금: "소득세, 부가세, 거래세를 공동기금으로 모읍니다.",
   상점: "학생이 상품을 구매하고 재고와 결제를 처리합니다.",
-  캐릭터: "학생이 비빔으로 아이템을 사고 캐릭터를 꾸밉니다.",
+  캐릭터: "학생이 학급 화폐로 아이템을 사고 캐릭터를 꾸밉니다.",
   "개인 거래": "학생 간 제안, 동의, 교사 승인 거래를 처리합니다.",
   예금: "정기예금과 적금 가입, 이자 계산, 만기 처리를 합니다.",
   투자: "가상 투자 상품 선택과 손익 결과 확인을 제공합니다.",
@@ -638,6 +638,7 @@ export default function TeacherConsole() {
           )}
           {view === "shop" && (
             <ShopAdmin
+              currencyName={settings.currency}
               products={products}
               setProducts={setProducts}
               addLog={addLog}
@@ -659,7 +660,14 @@ export default function TeacherConsole() {
             />
           )}
           {view === "approvals" && (
-            <Approvals approvals={approvals} setApprovals={setApprovals} runAction={runAction} addLog={addLog} classroomId={activeClassroomId} />
+            <Approvals
+              currencyName={settings.currency}
+              approvals={approvals}
+              setApprovals={setApprovals}
+              runAction={runAction}
+              addLog={addLog}
+              classroomId={activeClassroomId}
+            />
           )}
           {view === "ai" && (
             <AiWorkspace
@@ -1839,6 +1847,7 @@ function Roster({
 }
 
 function ShopAdmin({
+  currencyName,
   products,
   setProducts,
   addLog,
@@ -1847,6 +1856,7 @@ function ShopAdmin({
   policyVersion,
   onStateVersionChange
 }: Readonly<{
+  currencyName: string;
   products: ProductRow[];
   setProducts: React.Dispatch<React.SetStateAction<ProductRow[]>>;
   addLog: (message: string, tone?: LogTone) => void;
@@ -2011,7 +2021,7 @@ function ShopAdmin({
                   <>
                     <div>
                       <b>{product.name}</b>
-                      <span>{product.price}비빔 · 재고 {product.stock}</span>
+                      <span>{product.price}{currencyName} · 재고 {product.stock}</span>
                     </div>
                     <div className="row-actions product-actions">
                       <button type="button" onClick={() => startEdit(index)}>수정</button>
@@ -2229,12 +2239,14 @@ function Control({
 }
 
 function Approvals({
+  currencyName,
   approvals,
   setApprovals,
   runAction,
   addLog,
   classroomId
 }: Readonly<{
+  currencyName: string;
   approvals: ApprovalRow[];
   setApprovals: React.Dispatch<React.SetStateAction<ApprovalRow[]>>;
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
@@ -2258,7 +2270,7 @@ function Approvals({
             <div className="approval-row" key={item.id}>
               <div>
                 <b>{item.type}</b>
-                <span>{item.target} · {item.amount} · {item.status}</span>
+                <span>{item.target} · {item.amount}{currencyName} · {item.status}</span>
               </div>
               <div>
                 <button onClick={() => {

@@ -7,7 +7,7 @@
 
 ## 1. 사용 방법
 
-RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_15`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_17`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -197,7 +197,7 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | ECO-004 | API-CLS-003·API-READ-004·API-READ-008·API-TXN-001 |
 | ECO-005 | API-READ-010·API-READ-011·API-SHP-001·API-SHP-002·API-SHP-003·API-SHP-004 |
 | ECO-006 | API-READ-011·API-SHP-002·API-TXN-002 |
-| ECO-007 | API-CNT-002·API-ITM-001·API-READ-012·API-SHP-001 |
+| ECO-007 | API-CNT-002·API-ITM-001·API-READ-012·API-READ-035·API-SHP-001 |
 | ECO-008 | API-POL-002·API-READ-023·API-VOT-001·API-VOT-002 |
 | ECO-009 | API-POL-002 |
 | ECO-010 | API-CNT-001·API-CNT-002 |
@@ -291,7 +291,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 계약 | 사람이 읽는 기준 | 계약 수 | ID 차이 | 규격 검사 |
 | --- | --- | ---: | ---: | --- |
-| OpenAPI 3.1 | HTTP API 109개 | 작업 109개 | 0 | PASS |
+| OpenAPI 3.1 | HTTP API 110개 | 작업 110개 | 0 | PASS |
 | AsyncAPI 3.1 | 채널 10개·이벤트 48개 | 채널 10개·이벤트 48개 | 0 | PASS |
 
 `scripts/generate-contracts.mjs`가 계약을 생성하면서 수·중복을 검사하고, `scripts/validate-contract-coverage.mjs`가 기준 문서와 계약의 ID 집합을 비교합니다.
@@ -314,33 +314,31 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 항목 | 결과 | 검증 |
 | --- | ---: | --- |
-| 논리 엔티티 | 85 | 6개 ERD에서 추출 |
-| 물리 테이블 | 85 | 논리 엔티티와 1:1 매핑 |
-| 부분·핵심 유일성 | 18 | UK-001~018과 `classroom_code` 전역 UQ |
-| 검사 제약 | 39 | CK-001~039 |
-| 조회 인덱스 | 37 | IX-001~037 |
-| DB 인수 기준 | 20 | DBT-001~020 |
+| 논리 엔티티 | 87 | 6개 ERD에서 추출 |
+| 물리 테이블 | 87 | 논리 엔티티와 1:1 매핑 |
+| 부분·핵심 유일성 | 21 | UK-001~021과 `classroom_code` 전역 UQ |
+| 검사 제약 | 41 | CK-001~041 |
+| 조회 인덱스 | 40 | IX-001~040 |
+| DB 인수 기준 | 22 | DBT-001~022 |
 
-물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 85개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
+물리 스키마는 학급 복합 FK, 원장 지연 제약, 완료 데이터 불변성, 정책 스냅샷, 공개 projection 경계를 포함합니다. `scripts/validate-physical-schema.mjs`가 87개 엔티티·테이블의 누락·중복과 제약 ID를 검사합니다.
 
 ### 13.1 실행 구현 연결
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P15 | `backend/src/main/resources/db/migration/V1_1~V1_15` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI 실행·퀴즈 결과 흐름 데이터 보강 |
-| 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
+| Flyway P1~P17 | `backend/src/main/resources/db/migration/V1_1~V1_17` | 87개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI 실행·퀴즈 결과·캐릭터 장착 및 64개 코드형 상품 데이터 보강 |
+| 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql`, `V1_16__student_character_profiles_and_equipment.sql` | IX-001~040 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |
 | 공개 projection | `V1_9__indexes.sql`, `V1_10__classroom_identity_and_public_quiz.sql` | 퀴즈·투표·공동기금·투자 4개 view, GAME 공개 1~3위 제한 |
-| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~020 + 테이블 수 검사 |
-| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 78개 strict, 후속 31개 planned |
+| DBT 자동화 | `backend/src/test/java/com/b201/ecovillage/SchemaIntegrityTest.java` | DBT-001~022 + 테이블 수 검사 |
+| API 필드 매핑 | `contracts/api-field-mapping.json` | MVP·지원 79개 strict, 후속 31개 planned |
 
-Java 21 테스트 코드 컴파일은 성공했습니다. PostgreSQL 17.10의 빈 격리
-데이터베이스에서 Flyway `V1_1`~`V1_13` 직접 적용, 85개 물리 테이블과 Hibernate
-스키마 검증, 데이터베이스 삭제·재생성 후 전체 재적용을 완료했습니다. 같은
-격리 데이터베이스에서 테이블 생성 검사와 DBT-001~020 총 21개를 건너뜀 없이
-통과했습니다.
-Testcontainers 21개 전체 실행은 Docker 사용 Jenkins에서 최종 검증합니다.
+Flyway `V1_1`~`V1_13` 기준선은 PostgreSQL 17.10 격리 데이터베이스에서 적용·재생성·Hibernate
+검증을 완료했습니다. `V1_14`와 DBT-021~022는 코드와 계약 검사를 추가했으며, Java 21과 Docker를
+사용할 수 있는 Jenkins에서 87개 테이블 생성과 Testcontainers 23개 전체 실행을 최종 PASS 기준으로
+사용합니다.
 
 ## 14. 커버리지 요약
 

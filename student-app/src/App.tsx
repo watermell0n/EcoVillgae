@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "./api/client";
 import { createStudentSession, type StudentSession } from "./api/auth";
 import { StudentRealtimeClient, type RealtimeSubscriptionRequest } from "./api/realtime";
 import { clearStudentSession, getDeviceId, loadStudentSession, saveStudentSession } from "./api/sessionStorage";
 import {
   castVote,
+  calculateStoreTotal,
   createTrade,
   fetchDepositAndSavings,
   fetchFinancialProducts,
@@ -153,7 +154,9 @@ function App() {
   const [authState, setAuthState] = useState<AuthState>(() => loadStudentSession() ? "app" : "landing");
   const [page, setPage] = useState<PageKey>("village");
   const [nickname, setNickname] = useState("학생");
-  const [walletBalance, setWalletBalance] = useState(studentHomeEnvelope.studentView.walletBalance);
+  const [walletBalance, setWalletBalance] = useState(
+    () => loadStudentSession()?.walletBalance ?? studentHomeEnvelope.studentView.walletBalance
+  );
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(
     () => transactions.map((transaction) => ({
       id: transaction.id,
@@ -175,10 +178,12 @@ function App() {
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [profilePassword, setProfilePassword] = useState("economy123!");
+  const purchaseKeys = useRef(new Map<string, string>());
   const activeClassroomId = session?.classroomId ?? studentHomeEnvelope.classroom.id;
   const activeRealtimeActivityForClass = activeRealtimeActivity?.classroomId === activeClassroomId
     ? activeRealtimeActivity
     : null;
+  const currencyName = session?.currencyName ?? studentHomeEnvelope.classroom.currencyName;
 
   useEffect(() => {
     if (authState !== "app") {
@@ -343,6 +348,7 @@ function App() {
         onLogin={(nextSession, nextNickname) => {
           setSession(nextSession);
           saveStudentSession(nextSession);
+          setWalletBalance(nextSession.walletBalance);
           setNickname(nextNickname || "학생");
           setProfilePassword("economy123!");
           setAuthState("app");
@@ -353,18 +359,9 @@ function App() {
 
   const envelope = {
     ...studentHomeEnvelope,
+    classroom: { ...studentHomeEnvelope.classroom, currencyName },
     studentView: { ...studentHomeEnvelope.studentView, nickname, walletBalance }
   };
-  const savedBalance = walletBalance
-    + deposits.reduce((total, account) => total + account.principalAmount, 0);
-  const storeSpendTotal = walletTransactions.reduce(
-    (total, transaction) => (
-      transaction.amount < 0 && transaction.memo === "상점에서 구매했어요"
-        ? total + Math.abs(transaction.amount)
-        : total
-    ),
-    0
-  );
   const title = pageTitles[page];
 
   return (
@@ -391,32 +388,51 @@ function App() {
           }}
         />
         <section className="content-area">
-          {page === "village" && <VillagePage onMove={setPage} />}
-          {page === "wallet" && <WalletPage walletBalance={walletBalance} transactions={walletTransactions} />}
-          {page === "paystub" && <PaystubPage />}
+          {page === "village" && <VillagePage currencyName={currencyName} onMove={setPage} />}
+          {page === "wallet" && <WalletPage currencyName={currencyName} walletBalance={walletBalance} transactions={walletTransactions} />}
+          {page === "paystub" && <PaystubPage currencyName={currencyName} />}
           {page === "shop" && (
             <ShopPage
               classroomId={activeClassroomId}
+              currencyName={currencyName}
               walletBalance={walletBalance}
-              savedBalance={savedBalance}
-              spendTotal={storeSpendTotal}
               onBuy={async (item) => {
-                if (walletBalance < item.price) {
+                const expectedTotal = calculateStoreTotal(item.price, 1, item.vatRateBps);
+                if (walletBalance < expectedTotal) {
                   return false;
                 }
-                await purchaseStoreItem(
-                  activeClassroomId,
-                  item.productId,
-                  1,
-                  item.productVersion
-                );
-                const nextBalance = walletBalance - item.price;
+                const idempotencyKey = purchaseKeys.current.get(item.productId) ?? crypto.randomUUID();
+                purchaseKeys.current.set(item.productId, idempotencyKey);
+                let purchase: Awaited<ReturnType<typeof purchaseStoreItem>>;
+                try {
+                  purchase = await purchaseStoreItem(
+                    activeClassroomId,
+                    item.productId,
+                    1,
+                    item.productVersion,
+                    item.price,
+                    item.vatRateBps,
+                    idempotencyKey
+                  );
+                  purchaseKeys.current.delete(item.productId);
+                } catch (error) {
+                  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+                    purchaseKeys.current.delete(item.productId);
+                  }
+                  throw error;
+                }
+                const nextBalance = walletBalance - purchase.totalAmount;
                 setWalletBalance(nextBalance);
+                if (session) {
+                  const nextSession = { ...session, walletBalance: nextBalance };
+                  setSession(nextSession);
+                  saveStudentSession(nextSession);
+                }
                 setWalletTransactions((items) => [
                   {
                     id: `purchase-${Date.now()}`,
                     title: item.name,
-                    amount: -item.price,
+                    amount: -purchase.totalAmount,
                     after: nextBalance,
                     memo: "상점에서 구매했어요"
                   },
@@ -428,6 +444,7 @@ function App() {
           )}
           {page === "bank" && (
             <BankPage
+              currencyName={currencyName}
               products={financialProducts}
               deposits={deposits}
               onSubscribe={async (product) => {
@@ -445,9 +462,10 @@ function App() {
               }}
             />
           )}
-          {page === "investment" && <InvestmentPage />}
+          {page === "investment" && <InvestmentPage currencyName={currencyName} />}
           {page === "trade" && (
             <TradeApiPage
+              currencyName={currencyName}
               tradeResult={tradeResult}
               onCreateTrade={async (description, amount) => {
                 const result = await createTrade(activeClassroomId, description, amount);
@@ -469,8 +487,6 @@ function App() {
           {page === "character" && (
             <CharacterPage
               classroomId={activeClassroomId}
-              savedBalance={savedBalance}
-              spendTotal={storeSpendTotal}
             />
           )}
           {page === "profile" && (
@@ -670,12 +686,18 @@ function Header({
   );
 }
 
-function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
+function VillagePage({
+  currencyName,
+  onMove
+}: {
+  currencyName: string;
+  onMove: (page: PageKey) => void;
+}) {
   const cards = useMemo(() => [
     ...moduleCards.filter((card) => card.id !== "paystub" && card.id !== "character"),
-    { id: "trade", title: "친구 거래소", subtitle: "친구와 아이템·비빔 거래를 제안해요", icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
+    { id: "trade", title: "친구 거래소", subtitle: `친구와 아이템·${currencyName} 거래를 제안해요`, icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
     { id: "quiz", title: "오늘의 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", state: "active", cta: "풀러가기" } as ModuleCard
-  ], []);
+  ], [currencyName]);
 
   return (
     <>
@@ -712,7 +734,15 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
   );
 }
 
-function WalletPage({ walletBalance, transactions }: { walletBalance: number; transactions: WalletTransaction[] }) {
+function WalletPage({
+  currencyName,
+  walletBalance,
+  transactions
+}: {
+  currencyName: string;
+  walletBalance: number;
+  transactions: WalletTransaction[];
+}) {
   const todayIncome = transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
   const todayExpense = transactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
@@ -720,9 +750,9 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
     <section className="two-column">
       <div className="wallet-hero">
         <p>지금 내 지갑</p>
-        <strong>{walletBalance}비빔</strong>
-        <span>오늘 들어온 돈 +{todayIncome}비빔</span>
-        <span>오늘 쓴 돈 -{todayExpense}비빔</span>
+        <strong>{walletBalance}{currencyName}</strong>
+        <span>오늘 들어온 돈 +{todayIncome}{currencyName}</span>
+        <span>오늘 쓴 돈 -{todayExpense}{currencyName}</span>
       </div>
       <div className="panel">
         <p className="eyebrow">내역</p>
@@ -735,8 +765,8 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
                 <span>{tx.memo}</span>
               </div>
               <div className={tx.amount < 0 ? "money negative" : "money positive"}>
-                {tx.amount > 0 ? "+" : ""}{tx.amount}비빔
-                <small>잔액 {tx.after}비빔</small>
+                {tx.amount > 0 ? "+" : ""}{tx.amount}{currencyName}
+                <small>잔액 {tx.after}{currencyName}</small>
               </div>
             </article>
           ))}
@@ -746,7 +776,7 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
   );
 }
 
-function PaystubPage() {
+function PaystubPage({ currencyName }: { currencyName: string }) {
   return (
     <section className="paystub-layout">
       <div className="receipt">
@@ -754,23 +784,23 @@ function PaystubPage() {
           <h2>급여 명세서</h2>
           <p>이코빌리지</p>
         </div>
-        <ReceiptRow label="1인 1역 월급" amount="+150비빔" />
-        <ReceiptRow label="퀴즈 정답수당" amount="+25비빔" />
-        <ReceiptRow label="소득세" amount="-17비빔" danger />
+        <ReceiptRow label="1인 1역 월급" amount={`+150${currencyName}`} />
+        <ReceiptRow label="퀴즈 정답수당" amount={`+25${currencyName}`} />
+        <ReceiptRow label="소득세" amount={`-17${currencyName}`} danger />
         <div className="final-pay">
           <span>내 지갑에 들어온 돈</span>
-          <strong>158비빔</strong>
-          <small>175비빔 - 17비빔 = 158비빔</small>
+          <strong>158{currencyName}</strong>
+          <small>175{currencyName} - 17{currencyName} = 158{currencyName}</small>
         </div>
       </div>
       <div className="tax-explain">
         <p className="eyebrow">세금 안내</p>
         <h2>세금은 어디로 가나요?</h2>
-        <p>소득세 17비빔은 우리 반 공동기금으로 모여요. 나중에 함께 투표해서 사용할 곳을 정해요.</p>
+        <p>소득세 17{currencyName}은 우리 반 공동기금으로 모여요. 나중에 함께 투표해서 사용할 곳을 정해요.</p>
         <div className="money-flow">
-          <b>총 받은 돈<br />175비빔</b>
-          <span>-17비빔</span>
-          <b>내 지갑<br />158비빔</b>
+          <b>총 받은 돈<br />175{currencyName}</b>
+          <span>-17{currencyName}</span>
+          <b>내 지갑<br />158{currencyName}</b>
         </div>
         <button className="primary-action">확인했어요</button>
       </div>
@@ -789,31 +819,29 @@ function ReceiptRow({ label, amount, danger }: { label: string; amount: string; 
 
 function ShopPage({
   classroomId,
+  currencyName,
   walletBalance,
-  savedBalance,
-  spendTotal,
   onBuy
 }: {
   classroomId: string;
+  currencyName: string;
   walletBalance: number;
-  savedBalance: number;
-  spendTotal: number;
   onBuy: (item: CharacterStoreItem) => Promise<boolean>;
 }) {
   return (
     <section className="shop-page">
       <CharacterShop
         classroomId={classroomId}
+        currencyName={currencyName}
         walletBalance={walletBalance}
-        savedBalance={savedBalance}
-        spendTotal={spendTotal}
         onBuy={onBuy}
       />
     </section>
   );
 }
 
-function BankPage({ products, deposits, onSubscribe }: {
+function BankPage({ currencyName, products, deposits, onSubscribe }: {
+  currencyName: string;
   products: FinancialProductView[];
   deposits: DepositAccountView[];
   onSubscribe: (product: FinancialProductView) => void;
@@ -827,8 +855,8 @@ function BankPage({ products, deposits, onSubscribe }: {
           <article className="product-card" key={product.resourceId}>
             <span>🏦</span>
             <b>{product.label}</b>
-            <p>{product.minimumAmount}비빔부터 · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
-            <small>{product.termUnits}일 만기 · 최대 {product.maximumAmount}비빔</small>
+            <p>{product.minimumAmount}{currencyName}부터 · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
+            <small>{product.termUnits}일 만기 · 최대 {product.maximumAmount}{currencyName}</small>
             <button onClick={() => onSubscribe(product)}>가입하기</button>
           </article>
         ))}
@@ -841,7 +869,7 @@ function BankPage({ products, deposits, onSubscribe }: {
           deposits.map((deposit) => (
             <div className="data-row" key={deposit.resourceId}>
               <b>{deposit.label}</b>
-              <span>{deposit.principalAmount}비빔 · {deposit.status}</span>
+              <span>{deposit.principalAmount}{currencyName} · {deposit.status}</span>
             </div>
           ))
         )}
@@ -850,7 +878,7 @@ function BankPage({ products, deposits, onSubscribe }: {
   );
 }
 
-function InvestmentPage() {
+function InvestmentPage({ currencyName }: { currencyName: string }) {
   const [tab, setTab] = useState<"short" | "long">("short");
   const [investmentMessage, setInvestmentMessage] = useState("");
 
@@ -875,7 +903,7 @@ function InvestmentPage() {
                   <span>{asset.description}</span>
                 </div>
                 <dl>
-                  <div><dt>투자금</dt><dd>{asset.price}비빔</dd></div>
+                  <div><dt>투자금</dt><dd>{asset.price}{currencyName}</dd></div>
                   <div><dt>성격</dt><dd>{asset.expected}</dd></div>
                   <div><dt>결과</dt><dd>{asset.resultDate}</dd></div>
                 </dl>
@@ -888,7 +916,7 @@ function InvestmentPage() {
             {shortTermResults.map((asset) => (
               <div className="data-row" key={asset.name}>
                 <b>{asset.name}</b>
-                <span>{asset.invested}비빔 → {asset.returned}비빔 · {asset.change}비빔</span>
+                <span>{asset.invested}{currencyName} → {asset.returned}{currencyName} · {asset.change}{currencyName}</span>
               </div>
             ))}
           </div>
@@ -904,7 +932,7 @@ function InvestmentPage() {
             <article className="long-investment-card" key={asset.name}>
               <div>
                 <b>{asset.name}</b>
-                <span>{asset.holdingDays}일째 보유 중 · {asset.invested}비빔 → {asset.current}비빔</span>
+                <span>{asset.holdingDays}일째 보유 중 · {asset.invested}{currencyName} → {asset.current}{currencyName}</span>
               </div>
               <p>{asset.aiNews}</p>
               <small>{asset.hint}</small>
@@ -921,14 +949,14 @@ function InvestmentPage() {
   );
 }
 
-function TradePage() {
+function TradePage({ currencyName }: { currencyName: string }) {
   return (
     <section className="two-column">
       <div className="panel">
         <p className="eyebrow">친구 거래소</p>
         <h2>거래 제안 만들기</h2>
         <label className="stack-label">상대 학생<input placeholder="예: 하늘" /></label>
-        <label className="stack-label">보낼 비빔<input placeholder="0" /></label>
+        <label className="stack-label">보낼 {currencyName}<input placeholder="0" /></label>
         <label className="stack-label">거래 메모<input placeholder="무엇을 거래하나요?" /></label>
         <button className="primary-action wide">제안 보내기</button>
       </div>
@@ -938,7 +966,7 @@ function TradePage() {
         <div className="transaction-row">
           <div>
             <b>민준에게 보낸 제안</b>
-            <span>파란 후드 ↔ 30비빔</span>
+            <span>파란 후드 ↔ 30{currencyName}</span>
           </div>
           <div className="money">대기</div>
         </div>
@@ -963,19 +991,13 @@ function QuizPage() {
 }
 
 function CharacterPage({
-  classroomId,
-  savedBalance,
-  spendTotal
+  classroomId
 }: {
   classroomId: string;
-  savedBalance: number;
-  spendTotal: number;
 }) {
   return (
     <CharacterWardrobe
       classroomId={classroomId}
-      savedBalance={savedBalance}
-      spendTotal={spendTotal}
     />
   );
 }
@@ -1098,13 +1120,15 @@ function ClassModePage() {
 }
 
 function TradeApiPage({
+  currencyName,
   tradeResult,
   onCreateTrade
 }: {
+  currencyName: string;
   tradeResult: TradeCommandResponse | null;
   onCreateTrade: (description: string, amount: number) => void;
 }) {
-  const [description, setDescription] = useState("친구에게 30비빔 보내기");
+  const [description, setDescription] = useState(() => `친구에게 30${currencyName} 보내기`);
   const [amount, setAmount] = useState(30);
 
   return (
@@ -1113,7 +1137,7 @@ function TradeApiPage({
         <p className="eyebrow">친구 거래소</p>
         <h2>거래 제안 만들기</h2>
         <label className="stack-label">상대 학생<input placeholder="예: 하늘" /></label>
-        <label className="stack-label">보낼 비빔<input value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></label>
+        <label className="stack-label">보낼 {currencyName}<input value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></label>
         <label className="stack-label">거래 메모<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <button className="primary-action wide" onClick={() => onCreateTrade(description, amount)}>제안 보내기</button>
       </div>

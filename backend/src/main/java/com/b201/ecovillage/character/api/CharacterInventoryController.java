@@ -85,6 +85,7 @@ public class CharacterInventoryController {
             subject(principal),
             classroomId,
             inventoryItemId,
+            requestId,
             request.expectedStateVersion(),
             request.command()
         );
