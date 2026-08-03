@@ -3,11 +3,13 @@
 - 상태: 결정안 (`S15P11B201-314`)
 - 대상: 초등 5~6학년 교실 경제 활동
 
-청약은 실제 주택 청약·분양·투자 상품이 아니라, 제한된 교실 자원을 위해 저축하고 우선순위를 정하는 교육 활동이다. 화면에는 항상 “실제 주택 청약이 아닌 교실 활동” 안내를 표시한다.
+청약은 실제 주택 청약·분양·투자 상품이 아니라, 부동산 모듈이 공급하는 제한된 가상 토지 이용권을 위해 저축하고 우선순위를 정하는 교육 활동이다. 화면에는 항상 “실제 주택 청약이 아닌 교실 활동” 안내를 표시한다.
+
+청약은 독립 모듈이 아니다. `REAL_ESTATE` 모듈이 `ACTIVE`이고 해당 자산이 공급 방식 `SUBSCRIPTION`으로 게시된 경우에만 상품 생성·신청·마감이 가능하다. 부동산 모듈이 비활성화되면 신규 청약은 즉시 막고, 이미 신청 기간이 열린 상품은 교사가 취소해 전액 환불하거나 부동산 모듈을 종료하기 전에 결과를 확정해야 한다.
 
 ## 1. 범위와 선정 규칙
 
-교사는 학급당 최대 2개의 **교실 자원 이용권** 상품(예: 팀 활동 우선 선택권, 가상 상점 한정 묶음)을 열 수 있다. 실제 부동산, 현금 환급, 프리미엄·전매, 대출 연계는 제외한다.
+교사는 학급당 최대 2개의 **부동산 신규 공급 배정** 상품을 열 수 있다. 실제 부동산, 현금 환급, 프리미엄·전매, 대출 연계는 제외한다.
 
 - 신청금은 10~300 정수 화폐이고 상품마다 고정한다. 신청 때 학생 지갑에서 청약 예치 계정으로 이동한다.
 - 신청 기간은 1~14일, 정원은 1~학급 활성 학생 수다.
@@ -55,7 +57,7 @@ stateDiagram-v2
 
 ## 5. 구현 계약과 후속 분해
 
-- DB: `subscription_products`, `subscription_applications`, `subscription_priority_snapshots`, 상품별 `SUBSCRIPTION_ESCROW:{product_id}` 원장 계정
+- DB: `subscription_products`(필수 `real_estate_asset_id`), `subscription_applications`, `subscription_priority_snapshots`, 상품별 `SUBSCRIPTION_ESCROW:{product_id}` 원장 계정
 - API: 상품 설정/공개/취소, 상품 조회, 신청/취소, 마감·결과 조회
 - 이벤트: `subscription.application.status_changed`(SELF), `subscription.result.finalized`(SELF/TEACHER), 집계 전용 `subscription.product.changed`(CLASSROOM)
 - 화면: 교사 설정·마감 확인·집계, 학생 상품 상세·신청·내 결과, 공용 결과 카드
