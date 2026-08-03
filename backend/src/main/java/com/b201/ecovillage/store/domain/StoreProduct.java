@@ -146,6 +146,10 @@ public class StoreProduct {
         return name;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
     public StoreProductKind getProductKind() {
         return productKind;
     }

@@ -29,7 +29,7 @@
 | AI 실행·제안 조회 | `GET /classrooms/{C}/ai/runs-and-proposals` (`API-READ-027`) | 현재 Spring은 `202` 응답에 완료 결과를 함께 주므로 표시 가능하지만, 향후 비동기화 시 polling·재진입을 붙일 수 없다. |
 | 학급/코스 설정 변경 저장 | 코스 구성 및 학급 설정 수정 command API | 운영 계획 추천은 로컬 미리보기만 제공하며 저장 성공으로 표시하지 않는다. |
 | 모듈 사후 추가·중지·정책 수정 | `API-MOD-002`, `API-POL-001` 및 선택 모듈 추가 API | 방 생성 때 등록하지 않은 모듈을 나중에 임의 생성하거나 활성 모듈을 중지하지 않는다. |
-| GAME 보상 추천 적용 | AI 제안의 퀴즈 세션 target/version 결속과 프론트 세션 draft | 최신 Spring에는 퀴즈 세션 command·조회가 구현됐지만 `QUIZ_SESSION_DRAFT` 제안을 특정 세션에 승인 적용하는 라우팅이 없다. |
+| GAME 보상 추천 적용 | 프론트 세션 draft가 AI 제안의 target/version을 유지 | Spring은 `QUIZ_SESSION_DRAFT`의 target/version/snapshot을 보존하고 승인 시 `OPEN` GAME 세션 `UPDATE_REWARD`로 원자 적용한다. TEST·stale·범위 밖 값은 거절한다. |
 | 학생 Expo 앱 모듈 메뉴 필터 | `API-READ-006` 또는 학생용 활성 모듈 조회 | Expo 앱에서 선택한 모듈만 노출하는 완료 기준은 아직 검증할 수 없다. 현재 Vite UI는 이전 참고용이다. |
 | 명단 재조회·급여 지급 | `GET /classrooms/{C}/roster-and-salaries` (`API-READ-004`) | 저장 후 학생 UUID를 알 수 없어 잘못된 지급을 막기 위해 급여 지급 연결은 제외했다. |
 | OpenAPI 생성 타입 | Expo·교사 웹에 생성 타입 또는 단일 응답 mapper 적용 | Spring Controller/DTO와 OpenAPI 차이 검출 및 CI 기준선은 `S15P11B201-279`에서 추가했다. 실제 클라이언트 타입 전환은 Expo·교사 프론트 작업에서 진행한다. |

@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import jakarta.persistence.EntityManager;
+
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -64,6 +66,7 @@ class QuizSessionCommandServiceTest {
         QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
         IdempotencyRecordRepository idempotencyRepository =
             mock(IdempotencyRecordRepository.class);
+        EntityManager entityManager = mock(EntityManager.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
         QuizSessionCommandService service = new QuizSessionCommandService(
@@ -79,6 +82,7 @@ class QuizSessionCommandServiceTest {
             optionRepository,
             idempotencyRepository,
             uuidGenerator,
+            entityManager,
             clock
         );
 

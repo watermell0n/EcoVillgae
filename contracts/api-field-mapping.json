@@ -7645,11 +7645,11 @@
           },
           {
             "name": "expected_policy_version",
-            "required": true,
+            "required": false,
             "type": "integer",
             "target": "service_validation.policy_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]

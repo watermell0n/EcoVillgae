@@ -30,6 +30,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import com.b201.ecovillage.ai.application.SetupPrecheckFallbackFactory;
 import com.b201.ecovillage.ai.contract.SetupPrecheckContract;
 import com.b201.ecovillage.ai.infrastructure.AiServiceCallException;
@@ -40,6 +43,8 @@ import com.b201.ecovillage.ai.repository.AiProposalRepository;
 import com.b201.ecovillage.ai.domain.AiRun;
 import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.ai.repository.AsyncOperationRepository;
+import com.b201.ecovillage.audit.domain.AuditEvent;
+import com.b201.ecovillage.audit.repository.AuditEventRepository;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
@@ -52,6 +57,17 @@ import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.quiz.domain.QuizContentType;
+import com.b201.ecovillage.quiz.domain.QuizMode;
+import com.b201.ecovillage.quiz.domain.QuizSession;
+import com.b201.ecovillage.quiz.repository.QuizSessionRepository;
+import com.b201.ecovillage.store.domain.StoreProduct;
+import com.b201.ecovillage.store.domain.StoreProductKind;
+import com.b201.ecovillage.store.domain.StoreProductVersion;
+import com.b201.ecovillage.store.domain.StoreStock;
+import com.b201.ecovillage.store.repository.StoreProductRepository;
+import com.b201.ecovillage.store.repository.StoreProductVersionRepository;
+import com.b201.ecovillage.store.repository.StoreStockRepository;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -108,10 +124,29 @@ class AiSetupExecutionApiTest {
     private AsyncOperationRepository operationRepository;
 
     @Autowired
+    private StoreProductRepository productRepository;
+
+    @Autowired
+    private StoreProductVersionRepository productVersionRepository;
+
+    @Autowired
+    private StoreStockRepository stockRepository;
+
+    @Autowired
+    private QuizSessionRepository quizSessionRepository;
+
+    @Autowired
+    private AuditEventRepository auditRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Autowired
     private ControllableAiClient aiClient;
 
     private UUID classroomId;
     private UUID moduleId;
+    private UUID teacherId;
     private Principal owner;
 
     @BeforeEach
@@ -120,11 +155,11 @@ class AiSetupExecutionApiTest {
         aiClient.calls.set(0);
         classroomId = UUID.randomUUID();
         moduleId = UUID.randomUUID();
-        UUID teacherId = UUID.randomUUID();
-        owner = () -> OWNER_SUBJECT;
+        teacherId = UUID.randomUUID();
+        owner = () -> OWNER_SUBJECT + "-" + classroomId;
         userRepository.save(UserAccount.createTeacher(
             teacherId,
-            OWNER_SUBJECT,
+            owner.getName(),
             "AI Owner",
             NOW
         ));
@@ -393,6 +428,370 @@ class AiSetupExecutionApiTest {
             "AWAITING_TEACHER",
             proposalRepository.findById(proposalId).orElseThrow().getStatus()
         );
+    }
+
+    @Test
+    void appliesProductPriceOnceAndAuditsOriginalAndEditedValues() throws Exception {
+        UUID productId = UUID.randomUUID();
+        productRepository.save(StoreProduct.draft(
+            productId,
+            classroomId,
+            "Notebook",
+            "Draft product",
+            StoreProductKind.PHYSICAL,
+            teacherId,
+            NOW
+        ));
+        productVersionRepository.save(StoreProductVersion.publish(
+            UUID.randomUUID(),
+            classroomId,
+            productId,
+            1,
+            StoreProductKind.PHYSICAL,
+            100,
+            0,
+            false,
+            Map.of(),
+            NOW
+        ));
+        stockRepository.save(StoreStock.initialize(productId, classroomId, 10, NOW));
+
+        MvcResult analysis = analyze(productAnalysisBody(productId));
+        JsonNode analysisData = objectMapper.readTree(
+            analysis.getResponse().getContentAsString()
+        ).path("data");
+        UUID proposalId = UUID.fromString(analysisData.path("proposal_id").asText());
+        long proposedPrice = analysisData.path("candidates").get(0)
+            .path("proposed_value").asLong();
+        UUID applyRequestId = UUID.randomUUID();
+
+        String applyBody = """
+            {
+              "command": "APPLY",
+              "edited_values": [
+                { "action_id": "product-price", "proposed_value": %d }
+              ],
+              "reason": "Apply the reviewed product price.",
+              "expected_policy_version": 0
+            }
+            """.formatted(proposedPrice);
+        apply(proposalId, applyRequestId, applyBody)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.decision_status").value("APPLIED"))
+            .andExpect(jsonPath("$.data.applied_values[0].proposed_value").value(proposedPrice));
+        apply(proposalId, applyRequestId, applyBody)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.decision_status").value("APPLIED"));
+
+        StoreProductVersion latest = productVersionRepository
+            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+                classroomId,
+                productId
+            )
+            .orElseThrow();
+        assertEquals(2, latest.getVersion());
+        assertEquals(proposedPrice, latest.getUnitPrice());
+        List<AuditEvent> audits = auditRepository
+            .findAllByClassroomIdOrderByOccurredAtDescIdDesc(
+                classroomId,
+                org.springframework.data.domain.PageRequest.of(0, 20)
+            );
+        AuditEvent applyAudit = audits.stream()
+            .filter(event -> "AI_PROPOSAL_APPLY".equals(event.getAction()))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(applyAudit.getBeforeSummary().containsKey("original_values"));
+        assertTrue(applyAudit.getAfterSummary().containsKey("edited_values"));
+        assertTrue(applyAudit.getAfterSummary().containsKey("applied_values"));
+    }
+
+    @Test
+    void appliesGameRewardOnceAndRejectsOutOfRangeEdit() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        quizSessionRepository.save(QuizSession.open(
+            sessionId,
+            classroomId,
+            QuizMode.GAME,
+            QuizContentType.ECONOMY,
+            Map.of("reward_per_person", 0),
+            false,
+            NOW
+        ));
+
+        MvcResult analysis = analyze(quizAnalysisBody(sessionId));
+        JsonNode analysisData = objectMapper.readTree(
+            analysis.getResponse().getContentAsString()
+        ).path("data");
+        UUID proposalId = UUID.fromString(analysisData.path("proposal_id").asText());
+        long proposedReward = analysisData.path("candidates").get(0)
+            .path("proposed_value").asLong();
+        long stateVersionBeforeApply = quizSessionRepository.findById(sessionId)
+            .orElseThrow()
+            .getStateVersion();
+        Map<String, Object> range = proposalRepository.findById(proposalId)
+            .orElseThrow()
+            .getAllowedRanges();
+        @SuppressWarnings("unchecked")
+        long allowedMaximum = ((Number) ((List<Map<String, Object>>) range.get("items"))
+            .getFirst()
+            .get("allowed_max_value")).longValue();
+
+        apply(proposalId, UUID.randomUUID(), """
+            {
+              "command": "APPLY",
+              "edited_values": [
+                { "action_id": "game-reward", "proposed_value": %d }
+              ],
+              "reason": "Reject an excessive reward.",
+              "expected_policy_version": 0
+            }
+            """.formatted(allowedMaximum + 1))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("POLICY_VIOLATION"));
+
+        UUID applyRequestId = UUID.randomUUID();
+        String applyBody = """
+            {
+              "command": "APPLY",
+              "edited_values": [],
+              "reason": "Apply the reviewed GAME reward.",
+              "expected_policy_version": 0
+            }
+            """;
+        apply(proposalId, applyRequestId, applyBody)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.decision_status").value("APPLIED"));
+        entityManager.flush();
+        entityManager.clear();
+        long stateVersionAfterApply = quizSessionRepository.findById(sessionId)
+            .orElseThrow()
+            .getStateVersion();
+        apply(proposalId, applyRequestId, applyBody)
+            .andExpect(status().isOk());
+        entityManager.flush();
+        entityManager.clear();
+
+        QuizSession applied = quizSessionRepository.findById(sessionId).orElseThrow();
+        assertEquals(proposedReward, ((Number) applied.getRewardPolicyPublic()
+            .get("reward_per_person")).longValue());
+        assertTrue(stateVersionAfterApply > stateVersionBeforeApply);
+        assertEquals(stateVersionAfterApply, applied.getStateVersion());
+    }
+
+    @Test
+    void rejectsBlockedExpiredWrongTargetAndStaleProductProposals() throws Exception {
+        UUID blockedProductId = createProduct("Blocked product", 2000);
+        MvcResult blockedAnalysis = analyze(
+            productAnalysisBody(blockedProductId).replace(
+                "\"confirmed_price\": 100",
+                "\"confirmed_price\": 2000"
+            )
+        );
+        JsonNode blockedData = objectMapper.readTree(
+            blockedAnalysis.getResponse().getContentAsString()
+        ).path("data");
+        assertEquals("BLOCK", blockedData.path("overall_severity").asText());
+        UUID blockedProposalId = UUID.fromString(blockedData.path("proposal_id").asText());
+        apply(blockedProposalId, UUID.randomUUID(), applyWithoutEdits("blocked"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("POLICY_VIOLATION"));
+
+        UUID expiredProductId = createProduct("Expired product");
+        UUID expiredProposalId = proposalId(analyze(productAnalysisBody(expiredProductId)));
+        entityManager.createQuery("""
+            update AiProposal proposal
+               set proposal.expiresAt = :expired
+             where proposal.id = :proposalId
+            """)
+            .setParameter("expired", Instant.EPOCH)
+            .setParameter("proposalId", expiredProposalId)
+            .executeUpdate();
+        entityManager.clear();
+        apply(expiredProposalId, UUID.randomUUID(), applyWithoutEdits("expired"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("PROPOSAL_EXPIRED"));
+
+        UUID wrongTargetProductId = createProduct("Wrong target product");
+        UUID wrongTargetProposalId = proposalId(
+            analyze(productAnalysisBody(wrongTargetProductId))
+        );
+        var wrongTargetProposal = proposalRepository.findById(wrongTargetProposalId)
+            .orElseThrow();
+        Map<String, Object> wrongTargetValues = new java.util.LinkedHashMap<>(
+            wrongTargetProposal.getProposedValues()
+        );
+        wrongTargetValues.put("target_id", UUID.randomUUID().toString());
+        wrongTargetProposal.replaceProposedValues(wrongTargetValues, NOW.plusSeconds(1));
+        proposalRepository.saveAndFlush(wrongTargetProposal);
+        apply(wrongTargetProposalId, UUID.randomUUID(), applyWithoutEdits("wrong target"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("INVALID_RECOMMENDATION_CONTEXT"));
+
+        UUID staleProductId = createProduct("Stale product");
+        UUID staleProposalId = proposalId(analyze(productAnalysisBody(staleProductId)));
+        StoreProduct staleProduct = productRepository.findById(staleProductId).orElseThrow();
+        staleProduct.updateDescription("Changed after analysis", "stale", NOW.plusSeconds(2));
+        productRepository.saveAndFlush(staleProduct);
+        apply(staleProposalId, UUID.randomUUID(), applyWithoutEdits("stale"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("STALE_PROPOSAL"));
+    }
+
+    @Test
+    void testQuizRewardProducesNoApplicableProposal() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        quizSessionRepository.save(QuizSession.open(
+            sessionId,
+            classroomId,
+            QuizMode.TEST,
+            QuizContentType.ECONOMY,
+            Map.of(),
+            false,
+            NOW
+        ));
+        String body = quizAnalysisBody(sessionId)
+            .replace("\"mode\": \"GAME\"", "\"mode\": \"TEST\"")
+            .replace(
+                "\"confirmed_reward_per_person\": 0",
+                "\"confirmed_reward_per_person\": 100"
+            );
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.data.overall_severity").value("BLOCK"))
+            .andExpect(jsonPath("$.data.proposal_id").doesNotExist());
+    }
+
+    private UUID createProduct(String name) {
+        return createProduct(name, 100);
+    }
+
+    private UUID createProduct(String name, long unitPrice) {
+        UUID productId = UUID.randomUUID();
+        productRepository.save(StoreProduct.draft(
+            productId,
+            classroomId,
+            name,
+            "Draft product",
+            StoreProductKind.PHYSICAL,
+            teacherId,
+            NOW
+        ));
+        productVersionRepository.save(StoreProductVersion.publish(
+            UUID.randomUUID(),
+            classroomId,
+            productId,
+            1,
+            StoreProductKind.PHYSICAL,
+            unitPrice,
+            0,
+            false,
+            Map.of(),
+            NOW
+        ));
+        stockRepository.save(StoreStock.initialize(productId, classroomId, 10, NOW));
+        return productId;
+    }
+
+    private UUID proposalId(MvcResult result) throws Exception {
+        return UUID.fromString(objectMapper.readTree(
+            result.getResponse().getContentAsString()
+        ).path("data").path("proposal_id").asText());
+    }
+
+    private String applyWithoutEdits(String reason) {
+        return """
+            {
+              "command": "APPLY",
+              "edited_values": [],
+              "reason": "%s",
+              "expected_policy_version": 0
+            }
+            """.formatted(reason);
+    }
+
+    private MvcResult analyze(String body) throws Exception {
+        return mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Correlation-Id", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.data.proposal_id").isNotEmpty())
+            .andReturn();
+    }
+
+    private org.springframework.test.web.servlet.ResultActions apply(
+        UUID proposalId,
+        UUID requestId,
+        String body
+    ) throws Exception {
+        return mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-proposals/{proposalId}/commands",
+                classroomId,
+                proposalId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", requestId)
+                .header("X-Correlation-Id", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+    }
+
+    private String productAnalysisBody(UUID productId) {
+        return """
+            {
+              "analysis_mode": "SETUP_PRECHECK",
+              "trigger_context": {
+                "context_type": "PRODUCT_DRAFT",
+                "active_student_count": 24,
+                "system_amount_cap": 1000,
+                "product_draft": {
+                  "target_id": "%s",
+                  "kind": "NORMAL",
+                  "stock": 10,
+                  "expected_demand": 20,
+                  "expected_purchase_frequency": 1.0,
+                  "vat_bps": 0,
+                  "free": false,
+                  "confirmed_price": 100
+                }
+              }
+            }
+            """.formatted(productId);
+    }
+
+    private String quizAnalysisBody(UUID sessionId) {
+        return """
+            {
+              "analysis_mode": "SETUP_PRECHECK",
+              "trigger_context": {
+                "context_type": "QUIZ_SESSION_DRAFT",
+                "active_student_count": 24,
+                "non_reward_issuance": 100000,
+                "existing_reward_issuance": 0,
+                "quiz_draft": {
+                  "target_id": "%s",
+                  "mode": "GAME",
+                  "category": "ECONOMY",
+                  "question_count": 5,
+                  "expected_participants": 10,
+                  "expected_runs": 1,
+                  "confirmed_reward_per_person": 0
+                }
+              }
+            }
+            """.formatted(sessionId);
     }
 
     private String moduleAnalysisBody() {

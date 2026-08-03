@@ -613,7 +613,7 @@ const requestFieldOverrides = {
     },
   ],
   "API-AI-003": [
-    { name: "command", values: ["APPLY", "REJECT"] },
+    { name: "command", values: ["APPLY", "REJECT", "ACKNOWLEDGE"] },
     {
       name: "edited_values",
       optional: true,
@@ -632,7 +632,7 @@ const requestFieldOverrides = {
       },
     },
     { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
-    { name: "expected_policy_version", schema: { type: "integer", minimum: 1 } },
+    { name: "expected_policy_version", optional: true, schema: { type: "integer", minimum: 0 } },
   ],
   "API-DAT-002": [
     { name: "source_classroom_id" },
@@ -760,7 +760,7 @@ const requestFieldOverrides = {
     { name: "reason", optional: true },
   ],
   "API-QZ-004": [
-    { name: "command", values: ["START", "CLOSE_SUBMISSIONS"] },
+    { name: "command", values: ["START", "UPDATE_REWARD", "CLOSE_SUBMISSIONS"] },
     { name: "question_version_ids" },
     { name: "participant_ids" },
     { name: "mode", values: ["GAME", "TEST"] },
@@ -1236,7 +1236,7 @@ const responseFieldOverrides = {
   "API-AI-003": [
     { name: "proposal_id", schema: { type: "string", format: "uuid" } },
     { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
-    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED"] } },
+    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED", "ACKNOWLEDGED"] } },
     { name: "policy_version", optional: true, schema: { type: "integer", minimum: 1 } },
     { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
     {
