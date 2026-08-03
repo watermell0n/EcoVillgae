@@ -3,6 +3,7 @@ package com.b201.ecovillage.finance.application;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
 import com.b201.ecovillage.ledger.domain.LedgerAccountType;
 import com.b201.ecovillage.ledger.domain.LedgerActorType;
 import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
 public class DepositMaturityProcessor {
@@ -34,17 +36,20 @@ public class DepositMaturityProcessor {
     private final DepositAccountRepository accountRepository;
     private final LedgerAccountRepository ledgerAccountRepository;
     private final AtomicLedgerTransactionService transactionService;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
 
     public DepositMaturityProcessor(
         DepositAccountRepository accountRepository,
         LedgerAccountRepository ledgerAccountRepository,
         AtomicLedgerTransactionService transactionService,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator
     ) {
         this.accountRepository = accountRepository;
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.transactionService = transactionService;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
     }
 
@@ -144,6 +149,20 @@ public class DepositMaturityProcessor {
             List.of(maturity)
         );
         accountRepository.flush();
+        eventPublisher.publish(
+            classroomId,
+            "STUDENT_PRIVATE",
+            account.getClassroomStudentId(),
+            "deposit.account.matured",
+            "DEPOSIT_ACCOUNT",
+            account.getId(),
+            account.getStateVersion(),
+            Map.of(
+                "account_id", account.getId().toString(),
+                "status", account.getStatus().name()
+            ),
+            false
+        );
         return true;
     }
 

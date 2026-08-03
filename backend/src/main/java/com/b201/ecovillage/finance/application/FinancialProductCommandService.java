@@ -29,6 +29,7 @@ import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
 public class FinancialProductCommandService {
@@ -43,6 +44,7 @@ public class FinancialProductCommandService {
     private final FinancialProductRepository productRepository;
     private final FinancialProductVersionRepository versionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -53,6 +55,7 @@ public class FinancialProductCommandService {
         FinancialProductRepository productRepository,
         FinancialProductVersionRepository versionRepository,
         IdempotencyRecordRepository idempotencyRepository,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -62,6 +65,7 @@ public class FinancialProductCommandService {
         this.productRepository = productRepository;
         this.versionRepository = versionRepository;
         this.idempotencyRepository = idempotencyRepository;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -142,6 +146,21 @@ public class FinancialProductCommandService {
                 now.plus(IDEMPOTENCY_TTL),
                 now
             )
+        );
+        eventPublisher.publish(
+            command.classroomId(),
+            "ECONOMY",
+            null,
+            "finance.product.changed",
+            "FINANCIAL_PRODUCT",
+            product.getId(),
+            product.getStateVersion(),
+            Map.of(
+                "product_id", product.getId().toString(),
+                "product_type", product.getProductType().name(),
+                "status", product.getStatus()
+            ),
+            true
         );
         return result;
     }

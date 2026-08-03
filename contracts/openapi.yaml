@@ -10428,6 +10428,21 @@ paths:
                               type: "string"
                             interest_rate_bps:
                               type: "integer"
+                            term_units:
+                              type: "integer"
+                              minimum: 1
+                            early_termination_rate_bps:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 10000
+                            minimum_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
+                            maximum_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -10522,8 +10537,22 @@ paths:
                             principal_amount:
                               type: "integer"
                               format: "int64"
+                            expected_interest_amount:
+                              type: "integer"
+                              format: "int64"
+                            maturity_amount:
+                              type: "integer"
+                              format: "int64"
+                            opened_at:
+                              type: "string"
+                              format: "date-time"
                             matures_at:
                               type: "string"
+                              format: "date-time"
+                            closed_at:
+                              type:
+                                - "string"
+                                - "null"
                               format: "date-time"
                           additionalProperties: false
                       savings_accounts:

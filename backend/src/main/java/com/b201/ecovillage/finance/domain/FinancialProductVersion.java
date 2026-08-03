@@ -174,6 +174,10 @@ public class FinancialProductVersion {
             && "PUBLISHED".equals(status);
     }
 
+    public boolean isPublished() {
+        return "PUBLISHED".equals(status);
+    }
+
     public UUID getId() {
         return id;
     }
@@ -196,6 +200,10 @@ public class FinancialProductVersion {
 
     public int getInterestRateBps() {
         return interestRateBps;
+    }
+
+    public int getEarlyTerminationRateBps() {
+        return earlyTerminationRateBps;
     }
 
     public long getMinimumAmount() {

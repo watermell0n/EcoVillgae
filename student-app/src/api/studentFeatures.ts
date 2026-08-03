@@ -16,7 +16,25 @@ export type DepositAccountView = {
   version: number;
   stateVersion: number;
   principalAmount: number;
+  expectedInterestAmount: number;
+  maturityAmount: number;
+  openedAt: string;
   maturesAt: string;
+  closedAt: string | null;
+};
+
+export type FinancialProductView = {
+  resourceId: string;
+  label: string;
+  status: string;
+  version: number;
+  stateVersion: number;
+  productType: string;
+  termUnits: number;
+  interestRateBps: number;
+  earlyTerminationRateBps: number;
+  minimumAmount: number;
+  maximumAmount: number;
 };
 
 export type DepositAndSavingsResponse = {
@@ -28,6 +46,34 @@ export type FinancialResourceResponse = {
   financialResourceId: string;
   status: string;
   stateVersion: number;
+};
+
+type RawFinancialProductView = {
+  resource_id: string;
+  label: string;
+  status: string;
+  version: number;
+  state_version: number;
+  product_type: string;
+  term_units: number;
+  interest_rate_bps: number;
+  early_termination_rate_bps: number;
+  minimum_amount: number;
+  maximum_amount: number;
+};
+
+type RawDepositAccountView = {
+  resource_id: string;
+  label: string;
+  status: string;
+  version: number;
+  state_version: number;
+  principal_amount: number;
+  expected_interest_amount: number;
+  maturity_amount: number;
+  opened_at: string;
+  matures_at: string;
+  closed_at: string | null;
 };
 
 export type TradeCommandResponse = {
@@ -146,7 +192,49 @@ export async function purchaseStoreItem(
   });
 }
 
-export async function subscribeDeposit(classroomId: string, productId = ids.depositProduct, principal = 100) {
+export async function fetchFinancialProducts(classroomId: string) {
+  if (MOCK_FEATURES) {
+    return [
+      {
+        resourceId: ids.depositProduct,
+        label: "3-day deposit",
+        status: "PUBLISHED",
+        version: 1,
+        stateVersion: 1,
+        productType: "DEPOSIT",
+        termUnits: 3,
+        interestRateBps: 1_000,
+        earlyTerminationRateBps: 0,
+        minimumAmount: 100,
+        maximumAmount: 1_000
+      }
+    ] satisfies FinancialProductView[];
+  }
+
+  const response = await apiRequest<{ financial_products: RawFinancialProductView[] }>(
+    `/classrooms/${classroomId}/financial-products`
+  );
+  return response.financial_products.map((product) => ({
+    resourceId: product.resource_id,
+    label: product.label,
+    status: product.status,
+    version: product.version,
+    stateVersion: product.state_version,
+    productType: product.product_type,
+    termUnits: product.term_units,
+    interestRateBps: product.interest_rate_bps,
+    earlyTerminationRateBps: product.early_termination_rate_bps,
+    minimumAmount: product.minimum_amount,
+    maximumAmount: product.maximum_amount
+  }));
+}
+
+export async function subscribeDeposit(
+  classroomId: string,
+  productId: string,
+  principal: number,
+  expectedProductVersion: number
+) {
   if (MOCK_FEATURES) {
     return {
       financialResourceId: crypto.randomUUID(),
@@ -155,18 +243,26 @@ export async function subscribeDeposit(classroomId: string, productId = ids.depo
     } satisfies FinancialResourceResponse;
   }
 
-  return apiRequest<FinancialResourceResponse>(`/classrooms/${classroomId}/deposit-accounts`, {
+  const response = await apiRequest<{
+    financial_resource_id: string;
+    status: string;
+    state_version: number;
+  }>(`/classrooms/${classroomId}/deposit-accounts`, {
     method: "POST",
     body: JSON.stringify({
-      expectedStateVersion: 0,
-      screenId: "SCR-STU-BANK",
-      uiActionId: "SUBSCRIBE_DEPOSIT",
-      clientOccurredAt: now(),
-      productId,
+      screen_id: "SCR-STU-014",
+      ui_action_id: "UIA-FIN-002",
+      client_occurred_at: now(),
+      product_id: productId,
       principal,
-      expectedProductVersion: 1
+      expected_product_version: expectedProductVersion
     })
   });
+  return {
+    financialResourceId: response.financial_resource_id,
+    status: response.status,
+    stateVersion: response.state_version
+  } satisfies FinancialResourceResponse;
 }
 
 export async function fetchDepositAndSavings(classroomId: string) {
@@ -180,14 +276,37 @@ export async function fetchDepositAndSavings(classroomId: string) {
           version: 1,
           stateVersion: 1,
           principalAmount: 100,
-          maturesAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+          expectedInterestAmount: 10,
+          maturityAmount: 110,
+          openedAt: now(),
+          maturesAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          closedAt: null
         }
       ],
       savingsAccounts: []
     } satisfies DepositAndSavingsResponse;
   }
 
-  return apiRequest<DepositAndSavingsResponse>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
+  const response = await apiRequest<{
+    deposit_accounts: RawDepositAccountView[];
+    savings_accounts: unknown[];
+  }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
+  return {
+    depositAccounts: response.deposit_accounts.map((account) => ({
+      resourceId: account.resource_id,
+      label: account.label,
+      status: account.status,
+      version: account.version,
+      stateVersion: account.state_version,
+      principalAmount: account.principal_amount,
+      expectedInterestAmount: account.expected_interest_amount,
+      maturityAmount: account.maturity_amount,
+      openedAt: account.opened_at,
+      maturesAt: account.matures_at,
+      closedAt: account.closed_at
+    })),
+    savingsAccounts: response.savings_accounts
+  } satisfies DepositAndSavingsResponse;
 }
 
 export async function createTrade(classroomId: string, description: string, amount: number) {

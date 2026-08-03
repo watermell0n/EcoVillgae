@@ -22,6 +22,11 @@ public interface DepositAccountRepository extends JpaRepository<DepositAccount, 
         UUID openingTransactionGroupId
     );
 
+    Optional<DepositAccount> findByClassroomIdAndClosingTransactionGroupId(
+        UUID classroomId,
+        UUID closingTransactionGroupId
+    );
+
     boolean existsByClassroomIdAndStatus(
         UUID classroomId,
         DepositAccountStatus status
@@ -38,6 +43,17 @@ public interface DepositAccountRepository extends JpaRepository<DepositAccount, 
             DepositAccountStatus status,
             Instant maturesAt
         );
+
+    @Query("""
+        select distinct account.classroomId
+          from DepositAccount account
+         where account.status = :status
+           and account.maturesAt <= :maturesAt
+        """)
+    List<UUID> findDueClassroomIds(
+        @Param("status") DepositAccountStatus status,
+        @Param("maturesAt") Instant maturesAt
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

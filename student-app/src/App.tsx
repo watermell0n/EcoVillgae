@@ -7,6 +7,7 @@ import {
   castVote,
   createTrade,
   fetchDepositAndSavings,
+  fetchFinancialProducts,
   fetchGuidedActivity,
   fetchQuizQuestions,
   fetchQuizSession,
@@ -15,6 +16,7 @@ import {
   subscribeDeposit,
   submitGameAnswer,
   type DepositAccountView,
+  type FinancialProductView,
   type GuidedActivity,
   type QuizQuestion,
   type QuizSession,
@@ -116,11 +118,6 @@ const pageTitles: Record<PageKey, string> = {
   class: "선생님 수업"
 };
 
-const financeProducts = [
-  { id: "deposit-1", title: "3일 예금", description: "오늘 넣으면 3일차에 이자를 받아요", amount: 100, rate: "10%" },
-  { id: "saving-1", title: "매일 적금", description: "매일 조금씩 모으는 연습이에요", amount: 30, rate: "15%" }
-];
-
 const shortTermInvestments = [
   { name: "거북이상사", price: 50, expected: "안정형", resultDate: "내일 공개", description: "가격 변화가 작고 결과가 빨리 나와요." },
   { name: "호랑운송", price: 40, expected: "변동형", resultDate: "내일 공개", description: "좋은 소식과 나쁜 소식에 따라 크게 움직여요." },
@@ -167,6 +164,7 @@ function App() {
     }))
   );
   const [deposits, setDeposits] = useState<DepositAccountView[]>([]);
+  const [financialProducts, setFinancialProducts] = useState<FinancialProductView[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
   const [vote, setVote] = useState<VoteView | null>(null);
@@ -190,8 +188,9 @@ function App() {
     let ignore = false;
     async function loadStudentFeatures() {
       try {
-        const [accountData, questionData, sessionData, voteData, activityData] = await Promise.all([
+        const [accountData, productData, questionData, sessionData, voteData, activityData] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
+          fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
           fetchQuizSession(
             activeClassroomId,
@@ -216,6 +215,7 @@ function App() {
         }
 
         setDeposits(accountData.depositAccounts);
+        setFinancialProducts(productData);
         setQuizQuestions(questionData.questions);
         setQuizSession(sessionData);
         setVote(voteData);
@@ -428,11 +428,19 @@ function App() {
           )}
           {page === "bank" && (
             <BankPage
+              products={financialProducts}
               deposits={deposits}
-              onSubscribe={async (amount) => {
-                const result = await subscribeDeposit(activeClassroomId, undefined, amount);
+              onSubscribe={async (product) => {
+                const amount = product.minimumAmount;
+                const result = await subscribeDeposit(
+                  activeClassroomId,
+                  product.resourceId,
+                  amount,
+                  product.version
+                );
                 const latest = await fetchDepositAndSavings(activeClassroomId);
                 setDeposits(latest.depositAccounts);
+                setWalletBalance((balance) => balance - amount);
                 setActionMessage(`예금 가입 완료: ${result.status}`);
               }}
             />
@@ -805,19 +813,23 @@ function ShopPage({
   );
 }
 
-function BankPage({ deposits, onSubscribe }: { deposits: DepositAccountView[]; onSubscribe: (amount: number) => void }) {
+function BankPage({ products, deposits, onSubscribe }: {
+  products: FinancialProductView[];
+  deposits: DepositAccountView[];
+  onSubscribe: (product: FinancialProductView) => void;
+}) {
   return (
     <section className="panel">
       <p className="eyebrow">이코 은행</p>
       <h2>예금과 적금 상품</h2>
       <div className="product-grid compact">
-        {financeProducts.map((product) => (
-          <article className="product-card" key={product.id}>
+        {products.filter((product) => product.productType === "DEPOSIT").map((product) => (
+          <article className="product-card" key={product.resourceId}>
             <span>🏦</span>
-            <b>{product.title}</b>
-            <p>{product.amount}비빔부터 · 이자 {product.rate}</p>
-            <small>{product.description}</small>
-            <button onClick={() => onSubscribe(product.amount)}>가입하기</button>
+            <b>{product.label}</b>
+            <p>{product.minimumAmount}비빔부터 · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
+            <small>{product.termUnits}일 만기 · 최대 {product.maximumAmount}비빔</small>
+            <button onClick={() => onSubscribe(product)}>가입하기</button>
           </article>
         ))}
       </div>
