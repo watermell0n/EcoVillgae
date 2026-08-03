@@ -9,6 +9,7 @@ import {
   createTrade,
   fetchDepositAndSavings,
   fetchFinancialProducts,
+  fetchActiveModuleCodes,
   fetchGuidedActivity,
   fetchQuizQuestions,
   fetchQuizSession,
@@ -61,6 +62,22 @@ type ActiveRealtimeActivity = {
 };
 
 const ACTIVE_REALTIME_ACTIVITY_KEY = "ecovillage.student.realtime.active-activity";
+
+const DEFAULT_ACTIVE_MODULE_CODES = new Set([
+  "STORE", "DEPOSIT", "SAVINGS", "LOAN", "INVESTMENT", "TRADE", "QUIZ", "ROLE_SALARY"
+]);
+
+function isPageAvailable(page: PageKey, activeModuleCodes: Set<string>) {
+  switch (page) {
+    case "shop": return activeModuleCodes.has("STORE");
+    case "bank": return ["DEPOSIT", "SAVINGS", "LOAN"].some((code) => activeModuleCodes.has(code));
+    case "investment": return activeModuleCodes.has("INVESTMENT");
+    case "trade": return activeModuleCodes.has("TRADE");
+    case "quiz": return activeModuleCodes.has("QUIZ");
+    case "paystub": return activeModuleCodes.has("ROLE_SALARY") || activeModuleCodes.has("SALARY");
+    default: return true;
+  }
+}
 
 function loadActiveRealtimeActivity(): ActiveRealtimeActivity | null {
   try {
@@ -174,6 +191,9 @@ function App() {
   const [guidedActivity, setGuidedActivity] = useState<GuidedActivity | null>(null);
   const [activeRealtimeActivity, setActiveRealtimeActivity] =
     useState<ActiveRealtimeActivity | null>(() => loadActiveRealtimeActivity());
+  const [activeModuleCodes, setActiveModuleCodes] = useState<Set<string>>(
+    () => new Set(DEFAULT_ACTIVE_MODULE_CODES)
+  );
   const [realtimeRefresh, setRealtimeRefresh] = useState(0);
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
   const [actionMessage, setActionMessage] = useState("");
@@ -193,7 +213,7 @@ function App() {
     let ignore = false;
     async function loadStudentFeatures() {
       try {
-        const [accountData, productData, questionData, sessionData, voteData, activityData] = await Promise.all([
+        const [accountData, productData, questionData, sessionData, voteData, activityData, moduleCodes] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
@@ -212,7 +232,8 @@ function App() {
           fetchGuidedActivity(
             activeClassroomId,
             activeRealtimeActivityForClass?.activityId
-          )
+          ),
+          fetchActiveModuleCodes(activeClassroomId)
         ]);
 
         if (ignore) {
@@ -225,6 +246,7 @@ function App() {
         setQuizSession(sessionData);
         setVote(voteData);
         setGuidedActivity(activityData);
+        setActiveModuleCodes(moduleCodes);
       } catch (error) {
         if (!ignore) {
           setActionMessage(error instanceof Error ? error.message : "학생 데이터를 불러오지 못했어요.");
@@ -243,6 +265,13 @@ function App() {
     authState,
     realtimeRefresh
   ]);
+
+  useEffect(() => {
+    if (!isPageAvailable(page, activeModuleCodes)) {
+      setPage("village");
+      setActionMessage("선생님이 이 기능을 중지했어요.");
+    }
+  }, [activeModuleCodes, page]);
 
   useEffect(() => {
     if (
@@ -283,6 +312,20 @@ function App() {
     const client = new StudentRealtimeClient({
       subscriptions,
       onEvent: (event) => {
+        if (
+          event.event_type === "classroom.module.changed"
+          && typeof event.payload.module_code === "string"
+          && typeof event.payload.status === "string"
+        ) {
+          const moduleCode = event.payload.module_code;
+          const status = event.payload.status;
+          setActiveModuleCodes((current) => {
+            const next = new Set(current);
+            if (status === "ACTIVE") next.add(moduleCode);
+            else next.delete(moduleCode);
+            return next;
+          });
+        }
         if (
           event.event_type === "classroom.app_mode.changed"
           && event.payload.mode === "GUIDED"
@@ -363,18 +406,26 @@ function App() {
     studentView: { ...studentHomeEnvelope.studentView, nickname, walletBalance }
   };
   const title = pageTitles[page];
+  const moveTo = (nextPage: PageKey) => {
+    if (!isPageAvailable(nextPage, activeModuleCodes)) {
+      setActionMessage("선생님이 이 기능을 중지했어요.");
+      return;
+    }
+    setPage(nextPage);
+  };
 
   return (
     <div className="student-shell">
       <Sidebar
         current={page}
-        onMove={setPage}
+        onMove={moveTo}
+        activeModuleCodes={activeModuleCodes}
       />
       <main className="student-main">
         <Header
           title={title}
           envelope={envelope}
-          onMove={setPage}
+          onMove={moveTo}
           onLogout={() => {
             clearStudentSession();
             storeActiveRealtimeActivity(null);
@@ -388,8 +439,20 @@ function App() {
           }}
         />
         <section className="content-area">
-          {page === "village" && <VillagePage currencyName={currencyName} onMove={setPage} />}
-          {page === "wallet" && <WalletPage currencyName={currencyName} walletBalance={walletBalance} transactions={walletTransactions} />}
+          {page === "village" && (
+            <VillagePage
+              currencyName={currencyName}
+              onMove={moveTo}
+              activeModuleCodes={activeModuleCodes}
+            />
+          )}
+          {page === "wallet" && (
+            <WalletPage
+              currencyName={currencyName}
+              walletBalance={walletBalance}
+              transactions={walletTransactions}
+            />
+          )}
           {page === "paystub" && <PaystubPage currencyName={currencyName} />}
           {page === "shop" && (
             <ShopPage
@@ -608,7 +671,15 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
   );
 }
 
-function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey) => void }) {
+function Sidebar({
+  current,
+  onMove,
+  activeModuleCodes
+}: {
+  current: PageKey;
+  onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
+}) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -620,7 +691,7 @@ function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey
       </div>
       <nav>
         {menuItems.map((item) => (
-          <button key={item.key} className={current === item.key ? "side-item active" : "side-item"} onClick={() => onMove(item.key)}>
+          <button key={item.key} disabled={!isPageAvailable(item.key, activeModuleCodes)} className={current === item.key ? "side-item active" : "side-item"} onClick={() => onMove(item.key)}>
             <span>{item.icon}</span>
             {item.label}
           </button>
@@ -688,10 +759,12 @@ function Header({
 
 function VillagePage({
   currencyName,
-  onMove
+  onMove,
+  activeModuleCodes
 }: {
   currencyName: string;
   onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
 }) {
   const cards = useMemo(() => [
     ...moduleCards.filter((card) => card.id !== "paystub" && card.id !== "character"),
@@ -703,15 +776,22 @@ function VillagePage({
     <>
       <section className="village-grid">
         {cards.map((card) => (
-          <VillageCard key={card.id} card={card} onMove={onMove} />
+          <VillageCard key={card.id} card={card} onMove={onMove} activeModuleCodes={activeModuleCodes} />
         ))}
       </section>
     </>
   );
 }
 
-function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKey) => void }) {
-  const disabled = card.state === "locked" || card.state === "construction";
+function VillageCard({
+  card,
+  onMove,
+  activeModuleCodes
+}: {
+  card: ModuleCard;
+  onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
+}) {
   const pageMap: Record<string, PageKey> = {
     paystub: "paystub",
     character: "character",
@@ -722,9 +802,11 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
     trade: "trade",
     quiz: "quiz"
   };
+  const page = pageMap[card.id] ?? "village";
+  const disabled = card.state === "locked" || card.state === "construction" || !isPageAvailable(page, activeModuleCodes);
 
   return (
-    <button className={`village-card tone-${card.tone}`} disabled={disabled} onClick={() => onMove(pageMap[card.id] ?? "village")}>
+    <button className={`village-card tone-${card.tone}`} disabled={disabled} onClick={() => onMove(page)}>
       <span className="status-badge">{card.state === "new" ? "NEW" : card.state === "locked" ? "잠김" : card.state === "resultOnly" ? "조회" : "열림"}</span>
       <span className="card-icon">{card.icon}</span>
       <strong>{card.title}</strong>
