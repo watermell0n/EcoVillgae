@@ -26,6 +26,9 @@ import com.b201.ecovillage.ai.application.AiProposalCommandResult;
 import com.b201.ecovillage.ai.application.AiProposalCommandService;
 import com.b201.ecovillage.ai.application.AiHistoryQueryService;
 import com.b201.ecovillage.ai.application.AiRunHistoryPage;
+import com.b201.ecovillage.ai.application.EconomicEventDecisionCommand;
+import com.b201.ecovillage.ai.application.EconomicEventDecisionResult;
+import com.b201.ecovillage.ai.application.EconomicEventDecisionService;
 import com.b201.ecovillage.ai.application.EconomicEventDraftCommand;
 import com.b201.ecovillage.ai.application.EconomicEventDraftResult;
 import com.b201.ecovillage.ai.application.EconomicEventDraftService;
@@ -58,6 +61,7 @@ public class AiController {
     private final OperationalAnalysisService operationalAnalysisService;
     private final AiProposalCommandService proposalCommandService;
     private final EconomicEventDraftService economicEventDraftService;
+    private final EconomicEventDecisionService economicEventDecisionService;
     private final QuizDraftService quizDraftService;
     private final TeacherChatService teacherChatService;
     private final UuidV7Generator uuidGenerator;
@@ -69,6 +73,7 @@ public class AiController {
         OperationalAnalysisService operationalAnalysisService,
         AiProposalCommandService proposalCommandService,
         EconomicEventDraftService economicEventDraftService,
+        EconomicEventDecisionService economicEventDecisionService,
         QuizDraftService quizDraftService,
         TeacherChatService teacherChatService,
         UuidV7Generator uuidGenerator,
@@ -79,6 +84,7 @@ public class AiController {
         this.operationalAnalysisService = operationalAnalysisService;
         this.proposalCommandService = proposalCommandService;
         this.economicEventDraftService = economicEventDraftService;
+        this.economicEventDecisionService = economicEventDecisionService;
         this.quizDraftService = quizDraftService;
         this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
@@ -204,6 +210,42 @@ public class AiController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
             new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))
         );
+    }
+
+    @PostMapping("/economic-events/{eventId}/decisions")
+    public ApiResponse<EconomicEventDecisionResponse> decideEconomicEvent(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID eventId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody EconomicEventDecisionRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        EconomicEventDecisionResult result = economicEventDecisionService.decide(
+            new EconomicEventDecisionCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                eventId,
+                requestId,
+                resolvedCorrelationId,
+                request.decision(),
+                request.edits(),
+                request.reason(),
+                request.expectedEventVersion(),
+                request.expectedStateVersion()
+            )
+        );
+        EconomicEventDecisionResponse response = new EconomicEventDecisionResponse(
+            result.eventId(),
+            result.aiRunId(),
+            result.status(),
+            result.stateVersion(),
+            result.publishedAt()
+        );
+        return new ApiResponse<>(response, meta(requestId, resolvedCorrelationId));
     }
 
     @PostMapping("/chat-requests")

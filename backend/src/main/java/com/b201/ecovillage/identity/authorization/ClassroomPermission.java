@@ -115,6 +115,10 @@ public enum ClassroomPermission {
         "PM-AI-004",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    DECIDE_AI_EVENT_DRAFT(
+        "PM-AI-002",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
     APPLY_AI_PROPOSAL(
         "PM-AI-004",
         Set.of(ClassroomActorRole.OWN)
