@@ -40,6 +40,8 @@ const expectedMigrations = [
   "V1_11__mvp_schema_alignment.sql",
   "V1_12__seed_course_recommendations.sql",
   "V1_13__activity_public_fields.sql",
+  "V1_14__ai_v1_2_execution.sql",
+  "V1_15__quiz_result_workflow.sql",
 ];
 
 function unique(values) {
@@ -134,12 +136,17 @@ for (const testId of difference(expectedDbTests, implementedDbTests)) {
 
 const constraintDeclarations = sql
   .split(/\r?\n/)
-  .filter((line) => !/^\s*DROP CONSTRAINT\b/.test(line))
+  .filter((line) => !/\bDROP CONSTRAINT\b/.test(line))
   .join("\n");
+const droppedConstraints = new Set([
+  ...sql.matchAll(/\bDROP CONSTRAINT ([a-z][a-z0-9_]*)/g),
+].map((match) => match[1]));
 for (const constraint of duplicates([
   ...constraintDeclarations.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
 ].map((match) => match[1]))) {
-  errors.push(`constraint name is duplicated: ${constraint}`);
+  if (!droppedConstraints.has(constraint)) {
+    errors.push(`constraint name is duplicated: ${constraint}`);
+  }
 }
 for (const trigger of duplicates([
   ...sql.matchAll(/^CREATE (?:CONSTRAINT )?TRIGGER ([a-z][a-z0-9_]*)/gm),

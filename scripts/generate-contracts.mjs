@@ -135,6 +135,8 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-007",
   "API-AUTH-008",
   "API-QZ-006",
+  "API-QZ-008",
+  "API-QZ-009",
   "API-READ-001",
   "API-READ-003",
   "API-READ-027",
@@ -1726,6 +1728,30 @@ function storageTargets(operation) {
   }
   if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
   if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
+  if (operation.apiId === "API-QZ-008") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "activity_participants",
+      "quiz_question_issues",
+      "idempotency_records",
+    ];
+  }
+  if (operation.apiId === "API-QZ-009") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "quiz_submissions",
+      "quiz_answers",
+      "quiz_result_versions",
+      "quiz_student_results",
+      "quiz_question_issues",
+      "regrading_runs",
+      "transaction_groups",
+      "ledger_entries",
+      "idempotency_records",
+    ];
+  }
   if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];
   return storageByDomain[operation.apiId.split("-")[1]] ?? ["service_projection"];
 }

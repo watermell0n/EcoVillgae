@@ -7054,16 +7054,14 @@ paths:
     post:
       operationId: "apiQz008"
       x-api-id: "API-QZ-008"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "quiz_questions"
-        - "quiz_question_versions"
-        - "quiz_options"
         - "quiz_sessions"
-        - "quiz_submissions"
-        - "quiz_answers"
-        - "quiz_result_versions"
+        - "quiz_session_questions"
+        - "activity_participants"
+        - "quiz_question_issues"
+        - "idempotency_records"
       x-ui-action-ids:
         - "UIA-QZ-008"
       x-roles:
@@ -7087,7 +7085,34 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         201:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "quiz_resource_id"
+                      - "status"
+                    properties:
+                      quiz_resource_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -7112,7 +7137,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-QZ-008는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-QZ-008 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -7138,21 +7163,25 @@ paths:
                 - "question_id"
                 - "reason_code"
                 - "description"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/quiz-sessions/{resource_id}/regrade-operations":
     post:
       operationId: "apiQz009"
       x-api-id: "API-QZ-009"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "quiz_questions"
-        - "quiz_question_versions"
-        - "quiz_options"
         - "quiz_sessions"
+        - "quiz_session_questions"
         - "quiz_submissions"
         - "quiz_answers"
         - "quiz_result_versions"
+        - "quiz_student_results"
+        - "quiz_question_issues"
+        - "regrading_runs"
+        - "transaction_groups"
+        - "ledger_entries"
+        - "idempotency_records"
       x-ui-action-ids:
         - "UIA-QZ-009"
       x-roles:
@@ -7206,7 +7235,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-QZ-009는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-QZ-009 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -7236,7 +7265,7 @@ paths:
                 - "invalidated_question_ids"
                 - "reason"
                 - "expected_result_version"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/votes/{resource_id}/commands":
     post:
       operationId: "apiVot001"

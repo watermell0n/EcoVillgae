@@ -6760,18 +6760,16 @@
       "api_id": "API-QZ-008",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/quiz-sessions/{resource_id}/question-issue-reports",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
-        "quiz_questions",
-        "quiz_question_versions",
-        "quiz_options",
         "quiz_sessions",
-        "quiz_submissions",
-        "quiz_answers",
-        "quiz_result_versions"
+        "quiz_session_questions",
+        "activity_participants",
+        "quiz_question_issues",
+        "idempotency_records"
       ],
       "request": {
-        "mode": "planned",
+        "mode": "strict",
         "schema_source": "explicit",
         "fields": [
           {
@@ -6788,7 +6786,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.screen_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6797,7 +6795,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.ui_action_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6806,7 +6804,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.client_occurred_at",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6815,7 +6813,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.question_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6824,7 +6822,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.reason_code",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6833,21 +6831,21 @@
             "required": true,
             "type": "string",
             "target": "service_input.description",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
             "name": "quiz_resource_id",
             "required": true,
             "type": "string",
             "target": "projection.quiz_resource_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6856,7 +6854,7 @@
             "required": true,
             "type": "string",
             "target": "projection.status",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6865,7 +6863,7 @@
             "required": false,
             "type": "integer",
             "target": "projection.state_version",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, activity_participants, quiz_question_issues, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
           }
@@ -6876,18 +6874,22 @@
       "api_id": "API-QZ-009",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/quiz-sessions/{resource_id}/regrade-operations",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
-        "quiz_questions",
-        "quiz_question_versions",
-        "quiz_options",
         "quiz_sessions",
+        "quiz_session_questions",
         "quiz_submissions",
         "quiz_answers",
-        "quiz_result_versions"
+        "quiz_result_versions",
+        "quiz_student_results",
+        "quiz_question_issues",
+        "regrading_runs",
+        "transaction_groups",
+        "ledger_entries",
+        "idempotency_records"
       ],
       "request": {
-        "mode": "planned",
+        "mode": "strict",
         "schema_source": "explicit",
         "fields": [
           {
@@ -6904,7 +6906,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.screen_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6913,7 +6915,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.ui_action_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6922,7 +6924,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.client_occurred_at",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -6931,7 +6933,7 @@
             "required": true,
             "type": "array",
             "target": "service_input.invalidated_question_ids",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6940,7 +6942,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.reason",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6949,21 +6951,21 @@
             "required": true,
             "type": "integer",
             "target": "service_input.expected_result_version",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
             "name": "operation_id",
             "required": true,
             "type": "string",
             "target": "projection.operation_id",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6972,7 +6974,7 @@
             "required": true,
             "type": "string",
             "target": "projection.status",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -6981,7 +6983,7 @@
             "required": true,
             "type": "string",
             "target": "projection.status_url",
-            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_submissions, quiz_answers, quiz_result_versions, quiz_student_results, quiz_question_issues, regrading_runs, transaction_groups, ledger_entries, idempotency_records에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }

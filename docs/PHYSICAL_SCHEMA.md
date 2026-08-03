@@ -11,7 +11,7 @@
 
 이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_13`과 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_15`와 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -241,8 +241,8 @@ ON DELETE RESTRICT
 | `quiz_answers` | I | `quiz_submission_id uuid FK(quiz_submissions)`, `quiz_session_question_id uuid FK(quiz_session_questions)`, `selected_option_key varchar(20)?`, `free_text text?`, `is_correct boolean?`, `score_awarded integer?`, `response_time_ms integer?`, `answered_at timestamptz D=now()` | `(quiz_submission_id,quiz_session_question_id) UQ` |
 | `quiz_result_versions` | I | `quiz_session_id uuid FK(quiz_sessions)`, `version integer`, `status varchar(40)`, `reward_transaction_group_id uuid? FK(transaction_groups)`, `published_at timestamptz?`, `supersedes_result_version_id uuid? FK(quiz_result_versions)` | `(quiz_session_id,version) UQ`, 게시 후 불변 |
 | `quiz_student_results` | I | `quiz_result_version_id uuid FK(quiz_result_versions)`, `classroom_student_id uuid FK(classroom_students)`, `score integer`, `correct_count integer`, `rank integer?`, `reward_amount bigint D=0`, `total_response_time_ms bigint?` | `(quiz_result_version_id,classroom_student_id) UQ` |
-| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | SM-QAD-001 |
-| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
+| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | 학생별·세션 문항별 신고 1회 부분 UQ, SM-QAD-001 |
+| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 세션별 활성 재채점 1개 부분 UQ, 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
 | `votes` | 없음 | `activity_session_id uuid PK FK(activity_sessions)`, `classroom_id uuid`, `title varchar(160)`, `description text?`, `anonymous boolean D=true`, `status varchar(40)`, `state_version bigint D=0`, `opens_at timestamptz?`, `closes_at timestamptz?`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | 상태 `READY·OPEN·CLOSED·RESULT_PUBLISHED` |
 | `vote_options` | I | `vote_id uuid FK(votes)`, `label varchar(160)`, `description text?`, `sort_order integer`, `budget_amount bigint?` | `(vote_id,sort_order) UQ` |
 | `vote_eligibilities` | I | `vote_id uuid FK(votes)`, `classroom_student_id uuid FK(classroom_students)`, `eligibility_token_hash varchar(128)`, `used_at timestamptz?` | `(vote_id,classroom_student_id) UQ`, `(vote_id,eligibility_token_hash) UQ |
@@ -493,8 +493,10 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P11 | `V1_11__mvp_schema_alignment.sql` | 예상 학생 수·안정 역할 코드·자율시간 모듈 연결·학교 AI 설정 버전 |
 | P12 | `V1_12__seed_course_recommendations.sql` | 초4~6 × 1회·1주·1달·1학기 12개 추천 코스와 버전·모듈 제품 데이터 |
 | P13 | `V1_13__activity_public_fields.sql` | 지도 활동별 교사 승인 공용 화면 필드 allowlist |
+| P14 | `V1_14__ai_v1_2_execution.sql` | AI 실행 메타데이터·확인 결정·모니터 중복 방지 |
+| P15 | `V1_15__quiz_result_workflow.sql` | 학생별 중복 신고·세션별 동시 재채점 방지 부분 UQ |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_13`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_15`로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -546,7 +548,7 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_14`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터 구현
+- Flyway `V1_1`~`V1_15`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터·퀴즈 신고/재채점 동시성 제약 구현
 - Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
 - PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_14` 14개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
@@ -562,6 +564,9 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 `ai_decisions`의 확인 후 승인 가능 제약, `economic_event_drafts`의 출처 제안 연결을
 추가합니다. `ACKNOWLEDGED`는 최종 거절이 아니므로 같은 제안에 확인 결정 1개와 최종
 승인·거절 결정 1개를 각각 허용합니다.
+
+`V1_15__quiz_result_workflow.sql`은 학생별 같은 세션 문항 중복 신고와 같은 세션의
+활성 재채점 중복 실행을 부분 유일 인덱스로 차단합니다.
 
 후속 작업:
 
