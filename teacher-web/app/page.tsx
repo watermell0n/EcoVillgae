@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CalendarRange,
   Bot,
@@ -22,14 +22,16 @@ import {
   ApiError,
   apiRequest,
   BootstrapClassroom,
+  createTeacherPasswordSession,
   createTeacherSession,
   getClassroomServerState,
   getTeacherBootstrap,
   hasTeacherAccessToken,
   logoutTeacher,
+  registerTeacher,
   restoreTeacherSession
 } from "./api";
-import { beginTeacherOidcLogin, consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
+import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { TeacherRealtimeClient } from "./realtime";
 
@@ -124,13 +126,6 @@ const views = [
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
 ];
-
-const demoClassroomId = "00000000-0000-4000-8000-000000000101";
-const oidcConfigured = Boolean(
-  process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL
-  && process.env.NEXT_PUBLIC_OIDC_TOKEN_URL
-  && process.env.NEXT_PUBLIC_OIDC_CLIENT_ID
-);
 
 const initialModules: ModuleRow[] = [
   { name: "지갑", status: "열림", studentState: "기본 기능", teacherTodo: "자동 적용" },
@@ -285,7 +280,7 @@ export default function TeacherConsole() {
   const [hasClassroom, setHasClassroom] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [classrooms, setClassrooms] = useState<BootstrapClassroom[]>([]);
-  const [activeClassroomId, setActiveClassroomId] = useState(demoClassroomId);
+  const [activeClassroomId, setActiveClassroomId] = useState("");
   const [activeStateVersion, setActiveStateVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
   const [authBusy, setAuthBusy] = useState(true);
@@ -314,14 +309,7 @@ export default function TeacherConsole() {
           ? await createTeacherSession(await consumeTeacherOidcCallback()).then(() => getTeacherBootstrap())
           : await restoreTeacherSession();
         if (cancelled) return;
-        setClassrooms(bootstrap.classrooms);
-        setTeacherRoles(bootstrap.roles);
-        setHasClassroom(bootstrap.classrooms.length > 0);
-        if (bootstrap.classrooms[0]) {
-          setActiveClassroomId(bootstrap.classrooms[0].resource_id);
-          setActiveStateVersion(bootstrap.classrooms[0].state_version ?? 0);
-        }
-        setStage("classrooms");
+        enterClassrooms(bootstrap);
       } catch (error) {
         if (cancelled) return;
         if (hasOidcCallback() || (error instanceof ApiError && error.status !== 401)) {
@@ -367,6 +355,33 @@ export default function TeacherConsole() {
 
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
+  }
+
+  function enterClassrooms(bootstrap: Awaited<ReturnType<typeof getTeacherBootstrap>>) {
+    setClassrooms(bootstrap.classrooms);
+    setTeacherRoles(bootstrap.roles);
+    setHasClassroom(bootstrap.classrooms.length > 0);
+    if (bootstrap.classrooms[0]) {
+      setActiveClassroomId(bootstrap.classrooms[0].resource_id);
+      setActiveStateVersion(bootstrap.classrooms[0].state_version ?? 0);
+    }
+    setAuthError("");
+    setStage("classrooms");
+  }
+
+  async function loginWithPassword(email: string, password: string) {
+    await createTeacherPasswordSession(email, password);
+    enterClassrooms(await getTeacherBootstrap());
+  }
+
+  async function registerWithPassword(
+    schoolCode: string,
+    displayName: string,
+    email: string,
+    password: string
+  ) {
+    await registerTeacher(schoolCode, displayName, email, password);
+    enterClassrooms(await getTeacherBootstrap());
   }
 
   async function runAction(label: string, path: string, init: RequestInit, onSuccess: () => void) {
@@ -490,22 +505,6 @@ export default function TeacherConsole() {
     }
   }
 
-  function openDevelopmentPreview() {
-    const previewClassroom: BootstrapClassroom = {
-      resource_id: demoClassroomId,
-      label: settings.className,
-      status: "운영 준비",
-      state_version: 0,
-      classroom_code: settings.classCode,
-      currency_name: settings.currency
-    };
-    setClassrooms([previewClassroom]);
-    setTeacherRoles(["OWN"]);
-    setHasClassroom(true);
-    setAuthError("");
-    setStage("classrooms");
-  }
-
   function leaveClassroom() {
     setStage("classrooms");
     setView("overview");
@@ -516,8 +515,8 @@ export default function TeacherConsole() {
       <TeacherLogin
         busy={authBusy}
         error={authError}
-        onLogin={beginTeacherOidcLogin}
-        onPreview={!oidcConfigured ? openDevelopmentPreview : undefined}
+        onLogin={loginWithPassword}
+        onRegister={registerWithPassword}
       />
     );
   }
@@ -699,25 +698,40 @@ export default function TeacherConsole() {
 
 function TeacherLogin({
   onLogin,
-  onPreview,
+  onRegister,
   busy,
   error
 }: Readonly<{
-  onLogin: () => Promise<void>;
-  onPreview?: () => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (
+    schoolCode: string,
+    displayName: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
   busy: boolean;
   error: string;
 }>) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [starting, setStarting] = useState(false);
   const [localError, setLocalError] = useState("");
 
-  async function startLogin() {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setStarting(true);
     setLocalError("");
     try {
-      await onLogin();
+      if (mode === "register") {
+        await onRegister(schoolCode, displayName, email, password);
+      } else {
+        await onLogin(email, password);
+      }
     } catch (loginError) {
-      setLocalError(loginError instanceof Error ? loginError.message : "로그인 페이지를 열지 못했어요.");
+      setLocalError(loginError instanceof Error ? loginError.message : "요청을 처리하지 못했습니다.");
     } finally {
       setStarting(false);
     }
@@ -733,17 +747,28 @@ function TeacherLogin({
             <small>교사 관리 웹</small>
           </div>
         </div>
-        <h1>교사 로그인</h1>
-        <div className="auth-form">
-          <p>학교에서 사용하는 교사 계정으로 안전하게 로그인합니다.</p>
+        <h1>{mode === "login" ? "교사 로그인" : "교사 회원가입"}</h1>
+        <form className="auth-form" onSubmit={(event) => void submit(event)}>
+          <p>{mode === "login" ? "등록한 이메일과 비밀번호로 로그인하세요." : "학교 코드로 소속을 확인한 뒤 교사 계정을 만듭니다."}</p>
           {error || localError ? <div className="inline-error" role="alert">{error || localError}</div> : null}
-          <button type="button" disabled={busy || starting} onClick={() => void startLogin()}>
-            {busy ? "로그인 상태 확인 중" : starting ? "로그인 페이지 여는 중" : "교사 계정으로 로그인"}
-          </button>
-          {onPreview ? (
-            <button type="button" className="preview-login" disabled={busy} onClick={onPreview}>로그인 없이 화면 미리보기</button>
+          {mode === "register" ? (
+            <>
+              <input required maxLength={40} value={schoolCode} onChange={(event) => setSchoolCode(event.target.value)} placeholder="학교 코드" autoComplete="organization" />
+              <input required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="이름" autoComplete="name" />
+            </>
           ) : null}
-        </div>
+          <input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="이메일" autoComplete="email" />
+          <input required type="password" minLength={mode === "register" ? 10 : undefined} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          <button type="submit" disabled={busy || starting}>
+            {busy ? "로그인 상태 확인 중" : starting ? "처리 중" : mode === "login" ? "로그인" : "회원가입하고 로그인"}
+          </button>
+          <button type="button" className="preview-login" disabled={busy || starting} onClick={() => {
+            setMode((current) => current === "login" ? "register" : "login");
+            setLocalError("");
+          }}>
+            {mode === "login" ? "교사 회원가입" : "이미 계정이 있어요"}
+          </button>
+        </form>
       </section>
     </main>
   );

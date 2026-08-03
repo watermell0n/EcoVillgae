@@ -209,6 +209,34 @@ export async function createTeacherSession(idToken: string) {
   return session;
 }
 
+export async function createTeacherPasswordSession(email: string, password: string) {
+  const session = await apiRequest<TeacherSession>("/auth/teacher-password-sessions", {
+    method: "POST",
+    body: JSON.stringify({ email, password })
+  }, false);
+  setAccessToken(session.access_token);
+  return session;
+}
+
+export async function registerTeacher(
+  schoolCode: string,
+  displayName: string,
+  email: string,
+  password: string
+) {
+  const session = await apiRequest<TeacherSession>("/auth/teacher-registrations", {
+    method: "POST",
+    body: JSON.stringify({
+      school_code: schoolCode,
+      display_name: displayName,
+      email,
+      password
+    })
+  }, false);
+  setAccessToken(session.access_token);
+  return session;
+}
+
 export async function restoreTeacherSession() {
   await refreshTeacherAccessToken();
   return getTeacherBootstrap(false);
