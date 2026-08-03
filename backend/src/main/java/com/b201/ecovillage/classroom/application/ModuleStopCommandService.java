@@ -29,6 +29,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 import com.b201.ecovillage.trade.domain.TradeStatus;
 import com.b201.ecovillage.trade.repository.TradeRepository;
 
@@ -52,6 +53,7 @@ public class ModuleStopCommandService {
     private final DepositAccountRepository depositAccountRepository;
     private final TradeRepository tradeRepository;
     private final SetupPrecheckInvalidator precheckInvalidator;
+    private final RealtimeEventPublisher eventPublisher;
     private final AuditTrailService auditTrailService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -66,6 +68,7 @@ public class ModuleStopCommandService {
         DepositAccountRepository depositAccountRepository,
         TradeRepository tradeRepository,
         SetupPrecheckInvalidator precheckInvalidator,
+        RealtimeEventPublisher eventPublisher,
         AuditTrailService auditTrailService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -79,6 +82,7 @@ public class ModuleStopCommandService {
         this.depositAccountRepository = depositAccountRepository;
         this.tradeRepository = tradeRepository;
         this.precheckInvalidator = precheckInvalidator;
+        this.eventPublisher = eventPublisher;
         this.auditTrailService = auditTrailService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
@@ -177,6 +181,22 @@ public class ModuleStopCommandService {
             false
         );
         precheckInvalidator.invalidate(command.classroomId());
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.module.changed",
+            "CLASSROOM_MODULE",
+            module.getId(),
+            module.getStateVersion(),
+            Map.of(
+                "module_id", module.getId().toString(),
+                "module_code", module.getModuleCode(),
+                "status", module.getStatus(),
+                "state_version", module.getStateVersion()
+            ),
+            true
+        );
         auditTrailService.record(
             command.classroomId(),
             teacher.getId(),
