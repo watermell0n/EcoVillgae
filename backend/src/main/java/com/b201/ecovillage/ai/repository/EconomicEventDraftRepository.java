@@ -12,4 +12,13 @@ public interface EconomicEventDraftRepository extends JpaRepository<EconomicEven
     Optional<EconomicEventDraft> findByClassroomIdAndId(UUID classroomId, UUID id);
 
     boolean existsByClassroomIdAndSourceProposalId(UUID classroomId, UUID sourceProposalId);
+
+    /**
+     * 가격 단계에 살아 있는 뉴스가 있는지 본다. 거절된 초안은 자리를 비운 것으로 취급한다.
+     */
+    boolean existsByClassroomIdAndInvestmentPriceStepIdAndStatusNot(
+        UUID classroomId,
+        UUID investmentPriceStepId,
+        String status
+    );
 }

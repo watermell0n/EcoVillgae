@@ -45,6 +45,14 @@ import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
+import com.b201.ecovillage.investment.domain.InvestmentAsset;
+import com.b201.ecovillage.investment.domain.InvestmentMarket;
+import com.b201.ecovillage.investment.domain.InvestmentPriceStep;
+import com.b201.ecovillage.investment.domain.InvestmentScenarioVersion;
+import com.b201.ecovillage.investment.repository.InvestmentAssetRepository;
+import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
+import com.b201.ecovillage.investment.repository.InvestmentPriceStepRepository;
+import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 
 @SpringBootTest(properties = {
@@ -85,6 +93,18 @@ class EconomicEventDraftApiTest {
     private EconomicEventDraftRepository draftRepository;
 
     @Autowired
+    private InvestmentMarketRepository marketRepository;
+
+    @Autowired
+    private InvestmentScenarioVersionRepository scenarioRepository;
+
+    @Autowired
+    private InvestmentAssetRepository assetRepository;
+
+    @Autowired
+    private InvestmentPriceStepRepository priceStepRepository;
+
+    @Autowired
     private RecordingEventClient aiClient;
 
     private UUID classroomId;
@@ -121,6 +141,65 @@ class EconomicEventDraftApiTest {
             NOW
         ));
         entityManager.flush();
+    }
+
+    /**
+     * 4단계 시나리오를 깔고 앞의 {@code revealedSteps}개만 공개한다.
+     *
+     * @return 마지막 공개 단계의 id. 공개 단계가 없으면 null이다.
+     */
+    private UUID openInvestmentMarket(int revealedSteps) {
+        UUID marketId = UUID.randomUUID();
+        UUID scenarioId = UUID.randomUUID();
+        UUID assetId = UUID.randomUUID();
+        marketRepository.save(InvestmentMarket.open(marketId, classroomId, scenarioId, revealedSteps, NOW));
+        scenarioRepository.save(InvestmentScenarioVersion.published(
+            scenarioId,
+            classroomId,
+            marketId,
+            1,
+            "기본 시나리오",
+            NOW
+        ));
+        assetRepository.save(InvestmentAsset.active(
+            assetId,
+            classroomId,
+            scenarioId,
+            "ECOCORP",
+            "에코마을 상사",
+            0,
+            NOW
+        ));
+        long[] prices = {1000L, 1150L, 950L, 1300L};
+        int[] rates = {0, 1500, -1739, 3684};
+        UUID lastRevealed = null;
+        for (int step = 1; step <= prices.length; step++) {
+            UUID stepId = UUID.randomUUID();
+            if (step <= revealedSteps) {
+                priceStepRepository.save(InvestmentPriceStep.revealed(
+                    stepId,
+                    classroomId,
+                    assetId,
+                    step,
+                    prices[step - 1],
+                    rates[step - 1],
+                    NOW.plusSeconds(step * 60L)
+                ));
+                lastRevealed = stepId;
+            } else {
+                priceStepRepository.save(InvestmentPriceStep.hidden(
+                    stepId,
+                    classroomId,
+                    assetId,
+                    step,
+                    prices[step - 1],
+                    rates[step - 1],
+                    NOW
+                ));
+            }
+        }
+        entityManager.flush();
+        return lastRevealed;
     }
 
     private void activateModule(String moduleCode) {
@@ -206,12 +285,109 @@ class EconomicEventDraftApiTest {
     }
 
     @Test
-    void rejectsInvestmentNewsUntilInvestmentDomainExists() throws Exception {
+    void createsInvestmentNewsBoundToTheCurrentPriceStep() throws Exception {
         createClassroom(6);
+        activateModule("INVESTMENT");
+        UUID currentStepId = openInvestmentMarket(3);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isAccepted());
+
+        entityManager.flush();
+        EconomicEventDraft draft = draftRepository.findAll().get(0);
+        assertEquals(currentStepId, draft.getInvestmentPriceStepId(), "현재 공개 단계에 연결한다.");
+
+        EconomicEventContract.InvestmentNewsContext context =
+            aiClient.lastRequest.payload().investmentNewsContext();
+        assertNotNull(context, "투자 문맥이 AI에 전달된다.");
+        assertEquals(3, context.currentStepIndex());
+        assertEquals("ECOCORP", context.assetSymbol());
+        // 뉴스가 학생이 이미 본 시세와 어긋나지 않도록 1단계부터 현재까지 전부 넘긴다.
+        assertEquals(
+            List.of(1, 2, 3),
+            context.publicPriceFacts().stream()
+                .map(EconomicEventContract.InvestmentPriceFact::stepIndex)
+                .toList()
+        );
+    }
+
+    @Test
+    void hidesUnrevealedPriceStepsFromTheAiInput() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(2);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isAccepted());
+
+        EconomicEventContract.InvestmentNewsContext context =
+            aiClient.lastRequest.payload().investmentNewsContext();
+        // 4단계까지 미리 쌓아두었지만 공개된 2단계까지만 나가야 한다.
+        assertEquals(2, context.publicPriceFacts().size(), "미공개 단계는 절대 나가지 않는다.");
+        assertEquals(2, context.currentStepIndex());
+    }
+
+    @Test
+    void rejectsInvestmentNewsWhenNoPriceStepIsRevealed() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(0);
 
         mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
             .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.error.code").value("TEMPLATE_NOT_SUPPORTED"));
+            .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_STEP_BINDING"));
+
+        assertEquals(0, aiClient.calls);
+    }
+
+    @Test
+    void rejectsInvestmentNewsForFifthGrade() throws Exception {
+        createClassroom(5);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(1);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("GRADE_POLICY_VIOLATION"));
+    }
+
+    @Test
+    void keepsOneActiveNewsPerPriceStep() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(1);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isAccepted());
+        entityManager.flush();
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("DUPLICATE_EVENT_RECOMMENDATION"));
+
+        entityManager.flush();
+        assertEquals(1, draftRepository.count(), "한 단계에는 활성 뉴스가 하나만 있다.");
+    }
+
+    @Test
+    void fallsBackWhenAiChangesThePriceStepBinding() throws Exception {
+        createClassroom(6);
+        activateModule("INVESTMENT");
+        UUID currentStepId = openInvestmentMarket(1);
+        aiClient.tamperBinding = true;
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isAccepted());
+
+        entityManager.flush();
+        EconomicEventDraft draft = draftRepository.findAll().get(0);
+        // 자산 이름과 단계 연결을 바꾼 출력은 버리고 규칙 기반 대체안을 쓴다.
+        assertEquals(true, draft.getEconomicEffect().get("fallback_used"));
+        assertEquals(
+            "AI_OUTPUT_CONTRACT_VIOLATION",
+            draft.getEconomicEffect().get("fallback_code")
+        );
+        assertEquals(currentStepId, draft.getInvestmentPriceStepId(), "연결은 서버 값을 유지한다.");
     }
 
     @Test
@@ -277,6 +453,7 @@ class EconomicEventDraftApiTest {
         private int calls;
         private boolean fail;
         private boolean tamperTemplate;
+        private boolean tamperBinding;
         private EconomicEventContract.Request lastRequest;
 
         RecordingEventClient(EconomicEventFallbackFactory fallbackFactory) {
@@ -287,6 +464,7 @@ class EconomicEventDraftApiTest {
             calls = 0;
             fail = false;
             tamperTemplate = false;
+            tamperBinding = false;
             lastRequest = null;
         }
 
@@ -324,8 +502,34 @@ class EconomicEventDraftApiTest {
                         new EconomicEventContract.Choice("A", "첫 번째 선택", "첫 번째 결과"),
                         new EconomicEventContract.Choice("B", "두 번째 선택", "두 번째 결과")
                     ),
-                    List.of("진행 문구")
+                    List.of("진행 문구"),
+                    tamperBinding
+                        ? new EconomicEventContract.InvestmentNewsBinding(
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            "몰래 바꾼 종목",
+                            "HACKED",
+                            99
+                        )
+                        : binding(payload.investmentNewsContext())
                 )
+            );
+        }
+
+        private static EconomicEventContract.InvestmentNewsBinding binding(
+            EconomicEventContract.InvestmentNewsContext context
+        ) {
+            if (context == null) {
+                return null;
+            }
+            return new EconomicEventContract.InvestmentNewsBinding(
+                context.scenarioVersionId(),
+                context.assetId(),
+                context.priceStepId(),
+                context.assetName(),
+                context.assetSymbol(),
+                context.currentStepIndex()
             );
         }
     }

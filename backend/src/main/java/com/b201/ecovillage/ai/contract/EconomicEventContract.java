@@ -50,13 +50,56 @@ public final class EconomicEventContract {
         InterestRateScope interestRateScope,
         List<String> effectSummary,
         List<String> prohibitedEffects,
-        String teacherContext
+        String teacherContext,
+        /** INVESTMENT_NEWS 전용이다. 나머지 템플릿에서는 null이다. */
+        InvestmentNewsContext investmentNewsContext
     ) {
         public Payload {
             sourceEvidenceCodes = List.copyOf(sourceEvidenceCodes);
             effectSummary = List.copyOf(effectSummary);
             prohibitedEffects = List.copyOf(prohibitedEffects);
         }
+    }
+
+    /**
+     * 투자 뉴스가 쓸 공개 시세다. 가격은 시나리오에 이미 정해져 있고 AI는 설명만 만든다.
+     *
+     * <p>{@code publicPriceFacts}는 1단계부터 {@code currentStepIndex}까지 빠짐없이 오름차순이어야
+     * 한다. 뉴스가 학생이 이미 본 시세와 어긋나지 않게 하려면 현재 단계만으로는 부족하다.
+     */
+    public record InvestmentNewsContext(
+        UUID scenarioVersionId,
+        UUID assetId,
+        UUID priceStepId,
+        String assetName,
+        String assetSymbol,
+        int currentStepIndex,
+        List<InvestmentPriceFact> publicPriceFacts
+    ) {
+        public InvestmentNewsContext {
+            publicPriceFacts = List.copyOf(publicPriceFacts);
+        }
+    }
+
+    public record InvestmentPriceFact(
+        int stepIndex,
+        long price,
+        int changeRateBps,
+        java.time.Instant revealedAt
+    ) {
+    }
+
+    /**
+     * AI가 출력에서 되돌려주는 단계 연결이다. 입력과 다르면 출력을 거절한다.
+     */
+    public record InvestmentNewsBinding(
+        UUID scenarioVersionId,
+        UUID assetId,
+        UUID priceStepId,
+        String assetName,
+        String assetSymbol,
+        int currentStepIndex
+    ) {
     }
 
     public record Response(
@@ -88,7 +131,9 @@ public final class EconomicEventContract {
         String title,
         String narrative,
         List<Choice> choices,
-        List<String> progressMessages
+        List<String> progressMessages,
+        /** INVESTMENT_NEWS 전용이다. 나머지 템플릿에서는 null이어야 한다. */
+        InvestmentNewsBinding investmentNewsBinding
     ) {
         public Output {
             sourceEvidenceCodes = List.copyOf(sourceEvidenceCodes);

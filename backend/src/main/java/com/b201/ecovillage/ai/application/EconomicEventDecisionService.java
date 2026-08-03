@@ -179,7 +179,8 @@ public class EconomicEventDecisionService {
                 command,
                 template,
                 interestRateScope(draft),
-                teacher.getId()
+                teacher.getId(),
+                draft.getInvestmentPriceStepId()
             );
         } catch (RuntimeException failure) {
             attemptRecorder.recordFailure(

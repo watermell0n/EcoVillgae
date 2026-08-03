@@ -525,10 +525,10 @@ class EconomicEventDecisionApiTest {
     }
 
     @Test
-    void rejectsInvestmentNewsUntilTheInvestmentDomainExists() throws Exception {
+    void rejectsInvestmentNewsThatIsNotBoundToAPriceStep() throws Exception {
         EconomicEventDraft draft = saveDraft("INVESTMENT_NEWS", null);
 
-        // S15P11B201-289가 투자 도메인을 만들기 전에는 가격 단계에 연결할 수 없다.
+        // 연결된 가격 단계가 없으면 게시할 대상이 없다.
         mockMvc.perform(decision(owner, draft.getId(), """
                 {
                   "decision": "APPROVE",
@@ -538,6 +538,57 @@ class EconomicEventDecisionApiTest {
                 """.formatted(draft.getStateVersion())))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_STEP_BINDING"));
+
+        entityManager.clear();
+        assertEquals("DRAFT", draftRepository.findById(draft.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void publishesInvestmentNewsWithoutTouchingPolicyOrLedger() throws Exception {
+        UUID priceStepId = UUID.randomUUID();
+        EconomicEventDraft draft = saveDraft("INVESTMENT_NEWS", null);
+        draft.bindInvestmentPriceStep(priceStepId);
+        entityManager.flush();
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "reason": "공개된 단계의 뉴스를 게시합니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("APPROVED"))
+            .andExpect(jsonPath("$.data.published_at").isNotEmpty());
+
+        entityManager.flush();
+        entityManager.clear();
+        // 뉴스는 이야기만 게시한다. 가격은 시나리오에 이미 정해져 있어 바꿀 값이 없다.
+        assertTrue(
+            policyRepository
+                .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, ECONOMIC_POLICY_AREA)
+                .isEmpty(),
+            "투자 뉴스는 경제 정책을 바꾸지 않는다."
+        );
+        assertEquals(0, businessRefRepository.count(), "투자 뉴스는 원장 거래를 만들지 않는다.");
+    }
+
+    @Test
+    void rejectsEditsOnInvestmentNews() throws Exception {
+        EconomicEventDraft draft = saveDraft("INVESTMENT_NEWS", null);
+        draft.bindInvestmentPriceStep(UUID.randomUUID());
+        entityManager.flush();
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "edits": { "income_tax_rate_bps": 900 },
+                  "reason": "뉴스로 세율을 바꿔봅니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("FORBIDDEN_EVENT_EFFECT"));
     }
 
     @Test

@@ -44,8 +44,11 @@ public class EconomicEventPolicyEffect {
         REWARD_ISSUANCE,
         /** 발행 계좌에서 학급 공동기금으로 교부한다. */
         PUBLIC_FUND_GRANT,
-        /** 아직 지원하지 않는다. */
-        UNSUPPORTED
+        /**
+         * 연결된 가격 단계의 공개 대기 상태로만 바꾼다. 정책도 원장도 건드리지 않는다.
+         * 뉴스는 이야기일 뿐이고 가격은 시나리오에 이미 정해져 있다.
+         */
+        INVESTMENT_NEWS_RELEASE
     }
 
     public EffectKind kind(TemplateType template) {
@@ -53,7 +56,7 @@ public class EconomicEventPolicyEffect {
             case PRICE, SUPPLY, TAX, INTEREST_RATE -> EffectKind.POLICY;
             case REWARD -> EffectKind.REWARD_ISSUANCE;
             case PUBLIC_FUND -> EffectKind.PUBLIC_FUND_GRANT;
-            case INVESTMENT_NEWS -> EffectKind.UNSUPPORTED;
+            case INVESTMENT_NEWS -> EffectKind.INVESTMENT_NEWS_RELEASE;
         };
     }
 

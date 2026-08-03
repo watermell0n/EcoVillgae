@@ -31,6 +31,8 @@ import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.investment.application.InvestmentNewsTargetQuery;
+import com.b201.ecovillage.investment.application.InvestmentNewsTargetView;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -51,6 +53,7 @@ public class EconomicEventDraftService {
 
     static final String RUN_TYPE = "ECONOMIC_EVENT_DRAFT";
     private static final String OPERATION_TYPE = "AI_ECONOMIC_EVENT_DRAFT";
+    private static final String CANCELED_STATUS = "CANCELED";
 
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
@@ -65,6 +68,7 @@ public class EconomicEventDraftService {
     private final AiArtifactRepository artifactRepository;
     private final AiProposalRepository proposalRepository;
     private final EconomicEventDraftRepository draftRepository;
+    private final InvestmentNewsTargetQuery investmentNewsTargetQuery;
     private final AiServiceProperties properties;
     private final UuidV7Generator uuidGenerator;
     private final ObjectMapper objectMapper;
@@ -84,6 +88,7 @@ public class EconomicEventDraftService {
         AiArtifactRepository artifactRepository,
         AiProposalRepository proposalRepository,
         EconomicEventDraftRepository draftRepository,
+        InvestmentNewsTargetQuery investmentNewsTargetQuery,
         AiServiceProperties properties,
         UuidV7Generator uuidGenerator,
         ObjectMapper objectMapper,
@@ -102,6 +107,7 @@ public class EconomicEventDraftService {
         this.artifactRepository = artifactRepository;
         this.proposalRepository = proposalRepository;
         this.draftRepository = draftRepository;
+        this.investmentNewsTargetQuery = investmentNewsTargetQuery;
         this.properties = properties;
         this.uuidGenerator = uuidGenerator;
         this.objectMapper = objectMapper;
@@ -181,6 +187,11 @@ public class EconomicEventDraftService {
             }
         }
 
+        InvestmentNewsTargetView investmentTarget =
+            template == EconomicEventContract.TemplateType.INVESTMENT_NEWS
+                ? resolveInvestmentTarget(classroom.getId())
+                : null;
+
         Instant now = clock.instant();
         UUID operationId = uuidGenerator.generate();
         UUID aiRunId = uuidGenerator.generate();
@@ -203,7 +214,8 @@ public class EconomicEventDraftService {
                 command.interestRateScope(),
                 templatePolicy.effectSummary(template, command.interestRateScope()),
                 templatePolicy.prohibitedEffects(template),
-                command.teacherContext()
+                command.teacherContext(),
+                investmentContext(investmentTarget)
             )
         );
 
@@ -267,8 +279,19 @@ public class EconomicEventDraftService {
         effect.put("progress_messages", output.progressMessages());
         effect.put("fallback_used", fallbackUsed);
         effect.put("fallback_code", fallbackCode);
+        if (investmentTarget != null) {
+            // 승인 경로가 같은 단계에 그대로 연결하도록 초안에 함께 남긴다.
+            Map<String, Object> binding = new LinkedHashMap<>();
+            binding.put("scenario_version_id", investmentTarget.scenarioVersionId().toString());
+            binding.put("asset_id", investmentTarget.assetId().toString());
+            binding.put("price_step_id", investmentTarget.priceStepId().toString());
+            binding.put("asset_name", investmentTarget.assetName());
+            binding.put("asset_symbol", investmentTarget.assetSymbol());
+            binding.put("current_step_index", investmentTarget.currentStepIndex());
+            effect.put("investment_news_binding", binding);
+        }
 
-        EconomicEventDraft draft = draftRepository.save(EconomicEventDraft.draft(
+        EconomicEventDraft draftToSave = EconomicEventDraft.draft(
             uuidGenerator.generate(),
             classroom.getId(),
             aiRunId,
@@ -278,7 +301,11 @@ public class EconomicEventDraftService {
             output.narrative(),
             effect,
             completedAt
-        ));
+        );
+        if (investmentTarget != null) {
+            draftToSave.bindInvestmentPriceStep(investmentTarget.priceStepId());
+        }
+        EconomicEventDraft draft = draftRepository.save(draftToSave);
 
         Map<String, Object> validation = new LinkedHashMap<>();
         validation.put("template_type", template.name());
@@ -336,6 +363,101 @@ public class EconomicEventDraftService {
                 "The AI event output needs at least two choices."
             );
         }
+        requireUnchangedInvestmentBinding(payload, output);
+    }
+
+    /**
+     * 자산 이름과 기호, 시나리오·종목·단계 연결은 입력값을 그대로 유지해야 한다. AI가 하나라도
+     * 바꾸면 출력을 버리고 규칙 기반 대체안을 쓴다.
+     */
+    private static void requireUnchangedInvestmentBinding(
+        EconomicEventContract.Payload payload,
+        EconomicEventContract.Output output
+    ) {
+        EconomicEventContract.InvestmentNewsContext context = payload.investmentNewsContext();
+        EconomicEventContract.InvestmentNewsBinding binding = output.investmentNewsBinding();
+        if (context == null) {
+            if (binding != null) {
+                throw new AiServiceCallException(
+                    "AI_OUTPUT_CONTRACT_VIOLATION",
+                    "Only INVESTMENT_NEWS may return an investment binding."
+                );
+            }
+            return;
+        }
+        if (binding == null) {
+            throw new AiServiceCallException(
+                "AI_OUTPUT_CONTRACT_VIOLATION",
+                "The INVESTMENT_NEWS output must return its investment binding."
+            );
+        }
+        boolean same = context.scenarioVersionId().equals(binding.scenarioVersionId())
+            && context.assetId().equals(binding.assetId())
+            && context.priceStepId().equals(binding.priceStepId())
+            && context.assetName().equals(binding.assetName())
+            && context.assetSymbol().equals(binding.assetSymbol())
+            && context.currentStepIndex() == binding.currentStepIndex();
+        if (!same) {
+            throw new AiServiceCallException(
+                "AI_OUTPUT_CONTRACT_VIOLATION",
+                "The AI event output changed the investment price step binding."
+            );
+        }
+    }
+
+    /**
+     * 뉴스를 붙일 종목을 고른다. 표시 순서가 앞이고 현재 단계에 살아 있는 뉴스가 없는 종목을 쓴다.
+     *
+     * <p>계약에 교사가 종목을 지정하는 입력이 없어 서버가 고른다. 교사가 직접 고르게 하려면
+     * API-AI-004에 investment_news_targets를 추가해야 한다.
+     */
+    private InvestmentNewsTargetView resolveInvestmentTarget(UUID classroomId) {
+        List<InvestmentNewsTargetView> targets =
+            investmentNewsTargetQuery.findPublishableTargets(classroomId);
+        if (targets.isEmpty()) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "INVALID_INVESTMENT_STEP_BINDING",
+                "The classroom has no revealed investment price step to attach news to."
+            );
+        }
+        return targets.stream()
+            .filter(target -> !draftRepository
+                .existsByClassroomIdAndInvestmentPriceStepIdAndStatusNot(
+                    classroomId,
+                    target.priceStepId(),
+                    CANCELED_STATUS
+                ))
+            .findFirst()
+            .orElseThrow(() -> operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "DUPLICATE_EVENT_RECOMMENDATION",
+                "Every revealed price step already has an active investment news draft."
+            ));
+    }
+
+    private static EconomicEventContract.InvestmentNewsContext investmentContext(
+        InvestmentNewsTargetView target
+    ) {
+        if (target == null) {
+            return null;
+        }
+        return new EconomicEventContract.InvestmentNewsContext(
+            target.scenarioVersionId(),
+            target.assetId(),
+            target.priceStepId(),
+            target.assetName(),
+            target.assetSymbol(),
+            target.currentStepIndex(),
+            target.publicPriceFacts().stream()
+                .map(fact -> new EconomicEventContract.InvestmentPriceFact(
+                    fact.stepIndex(),
+                    fact.price(),
+                    fact.changeRateBps(),
+                    fact.revealedAt()
+                ))
+                .toList()
+        );
     }
 
     private void requireActiveModules(UUID classroomId, EconomicEventContract.TemplateType template) {
@@ -383,13 +505,6 @@ public class EconomicEventDraftService {
         }
         if (command.templateType() == null) {
             throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "template_type is required.");
-        }
-        if (command.templateType() == EconomicEventContract.TemplateType.INVESTMENT_NEWS) {
-            throw operation(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "TEMPLATE_NOT_SUPPORTED",
-                "INVESTMENT_NEWS needs the investment scenario domain, which is not implemented yet."
-            );
         }
         boolean interestRate =
             command.templateType() == EconomicEventContract.TemplateType.INTEREST_RATE;

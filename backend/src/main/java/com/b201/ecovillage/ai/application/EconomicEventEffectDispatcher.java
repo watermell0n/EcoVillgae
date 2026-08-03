@@ -49,24 +49,23 @@ public class EconomicEventEffectDispatcher {
         EconomicEventDecisionCommand command,
         TemplateType template,
         InterestRateScope scope,
-        UUID approvedByUserId
+        UUID approvedByUserId,
+        UUID draftBinding
     ) {
         EconomicEventPolicyEffect.EffectKind kind = policyEffect.kind(template);
-        if (kind == EconomicEventPolicyEffect.EffectKind.UNSUPPORTED) {
-            // 투자 뉴스는 공개된 가격 단계에 연결해야 게시할 수 있다. 연결 대상이 없으므로
-            // edits를 검사하기 전에 거절한다. S15P11B201-289에서 풀린다.
-            throw new ClassroomOperationException(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "INVALID_INVESTMENT_STEP_BINDING",
-                "INVESTMENT_NEWS needs the investment scenario domain, which is not implemented yet."
-            );
-        }
-        Set<String> editableFields = policyEffect.editableFields(template, scope);
-        requireEditsWithinScope(command.edits(), editableFields, template);
-
         Map<String, Object> applied = new LinkedHashMap<>();
         applied.put("template_type", template.name());
         applied.put("effect_kind", kind.name());
+
+        if (kind == EconomicEventPolicyEffect.EffectKind.INVESTMENT_NEWS_RELEASE) {
+            // 뉴스는 이야기만 게시한다. 가격은 시나리오에 이미 정해져 있어 바꿀 값이 없다.
+            requireNoEdits(command, template);
+            applied.put("investment_price_step_id", requiredPriceStepId(draftBinding));
+            return applied;
+        }
+
+        Set<String> editableFields = policyEffect.editableFields(template, scope);
+        requireEditsWithinScope(command.edits(), editableFields, template);
 
         switch (kind) {
             case POLICY -> {
@@ -129,6 +128,30 @@ public class EconomicEventEffectDispatcher {
         applied.put("total_amount", result.totalAmount());
         applied.put("recipient_count", result.recipientCount());
         applied.put("replayed", result.replayed());
+    }
+
+    /**
+     * 초안이 가격 단계에 연결되어 있지 않으면 게시할 대상이 없다.
+     */
+    private static String requiredPriceStepId(UUID draftBinding) {
+        if (draftBinding == null) {
+            throw new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "INVALID_INVESTMENT_STEP_BINDING",
+                "The investment news draft is not bound to a revealed price step."
+            );
+        }
+        return draftBinding.toString();
+    }
+
+    private static void requireNoEdits(EconomicEventDecisionCommand command, TemplateType template) {
+        if (command.edits() != null && !command.edits().isEmpty()) {
+            throw new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "FORBIDDEN_EVENT_EFFECT",
+                "Template " + template.name() + " does not accept edits."
+            );
+        }
     }
 
     private static void requireEditsWithinScope(
