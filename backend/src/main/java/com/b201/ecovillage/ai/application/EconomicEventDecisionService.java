@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -18,10 +17,6 @@ import com.b201.ecovillage.ai.repository.EconomicEventDraftRepository;
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomMutationSupport;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
-import com.b201.ecovillage.classroom.application.EconomicPolicyCommand;
-import com.b201.ecovillage.classroom.application.EconomicPolicyCommandService;
-import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
-import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.UserAccount;
@@ -31,12 +26,14 @@ import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 /**
  * API-AI-006 경제 이벤트 승인·거절을 처리한다.
  *
- * <p>승인은 초안 상태 전이와 경제 정책 반영을 한 트랜잭션에서 끝낸다. 7종 템플릿의 효과는
- * 모두 앞으로의 거래에만 적용되고 개인 잔액을 직접 바꾸지 않으므로 거래 원장에는 아무것도
- * 기록하지 않는다. 거절은 초안 상태만 바꾸고 도메인 변경을 만들지 않는다.
+ * <p>승인은 초안 상태 전이와 템플릿별 효과 적용을 한 트랜잭션에서 끝낸다. 효과 적용은
+ * {@link EconomicEventEffectDispatcher}가 도메인 진입점으로 보내며, 이 서비스는 정책 버전이나
+ * 원장 거래를 직접 만들지 않는다. 일부만 반영된 상태는 생기지 않는다.
  *
- * <p>효과 수치는 AI가 아니라 교사가 edits로 확정하고, 허용 범위 검사는 ECONOMIC 정책의
- * 소유자인 {@link EconomicPolicyCommandService}가 그대로 담당한다.
+ * <p>실패하면 모든 변경을 되돌리고 초안은 DRAFT로 남겨 재시도할 수 있게 한다. 초안을 FAILED로
+ * 고정하지 않고 실패 사유와 시도 이력만 별도 트랜잭션에 남긴다.
+ *
+ * <p>거절은 초안 상태만 바꾸고 도메인 변경을 만들지 않는다.
  */
 @Service
 public class EconomicEventDecisionService {
@@ -46,7 +43,6 @@ public class EconomicEventDecisionService {
     private static final String REJECT = "REJECT";
     private static final String APPROVED = "APPROVED";
     private static final String REJECTED = "REJECTED";
-    private static final String ECONOMIC_POLICY_AREA = "ECONOMIC";
     /** WS-ECO-001 {@code classrooms/{C}/economy} 채널의 스트림이다. */
     private static final String ECONOMY_STREAM = "ECONOMY";
     private static final String PUBLISHED_EVENT_TYPE = "economic_event.published";
@@ -55,9 +51,8 @@ public class EconomicEventDecisionService {
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
     private final EconomicEventDraftRepository draftRepository;
-    private final ClassroomPolicyVersionRepository policyRepository;
-    private final EconomicPolicyCommandService economicPolicyCommandService;
-    private final EconomicEventPolicyEffect policyEffect;
+    private final EconomicEventEffectDispatcher effectDispatcher;
+    private final EconomicEventAttemptRecorder attemptRecorder;
     private final ClassroomMutationSupport mutationSupport;
     private final AuditTrailService auditTrailService;
     private final RealtimeEventPublisher realtimeEventPublisher;
@@ -67,9 +62,8 @@ public class EconomicEventDecisionService {
         ClassroomAuthorizationService authorizationService,
         UserAccountRepository userRepository,
         EconomicEventDraftRepository draftRepository,
-        ClassroomPolicyVersionRepository policyRepository,
-        EconomicPolicyCommandService economicPolicyCommandService,
-        EconomicEventPolicyEffect policyEffect,
+        EconomicEventEffectDispatcher effectDispatcher,
+        EconomicEventAttemptRecorder attemptRecorder,
         ClassroomMutationSupport mutationSupport,
         AuditTrailService auditTrailService,
         RealtimeEventPublisher realtimeEventPublisher,
@@ -78,9 +72,8 @@ public class EconomicEventDecisionService {
         this.authorizationService = authorizationService;
         this.userRepository = userRepository;
         this.draftRepository = draftRepository;
-        this.policyRepository = policyRepository;
-        this.economicPolicyCommandService = economicPolicyCommandService;
-        this.policyEffect = policyEffect;
+        this.effectDispatcher = effectDispatcher;
+        this.attemptRecorder = attemptRecorder;
         this.mutationSupport = mutationSupport;
         this.auditTrailService = auditTrailService;
         this.realtimeEventPublisher = realtimeEventPublisher;
@@ -153,86 +146,55 @@ public class EconomicEventDecisionService {
 
         if (REJECT.equals(command.decision())) {
             draft.reject(now);
-            return finish(command, teacher, draft, requestHash, before, REJECTED, null);
+            return finish(command, teacher, draft, requestHash, before, REJECTED, null, Map.of());
         }
 
         TemplateType template = template(draft);
-        if (template == TemplateType.INVESTMENT_NEWS) {
-            // 투자 뉴스는 공개된 가격 단계에 연결해야 게시할 수 있다. 투자 도메인이 없으면
-            // 연결 대상이 없으므로 승인을 거절한다. S15P11B201-289에서 풀린다.
-            throw operation(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "INVALID_INVESTMENT_STEP_BINDING",
-                "INVESTMENT_NEWS needs the investment scenario domain, which is not implemented yet."
-            );
-        }
-        Set<String> editableFields = policyEffect.editableFields(template, interestRateScope(draft));
-        if (editableFields.isEmpty()) {
-            requireNoEdits(command);
-            draft.approve(now);
-        } else {
-            applyEconomicPolicy(command, template, editableFields);
-            draft.applyEffect(now);
-        }
-        return finish(command, teacher, draft, requestHash, before, APPROVED, draft.getRevealedAt());
+        Map<String, Object> applied = applyEffect(command, teacher, template, draft);
+        draft.applyEffect(now);
+        return finish(
+            command,
+            teacher,
+            draft,
+            requestHash,
+            before,
+            APPROVED,
+            draft.getRevealedAt(),
+            applied
+        );
     }
 
     /**
-     * 교사가 확정한 값만 기존 ECONOMIC 정책 위에 덮어써서 새 정책 버전을 만든다.
-     * 템플릿이 허용하지 않은 항목이 오면 승인 자체를 거절한다.
+     * 템플릿별 도메인 진입점을 호출한다. 실패하면 이 트랜잭션 전체가 롤백되고 초안은 DRAFT로
+     * 남는다. 실패 사유와 시도 이력만 별도 트랜잭션에서 커밋해 재시도할 수 있게 한다.
      */
-    private void applyEconomicPolicy(
+    private Map<String, Object> applyEffect(
         EconomicEventDecisionCommand command,
+        UserAccount teacher,
         TemplateType template,
-        Set<String> editableFields
+        EconomicEventDraft draft
     ) {
-        Map<String, Object> edits = command.edits() == null ? Map.of() : command.edits();
-        if (edits.isEmpty()) {
-            throw operation(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "VALIDATION_ERROR",
-                "Template " + template.name() + " requires edits for " + editableFields + "."
+        try {
+            return effectDispatcher.apply(
+                command,
+                template,
+                interestRateScope(draft),
+                teacher.getId()
             );
-        }
-        for (String field : edits.keySet()) {
-            if (!editableFields.contains(field)) {
-                throw operation(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "FORBIDDEN_EVENT_EFFECT",
-                    "Template " + template.name() + " cannot change " + field + "."
-                );
-            }
-        }
-
-        ClassroomPolicyVersion current = policyRepository
-            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
+        } catch (RuntimeException failure) {
+            attemptRecorder.recordFailure(
                 command.classroomId(),
-                ECONOMIC_POLICY_AREA
-            )
-            .orElse(null);
-        Map<String, Object> values = new LinkedHashMap<>(
-            current == null ? Map.of() : current.getPolicyValues()
-        );
-        values.putAll(edits);
-
-        economicPolicyCommandService.update(new EconomicPolicyCommand(
-            command.teacherSubject(),
-            command.classroomId(),
-            command.requestId(),
-            command.correlationId(),
-            command.expectedStateVersion(),
-            scalar(values, EconomicEventPolicyEffect.PRICE_ADJUSTMENT_BPS),
-            scalar(values, EconomicEventPolicyEffect.INFLATION_RATE_BPS),
-            scalar(values, EconomicEventPolicyEffect.INCOME_TAX_RATE_BPS),
-            scalar(values, "vat_rate_bps"),
-            scalar(values, "trade_tax_rate_bps"),
-            scalar(values, EconomicEventPolicyEffect.DEPOSIT_RATE_BPS),
-            scalar(values, EconomicEventPolicyEffect.LOAN_RATE_BPS),
-            tree(values, EconomicEventPolicyEffect.STOCK_POLICY),
-            tree(values, EconomicEventPolicyEffect.REWARD_POLICY),
-            tree(values, "limits"),
-            current == null ? 0 : current.getVersion()
-        ));
+                teacher.getId(),
+                command.eventId(),
+                command.requestId(),
+                command.correlationId(),
+                template.name(),
+                failureCode(failure),
+                failure.getMessage(),
+                command.edits()
+            );
+            throw failure;
+        }
     }
 
     private EconomicEventDecisionResult finish(
@@ -242,7 +204,8 @@ public class EconomicEventDecisionService {
         String requestHash,
         Map<String, Object> before,
         String status,
-        Instant publishedAt
+        Instant publishedAt,
+        Map<String, Object> applied
     ) {
         draftRepository.flush();
         EconomicEventDecisionResult result = new EconomicEventDecisionResult(
@@ -255,6 +218,15 @@ public class EconomicEventDecisionService {
         if (APPROVED.equals(status)) {
             publishToStudents(draft, publishedAt);
         }
+
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("status", draft.getStatus());
+        after.put("decision", command.decision());
+        after.put("reason", command.reason());
+        // 원장 거래의 집행 주체는 SYSTEM이므로 승인한 교사는 감사 기록으로만 추적한다.
+        after.put("approved_by", teacher.getId().toString());
+        after.put("edits", command.edits() == null ? Map.of() : Map.copyOf(command.edits()));
+        after.put("applied_effect", applied);
         auditTrailService.record(
             command.classroomId(),
             teacher.getId(),
@@ -264,17 +236,13 @@ public class EconomicEventDecisionService {
             command.requestId(),
             command.correlationId(),
             before,
-            ClassroomMutationSupport.body(
-                "status", draft.getStatus(),
-                "decision", command.decision(),
-                "reason", command.reason(),
-                "edits", command.edits() == null ? Map.of() : command.edits()
-            ),
+            after,
             "AI",
             APPROVED.equals(status)
                 ? "교사가 경제 이벤트를 승인해 학생에게 게시했습니다."
                 : "교사가 경제 이벤트를 거절했습니다."
         );
+
         // IdempotencyRecord는 응답 본문을 Map.copyOf로 다시 담으므로 null 값을 넣을 수 없다.
         Map<String, Object> remembered = new LinkedHashMap<>();
         remembered.put("event_id", result.eventId().toString());
@@ -337,14 +305,11 @@ public class EconomicEventDecisionService {
         );
     }
 
-    private void requireNoEdits(EconomicEventDecisionCommand command) {
-        if (command.edits() != null && !command.edits().isEmpty()) {
-            throw operation(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "FORBIDDEN_EVENT_EFFECT",
-                "This template does not change the economic policy."
-            );
+    private static String failureCode(RuntimeException failure) {
+        if (failure instanceof ClassroomOperationException operationFailure) {
+            return operationFailure.getCode();
         }
+        return failure.getClass().getSimpleName();
     }
 
     private TemplateType template(EconomicEventDraft draft) {
@@ -370,37 +335,6 @@ public class EconomicEventDecisionService {
         } catch (IllegalArgumentException exception) {
             return null;
         }
-    }
-
-    private static int scalar(Map<String, Object> values, String key) {
-        Object value = values.get(key);
-        if (value == null) {
-            return 0;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        throw operation(
-            HttpStatus.UNPROCESSABLE_ENTITY,
-            "VALIDATION_ERROR",
-            key + " must be an integer."
-        );
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> tree(Map<String, Object> values, String key) {
-        Object value = values.get(key);
-        if (value == null) {
-            return Map.of();
-        }
-        if (value instanceof Map<?, ?> map) {
-            return (Map<String, Object>) map;
-        }
-        throw operation(
-            HttpStatus.UNPROCESSABLE_ENTITY,
-            "VALIDATION_ERROR",
-            key + " must be an object."
-        );
     }
 
     private void validate(EconomicEventDecisionCommand command) {

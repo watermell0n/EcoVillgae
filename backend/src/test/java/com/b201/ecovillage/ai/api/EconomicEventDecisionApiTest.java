@@ -31,8 +31,17 @@ import com.b201.ecovillage.ai.domain.EconomicEventDraft;
 import com.b201.ecovillage.ai.repository.EconomicEventDraftRepository;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
+import com.b201.ecovillage.ledger.domain.LedgerActorType;
+import com.b201.ecovillage.ledger.domain.TransactionGroup;
+import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
+import com.b201.ecovillage.ledger.repository.TransactionBusinessRefRepository;
+import com.b201.ecovillage.ledger.repository.TransactionGroupRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
+import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
@@ -62,6 +71,8 @@ class EconomicEventDecisionApiTest {
     private static final String CO_TEACHER_SUBJECT = "event-decision-co-teacher";
     private static final Instant NOW = Instant.parse("2026-08-03T01:00:00Z");
     private static final String ECONOMIC_POLICY_AREA = "ECONOMIC";
+    private static final String MONEY_ISSUANCE_KEY = "MONEY_ISSUANCE";
+    private static final String CLASSROOM_FUND_KEY = "CLASSROOM_FUND";
 
     @Autowired
     private MockMvc mockMvc;
@@ -86,6 +97,18 @@ class EconomicEventDecisionApiTest {
 
     @Autowired
     private OutboxEventRepository outboxRepository;
+
+    @Autowired
+    private ClassroomStudentRepository studentRepository;
+
+    @Autowired
+    private LedgerAccountRepository ledgerAccountRepository;
+
+    @Autowired
+    private TransactionGroupRepository transactionGroupRepository;
+
+    @Autowired
+    private TransactionBusinessRefRepository businessRefRepository;
 
     private UUID classroomId;
     private Principal owner;
@@ -189,13 +212,14 @@ class EconomicEventDecisionApiTest {
     }
 
     @Test
-    void publishesPublicFundEventWithoutChangingPolicy() throws Exception {
+    void grantsPublicFundFromTheIssuanceAccount() throws Exception {
         EconomicEventDraft draft = saveDraft("PUBLIC_FUND", null);
 
         mockMvc.perform(decision(owner, draft.getId(), """
                 {
                   "decision": "APPROVE",
-                  "reason": "공동기금 사용처를 학급 회의에서 정합니다.",
+                  "edits": { "public_fund_grant_amount": 30000 },
+                  "reason": "학급 공동기금을 채웁니다.",
                   "expected_event_version": %d
                 }
                 """.formatted(draft.getStateVersion())))
@@ -205,13 +229,125 @@ class EconomicEventDecisionApiTest {
 
         entityManager.flush();
         entityManager.clear();
-        assertEquals("APPROVED", draftRepository.findById(draft.getId()).orElseThrow().getStatus());
+        TransactionGroup group = payoutGroup(draft.getId());
+        assertEquals("ECONOMIC_EVENT_PUBLIC_FUND_GRANT", group.getTransactionType());
+        assertEquals(LedgerActorType.SYSTEM, group.getActorType(), "집행 주체는 시스템이다.");
+        // 공동기금은 공공 지출·투표에서만 차감한다. 이벤트는 발행 계좌에서 교부만 한다.
+        assertEquals(30000L, balanceOf(LedgerAccountType.CLASSROOM_FUND, CLASSROOM_FUND_KEY));
+        assertEquals(-30000L, balanceOf(LedgerAccountType.MONEY_ISSUANCE, MONEY_ISSUANCE_KEY));
         assertTrue(
             policyRepository
                 .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, ECONOMIC_POLICY_AREA)
                 .isEmpty(),
-            "공동기금 안내는 실제 지출을 만들지 않으므로 정책도 바꾸지 않는다."
+            "화폐가 움직이는 효과는 경제 정책을 바꾸지 않는다."
         );
+    }
+
+    @Test
+    void issuesRewardToEveryActiveStudent() throws Exception {
+        enrollStudents(3);
+        EconomicEventDraft draft = saveDraft("REWARD", null);
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "edits": { "reward_per_student": 500 },
+                  "reason": "활동을 마친 학생 전원에게 보상을 지급합니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        entityManager.flush();
+        entityManager.clear();
+        TransactionGroup group = payoutGroup(draft.getId());
+        assertEquals("ECONOMIC_EVENT_REWARD_ISSUANCE", group.getTransactionType());
+        assertEquals(LedgerActorType.SYSTEM, group.getActorType());
+        // 공동기금이 아니라 발행 계좌에서 나간다. 기금 잔액 부족으로 수업이 막히지 않게 한다.
+        assertEquals(-1500L, balanceOf(LedgerAccountType.MONEY_ISSUANCE, MONEY_ISSUANCE_KEY));
+        assertTrue(
+            ledgerAccountRepository
+                .findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(
+                    classroomId,
+                    CLASSROOM_FUND_KEY,
+                    LedgerAccountType.CLASSROOM_FUND,
+                    LedgerAccountStatus.ACTIVE
+                )
+                .isEmpty(),
+            "보상 지급은 공동기금 계좌를 건드리지 않는다."
+        );
+    }
+
+    @Test
+    void doesNotPayTwiceForTheSameDraft() throws Exception {
+        enrollStudents(2);
+        EconomicEventDraft draft = saveDraft("REWARD", null);
+        String body = """
+            {
+              "decision": "APPROVE",
+              "edits": { "reward_per_student": 700 },
+              "reason": "같은 초안을 두 번 승인해 봅니다.",
+              "expected_event_version": %d
+            }
+            """.formatted(draft.getStateVersion());
+
+        mockMvc.perform(decision(owner, draft.getId(), body)).andExpect(status().isOk());
+        entityManager.flush();
+        // 두 번째는 초안이 이미 결정되어 409로 막히지만, business ref로도 이중 지급을 막는다.
+        mockMvc.perform(decision(owner, draft.getId(), body)).andExpect(status().isConflict());
+
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(1, businessRefRepository.count(), "지급 거래는 한 번만 생긴다.");
+        assertEquals(-1400L, balanceOf(LedgerAccountType.MONEY_ISSUANCE, MONEY_ISSUANCE_KEY));
+    }
+
+    @Test
+    void keepsDraftUnderReviewWhenApplyingFails() throws Exception {
+        // 활성 학생이 없으면 보상 지급이 실패한다. 초안은 DRAFT로 남아 재시도할 수 있어야 한다.
+        EconomicEventDraft draft = saveDraft("REWARD", null);
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "edits": { "reward_per_student": 500 },
+                  "reason": "학생이 없는 학급에서 보상을 지급해 봅니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().is4xxClientError());
+
+        entityManager.clear();
+        EconomicEventDraft reloaded = draftRepository.findById(draft.getId()).orElseThrow();
+        assertEquals("DRAFT", reloaded.getStatus(), "실패해도 FAILED로 고정하지 않는다.");
+        assertNull(reloaded.getRevealedAt());
+        assertEquals(0, businessRefRepository.count());
+        assertTrue(
+            outboxRepository.findAll().stream()
+                .noneMatch(event -> "economic_event.published".equals(event.getEventType())),
+            "실패한 승인은 게시 이벤트를 남기지 않는다."
+        );
+    }
+
+    @Test
+    void rejectsRewardAboveThePerStudentLimit() throws Exception {
+        enrollStudents(1);
+        EconomicEventDraft draft = saveDraft("REWARD", null);
+
+        mockMvc.perform(decision(owner, draft.getId(), """
+                {
+                  "decision": "APPROVE",
+                  "edits": { "reward_per_student": 100001 },
+                  "reason": "한도를 넘겨 지급해 봅니다.",
+                  "expected_event_version": %d
+                }
+                """.formatted(draft.getStateVersion())))
+            .andExpect(status().is4xxClientError());
+
+        entityManager.clear();
+        assertEquals("DRAFT", draftRepository.findById(draft.getId()).orElseThrow().getStatus());
+        assertEquals(0, businessRefRepository.count());
     }
 
     @Test
@@ -235,14 +371,14 @@ class EconomicEventDecisionApiTest {
     }
 
     @Test
-    void rejectsEditsForTemplateWithoutPolicyEffect() throws Exception {
+    void rejectsPolicyEditsOnALedgerTemplate() throws Exception {
         EconomicEventDraft draft = saveDraft("PUBLIC_FUND", null);
 
         mockMvc.perform(decision(owner, draft.getId(), """
                 {
                   "decision": "APPROVE",
                   "edits": { "income_tax_rate_bps": 900 },
-                  "reason": "공동기금 안내로 세율을 바꿔봅니다.",
+                  "reason": "공동기금 교부로 세율을 바꿔봅니다.",
                   "expected_event_version": %d
                 }
                 """.formatted(draft.getStateVersion())))
@@ -318,6 +454,7 @@ class EconomicEventDecisionApiTest {
         mockMvc.perform(decision(owner, draft.getId(), """
                 {
                   "decision": "APPROVE",
+                  "edits": { "public_fund_grant_amount": 10000 },
                   "reason": "먼저 승인합니다.",
                   "expected_event_version": %d
                 }
@@ -411,6 +548,7 @@ class EconomicEventDecisionApiTest {
         mockMvc.perform(decision(owner, approved.getId(), """
                 {
                   "decision": "APPROVE",
+                  "edits": { "public_fund_grant_amount": 12000 },
                   "reason": "학생에게 게시합니다.",
                   "expected_event_version": %d
                 }
@@ -446,6 +584,7 @@ class EconomicEventDecisionApiTest {
         mockMvc.perform(decision(owner, draft.getId(), """
                 {
                   "decision": "APPROVE",
+                  "edits": { "public_fund_grant_amount": 8000 },
                   "reason": "공개 안전성을 확인합니다.",
                   "expected_event_version": %d
                 }
@@ -464,6 +603,44 @@ class EconomicEventDecisionApiTest {
             event.getPayload().keySet(),
             "EVT-ACT-007 명세의 다섯 필드만 내보낸다."
         );
+    }
+
+    /** 초안 id를 business reference로 따라가 지급 거래를 찾는다. */
+    private TransactionGroup payoutGroup(UUID draftId) {
+        UUID groupId = businessRefRepository
+            .findTopByClassroomIdAndRefTypeAndRefIdOrderByCreatedAtDesc(
+                classroomId,
+                "ECONOMIC_EVENT_DRAFT",
+                draftId
+            )
+            .orElseThrow()
+            .getTransactionGroupId();
+        return transactionGroupRepository.findById(groupId).orElseThrow();
+    }
+
+    private void enrollStudents(int count) {
+        for (int rosterNumber = 1; rosterNumber <= count; rosterNumber++) {
+            studentRepository.save(ClassroomStudent.enroll(
+                UUID.randomUUID(),
+                classroomId,
+                rosterNumber,
+                "학생" + rosterNumber,
+                NOW
+            ));
+        }
+        entityManager.flush();
+    }
+
+    private long balanceOf(LedgerAccountType accountType, String ownerKey) {
+        return ledgerAccountRepository
+            .findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(
+                classroomId,
+                ownerKey,
+                accountType,
+                LedgerAccountStatus.ACTIVE
+            )
+            .orElseThrow()
+            .getCurrentBalance();
     }
 
     private ClassroomPolicyVersion economicPolicy() {

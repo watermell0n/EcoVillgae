@@ -10,16 +10,14 @@ import com.b201.ecovillage.ai.contract.EconomicEventContract.InterestRateScope;
 import com.b201.ecovillage.ai.contract.EconomicEventContract.TemplateType;
 
 /**
- * 승인된 경제 이벤트가 바꿀 수 있는 경제 정책 항목을 템플릿별로 고정한다.
+ * 승인된 경제 이벤트가 무엇을 바꿀 수 있는지 템플릿별로 고정한다.
  *
  * <p>docs/AI_DIRECTION.md 5장에 따라 효과 수치는 AI가 아니라 규칙과 교사가 정한다.
  * 이 클래스는 "어떤 항목을 건드릴 수 있는지"만 정하고 값의 크기는 판단하지 않는다.
- * 값의 허용 범위 검사는 ECONOMIC 정책의 소유자인
- * {@code EconomicPolicyCommandService}가 그대로 담당한다.
  *
- * <p>7종 템플릿의 효과는 모두 앞으로의 거래에만 적용된다. 개인 잔액을 직접 바꾸지 않으므로
- * 승인 경로는 거래 원장에 아무것도 기록하지 않는다. API-AI-006의 x-storage-targets에
- * 원장 테이블이 없는 것과 같은 이유다.
+ * <p>효과는 두 갈래다. TAX·금리·가격·재고는 앞으로의 거래에만 적용되므로 정책 버전만 올리고
+ * 원장 거래를 만들지 않는다. REWARD와 PUBLIC_FUND는 실제로 화폐가 움직이므로 발행 계좌에서
+ * 나가는 원장 거래를 만든다.
  */
 @Component
 public class EconomicEventPolicyEffect {
@@ -30,14 +28,37 @@ public class EconomicEventPolicyEffect {
     static final String DEPOSIT_RATE_BPS = "deposit_rate_bps";
     static final String LOAN_RATE_BPS = "loan_rate_bps";
     static final String STOCK_POLICY = "stock_policy";
-    static final String REWARD_POLICY = "reward_policy";
+
+    /** REWARD가 받는 학생 1인당 지급액이다. */
+    static final String REWARD_PER_STUDENT = "reward_per_student";
+    /** PUBLIC_FUND가 받는 공동기금 교부 총액이다. */
+    static final String PUBLIC_FUND_GRANT_AMOUNT = "public_fund_grant_amount";
 
     /**
-     * 템플릿이 바꿀 수 있는 정책 항목이다. 빈 집합이면 승인만으로 게시하고 정책은 그대로 둔다.
-     *
-     * <p>PUBLIC_FUND는 사용처를 학급이 함께 정하는 안내이고 실제 지출은 투표와 별도 승인에서
-     * 발생하므로 이 경로에서 정책을 바꾸지 않는다. INVESTMENT_NEWS는 가격 단계에 뉴스를
-     * 연결할 뿐 경제 정책을 바꾸지 않는다.
+     * 승인 시 어느 도메인 진입점을 호출할지 결정한다.
+     */
+    public enum EffectKind {
+        /** 경제 정책 버전만 올린다. 원장 거래는 없다. */
+        POLICY,
+        /** 발행 계좌에서 학생 전원에게 지급한다. */
+        REWARD_ISSUANCE,
+        /** 발행 계좌에서 학급 공동기금으로 교부한다. */
+        PUBLIC_FUND_GRANT,
+        /** 아직 지원하지 않는다. */
+        UNSUPPORTED
+    }
+
+    public EffectKind kind(TemplateType template) {
+        return switch (template) {
+            case PRICE, SUPPLY, TAX, INTEREST_RATE -> EffectKind.POLICY;
+            case REWARD -> EffectKind.REWARD_ISSUANCE;
+            case PUBLIC_FUND -> EffectKind.PUBLIC_FUND_GRANT;
+            case INVESTMENT_NEWS -> EffectKind.UNSUPPORTED;
+        };
+    }
+
+    /**
+     * 템플릿이 바꿀 수 있는 항목이다. 원장 갈래는 금액 항목 하나만 받는다.
      */
     public Set<String> editableFields(TemplateType template, InterestRateScope scope) {
         return switch (template) {
@@ -47,16 +68,23 @@ public class EconomicEventPolicyEffect {
             case INTEREST_RATE -> scope == InterestRateScope.LOAN
                 ? ordered(LOAN_RATE_BPS)
                 : ordered(DEPOSIT_RATE_BPS);
-            case REWARD -> ordered(REWARD_POLICY);
-            case PUBLIC_FUND, INVESTMENT_NEWS -> Set.of();
+            case REWARD -> ordered(REWARD_PER_STUDENT);
+            case PUBLIC_FUND -> ordered(PUBLIC_FUND_GRANT_AMOUNT);
+            case INVESTMENT_NEWS -> Set.of();
         };
     }
 
     /**
-     * 값이 정수여야 하는 항목이다. 나머지는 정수 트리를 담은 맵으로 받는다.
+     * 원장 갈래가 금액을 읽어올 항목 이름이다.
      */
-    public boolean isScalarField(String field) {
-        return !STOCK_POLICY.equals(field) && !REWARD_POLICY.equals(field);
+    public String amountField(TemplateType template) {
+        return switch (template) {
+            case REWARD -> REWARD_PER_STUDENT;
+            case PUBLIC_FUND -> PUBLIC_FUND_GRANT_AMOUNT;
+            default -> throw new IllegalArgumentException(
+                "Template " + template + " does not move money."
+            );
+        };
     }
 
     private static Set<String> ordered(String... fields) {
