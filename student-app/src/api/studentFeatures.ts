@@ -144,6 +144,28 @@ export type GuidedActivity = {
   participantCount: number;
 };
 
+type RawClassroomModule = {
+  module_code: string;
+  status: string;
+};
+
+export async function fetchActiveModuleCodes(classroomId: string) {
+  if (MOCK_FEATURES) {
+    return new Set([
+      "STORE", "DEPOSIT", "SAVINGS", "LOAN", "INVESTMENT", "TRADE", "QUIZ", "ROLE_SALARY"
+    ]);
+  }
+
+  const response = await apiRequest<{ modules: RawClassroomModule[] }>(
+    `/classrooms/${classroomId}/modules-and-policies`
+  );
+  return new Set(
+    response.modules
+      .filter((module) => module.status === "ACTIVE")
+      .map((module) => module.module_code)
+  );
+}
+
 const ids = {
   product: "00000000-0000-4000-8000-000000001001",
   depositProduct: "00000000-0000-4000-8000-000000002001",
