@@ -25,11 +25,13 @@ import {
   createTeacherSession,
   getClassroomServerState,
   getTeacherBootstrap,
+  hasTeacherAccessToken,
   logoutTeacher,
   restoreTeacherSession
 } from "./api";
 import { beginTeacherOidcLogin, consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
+import { TeacherRealtimeClient } from "./realtime";
 
 type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
@@ -333,6 +335,35 @@ export default function TeacherConsole() {
     void restore();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (stage !== "console" || !activeClassroomId || !hasTeacherAccessToken()) return;
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const refreshClassroom = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void openClassroom(activeClassroomId), 200);
+    };
+    const client = new TeacherRealtimeClient({
+      subscriptions: [
+        { channelId: "WS-CLS-001", resourceId: activeClassroomId },
+        { channelId: "WS-TCH-001", resourceId: activeClassroomId },
+        { channelId: "WS-ECO-001", resourceId: activeClassroomId }
+      ],
+      onEvent: (event) => {
+        if (event.event_type === "classroom.app_mode.changed") {
+          setMode(event.payload.mode === "GUIDED" ? "선생님 수업" : "자율 활동");
+        }
+        refreshClassroom();
+      },
+      onRecoveryRequired: refreshClassroom
+    });
+    client.start();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      client.stop();
+    };
+  }, [stage, activeClassroomId]);
 
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));

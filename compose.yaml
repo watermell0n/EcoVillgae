@@ -86,6 +86,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecovillage_dev}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REALTIME_REDIS_ENABLED: "true"
       AUTH_ACCESS_TOKEN_TTL: ${AUTH_ACCESS_TOKEN_TTL:-15m}
       AUTH_REFRESH_TOKEN_TTL: ${AUTH_REFRESH_TOKEN_TTL:-14d}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-local-development-jwt-secret-change-before-deploy}

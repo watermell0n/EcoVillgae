@@ -92,6 +92,26 @@ public class RealtimeStream {
         return id;
     }
 
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
+    public String getStreamType() {
+        return streamType;
+    }
+
+    public UUID getResourceId() {
+        return resourceId;
+    }
+
+    public long getCurrentSequence() {
+        return nextSequence - 1;
+    }
+
+    public long getRetentionFromSequence() {
+        return retentionFromSequence;
+    }
+
     private static String requiredText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");

@@ -167,6 +167,39 @@ export function clearAccessToken() {
   accessToken = null;
 }
 
+export function hasTeacherAccessToken() {
+  return Boolean(accessToken);
+}
+
+export function getRealtimeWebSocketUrl() {
+  const configured = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
+  const url = new URL(configured ?? API_BASE_URL, window.location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  if (!configured || url.pathname === "/" || url.pathname === "") {
+    url.pathname = "/ws/v1";
+  }
+  return url.toString();
+}
+
+export type RealtimeTicketResponse = {
+  ticket: string;
+  expires_at: string;
+};
+
+export function createRealtimeTicket(channelIds: string[], resourceIds: string[]) {
+  return apiRequest<RealtimeTicketResponse>("/auth/realtime-tickets", {
+    method: "POST",
+    body: JSON.stringify({
+      expected_state_version: 0,
+      screen_id: "SCR-TCH-001",
+      ui_action_id: "UIA-TCH-001",
+      client_occurred_at: new Date().toISOString(),
+      channel_ids: channelIds,
+      resource_ids: resourceIds
+    })
+  });
+}
+
 export async function createTeacherSession(idToken: string) {
   const session = await apiRequest<TeacherSession>("/auth/teacher-sessions", {
     method: "POST",

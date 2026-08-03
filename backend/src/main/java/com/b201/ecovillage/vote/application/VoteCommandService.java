@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -91,6 +92,7 @@ public class VoteCommandService {
     private final TransactionBusinessRefRepository businessRefRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final AtomicLedgerTransactionService ledgerTransactionService;
+    private final EffectiveAccessModeService accessModeService;
     private final RealtimeEventPublisher eventPublisher;
     private final DisplaySessionService displaySessionService;
     private final AuditTrailService auditTrailService;
@@ -112,6 +114,7 @@ public class VoteCommandService {
         TransactionBusinessRefRepository businessRefRepository,
         IdempotencyRecordRepository idempotencyRepository,
         AtomicLedgerTransactionService ledgerTransactionService,
+        EffectiveAccessModeService accessModeService,
         RealtimeEventPublisher eventPublisher,
         DisplaySessionService displaySessionService,
         AuditTrailService auditTrailService,
@@ -132,6 +135,7 @@ public class VoteCommandService {
         this.businessRefRepository = businessRefRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.ledgerTransactionService = ledgerTransactionService;
+        this.accessModeService = accessModeService;
         this.eventPublisher = eventPublisher;
         this.displaySessionService = displaySessionService;
         this.auditTrailService = auditTrailService;
@@ -320,6 +324,24 @@ public class VoteCommandService {
             ),
             true
         );
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.app_mode.changed",
+            "VOTE",
+            command.voteId(),
+            vote.getStateVersion(),
+            Map.of(
+                "mode", "GUIDED",
+                "source", "GUIDED_ACTIVITY",
+                "starts_at", now.toString(),
+                "ends_at", now.toString(),
+                "active_activity_id", vote.getId().toString(),
+                "activity_type", activity.getActivityType()
+            ),
+            true
+        );
         audit(
             command,
             teacher.getId(),
@@ -372,6 +394,23 @@ public class VoteCommandService {
                 "closed_at", now.toString(),
                 "submitted_count", submitted,
                 "total_count", participants.size()
+            ),
+            true
+        );
+        String nextMode = accessModeService.get(command.classroomId()).mode().name();
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.app_mode.changed",
+            "VOTE",
+            command.voteId(),
+            vote.getStateVersion(),
+            Map.of(
+                "mode", nextMode,
+                "source", "GUIDED_ACTIVITY",
+                "starts_at", now.toString(),
+                "ends_at", now.toString()
             ),
             true
         );

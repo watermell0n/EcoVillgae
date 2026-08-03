@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ApiError } from "./api/client";
 import { createStudentSession, type StudentSession } from "./api/auth";
+import { StudentRealtimeClient, type RealtimeSubscriptionRequest } from "./api/realtime";
 import { clearStudentSession, getDeviceId, loadStudentSession, saveStudentSession } from "./api/sessionStorage";
 import {
   castVote,
@@ -49,6 +50,41 @@ type WalletTransaction = {
   after: number;
   memo: string;
 };
+
+type ActiveRealtimeActivity = {
+  classroomId: string;
+  activityId: string;
+  activityType: string;
+};
+
+const ACTIVE_REALTIME_ACTIVITY_KEY = "ecovillage.student.realtime.active-activity";
+
+function loadActiveRealtimeActivity(): ActiveRealtimeActivity | null {
+  try {
+    const value = sessionStorage.getItem(ACTIVE_REALTIME_ACTIVITY_KEY);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as Partial<ActiveRealtimeActivity>;
+    return typeof parsed.classroomId === "string"
+      && typeof parsed.activityId === "string"
+      && typeof parsed.activityType === "string"
+      ? parsed as ActiveRealtimeActivity
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeActiveRealtimeActivity(activity: ActiveRealtimeActivity | null) {
+  try {
+    if (activity) {
+      sessionStorage.setItem(ACTIVE_REALTIME_ACTIVITY_KEY, JSON.stringify(activity));
+    } else {
+      sessionStorage.removeItem(ACTIVE_REALTIME_ACTIVITY_KEY);
+    }
+  } catch {
+    // The connection still recovers by sequence when session storage is unavailable.
+  }
+}
 
 const menuItems: Array<{ key: PageKey; label: string; icon: string; disabled?: boolean }> = [
   { key: "village", label: "마을 광장", icon: "🏘️" },
@@ -135,10 +171,16 @@ function App() {
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
   const [vote, setVote] = useState<VoteView | null>(null);
   const [guidedActivity, setGuidedActivity] = useState<GuidedActivity | null>(null);
+  const [activeRealtimeActivity, setActiveRealtimeActivity] =
+    useState<ActiveRealtimeActivity | null>(() => loadActiveRealtimeActivity());
+  const [realtimeRefresh, setRealtimeRefresh] = useState(0);
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
   const [actionMessage, setActionMessage] = useState("");
   const [profilePassword, setProfilePassword] = useState("economy123!");
   const activeClassroomId = session?.classroomId ?? studentHomeEnvelope.classroom.id;
+  const activeRealtimeActivityForClass = activeRealtimeActivity?.classroomId === activeClassroomId
+    ? activeRealtimeActivity
+    : null;
 
   useEffect(() => {
     if (authState !== "app") {
@@ -151,9 +193,22 @@ function App() {
         const [accountData, questionData, sessionData, voteData, activityData] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
-          fetchQuizSession(activeClassroomId),
-          fetchVote(activeClassroomId),
-          fetchGuidedActivity(activeClassroomId)
+          fetchQuizSession(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityType === "QUIZ"
+              ? activeRealtimeActivityForClass.activityId
+              : undefined
+          ),
+          fetchVote(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityType === "VOTE"
+              ? activeRealtimeActivityForClass.activityId
+              : undefined
+          ),
+          fetchGuidedActivity(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityId
+          )
         ]);
 
         if (ignore) {
@@ -176,7 +231,106 @@ function App() {
     return () => {
       ignore = true;
     };
-  }, [activeClassroomId, authState]);
+  }, [
+    activeClassroomId,
+    activeRealtimeActivityForClass?.activityId,
+    activeRealtimeActivityForClass?.activityType,
+    authState,
+    realtimeRefresh
+  ]);
+
+  useEffect(() => {
+    if (
+      authState !== "app"
+      || !session
+      || session.accessToken.startsWith("mock-")
+    ) {
+      return;
+    }
+
+    const subscriptions: RealtimeSubscriptionRequest[] = [
+      { channelId: "WS-CLS-001", resourceId: activeClassroomId },
+      { channelId: "WS-STU-001", resourceId: session.studentId },
+      { channelId: "WS-ECO-001", resourceId: activeClassroomId }
+    ];
+    const activityResourceId = activeRealtimeActivityForClass?.activityId ?? guidedActivity?.activityId;
+    const quizResourceId = activeRealtimeActivityForClass?.activityType === "QUIZ"
+      ? activeRealtimeActivityForClass.activityId
+      : quizSession?.quizSessionId;
+    const voteResourceId = activeRealtimeActivityForClass?.activityType === "VOTE"
+      ? activeRealtimeActivityForClass.activityId
+      : vote?.voteId;
+    if (quizResourceId) {
+      subscriptions.push({ channelId: "WS-QZ-001", resourceId: quizResourceId });
+    }
+    if (voteResourceId) {
+      subscriptions.push({ channelId: "WS-VOT-001", resourceId: voteResourceId });
+    }
+    if (activityResourceId) {
+      subscriptions.push({ channelId: "WS-ACT-001", resourceId: activityResourceId });
+    }
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRealtimeRefresh((value) => value + 1), 200);
+    };
+    const client = new StudentRealtimeClient({
+      subscriptions,
+      onEvent: (event) => {
+        if (
+          event.event_type === "classroom.app_mode.changed"
+          && event.payload.mode === "GUIDED"
+          && typeof event.payload.active_activity_id === "string"
+        ) {
+          const activeActivity: ActiveRealtimeActivity = {
+            classroomId: event.classroom_id,
+            activityId: event.payload.active_activity_id,
+            activityType: typeof event.payload.activity_type === "string"
+              ? event.payload.activity_type
+              : "ACTIVITY"
+          };
+          setActiveRealtimeActivity(activeActivity);
+          storeActiveRealtimeActivity(activeActivity);
+        }
+        if (
+          event.event_type === "activity.started"
+          || (
+            event.event_type === "classroom.app_mode.changed"
+            && event.payload.mode === "GUIDED"
+          )
+        ) {
+          setPage("class");
+        }
+        if (
+          event.event_type === "classroom.app_mode.changed"
+          && event.payload.mode !== "GUIDED"
+        ) {
+          setActiveRealtimeActivity(null);
+          storeActiveRealtimeActivity(null);
+          setPage((current) => current === "class" ? "village" : current);
+        }
+        refresh();
+      },
+      onRecoveryRequired: refresh,
+      onError: (error) => setActionMessage(error.message)
+    });
+    client.start();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      client.stop();
+    };
+  }, [
+    activeClassroomId,
+    authState,
+    session?.accessToken,
+    session?.studentId,
+    activeRealtimeActivityForClass?.activityId,
+    activeRealtimeActivityForClass?.activityType,
+    quizSession?.quizSessionId,
+    vote?.voteId,
+    guidedActivity?.activityId
+  ]);
 
   if (authState === "landing") {
     return <LandingScreen onStart={() => setAuthState("login")} />;
@@ -226,6 +380,8 @@ function App() {
           onMove={setPage}
           onLogout={() => {
             clearStudentSession();
+            storeActiveRealtimeActivity(null);
+            setActiveRealtimeActivity(null);
             setSession(null);
             setPage("village");
             setAuthState("landing");
