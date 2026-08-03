@@ -167,6 +167,31 @@ public class Classroom {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void updateCourseConfiguration(
+        int grade,
+        CourseSize courseSize,
+        LocalDate startsOn,
+        LocalDate endsOn,
+        UUID courseTemplateVersionId,
+        Instant changedAt
+    ) {
+        if (grade < 4 || grade > 6) {
+            throw new IllegalArgumentException("grade must be between 4 and 6");
+        }
+        if (startsOn == null || endsOn == null || endsOn.isBefore(startsOn)) {
+            throw new IllegalArgumentException("course dates are invalid");
+        }
+        this.grade = (short) grade;
+        this.scaleLabel = Objects.requireNonNull(
+            courseSize,
+            "courseSize must not be null"
+        ).name();
+        this.actualStartsOn = startsOn;
+        this.actualEndsOn = endsOn;
+        this.courseTemplateVersionId = courseTemplateVersionId;
+        touch(changedAt);
+    }
+
     public void setAppModeOverride(String appModeOverride, Instant changedAt) {
         if (
             appModeOverride != null
@@ -199,6 +224,10 @@ public class Classroom {
 
     public UUID getSchoolId() {
         return schoolId;
+    }
+
+    public UUID getCourseTemplateVersionId() {
+        return courseTemplateVersionId;
     }
 
     public String getCurrencyName() {

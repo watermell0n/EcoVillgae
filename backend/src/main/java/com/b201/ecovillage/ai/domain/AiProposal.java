@@ -219,11 +219,23 @@ public class AiProposal {
         return expiresAt;
     }
 
+    public UUID getAppliedPolicyVersionId() {
+        return appliedPolicyVersionId;
+    }
+
     public String getStatus() {
         return status;
     }
 
     public long getStateVersion() {
         return stateVersion;
+    }
+
+    public Instant getStatusChangedAt() {
+        return statusChangedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

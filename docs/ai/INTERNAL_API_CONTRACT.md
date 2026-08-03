@@ -138,6 +138,11 @@
 - `PRODUCT_DRAFT`: 교사가 등록 중인 상품의 가격 후보
 - `QUIZ_SESSION_DRAFT`: GAME 퀴즈 보상 후보. TEST에는 보상 후보를 두지 않음
 
+FastAPI는 위 후보의 설명만 생성하며 proposal 승인이나 도메인 DB 변경을 수행하지
+않습니다. 승인 시 Spring이 저장된 target snapshot/fingerprint와 현재 버전을 대조하고,
+허용 범위·규칙 판정을 재실행한 뒤 모듈 활성화·상품 가격·GAME 보상 command를 같은
+트랜잭션에서 호출합니다.
+
 `MODULE_ACTIVATION`의 `SetupContext`에는 대상 `module_code`와 `module_id`가 필요하며 다른
 문맥에서는 두 값을 `null`로 보냅니다. 각 `SetupCandidate`는 `proposed_value`,
 `recommended_min_value`, `recommended_max_value`, `allowed_min_value`, `allowed_max_value`를

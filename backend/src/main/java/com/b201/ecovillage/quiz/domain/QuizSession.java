@@ -37,7 +37,7 @@ public class QuizSession {
     private QuizContentType contentType;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "reward_policy_public", nullable = false, updatable = false)
+    @Column(name = "reward_policy_public", nullable = false)
     private Map<String, Object> rewardPolicyPublic;
 
     @Column(name = "leaderboard_public", nullable = false)
@@ -115,6 +115,35 @@ public class QuizSession {
         updatedAt = changedAt;
     }
 
+    public void replaceRewardPolicy(Map<String, Object> rewardPolicy, Instant changedAt) {
+        if (mode != QuizMode.GAME) {
+            throw new IllegalStateException("a TEST session cannot receive a reward");
+        }
+        if (status != QuizSessionStatus.OPEN) {
+            throw new IllegalStateException("only an open session can change its reward");
+        }
+        this.rewardPolicyPublic = new LinkedHashMap<>(
+            Objects.requireNonNull(rewardPolicy, "rewardPolicy must not be null")
+        );
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
+    public void beginResultReview(Instant changedAt) {
+        transition(QuizSessionStatus.SCORING, QuizSessionStatus.REVIEWING, changedAt);
+    }
+
+    public void publishResults(boolean requestedLeaderboardPublic, Instant changedAt) {
+        if (mode == QuizMode.TEST && requestedLeaderboardPublic) {
+            throw new IllegalStateException("a TEST result cannot publish a leaderboard");
+        }
+        leaderboardPublic = mode == QuizMode.GAME && requestedLeaderboardPublic;
+        transition(QuizSessionStatus.REVIEWING, QuizSessionStatus.RESULT_PUBLISHED, changedAt);
+    }
+
+    public void closeResults(Instant changedAt) {
+        transition(QuizSessionStatus.RESULT_PUBLISHED, QuizSessionStatus.CLOSED, changedAt);
+    }
+
     public boolean acceptsAnswers() {
         return status == QuizSessionStatus.OPEN;
     }
@@ -131,11 +160,34 @@ public class QuizSession {
         return contentType;
     }
 
+    public Map<String, Object> getRewardPolicyPublic() {
+        return Map.copyOf(rewardPolicyPublic);
+    }
+
+    public boolean isLeaderboardPublic() {
+        return leaderboardPublic;
+    }
+
     public QuizSessionStatus getStatus() {
         return status;
     }
 
     public long getStateVersion() {
         return stateVersion;
+    }
+
+    private void transition(
+        QuizSessionStatus expected,
+        QuizSessionStatus next,
+        Instant changedAt
+    ) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                "quiz session must be " + expected + " before " + next
+            );
+        }
+        status = next;
+        statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        updatedAt = changedAt;
     }
 }

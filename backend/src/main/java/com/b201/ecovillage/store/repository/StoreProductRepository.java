@@ -19,6 +19,8 @@ public interface StoreProductRepository extends JpaRepository<StoreProduct, UUID
         StoreProductStatus status
     );
 
+    List<StoreProduct> findAllByClassroomIdOrderByName(UUID classroomId);
+
     List<StoreProduct> findAllByClassroomIdAndStatusAndProductKindOrderByName(
         UUID classroomId,
         StoreProductStatus status,

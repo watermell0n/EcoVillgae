@@ -1,6 +1,7 @@
 package com.b201.ecovillage.ai.domain;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -211,6 +212,14 @@ public class AiRun {
         return classroomId;
     }
 
+    public UUID getAsyncOperationId() {
+        return asyncOperationId;
+    }
+
+    public UUID getRequestedByUserId() {
+        return requestedByUserId;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -219,8 +228,50 @@ public class AiRun {
         return runType;
     }
 
+    public String getTriggerType() {
+        return triggerType;
+    }
+
+    public Instant getAnalysisPeriodFrom() {
+        return analysisPeriodFrom;
+    }
+
+    public Instant getAnalysisPeriodTo() {
+        return analysisPeriodTo;
+    }
+
     public String getModelProvider() {
         return modelProvider;
+    }
+
+    public String getModelId() {
+        return modelId;
+    }
+
+    public String getPromptVersion() {
+        return promptVersion;
+    }
+
+    public Map<String, Object> getValidationResult() {
+        return validationResult == null
+            ? Map.of()
+            : Collections.unmodifiableMap(new LinkedHashMap<>(validationResult));
+    }
+
+    public Instant getRequestedAt() {
+        return requestedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
     }
 
     private static String required(String value, int maximumLength) {

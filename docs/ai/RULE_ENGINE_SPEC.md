@@ -344,6 +344,12 @@ allowed_max = max_reward_per_person
 - 퀴즈 보상·예상 참가자 수·예상 실행 횟수
 - 기타 발행·회수 채널
 
+승인 적용 시에도 proposal 생성 당시의 대상 UUID·버전, 학급 state version, 현재 정책
+버전 목록, 활성 모듈과 draft fingerprint를 다시 비교합니다. 일치할 때만 교사 수정값을
+`confirmedPrice`, `confirmedRewardPerPerson` 또는 모듈 확정값으로 넣어 같은 규칙 엔진을
+재실행합니다. 새 판정이 `BLOCK`이거나 action 대상·규칙 버전이 바뀌면 stale proposal로
+거절합니다.
+
 AI 호출이 실패해도 Spring 규칙 엔진의 후보와 점검은 그대로 반환합니다. 설명만 정적 템플릿으로 대체합니다.
 
 ## 8. 계산 예시

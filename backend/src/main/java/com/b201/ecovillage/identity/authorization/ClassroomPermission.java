@@ -7,12 +7,32 @@ public enum ClassroomPermission {
         "PM-RBAC-001",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    READ_ROSTER(
+        "PM-CLS-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_MODULES_AND_POLICIES(
+        "PM-RBAC-002",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
     MANAGE_ROSTER(
         "PM-CLS-004",
         Set.of(ClassroomActorRole.OWN)
     ),
+    MANAGE_COURSE_CONFIGURATION(
+        "PM-CLS-005",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     MANAGE_MODULES(
         "PM-MOD-001",
+        Set.of(ClassroomActorRole.OWN)
+    ),
+    MANAGE_ECONOMIC_POLICY(
+        "PM-POL-001",
         Set.of(ClassroomActorRole.OWN)
     ),
     MANAGE_PAYOUTS(
@@ -22,6 +42,10 @@ public enum ClassroomPermission {
     PURCHASE_STORE(
         "PM-SHP-002",
         Set.of(ClassroomActorRole.STU)
+    ),
+    MANAGE_STORE_PRODUCTS(
+        "PM-SHP-001",
+        Set.of(ClassroomActorRole.OWN)
     ),
     PROPOSE_TRADE(
         "PM-TRD-001",
@@ -83,6 +107,10 @@ public enum ClassroomPermission {
         "PM-AI-003",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
+    READ_AI_HISTORY(
+        "PM-AI-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
     ACKNOWLEDGE_AI_PROPOSAL(
         "PM-AI-004",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
@@ -114,6 +142,22 @@ public enum ClassroomPermission {
     PARTICIPATE_QUIZ(
         "PM-QZ-002",
         Set.of(ClassroomActorRole.STU)
+    ),
+    REPORT_QUIZ_QUESTION(
+        "PM-QZ-003",
+        Set.of(ClassroomActorRole.STU)
+    ),
+    REVIEW_QUIZ_QUESTION(
+        "PM-QZ-003",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_QUIZ_RESULTS(
+        "PM-QZ-004",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
     ),
     READ_OWN_STUDENT_DATA(
         "PM-DAT-001",

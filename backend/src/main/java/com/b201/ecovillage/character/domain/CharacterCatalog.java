@@ -42,4 +42,8 @@ public class CharacterCatalog {
     public String getStatus() {
         return status;
     }
+
+    public boolean isApproved() {
+        return "ACTIVE".equals(status) || "APPROVED".equals(status);
+    }
 }

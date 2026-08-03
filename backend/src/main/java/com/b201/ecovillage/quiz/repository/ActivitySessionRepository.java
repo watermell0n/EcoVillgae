@@ -24,5 +24,7 @@ public interface ActivitySessionRepository
 
     List<ActivitySession> findAllByClassroomIdAndStatus(UUID classroomId, String status);
 
+    boolean existsByClassroomIdAndStatusIn(UUID classroomId, List<String> statuses);
+
     boolean existsByClassroomIdAndStatus(UUID classroomId, String status);
 }

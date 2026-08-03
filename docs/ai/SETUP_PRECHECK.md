@@ -26,6 +26,15 @@ Spring 규칙 엔진이 선택한 모듈의 급여·세율·금리·가격·보�
 설정도 반영되지 않습니다. 초기 정책이 필요한 모듈은 검토된 값 저장과 활성화를 원자적으로
 처리합니다.
 
+교사가 `API-AI-003 command=APPLY`를 실행하면 Spring은 proposal에 보존한
+`context_type`, `target_type`, 대상 UUID·버전, 정책 버전, draft snapshot과 SHA-256
+fingerprint를 현재 상태와 다시 비교합니다. `MODULE_ACTIVATION`은 기존 활성화 명령,
+`PRODUCT_DRAFT`는 상품 `UPDATE` 가격 명령, `QUIZ_SESSION_DRAFT`는 `OPEN` GAME 세션의
+`UPDATE_REWARD` 명령으로 라우팅합니다. `edited_values`는 저장된 허용 범위와 동일한 Spring
+규칙 엔진으로 다시 판정하며 `BLOCK`, TEST 보상, stale target·정책·학급 상태는 적용하지
+않습니다. AI proposal 상태·결정·감사 이력과 도메인 변경은 하나의 Spring 트랜잭션에서
+커밋됩니다.
+
 ## 2. 입력·출력 보존 규칙
 
 요청은 `POST /internal/v1/generations/balancing`에

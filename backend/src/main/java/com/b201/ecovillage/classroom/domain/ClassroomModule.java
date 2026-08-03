@@ -104,6 +104,19 @@ public class ClassroomModule {
         this.updatedAt = changedAt;
     }
 
+    public void beginStopping(Map<String, Object> config, Instant changedAt) {
+        if (!"ACTIVE".equals(status)) {
+            throw new IllegalStateException("Only an active module can begin stopping");
+        }
+        this.config = Map.copyOf(Objects.requireNonNull(config, "config must not be null"));
+        this.status = "STOPPING";
+        this.statusChangedAt = Objects.requireNonNull(
+            changedAt,
+            "changedAt must not be null"
+        );
+        this.updatedAt = changedAt;
+    }
+
     public UUID getId() {
         return id;
     }

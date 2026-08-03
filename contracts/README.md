@@ -46,8 +46,8 @@ API 경계의 단일 mapper에서만 `snake_case`를 camelCase로 바꾸며, 현
 - OpenAPI 작업 109건, API ID·메서드·경로 중복 0건
 - AsyncAPI 논리 채널 10건, 이벤트 ID·`event_type` 중복 0건
 - 사람이 읽는 명세와 계약 파일 사이 API·채널·이벤트 ID 누락 0건
-- MVP·필수 지원 API 74건의 명시적 strict DTO와 저장·조회 경계
-- 후속 API 35건의 `planned` 상태
+- MVP·필수 지원 API 76건의 명시적 strict DTO와 저장·조회 경계
+- 후속 API 33건의 `planned` 상태
 - 내부 AI API 4건, schema v1.2 fixture 성공 13건·실패 9건, 이벤트 템플릿 7종,
   분석 모드·설정 문맥·이벤트 출처·투자 단계 연결·퀴즈 난이도와 금지 입력 교차 참조
 

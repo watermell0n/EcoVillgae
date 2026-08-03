@@ -1,6 +1,8 @@
 package com.b201.ecovillage.ai.repository;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.LockModeType;
@@ -16,4 +18,6 @@ public interface AiProposalRepository extends JpaRepository<AiProposal, UUID> {
     Optional<AiProposal> findByClassroomIdAndId(UUID classroomId, UUID id);
 
     Optional<AiProposal> findByClassroomIdAndDedupeKey(UUID classroomId, String dedupeKey);
+
+    List<AiProposal> findAllByAiRunIdInOrderByCreatedAtAsc(Collection<UUID> aiRunIds);
 }

@@ -24,17 +24,29 @@ import com.b201.ecovillage.classroom.application.AccessModeCommandService;
 import com.b201.ecovillage.classroom.application.AccessModeResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
+import com.b201.ecovillage.classroom.application.CourseConfigurationCommand;
+import com.b201.ecovillage.classroom.application.CourseConfigurationCommandService;
+import com.b201.ecovillage.classroom.application.CourseConfigurationUpdateResult;
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
 import com.b201.ecovillage.classroom.application.ClassroomRosterService;
+import com.b201.ecovillage.classroom.application.ClassroomReadService;
 import com.b201.ecovillage.classroom.application.ModuleActivationCommand;
 import com.b201.ecovillage.classroom.application.ModuleActivationResult;
 import com.b201.ecovillage.classroom.application.ModuleActivationService;
+import com.b201.ecovillage.classroom.application.ModuleStopCommand;
+import com.b201.ecovillage.classroom.application.ModuleStopCommandService;
+import com.b201.ecovillage.classroom.application.ModuleStopResult;
+import com.b201.ecovillage.classroom.application.ModulesAndPoliciesView;
+import com.b201.ecovillage.classroom.application.RosterAndSalariesView;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
 import com.b201.ecovillage.classroom.application.CreateClassroomResult;
 import com.b201.ecovillage.classroom.application.SalaryRoleCommand;
 import com.b201.ecovillage.classroom.application.StudentRosterCommand;
 import com.b201.ecovillage.classroom.application.UpdateRosterCommand;
 import com.b201.ecovillage.classroom.application.UpdateRosterResult;
+import com.b201.ecovillage.classroom.application.EconomicPolicyCommand;
+import com.b201.ecovillage.classroom.application.EconomicPolicyCommandService;
+import com.b201.ecovillage.classroom.application.EconomicPolicyResult;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -46,8 +58,12 @@ public class ClassroomController {
     private final ClassroomCreationService creationService;
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
+    private final ClassroomReadService readService;
     private final AccessModeCommandService accessModeCommandService;
     private final ModuleActivationService moduleActivationService;
+    private final CourseConfigurationCommandService courseConfigurationCommandService;
+    private final ModuleStopCommandService moduleStopCommandService;
+    private final EconomicPolicyCommandService economicPolicyCommandService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -55,18 +71,146 @@ public class ClassroomController {
         ClassroomCreationService creationService,
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
+        ClassroomReadService readService,
         AccessModeCommandService accessModeCommandService,
         ModuleActivationService moduleActivationService,
+        CourseConfigurationCommandService courseConfigurationCommandService,
+        ModuleStopCommandService moduleStopCommandService,
+        EconomicPolicyCommandService economicPolicyCommandService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.creationService = creationService;
         this.configurationService = configurationService;
         this.rosterService = rosterService;
+        this.readService = readService;
         this.accessModeCommandService = accessModeCommandService;
         this.moduleActivationService = moduleActivationService;
+        this.courseConfigurationCommandService = courseConfigurationCommandService;
+        this.moduleStopCommandService = moduleStopCommandService;
+        this.economicPolicyCommandService = economicPolicyCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PutMapping("/{classroomId}/course-configuration")
+    public ApiResponse<CourseConfigurationResponse> updateCourseConfiguration(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody CourseConfigurationRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        CourseConfigurationUpdateResult result = courseConfigurationCommandService.update(
+            new CourseConfigurationCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.grade(),
+                request.courseSize(),
+                request.startsOn(),
+                request.endsOn(),
+                request.recommendedCourseId(),
+                request.difficultyProfile(),
+                request.expectedPolicyVersion(),
+                request.classroomCode(),
+                request.currencyName()
+            )
+        );
+        return new ApiResponse<>(
+            new CourseConfigurationResponse(
+                result.classroomId(),
+                result.policyVersion(),
+                result.stateVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    @PostMapping("/{classroomId}/modules/{moduleCode}/stop-commands")
+    public ApiResponse<ModuleStopResponse> stopModule(
+        @PathVariable UUID classroomId,
+        @PathVariable String moduleCode,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ModuleStopRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        ModuleStopResult result = moduleStopCommandService.stop(
+            new ModuleStopCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                moduleCode,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.reason()
+            )
+        );
+        return new ApiResponse<>(
+            new ModuleStopResponse(
+                result.moduleId(),
+                result.moduleCode(),
+                result.status(),
+                result.stateVersion(),
+                result.cleanupRequired(),
+                result.cleanupBlockers(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    @PutMapping("/{classroomId}/economic-policy")
+    public ApiResponse<EconomicPolicyResponse> updateEconomicPolicy(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody EconomicPolicyRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        EconomicPolicyResult result = economicPolicyCommandService.update(
+            new EconomicPolicyCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.priceAdjustmentBps(),
+                request.inflationRateBps(),
+                request.incomeTaxRateBps(),
+                request.vatRateBps(),
+                request.tradeTaxRateBps(),
+                request.depositRateBps(),
+                request.loanRateBps(),
+                request.stockPolicy(),
+                request.rewardPolicy(),
+                request.limits(),
+                request.expectedPolicyVersion()
+            )
+        );
+        return new ApiResponse<>(
+            new EconomicPolicyResponse(
+                result.policyVersionId(),
+                result.policyVersion(),
+                result.status(),
+                result.stateVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
     }
 
     @PostMapping("/{classroomId}/modules/{moduleCode}/activation-commands")
@@ -187,6 +331,32 @@ public class ClassroomController {
             result.stateVersion()
         );
         return new ApiResponse<>(data, meta(requestId, correlationId));
+    }
+
+    @GetMapping("/{classroomId}/roster-and-salaries")
+    public ApiResponse<RosterAndSalariesView> rosterAndSalaries(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        RosterAndSalariesView data = readService.rosterAndSalaries(
+            principal == null ? null : principal.getName(),
+            classroomId
+        );
+        return new ApiResponse<>(data, meta(uuidGenerator.generate(), correlationId));
+    }
+
+    @GetMapping("/{classroomId}/modules-and-policies")
+    public ApiResponse<ModulesAndPoliciesView> modulesAndPolicies(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        ModulesAndPoliciesView data = readService.modulesAndPolicies(
+            principal == null ? null : principal.getName(),
+            classroomId
+        );
+        return new ApiResponse<>(data, meta(uuidGenerator.generate(), correlationId));
     }
 
     @PostMapping
