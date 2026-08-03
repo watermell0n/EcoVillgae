@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "이코빌리지 학생",
+    "slug": "ecovillage-student",
+    "version": "0.1.0",
+    "orientation": "landscape",
+    "scheme": "ecovillage-student",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.ssafy.b201.ecovillage.student",
+      "adaptiveIcon": {
+        "backgroundColor": "#D7EFFF"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "학생 로그인 정보를 안전하게 보호하기 위해 인증을 사용합니다."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
