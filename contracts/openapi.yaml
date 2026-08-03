@@ -1286,6 +1286,7 @@ paths:
                       - "classroom_id"
                       - "policy_version"
                       - "state_version"
+                      - "replayed"
                     properties:
                       classroom_id:
                         type: "string"
@@ -1297,6 +1298,8 @@ paths:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      replayed:
+                        type: "boolean"
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -1371,6 +1374,14 @@ paths:
                 expected_policy_version:
                   type: "integer"
                   minimum: 0
+                classroom_code:
+                  type: "string"
+                  minLength: 8
+                  maxLength: 8
+                currency_name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 10
               required:
                 - "grade"
                 - "course_size"
@@ -2325,8 +2336,8 @@ paths:
     post:
       operationId: "apiMod002"
       x-api-id: "API-MOD-002"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "classroom_modules"
         - "state_transitions"
@@ -2354,7 +2365,53 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "module_id"
+                      - "module_code"
+                      - "status"
+                      - "state_version"
+                      - "cleanup_required"
+                      - "cleanup_blockers"
+                      - "replayed"
+                    properties:
+                      module_id:
+                        type: "string"
+                        format: "uuid"
+                      module_code:
+                        type: "string"
+                      status:
+                        type: "string"
+                        enum:
+                          - "STOPPING"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      cleanup_required:
+                        type: "boolean"
+                        const: true
+                      cleanup_blockers:
+                        type: "array"
+                        items:
+                          type: "string"
+                        uniqueItems: true
+                      replayed:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -2379,7 +2436,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-MOD-002는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-MOD-002 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -2396,15 +2453,17 @@ paths:
                   format: "date-time"
                 reason:
                   type: "string"
+                  minLength: 1
+                  maxLength: 500
               required:
                 - "reason"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/economic-policy":
     put:
       operationId: "apiPol001"
       x-api-id: "API-POL-001"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "classroom_policy_versions"
         - "policy_snapshots"
@@ -2431,7 +2490,44 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "policy_version_id"
+                      - "policy_version"
+                      - "status"
+                      - "state_version"
+                      - "replayed"
+                    properties:
+                      policy_version_id:
+                        type: "string"
+                        format: "uuid"
+                      policy_version:
+                        type: "integer"
+                        minimum: 1
+                      status:
+                        type: "string"
+                        enum:
+                          - "ACTIVE"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      replayed:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -2456,7 +2552,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-POL-001는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-POL-001 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -2474,9 +2570,13 @@ paths:
                 price_adjustment_bps:
                   type: "integer"
                   format: "int32"
+                  minimum: -10000
+                  maximum: 100000
                 inflation_rate_bps:
                   type: "integer"
                   format: "int32"
+                  minimum: -10000
+                  maximum: 100000
                 income_tax_rate_bps:
                   type: "integer"
                   minimum: 0
@@ -2492,9 +2592,13 @@ paths:
                 deposit_rate_bps:
                   type: "integer"
                   format: "int32"
+                  minimum: 0
+                  maximum: 10000
                 loan_rate_bps:
                   type: "integer"
                   format: "int32"
+                  minimum: 0
+                  maximum: 10000
                 stock_policy:
                   type: "object"
                   additionalProperties: true
@@ -2519,7 +2623,7 @@ paths:
                 - "reward_policy"
                 - "limits"
                 - "expected_policy_version"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/public-fund-policy":
     put:
       operationId: "apiPol002"
@@ -9459,6 +9563,12 @@ paths:
                       - "classroom_id"
                       - "classroom_code"
                       - "currency_name"
+                      - "grade"
+                      - "course_size"
+                      - "starts_on"
+                      - "ends_on"
+                      - "difficulty_profile"
+                      - "state_version"
                       - "module_codes"
                       - "autonomous_schedules"
                       - "policy_versions"
@@ -9470,6 +9580,40 @@ paths:
                         type: "string"
                       currency_name:
                         type: "string"
+                      grade:
+                        type: "integer"
+                        enum:
+                          - 4
+                          - 5
+                          - 6
+                      course_size:
+                        type: "string"
+                        enum:
+                          - "ONE_SESSION"
+                          - "ONE_WEEK"
+                          - "ONE_MONTH"
+                          - "SEMESTER"
+                      starts_on:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date"
+                      ends_on:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date"
+                      recommended_course_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      difficulty_profile:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
                       module_codes:
                         type: "array"
                         items:
@@ -9684,6 +9828,9 @@ paths:
                               minimum: 0
                             policy_area:
                               type: "string"
+                            values:
+                              type: "object"
+                              additionalProperties: true
                           additionalProperties: false
                     additionalProperties: false
                   meta:

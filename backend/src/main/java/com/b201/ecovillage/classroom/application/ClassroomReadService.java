@@ -120,7 +120,7 @@ public class ClassroomReadService {
             .findAllByClassroomIdAndSupersededAtIsNullOrderByPolicyArea(classroomId)
             .stream()
             .filter(policy -> !student || !PRIVATE_POLICY_AREA.equals(policy.getPolicyArea()))
-            .map(ClassroomReadService::toPolicyView)
+            .map(policy -> toPolicyView(policy, student))
             .toList();
 
         return new ModulesAndPoliciesView(modules, policies);
@@ -187,7 +187,8 @@ public class ClassroomReadService {
     }
 
     private static ModulesAndPoliciesView.PolicyVersionView toPolicyView(
-        ClassroomPolicyVersion policy
+        ClassroomPolicyVersion policy,
+        boolean publicView
     ) {
         return new ModulesAndPoliciesView.PolicyVersionView(
             policy.getId(),
@@ -195,7 +196,8 @@ public class ClassroomReadService {
             policy.getStatus(),
             policy.getVersion(),
             policy.getVersion(),
-            policy.getPolicyArea()
+            policy.getPolicyArea(),
+            publicView ? Map.of() : policy.getPolicyValues()
         );
     }
 

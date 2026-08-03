@@ -1,5 +1,6 @@
 package com.b201.ecovillage.trade.repository;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,11 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByClassroomIdAndTransactionGroupId(
         UUID classroomId,
         UUID transactionGroupId
+    );
+
+    boolean existsByClassroomIdAndStatusIn(
+        UUID classroomId,
+        Collection<com.b201.ecovillage.trade.domain.TradeStatus> statuses
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
