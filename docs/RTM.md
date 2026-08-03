@@ -7,7 +7,7 @@
 
 ## 1. 사용 방법
 
-RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_13`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
+RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연결하고 상태 머신 `SM-*`, 권한 규칙 `PM-*`, 화면 `SCR-*`, HTTP API `API-*`, WebSocket 채널·이벤트, 논리 데이터 모델 `DM-*`, 물리 제약·인덱스 `UK-*·CK-*·IX-*`, Flyway `V1_1`~`V1_15`, DB 무결성 테스트 `DBT-*`를 연결합니다. 각 API·채널·이벤트 ID는 OpenAPI·AsyncAPI 기계 판독 계약에 동일하게 수록합니다.
 
 출처 약어:
 
@@ -327,7 +327,7 @@ WebSocket이 필요한 요구사항 44건은 모두 채널 또는 이벤트와 �
 
 | 구현 | 위치 | 결과 |
 | --- | --- | --- |
-| Flyway P1~P13 | `backend/src/main/resources/db/migration/V1_1~V1_13` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 보강 |
+| Flyway P1~P15 | `backend/src/main/resources/db/migration/V1_1~V1_15` | 85개 테이블과 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI 실행·퀴즈 결과 흐름 데이터 보강 |
 | 기준 조회 인덱스 | `V1_9__indexes.sql`, `V1_11__mvp_schema_alignment.sql` | IX-001~037 |
 | 학급 격리·도메인 검사 | `V1_1~V1_8` | 복합 FK·CHECK·부분 UQ |
 | 원장·불변성 트리거 | `V1_8__constraints_triggers.sql` | 지연 균형·복구 root·append-only |

@@ -27,6 +27,14 @@ import com.b201.ecovillage.quiz.application.QuizQuestionCommandService;
 import com.b201.ecovillage.quiz.application.QuizQuestionQueryService;
 import com.b201.ecovillage.quiz.application.QuizQuestionStatusCommand;
 import com.b201.ecovillage.quiz.application.QuizResourceResult;
+import com.b201.ecovillage.quiz.application.QuizQuestionIssueReportCommand;
+import com.b201.ecovillage.quiz.application.QuizQuestionIssueResult;
+import com.b201.ecovillage.quiz.application.QuizRegradeCommand;
+import com.b201.ecovillage.quiz.application.QuizRegradeResult;
+import com.b201.ecovillage.quiz.application.QuizResultCommand;
+import com.b201.ecovillage.quiz.application.QuizResultQueryService;
+import com.b201.ecovillage.quiz.application.QuizResultWorkflowService;
+import com.b201.ecovillage.quiz.application.QuizResultsView;
 import com.b201.ecovillage.quiz.application.GameAnswerCommand;
 import com.b201.ecovillage.quiz.application.QuizResponseService;
 import com.b201.ecovillage.quiz.application.QuizSessionCommand;
@@ -45,6 +53,8 @@ public class QuizController {
     private final QuizSessionCommandService sessionCommandService;
     private final QuizResponseService responseService;
     private final QuizSessionQueryService sessionQueryService;
+    private final QuizResultWorkflowService resultWorkflowService;
+    private final QuizResultQueryService resultQueryService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -54,6 +64,8 @@ public class QuizController {
         QuizSessionCommandService sessionCommandService,
         QuizResponseService responseService,
         QuizSessionQueryService sessionQueryService,
+        QuizResultWorkflowService resultWorkflowService,
+        QuizResultQueryService resultQueryService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -62,8 +74,140 @@ public class QuizController {
         this.sessionCommandService = sessionCommandService;
         this.responseService = responseService;
         this.sessionQueryService = sessionQueryService;
+        this.resultWorkflowService = resultWorkflowService;
+        this.resultQueryService = resultQueryService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/quiz-sessions/{sessionId}/result-commands")
+    public ResponseEntity<ApiResponse<QuizResourceResponse>> commandResult(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID sessionId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody QuizResultCommandRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = resolve(correlationId);
+        QuizResourceResult result = resultWorkflowService.execute(new QuizResultCommand(
+            subject(principal),
+            classroomId,
+            sessionId,
+            requestId,
+            resolvedCorrelationId,
+            request.expectedStateVersion(),
+            request.expectedResultVersion(),
+            request.command(),
+            request.leaderboardPublic()
+        ));
+        return resourceResponse(result, requestId, resolvedCorrelationId, HttpStatus.OK);
+    }
+
+    @PostMapping("/quiz-sessions/{sessionId}/question-issue-reports")
+    public ResponseEntity<ApiResponse<QuizQuestionIssueResponse>> reportQuestionIssue(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID sessionId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody QuizQuestionIssueReportRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = resolve(correlationId);
+        QuizQuestionIssueResult result = resultWorkflowService.report(
+            new QuizQuestionIssueReportCommand(
+                subject(principal),
+                classroomId,
+                sessionId,
+                request.questionId(),
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.reasonCode(),
+                request.description()
+            )
+        );
+        return response(
+            HttpStatus.CREATED,
+            new QuizQuestionIssueResponse(
+                result.issueId(),
+                result.status(),
+                result.stateVersion()
+            ),
+            requestId,
+            resolvedCorrelationId
+        );
+    }
+
+    @PostMapping("/quiz-sessions/{sessionId}/regrade-operations")
+    public ResponseEntity<ApiResponse<QuizRegradeAcceptedResponse>> regrade(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID sessionId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody QuizRegradeRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = resolve(correlationId);
+        QuizRegradeResult result = resultWorkflowService.regrade(new QuizRegradeCommand(
+            subject(principal),
+            classroomId,
+            sessionId,
+            requestId,
+            resolvedCorrelationId,
+            request.expectedStateVersion(),
+            request.expectedResultVersion(),
+            request.invalidatedQuestionIds(),
+            request.reason()
+        ));
+        return response(
+            HttpStatus.ACCEPTED,
+            new QuizRegradeAcceptedResponse(
+                result.operationId(),
+                result.status(),
+                "/operations/" + result.operationId()
+            ),
+            requestId,
+            resolvedCorrelationId
+        );
+    }
+
+    @GetMapping("/quiz-sessions/{sessionId}/results")
+    public ResponseEntity<ApiResponse<QuizResultsResponse>> findResults(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID sessionId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = resolve(correlationId);
+        QuizResultsView view = resultQueryService.find(
+            subject(principal),
+            classroomId,
+            sessionId
+        );
+        return response(
+            HttpStatus.OK,
+            new QuizResultsResponse(
+                view.resultVersion(),
+                view.status(),
+                view.summary(),
+                view.leaderboard().stream()
+                    .map(entry -> new QuizLeaderboardEntryResponse(
+                        entry.resultId(),
+                        "QUIZ_RESULT",
+                        view.status(),
+                        entry.resultVersion(),
+                        0L,
+                        entry.rank(),
+                        entry.nickname(),
+                        entry.characterCode()
+                    ))
+                    .toList()
+            ),
+            requestId,
+            resolvedCorrelationId
+        );
     }
 
     @PostMapping("/quiz-sessions/{sessionId}/commands")

@@ -128,6 +128,22 @@ public class QuizSession {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void beginResultReview(Instant changedAt) {
+        transition(QuizSessionStatus.SCORING, QuizSessionStatus.REVIEWING, changedAt);
+    }
+
+    public void publishResults(boolean requestedLeaderboardPublic, Instant changedAt) {
+        if (mode == QuizMode.TEST && requestedLeaderboardPublic) {
+            throw new IllegalStateException("a TEST result cannot publish a leaderboard");
+        }
+        leaderboardPublic = mode == QuizMode.GAME && requestedLeaderboardPublic;
+        transition(QuizSessionStatus.REVIEWING, QuizSessionStatus.RESULT_PUBLISHED, changedAt);
+    }
+
+    public void closeResults(Instant changedAt) {
+        transition(QuizSessionStatus.RESULT_PUBLISHED, QuizSessionStatus.CLOSED, changedAt);
+    }
+
     public boolean acceptsAnswers() {
         return status == QuizSessionStatus.OPEN;
     }
@@ -158,5 +174,20 @@ public class QuizSession {
 
     public long getStateVersion() {
         return stateVersion;
+    }
+
+    private void transition(
+        QuizSessionStatus expected,
+        QuizSessionStatus next,
+        Instant changedAt
+    ) {
+        if (status != expected) {
+            throw new IllegalStateException(
+                "quiz session must be " + expected + " before " + next
+            );
+        }
+        status = next;
+        statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+        updatedAt = changedAt;
     }
 }

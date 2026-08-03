@@ -112,4 +112,24 @@ public class QuizAnswer {
     public UUID getId() {
         return id;
     }
+
+    public UUID getQuizSubmissionId() {
+        return quizSubmissionId;
+    }
+
+    public UUID getQuizSessionQuestionId() {
+        return quizSessionQuestionId;
+    }
+
+    public boolean isCorrect() {
+        return Boolean.TRUE.equals(correct);
+    }
+
+    public int getScoreAwarded() {
+        return scoreAwarded == null ? 0 : scoreAwarded;
+    }
+
+    public int getResponseTimeMs() {
+        return responseTimeMs == null ? 0 : responseTimeMs;
+    }
 }
