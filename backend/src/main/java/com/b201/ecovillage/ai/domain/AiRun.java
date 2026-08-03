@@ -252,6 +252,10 @@ public class AiRun {
         return promptVersion;
     }
 
+    public Map<String, Object> getInputScope() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(inputScope));
+    }
+
     public Map<String, Object> getValidationResult() {
         return validationResult == null
             ? Map.of()

@@ -1,7 +1,7 @@
 "use client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8_000);
+const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 20_000);
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<void> | null = null;
@@ -58,6 +58,7 @@ export type BootstrapClassroom = {
 export type TeacherBootstrap = {
   user_id: string;
   roles: string[];
+  schools: Array<{ school_id: string; role: string }>;
   classrooms: BootstrapClassroom[];
   start_screen: string;
 };
@@ -190,18 +191,23 @@ export async function logoutTeacher() {
 }
 
 export async function getTeacherBootstrap(allowRefresh = true): Promise<TeacherBootstrap> {
+  const currentUser = () => apiRequest<{
+    user_id: string;
+    role: string;
+    schools: Array<{ school_id: string; role: string }>;
+    classrooms: Array<{ classroom_id: string; classroom_code: string; role: string }>;
+  }>("/auth/me", {}, allowRefresh);
   try {
-    return await apiRequest<TeacherBootstrap>("/auth/bootstrap", {}, allowRefresh);
+    const bootstrap = await apiRequest<Omit<TeacherBootstrap, "schools">>("/auth/bootstrap", {}, allowRefresh);
+    const current = await currentUser();
+    return { ...bootstrap, schools: current.schools };
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 404) throw error;
-    const current = await apiRequest<{
-      user_id: string;
-      role: string;
-      classrooms: Array<{ classroom_id: string; classroom_code: string; role: string }>;
-    }>("/auth/me", {}, allowRefresh);
+    const current = await currentUser();
     return {
       user_id: current.user_id,
       roles: [current.role, ...new Set(current.classrooms.map((classroom) => classroom.role))],
+      schools: current.schools,
       classrooms: current.classrooms.map((classroom) => ({
         resource_id: classroom.classroom_id,
         label: classroom.classroom_code,

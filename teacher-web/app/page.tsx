@@ -22,6 +22,10 @@ import {
   ApiError,
   apiRequest,
   BootstrapClassroom,
+  CreateClassroomResponse,
+  MODULE_DEFINITIONS,
+  periodToCourseSize,
+  SetupPrecheckResponse,
   createTeacherSession,
   getClassroomServerState,
   getTeacherBootstrap,
@@ -30,6 +34,7 @@ import {
 } from "./api";
 import { beginTeacherOidcLogin, consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
+import { SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 
 type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
@@ -107,6 +112,7 @@ type ClassSettings = {
   currency: string;
   period: string;
   incomeTax: string;
+  studentCount: string;
 };
 
 type LessonMaterial = {
@@ -222,8 +228,21 @@ const initialSettings: ClassSettings = {
   endDate: "2026-08-07",
   currency: "비빔",
   period: "1주 프로젝트",
-  incomeTax: "10"
+  incomeTax: "10",
+  studentCount: "24"
 };
+
+const moduleCodeByUiName = new Map<string, string>([
+  ["월급", "ROLE_SALARY"],
+  ["세금", "INCOME_TAX"],
+  ["상점", "STORE"],
+  ["캐릭터", "CHARACTER"],
+  ["개인 거래", "TRADE"],
+  ["예금", "DEPOSIT"],
+  ["투자", "INVESTMENT"],
+  ["공공 예산/투표", "PUBLIC_FUND"],
+  ["퀴즈", "QUIZ_GAME"]
+]);
 
 const initialLessonMaterials: LessonMaterial[] = [
   { id: "lesson-1", title: "월급과 실수령액", stage: "1교시", minutes: "15", status: "준비 완료" },
@@ -291,10 +310,12 @@ export default function TeacherConsole() {
   const [activeClassroomId, setActiveClassroomId] = useState(demoClassroomId);
   const [activeStateVersion, setActiveStateVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
+  const [activeSchoolId, setActiveSchoolId] = useState("");
+  const [setupPrechecks, setSetupPrechecks] = useState<Record<string, SetupPrecheckResponse>>({});
   const [authBusy, setAuthBusy] = useState(true);
   const [authError, setAuthError] = useState("");
   const [view, setView] = useState<ViewKey>("overview");
-  const [mode, setMode] = useState("자율 활동");
+  const [mode, setMode] = useState("선생님 수업");
   const [modules, setModules] = useState<ModuleRow[]>(initialModules);
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
   const [products, setProducts] = useState<ProductRow[]>(initialProducts);
@@ -321,6 +342,7 @@ export default function TeacherConsole() {
         if (cancelled) return;
         setClassrooms(bootstrap.classrooms);
         setTeacherRoles(bootstrap.roles);
+        setActiveSchoolId(bootstrap.schools[0]?.school_id ?? "");
         setHasClassroom(bootstrap.classrooms.length > 0);
         if (bootstrap.classrooms[0]) {
           setActiveClassroomId(bootstrap.classrooms[0].resource_id);
@@ -371,6 +393,8 @@ export default function TeacherConsole() {
     setView("overview");
     setCreateStep("basic");
     setClassrooms([]);
+    setActiveSchoolId("");
+    setSetupPrechecks({});
     setHasClassroom(false);
   }
 
@@ -529,7 +553,7 @@ export default function TeacherConsole() {
         setSettings={setSettings}
         modules={modules}
         setModules={setModules}
-        runAction={runAction}
+        schoolId={activeSchoolId}
         onCancel={() => {
           setCreateStep("basic");
           setStage("classrooms");
@@ -539,6 +563,23 @@ export default function TeacherConsole() {
           setStage("classrooms");
         }}
         onLogout={logout}
+        onCreated={(classroom, precheck) => {
+          const created: BootstrapClassroom = {
+            resource_id: classroom.classroom_id,
+            label: settings.className,
+            status: classroom.status,
+            state_version: classroom.state_version,
+            classroom_code: classroom.classroom_code,
+            currency_name: classroom.currency_name
+          };
+          setClassrooms((items) => [created, ...items.filter((item) => item.resource_id !== created.resource_id)]);
+          setActiveClassroomId(created.resource_id);
+          setActiveStateVersion(created.state_version ?? 0);
+          setMode("선생님 수업");
+          if (precheck) {
+            setSetupPrechecks((items) => ({ ...items, [created.resource_id]: precheck }));
+          }
+        }}
         onDone={(nextView) => {
           setHasClassroom(true);
           setHasDraft(false);
@@ -633,6 +674,15 @@ export default function TeacherConsole() {
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
+              stateVersion={activeStateVersion}
+              onStateVersionChange={setActiveStateVersion}
+              settings={settings}
+              studentCount={Math.max(Number(settings.studentCount) || students.length, 1)}
+              initialPrecheck={setupPrechecks[activeClassroomId]}
+              onPrecheckChange={(precheck: SetupPrecheckResponse) => setSetupPrechecks((items) => ({
+                ...items,
+                [activeClassroomId]: precheck
+              }))}
             />
           )}
           {view === "approvals" && (
@@ -811,10 +861,11 @@ function CreateClassroomFlow({
   setSettings,
   modules,
   setModules,
-  runAction,
+  schoolId,
   onCancel,
   onSaveDraft,
   onLogout,
+  onCreated,
   onDone
 }: Readonly<{
   step: CreateStep;
@@ -823,14 +874,19 @@ function CreateClassroomFlow({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  schoolId: string;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
+  onCreated: (classroom: CreateClassroomResponse, precheck?: SetupPrecheckResponse) => void;
   onDone: (view: ViewKey) => void;
 }>) {
   const [focusedModule, setFocusedModule] = useState("투자");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [creationError, setCreationError] = useState("");
+  const [createdClassroom, setCreatedClassroom] = useState<CreateClassroomResponse | null>(null);
+  const [setupPrecheck, setSetupPrecheck] = useState<SetupPrecheckResponse | null>(null);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => new Set(
     selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status === "열림"))
   ));
@@ -902,29 +958,101 @@ function CreateClassroomFlow({
     }));
   }
 
-  function createClassroom() {
-    runAction(
-      "경제교실 개설",
-      "/classrooms",
+  async function requestClassroomSetupPrecheck(classroomId: string) {
+    return apiRequest<SetupPrecheckResponse>(
+      `/classrooms/${classroomId}/ai/balancing-analysis-operations`,
       {
         method: "POST",
         body: JSON.stringify({
-          name: settings.className,
-          school_name: settings.schoolName,
-          grade: Number(settings.grade),
-          class_number: settings.classNumber,
-          description: settings.description,
-          currency_name: settings.currency,
-          starts_on: settings.startDate,
-          ends_on: settings.endDate,
-          recommended_scale: settings.period
+          analysis_mode: "SETUP_PRECHECK",
+          trigger_context: {
+            context_type: "CLASSROOM_SETUP",
+            active_student_count: Math.max(Number(settings.studentCount) || 1, 1),
+            system_amount_cap: 1_000_000,
+            non_reward_issuance: 0,
+            existing_reward_issuance: 0,
+            expected_recovery: 0,
+            other_periodic_issuance_per_student: 0,
+            effective_tax_bps: Math.max(Math.round(Number(settings.incomeTax || 0) * 100), 0)
+          },
+          metric_scopes: []
         })
-      },
-      () => {
-        setShowConfirmation(false);
-        setStep("complete");
       }
     );
+  }
+
+  async function createClassroom() {
+    const studentCount = Number(settings.studentCount);
+    if (!schoolId) {
+      setCreationError("소속 학교 정보를 확인하지 못했어요. 다시 로그인해 주세요.");
+      return;
+    }
+    if (!Number.isInteger(studentCount) || studentCount < 1) {
+      setCreationError("예상 학생 수는 1명 이상으로 입력해 주세요.");
+      return;
+    }
+    const supportedCodes = new Set<string>(MODULE_DEFINITIONS.map((module) => module.code));
+    const moduleCodes = modules
+      .filter((module) => module.status === "열림")
+      .map((module) => moduleCodeByUiName.get(module.name))
+      .filter((code): code is string => code !== undefined && supportedCodes.has(code));
+
+    setSubmitting(true);
+    setCreationError("");
+    try {
+      const classroom = await apiRequest<CreateClassroomResponse>("/classrooms", {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: 0,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-CLS-001",
+          client_occurred_at: new Date().toISOString(),
+          school_id: schoolId,
+          currency_name: settings.currency,
+          grade: Number(settings.grade),
+          course_size: periodToCourseSize(settings.period),
+          starts_on: settings.startDate,
+          ends_on: settings.endDate,
+          student_count: studentCount,
+          timezone: "Asia/Seoul",
+          salary_policy: null,
+          module_codes: moduleCodes,
+          autonomous_schedules: []
+        })
+      });
+      setCreatedClassroom(classroom);
+      setSettings((current) => ({ ...current, classCode: classroom.classroom_code }));
+      setShowConfirmation(false);
+      setStep("complete");
+      onCreated(classroom);
+      try {
+        const precheck = await requestClassroomSetupPrecheck(classroom.classroom_id);
+        setSetupPrecheck(precheck);
+        onCreated(classroom, precheck);
+      } catch (error) {
+        setCreationError(`교실은 만들어졌지만 시작 전 점검을 완료하지 못했어요. ${error instanceof Error ? error.message : ""}`);
+      }
+    } catch (error) {
+      const code = error instanceof ApiError ? ` (${error.code})` : "";
+      setCreationError(`경제교실을 개설하지 못했어요${code}. ${error instanceof Error ? error.message : ""}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function retryClassroomSetupPrecheck() {
+    if (!createdClassroom) return;
+    setSubmitting(true);
+    setCreationError("");
+    try {
+      const precheck = await requestClassroomSetupPrecheck(createdClassroom.classroom_id);
+      setSetupPrecheck(precheck);
+      onCreated(createdClassroom, precheck);
+    } catch (error) {
+      setCreationError(`시작 전 점검을 완료하지 못했어요. ${error instanceof Error ? error.message : ""}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -956,6 +1084,7 @@ function CreateClassroomFlow({
               <label>반<input value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} /></label>
               <label className="wide-field">수업 대상 설명<input value={settings.description} onChange={(event) => updateSettings("description", event.target.value)} /></label>
               <label>화폐명<input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} /></label>
+              <label>예상 학생 수<input type="number" min="1" value={settings.studentCount} onChange={(event) => updateSettings("studentCount", event.target.value)} /></label>
             </div>
             <div className="wizard-actions">
               <button
@@ -1038,8 +1167,11 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" disabled={submitting} onClick={() => void createClassroom()}>
+                {submitting ? "개설하고 점검하는 중" : "확정하고 개설하기"}
+              </button>
             </div>
+            {creationError ? <div className="inline-notice" role="alert">{creationError}</div> : null}
           </section>
         </div>
       ) : null}
@@ -1049,6 +1181,15 @@ function CreateClassroomFlow({
           <span>완료</span>
           <h1>경제교실이 열렸어요</h1>
           <p>입장 코드 {settings.classCode}로 학생들이 접속할 수 있어요.</p>
+          {setupPrecheck ? <SetupPrecheckSummary result={setupPrecheck} /> : null}
+          {!setupPrecheck ? (
+            <div className="inline-notice" role="alert">
+              <span>{creationError || "학생 이용을 열기 전에 시작 전 점검이 필요해요."}</span>
+              <button type="button" disabled={submitting || !createdClassroom} onClick={() => void retryClassroomSetupPrecheck()}>
+                {submitting ? "점검 중" : "다시 점검"}
+              </button>
+            </div>
+          ) : null}
           <div className="next-task-list">
             <button type="button" onClick={() => onDone("roster")}>학생 명단 등록하기</button>
             <button type="button" onClick={() => onDone("plan")}>운영 계획 세우기</button>
@@ -2015,7 +2156,13 @@ function Control({
   setModules,
   runAction,
   addLog,
-  classroomId
+  classroomId,
+  stateVersion,
+  onStateVersionChange,
+  settings,
+  studentCount,
+  initialPrecheck,
+  onPrecheckChange
 }: Readonly<{
   mode: string;
   setMode: React.Dispatch<React.SetStateAction<string>>;
@@ -2024,10 +2171,24 @@ function Control({
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
+  stateVersion: number;
+  onStateVersionChange: (version: number) => void;
+  settings: ClassSettings;
+  studentCount: number;
+  initialPrecheck?: SetupPrecheckResponse;
+  onPrecheckChange: (precheck: SetupPrecheckResponse) => void;
 }>) {
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [draftLesson, setDraftLesson] = useState<LessonMaterial | null>(null);
+  const [precheck, setPrecheck] = useState<SetupPrecheckResponse | null>(initialPrecheck ?? null);
+  const [warningAcknowledged, setWarningAcknowledged] = useState(false);
+  const [accessBusy, setAccessBusy] = useState(false);
+
+  useEffect(() => {
+    setPrecheck(initialPrecheck ?? null);
+    setWarningAcknowledged(false);
+  }, [initialPrecheck, classroomId]);
 
   function updateModule(name: string, status: string, teacherTodo: string) {
     setModules((items) => items.map((item) => item.name === name ? { ...item, status, teacherTodo } : item));
@@ -2048,6 +2209,93 @@ function Control({
     setEditingLessonId(null);
     setDraftLesson(null);
     addLog("수업 자료를 수정했어요.");
+  }
+
+  async function requestClassroomSetupPrecheck() {
+    setAccessBusy(true);
+    try {
+      const result = await apiRequest<SetupPrecheckResponse>(
+        `/classrooms/${classroomId}/ai/balancing-analysis-operations`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            analysis_mode: "SETUP_PRECHECK",
+            trigger_context: {
+              context_type: "CLASSROOM_SETUP",
+              active_student_count: Math.max(studentCount, 1),
+              system_amount_cap: 1_000_000,
+              non_reward_issuance: 0,
+              existing_reward_issuance: 0,
+              expected_recovery: 0,
+              other_periodic_issuance_per_student: 0,
+              effective_tax_bps: Math.max(Math.round(Number(settings.incomeTax || 0) * 100), 0)
+            },
+            metric_scopes: []
+          })
+        }
+      );
+      setPrecheck(result);
+      setWarningAcknowledged(false);
+      onPrecheckChange(result);
+      addLog(result.overall_severity === "BLOCK"
+        ? "시작 전 점검에서 차단 항목이 발견됐어요."
+        : "시작 전 점검이 완료됐어요.", result.overall_severity === "PASS" ? "success" : "warning");
+    } catch (error) {
+      addLog(`시작 전 점검을 완료하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setAccessBusy(false);
+    }
+  }
+
+  async function changeAccessMode() {
+    const closing = mode === "자율 활동";
+    if (!closing && precheck?.overall_severity === "BLOCK") {
+      addLog("차단 항목을 해결하고 시작 전 점검을 다시 실행해 주세요.", "warning");
+      return;
+    }
+    if (!closing && precheck?.overall_severity === "WARN" && !warningAcknowledged) {
+      addLog("경고 내용을 확인했다는 체크가 필요해요.", "warning");
+      return;
+    }
+
+    setAccessBusy(true);
+    try {
+      const warningIds = !closing && precheck?.overall_severity === "WARN"
+        ? precheck.checks.filter((check) => check.severity === "WARN").map((check) => check.check_id)
+        : [];
+      const response = await apiRequest<{ state_version: number }>(
+        `/classrooms/${classroomId}/access-mode-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: stateVersion,
+            command: closing ? "CLOSE" : "OPEN",
+            duration_minutes: closing ? null : 40,
+            preflight_run_id: closing ? null : precheck?.ai_run_id ?? null,
+            preflight_warning_acknowledgements: warningIds,
+            screen_id: "SCR-WEB-008",
+            ui_action_id: "UIA-CLS-007",
+            client_occurred_at: new Date().toISOString()
+          })
+        }
+      );
+      onStateVersionChange(response.state_version);
+      setMode(closing ? "선생님 수업" : "자율 활동");
+      addLog(closing ? "학생 자율 이용을 닫았어요." : "학생 자율 이용을 열었어요.");
+    } catch (error) {
+      if (
+        !closing
+          && error instanceof ApiError
+          && ["PREFLIGHT_CHECK_REQUIRED", "PREFLIGHT_WARNING_ACKNOWLEDGEMENT_REQUIRED"].includes(error.code)
+      ) {
+        setPrecheck(null);
+        await requestClassroomSetupPrecheck();
+        return;
+      }
+      addLog(`운영 모드를 변경하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setAccessBusy(false);
+    }
   }
 
   return (
@@ -2094,21 +2342,26 @@ function Control({
           label="현재 모드"
           value={mode}
           action={mode === "자율 활동" ? "수업 시작" : "자율 전환"}
-          onClick={() => runAction(
-            "운영 모드 전환",
-            `/classrooms/${classroomId}/access-mode-commands`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                expected_state_version: 0,
-                command: mode === "자율 활동" ? "CLOSE" : "OPEN",
-                duration_minutes: 40,
-                client_occurred_at: new Date().toISOString()
-              })
-            },
-            () => setMode((current) => current === "자율 활동" ? "선생님 수업" : "자율 활동")
-          )}
+          onClick={() => void changeAccessMode()}
         />
+        {mode !== "자율 활동" && precheck ? (
+          <>
+            <SetupPrecheckSummary result={precheck} />
+            {precheck.overall_severity === "WARN" ? (
+              <label className="warn-confirm">
+                <input
+                  type="checkbox"
+                  checked={warningAcknowledged}
+                  onChange={(event) => setWarningAcknowledged(event.target.checked)}
+                />
+                경고 내용을 확인했으며 이 설정으로 학생 이용을 시작합니다.
+              </label>
+            ) : null}
+            <button type="button" className="wide-action" disabled={accessBusy} onClick={() => void requestClassroomSetupPrecheck()}>
+              {accessBusy ? "점검 중" : "시작 전 점검 다시 실행"}
+            </button>
+          </>
+        ) : null}
         <ActionLine
           label="지도 활동 시작"
           value="준비한 수업 자료를 학생 화면에 열기"

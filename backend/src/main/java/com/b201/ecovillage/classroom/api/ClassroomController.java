@@ -272,7 +272,9 @@ public class ClassroomController {
                 resolvedCorrelationId,
                 request.expectedStateVersion(),
                 request.command(),
-                request.durationMinutes()
+                request.durationMinutes(),
+                request.preflightRunId(),
+                request.preflightWarningAcknowledgements()
             )
         );
         return new ApiResponse<>(

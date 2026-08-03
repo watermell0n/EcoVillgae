@@ -1620,7 +1620,8 @@
         "activity_sessions",
         "realtime_streams",
         "outbox_events",
-        "audit_events"
+        "audit_events",
+        "ai_runs"
       ],
       "request": {
         "mode": "strict",
@@ -1640,7 +1641,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.screen_id",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -1649,7 +1650,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.ui_action_id",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -1658,7 +1659,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.client_occurred_at",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -1667,7 +1668,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.command",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -1676,7 +1677,25 @@
             "required": false,
             "type": "integer",
             "target": "service_input.duration_minutes",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "preflight_run_id",
+            "required": false,
+            "type": "string|null",
+            "target": "service_input.preflight_run_id",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "preflight_warning_acknowledgements",
+            "required": false,
+            "type": "array",
+            "target": "service_input.preflight_warning_acknowledgements",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           }
@@ -1690,7 +1709,7 @@
             "required": true,
             "type": "string",
             "target": "projection.mode",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -1699,7 +1718,7 @@
             "required": true,
             "type": "string",
             "target": "projection.source",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -1708,7 +1727,7 @@
             "required": false,
             "type": "string|null",
             "target": "projection.expires_at",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -1726,7 +1745,7 @@
             "required": true,
             "type": "integer",
             "target": "projection.state_version",
-            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_policy_versions, classroom_modules, autonomous_schedules, autonomous_schedule_modules, activity_sessions, realtime_streams, outbox_events, audit_events, ai_runs에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }

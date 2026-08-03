@@ -1974,6 +1974,7 @@ paths:
         - "realtime_streams"
         - "outbox_events"
         - "audit_events"
+        - "ai_runs"
       x-ui-action-ids:
         - "UIA-CLS-007"
       x-roles:
@@ -1992,8 +1993,8 @@ paths:
         - "AI-009"
       tags:
         - "Classrooms"
-      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각"
-      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각."
+      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements? → 첫 OPEN은 유효한 CLASSROOM_SETUP 실행 ID가 필수이고 WARN의 모든 check_id 확인 후 경제 설정 점검과 계산된 앱 모드, 종료시각 반환"
+      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements? → 첫 OPEN은 유효한 CLASSROOM_SETUP 실행 ID가 필수이고 WARN의 모든 check_id 확인 후 경제 설정 점검과 계산된 앱 모드, 종료시각 반환."
       security:
         - bearerAuth: []
       parameters:
@@ -2095,6 +2096,17 @@ paths:
                   type: "integer"
                   minimum: 1
                   maximum: 480
+                preflight_run_id:
+                  type:
+                    - "string"
+                    - "null"
+                  format: "uuid"
+                preflight_warning_acknowledgements:
+                  type: "array"
+                  items:
+                    type: "string"
+                    minLength: 1
+                  uniqueItems: true
               required:
                 - "command"
               additionalProperties: false

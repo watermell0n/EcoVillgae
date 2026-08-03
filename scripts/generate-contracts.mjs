@@ -449,6 +449,20 @@ const requestFieldOverrides = {
       optional: true,
       schema: { type: "integer", minimum: 1, maximum: 480 },
     },
+    {
+      name: "preflight_run_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+    {
+      name: "preflight_warning_acknowledgements",
+      optional: true,
+      schema: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        uniqueItems: true,
+      },
+    },
   ],
   "API-CLS-008": [
     { name: "reauthentication_proof", schema: { type: "string", writeOnly: true } },
@@ -1919,6 +1933,7 @@ function storageTargets(operation) {
       "realtime_streams",
       "outbox_events",
       "audit_events",
+      "ai_runs",
     ];
   }
   if (operation.apiId === "API-TRD-004") {
