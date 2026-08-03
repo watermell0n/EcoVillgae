@@ -8281,8 +8281,8 @@ paths:
         - "AI-001"
       tags:
         - "AI"
-      summary: "enabled=false, reason → 학급 AI 설정 버전"
-      description: "사람이 검토하는 원문 기준: `API-AI-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: enabled=false, reason → 학급 AI 설정 버전."
+      summary: "enabled=true|false, reason → 학급 AI 설정 버전"
+      description: "사람이 검토하는 원문 기준: `API-AI-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: enabled=true|false, reason → 학급 AI 설정 버전."
       security:
         - bearerAuth: []
       parameters:
@@ -8360,7 +8360,6 @@ paths:
                   format: "date-time"
                 enabled:
                   type: "boolean"
-                  const: false
                 reason:
                   type: "string"
                   minLength: 1

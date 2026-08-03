@@ -23,14 +23,23 @@ import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 
 /**
- * API-AI-005 학급 AI 끄기를 처리한다. 계약상 enabled는 false만 허용하는 단방향 스위치다.
- * 설정은 AI_SETTINGS 정책 버전으로 남기고 감사 이벤트를 함께 기록한다.
+ * API-AI-005 학급 AI 사용 설정을 처리한다.
+ *
+ * <p>끄기와 다시 켜기를 모두 허용하는 양방향 토글이다. 처음에는 계약이 끄기만 허용해 되돌릴
+ * 방법이 없었는데, 의도한 안전 조치가 아니라 계약 누락이었으므로 양방향으로 바꿨다.
+ * 어느 방향이든 사유를 받고 AI_SETTINGS 정책 버전과 감사 이벤트를 남긴다.
+ *
+ * <p>AI 제안을 적용하는 중에는 방향과 무관하게 변경을 막아 일관성을 지킨다.
+ *
+ * <p>학교 단위 API-ADM-004는 권한·학급 설정과의 우선순위·일괄 적용 이력을 따로 정해야 해서
+ * 끄기 전용을 유지한다. 긴급 차단은 운영 환경의 전역 스위치로 대응한다.
  */
 @Service
 public class AiSettingsService {
 
     private static final String APPLYING_STATUS = "APPLYING";
     private static final String DISABLED_STATUS = "DISABLED";
+    private static final String ENABLED_STATUS = "ENABLED";
 
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
@@ -142,22 +151,21 @@ public class AiSettingsService {
             before,
             after,
             "AI",
-            "학급 AI 기능이 꺼졌습니다."
+            command.enabled()
+                ? "학급 AI 기능을 다시 켰습니다."
+                : "학급 AI 기능이 꺼졌습니다."
         );
 
-        return new AiSettingsResult(policy.getId(), DISABLED_STATUS, nextVersion);
+        return new AiSettingsResult(
+            policy.getId(),
+            command.enabled() ? ENABLED_STATUS : DISABLED_STATUS,
+            nextVersion
+        );
     }
 
     private void validate(AiSettingsCommand command) {
         if (command.teacherSubject() == null || command.teacherSubject().isBlank()) {
             throw operation(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED", "A teacher session is required.");
-        }
-        if (command.enabled()) {
-            throw operation(
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                "VALIDATION_ERROR",
-                "enabled must be false. Re-enabling AI is not supported by API-AI-005."
-            );
         }
         if (command.reason() == null || command.reason().isBlank()) {
             throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "reason must not be blank.");

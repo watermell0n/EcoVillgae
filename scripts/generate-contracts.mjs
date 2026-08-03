@@ -857,7 +857,9 @@ const requestFieldOverrides = {
     { name: "teacher_context", optional: true, schema: { type: "string", maxLength: 1000 } },
   ],
   "API-AI-005": [
-    { name: "enabled", schema: { type: "boolean", const: false } },
+    // 학급 AI는 양방향 토글입니다. 끄기와 다시 켜기 모두 사유와 정책 버전을 남깁니다.
+    // 학교 단위 API-ADM-004는 권한·우선순위·일괄 이력을 별도로 정해야 해서 끄기 전용을 유지합니다.
+    { name: "enabled", schema: { type: "boolean" } },
     { name: "reason", schema: { type: "string", minLength: 1 } },
   ],
   "API-AI-006": [
