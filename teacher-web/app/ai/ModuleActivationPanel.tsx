@@ -19,6 +19,7 @@ import {
   type SetupPrecheckResponse
 } from "../api";
 import {
+  appliedPolicyValues,
   modulePolicyArea,
   policyVersionOf,
   type AiModuleRow,
@@ -232,7 +233,16 @@ export function ModuleActivationPanel({
         }
       );
       await afterApplied(code, response.state_version);
-      setMessage(`${module.name} 초기 정책을 확정하고 활성화했어요.`);
+      // 어떤 값이 확정됐는지 서버 응답(applied_values)을 그대로 읽어 보여줍니다.
+      const applied = response.applied_values
+        .map((value) => {
+          const candidate = result.candidates.find((item) => item.action_id === value.action_id);
+          return `${candidate?.label ?? value.action_id} ${valueForDisplay(value.proposed_value, value.unit)}`;
+        })
+        .join(" · ");
+      setMessage(applied
+        ? `${module.name} 초기 정책을 확정하고 활성화했어요. (${applied})`
+        : `${module.name} 초기 정책을 확정하고 활성화했어요.`);
     } catch (error) {
       handleFailure(error, "추천값을 적용하지 못했어요.");
     } finally {
@@ -263,6 +273,7 @@ export function ModuleActivationPanel({
           const blocked = !canManage || busy || prerequisites.length > 0;
           const investmentMode = investmentModes[code]
             ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
+          const appliedValues = appliedPolicyValues(policyVersions, code);
           return (
             <article className="module-activation-card" key={code}>
               <header>
@@ -271,6 +282,20 @@ export function ModuleActivationPanel({
                   {isActive ? <Check size={14} /> : null}{module.status}
                 </b>
               </header>
+              {appliedValues.length > 0 ? (
+                <dl className="module-applied-values">
+                  {appliedValues.map((applied) => (
+                    <div key={applied.label}>
+                      <dt>{applied.label}</dt>
+                      <dd>{applied.text}</dd>
+                    </div>
+                  ))}
+                  <div>
+                    <dt>정책 버전</dt>
+                    <dd>v{policyVersionOf(policyVersions, modulePolicyArea(code))}</dd>
+                  </div>
+                </dl>
+              ) : null}
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
               {code === "INVESTMENT" && !isActive ? (
                 <label className="investment-mode-selector">

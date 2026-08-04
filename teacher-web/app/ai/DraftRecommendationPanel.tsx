@@ -211,10 +211,17 @@ export function DraftRecommendationPanel({
           ?? response.applied_values[0];
         if (priceValue) onProductPriceApplied(selectedProduct.resourceId, priceValue.proposed_value);
       }
+      // 어떤 값이 확정됐는지 서버 응답(applied_values)을 그대로 읽어 보여줍니다.
+      const applied = response.applied_values
+        .map((value) => {
+          const candidate = result.candidates.find((item) => item.action_id === value.action_id);
+          return `${candidate?.label ?? value.action_id} ${valueForDisplay(value.proposed_value, value.unit)}`;
+        })
+        .join(" · ");
       setResult(null);
       setValues({});
       setWarnConfirmed(false);
-      setMessage("추천값을 적용했어요.");
+      setMessage(applied ? `추천값을 적용했어요. (${applied})` : "추천값을 적용했어요.");
       try {
         const refreshed = await apiRequest<{ items: AiHistoryItem[] }>(
           `/classrooms/${classroomId}/ai/runs-and-proposals?limit=20`

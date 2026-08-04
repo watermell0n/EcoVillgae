@@ -1163,6 +1163,32 @@ button:disabled {
   font-weight: 900;
 }
 
+/* 모듈에 지금 확정되어 있는 정책값입니다. 좁아지면 한 열로 접힙니다. */
+.module-applied-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.module-applied-values dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.module-applied-values dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
 .investment-mode-selector {
   display: grid;
   gap: 7px;
