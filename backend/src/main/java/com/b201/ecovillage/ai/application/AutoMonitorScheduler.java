@@ -18,6 +18,7 @@ import com.b201.ecovillage.ai.contract.BalancingContract;
 import com.b201.ecovillage.ai.infrastructure.AiMonitorProperties;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 
 @Component
@@ -107,6 +108,7 @@ public class AutoMonitorScheduler {
         if (
             classroom.getStatus() != ClassroomStatus.ACTIVE
                 || classroom.getActualStartsOn() == null
+                || classroom.getCourseSize() == CourseSize.ONE_SESSION
         ) {
             return null;
         }

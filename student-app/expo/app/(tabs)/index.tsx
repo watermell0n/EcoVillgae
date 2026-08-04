@@ -16,15 +16,17 @@ const toneColors = {
 };
 
 type HomeCard = {
-  id: ModuleGroup;
+  id: ModuleGroup | "realEstate" | "credit";
   title: string;
   subtitle: string;
   icon: string;
   tone: keyof typeof toneColors;
-  route: "/(tabs)/shop" | "/(tabs)/wallet" | "/bank" | "/investment" | "/classroom" | "/trade" | "/quiz" | "/character" | "/paystub";
+  route: "/(tabs)/shop" | "/(tabs)/wallet" | "/bank" | "/investment" | "/classroom" | "/trade" | "/quiz" | "/character" | "/paystub" | "/real-estate" | "/credit";
 };
 
 const cards: HomeCard[] = [
+  { id: "realEstate", title: "부동산", subtitle: "집과 땅의 가치를 알아봐요", icon: "⌂", tone: "orange", route: "/real-estate" },
+  { id: "credit", title: "신용등급", subtitle: "내 금융 약속을 확인해요", icon: "★", tone: "purple", route: "/credit" },
   { id: "wallet", title: "내 지갑", subtitle: "잔액과 거래 내역을 확인해요", icon: "👛", tone: "sky", route: "/(tabs)/wallet" },
   { id: "shop", title: "이코 상점", subtitle: "열린 상품을 고르고 구매해요", icon: "🏪", tone: "orange", route: "/(tabs)/shop" },
   { id: "bank", title: "이코 은행", subtitle: "예금과 적금 상품을 살펴봐요", icon: "🏦", tone: "purple", route: "/bank" },
@@ -40,7 +42,7 @@ export default function VillageScreen() {
   const { width } = useWindowDimensions();
   const { enabled, error, hasCachedData, isLoading, isOffline, refetch } = useClassroom();
   const columns = width >= 1050 ? 3 : width >= 640 ? 2 : 1;
-  const visibleCards = cards.filter((card) => enabled(card.id));
+  const visibleCards = cards.filter((card) => !["wallet", "character", "paystub"].includes(card.id) && (card.id === "realEstate" || card.id === "credit" ? enabled("bank") : enabled(card.id)));
 
   return (
     <Screen title="마을 광장">

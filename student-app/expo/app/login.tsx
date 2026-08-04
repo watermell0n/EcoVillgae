@@ -20,9 +20,8 @@ import { colors } from "@/theme/tokens";
 
 const loginSchema = z.object({
   classroomCode: z.string().trim().min(4, "학급 코드를 입력해 주세요."),
-  attendanceNumber: z.coerce.number().int().min(1, "출석번호를 확인해 주세요.").max(99),
   nickname: z.string().trim().min(1, "닉네임을 입력해 주세요.").max(20),
-  password: z.string().min(8, "비밀번호는 8자 이상이에요.")
+  password: z.string().min(4, "비밀번호는 4자 이상이에요.")
 });
 
 type LoginFormInput = z.input<typeof loginSchema>;
@@ -38,10 +37,9 @@ export default function LoginScreen() {
   } = useForm<LoginFormInput, unknown, LoginFormOutput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      classroomCode: "ABCD2345",
-      attendanceNumber: 7,
-      nickname: "경제왕",
-      password: "economy123!"
+      classroomCode: "",
+      nickname: "",
+      password: ""
     }
   });
 
@@ -70,15 +68,8 @@ export default function LoginScreen() {
           <View style={styles.formCard}>
             <Text style={styles.welcomeIcon}>🏘️</Text>
             <Text accessibilityRole="header" style={styles.formTitle}>이코빌리지</Text>
-            <Text style={styles.description}>선생님이 알려준 정보로 접속해요</Text>
+            <Text style={styles.description}>학급 코드로 계정을 만들거나 다시 로그인해요</Text>
             <Field control={control} error={errors.classroomCode?.message} label="학급 코드" name="classroomCode" />
-            <Field
-                control={control}
-                error={errors.attendanceNumber?.message}
-                keyboardType="number-pad"
-                label="출석번호"
-                name="attendanceNumber"
-              />
             <Field control={control} error={errors.nickname?.message} label="닉네임" name="nickname" />
             <Field control={control} error={errors.password?.message} label="비밀번호" name="password" secureTextEntry />
             {errors.root?.message ? <Text style={styles.formError}>{errors.root.message}</Text> : null}
@@ -88,7 +79,7 @@ export default function LoginScreen() {
               onPress={submit}
               style={({ pressed }) => [styles.submit, pressed && styles.pressed, isSubmitting && styles.disabled]}
             >
-              {isSubmitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>마을 입장하기</Text>}
+              {isSubmitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>계정 만들기 / 로그인</Text>}
             </Pressable>
             <Text style={styles.loginNote}>비밀번호를 잊었다면 선생님께 알려주세요.</Text>
           </View>

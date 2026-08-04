@@ -379,6 +379,49 @@ class AiSetupExecutionApiTest {
     }
 
     @Test
+    void blocksApplyWhenExpectedPolicyVersionIsMissing() throws Exception {
+        MvcResult analysis = mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(moduleAnalysisBody()))
+            .andExpect(status().isAccepted())
+            .andReturn();
+        UUID proposalId = UUID.fromString(
+            objectMapper.readTree(analysis.getResponse().getContentAsString())
+                .path("data")
+                .path("proposal_id")
+                .asText()
+        );
+
+        // 호출자가 정책 버전을 생략하면 낙관적 잠금을 건너뛰게 되므로 적용을 거절합니다.
+        // 화면은 modules-and-policies의 policy_versions 값을 그대로 되돌려 보내야 합니다.
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-proposals/{proposalId}/commands",
+                classroomId,
+                proposalId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "command": "APPLY",
+                      "reason": "정책 버전을 보내지 않고 적용합니다.",
+                      "expected_policy_version": null
+                    }
+                    """))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("POLICY_VERSION_CONFLICT"));
+
+        assertEquals("DISABLED", moduleRepository.findById(moduleId).orElseThrow().getStatus());
+        assertEquals(0, decisionRepository.count());
+    }
+
+    @Test
     void rejectsApplyForUnsupportedSetupProposalWithoutSideEffects() throws Exception {
         MvcResult analysis = mockMvc.perform(post(
                 "/classrooms/{classroomId}/ai/balancing-analysis-operations",

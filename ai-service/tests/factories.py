@@ -11,6 +11,7 @@ TARGET_ID = UUID("9442aa84-dafd-4f28-8dc2-e746658609bd")
 SCENARIO_VERSION_ID = UUID("70aa0f06-5bd2-45f0-8faf-c7bbc75e541a")
 ASSET_ID = UUID("248e0b3b-4193-435e-b144-28e36861c35a")
 PRICE_STEP_ID = UUID("9ff0c109-6847-4ee5-b5b5-ff6824187618")
+TARGET_PRICE_STEP_ID = UUID("cc79fc2e-a703-4ac6-84ab-7e1f006e72b4")
 SOURCE_PROPOSAL_ID = UUID("a5e5548f-bde5-4724-890c-55fe4581871f")
 
 
@@ -262,9 +263,24 @@ def investment_news_request() -> dict[str, object]:
         "scenario_version_id": str(SCENARIO_VERSION_ID),
         "asset_id": str(ASSET_ID),
         "price_step_id": str(PRICE_STEP_ID),
+        "target_price_step_id": str(TARGET_PRICE_STEP_ID),
         "asset_name": "푸른별",
         "asset_symbol": "BLUE",
+        "fictional_company_profile": "친환경 이동 수단을 만드는 가상의 지역 기업",
+        "investment_mode": "LONG_TERM",
+        "scenario_source": "HISTORICAL_INDEX",
+        "settlement_rule": "COURSE_END_FINAL",
         "current_step_index": 2,
+        "target_step_index": 3,
+        "target_direction": "FALL",
+        "historical_index_reference": {
+            "series_code": "SP500",
+            "event_name": "급격한 시장 충격과 회복 구간",
+            "source_name": "Federal Reserve Bank of St. Louis FRED",
+            "source_url": "https://fred.stlouisfed.org/series/SP500",
+            "period_start": "2020-02-19",
+            "period_end": "2020-08-18",
+        },
         "public_price_facts": [
             {
                 "step_index": 1,

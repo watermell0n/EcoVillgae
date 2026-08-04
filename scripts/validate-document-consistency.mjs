@@ -24,7 +24,10 @@ function walkMarkdown(directory = ".") {
   return fs.readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      return excludedDirectories.has(entry.name) ? [] : walkMarkdown(relativePath);
+      const isGeneratedPythonCache = entry.name.startsWith(".pytest_cache");
+      return excludedDirectories.has(entry.name) || isGeneratedPythonCache
+        ? []
+        : walkMarkdown(relativePath);
     }
     return entry.isFile() && entry.name.endsWith(".md") ? [relativePath] : [];
   });
@@ -136,7 +139,7 @@ const definitionSources = [
   },
   {
     name: "검사 제약",
-    expected: 41,
+    expected: 42,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (CK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(CK-\d{3})(?!\d)/g,

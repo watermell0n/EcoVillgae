@@ -455,7 +455,19 @@ public class QuizController {
                 view.stateVersion(),
                 view.contentType(),
                 view.questionType(),
-                view.prompt()
+                view.prompt(),
+                view.explanation(),
+                view.source(),
+                view.aiRunId(),
+                view.options().stream()
+                    .map(option -> new QuizQuestionResponse.OptionResponse(
+                        option.optionId(),
+                        option.optionKey(),
+                        option.optionText(),
+                        option.correct(),
+                        option.sortOrder()
+                    ))
+                    .toList()
             ))
             .toList();
         return response(

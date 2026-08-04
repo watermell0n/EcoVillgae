@@ -1,10 +1,13 @@
 package com.b201.ecovillage.classroom.api;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -34,6 +37,17 @@ public record AccessModeCommandRequest(
     @JsonProperty("duration_minutes")
     @Min(1)
     @Max(480)
-    Integer durationMinutes
+    Integer durationMinutes,
+
+    @JsonProperty("preflight_run_id")
+    UUID preflightRunId,
+
+    @JsonProperty("preflight_warning_acknowledgements")
+    List<@NotBlank String> preflightWarningAcknowledgements
 ) {
+    public AccessModeCommandRequest {
+        preflightWarningAcknowledgements = preflightWarningAcknowledgements == null
+            ? List.of()
+            : List.copyOf(preflightWarningAcknowledgements);
+    }
 }

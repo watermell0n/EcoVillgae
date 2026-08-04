@@ -9,6 +9,7 @@ import {
   type AiProposalCommandResponse,
   type SetupPrecheckResponse
 } from "../api";
+import { policyVersionOf, type AiPolicyVersionRow } from "../types";
 import { SetupPrecheckSummary } from "./ModuleActivationPanel";
 
 type ProductDraft = {
@@ -46,6 +47,7 @@ function historyErrorMessage(error: unknown) {
 export function DraftRecommendationPanel({
   classroomId,
   products,
+  policyVersions,
   quizSessionId,
   activeStudentCount,
   effectiveTaxBps,
@@ -55,6 +57,7 @@ export function DraftRecommendationPanel({
 }: Readonly<{
   classroomId: string;
   products: ProductDraft[];
+  policyVersions: readonly AiPolicyVersionRow[];
   quizSessionId: string;
   activeStudentCount: number;
   effectiveTaxBps: number;
@@ -197,7 +200,8 @@ export function DraftRecommendationPanel({
               proposed_value: Number(values[candidate.action_id])
             })),
             reason: kind === "product" ? "교사가 상품 가격 추천을 검토하고 적용함" : "교사가 GAME 퀴즈 보상을 검토하고 적용함",
-            expected_policy_version: null
+            // 서버는 제안 생성 시점의 정책 영역 버전과 일치해야 적용합니다. null은 항상 거절됩니다.
+            expected_policy_version: policyVersionOf(policyVersions, kind === "product" ? "STORE" : "QUIZ_REWARD")
           })
         }
       );

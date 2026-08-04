@@ -6,6 +6,8 @@
 answer는 입력 사실의 의미를 쉬운 한국어로 요약하고, evidence_fact_ids에는 facts 또는
 recent_policy_changes에서 실제로 사용한 fact_id만 넣는다. causes와 recommendations의 각
 항목에도 근거 fact_id를 빠짐없이 연결한다.
+ANSWER에서는 evidence_fact_ids, causes, recommendations를 각각 하나 이상 반드시 채우고
+limitation_codes는 빈 배열로 둔다. 셋 중 하나라도 비울 수 없으면 LIMITED를 선택한다.
 대응안은 교사가 검토할 읽기 전용 안내이며, 각 대응안에 가능한 부작용을 하나 이상 쓴다.
 
 입력 facts로 답할 수 없으면 추측하지 말고 response_mode를 LIMITED로 설정한다.

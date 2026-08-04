@@ -110,8 +110,61 @@ public class EconomicEventDraft {
         return draft;
     }
 
+    /**
+     * INVESTMENT_NEWS 초안을 공개된 가격 단계에 연결한다. 한 단계에는 활성 뉴스가 하나만 있다.
+     */
+    public void bindInvestmentPriceStep(UUID priceStepId) {
+        this.investmentPriceStepId = Objects.requireNonNull(priceStepId);
+    }
+
+    public UUID getInvestmentPriceStepId() {
+        return investmentPriceStepId;
+    }
+
+    /**
+     * 교사가 승인했고 정책 효과가 없는 이벤트다. 학생에게 바로 게시한다.
+     */
+    public void approve(Instant now) {
+        transition("APPROVED", now);
+        revealedAt = now;
+    }
+
+    /**
+     * 교사가 승인하고 정책 효과까지 반영한 이벤트다. 학생에게 바로 게시한다.
+     */
+    public void applyEffect(Instant now) {
+        transition("APPLIED", now);
+        revealedAt = now;
+    }
+
+    /**
+     * 교사가 거절한 이벤트다. 게시하지 않으며 도메인 변경도 남기지 않는다.
+     */
+    public void reject(Instant now) {
+        transition("CANCELED", now);
+    }
+
+    public boolean isUnderReview() {
+        return "DRAFT".equals(status);
+    }
+
+    private void transition(String nextStatus, Instant now) {
+        if (!isUnderReview()) {
+            throw new IllegalStateException(
+                "The economic event draft is no longer under review: " + status
+            );
+        }
+        status = nextStatus;
+        statusChangedAt = now;
+        updatedAt = now;
+    }
+
     public UUID getId() {
         return id;
+    }
+
+    public Instant getRevealedAt() {
+        return revealedAt;
     }
 
     public UUID getClassroomId() {

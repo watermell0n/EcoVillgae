@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider } from "@/auth/AuthProvider";
 import { ClassroomProvider } from "@/features/classroom/ClassroomProvider";
+import { TradeProvider } from "@/features/trade/TradeProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 
 export default function RootLayout() {
@@ -14,8 +15,10 @@ export default function RootLayout() {
         <QueryProvider>
           <AuthProvider>
             <ClassroomProvider>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }} />
+              <TradeProvider>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }} />
+              </TradeProvider>
             </ClassroomProvider>
           </AuthProvider>
         </QueryProvider>

@@ -82,8 +82,8 @@ paths:
         - "AUTH-007"
       tags:
         - "Authentication"
-      summary: "classroom_code, attendance_number, nickname, password, device_id → 토큰, 학생 세션, 유효 진입 화면"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, attendance_number, nickname, password, device_id → 토큰, 학생 세션, 유효 진입 화면."
+      summary: "classroom_code, nickname, password, device_id → 학생 계정 생성 또는 로그인"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, nickname, password, device_id로 정원 내 계정을 생성하거나 기존 계정에 로그인한다. attendance_number는 하위 호환 선택값이다."
       security: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
@@ -1188,6 +1188,17 @@ paths:
                 school_id:
                   type: "string"
                   format: "uuid"
+                display_name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 120
+                class_number:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 99
+                description:
+                  type: "string"
+                  maxLength: 500
                 currency_name:
                   type: "string"
                   minLength: 1
@@ -1393,6 +1404,17 @@ paths:
                   type: "string"
                   minLength: 1
                   maxLength: 10
+                display_name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 120
+                class_number:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 99
+                description:
+                  type: "string"
+                  maxLength: 500
               required:
                 - "grade"
                 - "course_size"
@@ -1985,6 +2007,7 @@ paths:
         - "realtime_streams"
         - "outbox_events"
         - "audit_events"
+        - "ai_runs"
       x-ui-action-ids:
         - "UIA-CLS-007"
       x-roles:
@@ -2003,8 +2026,8 @@ paths:
         - "AI-009"
       tags:
         - "Classrooms"
-      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각"
-      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_warning_acknowledgements? → 첫 OPEN 전 경제 설정 점검과 계산된 앱 모드, 종료시각."
+      summary: "command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements? → 첫 OPEN은 유효한 CLASSROOM_SETUP 실행 ID가 필수이고 WARN의 모든 check_id 확인 후 경제 설정 점검과 계산된 앱 모드, 종료시각 반환"
+      description: "사람이 검토하는 원문 기준: `API-CLS-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=OPEN|CLOSE|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements? → 첫 OPEN은 유효한 CLASSROOM_SETUP 실행 ID가 필수이고 WARN의 모든 check_id 확인 후 경제 설정 점검과 계산된 앱 모드, 종료시각 반환."
       security:
         - bearerAuth: []
       parameters:
@@ -2106,6 +2129,17 @@ paths:
                   type: "integer"
                   minimum: 1
                   maximum: 480
+                preflight_run_id:
+                  type:
+                    - "string"
+                    - "null"
+                  format: "uuid"
+                preflight_warning_acknowledgements:
+                  type: "array"
+                  items:
+                    type: "string"
+                    minLength: 1
+                  uniqueItems: true
               required:
                 - "command"
               additionalProperties: false
@@ -5570,8 +5604,8 @@ paths:
     put:
       operationId: "apiFin007"
       x-api-id: "API-FIN-007"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5595,8 +5629,8 @@ paths:
         - "AI-011"
       tags:
         - "Finance"
-      summary: "교사, 제품 데이터가 정한 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. AI 기업 생성과 가격 결정은 포함하지 않음"
-      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 교사, 제품 데이터가 정한 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. AI 기업 생성과 가격 결정은 포함하지 않음."
+      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존"
+      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존."
       security:
         - bearerAuth: []
       parameters:
@@ -5605,7 +5639,72 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "market_status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "step_count"
+                      - "state_version"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      market_status:
+                        type: "string"
+                        enum:
+                          - "DRAFT"
+                          - "OPEN"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      step_count:
+                        type: "integer"
+                        minimum: 2
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      assets:
+                        type: "array"
+                        minItems: 4
+                        maxItems: 4
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5630,7 +5729,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-007는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-007 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5645,48 +5744,23 @@ paths:
                 client_occurred_at:
                   type: "string"
                   format: "date-time"
-                assets:
-                  type: "array"
-                  minItems: 4
-                  maxItems: 4
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                price_steps:
-                  type: "array"
-                  minItems: 1
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                events:
-                  type: "array"
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                limits:
-                  type: "object"
-                  additionalProperties: true
-                loss_cap_bps:
-                  type: "integer"
-                  minimum: 0
-                  maximum: 10000
-                expected_policy_version:
-                  type: "integer"
-                  minimum: 0
+                investment_mode:
+                  type: "string"
+                  enum:
+                    - "SHORT_TERM"
+                    - "LONG_TERM"
+                prefer_historical_index:
+                  type: "boolean"
               required:
-                - "assets"
-                - "price_steps"
-                - "events"
-                - "limits"
-                - "loss_cap_bps"
-                - "expected_policy_version"
-              additionalProperties: true
+                - "investment_mode"
+                - "prefer_historical_index"
+              additionalProperties: false
   "/classrooms/{classroom_id}/investment-market/commands":
     post:
       operationId: "apiFin008"
       x-api-id: "API-FIN-008"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5712,8 +5786,8 @@ paths:
         - "FIN-012"
       tags:
         - "Finance"
-      summary: "command=START|RESUME|PAUSE|CLOSE → 시장 상태, 종료 시 자동 정산"
-      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|RESUME|PAUSE|CLOSE → 시장 상태, 종료 시 자동 정산."
+      summary: "6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위"
+      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위."
       security:
         - bearerAuth: []
       parameters:
@@ -5722,7 +5796,71 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "market_status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "step_count"
+                      - "state_version"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      market_status:
+                        type: "string"
+                        enum:
+                          - "OPEN"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      step_count:
+                        type: "integer"
+                        minimum: 2
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      assets:
+                        type: "array"
+                        minItems: 4
+                        maxItems: 4
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5747,7 +5885,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-008는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-008 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5766,18 +5904,16 @@ paths:
                   type: "string"
                   enum:
                     - "START"
-                    - "RESUME"
-                    - "PAUSE"
-                    - "CLOSE"
               required:
                 - "command"
-              additionalProperties: true
+                - "expected_state_version"
+              additionalProperties: false
   "/classrooms/{classroom_id}/investment-orders":
     post:
       operationId: "apiFin009"
       x-api-id: "API-FIN-009"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5801,8 +5937,8 @@ paths:
         - "FIN-007"
       tags:
         - "Finance"
-      summary: "side=BUY|SELL, asset_id, quantity, expected_price_version → 체결, 원장, 보유량"
-      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: side=BUY|SELL, asset_id, quantity, expected_price_version → 체결, 원장, 보유량."
+      summary: "6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위"
+      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위."
       security:
         - bearerAuth: []
       parameters:
@@ -5811,7 +5947,65 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         201:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "order_id"
+                      - "status"
+                      - "quantity"
+                      - "executed_price"
+                      - "price_version"
+                      - "total_amount"
+                      - "position_quantity"
+                      - "average_price"
+                      - "state_version"
+                    properties:
+                      order_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "EXECUTED"
+                      quantity:
+                        type: "integer"
+                        minimum: 1
+                        maximum: 100
+                      executed_price:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      price_version:
+                        type: "integer"
+                        minimum: 1
+                      total_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      position_quantity:
+                        type: "integer"
+                        minimum: 1
+                      average_price:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5836,7 +6030,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-009는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-009 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5855,22 +6049,22 @@ paths:
                   type: "string"
                   enum:
                     - "BUY"
-                    - "SELL"
                 asset_id:
                   type: "string"
                   format: "uuid"
                 quantity:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
+                  maximum: 100
                 expected_price_version:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
               required:
                 - "side"
                 - "asset_id"
                 - "quantity"
                 - "expected_price_version"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/loan-policy":
     put:
       operationId: "apiFin010"
@@ -6449,8 +6643,8 @@ paths:
         - "AI-001"
       tags:
         - "Quiz"
-      summary: "학년, 주제, ECONOMY/NONSENSE, 객관식/OX, 개수 → 202 operation_id, REVIEW_REQUIRED 초안"
-      description: "사람이 검토하는 원문 기준: `API-QZ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학년, 주제, ECONOMY/NONSENSE, 객관식/OX, 개수 → 202 operation_id, REVIEW_REQUIRED 초안."
+      summary: "학년, 주제, ECONOMY/NONSENSE, 객관식/OX, 개수 → 202 operation_id, ai_run_id, question_ids, REVIEW_REQUIRED 초안"
+      description: "사람이 검토하는 원문 기준: `API-QZ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학년, 주제, ECONOMY/NONSENSE, 객관식/OX, 개수 → 202 operation_id, ai_run_id, question_ids, REVIEW_REQUIRED 초안."
       security:
         - bearerAuth: []
       parameters:
@@ -6459,7 +6653,50 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         202:
-          $ref: "#/components/responses/Accepted"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "operation_id"
+                      - "status"
+                      - "status_url"
+                      - "ai_run_id"
+                      - "review_status"
+                      - "question_ids"
+                    properties:
+                      operation_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      status_url:
+                        type: "string"
+                      ai_run_id:
+                        type: "string"
+                        format: "uuid"
+                      review_status:
+                        type: "string"
+                        enum:
+                          - "REVIEW_REQUIRED"
+                      question_ids:
+                        type: "array"
+                        minItems: 1
+                        maxItems: 30
+                        items:
+                          type: "string"
+                          format: "uuid"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -8037,8 +8274,8 @@ paths:
         - "FIN-011"
       tags:
         - "AI"
-      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환"
-      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환."
+      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → 설정 점검 제안은 기존 모듈, 상품, 퀴즈 명령에, 운영 밸런싱 제안은 허용 범위와 최신 대상값을 재검증한 뒤 상품 가격, 재고와 예금, 적금, 대출 금리의 새 버전에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환"
+      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → 설정 점검 제안은 기존 모듈, 상품, 퀴즈 명령에, 운영 밸런싱 제안은 허용 범위와 최신 대상값을 재검증한 뒤 상품 가격, 재고와 예금, 적금, 대출 금리의 새 버전에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환."
       security:
         - bearerAuth: []
       parameters:
@@ -8299,8 +8536,8 @@ paths:
         - "AI-001"
       tags:
         - "AI"
-      summary: "enabled=false, reason → 학급 AI 설정 버전"
-      description: "사람이 검토하는 원문 기준: `API-AI-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: enabled=false, reason → 학급 AI 설정 버전."
+      summary: "enabled=true|false, reason → 학급 AI 설정 버전"
+      description: "사람이 검토하는 원문 기준: `API-AI-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: enabled=true|false, reason → 학급 AI 설정 버전."
       security:
         - bearerAuth: []
       parameters:
@@ -8378,7 +8615,6 @@ paths:
                   format: "date-time"
                 enabled:
                   type: "boolean"
-                  const: false
                 reason:
                   type: "string"
                   minLength: 1
@@ -9609,9 +9845,11 @@ paths:
                     required:
                       - "classroom_id"
                       - "classroom_code"
+                      - "display_name"
                       - "currency_name"
                       - "grade"
                       - "course_size"
+                      - "student_count"
                       - "starts_on"
                       - "ends_on"
                       - "difficulty_profile"
@@ -9625,6 +9863,18 @@ paths:
                         format: "uuid"
                       classroom_code:
                         type: "string"
+                      display_name:
+                        type: "string"
+                      class_number:
+                        type:
+                          - "integer"
+                          - "null"
+                        minimum: 1
+                        maximum: 99
+                      description:
+                        type:
+                          - "string"
+                          - "null"
                       currency_name:
                         type: "string"
                       grade:
@@ -9640,6 +9890,9 @@ paths:
                           - "ONE_WEEK"
                           - "ONE_MONTH"
                           - "SEMESTER"
+                      student_count:
+                        type: "integer"
+                        minimum: 1
                       starts_on:
                         type:
                           - "string"
@@ -10617,8 +10870,8 @@ paths:
     get:
       operationId: "apiRead016"
       x-api-id: "API-READ-016"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "service_projection"
       x-roles:
@@ -10644,7 +10897,75 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "current_step"
+                      - "state_version"
+                      - "teacher_view"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "DRAFT"
+                          - "OPEN"
+                          - "PAUSED"
+                          - "CLOSED"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      current_step:
+                        type: "integer"
+                        minimum: 0
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      teacher_view:
+                        type: "boolean"
+                      assets:
+                        type: "array"
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10831,8 +11152,8 @@ paths:
         - "QZ-008"
       tags:
         - "Queries"
-      summary: "문제은행, 버전, 검토, 게시 상태"
-      description: "사람이 검토하는 원문 기준: `API-READ-020` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 문제은행, 버전, 검토, 게시 상태."
+      summary: "문제은행, 버전, 검토, 게시 상태와 최신 선택지, 정답, 해설, AI 실행 출처"
+      description: "사람이 검토하는 원문 기준: `API-READ-020` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 문제은행, 버전, 검토, 게시 상태와 최신 선택지, 정답, 해설, AI 실행 출처."
       security:
         - bearerAuth: []
       parameters:
@@ -10877,10 +11198,69 @@ paths:
                               minimum: 0
                             content_type:
                               type: "string"
+                              enum:
+                                - "ECONOMY"
+                                - "NONSENSE"
                             question_type:
                               type: "string"
+                              enum:
+                                - "MULTIPLE_CHOICE"
+                                - "OX"
                             prompt:
                               type: "string"
+                            explanation:
+                              type:
+                                - "string"
+                                - "null"
+                            source:
+                              type: "string"
+                              enum:
+                                - "TEACHER"
+                                - "AI"
+                            ai_run_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            options:
+                              type: "array"
+                              minItems: 2
+                              maxItems: 5
+                              items:
+                                type: "object"
+                                required:
+                                  - "option_id"
+                                  - "option_key"
+                                  - "option_text"
+                                  - "correct"
+                                  - "sort_order"
+                                properties:
+                                  option_id:
+                                    type: "string"
+                                    format: "uuid"
+                                  option_key:
+                                    type: "string"
+                                  option_text:
+                                    type: "string"
+                                  correct:
+                                    type: "boolean"
+                                  sort_order:
+                                    type: "integer"
+                                    minimum: 0
+                                additionalProperties: false
+                          required:
+                            - "resource_id"
+                            - "label"
+                            - "status"
+                            - "version"
+                            - "state_version"
+                            - "content_type"
+                            - "question_type"
+                            - "prompt"
+                            - "explanation"
+                            - "source"
+                            - "ai_run_id"
+                            - "options"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -11558,8 +11938,8 @@ paths:
         - "AI-010"
       tags:
         - "Queries"
-      summary: "최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외"
-      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외."
+      summary: "최신순 cursor, 분석 시작, 종료 구간, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/current value, 허용 범위, 근거, 예상 효과, 부작용, 결정 상태, 학생 개인 원문 제외"
+      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신순 cursor, 분석 시작, 종료 구간, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/current value, 허용 범위, 근거, 예상 효과, 부작용, 결정 상태, 학생 개인 원문 제외."
       security:
         - bearerAuth: []
       parameters:
@@ -11594,6 +11974,7 @@ paths:
                             - "trigger_type"
                             - "status"
                             - "requested_at"
+                            - "analysis_period_from"
                             - "prompt_version"
                             - "fallback_used"
                             - "validation_codes"
@@ -11654,6 +12035,11 @@ paths:
                                 - "string"
                                 - "null"
                               format: "date-time"
+                            analysis_period_from:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
                             data_as_of:
                               type:
                                 - "string"
@@ -11685,6 +12071,8 @@ paths:
                                 - "null"
                               enum:
                                 - "PASS"
+                                - "NORMAL"
+                                - "OBSERVE"
                                 - "WARN"
                                 - "BLOCK"
                                 - null
@@ -11735,6 +12123,8 @@ paths:
                                       - "null"
                                     enum:
                                       - "PASS"
+                                      - "NORMAL"
+                                      - "OBSERVE"
                                       - "WARN"
                                       - "BLOCK"
                                       - null
@@ -11781,9 +12171,12 @@ paths:
                                         - "action_id"
                                         - "target_type"
                                         - "target_id"
+                                        - "current_value"
                                         - "proposed_value"
                                         - "unit"
                                         - "label"
+                                        - "side_effects"
+                                        - "evidence_metric_codes"
                                       properties:
                                         action_id:
                                           type:
@@ -11798,6 +12191,11 @@ paths:
                                             - "string"
                                             - "null"
                                           format: "uuid"
+                                        current_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
                                         proposed_value:
                                           type:
                                             - "integer"
@@ -11811,6 +12209,26 @@ paths:
                                           type:
                                             - "string"
                                             - "null"
+                                        rationale:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        expected_effect:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        side_effects:
+                                          type: "array"
+                                          items:
+                                            type: "string"
+                                        evidence_metric_codes:
+                                          type: "array"
+                                          items:
+                                            type: "string"
+                                        priority:
+                                          type:
+                                            - "integer"
+                                            - "null"
                                       additionalProperties: false
                                   allowed_ranges:
                                     type: "array"
@@ -11819,6 +12237,9 @@ paths:
                                       type: "object"
                                       required:
                                         - "action_id"
+                                        - "target_type"
+                                        - "target_id"
+                                        - "current_value"
                                         - "allowed_min_value"
                                         - "allowed_max_value"
                                       properties:
@@ -11826,6 +12247,20 @@ paths:
                                           type:
                                             - "string"
                                             - "null"
+                                        target_type:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        target_id:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                          format: "uuid"
+                                        current_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
                                         allowed_min_value:
                                           type:
                                             - "integer"
@@ -12669,14 +13104,13 @@ components:
       type: "object"
       required:
         - "classroom_code"
-        - "attendance_number"
         - "nickname"
         - "password"
         - "device_id"
       properties:
         classroom_code:
           type: "string"
-          minLength: 8
+          minLength: 4
           maxLength: 8
           pattern: "^[A-HJ-KM-NP-Za-hj-km-np-z2-9]{8}$"
           description: "앞뒤 공백 제거·영문 대문자 정규화 후 8자 학급 코드"

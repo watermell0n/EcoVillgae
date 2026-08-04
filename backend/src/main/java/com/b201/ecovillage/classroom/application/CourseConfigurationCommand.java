@@ -19,6 +19,9 @@ public record CourseConfigurationCommand(
     String difficultyProfile,
     int expectedPolicyVersion,
     String classroomCode,
-    String currencyName
+    String currencyName,
+    String displayName,
+    Integer classNumber,
+    String description
 ) {
 }

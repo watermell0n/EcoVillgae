@@ -31,6 +31,7 @@ teacher-web/.next/
 teacher-web/.next-stale-*/
 teacher-web/out/
 teacher-web/coverage/
+.next/
 **/*.tsbuildinfo
 
 # Python

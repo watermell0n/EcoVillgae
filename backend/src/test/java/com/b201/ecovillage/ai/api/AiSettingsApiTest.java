@@ -39,6 +39,7 @@ import com.b201.ecovillage.ai.domain.AiRun;
 import com.b201.ecovillage.ai.infrastructure.TeacherChatAiClient;
 import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.audit.repository.AuditEventRepository;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
@@ -204,16 +205,44 @@ class AiSettingsApiTest {
     }
 
     @Test
-    void rejectsEnableBecauseContractAllowsDisableOnly() throws Exception {
+    void reEnablesClassroomAiWithANewPolicyVersion() throws Exception {
+        mockMvc.perform(disableRequest(owner, "수업 중 잠깐만 꺼둡니다", null))
+            .andExpect(status().isOk());
+        assertFalse(aiSettings.enabled(classroomId));
+
+        mockMvc.perform(enableRequest(owner, "규칙 설명이 필요해 다시 켭니다"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ENABLED"));
+
+        // 계약이 끄기 전용이던 시절에는 DB를 직접 고쳐야 했다. 이제 교사가 되돌릴 수 있다.
+        assertTrue(aiSettings.enabled(classroomId), "다시 켜면 AI 호출이 살아난다.");
+        ClassroomPolicyVersion policy = aiSettings.current(classroomId).orElseThrow();
+        assertEquals(2, policy.getVersion(), "되돌리기도 새 정책 버전을 남긴다.");
+        assertEquals("규칙 설명이 필요해 다시 켭니다", policy.getPolicyValues().get("reason"));
+    }
+
+    @Test
+    void requiresReasonWhenReEnabling() throws Exception {
         mockMvc.perform(put("/classrooms/{classroomId}/ai-settings", classroomId)
                 .principal(owner)
                 .header("Idempotency-Key", UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    { "enabled": true, "reason": "다시 켜기" }
+                    { "enabled": true, "reason": "  " }
                     """))
-            .andExpect(status().isUnprocessableEntity())
+            .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder enableRequest(
+        Principal actor,
+        String reason
+    ) {
+        return put("/classrooms/{classroomId}/ai-settings", classroomId)
+            .principal(actor)
+            .header("Idempotency-Key", UUID.randomUUID())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{ \"enabled\": true, \"reason\": \"" + reason + "\" }");
     }
 
     /**

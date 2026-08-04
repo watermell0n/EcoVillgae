@@ -37,6 +37,10 @@ import com.b201.ecovillage.quiz.application.QuizQuestionCommandService;
 import com.b201.ecovillage.quiz.application.QuizQuestionCommandType;
 import com.b201.ecovillage.quiz.application.QuizResourceResult;
 import com.b201.ecovillage.quiz.domain.QuizContentType;
+import com.b201.ecovillage.quiz.domain.QuizQuestion;
+import com.b201.ecovillage.quiz.domain.QuizQuestionVersion;
+import com.b201.ecovillage.quiz.repository.QuizQuestionRepository;
+import com.b201.ecovillage.quiz.repository.QuizQuestionVersionRepository;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -58,6 +62,8 @@ public class QuizDraftService {
     private final QuizDraftAiClient aiClient;
     private final ClassroomAiSettings aiSettings;
     private final QuizQuestionCommandService quizQuestionCommandService;
+    private final QuizQuestionRepository questionRepository;
+    private final QuizQuestionVersionRepository questionVersionRepository;
     private final AsyncOperationRepository operationRepository;
     private final AiRunRepository runRepository;
     private final AiArtifactRepository artifactRepository;
@@ -73,6 +79,8 @@ public class QuizDraftService {
         QuizDraftAiClient aiClient,
         ClassroomAiSettings aiSettings,
         QuizQuestionCommandService quizQuestionCommandService,
+        QuizQuestionRepository questionRepository,
+        QuizQuestionVersionRepository questionVersionRepository,
         AsyncOperationRepository operationRepository,
         AiRunRepository runRepository,
         AiArtifactRepository artifactRepository,
@@ -87,6 +95,8 @@ public class QuizDraftService {
         this.aiClient = aiClient;
         this.aiSettings = aiSettings;
         this.quizQuestionCommandService = quizQuestionCommandService;
+        this.questionRepository = questionRepository;
+        this.questionVersionRepository = questionVersionRepository;
         this.operationRepository = operationRepository;
         this.runRepository = runRepository;
         this.artifactRepository = artifactRepository;
@@ -188,7 +198,7 @@ public class QuizDraftService {
             );
         }
 
-        List<UUID> questionIds = persistDrafts(command, response);
+        List<UUID> questionIds = persistDrafts(command, response, aiRunId);
 
         Instant completedAt = clock.instant();
         Map<String, Object> validation = new LinkedHashMap<>();
@@ -228,7 +238,11 @@ public class QuizDraftService {
     /**
      * 기존 문제은행 명령 서비스를 그대로 호출한다. 상태 전이와 버전 관리는 퀴즈 도메인이 소유한다.
      */
-    private List<UUID> persistDrafts(QuizDraftCommand command, QuizDraftContract.Response response) {
+    private List<UUID> persistDrafts(
+        QuizDraftCommand command,
+        QuizDraftContract.Response response,
+        UUID aiRunId
+    ) {
         List<UUID> questionIds = new ArrayList<>();
         for (QuizDraftContract.QuestionDraft question : response.output().questions()) {
             List<QuizOptionCommand> options = new ArrayList<>();
@@ -258,9 +272,21 @@ public class QuizDraftService {
                 question.explanation(),
                 null
             ));
+            markAsAiReviewRequired(command.classroomId(), created.quizResourceId(), aiRunId);
             questionIds.add(created.quizResourceId());
         }
         return questionIds;
+    }
+
+    private void markAsAiReviewRequired(UUID classroomId, UUID questionId, UUID aiRunId) {
+        QuizQuestion question = questionRepository.findByClassroomIdAndId(classroomId, questionId)
+            .orElseThrow();
+        QuizQuestionVersion version = questionVersionRepository
+            .findTopByClassroomIdAndQuizQuestionIdOrderByVersionDesc(classroomId, questionId)
+            .orElseThrow();
+        Instant now = clock.instant();
+        question.requireReview(now);
+        version.requireAiReview(aiRunId);
     }
 
     /**

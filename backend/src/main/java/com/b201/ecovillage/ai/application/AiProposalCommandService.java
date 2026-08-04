@@ -70,6 +70,7 @@ public class AiProposalCommandService {
     private final QuizSessionCommandService quizSessionCommandService;
     private final SetupPrecheckOperationService setupPrecheckService;
     private final SetupProposalTargetSnapshotService targetSnapshotService;
+    private final OperationalBalancingApplyService operationalApplyService;
     private final AuditTrailService auditTrailService;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final UuidV7Generator uuidGenerator;
@@ -89,6 +90,7 @@ public class AiProposalCommandService {
         QuizSessionCommandService quizSessionCommandService,
         SetupPrecheckOperationService setupPrecheckService,
         SetupProposalTargetSnapshotService targetSnapshotService,
+        OperationalBalancingApplyService operationalApplyService,
         AuditTrailService auditTrailService,
         IdempotencyRecordRepository idempotencyRepository,
         UuidV7Generator uuidGenerator,
@@ -107,6 +109,7 @@ public class AiProposalCommandService {
         this.quizSessionCommandService = quizSessionCommandService;
         this.setupPrecheckService = setupPrecheckService;
         this.targetSnapshotService = targetSnapshotService;
+        this.operationalApplyService = operationalApplyService;
         this.auditTrailService = auditTrailService;
         this.idempotencyRepository = idempotencyRepository;
         this.uuidGenerator = uuidGenerator;
@@ -278,6 +281,9 @@ public class AiProposalCommandService {
         Instant now
     ) {
         requireState(proposal, Set.of("AWAITING_TEACHER", "ACKNOWLEDGED"));
+        if ("BALANCING_RECOMMENDATION".equals(proposal.getProposalType())) {
+            return applyOperational(command, teacher, proposal, run, now);
+        }
         if ("BLOCK".equals(proposal.getSeverity())) {
             throw operation(
                 HttpStatus.UNPROCESSABLE_ENTITY,
@@ -351,6 +357,51 @@ public class AiProposalCommandService {
             application.policyVersionId(),
             appliedValues
         );
+    }
+
+    private AiProposalCommandResult applyOperational(
+        AiProposalCommand command,
+        UserAccount teacher,
+        AiProposal proposal,
+        AiRun run,
+        Instant now
+    ) {
+        String previousStatus = proposal.getStatus();
+        Map<String, Object> proposed = mutableMap(proposal.getProposedValues());
+        List<Map<String, Object>> originalItems = mapList(proposed.get("items"));
+        List<AiProposalCommandResult.AppliedValue> appliedValues = applyEdits(
+            proposed,
+            proposal.getAllowedRanges(),
+            command.editedValues()
+        );
+        operationalApplyService.apply(
+            command.classroomId(),
+            proposed,
+            proposal.getAllowedRanges(),
+            appliedValues
+        );
+        proposal.replaceProposedValues(proposed, now);
+        proposal.approve(now);
+        run.approve(now);
+        proposalRepository.flush();
+        runRepository.flush();
+        Instant completedAt = clock.instant();
+        proposal.applied(null, completedAt);
+        run.complete(completedAt);
+        decisionRepository.save(decision(command, teacher, "APPROVE", completedAt));
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("original_values", originalItems);
+        details.put("edited_values", command.editedValues());
+        details.put("applied_values", appliedValues);
+        recordDecisionAudit(
+            command,
+            teacher,
+            proposal,
+            previousStatus,
+            "APPLIED",
+            details
+        );
+        return result(proposal, run, "APPLIED", null, null, appliedValues);
     }
 
     private DomainApplication applyToDomain(

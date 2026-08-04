@@ -34,6 +34,23 @@
 | `OPENAI_API_KEY` | OpenAI SDK 인증 | OpenAI 사용 시 |
 | `ECOVILLAGE_AI_PROVIDER_TIMEOUT_SECONDS` | SDK 연결·응답 제한시간 상한 | 기본 10초 |
 | `ECOVILLAGE_AI_MAX_OUTPUT_TOKENS` | 공급자 최대 출력 토큰 | 기본 4096 |
+| `ECOVILLAGE_AI_ENV_FILE` | 시작할 때 읽을 `.env` 경로 지정 | 선택 |
+| `ECOVILLAGE_AI_SKIP_ENV_FILE` | `.env`를 무시하고 셸 값만 사용 | 선택, `true`일 때 |
+
+### `.env` 적용 범위
+
+Docker Compose는 `.env`를 스스로 읽어 컨테이너 환경변수로 치환합니다. 앱을 직접
+띄울 때도 같은 설정을 쓰도록, 애플리케이션을 만들 때 저장소 루트의 `.env`(없으면
+`ai-service/.env`)를 한 번 읽습니다. 우선순위는 아래와 같습니다.
+
+| 순위 | 출처 | 비고 |
+| --- | --- | --- |
+| 1 | 셸·컨테이너 환경변수 | 항상 우선하며 `.env`가 덮어쓰지 않습니다 |
+| 2 | `.env` 파일 | `ECOVILLAGE_AI_ENV_FILE`로 경로를 바꿀 수 있습니다 |
+| 3 | 코드 기본값 | 로컬 `FAKE`, 운영 `BEDROCK` |
+
+평가 게이트 `python -m ecovillage_ai.evaluation`은 이 파일을 읽지 않고 `FAKE`를 유지하므로,
+`.env`에 실제 공급자를 지정해도 출시 게이트가 크레딧을 쓰지 않습니다.
 
 Bedrock 자격증명은 코드나 별도 AI 환경변수에 저장하지 않고 AWS SDK의 표준 자격증명
 체인과 운영 역할을 사용합니다. OpenAI 키는 설정 객체, 응답, 안전 실행 로그에 복사하지

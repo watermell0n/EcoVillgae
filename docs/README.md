@@ -22,6 +22,7 @@
 | [AI 활용 방향](AI_DIRECTION.md) | AI 기능·안전·승인 경계 |
 | [교육용 대출 MVP 정책·상환 흐름](LOAN_MVP_POLICY.md) | 대출 신청·승인·상환·연체와 원장·후속 구현 기준 |
 | [AI 단계별 개발 계획](ai/IMPLEMENTATION_PLAN.md) | AI 계약·규칙·통합·평가의 실행 순서와 단계별 완료 기준 |
+| [AI 통합 검증 기록](ai/INTEGRATION_VERIFICATION.md) | AI 1~6단계의 자동 검증 결과와 후속 범위 |
 | [향후 모듈과 로드맵](FUTURE_MODULES_AND_ROADMAP.md) | MVP 이후 범위 |
 | [기술 스택](TECH_STACK.md) | 앱·웹·서버·인프라 기술 기준 |
 

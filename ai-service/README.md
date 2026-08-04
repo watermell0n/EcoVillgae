@@ -44,9 +44,20 @@ PowerShell에서는 가상 환경 활성화 명령으로
 `local-development-token`이며 운영에서는 반드시
 `ECOVILLAGE_AI_INTERNAL_SERVICE_TOKEN`을 별도로 설정해야 합니다.
 
+앱을 직접 띄울 때도 저장소 루트의 `.env`(없으면 `ai-service/.env`)를 읽습니다. Docker
+Compose로 띄울 때와 같은 공급자 설정이 적용되므로, `.env`에 `OPENAI`를 지정했다면 직접
+실행에서도 실제 OpenAI를 호출합니다. 우선순위는 셸 환경변수 → `.env` → 코드 기본값
+순서이며, `.env`가 이미 지정된 셸 값을 덮어쓰지는 않습니다.
+
+- `ECOVILLAGE_AI_ENV_FILE=경로`: 읽을 파일을 직접 지정합니다.
+- `ECOVILLAGE_AI_SKIP_ENV_FILE=true`: `.env`를 무시하고 셸 환경변수만 씁니다.
+
+`.env`를 읽는 시점은 애플리케이션을 만들 때 한 번이며, 평가 게이트
+(`python -m ecovillage_ai.evaluation`)는 이 파일을 읽지 않고 `FAKE`를 유지합니다.
+
 ## 공급자 설정
 
-- 로컬·테스트 기본값: `ECOVILLAGE_AI_PROVIDER=FAKE`
+- 로컬·테스트 기본값: `ECOVILLAGE_AI_PROVIDER=FAKE`(`.env`에 값이 없을 때)
 - 운영 기본값: `BEDROCK`; 모델 ID와 AWS 리전 필수
 - OpenAI: `ECOVILLAGE_AI_OPENAI_ENABLED=true`, 모델 ID와 `OPENAI_API_KEY` 필수
 - 기능별 경로: `ECOVILLAGE_AI_ROUTE_TEACHER_CHAT=OPENAI:모델ID` 형식

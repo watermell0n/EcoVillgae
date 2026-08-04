@@ -187,6 +187,8 @@ def test_economic_event_evaluation_set(
     assert 2 <= len(output["choices"]) <= 5
     assert provider.command is not None
     prompt_mode = case["template_type"].casefold().replace("_", "-")
+    if case["template_type"] == "INVESTMENT_NEWS":
+        prompt_mode = "investment-news-long-term"
     assert f".{prompt_mode}." in provider.command.prompt_key
     assert case["template_type"] in provider.command.system_instruction
 

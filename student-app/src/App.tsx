@@ -11,6 +11,7 @@ import {
   fetchFinancialProducts,
   fetchActiveModuleCodes,
   fetchGuidedActivity,
+  fetchInvestmentModuleState,
   fetchQuizQuestions,
   fetchQuizSession,
   fetchVote,
@@ -20,6 +21,7 @@ import {
   type DepositAccountView,
   type FinancialProductView,
   type GuidedActivity,
+  type InvestmentMode,
   type QuizQuestion,
   type QuizSession,
   type TradeCommandResponse,
@@ -196,6 +198,7 @@ function App() {
   );
   const [realtimeRefresh, setRealtimeRefresh] = useState(0);
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
+  const [investmentMode, setInvestmentMode] = useState<InvestmentMode>("LONG_TERM");
   const [actionMessage, setActionMessage] = useState("");
   const [profilePassword, setProfilePassword] = useState("economy123!");
   const purchaseKeys = useRef(new Map<string, string>());
@@ -221,7 +224,15 @@ function App() {
         }
         setActiveModuleCodes(moduleCodes);
 
-        const [accountData, productData, questionData, sessionData, voteData, activityData] = await Promise.all([
+        const [
+          accountData,
+          productData,
+          questionData,
+          sessionData,
+          voteData,
+          activityData,
+          investmentState
+        ] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
@@ -240,7 +251,8 @@ function App() {
           fetchGuidedActivity(
             activeClassroomId,
             activeRealtimeActivityForClass?.activityId
-          )
+          ),
+          fetchInvestmentModuleState(activeClassroomId)
         ]);
 
         if (ignore) {
@@ -253,6 +265,7 @@ function App() {
         setQuizSession(sessionData);
         setVote(voteData);
         setGuidedActivity(activityData);
+        setInvestmentMode(investmentState.investmentMode);
       } catch (error) {
         if (!ignore) {
           setActionMessage(error instanceof Error ? error.message : "학생 데이터를 불러오지 못했어요.");
@@ -531,7 +544,9 @@ function App() {
               }}
             />
           )}
-          {page === "investment" && <InvestmentPage currencyName={currencyName} />}
+          {page === "investment" && (
+            <InvestmentPage mode={investmentMode} currencyName={currencyName} />
+          )}
           {page === "trade" && (
             <TradeApiPage
               currencyName={currencyName}
@@ -608,14 +623,13 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
 
 function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (session: StudentSession, nickname: string) => void }) {
   const [form, setForm] = useState({
-    classroomCode: "ABCD2345",
-    attendanceNumber: "7",
-    nickname: "경제왕",
-    password: "economy123!"
+    classroomCode: "",
+    nickname: "",
+    password: ""
   });
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const canSubmit = form.classroomCode && form.attendanceNumber && form.nickname && form.password.length >= 8 && !loginLoading;
+  const canSubmit = form.classroomCode && form.nickname && form.password.length >= 4 && !loginLoading;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -629,7 +643,6 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
     try {
       const nextSession = await createStudentSession({
         classroomCode: form.classroomCode.trim(),
-        attendanceNumber: Number(form.attendanceNumber),
         nickname: form.nickname.trim(),
         password: form.password,
         deviceId: getDeviceId()
@@ -652,14 +665,10 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         <button className="ghost-back" type="button" onClick={onBack}>←</button>
         <span className="welcome-icon">🏘️</span>
         <h1>이코빌리지</h1>
-        <p>선생님이 알려준 정보로 접속해요</p>
+        <p>학급 코드로 계정을 만들거나 다시 로그인해요</p>
         <label>
           학급 코드
           <input value={form.classroomCode} disabled={loginLoading} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
-        </label>
-        <label>
-          출석번호
-          <input value={form.attendanceNumber} disabled={loginLoading} inputMode="numeric" onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })} />
         </label>
         <label>
           닉네임
@@ -667,10 +676,10 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         </label>
         <label>
           비밀번호
-          <input type="password" value={form.password} disabled={loginLoading} placeholder="8자 이상 입력" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+          <input type="password" minLength={4} value={form.password} disabled={loginLoading} placeholder="4자 이상 입력" onChange={(event) => setForm({ ...form, password: event.target.value })} />
         </label>
         {loginError && <p className="form-error">{loginError}</p>}
-        <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "마을 입장하기"}</button>
+        <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "계정 만들기 / 로그인"}</button>
         <p className="login-note">비밀번호를 잊었다면 선생님께 알려주세요.</p>
       </form>
     </main>
@@ -966,18 +975,22 @@ function BankPage({ currencyName, products, deposits, onSubscribe }: {
   );
 }
 
-function InvestmentPage({ currencyName }: { currencyName: string }) {
-  const [tab, setTab] = useState<"short" | "long">("short");
+function InvestmentPage({
+  mode,
+  currencyName
+}: Readonly<{ mode: InvestmentMode; currencyName: string }>) {
   const [investmentMessage, setInvestmentMessage] = useState("");
+  const isShortTerm = mode === "SHORT_TERM";
 
   return (
     <section className="panel section-tabs-panel">
-      <div className="category-tabs">
-        <button className={tab === "short" ? "active" : ""} onClick={() => setTab("short")}>단기투자</button>
-        <button className={tab === "long" ? "active" : ""} onClick={() => setTab("long")}>장기투자</button>
+      <div className="category-tabs" aria-label="선생님이 선택한 투자 운영 방식">
+        <button className="active" disabled>
+          {isShortTerm ? "단기투자" : "장기투자"}
+        </button>
       </div>
       {investmentMessage && <p className="shop-message">{investmentMessage}</p>}
-      {tab === "short" ? (
+      {isShortTerm ? (
         <div className="investment-flow">
           <div className="section-title compact-title">
             <h2>단기투자</h2>
@@ -1126,8 +1139,8 @@ function ProfileSettingsPage({
     }
 
     const passwordToSave = nextPassword || currentPassword;
-    if (nextPassword && nextPassword.length < 8) {
-      setMessage("새 비밀번호는 8자 이상으로 입력해 주세요.");
+    if (nextPassword && nextPassword.length < 4) {
+      setMessage("새 비밀번호는 4자 이상으로 입력해 주세요.");
       return;
     }
 
