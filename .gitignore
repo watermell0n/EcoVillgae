@@ -56,3 +56,7 @@ infra/terraform/*.tfvars
 
 # 캐릭터 렌더 감사 산출물 (scripts/character/render-audit.js)
 artifacts/
+
+# 도트 원본 반입 폴더 (정규화 전 대용량 이미지). 결과물만 커밋한다.
+assets/characters/incoming/*
+!assets/characters/incoming/README.txt

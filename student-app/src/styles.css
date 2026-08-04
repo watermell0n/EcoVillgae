@@ -826,10 +826,14 @@ p {
   transform: translateX(-50%);
 }
 
+/*
+ * 스테이지 캔버스도 max-width를 걸지 않는다. 컨테이너가 좁아 캔버스를 줄이면
+ * 64px가 비정수 배율로 확대된다(1024px 폭에서 256 → 237.2가 나왔다).
+ * 좁은 화면에서는 아래 @media로 레이아웃을 1열로 바꿔 폭을 확보한다. 규격 §1.1
+ */
 .character-stage canvas {
   position: relative;
   z-index: 1;
-  max-width: 100%;
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
@@ -981,7 +985,8 @@ p {
 
 .character-product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  /* 카드 안의 미리보기 캔버스가 64 x 3배 = 192px이라 그보다 좁아지면 배율이 깨진다. */
+  grid-template-columns: repeat(auto-fill, minmax(192px, 1fr));
   gap: 12px;
 }
 
@@ -1021,14 +1026,19 @@ p {
   position: relative;
   overflow: hidden;
   width: 100%;
-  aspect-ratio: 320 / 340;
+  aspect-ratio: 1;
   place-items: center;
   border-bottom: 1px solid #edf0f2;
   background: #fbfaf7;
 }
 
+/*
+ * 캔버스에 max-width를 걸지 않는다. 컨테이너가 캔버스를 줄이면 64px가 비정수 배율로
+ * 확대되어 도트 폭이 들쭉날쭉해진다(실제로 64 → 99x128, 가로 x1.55가 나왔다).
+ * 크기는 언제나 characterDisplaySize()가 정한 정수 배율을 그대로 쓰고,
+ * 컨테이너를 그 크기에 맞춘다. 규격 §1.1
+ */
 .product-visual canvas {
-  max-width: 100%;
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
@@ -1106,7 +1116,8 @@ p {
 
 .wardrobe-item {
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr) auto;
+  /* 첫 열은 썸네일 캔버스(64 x 2배 = 128px)와 정확히 같아야 한다. 좁히면 배율이 깨진다. */
+  grid-template-columns: 128px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   overflow: hidden;
@@ -1125,7 +1136,7 @@ p {
 }
 
 .wardrobe-item .product-visual {
-  width: 100px;
+  width: 128px;
   border: 0;
   border-right: 1px solid #edf0f2;
 }
@@ -1522,12 +1533,30 @@ p {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /*
+   * 미리보기 스테이지 캔버스는 64 x 5배 = 320px, 좌우 여백까지 360px가 필요하다.
+   * 그보다 좁게 잡으면 캔버스가 비정수 배율로 줄어든다.
+   */
   .character-store {
-    grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(360px, 0.8fr) minmax(0, 1.2fr);
   }
 
   .wardrobe-list {
     grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * 태블릿 폭에서는 2열을 유지할 수 없다. 좌측 패널을 360px로 잡으면 우측 상품 그리드가
+ * 카드 1장도 못 담고, 좁히면 캔버스 배율이 깨진다. 규격 §1.1대로 1열로 쌓는다.
+ */
+@media (max-width: 1024px) {
+  .character-store {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .character-preview-panel {
+    position: static;
   }
 }
 

@@ -57,6 +57,38 @@ const displaySize = CHARACTER_CANVAS * integerScale;
 64×64 → 비정수 배율      1.5배, 2.5배 등
 width: 100% / height: %  컨테이너 크기에 따라 소수 배율이 된다
 aspect-ratio 미고정      찌그러진다
+캔버스에 max-width      컨테이너가 좁으면 캔버스를 줄여 비정수 배율이 된다
+```
+
+### 1.2 컨테이너가 캔버스를 줄이지 못하게 한다
+
+가장 놓치기 쉬운 실수다. 배율을 정수로 계산해 인라인 크기를 줘도, CSS에
+`max-width: 100%`가 걸려 있으면 컨테이너가 좁을 때 캔버스가 줄어든다. 세로는 그대로라
+**가로만 소수 배율이 되고 비율까지 찌그러진다.**
+
+2026-08-05에 실제로 두 곳에서 발견했다.
+
+| 위치 | 증상 |
+| --- | --- |
+| 보관함 썸네일 | 128×128 지정인데 100px 열에 갇혀 **99×128** (가로 ×1.547) |
+| 미리보기 스테이지 | 1024px 폭에서 256×256이 **237.2×256** (가로 ×3.706) |
+
+규칙:
+
+- **캔버스에 `max-width`·`max-height`를 걸지 않는다.** 크기는 `characterDisplaySize()`가
+  정한 값만 쓴다
+- **컨테이너를 캔버스에 맞춘다.** 반대로 하지 않는다. 썸네일 열은 `128px`,
+  상품 카드 최소 폭은 `192px`(배율 3), 스테이지 패널은 `360px`(배율 5 + 여백)
+- 그 폭을 확보할 수 없는 화면에서는 **레이아웃을 1열로 쌓는다.** 캔버스를 줄이지 않는다
+
+검증은 브라우저에서 아래를 실행해 `깨짐: 0`을 확인한다.
+
+```js
+[...document.querySelectorAll('canvas.character-pixel-canvas')].filter((c) => {
+  const r = c.getBoundingClientRect();
+  const sx = r.width / c.width, sy = r.height / c.height;
+  return !(Number.isInteger(sx) && Number.isInteger(sy) && sx === sy);
+});
 ```
 
 `48×56` 렌더 경로와 `*_48x56.png` 에셋은 전부 삭제한다.
