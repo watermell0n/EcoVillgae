@@ -39,6 +39,7 @@ import {
 import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
+import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 import { TeacherRealtimeClient } from "./realtime";
 
@@ -737,6 +738,10 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               stateVersion={activeStateVersion}
               policyVersion={Number(modules.find((module) => module.code === "STORE")?.config?.policy_version ?? 0)}
+              policyVersions={policyVersions}
+              activeStudentCount={students.length}
+              effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
+              onReload={() => openClassroom(activeClassroomId)}
               onStateVersionChange={setActiveStateVersion}
             />
           )}
@@ -785,7 +790,6 @@ export default function TeacherConsole() {
               initialReason={aiSettings.reason}
               initialPolicyVersion={aiSettings.version}
               canManage={teacherRoles.includes("OWN")}
-              products={products}
               modules={modules}
               policyVersions={policyVersions}
               startDate={settings.startDate}
@@ -799,9 +803,6 @@ export default function TeacherConsole() {
               onStateVersionChange={setActiveStateVersion}
               onSettingsChanged={setAiSettings}
               onReload={() => openClassroom(activeClassroomId)}
-              onProductPriceApplied={(productId, nextPrice) => setProducts((items) => items.map((item) => (
-                item.resourceId === productId ? { ...item, price: String(nextPrice) } : item
-              )))}
             />
           )}
         </div>
@@ -2080,6 +2081,10 @@ function ShopAdmin({
   classroomId,
   stateVersion,
   policyVersion,
+  policyVersions,
+  activeStudentCount,
+  effectiveTaxBps,
+  onReload,
   onStateVersionChange
 }: Readonly<{
   currencyName: string;
@@ -2089,6 +2094,10 @@ function ShopAdmin({
   classroomId: string;
   stateVersion: number;
   policyVersion: number;
+  policyVersions: readonly PolicyVersionRow[];
+  activeStudentCount: number;
+  effectiveTaxBps: number;
+  onReload: () => Promise<void>;
   onStateVersionChange: (version: number) => void;
 }>) {
   const [preview, setPreview] = useState("");
@@ -2260,6 +2269,20 @@ function ShopAdmin({
           })}
         </div>
       </PlainSection>
+      {/* 가격 추천은 상품을 등록·관리하는 이 자리에서 바로 받습니다. */}
+      <DraftRecommendationPanel
+        kind="product"
+        classroomId={classroomId}
+        products={products}
+        policyVersions={policyVersions}
+        activeStudentCount={activeStudentCount}
+        effectiveTaxBps={effectiveTaxBps}
+        onReload={onReload}
+        onStateVersionChange={onStateVersionChange}
+        onProductPriceApplied={(productId, nextPrice) => setProducts((items) => items.map((item) => (
+          item.resourceId === productId ? { ...item, price: String(nextPrice) } : item
+        )))}
+      />
     </div>
   );
 }

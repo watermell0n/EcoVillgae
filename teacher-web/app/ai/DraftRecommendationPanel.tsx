@@ -84,29 +84,32 @@ function shortDateTime(value: string) {
   return `${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
+// kind는 화면에서 바꾸지 않고 배치하는 쪽이 정합니다.
+// 상품 가격 추천은 '상점 상품' 탭, GAME 보상 추천은 'AI 설정' 탭에 놓습니다.
 export function DraftRecommendationPanel({
+  kind,
   classroomId,
-  products,
+  products = [],
   policyVersions,
-  quizSessionId,
+  quizSessionId = "",
   activeStudentCount,
   effectiveTaxBps,
   onReload,
   onStateVersionChange,
   onProductPriceApplied
 }: Readonly<{
+  kind: RecommendationKind;
   classroomId: string;
-  products: ProductDraft[];
+  products?: readonly ProductDraft[];
   policyVersions: readonly AiPolicyVersionRow[];
-  quizSessionId: string;
+  quizSessionId?: string;
   activeStudentCount: number;
   effectiveTaxBps: number;
   onReload: () => Promise<void>;
   onStateVersionChange: (version: number) => void;
-  onProductPriceApplied: (productId: string, nextPrice: number) => void;
+  onProductPriceApplied?: (productId: string, nextPrice: number) => void;
 }>) {
   const serverProducts = useMemo(() => products.filter((product) => product.resourceId), [products]);
-  const [kind, setKind] = useState<RecommendationKind>("product");
   const [productId, setProductId] = useState("");
   const [sessionId, setSessionId] = useState(quizSessionId);
   const [expectedDemand, setExpectedDemand] = useState(String(Math.max(activeStudentCount, 1)));
@@ -145,11 +148,18 @@ export function DraftRecommendationPanel({
     return () => { cancelled = true; };
   }, [classroomId]);
 
-  const historyRows = useMemo(() => history.flatMap((item) => item.proposals.map((proposal) => ({
-    ...proposal,
-    requestedAt: item.requested_at,
-    fallbackUsed: item.fallback_used
-  }))).slice(0, 6), [history]);
+  // 이력 API는 학급의 모든 제안을 내려줍니다. 두 패널이 같은 줄을 중복으로 보여 주지 않도록
+  // 상품 패널은 상품 제안만, 그 밖의 제안(GAME 보상·모듈 초기 정책·운영 조정)은 AI 패널이 맡습니다.
+  const historyRows = useMemo(() => history
+    .flatMap((item) => item.proposals.map((proposal) => ({
+      ...proposal,
+      requestedAt: item.requested_at,
+      fallbackUsed: item.fallback_used
+    })))
+    .filter((proposal) => (kind === "product"
+      ? proposal.context_type === "PRODUCT_DRAFT"
+      : proposal.context_type !== "PRODUCT_DRAFT"))
+    .slice(0, 6), [history, kind]);
 
   const selectedProduct = serverProducts.find((product) => product.resourceId === productId);
   // 입력칸의 글자는 금리·세율이면 %입니다. 검사와 전송은 서버와 같은 정수 값으로 환산해서 합니다.
@@ -163,8 +173,7 @@ export function DraftRecommendationPanel({
       || value > candidate.allowed_max_value;
   }) ?? true;
 
-  function resetProposal(nextKind?: RecommendationKind) {
-    if (nextKind) setKind(nextKind);
+  function resetProposal() {
     setResult(null);
     setValues({});
     setWarnConfirmed(false);
@@ -265,7 +274,7 @@ export function DraftRecommendationPanel({
       if (kind === "product" && selectedProduct?.resourceId) {
         const priceValue = response.applied_values.find((value) => value.action_id.toLowerCase().includes("price"))
           ?? response.applied_values[0];
-        if (priceValue) onProductPriceApplied(selectedProduct.resourceId, priceValue.proposed_value);
+        if (priceValue) onProductPriceApplied?.(selectedProduct.resourceId, priceValue.proposed_value);
       }
       // 어떤 값이 확정됐는지 서버 응답(applied_values)을 그대로 읽어 보여줍니다.
       const applied = response.applied_values
@@ -305,11 +314,13 @@ export function DraftRecommendationPanel({
   return (
     <section className="plain-section">
       <div className="section-title-line">
-        <div><span className="section-kicker">상품·퀴즈</span><h2>AI 추천 검토</h2></div>
-      </div>
-      <div className="recommendation-tabs" role="tablist" aria-label="추천 종류">
-        <button type="button" className={kind === "product" ? "active" : ""} onClick={() => resetProposal("product")}>상품 가격</button>
-        <button type="button" className={kind === "quiz" ? "active" : ""} onClick={() => resetProposal("quiz")}>GAME 보상</button>
+        <div>
+          <span className="section-kicker">{kind === "product" ? "상점 상품" : "게임형 퀴즈"}</span>
+          <h2>{kind === "product" ? "AI 가격 추천 검토" : "AI 보상 추천 검토"}</h2>
+          <p>{kind === "product"
+            ? "참조 급여와 재고·예상 수요를 기준으로 세전 가격을 추천합니다. 교사가 검토한 값만 상품에 적용됩니다."
+            : "GAME 퀴즈의 1인 참여 보상을 추천합니다. 교사가 검토한 값만 세션에 적용됩니다."}</p>
+        </div>
       </div>
 
       {kind === "product" ? (
@@ -369,9 +380,13 @@ export function DraftRecommendationPanel({
       {message ? <div className="inline-notice" role="status">{message}</div> : null}
 
       <div className="recommendation-history">
-        <h3>최근 추천·적용 이력</h3>
+        <h3>{kind === "product" ? "최근 가격 추천·적용 이력" : "최근 추천·적용 이력"}</h3>
         {historyError ? <p className="empty-copy">{historyError}</p> : null}
-        {!historyError && historyRows.length === 0 ? <p className="empty-copy">아직 추천 이력이 없어요.</p> : null}
+        {!historyError && historyRows.length === 0 ? (
+          <p className="empty-copy">{kind === "product"
+            ? "아직 가격 추천 이력이 없어요."
+            : "아직 추천 이력이 없어요."}</p>
+        ) : null}
         {historyRows.length > 0 ? (
           <div className="recommendation-history-scroll">
             <div className="recommendation-history-table">
