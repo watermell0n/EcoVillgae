@@ -1279,6 +1279,34 @@ button:disabled {
   font-weight: 750;
 }
 
+/* 금리·세율은 %로 입력받습니다. 단위는 입력칸 오른쪽에 붙여 보여 줍니다. */
+.value-input {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.value-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.value-input b {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-left: 0;
+  border-radius: 0 7px 7px 0;
+  color: var(--muted);
+  background: #f2f5f6;
+  font-weight: 900;
+}
+
+.value-input.with-unit input {
+  border-radius: 7px 0 0 7px;
+}
+
 .module-recommendation .value-warning input { border-color: #d7963e; }
 .module-recommendation .value-warning em { color: #98601f; }
 .module-recommendation .value-blocked input { border-color: #c44a4a; }

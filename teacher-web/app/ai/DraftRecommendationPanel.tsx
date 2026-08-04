@@ -5,7 +5,11 @@ import { AlertTriangle, Check } from "lucide-react";
 import {
   ApiError,
   apiRequest,
+  inputTextToValue,
+  unitHint,
+  unitSuffix,
   valueForDisplay,
+  valueToInputText,
   type AiProposalCommandResponse,
   type SetupPrecheckResponse
 } from "../api";
@@ -106,9 +110,15 @@ export function DraftRecommendationPanel({
   }, [classroomId]);
 
   const selectedProduct = serverProducts.find((product) => product.resourceId === productId);
+  // 입력칸의 글자는 금리·세율이면 %입니다. 검사와 전송은 서버와 같은 정수 값으로 환산해서 합니다.
+  const candidateValue = (candidate: SetupPrecheckResponse["candidates"][number]) => (
+    inputTextToValue(values[candidate.action_id] ?? "", candidate.unit)
+  );
   const hasInvalidValue = result?.candidates.some((candidate) => {
-    const value = Number(values[candidate.action_id]);
-    return !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
+    const value = candidateValue(candidate);
+    return value === null
+      || value < candidate.allowed_min_value
+      || value > candidate.allowed_max_value;
   }) ?? true;
 
   function resetProposal(nextKind?: RecommendationKind) {
@@ -174,7 +184,10 @@ export function DraftRecommendationPanel({
         }
       );
       setResult(response);
-      setValues(Object.fromEntries(response.candidates.map((candidate) => [candidate.action_id, String(candidate.proposed_value)])));
+      setValues(Object.fromEntries(response.candidates.map((candidate) => [
+        candidate.action_id,
+        valueToInputText(candidate.proposed_value, candidate.unit)
+      ])));
       setWarnConfirmed(false);
       setMessage(response.proposal_id ? "추천값을 확인한 뒤 적용해 주세요." : "적용 가능한 제안이 생성되지 않았어요.");
     } catch (error) {
@@ -197,7 +210,8 @@ export function DraftRecommendationPanel({
             command: "APPLY",
             edited_values: result.candidates.map((candidate) => ({
               action_id: candidate.action_id,
-              proposed_value: Number(values[candidate.action_id])
+              // 화면 표기 단위를 서버 단위로 되돌립니다. hasInvalidValue가 null을 미리 걸러 냅니다.
+              proposed_value: candidateValue(candidate)
             })),
             reason: kind === "product" ? "교사가 상품 가격 추천을 검토하고 적용함" : "교사가 GAME 퀴즈 보상을 검토하고 적용함",
             // 서버는 제안 생성 시점의 정책 영역 버전과 일치해야 적용합니다. null은 항상 거절됩니다.
@@ -283,12 +297,25 @@ export function DraftRecommendationPanel({
       {result ? <div className="recommendation-result">
         <SetupPrecheckSummary result={result} />
         {result.candidates.map((candidate) => {
-          const value = Number(values[candidate.action_id]);
-          const outsideAllowed = !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
+          const value = candidateValue(candidate);
+          const outsideAllowed = value === null
+            || value < candidate.allowed_min_value
+            || value > candidate.allowed_max_value;
+          const suffix = unitSuffix(candidate.unit);
+          const hint = unitHint(value, candidate.unit);
           return <label className={outsideAllowed ? "value-blocked" : ""} key={candidate.action_id}>
-            {candidate.label}
-            <input type="number" value={values[candidate.action_id] ?? ""} onChange={(event) => setValues((current) => ({ ...current, [candidate.action_id]: event.target.value }))} />
+            {candidate.label}{suffix ? ` (${suffix})` : ""}
+            <span className={suffix ? "value-input with-unit" : "value-input"}>
+              <input
+                type="number"
+                step={candidate.unit === "RATE_BPS" ? "0.5" : "1"}
+                value={values[candidate.action_id] ?? ""}
+                onChange={(event) => setValues((current) => ({ ...current, [candidate.action_id]: event.target.value }))}
+              />
+              {suffix ? <b aria-hidden="true">{suffix}</b> : null}
+            </span>
             <small>추천 {valueForDisplay(candidate.recommended_min_value, candidate.unit)} ~ {valueForDisplay(candidate.recommended_max_value, candidate.unit)} · 허용 {valueForDisplay(candidate.allowed_min_value, candidate.unit)} ~ {valueForDisplay(candidate.allowed_max_value, candidate.unit)}</small>
+            {hint ? <small>{hint}</small> : null}
             {outsideAllowed ? <em>허용 범위 밖의 값은 적용할 수 없어요.</em> : null}
           </label>;
         })}
