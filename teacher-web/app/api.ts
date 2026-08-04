@@ -58,6 +58,10 @@ export type BootstrapClassroom = {
 export type TeacherBootstrap = {
   user_id: string;
   roles: string[];
+  schools: Array<{
+    school_id: string;
+    role: string;
+  }>;
   classrooms: BootstrapClassroom[];
   start_screen: string;
 };
@@ -252,17 +256,21 @@ export async function logoutTeacher() {
 
 export async function getTeacherBootstrap(allowRefresh = true): Promise<TeacherBootstrap> {
   try {
-    return await apiRequest<TeacherBootstrap>("/auth/bootstrap", {}, allowRefresh);
+    const [bootstrap, current] = await Promise.all([
+      apiRequest<TeacherBootstrap>("/auth/bootstrap", {}, allowRefresh),
+      getTeacherCurrent(allowRefresh)
+    ]);
+    return {
+      ...bootstrap,
+      schools: current.schools
+    };
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 404) throw error;
-    const current = await apiRequest<{
-      user_id: string;
-      role: string;
-      classrooms: Array<{ classroom_id: string; classroom_code: string; role: string }>;
-    }>("/auth/me", {}, allowRefresh);
+    const current = await getTeacherCurrent(allowRefresh);
     return {
       user_id: current.user_id,
       roles: [current.role, ...new Set(current.classrooms.map((classroom) => classroom.role))],
+      schools: current.schools,
       classrooms: current.classrooms.map((classroom) => ({
         resource_id: classroom.classroom_id,
         label: classroom.classroom_code,
@@ -272,6 +280,17 @@ export async function getTeacherBootstrap(allowRefresh = true): Promise<TeacherB
       start_screen: "classrooms"
     };
   }
+}
+
+type TeacherCurrent = {
+  user_id: string;
+  role: string;
+  schools: TeacherBootstrap["schools"];
+  classrooms: Array<{ classroom_id: string; classroom_code: string; role: string }>;
+};
+
+function getTeacherCurrent(allowRefresh: boolean) {
+  return apiRequest<TeacherCurrent>("/auth/me", {}, allowRefresh);
 }
 
 export async function getClassroomServerState(classroomId: string): Promise<ClassroomServerState> {

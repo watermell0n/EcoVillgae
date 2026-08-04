@@ -22,6 +22,7 @@ import {
   ApiError,
   apiRequest,
   BootstrapClassroom,
+  CreateClassroomResponse,
   createTeacherPasswordSession,
   createTeacherSession,
   getClassroomServerState,
@@ -106,6 +107,7 @@ type ClassSettings = {
   currency: string;
   period: string;
   incomeTax: string;
+  studentCount: string;
 };
 
 type LessonMaterial = {
@@ -214,7 +216,8 @@ const initialSettings: ClassSettings = {
   endDate: "2026-08-07",
   currency: "비빔",
   period: "1주 프로젝트",
-  incomeTax: "10"
+  incomeTax: "10",
+  studentCount: "25"
 };
 
 const initialLessonMaterials: LessonMaterial[] = [
@@ -259,6 +262,38 @@ const periodModuleRecommendations: Record<string, string[]> = {
   "1학기 운영": selectableModuleNames
 };
 
+const moduleCodeByName: Record<string, string> = {
+  월급: "ROLE_SALARY",
+  세금: "INCOME_TAX",
+  상점: "STORE",
+  캐릭터: "CHARACTER",
+  "개인 거래": "TRADE",
+  예금: "DEPOSIT",
+  투자: "INVESTMENT",
+  "공공 예산/투표": "PUBLIC_FUND",
+  퀴즈: "QUIZ_GAME"
+};
+
+function courseSizeFor(period: string) {
+  return ({
+    "1회 체험": "ONE_SESSION",
+    "1주 프로젝트": "ONE_WEEK",
+    "1달 운영": "ONE_MONTH",
+    "1학기 운영": "SEMESTER"
+  } as const)[period] ?? "ONE_WEEK";
+}
+
+function selectedModuleCodes(selectedModules: Set<string>) {
+  const names = new Set<string>();
+  for (const selectedModule of selectedModules) {
+    names.add(selectedModule);
+    getRequiredModules(selectedModule).forEach((requiredModule) => names.add(requiredModule));
+  }
+  return [...names]
+    .map((name) => moduleCodeByName[name])
+    .filter((code): code is string => Boolean(code));
+}
+
 function getRequiredModules(moduleName: string): string[] {
   const visited = new Set<string>();
 
@@ -280,6 +315,7 @@ export default function TeacherConsole() {
   const [hasClassroom, setHasClassroom] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [classrooms, setClassrooms] = useState<BootstrapClassroom[]>([]);
+  const [schoolId, setSchoolId] = useState("");
   const [activeClassroomId, setActiveClassroomId] = useState("");
   const [activeStateVersion, setActiveStateVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
@@ -359,6 +395,7 @@ export default function TeacherConsole() {
 
   function enterClassrooms(bootstrap: Awaited<ReturnType<typeof getTeacherBootstrap>>) {
     setClassrooms(bootstrap.classrooms);
+    setSchoolId(bootstrap.schools[0]?.school_id ?? "");
     setTeacherRoles(bootstrap.roles);
     setHasClassroom(bootstrap.classrooms.length > 0);
     if (bootstrap.classrooms[0]) {
@@ -384,10 +421,15 @@ export default function TeacherConsole() {
     enterClassrooms(await getTeacherBootstrap());
   }
 
-  async function runAction(label: string, path: string, init: RequestInit, onSuccess: () => void) {
+  async function runAction(
+    label: string,
+    path: string,
+    init: RequestInit,
+    onSuccess: (result: unknown) => void
+  ) {
     try {
-      await apiRequest(path, init);
-      onSuccess();
+      const result = await apiRequest(path, init);
+      onSuccess(result);
       addLog(`${label}: 백엔드 처리 완료`);
     } catch (error) {
       const code = error instanceof ApiError ? ` (${error.code})` : "";
@@ -552,6 +594,7 @@ export default function TeacherConsole() {
         modules={modules}
         setModules={setModules}
         runAction={runAction}
+        schoolId={schoolId}
         onCancel={() => {
           setCreateStep("basic");
           setStage("classrooms");
@@ -561,6 +604,19 @@ export default function TeacherConsole() {
           setStage("classrooms");
         }}
         onLogout={logout}
+        onCreated={(classroom) => {
+          const created: BootstrapClassroom = {
+            resource_id: classroom.classroom_id,
+            label: classroom.classroom_code,
+            status: classroom.status,
+            state_version: classroom.state_version,
+            classroom_code: classroom.classroom_code,
+            currency_name: classroom.currency_name
+          };
+          setClassrooms((items) => [...items, created]);
+          setActiveClassroomId(created.resource_id);
+          setActiveStateVersion(created.state_version ?? 0);
+        }}
         onDone={(nextView) => {
           setHasClassroom(true);
           setHasDraft(false);
@@ -857,9 +913,11 @@ function CreateClassroomFlow({
   modules,
   setModules,
   runAction,
+  schoolId,
   onCancel,
   onSaveDraft,
   onLogout,
+  onCreated,
   onDone
 }: Readonly<{
   step: CreateStep;
@@ -868,10 +926,17 @@ function CreateClassroomFlow({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: (
+    label: string,
+    path: string,
+    init: RequestInit,
+    onMockSuccess: (result: unknown) => void
+  ) => Promise<void>;
+  schoolId: string;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
+  onCreated: (classroom: CreateClassroomResponse) => void;
   onDone: (view: ViewKey) => void;
 }>) {
   const [focusedModule, setFocusedModule] = useState("투자");
@@ -948,24 +1013,32 @@ function CreateClassroomFlow({
   }
 
   function createClassroom() {
+    if (!schoolId) {
+      return;
+    }
     runAction(
       "경제교실 개설",
       "/classrooms",
       {
         method: "POST",
         body: JSON.stringify({
-          name: settings.className,
-          school_name: settings.schoolName,
+          expected_state_version: 0,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-WEB-003",
+          client_occurred_at: new Date().toISOString(),
+          school_id: schoolId,
           grade: Number(settings.grade),
-          class_number: settings.classNumber,
-          description: settings.description,
           currency_name: settings.currency,
+          course_size: courseSizeFor(settings.period),
           starts_on: settings.startDate,
           ends_on: settings.endDate,
-          recommended_scale: settings.period
+          student_count: Math.max(1, Number(settings.studentCount) || 1),
+          timezone: "Asia/Seoul",
+          module_codes: selectedModuleCodes(selectedModules)
         })
       },
-      () => {
+      (result) => {
+        onCreated(result as CreateClassroomResponse);
         setShowConfirmation(false);
         setStep("complete");
       }
@@ -999,6 +1072,7 @@ function CreateClassroomFlow({
               <label>학교명<input value={settings.schoolName} onChange={(event) => updateSettings("schoolName", event.target.value)} /></label>
               <label>학년<input value={settings.grade} onChange={(event) => updateSettings("grade", event.target.value)} /></label>
               <label>반<input value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} /></label>
+              <label>학생 수<input type="number" min="1" value={settings.studentCount} onChange={(event) => updateSettings("studentCount", event.target.value)} /></label>
               <label className="wide-field">수업 대상 설명<input value={settings.description} onChange={(event) => updateSettings("description", event.target.value)} /></label>
               <label>화폐명<input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} /></label>
             </div>
@@ -1083,8 +1157,9 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" disabled={!schoolId} onClick={createClassroom}>확정하고 개설하기</button>
             </div>
+            {!schoolId ? <p className="inline-error">소속 학교 정보를 불러오지 못했습니다. 다시 로그인해 주세요.</p> : null}
           </section>
         </div>
       ) : null}
