@@ -56,14 +56,16 @@ export function QuizDraftWorkspace({
 
   useEffect(() => setGrade(initialGrade), [initialGrade]);
 
-  const loadQuestions = useCallback(async () => {
+  // keepError는 명령이 실패해 목록만 새로 읽을 때 씁니다.
+  // 목록 조회가 성공했다고 방금 띄운 실패 안내까지 지우면 화면이 아무 반응 없는 것처럼 보입니다.
+  const loadQuestions = useCallback(async (keepError = false) => {
     setLoading(true);
     try {
       const response = await apiRequest<{ questions: QuizQuestion[] }>(
         `/classrooms/${classroomId}/quiz-questions?limit=100`
       );
       setQuestions(response.questions);
-      setError("");
+      if (!keepError) setError("");
     } catch (caught) {
       setError(quizErrorMessage(caught));
     } finally {
@@ -156,7 +158,7 @@ export function QuizDraftWorkspace({
         : "문항이 게시됐어요.");
     } catch (caught) {
       setError(quizErrorMessage(caught));
-      if (caught instanceof ApiError && caught.code === "STATE_VERSION_CONFLICT") await loadQuestions();
+      if (caught instanceof ApiError && caught.code === "STATE_VERSION_CONFLICT") await loadQuestions(true);
     } finally {
       setChangingId("");
     }
