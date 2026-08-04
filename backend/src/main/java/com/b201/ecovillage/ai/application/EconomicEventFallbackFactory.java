@@ -56,7 +56,11 @@ public class EconomicEventFallbackFactory {
                 choices,
                 List.of("교사 검토가 필요한 초안입니다."),
                 // 대체안도 입력받은 단계 연결을 그대로 유지한다.
-                binding(payload.investmentNewsContext())
+                binding(payload.investmentNewsContext()),
+                // 대체안에는 AI 교사용 설명이 없다. INVESTMENT_NEWS는 이 값이 필요하므로 안내 문구를 둔다.
+                payload.investmentNewsContext() == null
+                    ? null
+                    : "AI 설명을 생성하지 못했습니다. 교사가 직접 작성해 주세요."
             )
         );
     }

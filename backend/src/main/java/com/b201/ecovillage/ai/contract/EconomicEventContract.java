@@ -157,7 +157,9 @@ public final class EconomicEventContract {
         List<Choice> choices,
         List<String> progressMessages,
         /** INVESTMENT_NEWS 전용이다. 나머지 템플릿에서는 null이어야 한다. */
-        InvestmentNewsBinding investmentNewsBinding
+        InvestmentNewsBinding investmentNewsBinding,
+        /** INVESTMENT_NEWS 전용 교사용 설명이다. 나머지 템플릿에서는 null이어야 한다. */
+        String teacherExplanation
     ) {
         public Output {
             sourceEvidenceCodes = List.copyOf(sourceEvidenceCodes);

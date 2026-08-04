@@ -570,7 +570,8 @@ class EconomicEventDraftApiTest {
                             99,
                             100
                         )
-                        : binding(payload.investmentNewsContext())
+                        : binding(payload.investmentNewsContext()),
+                    payload.investmentNewsContext() == null ? null : "교사용 설명입니다."
                 )
             );
         }
