@@ -36,6 +36,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
@@ -70,6 +71,7 @@ public class ModuleActivationService {
     private final IdempotencyRecordRepository idempotencyRepository;
     private final RuleEngineService ruleEngineService;
     private final SetupPrecheckInvalidator precheckInvalidator;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -84,6 +86,7 @@ public class ModuleActivationService {
         IdempotencyRecordRepository idempotencyRepository,
         RuleEngineService ruleEngineService,
         SetupPrecheckInvalidator precheckInvalidator,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         ObjectMapper objectMapper,
         Clock clock
@@ -97,6 +100,7 @@ public class ModuleActivationService {
         this.idempotencyRepository = idempotencyRepository;
         this.ruleEngineService = ruleEngineService;
         this.precheckInvalidator = precheckInvalidator;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -272,6 +276,22 @@ public class ModuleActivationService {
 
         ModuleActivationResult result = result(module, appliedPolicy, rules.ruleVersion(), false);
         remember(command, moduleCode, teacher.getId(), requestHash, result, now);
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.module.changed",
+            "CLASSROOM_MODULE",
+            module.getId(),
+            module.getStateVersion(),
+            Map.of(
+                "module_id", module.getId().toString(),
+                "module_code", module.getModuleCode(),
+                "status", module.getStatus(),
+                "state_version", module.getStateVersion()
+            ),
+            true
+        );
         return result;
     }
 

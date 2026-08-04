@@ -213,7 +213,15 @@ function App() {
     let ignore = false;
     async function loadStudentFeatures() {
       try {
-        const [accountData, productData, questionData, sessionData, voteData, activityData, moduleCodes] = await Promise.all([
+        // Module availability must recover independently. A stopped module can make one of
+        // its feature queries fail, but that must not keep the old menu state on screen.
+        const moduleCodes = await fetchActiveModuleCodes(activeClassroomId);
+        if (ignore) {
+          return;
+        }
+        setActiveModuleCodes(moduleCodes);
+
+        const [accountData, productData, questionData, sessionData, voteData, activityData] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
@@ -232,8 +240,7 @@ function App() {
           fetchGuidedActivity(
             activeClassroomId,
             activeRealtimeActivityForClass?.activityId
-          ),
-          fetchActiveModuleCodes(activeClassroomId)
+          )
         ]);
 
         if (ignore) {
@@ -246,7 +253,6 @@ function App() {
         setQuizSession(sessionData);
         setVote(voteData);
         setGuidedActivity(activityData);
-        setActiveModuleCodes(moduleCodes);
       } catch (error) {
         if (!ignore) {
           setActionMessage(error instanceof Error ? error.message : "학생 데이터를 불러오지 못했어요.");
