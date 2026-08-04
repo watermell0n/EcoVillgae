@@ -1,4 +1,5 @@
 import { apiRequest, getRealtimeWebSocketUrl } from "./client";
+import { createUuid } from "./uuid";
 
 export type RealtimeSubscriptionRequest = {
   channelId: string;
@@ -143,7 +144,7 @@ export class StudentRealtimeClient {
     const key = this.sequenceKey(subscription.channelId, subscription.resourceId);
     this.send({
       type: "subscription.subscribe",
-      request_id: crypto.randomUUID(),
+      request_id: createUuid(),
       channel_id: subscription.channelId,
       resource_id: subscription.resourceId,
       last_sequence: this.loadSequence(key)

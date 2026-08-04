@@ -1620,6 +1620,9 @@ paths:
                             resource_id:
                               type: "string"
                               format: "uuid"
+                            version_id:
+                              type: "string"
+                              format: "uuid"
                             label:
                               type: "string"
                             status:

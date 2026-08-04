@@ -1,4 +1,5 @@
 import type { StudentSession } from "./auth";
+import { createUuid } from "./uuid";
 
 const DEVICE_ID_KEY = "ecovillage.student.deviceId";
 const SESSION_KEY = "ecovillage.student.session";
@@ -9,7 +10,7 @@ export function getDeviceId() {
     return saved;
   }
 
-  const next = crypto.randomUUID();
+  const next = createUuid();
   localStorage.setItem(DEVICE_ID_KEY, next);
   return next;
 }

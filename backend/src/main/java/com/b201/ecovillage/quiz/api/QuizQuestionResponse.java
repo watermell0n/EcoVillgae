@@ -8,6 +8,7 @@ import com.b201.ecovillage.quiz.domain.QuizQuestionType;
 
 public record QuizQuestionResponse(
     UUID resourceId,
+    UUID versionId,
     String label,
     String status,
     int version,

@@ -396,6 +396,7 @@ export type QuizDraftOperationResponse = {
 
 export type QuizQuestion = {
   resource_id: string;
+  version_id: string;
   label: string;
   status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
   version: number;
