@@ -1,10 +1,10 @@
-import { Image, StyleSheet, View, type ImageSourcePropType } from "react-native";
+import { StyleSheet, View, type ImageSourcePropType } from "react-native";
 
 import { CHARACTER_RIG, RIG_LAYER_ORDER, assetProfileFor, type RigSlot } from "../assetProfile";
 import { CATALOG_BY_ID } from "../catalog";
-import { useCrispPixelId } from "../crispPixels";
 import { BASE_SPRITE, layerProfileFor } from "../layerProfile";
 import type { CosmeticDTO, EquippedMap } from "../types";
+import { PixelStack } from "./PixelStack";
 
 const { logicalWidth, logicalHeight } = CHARACTER_RIG.canvas;
 const BASE_Z = RIG_LAYER_ORDER.indexOf("BASE");
@@ -42,7 +42,7 @@ export function buildStageLayers(equipped: EquippedMap): StageLayer[] {
     layers.push({
       key: item.spriteKey,
       source: profile.sprite,
-      z: profile.placement === "BEHIND_BASE" ? slotZ : FRONT_BAND + slotZ,
+      z: profile.placement === "BEHIND_BASE" ? slotZ : FRONT_BAND + slotZ
     });
   }
 
@@ -55,25 +55,15 @@ export function CharacterStage({
 }: Readonly<{ equipped: EquippedMap; scale?: number }>) {
   const width = logicalWidth * scale;
   const height = logicalHeight * scale;
-  const layers = buildStageLayers(equipped);
-  const crispId = useCrispPixelId();
+  const sources = buildStageLayers(equipped).map((layer) => layer.source);
 
   return (
-    <View nativeID={crispId} style={[styles.stage, { width, height }]}>
-      {layers.map((layer) => (
-        <Image
-          key={layer.key}
-          source={layer.source}
-          style={[styles.layer, { width, height }]}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
-      ))}
+    <View style={[styles.stage, { width, height }]}>
+      <PixelStack sources={sources} width={width} height={height} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  stage: { position: "relative" },
-  layer: { position: "absolute", left: 0, top: 0 }
+  stage: { position: "relative" }
 });
