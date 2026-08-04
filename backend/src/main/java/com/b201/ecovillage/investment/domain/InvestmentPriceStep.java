@@ -109,6 +109,13 @@ public class InvestmentPriceStep {
         return revealedAt != null;
     }
 
+    public void reveal(Instant now) {
+        if (revealedAt != null) {
+            throw new IllegalStateException("The investment price step is already revealed");
+        }
+        revealedAt = Objects.requireNonNull(now);
+    }
+
     public UUID getId() {
         return id;
     }

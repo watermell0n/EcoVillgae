@@ -24,4 +24,9 @@ public interface InvestmentPriceStepRepository extends JpaRepository<InvestmentP
         UUID investmentAssetId,
         int stepNumber
     );
+
+    List<InvestmentPriceStep> findAllByClassroomIdAndInvestmentAssetIdOrderByStepNumber(
+        UUID classroomId,
+        UUID investmentAssetId
+    );
 }

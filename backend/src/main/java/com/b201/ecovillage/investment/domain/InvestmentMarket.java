@@ -66,6 +66,38 @@ public class InvestmentMarket {
     protected InvestmentMarket() {
     }
 
+    public static InvestmentMarket draft(UUID id, UUID classroomId, Instant now) {
+        InvestmentMarket market = new InvestmentMarket();
+        market.id = Objects.requireNonNull(id);
+        market.classroomId = Objects.requireNonNull(classroomId);
+        market.currentStep = 0;
+        market.status = DRAFT;
+        market.statusChangedAt = Objects.requireNonNull(now);
+        market.createdAt = now;
+        market.updatedAt = now;
+        return market;
+    }
+
+    public void configure(UUID scenarioVersionId, Instant now) {
+        if (!DRAFT.equals(status)) {
+            throw new IllegalStateException("Only a draft market can be configured");
+        }
+        activeScenarioVersionId = Objects.requireNonNull(scenarioVersionId);
+        currentStep = 0;
+        updatedAt = Objects.requireNonNull(now);
+    }
+
+    public void start(Instant now) {
+        if (!DRAFT.equals(status) || activeScenarioVersionId == null) {
+            throw new IllegalStateException("A configured draft market is required");
+        }
+        currentStep = 1;
+        status = OPEN;
+        openedAt = Objects.requireNonNull(now);
+        statusChangedAt = now;
+        updatedAt = now;
+    }
+
     /**
      * 시나리오가 공개되어 학생이 시세를 볼 수 있는 시장이다.
      *

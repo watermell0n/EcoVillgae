@@ -8,6 +8,7 @@ import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
 import { MonitoringBalancingPanel } from "./MonitoringBalancingPanel";
 import { ModuleActivationPanel } from "./ModuleActivationPanel";
 import { TeacherChatPanel } from "./TeacherChatPanel";
+import { InvestmentScenarioPanel } from "./InvestmentScenarioPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -209,6 +210,13 @@ export function AiWorkspace({
         enabled={enabled}
         canManage={canManage}
         onReload={onReload}
+      />
+
+      <InvestmentScenarioPanel
+        classroomId={classroomId}
+        modules={modules}
+        aiEnabled={enabled}
+        canManage={canManage}
       />
 
       <DraftRecommendationPanel

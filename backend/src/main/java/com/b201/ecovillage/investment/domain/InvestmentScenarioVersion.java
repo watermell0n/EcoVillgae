@@ -75,6 +75,34 @@ public class InvestmentScenarioVersion {
     protected InvestmentScenarioVersion() {
     }
 
+    public static InvestmentScenarioVersion draft(
+        UUID id,
+        UUID classroomId,
+        UUID investmentMarketId,
+        int version,
+        String name,
+        InvestmentMode investmentMode,
+        InvestmentScenarioSource scenarioSource,
+        HistoricalIndexReference historicalIndexReference,
+        Instant now
+    ) {
+        InvestmentScenarioVersion scenario = build(
+            id, classroomId, investmentMarketId, version, name, investmentMode,
+            scenarioSource, historicalIndexReference, now
+        );
+        scenario.status = DRAFT;
+        scenario.publishedAt = null;
+        return scenario;
+    }
+
+    public void publish(Instant now) {
+        if (!DRAFT.equals(status)) {
+            throw new IllegalStateException("Only a draft scenario can be published");
+        }
+        status = PUBLISHED;
+        publishedAt = Objects.requireNonNull(now);
+    }
+
     public static InvestmentScenarioVersion published(
         UUID id,
         UUID classroomId,
@@ -97,6 +125,26 @@ public class InvestmentScenarioVersion {
     }
 
     public static InvestmentScenarioVersion published(
+        UUID id,
+        UUID classroomId,
+        UUID investmentMarketId,
+        int version,
+        String name,
+        InvestmentMode investmentMode,
+        InvestmentScenarioSource scenarioSource,
+        HistoricalIndexReference historicalIndexReference,
+        Instant now
+    ) {
+        InvestmentScenarioVersion scenario = build(
+            id, classroomId, investmentMarketId, version, name, investmentMode,
+            scenarioSource, historicalIndexReference, now
+        );
+        scenario.status = PUBLISHED;
+        scenario.publishedAt = now;
+        return scenario;
+    }
+
+    private static InvestmentScenarioVersion build(
         UUID id,
         UUID classroomId,
         UUID investmentMarketId,
@@ -142,10 +190,12 @@ public class InvestmentScenarioVersion {
             scenario.referencePeriodStart = historicalIndexReference.periodStart();
             scenario.referencePeriodEnd = historicalIndexReference.periodEnd();
         }
-        scenario.status = PUBLISHED;
-        scenario.publishedAt = now;
         scenario.createdAt = now;
         return scenario;
+    }
+
+    public UUID getClassroomId() {
+        return classroomId;
     }
 
     public UUID getId() {

@@ -11,4 +11,9 @@ public interface InvestmentScenarioVersionRepository
     extends JpaRepository<InvestmentScenarioVersion, UUID> {
 
     Optional<InvestmentScenarioVersion> findByClassroomIdAndId(UUID classroomId, UUID id);
+
+    Optional<InvestmentScenarioVersion> findTopByClassroomIdAndInvestmentMarketIdOrderByVersionDesc(
+        UUID classroomId,
+        UUID investmentMarketId
+    );
 }

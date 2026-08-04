@@ -5564,8 +5564,8 @@ paths:
     put:
       operationId: "apiFin007"
       x-api-id: "API-FIN-007"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5589,8 +5589,8 @@ paths:
         - "AI-011"
       tags:
         - "Finance"
-      summary: "investment_mode=SHORT_TERM|LONG_TERM, scenario_source=AI_GENERATED|HISTORICAL_INDEX, 역사 지수 출처, 기간?, 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. 단기는 AI 생성 흐름만, 장기는 역사 지수를 우선하고 없으면 AI 생성 흐름 사용"
-      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, scenario_source=AI_GENERATED|HISTORICAL_INDEX, 역사 지수 출처, 기간?, 가상자산 4종, 가격 단계, 한도, 손실상한 → DRAFT 시나리오 버전. 단기는 AI 생성 흐름만, 장기는 역사 지수를 우선하고 없으면 AI 생성 흐름 사용."
+      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존"
+      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존."
       security:
         - bearerAuth: []
       parameters:
@@ -5599,7 +5599,72 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "market_status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "step_count"
+                      - "state_version"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      market_status:
+                        type: "string"
+                        enum:
+                          - "DRAFT"
+                          - "OPEN"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      step_count:
+                        type: "integer"
+                        minimum: 2
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      assets:
+                        type: "array"
+                        minItems: 4
+                        maxItems: 4
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5624,7 +5689,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-007는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-007 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5644,87 +5709,18 @@ paths:
                   enum:
                     - "SHORT_TERM"
                     - "LONG_TERM"
-                scenario_source:
-                  type: "string"
-                  enum:
-                    - "AI_GENERATED"
-                    - "HISTORICAL_INDEX"
-                historical_index_reference:
-                  type: "object"
-                  additionalProperties: false
-                  required:
-                    - "series_code"
-                    - "event_name"
-                    - "source_name"
-                    - "source_url"
-                    - "period_start"
-                    - "period_end"
-                  properties:
-                    series_code:
-                      type: "string"
-                      pattern: "^[A-Z][A-Z0-9_.-]{1,39}$"
-                    event_name:
-                      type: "string"
-                      minLength: 1
-                      maxLength: 120
-                    source_name:
-                      type: "string"
-                      minLength: 1
-                      maxLength: 120
-                    source_url:
-                      type: "string"
-                      minLength: 1
-                      maxLength: 500
-                    period_start:
-                      type: "string"
-                      format: "date"
-                    period_end:
-                      type: "string"
-                      format: "date"
-                assets:
-                  type: "array"
-                  minItems: 4
-                  maxItems: 4
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                price_steps:
-                  type: "array"
-                  minItems: 1
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                events:
-                  type: "array"
-                  items:
-                    type: "object"
-                    additionalProperties: true
-                limits:
-                  type: "object"
-                  additionalProperties: true
-                loss_cap_bps:
-                  type: "integer"
-                  minimum: 0
-                  maximum: 10000
-                expected_policy_version:
-                  type: "integer"
-                  minimum: 0
+                prefer_historical_index:
+                  type: "boolean"
               required:
                 - "investment_mode"
-                - "scenario_source"
-                - "assets"
-                - "price_steps"
-                - "events"
-                - "limits"
-                - "loss_cap_bps"
-                - "expected_policy_version"
-              additionalProperties: true
+                - "prefer_historical_index"
+              additionalProperties: false
   "/classrooms/{classroom_id}/investment-market/commands":
     post:
       operationId: "apiFin008"
       x-api-id: "API-FIN-008"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5750,8 +5746,8 @@ paths:
         - "FIN-012"
       tags:
         - "Finance"
-      summary: "command=START|ADVANCE_DAY|RESUME|PAUSE|CLOSE → 시장 상태. 단기는 ADVANCE_DAY마다 전일 주문 의무 정산, 장기는 CLOSE에서 남은 보유분 전량 최종 정산"
-      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|ADVANCE_DAY|RESUME|PAUSE|CLOSE → 시장 상태. 단기는 ADVANCE_DAY마다 전일 주문 의무 정산, 장기는 CLOSE에서 남은 보유분 전량 최종 정산."
+      summary: "6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위"
+      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위."
       security:
         - bearerAuth: []
       parameters:
@@ -5760,7 +5756,71 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "market_status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "step_count"
+                      - "state_version"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      market_status:
+                        type: "string"
+                        enum:
+                          - "OPEN"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      step_count:
+                        type: "integer"
+                        minimum: 2
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      assets:
+                        type: "array"
+                        minItems: 4
+                        maxItems: 4
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5785,7 +5845,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-008는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-008 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5804,19 +5864,16 @@ paths:
                   type: "string"
                   enum:
                     - "START"
-                    - "ADVANCE_DAY"
-                    - "RESUME"
-                    - "PAUSE"
-                    - "CLOSE"
               required:
                 - "command"
-              additionalProperties: true
+                - "expected_state_version"
+              additionalProperties: false
   "/classrooms/{classroom_id}/investment-orders":
     post:
       operationId: "apiFin009"
       x-api-id: "API-FIN-009"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5840,8 +5897,8 @@ paths:
         - "FIN-007"
       tags:
         - "Finance"
-      summary: "side=BUY|SELL, asset_id, quantity, expected_price_version → 체결, 원장, 보유량. 단기는 같은 날 BUY만 허용하고 다음 날 자동 매도, 장기는 매일 BUY, SELL 허용"
-      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: side=BUY|SELL, asset_id, quantity, expected_price_version → 체결, 원장, 보유량. 단기는 같은 날 BUY만 허용하고 다음 날 자동 매도, 장기는 매일 BUY, SELL 허용."
+      summary: "6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위"
+      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위."
       security:
         - bearerAuth: []
       parameters:
@@ -5850,7 +5907,65 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         201:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "order_id"
+                      - "status"
+                      - "quantity"
+                      - "executed_price"
+                      - "price_version"
+                      - "total_amount"
+                      - "position_quantity"
+                      - "average_price"
+                      - "state_version"
+                    properties:
+                      order_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "EXECUTED"
+                      quantity:
+                        type: "integer"
+                        minimum: 1
+                        maximum: 100
+                      executed_price:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      price_version:
+                        type: "integer"
+                        minimum: 1
+                      total_amount:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      position_quantity:
+                        type: "integer"
+                        minimum: 1
+                      average_price:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 1
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -5875,7 +5990,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-009는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-009 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -5894,22 +6009,22 @@ paths:
                   type: "string"
                   enum:
                     - "BUY"
-                    - "SELL"
                 asset_id:
                   type: "string"
                   format: "uuid"
                 quantity:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
+                  maximum: 100
                 expected_price_version:
                   type: "integer"
-                  format: "int64"
+                  minimum: 1
               required:
                 - "side"
                 - "asset_id"
                 - "quantity"
                 - "expected_price_version"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/loan-policy":
     put:
       operationId: "apiFin010"
@@ -10677,8 +10792,8 @@ paths:
     get:
       operationId: "apiRead016"
       x-api-id: "API-READ-016"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "service_projection"
       x-roles:
@@ -10704,7 +10819,75 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "scenario_version_id"
+                      - "status"
+                      - "investment_mode"
+                      - "scenario_source"
+                      - "settlement_rule"
+                      - "current_step"
+                      - "state_version"
+                      - "teacher_view"
+                      - "assets"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      scenario_version_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "DRAFT"
+                          - "OPEN"
+                          - "PAUSED"
+                          - "CLOSED"
+                      investment_mode:
+                        type: "string"
+                        enum:
+                          - "SHORT_TERM"
+                          - "LONG_TERM"
+                      scenario_source:
+                        type: "string"
+                        enum:
+                          - "AI_GENERATED"
+                          - "HISTORICAL_INDEX"
+                      settlement_rule:
+                        type: "string"
+                        enum:
+                          - "NEXT_DAY_MANDATORY"
+                          - "COURSE_END_FINAL"
+                      current_step:
+                        type: "integer"
+                        minimum: 0
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      teacher_view:
+                        type: "boolean"
+                      assets:
+                        type: "array"
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:

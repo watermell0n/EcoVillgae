@@ -1,6 +1,8 @@
 package com.b201.ecovillage.ai.repository;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,5 +22,11 @@ public interface EconomicEventDraftRepository extends JpaRepository<EconomicEven
         UUID classroomId,
         UUID investmentPriceStepId,
         String status
+    );
+
+    List<EconomicEventDraft> findAllByClassroomIdAndInvestmentPriceStepIdInAndStatusIn(
+        UUID classroomId,
+        Collection<UUID> investmentPriceStepIds,
+        Collection<String> statuses
     );
 }
