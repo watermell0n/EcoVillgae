@@ -1961,7 +1961,7 @@
           {
             "name": "module_code",
             "required": true,
-            "type": "string",
+            "type": "#/components/schemas/ModuleCode",
             "target": "projection.module_code",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
             "nullable": false,

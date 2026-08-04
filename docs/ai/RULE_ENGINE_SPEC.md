@@ -40,7 +40,9 @@
 | 상품 가격 | `PRODUCT_PRICE` | 상품 등록·수정 | 상품 UUID |
 | GAME 퀴즈 보상 | `GAME_REWARD` | 퀴즈 세션 설정 | 세션·초안 UUID |
 
-모듈 코드와 후보 유형은 `ROLE_SALARY`(호환 별칭 `SALARY`)→`ROLE_SALARY`,
+외부 모듈 코드는 [정식 선택 모듈 카탈로그](../MODULE_CATALOG.md)를 따릅니다. 호환 입력
+`INCOME`·`SALARY`는 `ROLE_SALARY`, `TAX`는 `INCOME_TAX`로 정규화하고 저장·응답에는
+별칭을 사용하지 않습니다. 후보 유형은 `ROLE_SALARY`→`ROLE_SALARY`,
 `INCOME_TAX`→`INCOME_TAX_RATE`, `DEPOSIT`→`DEPOSIT_RATE`, `LOAN`→`LOAN_RATE`로
 고정합니다. 상점처럼 초기 수치 후보가 필요 없는 모듈의 `MODULE_ACTIVATION` 요청은 후보
 배열이 비어 있을 수 있습니다.

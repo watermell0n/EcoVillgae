@@ -1023,7 +1023,7 @@ paths:
                                   - "prerequisites"
                                 properties:
                                   module_code:
-                                    type: "string"
+                                    $ref: "#/components/schemas/ModuleCode"
                                   label:
                                     type: "string"
                                   recommendation_level:
@@ -1036,7 +1036,7 @@ paths:
                                     type: "array"
                                     uniqueItems: true
                                     items:
-                                      type: "string"
+                                      $ref: "#/components/schemas/ModuleCode"
                                   exclusion_impact:
                                     type:
                                       - "string"
@@ -1098,8 +1098,8 @@ paths:
         - "CRS-002"
       tags:
         - "Classrooms"
-      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태"
-      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 선택 module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태."
+      summary: "학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 canonical module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태. INCOME, SALARY→ROLE_SALARY, TAX→INCOME_TAX; WALLET 선택 불가"
+      description: "사람이 검토하는 원문 기준: `API-CLS-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 canonical module_codes, 자율시간, 필수 currency_name → 서버 생성 전역 유일 classroom_code, ACTIVE 학급, 선택 모듈의 DISABLED 등록 상태. INCOME, SALARY→ROLE_SALARY, TAX→INCOME_TAX; WALLET 선택 불가."
       security:
         - bearerAuth: []
       parameters:
@@ -1226,7 +1226,7 @@ paths:
                   type: "array"
                   uniqueItems: true
                   items:
-                    type: "string"
+                    $ref: "#/components/schemas/ModuleCode"
                 autonomous_schedules:
                   type: "array"
                   items:
@@ -1962,7 +1962,7 @@ paths:
                       module_codes:
                         type: "array"
                         items:
-                          type: "string"
+                          $ref: "#/components/schemas/ModuleCode"
                         uniqueItems: true
                     additionalProperties: false
               required:
@@ -2047,7 +2047,7 @@ paths:
                       module_codes:
                         type: "array"
                         items:
-                          type: "string"
+                          $ref: "#/components/schemas/ModuleCode"
                         uniqueItems: true
                       state_version:
                         type: "integer"
@@ -2227,8 +2227,8 @@ paths:
         - "AI-009"
       tags:
         - "Modules"
-      summary: "expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리"
-      description: "사람이 검토하는 원문 기준: `API-MOD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리."
+      summary: "canonical code 또는 입력 호환 별칭, expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → canonical code 정규화, 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리"
+      description: "사람이 검토하는 원문 기준: `API-MOD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: canonical code 또는 입력 호환 별칭, expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids? → canonical code 정규화, 조건부 선행 관계, 초기 정책 검증 후 정책 저장과 DISABLED → ACTIVE 원자 처리."
       security:
         - bearerAuth: []
       parameters:
@@ -2257,7 +2257,7 @@ paths:
                       - "replayed"
                     properties:
                       module_code:
-                        type: "string"
+                        $ref: "#/components/schemas/ModuleCode"
                       status:
                         type: "string"
                         enum:
@@ -9664,7 +9664,7 @@ paths:
                       module_codes:
                         type: "array"
                         items:
-                          type: "string"
+                          $ref: "#/components/schemas/ModuleCode"
                         uniqueItems: true
                       autonomous_schedules:
                         type: "array"
@@ -9688,7 +9688,7 @@ paths:
                             module_codes:
                               type: "array"
                               items:
-                                type: "string"
+                                $ref: "#/components/schemas/ModuleCode"
                               uniqueItems: true
                           additionalProperties: false
                       policy_versions:
@@ -9849,7 +9849,7 @@ paths:
                               format: "int64"
                               minimum: 0
                             module_code:
-                              type: "string"
+                              $ref: "#/components/schemas/ModuleCode"
                             config:
                               type: "object"
                               additionalProperties: true
@@ -12590,7 +12590,7 @@ components:
       required: true
       description: "module_code 식별자"
       schema:
-        type: "string"
+        $ref: "#/components/schemas/ModuleCode"
     ResourceIdPath:
       name: "resource_id"
       in: "path"
@@ -12640,6 +12640,31 @@ components:
         type: "string"
         format: "uuid"
   schemas:
+    ModuleCode:
+      type: "string"
+      enum:
+        - "ROLE_SALARY"
+        - "INCOME_TAX"
+        - "STORE"
+        - "BUDGET"
+        - "PAYSLIP"
+        - "PUBLIC_FUND"
+        - "PUBLIC_BUDGET"
+        - "DEPOSIT"
+        - "SAVINGS"
+        - "CREDIT"
+        - "LOAN"
+        - "INVESTMENT"
+        - "RISK_MANAGEMENT"
+        - "MARKET_PRICE"
+        - "TRADE"
+        - "PHYSICAL_STORE"
+        - "CHARACTER"
+        - "QUIZ_GAME"
+        - "QUIZ_TEST"
+        - "AI_EVENT"
+        - "CUMULATIVE_REPORT"
+      description: "교사가 선택할 수 있는 canonical module code. WALLET은 지연 생성되는 기술 인프라이며 INCOME, TAX, SALARY는 입력 호환 별칭으로만 허용됩니다."
     StudentSessionRequest:
       type: "object"
       required:
