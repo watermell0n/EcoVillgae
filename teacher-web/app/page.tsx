@@ -2,10 +2,10 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  CalendarRange,
   Bot,
   ChevronLeft,
   ClipboardCheck,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MonitorPlay,
@@ -36,7 +36,7 @@ import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { TeacherRealtimeClient } from "./realtime";
 
-type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals" | "ai";
+type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "complete";
 type LogTone = "success" | "warning" | "error";
@@ -126,11 +126,11 @@ type LessonMaterial = {
 
 const views = [
   { key: "overview" as const, label: "운영 현황", icon: LayoutDashboard },
-  { key: "plan" as const, label: "운영 계획", icon: CalendarRange },
   { key: "setup" as const, label: "학급 설정", icon: Settings },
   { key: "roster" as const, label: "학생·급여", icon: Users },
   { key: "shop" as const, label: "상점 상품", icon: ShoppingBag },
-  { key: "control" as const, label: "수업 제어", icon: MonitorPlay },
+  { key: "finance" as const, label: "운영 관리", icon: Landmark },
+  { key: "control" as const, label: "수업 준비", icon: MonitorPlay },
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
 ];
@@ -238,9 +238,9 @@ const initialLessonMaterials: LessonMaterial[] = [
   { id: "lesson-3", title: "예금과 투자 선택", stage: "2교시", minutes: "20", status: "수정 필요" }
 ];
 
-const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
+const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
 const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
-const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
+const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
 
 const moduleDependencies: Record<string, string[]> = {
   월급: ["지갑"],
@@ -287,6 +287,8 @@ const lessonQuizCatalog = [
   { id: "shop", title: "우리 반 상점 운영", module: "상점", minutes: "20분", concept: "가격과 재고를 확인하고 꼭 필요한 상품을 선택하는 과정에서 소비 계획을 연습해요.", question: "상품을 사기 전에 함께 확인할 것은 무엇인가요?", options: ["가격과 잔액", "친구의 이름", "화면 색깔"], answer: 0 },
   { id: "saving", title: "예금과 적금", module: "예금", minutes: "20분", concept: "예금은 목돈을 한 번 맡기고, 적금은 일정한 금액을 여러 번 나누어 모으는 금융 활동이에요.", question: "매일 일정한 금액을 나누어 모으는 상품은 무엇인가요?", options: ["예금", "적금", "대출"], answer: 1 },
   { id: "loan", title: "빌린 돈과 상환", module: "대출", minutes: "15분", concept: "대출은 필요한 돈을 빌리고 약속한 기간에 원금과 이자를 갚는 금융 활동이에요.", question: "대출받은 뒤 지켜야 할 약속은 무엇인가요?", options: ["정해진 때에 갚기", "기록 지우기", "이자를 무시하기"], answer: 0 },
+  { id: "housing-subscription", title: "청약과 내 집 마련", module: "청약", minutes: "20분", concept: "청약은 새로 지어지는 집에 살 기회를 얻기 위해 신청하는 제도예요. 조건과 순서를 확인해 계획적으로 준비해요.", question: "청약을 준비할 때 가장 먼저 확인할 것은 무엇인가요?", options: ["신청 조건", "친구의 취미", "집 색깔"], answer: 0 },
+  { id: "real-estate", title: "부동산과 주거 선택", module: "부동산", minutes: "20분", concept: "부동산은 땅과 건물처럼 옮길 수 없는 재산이에요. 가격뿐 아니라 위치와 필요한 비용을 함께 살펴봐요.", question: "집을 고를 때 함께 살펴볼 내용은 무엇인가요?", options: ["위치와 비용", "광고 색깔", "유행어"], answer: 0 },
   { id: "short-investment", title: "단기 투자와 결과", module: "단기 투자", minutes: "20분", concept: "단기 투자는 가까운 시점의 결과를 예상해 투자하며 수익과 손실이 모두 생길 수 있어요.", question: "투자에서 반드시 기억해야 하는 것은 무엇인가요?", options: ["항상 수익이 난다", "손실이 생길 수 있다", "가격은 변하지 않는다"], answer: 1 },
   { id: "long-investment", title: "장기 투자와 정보 판단", module: "장기 투자", minutes: "20분", concept: "장기 투자는 여러 날의 정보와 변화를 살피며 계속 보유할지 회수할지 판단해요.", question: "장기 투자 판단에 가장 필요한 것은 무엇인가요?", options: ["하루의 느낌", "여러 날의 정보", "친구의 추측만 듣기"], answer: 1 },
   { id: "trade", title: "친구와 안전하게 거래하기", module: "개인 거래", minutes: "15분", concept: "개인 거래는 주고받을 금액과 물건을 서로 확인하고 동의한 뒤 진행해야 해요.", question: "안전한 개인 거래에 필요한 것은 무엇인가요?", options: ["서로의 동의", "몰래 바꾸기", "기록 삭제"], answer: 0 },
@@ -720,14 +722,16 @@ export default function TeacherConsole() {
         </header>
 
         <div className="console-content">
-          {view === "overview" && <Overview mode={mode} modules={modules} students={students} approvals={approvals} />}
-          {view === "plan" && (
-            <CoursePlanning
+          {view === "overview" && (
+            <Overview
+              mode={mode}
+              setMode={setMode}
               modules={modules}
-              setModules={setModules}
-              addLog={addLog}
-              runAction={runAction}
+              students={students}
               classroomId={activeClassroomId}
+              runAction={runAction}
+              addLog={addLog}
+              onPrepareLesson={() => setView("control")}
             />
           )}
           {view === "setup" && (
@@ -764,12 +768,17 @@ export default function TeacherConsole() {
               onStateVersionChange={setActiveStateVersion}
             />
           )}
+          {view === "finance" && (
+            <FinanceAdmin
+              classroomId={activeClassroomId}
+              stateVersion={activeStateVersion}
+              currencyName={settings.currency}
+              addLog={addLog}
+              onStateVersionChange={setActiveStateVersion}
+            />
+          )}
           {view === "control" && (
             <Control
-              mode={mode}
-              setMode={setMode}
-              modules={modules}
-              setModules={setModules}
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
@@ -1240,7 +1249,7 @@ function CreateClassroomFlow({
           <p>입장 코드 {settings.classCode}로 학생들이 접속할 수 있어요.</p>
           <div className="next-task-list">
             <button type="button" onClick={() => onDone("roster")}>학생 명단 등록하기</button>
-            <button type="button" onClick={() => onDone("plan")}>운영 계획 세우기</button>
+            <button type="button" onClick={() => onDone("control")}>수업 준비하기</button>
             <button type="button" onClick={() => onDone("overview")}>대시보드로 이동</button>
           </div>
           <button type="button" className="text-action" onClick={() => setStep("period")}>기간·모듈 다시 보기</button>
@@ -1560,29 +1569,94 @@ function CoursePlanning({
 
 function Overview({
   mode,
+  setMode,
   modules,
   students,
-  approvals
-}: Readonly<{ mode: string; modules: ModuleRow[]; students: StudentRow[]; approvals: ApprovalRow[] }>) {
-  const summaryRows = [
-    ["학급 코드", "ABCD2345", ""],
-    ["운영 상태", mode, ""],
-    ["학생", `${students.length}명`, ""],
-    ["승인 대기", `${approvals.filter((item) => item.status.includes("대기") || item.status.includes("확인")).length}건`, ""]
-  ];
+  classroomId,
+  runAction,
+  addLog,
+  onPrepareLesson
+}: Readonly<{
+  mode: string;
+  setMode: React.Dispatch<React.SetStateAction<string>>;
+  modules: ModuleRow[];
+  students: StudentRow[];
+  classroomId: string;
+  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  addLog: (message: string, tone?: LogTone) => void;
+  onPrepareLesson: () => void;
+}>) {
+  const openCount = modules.filter((module) => module.status === "열림").length;
+  const onlineCount = students.filter((student) => student.presence === "ONLINE").length;
+  const awayCount = students.filter((student) => student.presence === "AWAY").length;
+
+  function setLessonMode() {
+    const isFreeMode = mode === "자율 활동";
+    void runAction(
+      "수업 모드 전환",
+      `/classrooms/${classroomId}/access-mode-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: 0,
+          command: isFreeMode ? "CLOSE" : "OPEN",
+          duration_minutes: 40,
+          client_occurred_at: new Date().toISOString()
+        })
+      },
+      () => setMode(isFreeMode ? "선생님 수업" : "자율 활동")
+    );
+  }
+
+  function openStudentActivity(kind: "자료" | "퀴즈") {
+    void runAction(
+      `${kind} 학생 화면 열기`,
+      `/classrooms/${classroomId}/guided-activities/${crypto.randomUUID()}/start-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: 0,
+          participant_ids: [],
+          public_fields: kind === "퀴즈" ? ["quiz"] : ["materials"]
+        })
+      },
+      () => {
+        setMode("선생님 수업");
+        addLog(`${kind}를 학생 화면에 띄웠어요.`);
+      }
+    );
+  }
 
   return (
-    <div className="page-flow">
-      <PlainSection title="오늘 운영 요약">
-        <DefinitionList rows={summaryRows} />
+    <div className="page-flow live-classroom-page">
+      <PlainSection title="수업 진행">
+        <div className="live-class-toolbar">
+          <div>
+            <span className={mode === "자율 활동" ? "mode-chip free" : "mode-chip class"}>{mode}</span>
+            <p>접속 중 {onlineCount}명 · 화면 이탈 {awayCount}명 · 사용 기능 {openCount}개</p>
+          </div>
+          <button type="button" className={mode === "자율 활동" ? "live-toggle is-off" : "live-toggle"} onClick={setLessonMode}>
+            <span aria-hidden="true" />
+            {mode === "자율 활동" ? "수업 시작" : "수업 종료"}
+          </button>
+        </div>
+        <div className="live-class-actions">
+          <button type="button" onClick={onPrepareLesson}>수업 준비 열기</button>
+          <button type="button" onClick={() => openStudentActivity("자료")}>자료 띄우기</button>
+          <button type="button" onClick={() => openStudentActivity("퀴즈")}>퀴즈 띄우기</button>
+        </div>
       </PlainSection>
-      <PlainSection title="열린 기능">
-        <DataTable
-          headers={["기능", "상태", "관리"]}
-          rows={modules
-            .filter((module) => selectableModuleNames.includes(module.name))
-            .map((module) => [module.name, module.status, module.teacherTodo])}
-        />
+      <PlainSection title="학생 실시간 현황">
+        <div className="live-student-list" role="list">
+          {students.map((student) => (
+            <div className="live-student-row" role="listitem" key={`${student.attendance}-${student.nickname}`}>
+              <span className={`presence-dot ${(student.presence ?? "UNKNOWN").toLowerCase()}`} />
+              <strong>{student.attendance}. {student.nickname}</strong>
+              <span>{student.currentScreen || "대기 중"}</span>
+              <em>{student.presence === "ONLINE" ? "접속 중" : student.presence === "AWAY" ? "화면 이탈" : "미접속"}</em>
+            </div>
+          ))}
+        </div>
       </PlainSection>
     </div>
   );
@@ -1610,11 +1684,23 @@ function Setup({
   }
 
   function toggleModule(moduleName: string) {
-    setModules((items) => items.map((item) => (
-      item.name === moduleName
-        ? { ...item, status: item.status === "열림" ? "닫힘" : "열림" }
-        : item
-    )));
+    setModules((items) => {
+      const existing = items.find((item) => item.name === moduleName);
+      if (!existing) {
+        return [...items, {
+          name: moduleName,
+          status: "열림",
+          studentState: "학생 화면에 표시",
+          teacherTodo: "수업 중 조정 가능"
+        }];
+      }
+      return items.map((item) => (
+        item.name === moduleName
+          ? { ...item, status: item.status === "열림" ? "닫힘" : "열림" }
+          : item
+      ));
+    });
+    addLog(`${moduleName} 기능을 ${modules.find((item) => item.name === moduleName)?.status === "열림" ? "닫았어요" : "열었어요"}.`);
   }
 
   return (
@@ -1767,8 +1853,8 @@ function Roster({
 
   function saveEdit(index: number) {
     if (!draftStudent) return;
-    if (!draftStudent.nickname.trim() || (hasSalaryModule && !draftStudent.role.trim())) {
-      addLog(hasSalaryModule ? "학생 이름과 직업은 반드시 입력해야 해요." : "학생 이름을 입력해 주세요.", "warning");
+    if (!draftStudent.nickname.trim()) {
+      addLog("학생 이름을 입력해 주세요.", "warning");
       return;
     }
 
@@ -1781,8 +1867,8 @@ function Roster({
     const trimmedNickname = newStudent.nickname.trim();
     const trimmedRole = newStudent.role.trim();
 
-    if (!trimmedNickname || (hasSalaryModule && !trimmedRole)) {
-      addLog(hasSalaryModule ? "학생 이름과 직업을 입력해야 추가할 수 있어요." : "학생 이름을 입력해야 추가할 수 있어요.", "warning");
+    if (!trimmedNickname) {
+      addLog("학생 이름을 입력해야 추가할 수 있어요.", "warning");
       return;
     }
 
@@ -1905,6 +1991,10 @@ function Roster({
             <span>현재 인원</span>
             <strong>{students.length}명</strong>
           </div>
+          <div className="class-code-summary">
+            <span>학생 접속 코드</span>
+            <strong>{settings.classCode}</strong>
+          </div>
           <button type="button" onClick={() => setIsManaging(true)}>
             <Users aria-hidden="true" size={17} />
             명단 수정
@@ -1965,7 +2055,7 @@ function Roster({
                 {hasSalaryModule ? (
                   <>
                     <label>
-                      직업
+                      직업 (선택)
                       <input value={newStudent.role} onChange={(event) => updateNewStudent("role", event.target.value)} placeholder="예: 은행 매니저" />
                     </label>
                     <label>
@@ -2134,6 +2224,7 @@ function ShopAdmin({
   const [submitting, setSubmitting] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftProduct, setDraftProduct] = useState<ProductRow | null>(null);
+  const [inflationRate, setInflationRate] = useState("10");
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -2231,6 +2322,14 @@ function ShopAdmin({
     addLog("상품을 내렸어요.");
   }
 
+  function applyInflation() {
+    const rate = Number(inflationRate);
+    if (!Number.isFinite(rate) || rate <= 0) return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
+    if (!window.confirm(`모든 상품 가격을 ${rate}% 올릴까요?`)) return;
+    setProducts((items) => items.map((item) => ({ ...item, price: String(Math.round(Number(item.price) * (1 + rate / 100))) })));
+    addLog(`상점 상품 가격을 ${rate}% 인상했어요.`);
+  }
+
   return (
     <div className="page-flow">
       <PlainSection title="상품 등록">
@@ -2258,6 +2357,11 @@ function ShopAdmin({
         </div>
       </PlainSection>
       <PlainSection title="상품 관리">
+        <div className="inflation-control">
+          <div><b>인플레이션 적용</b><span>모든 상품 가격을 같은 비율로 올려요.</span></div>
+          <label>인상률 <input inputMode="decimal" value={inflationRate} onChange={(event) => setInflationRate(event.target.value)} />%</label>
+          <button type="button" onClick={applyInflation}>적용하기</button>
+        </div>
         <div className="product-list">
           {products.map((product, index) => {
             const activeDraft = editingIndex === index ? draftProduct : null;
@@ -2298,19 +2402,246 @@ function ShopAdmin({
   );
 }
 
+type FinancialProductDraft = {
+  resourceId?: string;
+  version: number;
+  stateVersion: number;
+  productType: "DEPOSIT" | "SAVINGS";
+  name: string;
+  status: string;
+  termUnits: string;
+  interestRate: string;
+  earlyTerminationRate: string;
+  installmentCount: string;
+  installmentAmount: string;
+  minimumAmount: string;
+  maximumAmount: string;
+};
+
+const defaultFinancialProducts: FinancialProductDraft[] = [
+  { productType: "DEPOSIT", name: "3일 예금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "3", interestRate: "10", earlyTerminationRate: "1", installmentCount: "", installmentAmount: "", minimumAmount: "30", maximumAmount: "300" },
+  { productType: "SAVINGS", name: "매일 적금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "5", interestRate: "15", earlyTerminationRate: "2", installmentCount: "5", installmentAmount: "20", minimumAmount: "20", maximumAmount: "100" }
+];
+
+function FinanceAdmin({
+  classroomId,
+  stateVersion,
+  currencyName,
+  addLog,
+  onStateVersionChange
+}: Readonly<{
+  classroomId: string;
+  stateVersion: number;
+  currencyName: string;
+  addLog: (message: string, tone?: LogTone) => void;
+  onStateVersionChange: (version: number) => void;
+}>) {
+  const [activeTab, setActiveTab] = useState<"DEPOSIT" | "SAVINGS" | "INVESTMENT">("DEPOSIT");
+  const [products, setProducts] = useState<FinancialProductDraft[]>(defaultFinancialProducts);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [investment, setInvestment] = useState({
+    shortName: "단기 투자",
+    shortReturnRate: "8",
+    shortRisk: "보통",
+    longName: "장기 투자",
+    longVolatility: "보통",
+    longPeriod: "5",
+    shortScenario: "",
+    longScenario: ""
+  });
+
+  useEffect(() => {
+    if (!classroomId) return;
+    let cancelled = false;
+    void apiRequest<{ financial_products: Array<{
+      resource_id: string;
+      label: string;
+      status: string;
+      version: number;
+      state_version: number;
+      product_type: "DEPOSIT" | "SAVINGS";
+      term_units: number;
+      interest_rate_bps: number;
+      early_termination_rate_bps: number;
+      installment_count?: number | null;
+      installment_amount?: number | null;
+      minimum_amount: number;
+      maximum_amount: number;
+    }> }>(`/classrooms/${classroomId}/financial-products`)
+      .then((response) => {
+        if (cancelled || response.financial_products.length === 0) return;
+        setProducts(response.financial_products.map((product) => ({
+          resourceId: product.resource_id,
+          version: product.version,
+          stateVersion: product.state_version,
+          productType: product.product_type,
+          name: product.label,
+          status: product.status,
+          termUnits: String(product.term_units),
+          interestRate: String(product.interest_rate_bps / 100),
+          earlyTerminationRate: String(product.early_termination_rate_bps / 100),
+          installmentCount: product.installment_count ? String(product.installment_count) : "",
+          installmentAmount: product.installment_amount ? String(product.installment_amount) : "",
+          minimumAmount: String(product.minimum_amount),
+          maximumAmount: String(product.maximum_amount)
+        })));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [classroomId]);
+
+  const activeProducts = products.filter((product) => product.productType === activeTab);
+
+  function updateProduct(index: number, field: keyof FinancialProductDraft, value: string) {
+    setProducts((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
+  }
+
+  function addProduct(type: "DEPOSIT" | "SAVINGS") {
+    setProducts((items) => [...items, {
+      productType: type,
+      name: type === "DEPOSIT" ? "새 예금 상품" : "새 적금 상품",
+      status: "DRAFT",
+      version: 0,
+      stateVersion,
+      termUnits: type === "DEPOSIT" ? "3" : "5",
+      interestRate: "10",
+      earlyTerminationRate: "1",
+      installmentCount: type === "SAVINGS" ? "5" : "",
+      installmentAmount: type === "SAVINGS" ? "20" : "",
+      minimumAmount: "20",
+      maximumAmount: "300"
+    }]);
+  }
+
+  async function saveProduct(product: FinancialProductDraft, command: "CREATE" | "UPDATE" | "PUBLISH" | "STOP") {
+    if (!classroomId) return addLog("먼저 교실을 선택해 주세요.", "warning");
+    const requiredNumbers = [product.termUnits, product.interestRate, product.earlyTerminationRate, product.minimumAmount, product.maximumAmount];
+    if (!product.name.trim() || requiredNumbers.some((value) => !Number.isFinite(Number(value))) || Number(product.minimumAmount) > Number(product.maximumAmount)) {
+      addLog("상품 이름과 금액, 금리를 다시 확인해 주세요.", "warning");
+      return;
+    }
+    const key = product.resourceId ?? `${product.productType}-${product.name}`;
+    setSavingId(key);
+    try {
+      const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(
+        `/classrooms/${classroomId}/financial-product-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: product.stateVersion || stateVersion,
+            screen_id: "SCR-TCH-FINANCE",
+            ui_action_id: "UIA-FIN-001",
+            client_occurred_at: new Date().toISOString(),
+            command,
+            product_id: product.resourceId ?? null,
+            product_type: product.productType,
+            name: product.name.trim(),
+            term_units: Number(product.termUnits),
+            interest_rate_bps: Math.round(Number(product.interestRate) * 100),
+            early_termination_rate_bps: Math.round(Number(product.earlyTerminationRate) * 100),
+            installment_count: product.productType === "SAVINGS" ? Number(product.installmentCount) : null,
+            installment_amount: product.productType === "SAVINGS" ? Number(product.installmentAmount) : null,
+            minimum_amount: Number(product.minimumAmount),
+            maximum_amount: Number(product.maximumAmount),
+            expected_product_version: product.version
+          })
+        }
+      );
+      setProducts((items) => items.map((item) => item === product ? {
+        ...item,
+        resourceId: response.financial_resource_id,
+        status: response.status,
+        stateVersion: response.state_version,
+        version: item.version + 1
+      } : item));
+      onStateVersionChange(response.state_version);
+      addLog(`${product.name} ${command === "PUBLISH" ? "학생에게 공개" : command === "STOP" ? "판매 중지" : "저장"} 완료`);
+    } catch (error) {
+      addLog(`${product.name} 저장에 실패했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <div className="page-flow finance-page">
+      <PlainSection title="운영 관리" description="학생에게 보여 줄 금융 상품과 투자 활동 조건을 정합니다.">
+        <div className="finance-tabs" role="tablist" aria-label="운영 관리 종류">
+          <button type="button" role="tab" aria-selected={activeTab === "DEPOSIT"} className={activeTab === "DEPOSIT" ? "active" : ""} onClick={() => setActiveTab("DEPOSIT")}>예금</button>
+          <button type="button" role="tab" aria-selected={activeTab === "SAVINGS"} className={activeTab === "SAVINGS" ? "active" : ""} onClick={() => setActiveTab("SAVINGS")}>적금</button>
+          <button type="button" role="tab" aria-selected={activeTab === "INVESTMENT"} className={activeTab === "INVESTMENT" ? "active" : ""} onClick={() => setActiveTab("INVESTMENT")}>투자</button>
+        </div>
+      </PlainSection>
+
+      {activeTab === "INVESTMENT" ? (
+        <PlainSection title="투자 운영안" description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다.">
+          <div className="investment-mode-grid">
+            <section>
+              <div className="investment-heading"><span>단기 투자</span><small>다음 날 결과 확정</small></div>
+              <div className="investment-settings">
+                <label>상품 이름<input value={investment.shortName} onChange={(event) => setInvestment((current) => ({ ...current, shortName: event.target.value }))} /></label>
+                <label>결과 수익률(%)<input inputMode="decimal" value={investment.shortReturnRate} onChange={(event) => setInvestment((current) => ({ ...current, shortReturnRate: event.target.value }))} /></label>
+                <label>위험도<select value={investment.shortRisk} onChange={(event) => setInvestment((current) => ({ ...current, shortRisk: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
+              </div>
+              <button type="button" onClick={() => setInvestment((current) => ({ ...current, shortScenario: `${current.shortRisk} 위험도인 ${current.shortName}: 내일 ${current.shortReturnRate}% 결과가 확정되는 투자 시나리오` }))}>AI 시나리오 생성</button>
+              {investment.shortScenario ? <p className="ai-scenario">{investment.shortScenario}</p> : null}
+            </section>
+            <section>
+              <div className="investment-heading"><span>장기 투자</span><small>매일 시장 소식 제공</small></div>
+              <div className="investment-settings">
+                <label>상품 이름<input value={investment.longName} onChange={(event) => setInvestment((current) => ({ ...current, longName: event.target.value }))} /></label>
+                <label>변동성<select value={investment.longVolatility} onChange={(event) => setInvestment((current) => ({ ...current, longVolatility: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
+                <label>운영 기간(일)<input inputMode="numeric" value={investment.longPeriod} onChange={(event) => setInvestment((current) => ({ ...current, longPeriod: event.target.value }))} /></label>
+              </div>
+              <button type="button" onClick={() => setInvestment((current) => ({ ...current, longScenario: `${current.longPeriod}일 동안 ${current.longVolatility} 변동성으로 매일 새로운 시장 소식을 제공하는 ${current.longName}` }))}>AI 상품 생성</button>
+              {investment.longScenario ? <p className="ai-scenario">{investment.longScenario}</p> : null}
+            </section>
+          </div>
+          <button type="button" className="primary-save" onClick={() => addLog("투자 운영안을 저장했어요. 투자 상품 API가 연결되면 학생 화면에도 공개됩니다.", "warning")}>투자 운영안 저장</button>
+        </PlainSection>
+      ) : (
+        <PlainSection
+          title={activeTab === "DEPOSIT" ? "예금 상품" : "적금 상품"}
+          description="저장한 상품은 초안 상태이며, 학생에게 보여 주려면 공개 버튼을 누릅니다."
+        >
+          <div className="financial-product-list">
+            {activeProducts.map((product) => {
+              const index = products.indexOf(product);
+              const busy = savingId === (product.resourceId ?? `${product.productType}-${product.name}`);
+              return (
+                <div className="financial-product-editor" key={product.resourceId ?? `${product.productType}-${index}`}>
+                  <div className="financial-product-heading"><strong>{product.status === "PUBLISHED" ? "학생 공개 중" : "초안"}</strong><span>{product.productType === "DEPOSIT" ? "예금" : "적금"}</span></div>
+                  <div className="financial-fields">
+                    <label>상품 이름<input value={product.name} onChange={(event) => updateProduct(index, "name", event.target.value)} /></label>
+                    <label>기간(일)<input inputMode="numeric" value={product.termUnits} onChange={(event) => updateProduct(index, "termUnits", event.target.value)} /></label>
+                    <label>이자율(%)<input inputMode="decimal" value={product.interestRate} onChange={(event) => updateProduct(index, "interestRate", event.target.value)} /></label>
+                    <label>중도 해지 이자율(%)<input inputMode="decimal" value={product.earlyTerminationRate} onChange={(event) => updateProduct(index, "earlyTerminationRate", event.target.value)} /></label>
+                    {product.productType === "SAVINGS" ? <label>납입 횟수<input inputMode="numeric" value={product.installmentCount} onChange={(event) => updateProduct(index, "installmentCount", event.target.value)} /></label> : null}
+                    {product.productType === "SAVINGS" ? <label>한 번 납입액({currencyName})<input inputMode="numeric" value={product.installmentAmount} onChange={(event) => updateProduct(index, "installmentAmount", event.target.value)} /></label> : null}
+                    <label>최소 금액({currencyName})<input inputMode="numeric" value={product.minimumAmount} onChange={(event) => updateProduct(index, "minimumAmount", event.target.value)} /></label>
+                    <label>최대 금액({currencyName})<input inputMode="numeric" value={product.maximumAmount} onChange={(event) => updateProduct(index, "maximumAmount", event.target.value)} /></label>
+                  </div>
+                  <div className="financial-actions">
+                    <button type="button" disabled={busy} onClick={() => void saveProduct(product, product.resourceId ? "UPDATE" : "CREATE")}>{busy ? "저장 중" : "저장"}</button>
+                    <button type="button" disabled={busy || !product.resourceId} onClick={() => void saveProduct(product, "PUBLISH")}>학생에게 공개</button>
+                    <button type="button" className="ghost" disabled={busy || !product.resourceId || product.status !== "PUBLISHED"} onClick={() => void saveProduct(product, "STOP")}>공개 중지</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button type="button" className="add-financial-product" onClick={() => addProduct(activeTab)}>+ {activeTab === "DEPOSIT" ? "예금" : "적금"} 상품 추가</button>
+        </PlainSection>
+      )}
+    </div>
+  );
+}
+
 function Control({
-  mode,
-  setMode,
-  modules,
-  setModules,
   runAction,
   addLog,
   classroomId
 }: Readonly<{
-  mode: string;
-  setMode: React.Dispatch<React.SetStateAction<string>>;
-  modules: ModuleRow[];
-  setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
@@ -2318,10 +2649,7 @@ function Control({
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [draftLesson, setDraftLesson] = useState<LessonMaterial | null>(null);
-
-  function updateModule(name: string, status: string, teacherTodo: string) {
-    setModules((items) => items.map((item) => item.name === name ? { ...item, status, teacherTodo } : item));
-  }
+  const [newQuizTitle, setNewQuizTitle] = useState("");
 
   function startLessonEdit(material: LessonMaterial) {
     setEditingLessonId(material.id);
@@ -2332,6 +2660,17 @@ function Control({
     setDraftLesson((current) => current ? { ...current, [field]: value } : current);
   }
 
+  function selectLessonTemplate(title: string) {
+    const selected = lessonQuizCatalog.find((lesson) => lesson.title === title);
+    if (!selected) return;
+    setDraftLesson((current) => current ? {
+      ...current,
+      title: selected.title,
+      minutes: selected.minutes.replace("분", ""),
+      status: "준비 완료"
+    } : current);
+  }
+
   function saveLesson() {
     if (!draftLesson) return;
     setLessonMaterials((items) => items.map((item) => item.id === draftLesson.id ? draftLesson : item));
@@ -2340,20 +2679,67 @@ function Control({
     addLog("수업 자료를 수정했어요.");
   }
 
+  function addLesson() {
+    const source = lessonQuizCatalog[0];
+    setLessonMaterials((items) => [...items, {
+      id: crypto.randomUUID(),
+      stage: `${items.length + 1}차시`,
+      title: source.title,
+      minutes: source.minutes.replace("분", ""),
+      status: "준비 중"
+    }]);
+  }
+
+  function removeLesson(id: string) {
+    setLessonMaterials((items) => items.filter((item) => item.id !== id));
+    addLog("차시를 수업 준비에서 뺐어요.");
+  }
+
+  function openForStudents(material: LessonMaterial, type: "자료" | "퀴즈") {
+    void runAction(
+      `${material.title} ${type} 열기`,
+      `/classrooms/${classroomId}/guided-activities/${crypto.randomUUID()}/start-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: 0,
+          participant_ids: [],
+          public_fields: type === "퀴즈" ? ["quiz"] : ["materials"]
+        })
+      },
+      () => addLog(`${material.stage} ${material.title} ${type}를 학생에게 열었어요.`)
+    );
+  }
+
+  function createQuiz() {
+    if (!newQuizTitle.trim()) return addLog("퀴즈 제목을 입력해 주세요.", "warning");
+    addLog(`${newQuizTitle} 퀴즈 초안을 만들었어요.`);
+    setNewQuizTitle("");
+  }
+
   return (
     <div className="page-flow">
-      <PlainSection title="수업 준비">
+      <PlainSection title="수업 준비" description="차시를 추가하고, 준비된 자료와 퀴즈를 학생 화면에 바로 열 수 있어요.">
         <div className="lesson-list">
           {lessonMaterials.map((material) => {
             const activeDraft = editingLessonId === material.id ? draftLesson : null;
+            const template = lessonQuizCatalog.find((lesson) => lesson.title === material.title);
 
             return (
               <div className="lesson-row" key={material.id}>
                 {activeDraft ? (
                   <>
-                    <input value={activeDraft.stage} onChange={(event) => updateLessonDraft("stage", event.target.value)} />
-                    <input value={activeDraft.title} onChange={(event) => updateLessonDraft("title", event.target.value)} />
-                    <input value={activeDraft.minutes} onChange={(event) => updateLessonDraft("minutes", event.target.value)} />
+                    <select value={activeDraft.stage} onChange={(event) => updateLessonDraft("stage", event.target.value)}>
+                      {Array.from({ length: Math.max(lessonMaterials.length, 6) }, (_, index) => `${index + 1}교시`).map((stage) => (
+                        <option key={stage} value={stage}>{stage}</option>
+                      ))}
+                    </select>
+                    <select value={activeDraft.title} onChange={(event) => selectLessonTemplate(event.target.value)}>
+                      {lessonQuizCatalog.map((lesson) => (
+                        <option key={lesson.id} value={lesson.title}>{lesson.title}</option>
+                      ))}
+                    </select>
+                    <span>{activeDraft.minutes}분</span>
                     <select value={activeDraft.status} onChange={(event) => updateLessonDraft("status", event.target.value)}>
                       <option>준비 완료</option>
                       <option>수정 필요</option>
@@ -2371,128 +2757,24 @@ function Control({
                     <span>{material.status}</span>
                     <div className="row-actions">
                       <button type="button" onClick={() => startLessonEdit(material)}>수정</button>
+                      <button type="button" className="ghost" onClick={() => openForStudents(material, "자료")}>자료 띄우기</button>
+                      <button type="button" className="ghost" onClick={() => openForStudents(material, "퀴즈")}>퀴즈 열기</button>
+                      <button type="button" className="danger-text" onClick={() => removeLesson(material.id)}>삭제</button>
                     </div>
                   </>
                 )}
+                {!activeDraft && template ? <div className="lesson-template-preview"><b>{template.module}</b><span>{template.concept}</span><em>퀴즈: {template.question}</em></div> : null}
               </div>
             );
           })}
         </div>
+        <button type="button" className="add-financial-product" onClick={addLesson}>+ 차시 추가</button>
       </PlainSection>
-      <PlainSection title="수업 시작">
-        <ActionLine
-          label="현재 모드"
-          value={mode}
-          action={mode === "자율 활동" ? "수업 시작" : "자율 전환"}
-          onClick={() => runAction(
-            "운영 모드 전환",
-            `/classrooms/${classroomId}/access-mode-commands`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                expected_state_version: 0,
-                command: mode === "자율 활동" ? "CLOSE" : "OPEN",
-                duration_minutes: 40,
-                client_occurred_at: new Date().toISOString()
-              })
-            },
-            () => setMode((current) => current === "자율 활동" ? "선생님 수업" : "자율 활동")
-          )}
-        />
-        <ActionLine
-          label="지도 활동 시작"
-          value="준비한 수업 자료를 학생 화면에 열기"
-          action="시작"
-          onClick={() => runAction(
-            "지도 활동 시작",
-            `/classrooms/${classroomId}/guided-activities/${crypto.randomUUID()}/start-commands`,
-            { method: "POST", body: JSON.stringify({ expected_state_version: 0, participant_ids: [], public_fields: ["nickname", "wallet"] }) },
-            () => {
-              setMode("선생님 수업");
-              addLog("수업 자료 화면을 학생에게 열었어요.");
-            }
-          )}
-        />
-      </PlainSection>
-      <PlainSection title="수업 중 기능">
-        <ActionLine
-          label="예금 상품"
-          value="3일 예금"
-          action="준비"
-          onClick={() => runAction(
-            "예금 상품 생성",
-            `/classrooms/${classroomId}/financial-product-commands`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                expectedStateVersion: 0,
-                command: "CREATE",
-                productType: "DEPOSIT",
-                name: "3일 예금",
-                termUnits: 3,
-                interestRateBps: 1000,
-                earlyTerminationRateBps: 100,
-                minimumAmount: 30,
-                maximumAmount: 300,
-                expectedProductVersion: 0
-              })
-            },
-            () => updateModule("은행", "상품 준비", "3일 예금 생성")
-          )}
-        />
-        <ActionLine
-          label="경제 퀴즈"
-          value="소득세 기본 문항"
-          action="준비"
-          onClick={() => runAction(
-            "퀴즈 문항 생성",
-            `/classrooms/${classroomId}/quiz-question-commands`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                expectedStateVersion: 0,
-                command: "CREATE",
-                contentType: "ECONOMY",
-                questionType: "MULTIPLE_CHOICE",
-                prompt: "소득세는 어디에 모이나요?",
-                options: [
-                  { optionKey: "A", optionText: "내 캐릭터 보관함", isCorrect: false, sortOrder: 1 },
-                  { optionKey: "B", optionText: "우리 반 공동기금", isCorrect: true, sortOrder: 2 }
-                ],
-                explanation: "소득세는 공동기금으로 모여 함께 사용할 수 있어요.",
-                expectedQuestionVersion: 0
-              })
-            },
-            () => updateModule("퀴즈", "문항 생성", "문항 1개 추가")
-          )}
-        />
-        <ActionLine
-          label="투표 열기"
-          value="공동기금 사용처 투표"
-          action="오픈"
-          onClick={() => runAction(
-            "투표 오픈",
-            `/classrooms/${classroomId}/votes/${crypto.randomUUID()}/commands`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                expected_state_version: 0,
-                command: "CREATE",
-                title: "공동기금 사용처",
-                description: "우리 반 공동기금을 어디에 쓸까요?",
-                public_display_enabled: true,
-                options: [
-                  { label: "학급 간식", description: "간식 사기", budget_amount: 120 },
-                  { label: "보드게임", description: "수업용 게임", budget_amount: 180 }
-                ]
-              })
-            },
-            () => updateModule("퀴즈", "투표 진행", "공동기금 투표 열림")
-          )}
-        />
-      </PlainSection>
-      <PlainSection title="학생에게 열려 있는 기능">
-        <DataTable headers={["기능", "상태", "관리"]} rows={modules.map((module) => [module.name, module.status, module.teacherTodo])} />
+      <PlainSection title="새 퀴즈 만들기">
+        <div className="new-quiz-line">
+          <input value={newQuizTitle} onChange={(event) => setNewQuizTitle(event.target.value)} placeholder="예: 2차시 예금 개념 확인" />
+          <button type="button" onClick={createQuiz}>퀴즈 초안 만들기</button>
+        </div>
       </PlainSection>
     </div>
   );
@@ -2524,15 +2806,15 @@ function Approvals({
   return (
     <div className="page-flow">
       <PlainSection title="승인 대기">
-        <div className="approval-list">
-          {pendingApprovals.length === 0 ? <p className="empty-copy">승인할 항목이 없어요.</p> : null}
+        {pendingApprovals.length === 0 ? <p className="empty-copy">승인할 항목이 없어요.</p> : (
+          <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>상태</th><th>처리</th></tr></thead><tbody>
           {pendingApprovals.map((item) => (
-            <div className="approval-row" key={item.id}>
-              <div>
-                <b>{item.type}</b>
-                <span>{item.target} · {item.amount}{currencyName} · {item.status}</span>
-              </div>
-              <div>
+            <tr key={item.id}>
+              <td><b>{item.type}</b></td>
+              <td>{item.target}</td>
+              <td>{item.amount}{currencyName}</td>
+              <td>{item.status}</td>
+              <td>
                 <button onClick={() => {
                   if (item.type === "거래" && item.tradeId) {
                     runAction(
@@ -2561,24 +2843,19 @@ function Approvals({
                   addLog(`${item.type} 항목을 처리했어요.`);
                 }}>승인</button>
                 <button onClick={() => updateApproval(item.id, "거절")}>거절</button>
-              </div>
-            </div>
+              </td>
+            </tr>
           ))}
-        </div>
+          </tbody></table></div>
+        )}
       </PlainSection>
       {processedApprovals.length > 0 ? (
         <PlainSection title="처리 내역">
-          <div className="approval-list">
+          <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>처리 상태</th></tr></thead><tbody>
             {processedApprovals.map((item) => (
-              <div className="approval-row" key={item.id}>
-                <div>
-                  <b>{item.type}</b>
-                  <span>{item.target} · {item.amount}</span>
-                </div>
-                <strong className="approval-result">{item.status}</strong>
-              </div>
+              <tr key={item.id}><td><b>{item.type}</b></td><td>{item.target}</td><td>{item.amount}</td><td><strong className="approval-result">{item.status}</strong></td></tr>
             ))}
-          </div>
+          </tbody></table></div>
         </PlainSection>
       ) : null}
       <PlainSection title="운영 기록">

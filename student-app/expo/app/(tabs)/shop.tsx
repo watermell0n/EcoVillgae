@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Screen } from "@/components/Screen";
@@ -9,6 +10,7 @@ import { colors, radii } from "@/theme/tokens";
 export default function ShopScreen() {
   const { identity } = useAuth();
   const queryClient = useQueryClient();
+  const [shopType, setShopType] = useState<"classroom" | "eco">("classroom");
   const catalog = useQuery({
     queryKey: ["store-catalog", identity?.classroomId],
     queryFn: () => fetchStoreCatalog(identity!.classroomId),
@@ -37,6 +39,7 @@ export default function ShopScreen() {
 
   return (
     <Screen title="이코 상점">
+      <View style={styles.tabs}><Pressable onPress={() => setShopType("classroom")} style={[styles.tab, shopType === "classroom" && styles.tabActive]}><Text style={styles.tabText}>교실 상점</Text></Pressable><Pressable onPress={() => setShopType("eco")} style={[styles.tab, shopType === "eco" && styles.tabActive]}><Text style={styles.tabText}>이코 상점</Text></Pressable></View>
       {catalog.isPending ? (
         <View style={styles.center}><ActivityIndicator color={colors.orange500} size="large" /><Text style={styles.helper}>상품을 불러오고 있어요.</Text></View>
       ) : catalog.isError ? (
@@ -46,7 +49,7 @@ export default function ShopScreen() {
         </View>
       ) : (
         <View style={styles.grid}>
-          {catalog.data?.length === 0 ? <Text style={styles.helper}>지금 살 수 있는 상품이 없어요.</Text> : catalog.data?.map((product) => (
+          {catalog.data?.filter((product) => shopType === "eco" ? product.productKind === "DIGITAL" : product.productKind !== "DIGITAL").map((product) => (
             <View key={product.resourceId} style={styles.product}>
               <Text style={styles.productIcon}>{product.productKind === "DIGITAL" ? "✨" : "🎁"}</Text>
               <Text style={styles.productTitle}>{product.label}</Text>
@@ -78,6 +81,10 @@ const styles = StyleSheet.create({
   retry: { paddingHorizontal: 20, paddingVertical: 11, borderRadius: radii.control, backgroundColor: colors.orange500 },
   retryText: { color: colors.white, fontWeight: "900" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  tabs: { flexDirection: "row", gap: 8, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  tab: { paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: "transparent" },
+  tabActive: { borderBottomColor: colors.orange500 },
+  tabText: { color: colors.ink900, fontSize: 16, fontWeight: "900" },
   product: {
     width: "31.8%",
     minHeight: 240,
