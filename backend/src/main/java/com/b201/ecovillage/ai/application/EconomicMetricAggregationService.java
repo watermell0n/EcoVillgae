@@ -107,8 +107,8 @@ public class EconomicMetricAggregationService {
                 """,
             (rs, row) -> uuid(rs, "id"),
             classroomId,
-            dataAsOf,
-            dataAsOf
+            ts(dataAsOf),
+            ts(dataAsOf)
         );
     }
 
@@ -141,7 +141,7 @@ public class EconomicMetricAggregationService {
                 """,
             (rs, row) -> walletEntry(rs),
             classroomId,
-            dataAsOf
+            ts(dataAsOf)
         ).stream().filter(entry -> active.contains(entry.studentId())).toList();
     }
 
@@ -343,8 +343,8 @@ public class EconomicMetricAggregationService {
                     """,
                 (rs, row) -> uuid(rs, "classroom_student_id"),
                 classroomId,
-                to,
-                to
+                ts(to),
+                ts(to)
             ));
             safeStudentIds(
                 """
@@ -355,8 +355,8 @@ public class EconomicMetricAggregationService {
                        and (closed_at is null or closed_at >= ?)
                     """,
                 classroomId,
-                to,
-                to
+                ts(to),
+                ts(to)
             ).forEach(participants::add);
             safeStudentIds(
                 """
@@ -368,8 +368,8 @@ public class EconomicMetricAggregationService {
                        and (l.closed_at is null or l.closed_at >= ?)
                     """,
                 classroomId,
-                to,
-                to
+                ts(to),
+                ts(to)
             ).forEach(participants::add);
             target.put(
                 MetricCode.FINANCIAL_PARTICIPATION_RATE_BPS,
@@ -396,8 +396,8 @@ public class EconomicMetricAggregationService {
                      where classroom_id = ? and due_at >= ? and due_at < ?
                     """,
                 classroomId,
-                from,
-                to
+                ts(from),
+                ts(to)
             );
             due[0] += number(savings.get("due_count"));
             due[1] += number(savings.get("miss_count"));
@@ -413,8 +413,8 @@ public class EconomicMetricAggregationService {
                      where classroom_id = ? and due_at >= ? and due_at < ?
                     """,
                 classroomId,
-                from,
-                to
+                ts(from),
+                ts(to)
             );
             due[0] += number(loans.get("due_count"));
             due[1] += number(loans.get("miss_count"));
@@ -448,8 +448,8 @@ public class EconomicMetricAggregationService {
                     """,
                 Integer.class,
                 classroomId,
-                from,
-                to
+                ts(from),
+                ts(to)
             );
             target.put(
                 MetricCode.INVESTMENT_PARTICIPATION_RATE_BPS,
@@ -483,7 +483,7 @@ public class EconomicMetricAggregationService {
                     rs.getLong("executed_price")
                 ),
                 classroomId,
-                dataAsOf
+                ts(dataAsOf)
             );
             Map<UUID, Long> prices = new HashMap<>();
             List<InvestmentPrice> priceRows = jdbcTemplate.query(
@@ -500,7 +500,7 @@ public class EconomicMetricAggregationService {
                     rs.getLong("price")
                 ),
                 classroomId,
-                dataAsOf
+                ts(dataAsOf)
             );
             priceRows.forEach(price -> prices.put(price.assetId(), price.price()));
             Map<UUID, Portfolio> portfolios = new LinkedHashMap<>();
@@ -584,6 +584,14 @@ public class EconomicMetricAggregationService {
             }
         }
         return related.size();
+    }
+
+    /**
+     * timestamptz 파라미터는 Timestamp로 넘긴다. PostgreSQL 드라이버는 Instant의 SQL 타입을
+     * 추론하지 못해 "Can't infer the SQL type" 오류를 낸다.
+     */
+    private static Timestamp ts(Instant instant) {
+        return Timestamp.from(instant);
     }
 
     private List<UUID> safeStudentIds(String sql, Object... arguments) {

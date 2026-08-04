@@ -1,6 +1,7 @@
 package com.b201.ecovillage.classroom.application;
 
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -36,8 +37,8 @@ public class SetupPrecheckInvalidator {
                AND run_type = 'SETUP_PRECHECK'
                AND status IN ('AWAITING_TEACHER', 'APPROVED', 'COMPLETED')
             """,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
             classroomId
         );
     }

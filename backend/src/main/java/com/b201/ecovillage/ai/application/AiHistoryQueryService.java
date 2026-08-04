@@ -86,12 +86,17 @@ public class AiHistoryQueryService {
         );
         int limit = limit(requestedLimit);
         Cursor decoded = decode(cursor);
-        List<AiRun> queried = runRepository.findHistory(
-            classroomId,
-            decoded == null ? null : decoded.requestedAt(),
-            decoded == null ? null : decoded.runId(),
-            PageRequest.of(0, limit + 1)
-        );
+        List<AiRun> queried = decoded == null
+            ? runRepository.findFirstHistoryPage(
+                classroomId,
+                PageRequest.of(0, limit + 1)
+            )
+            : runRepository.findHistoryAfter(
+                classroomId,
+                decoded.requestedAt(),
+                decoded.runId(),
+                PageRequest.of(0, limit + 1)
+            );
         boolean hasMore = queried.size() > limit;
         List<AiRun> runs = hasMore ? queried.subList(0, limit) : queried;
         if (runs.isEmpty()) {

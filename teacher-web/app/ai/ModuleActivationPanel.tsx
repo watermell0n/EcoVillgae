@@ -117,6 +117,10 @@ export function ModuleActivationPanel({
       setMessage(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`);
       return;
     }
+    if (!module.resourceId) {
+      setMessage("모듈 정보를 아직 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.");
+      return;
+    }
     setBusyCode(code);
     setMessage("");
     try {
@@ -142,7 +146,7 @@ export function ModuleActivationPanel({
             trigger_context: {
               context_type: "MODULE_ACTIVATION",
               active_student_count: Math.max(activeStudentCount, 1),
-              module_activation: { module_code: code },
+              module_activation: { module_code: code, target_id: module.resourceId },
               ...(salaryPolicy ? { salary_policy: salaryPolicy } : {})
             },
             metric_scopes: []

@@ -6,6 +6,8 @@ export type AiModuleRow = {
   name: string;
   status: string;
   code?: string;
+  // 학급 모듈의 resource_id입니다. 시작 전 점검은 이 값을 target_id로 되돌려 보내야 합니다.
+  resourceId?: string;
   stateVersion?: number;
   config?: Record<string, unknown>;
 };

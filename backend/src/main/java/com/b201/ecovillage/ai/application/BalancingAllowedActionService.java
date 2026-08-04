@@ -2,6 +2,7 @@ package com.b201.ecovillage.ai.application;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,10 +79,10 @@ public class BalancingAllowedActionService {
                     """,
                 (rs, row) -> productActions(rs),
                 classroomId,
-                dataAsOf,
-                dataAsOf,
-                dataAsOf,
-                dataAsOf
+                ts(dataAsOf),
+                ts(dataAsOf),
+                ts(dataAsOf),
+                ts(dataAsOf)
             ).stream().flatMap(List::stream).toList();
         } catch (DataAccessException exception) {
             return List.of();
@@ -160,8 +161,8 @@ public class BalancingAllowedActionService {
                     );
                 },
                 classroomId,
-                dataAsOf,
-                dataAsOf
+                ts(dataAsOf),
+                ts(dataAsOf)
             );
         } catch (DataAccessException exception) {
             return List.of();
@@ -196,8 +197,8 @@ public class BalancingAllowedActionService {
                     );
                 },
                 classroomId,
-                dataAsOf,
-                dataAsOf
+                ts(dataAsOf),
+                ts(dataAsOf)
             );
         } catch (DataAccessException exception) {
             return List.of();
@@ -220,5 +221,13 @@ public class BalancingAllowedActionService {
     private static UUID uuid(ResultSet rs, String column) throws SQLException {
         Object value = rs.getObject(column);
         return value instanceof UUID uuid ? uuid : UUID.fromString(value.toString());
+    }
+
+    /**
+     * timestamptz 파라미터는 Timestamp로 넘긴다. PostgreSQL 드라이버는 Instant의 SQL 타입을
+     * 추론하지 못해 "Can't infer the SQL type" 오류를 낸다.
+     */
+    private static Timestamp ts(Instant instant) {
+        return Timestamp.from(instant);
     }
 }
