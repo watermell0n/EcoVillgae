@@ -34,6 +34,9 @@ public class RuleEngineService {
 
     private static final long BASE_SALARY = 1_000L;
     private static final long MIN_SALARY = 100L;
+    // 대출 금리 규칙(evaluateLoan)이 예금 금리를 이 범위로 전제하므로 함께 바꿔야 한다.
+    private static final long DEPOSIT_ALLOWED_MIN_BPS = 100L;
+    private static final long DEPOSIT_ALLOWED_MAX_BPS = 600L;
     private static final BigDecimal REWARD_WARN_SHARE = new BigDecimal("0.25");
     private static final BigDecimal REWARD_MAX_SHARE = new BigDecimal("0.30");
     private static final BigDecimal MIN_RECOVERY_RATIO = new BigDecimal("0.50");
@@ -51,7 +54,7 @@ public class RuleEngineService {
         if (request.contextType() != null) {
             switch (request.contextType()) {
                 case CLASSROOM_SETUP -> evaluateClassroomSetup(request, evaluation);
-                case MODULE_ACTIVATION -> evaluateModuleActivation(request, evaluation);
+                case MODULE_ACTIVATION -> evaluateModuleActivation(request, schedule, evaluation);
                 case PRODUCT_DRAFT -> {
                     reference = calculateReferenceSalary(request, evaluation);
                     evaluateProduct(request, reference.net(), evaluation);
@@ -250,6 +253,7 @@ public class RuleEngineService {
 
     private void evaluateModuleActivation(
         RuleEngineRequest request,
+        PaymentSchedule schedule,
         Evaluation evaluation
     ) {
         RuleEngineRequest.ModuleActivation activation = request.moduleActivation();
@@ -281,7 +285,7 @@ public class RuleEngineService {
         switch (activation.moduleCode()) {
             case "ROLE_SALARY", "SALARY" -> evaluateSalary(request, activation, evaluation);
             case "INCOME_TAX" -> evaluateIncomeTax(request, activation, evaluation);
-            case "DEPOSIT" -> evaluateDeposit(activation, evaluation);
+            case "DEPOSIT" -> evaluateDeposit(schedule, activation, evaluation);
             case "LOAN" -> evaluateLoan(request, activation, evaluation);
             default -> {
                 // Modules without an initial numeric policy intentionally return no candidate.
@@ -426,24 +430,77 @@ public class RuleEngineService {
         evaluation.addCandidate(candidate, activation.confirmedValue());
     }
 
+    /**
+     * 예금 이자는 만기 1회 단순이자(SIMPLE_FULL_TERM)이므로 기준금리는 운영 기간에 따라 달라진다.
+     * 짧은 수업은 예금이 한두 번밖에 만기되지 않아 한 번으로도 이자를 체감해야 하고,
+     * 긴 운영은 만기가 반복되며 이자가 순발행으로 누적되므로 낮춰야 한다.
+     *
+     * 허용 구간은 대출 금리 규칙이 예금 금리를 100~600 bps로 전제하므로 넓히지 않는다.
+     * (evaluateLoan이 이 범위를 벗어난 예금 금리를 BLOCK 처리한다.)
+     */
     private void evaluateDeposit(
+        PaymentSchedule schedule,
         RuleEngineRequest.ModuleActivation activation,
         Evaluation evaluation
     ) {
+        Integer operationDays = schedule == null ? null : schedule.operationDays();
+        long proposed = clamp(
+            roundRate50(depositBaseRate(operationDays)),
+            DEPOSIT_ALLOWED_MIN_BPS,
+            DEPOSIT_ALLOWED_MAX_BPS
+        );
         RuleCandidate candidate = new RuleCandidate(
             "deposit-rate",
             RuleTargetType.DEPOSIT_RATE,
             activation.targetId(),
-            300L,
-            200L,
-            400L,
-            100L,
-            600L,
+            proposed,
+            Math.max(DEPOSIT_ALLOWED_MIN_BPS, proposed - 100L),
+            Math.min(DEPOSIT_ALLOWED_MAX_BPS, proposed + 100L),
+            DEPOSIT_ALLOWED_MIN_BPS,
+            DEPOSIT_ALLOWED_MAX_BPS,
             RuleValueUnit.BPS,
-            List.of("DEPOSIT_TERM_BASED", "DEPOSIT_GRADE_BAND"),
+            List.of("DEPOSIT_TERM_BASED", "DEPOSIT_OPERATION_PERIOD"),
             "예금 기준금리"
         );
         evaluation.addCandidate(candidate, activation.confirmedValue());
+        // 교사가 "왜 이 값인가"를 화면에서 바로 확인할 수 있도록 근거를 남긴다.
+        evaluation.addCheck(
+            "deposit-rate-basis",
+            RuleSeverity.PASS,
+            "DEPOSIT_RATE_BASIS",
+            List.of(candidate.actionId()),
+            operationDays == null
+                ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 "
+                    + percentText(proposed) + "를 추천했습니다."
+                : "운영 기간 " + operationDays + "일을 기준으로 "
+                    + percentText(proposed) + "를 추천했습니다."
+        );
+    }
+
+    /**
+     * 운영 기간을 알 수 없으면(날짜 누락·역전) 한 달 운영 기준을 그대로 쓴다.
+     * 이 경우 validateCommon이 이미 BLOCK을 남겨 두었으므로 여기서 추가로 막지 않는다.
+     */
+    private static long depositBaseRate(Integer operationDays) {
+        if (operationDays == null) {
+            return 300L;
+        }
+        if (operationDays <= 7) {
+            return 500L;
+        }
+        if (operationDays <= 31) {
+            return 300L;
+        }
+        if (operationDays <= 90) {
+            return 200L;
+        }
+        return 150L;
+    }
+
+    private static String percentText(long bps) {
+        return BigDecimal.valueOf(bps)
+            .divide(BigDecimal.valueOf(100L), 2, RoundingMode.HALF_UP)
+            .toPlainString() + "%";
     }
 
     private void evaluateLoan(
@@ -469,7 +526,7 @@ public class RuleEngineService {
             );
             return;
         }
-        if (deposit < 100 || deposit > 600) {
+        if (deposit < DEPOSIT_ALLOWED_MIN_BPS || deposit > DEPOSIT_ALLOWED_MAX_BPS) {
             evaluation.rangeBlock(
                 "loan-deposit-rate-invalid",
                 "현재 예금 기준금리가 허용 범위를 벗어났습니다.",
