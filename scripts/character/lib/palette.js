@@ -16,7 +16,8 @@ const ITEM_RAMPS = {
   hat_teal_beanie: ['#09a8b2', '#087f8c', '#075a66'],
   face_sunglasses: ['#4b535e', '#151b20', '#77838b'],
   face_headphones: ['#aeb7bd', '#77818a', '#4b535e'],
-  top_blue_tshirt: ['#5f80b0', '#466696', '#30466d'],
+  // #8ba4c8은 x21/x42 미러 쌍으로 찍힌 어깨 하이라이트다.
+  top_blue_tshirt: ['#5f80b0', '#466696', '#30466d', '#8ba4c8'],
   top_yellow_hoodie: ['#f4c348', '#d69b2f', '#a96f22', '#fff3c2', '#ffdc73'],
   top_green_vest: ['#709a3f', '#527532', '#38522b'],
   bottom_overalls: ['#5672a0', '#3d5680', '#293d61'],
