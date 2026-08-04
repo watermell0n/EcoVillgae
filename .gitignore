@@ -53,3 +53,6 @@ infra/terraform/backend.*.hcl
 !infra/terraform/backend.hcl.example
 infra/terraform/*.tfvars
 !infra/terraform/*.tfvars.example
+
+# 캐릭터 렌더 감사 산출물 (scripts/character/render-audit.js)
+artifacts/
