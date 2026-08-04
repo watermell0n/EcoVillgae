@@ -18,31 +18,8 @@ import sys
 import time
 from pathlib import Path
 
-
-def load_env_file() -> Path | None:
-    """저장소 루트나 ai-service의 .env를 읽어 환경변수에 넣는다.
-
-    서비스 코드는 .env를 읽지 않는다. Docker Compose만 변수 치환에 사용한다.
-    이 스크립트는 직접 실행하므로 여기서 한 번 읽어 준다.
-    이미 셸에 설정된 값은 덮어쓰지 않는다.
-    """
-    for candidate in (
-        Path(__file__).resolve().parents[2] / ".env",
-        Path(__file__).resolve().parents[1] / ".env",
-    ):
-        if not candidate.is_file():
-            continue
-        for raw_line in candidate.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
-        return candidate
-    return None
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from ecovillage_ai.env_file import load_env_file  # noqa: E402
 
 SCHEMA = {
     "type": "object",

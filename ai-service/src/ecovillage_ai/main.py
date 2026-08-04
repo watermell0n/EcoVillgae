@@ -10,6 +10,7 @@ from starlette.responses import Response
 
 from ecovillage_ai.api import router
 from ecovillage_ai.config import GENERATION_KINDS, Settings
+from ecovillage_ai.env_file import load_env_file
 from ecovillage_ai.errors import ServiceError
 from ecovillage_ai.models import ErrorCode, ErrorDetail, ErrorResponse, HealthResponse
 from ecovillage_ai.prompting import SUPPORTED_PROMPT_VERSIONS, PromptRegistry
@@ -48,6 +49,9 @@ def create_app(
     validation_pipeline: OutputValidationPipeline | None = None,
     event_sink: RunEventSink | None = None,
 ) -> FastAPI:
+    if settings is None:
+        # 직접 실행도 Compose와 같은 .env를 쓰게 한다. 이미 지정된 값은 그대로 둔다.
+        load_env_file()
     resolved_settings = settings or Settings.from_env()
     resolved_provider = provider or build_generation_provider(resolved_settings)
     app = FastAPI(

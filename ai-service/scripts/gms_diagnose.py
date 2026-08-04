@@ -15,7 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from gms_probe import load_env_file  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from ecovillage_ai.env_file import load_env_file  # noqa: E402
 
 
 async def main(names: list[str]) -> int:
