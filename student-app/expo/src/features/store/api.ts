@@ -26,7 +26,14 @@ type StoreCatalogResponse = { products: StoreProductResponse[] };
 
 const mockProducts: StoreProduct[] = [
   { resourceId: "mock-pencil", label: "행운 연필", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 35, productKind: "PHYSICAL", characterCode: null },
-  { resourceId: "mock-cap", label: "탐험가 모자", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 50, productKind: "DIGITAL", characterCode: "HEAD_EXPLORER_CAP" },
+  { resourceId: "mock-cap", label: "빨간 캡", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 30, productKind: "DIGITAL", characterCode: "hat_red_cap" },
+  { resourceId: "mock-beanie", label: "민트 비니", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 30, productKind: "DIGITAL", characterCode: "hat_teal_beanie" },
+  { resourceId: "mock-hoodie", label: "노란 후드", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 45, productKind: "DIGITAL", characterCode: "top_yellow_hoodie" },
+  { resourceId: "mock-shirt", label: "파란 티셔츠", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 35, productKind: "DIGITAL", characterCode: "top_blue_tshirt" },
+  { resourceId: "mock-overalls", label: "멜빵 바지", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 45, productKind: "DIGITAL", characterCode: "bottom_overalls" },
+  { resourceId: "mock-sneakers", label: "운동화", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 30, productKind: "DIGITAL", characterCode: "shoes_sneakers" },
+  { resourceId: "mock-backpack", label: "노란 배낭", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 40, productKind: "DIGITAL", characterCode: "back_backpack" },
+  { resourceId: "mock-sunglasses", label: "선글라스", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 25, productKind: "DIGITAL", characterCode: "face_sunglasses" },
   { resourceId: "mock-seed", label: "마을 씨앗", status: "PUBLISHED", version: 1, stateVersion: 1, unitPrice: 25, productKind: "PHYSICAL", characterCode: null }
 ];
 
