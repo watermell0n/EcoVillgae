@@ -13,14 +13,14 @@ public record StudentSessionRequest(
     String classroomCode,
 
     @Min(1)
-    int attendanceNumber,
+    Integer attendanceNumber,
 
     @NotBlank
     @Size(max = 40)
     String nickname,
 
     @NotBlank
-    @Size(min = 8)
+    @Size(min = 4, max = 72)
     String password,
 
     @NotNull

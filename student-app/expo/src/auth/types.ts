@@ -15,7 +15,6 @@ export type StudentSession = StudentIdentity & {
 
 export type StudentLoginInput = {
   classroomCode: string;
-  attendanceNumber: number;
   nickname: string;
   password: string;
   deviceId: string;

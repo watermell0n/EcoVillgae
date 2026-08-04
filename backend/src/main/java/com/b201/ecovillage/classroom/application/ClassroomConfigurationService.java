@@ -128,9 +128,13 @@ public class ClassroomConfigurationService {
         return new ClassroomConfigurationResult(
             classroom.getId(),
             classroom.getClassroomCode(),
+            classroom.getDisplayName(),
+            classroom.getClassNumber(),
+            classroom.getDescription(),
             classroom.getCurrencyName(),
             classroom.getGrade(),
             classroom.getCourseSize(),
+            classroom.getPlannedStudentCount(),
             classroom.getActualStartsOn(),
             classroom.getActualEndsOn(),
             classroom.getCourseTemplateVersionId(),

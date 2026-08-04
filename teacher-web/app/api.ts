@@ -301,7 +301,7 @@ export async function getClassroomServerState(classroomId: string): Promise<Clas
   ]);
   const labels = ["학급 설정", "모듈·정책", "학생·급여"];
   const failures = results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []);
-  if (failures.length === results.length) {
+  if (results[0].status === "rejected") {
     const rejected = results[0] as PromiseRejectedResult;
     throw rejected.reason;
   }
@@ -597,6 +597,13 @@ export function periodToCourseSize(period: string): CourseSize {
   if (period === "1달 운영") return "ONE_MONTH";
   if (period === "1학기 운영") return "SEMESTER";
   return "ONE_WEEK";
+}
+
+export function courseSizeToPeriod(courseSize: CourseSize): string {
+  if (courseSize === "ONE_SESSION") return "1회 체험";
+  if (courseSize === "ONE_MONTH") return "1달 운영";
+  if (courseSize === "SEMESTER") return "1학기 운영";
+  return "1주 프로젝트";
 }
 
 export function valueForDisplay(value: number, unit: SetupCandidate["unit"]) {

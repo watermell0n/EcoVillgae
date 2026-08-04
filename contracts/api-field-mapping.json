@@ -39,11 +39,11 @@
           },
           {
             "name": "attendance_number",
-            "required": true,
+            "required": false,
             "type": "integer",
             "target": "classroom_students.roster_number",
-            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": false,
+            "transform": "선택값이 없으면 학급 정원 범위의 빈 출석번호를 자동 할당",
+            "nullable": true,
             "visibility": "role-scoped"
           },
           {
@@ -840,6 +840,33 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "display_name",
+            "required": false,
+            "type": "string",
+            "target": "classrooms.display_name",
+            "transform": "Persist the teacher-facing classroom name",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "class_number",
+            "required": false,
+            "type": "integer",
+            "target": "classrooms.class_number",
+            "transform": "Persist the optional class number",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string",
+            "target": "classrooms.description",
+            "transform": "Persist the optional classroom description",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "currency_name",
             "required": true,
             "type": "string",
@@ -1114,6 +1141,33 @@
             "type": "string",
             "target": "classrooms.currency_name",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "display_name",
+            "required": false,
+            "type": "string",
+            "target": "classrooms.display_name",
+            "transform": "Update the teacher-facing classroom name",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "class_number",
+            "required": false,
+            "type": "integer",
+            "target": "classrooms.class_number",
+            "transform": "Update the optional class number",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string",
+            "target": "classrooms.description",
+            "transform": "Update the optional classroom description",
             "nullable": true,
             "visibility": "role-scoped"
           }
@@ -9507,6 +9561,33 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "display_name",
+            "required": true,
+            "type": "string",
+            "target": "classrooms.display_name",
+            "transform": "Restore the saved teacher-facing classroom name",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "class_number",
+            "required": false,
+            "type": "integer|null",
+            "target": "classrooms.class_number",
+            "transform": "Restore the saved optional class number",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string|null",
+            "target": "classrooms.description",
+            "transform": "Restore the saved optional classroom description",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "currency_name",
             "required": true,
             "type": "string",
@@ -9530,6 +9611,15 @@
             "type": "string",
             "target": "classrooms.scale_label",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "student_count",
+            "required": true,
+            "type": "integer",
+            "target": "classrooms.planned_student_count",
+            "transform": "저장된 학급 정원을 설정 화면에 복원",
             "nullable": false,
             "visibility": "role-scoped"
           },

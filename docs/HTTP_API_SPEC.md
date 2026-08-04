@@ -61,7 +61,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
+| API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, nickname, password(4자 이상), device_id`(선택 `attendance_number`) → 정원 내 계정 생성 또는 로그인·토큰·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `CLASSROOM_FULL`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
 | API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 등록 교사 확인, 본문의 단기 액세스 토큰과 HttpOnly 갱신 쿠키, 교사 다중 브라우저 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |

@@ -623,14 +623,13 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
 
 function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (session: StudentSession, nickname: string) => void }) {
   const [form, setForm] = useState({
-    classroomCode: "ABCD2345",
-    attendanceNumber: "7",
-    nickname: "경제왕",
-    password: "economy123!"
+    classroomCode: "",
+    nickname: "",
+    password: ""
   });
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const canSubmit = form.classroomCode && form.attendanceNumber && form.nickname && form.password.length >= 8 && !loginLoading;
+  const canSubmit = form.classroomCode && form.nickname && form.password.length >= 4 && !loginLoading;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -644,7 +643,6 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
     try {
       const nextSession = await createStudentSession({
         classroomCode: form.classroomCode.trim(),
-        attendanceNumber: Number(form.attendanceNumber),
         nickname: form.nickname.trim(),
         password: form.password,
         deviceId: getDeviceId()
@@ -667,14 +665,10 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         <button className="ghost-back" type="button" onClick={onBack}>←</button>
         <span className="welcome-icon">🏘️</span>
         <h1>이코빌리지</h1>
-        <p>선생님이 알려준 정보로 접속해요</p>
+        <p>학급 코드로 계정을 만들거나 다시 로그인해요</p>
         <label>
           학급 코드
           <input value={form.classroomCode} disabled={loginLoading} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
-        </label>
-        <label>
-          출석번호
-          <input value={form.attendanceNumber} disabled={loginLoading} inputMode="numeric" onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })} />
         </label>
         <label>
           닉네임
@@ -682,10 +676,10 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         </label>
         <label>
           비밀번호
-          <input type="password" value={form.password} disabled={loginLoading} placeholder="8자 이상 입력" onChange={(event) => setForm({ ...form, password: event.target.value })} />
+          <input type="password" minLength={4} value={form.password} disabled={loginLoading} placeholder="4자 이상 입력" onChange={(event) => setForm({ ...form, password: event.target.value })} />
         </label>
         {loginError && <p className="form-error">{loginError}</p>}
-        <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "마을 입장하기"}</button>
+        <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "계정 만들기 / 로그인"}</button>
         <p className="login-note">비밀번호를 잊었다면 선생님께 알려주세요.</p>
       </form>
     </main>
@@ -1145,8 +1139,8 @@ function ProfileSettingsPage({
     }
 
     const passwordToSave = nextPassword || currentPassword;
-    if (nextPassword && nextPassword.length < 8) {
-      setMessage("새 비밀번호는 8자 이상으로 입력해 주세요.");
+    if (nextPassword && nextPassword.length < 4) {
+      setMessage("새 비밀번호는 4자 이상으로 입력해 주세요.");
       return;
     }
 

@@ -119,7 +119,10 @@ public class ClassroomController {
                 request.difficultyProfile(),
                 request.expectedPolicyVersion(),
                 request.classroomCode(),
-                request.currencyName()
+                request.currencyName(),
+                request.displayName(),
+                request.classNumber(),
+                request.description()
             )
         );
         return new ApiResponse<>(
@@ -382,6 +385,9 @@ public class ClassroomController {
             new CreateClassroomCommand(
                 principal == null ? null : principal.getName(),
                 request.schoolId(),
+                request.displayName(),
+                request.classNumber(),
+                request.description(),
                 request.currencyName(),
                 request.grade(),
                 request.courseSize(),

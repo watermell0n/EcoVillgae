@@ -286,7 +286,7 @@ class TeacherSessionApiTest {
                       "school_code": "eco-test",
                       "display_name": "로컬 교사",
                       "email": "teacher@example.com",
-                      "password": "secure-password"
+                      "password": "1234"
                     }
                     """)
         )
@@ -303,7 +303,7 @@ class TeacherSessionApiTest {
                 .content("""
                     {
                       "email": "TEACHER@example.com",
-                      "password": "secure-password"
+                      "password": "1234"
                     }
                     """)
         )

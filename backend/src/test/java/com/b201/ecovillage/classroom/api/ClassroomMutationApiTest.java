@@ -200,6 +200,9 @@ class ClassroomMutationApiTest {
                 .principal(owner)
         )
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.display_name").value("6학년 3반"))
+            .andExpect(jsonPath("$.data.class_number").value(3))
+            .andExpect(jsonPath("$.data.description").value("투자 심화반"))
             .andExpect(jsonPath("$.data.grade").value(6))
             .andExpect(jsonPath("$.data.course_size").value("SEMESTER"))
             .andExpect(jsonPath("$.data.starts_on").value("2026-09-01"))
@@ -559,6 +562,9 @@ class ClassroomMutationApiTest {
         return """
             {
               "expected_state_version": %d,
+              "display_name": "6학년 3반",
+              "class_number": 3,
+              "description": "투자 심화반",
               "grade": 6,
               "course_size": "SEMESTER",
               "starts_on": "2026-09-01",

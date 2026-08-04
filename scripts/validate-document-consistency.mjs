@@ -139,7 +139,7 @@ const definitionSources = [
   },
   {
     name: "검사 제약",
-    expected: 41,
+    expected: 42,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (CK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(CK-\d{3})(?!\d)/g,

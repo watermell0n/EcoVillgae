@@ -82,8 +82,8 @@ paths:
         - "AUTH-007"
       tags:
         - "Authentication"
-      summary: "classroom_code, attendance_number, nickname, password, device_id → 토큰, 학생 세션, 유효 진입 화면"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, attendance_number, nickname, password, device_id → 토큰, 학생 세션, 유효 진입 화면."
+      summary: "classroom_code, nickname, password, device_id → 학생 계정 생성 또는 로그인"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, nickname, password, device_id로 정원 내 계정을 생성하거나 기존 계정에 로그인한다. attendance_number는 하위 호환 선택값이다."
       security: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
@@ -1188,6 +1188,17 @@ paths:
                 school_id:
                   type: "string"
                   format: "uuid"
+                display_name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 120
+                class_number:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 99
+                description:
+                  type: "string"
+                  maxLength: 500
                 currency_name:
                   type: "string"
                   minLength: 1
@@ -1393,6 +1404,17 @@ paths:
                   type: "string"
                   minLength: 1
                   maxLength: 10
+                display_name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 120
+                class_number:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 99
+                description:
+                  type: "string"
+                  maxLength: 500
               required:
                 - "grade"
                 - "course_size"
@@ -9823,9 +9845,11 @@ paths:
                     required:
                       - "classroom_id"
                       - "classroom_code"
+                      - "display_name"
                       - "currency_name"
                       - "grade"
                       - "course_size"
+                      - "student_count"
                       - "starts_on"
                       - "ends_on"
                       - "difficulty_profile"
@@ -9839,6 +9863,18 @@ paths:
                         format: "uuid"
                       classroom_code:
                         type: "string"
+                      display_name:
+                        type: "string"
+                      class_number:
+                        type:
+                          - "integer"
+                          - "null"
+                        minimum: 1
+                        maximum: 99
+                      description:
+                        type:
+                          - "string"
+                          - "null"
                       currency_name:
                         type: "string"
                       grade:
@@ -9854,6 +9890,9 @@ paths:
                           - "ONE_WEEK"
                           - "ONE_MONTH"
                           - "SEMESTER"
+                      student_count:
+                        type: "integer"
+                        minimum: 1
                       starts_on:
                         type:
                           - "string"
@@ -13065,14 +13104,13 @@ components:
       type: "object"
       required:
         - "classroom_code"
-        - "attendance_number"
         - "nickname"
         - "password"
         - "device_id"
       properties:
         classroom_code:
           type: "string"
-          minLength: 8
+          minLength: 4
           maxLength: 8
           pattern: "^[A-HJ-KM-NP-Za-hj-km-np-z2-9]{8}$"
           description: "앞뒤 공백 제거·영문 대문자 정규화 후 8자 학급 코드"

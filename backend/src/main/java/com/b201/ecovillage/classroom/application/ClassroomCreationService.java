@@ -106,6 +106,12 @@ public class ClassroomCreationService {
             command.timeZone(),
             now
         );
+        classroom.updateDisplaySettings(
+            command.displayName(),
+            command.classNumber(),
+            command.description(),
+            now
+        );
         classroomRepository.save(classroom);
         classroomTeacherRepository.save(
             ClassroomTeacher.assign(
@@ -145,6 +151,9 @@ public class ClassroomCreationService {
     }
 
     private ValidatedCreation validate(CreateClassroomCommand command) {
+        if (command.displayName() != null && command.displayName().isBlank()) {
+            throw validation("display_name은 빈 값일 수 없습니다.");
+        }
         if (command.grade() < 4 || command.grade() > 6) {
             throw validation("grade는 4~6만 허용합니다.");
         }

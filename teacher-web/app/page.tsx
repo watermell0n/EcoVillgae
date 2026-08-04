@@ -22,7 +22,9 @@ import {
   ApiError,
   apiRequest,
   BootstrapClassroom,
+  CourseSize,
   CreateClassroomResponse,
+  courseSizeToPeriod,
   createTeacherPasswordSession,
   createTeacherSession,
   getClassroomServerState,
@@ -308,6 +310,10 @@ const moduleCodeByName: Record<string, string> = {
   퀴즈: "QUIZ_GAME"
 };
 
+const moduleNameByCode = new Map(
+  Object.entries(moduleCodeByName).map(([name, code]) => [code, name])
+);
+
 function courseSizeFor(period: string) {
   return ({
     "1회 체험": "ONE_SESSION",
@@ -352,6 +358,8 @@ export default function TeacherConsole() {
   const [schoolId, setSchoolId] = useState("");
   const [activeClassroomId, setActiveClassroomId] = useState("");
   const [activeStateVersion, setActiveStateVersion] = useState(0);
+  const [classroomStateVersion, setClassroomStateVersion] = useState(0);
+  const [coursePolicyVersion, setCoursePolicyVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
   const [authBusy, setAuthBusy] = useState(true);
   const [authError, setAuthError] = useState("");
@@ -435,6 +443,7 @@ export default function TeacherConsole() {
     if (bootstrap.classrooms[0]) {
       setActiveClassroomId(bootstrap.classrooms[0].resource_id);
       setActiveStateVersion(bootstrap.classrooms[0].state_version ?? 0);
+      setClassroomStateVersion(bootstrap.classrooms[0].state_version ?? 0);
     }
     setAuthError("");
     setStage("classrooms");
@@ -493,11 +502,20 @@ export default function TeacherConsole() {
     setActiveClassroomId(resourceId);
     const classroom = classrooms.find((item) => item.resource_id === resourceId);
     setActiveStateVersion(classroom?.state_version ?? 0);
+    setClassroomStateVersion(classroom?.state_version ?? 0);
     try {
       const serverState = await getClassroomServerState(resourceId);
       const configuration = (serverState.configuration ?? {}) as {
         classroom_code?: string;
+        display_name?: string;
+        class_number?: number;
+        description?: string;
         currency_name?: string;
+        grade?: number;
+        course_size?: CourseSize;
+        student_count?: number;
+        starts_on?: string;
+        ends_on?: string;
         module_codes?: string[];
         state_version?: number;
       };
@@ -531,12 +549,33 @@ export default function TeacherConsole() {
         }>;
         salary_roles?: Array<{ role_code?: string; label?: string; gross_amount?: number; state_version?: number }>;
       };
+      const economicPolicy = modulesState.policy_versions?.find(
+        (policy) => policy.policy_area === "ECONOMIC"
+      );
+      const storedIncomeTaxBps = economicPolicy?.values?.income_tax_rate_bps;
       setSettings((current) => ({
         ...current,
+        className: configuration.display_name ?? current.className,
+        classNumber: configuration.class_number == null
+          ? current.classNumber
+          : String(configuration.class_number),
+        description: configuration.description ?? "",
         classCode: configuration.classroom_code ?? current.classCode,
-        currency: configuration.currency_name ?? current.currency
+        currency: configuration.currency_name ?? current.currency,
+        grade: configuration.grade == null ? current.grade : String(configuration.grade),
+        period: configuration.course_size == null
+          ? current.period
+          : courseSizeToPeriod(configuration.course_size),
+        studentCount: configuration.student_count == null
+          ? current.studentCount
+          : String(configuration.student_count),
+        incomeTax: typeof storedIncomeTaxBps === "number"
+          ? String(storedIncomeTaxBps / 100)
+          : "0",
+        startDate: configuration.starts_on ?? current.startDate,
+        endDate: configuration.ends_on ?? current.endDate
       }));
-      if (modulesState.modules?.length) {
+      if (modulesState.modules) {
         setModules(modulesState.modules.flatMap((module) => {
           const names = module.module_code === "DEPOSIT"
             ? ["예금", "적금"]
@@ -544,7 +583,10 @@ export default function TeacherConsole() {
               ? ["단기 투자", "장기 투자"]
               : module.module_code === "LOAN"
                 ? ["대출"]
-                : [module.label ?? module.module_code ?? "이름 없는 모듈"];
+                : [moduleNameByCode.get(module.module_code ?? "")
+                  ?? module.label
+                  ?? module.module_code
+                  ?? "이름 없는 모듈"];
           return names.map((name) => ({
             name,
             status: module.status === "ACTIVE" ? "열림" : "닫힘",
@@ -557,6 +599,8 @@ export default function TeacherConsole() {
             config: module.config
           }));
         }));
+      } else {
+        setModules([]);
       }
       const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
       const nextAiSettings: AiSettingsSnapshot = {
@@ -576,6 +620,12 @@ export default function TeacherConsole() {
         ...(rosterState.salary_roles?.map((role) => role.state_version ?? 0) ?? [])
       );
       setActiveStateVersion(latestStateVersion);
+      setClassroomStateVersion(configuration.state_version ?? classroom?.state_version ?? 0);
+      setCoursePolicyVersion(
+        modulesState.policy_versions?.find(
+          (policy) => policy.policy_area === "COURSE_CONFIGURATION"
+        )?.version ?? 0
+      );
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
         setStudents(rosterState.students.map((student) => {
@@ -591,6 +641,8 @@ export default function TeacherConsole() {
             lastSeenAt: student.last_seen_at
           };
         }));
+      } else {
+        setStudents([]);
       }
       if (serverState.failures.length) {
         addLog(`${serverState.failures.join(", ")} 정보는 불러오지 못했어요. 나머지 정보만 표시합니다.`, "warning");
@@ -671,12 +723,13 @@ export default function TeacherConsole() {
           setClassrooms((items) => [...items, created]);
           setActiveClassroomId(created.resource_id);
           setActiveStateVersion(created.state_version ?? 0);
+          setClassroomStateVersion(created.state_version ?? 0);
         }}
         onDone={(nextView) => {
           setHasClassroom(true);
           setHasDraft(false);
           setView(nextView);
-          setStage("console");
+          void openClassroom(activeClassroomId);
         }}
       />
     );
@@ -740,9 +793,12 @@ export default function TeacherConsole() {
               setSettings={setSettings}
               modules={modules}
               setModules={setModules}
-              addLog={addLog}
               runAction={runAction}
+              addLog={addLog}
               classroomId={activeClassroomId}
+              stateVersion={classroomStateVersion}
+              coursePolicyVersion={coursePolicyVersion}
+              onReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "roster" && (
@@ -895,7 +951,7 @@ function TeacherLogin({
             </>
           ) : null}
           <input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="이메일" autoComplete="email" />
-          <input required type="password" minLength={mode === "register" ? 10 : undefined} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          <input required type="password" minLength={4} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호 (4자 이상)" autoComplete={mode === "login" ? "current-password" : "new-password"} />
           <button type="submit" disabled={busy || starting}>
             {busy ? "로그인 상태 확인 중" : starting ? "처리 중" : mode === "login" ? "로그인" : "회원가입하고 로그인"}
           </button>
@@ -1108,6 +1164,9 @@ function CreateClassroomFlow({
           ui_action_id: "UIA-WEB-003",
           client_occurred_at: new Date().toISOString(),
           school_id: schoolId,
+          display_name: settings.className,
+          class_number: Number(settings.classNumber),
+          description: settings.description,
           grade: Number(settings.grade),
           currency_name: settings.currency,
           course_size: courseSizeFor(settings.period),
@@ -1669,18 +1728,24 @@ function Setup({
   settings,
   setSettings,
   modules,
-  addLog,
   runAction,
   setModules,
-  classroomId
+  addLog,
+  classroomId,
+  stateVersion,
+  coursePolicyVersion,
+  onReload
 }: Readonly<{
   settings: ClassSettings;
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
-  addLog: (message: string, tone?: LogTone) => void;
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
+  addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
+  stateVersion: number;
+  coursePolicyVersion: number;
+  onReload: () => Promise<void>;
 }>) {
   function updateSettings(field: keyof ClassSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
@@ -1706,6 +1771,36 @@ function Setup({
     addLog(`${moduleName} 기능을 ${modules.find((item) => item.name === moduleName)?.status === "열림" ? "닫았어요" : "열었어요"}.`);
   }
 
+  function saveCourseConfiguration() {
+    const grade = Number(settings.grade);
+    void runAction(
+      "학급 설정 저장",
+      `/classrooms/${classroomId}/course-configuration`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          expected_state_version: stateVersion,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-CLS-002",
+          client_occurred_at: new Date().toISOString(),
+          grade,
+          course_size: courseSizeFor(settings.period),
+          starts_on: settings.startDate,
+          ends_on: settings.endDate,
+          recommended_course_id: null,
+          difficulty_profile: `GRADE_${grade}_${grade === 4 ? "BASIC" : grade === 5 ? "STANDARD" : "ADVANCED"}`,
+          expected_policy_version: coursePolicyVersion,
+          classroom_code: settings.classCode,
+          currency_name: settings.currency,
+          display_name: settings.className,
+          class_number: Number(settings.classNumber),
+          description: settings.description
+        })
+      },
+      () => { void onReload(); }
+    );
+  }
+
   return (
     <div className="page-flow">
       <PlainSection title="반 수업 만들기">
@@ -1720,22 +1815,9 @@ function Setup({
           </div>
           <button
             type="button"
-            onClick={() => runAction(
-              "반 수업 생성",
-              "/classrooms",
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  name: settings.className,
-                  currency_name: settings.currency,
-                  start_date: settings.startDate,
-                  operation_period: settings.period
-                })
-              },
-              () => addLog("반 수업을 만들었어요.")
-            )}
+            onClick={saveCourseConfiguration}
           >
-            반 수업 만들기
+            학급 설정 저장
           </button>
         </div>
       </PlainSection>
@@ -1744,6 +1826,23 @@ function Setup({
           <label>
             학급명
             <input value={settings.className} onChange={(event) => updateSettings("className", event.target.value)} />
+          </label>
+          <label>
+            학년
+            <input type="number" min="4" max="6" value={settings.grade} onChange={(event) => updateSettings("grade", event.target.value)} />
+          </label>
+          <label>
+            반
+            <input type="number" min="1" max="99" value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} />
+          </label>
+          <label>
+            학급 설명
+            <input value={settings.description} maxLength={500} onChange={(event) => updateSettings("description", event.target.value)} />
+          </label>
+          <label>
+            학생 정원
+            <input value={settings.studentCount} readOnly aria-describedby="student-capacity-help" />
+            <small id="student-capacity-help">학생 계정은 이 정원 내에서만 생성됩니다.</small>
           </label>
           <label>
             입장 코드
@@ -1796,7 +1895,7 @@ function Setup({
           label="운영 기간 저장"
           value={`${settings.period} · ${settings.startDate} ~ ${settings.endDate}`}
           action="저장"
-          onClick={() => addLog("운영 기간 변경은 다음 저장 API 연결 작업에서 적용됩니다.", "warning")}
+          onClick={saveCourseConfiguration}
         />
       </PlainSection>
     </div>

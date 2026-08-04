@@ -115,7 +115,7 @@ public class AuthBootstrapQueryService {
     private static AuthBootstrapView.ClassroomView toView(Classroom classroom) {
         return new AuthBootstrapView.ClassroomView(
             classroom.getId(),
-            classroom.getClassroomCode(),
+            classroom.getDisplayName(),
             classroom.getStatus().name(),
             Math.toIntExact(classroom.getStateVersion()),
             classroom.getStateVersion(),

@@ -47,6 +47,7 @@ const expectedMigrations = [
   "V1_18__teacher_local_credentials.sql",
   "V1_19__canonical_module_catalog.sql",
   "V1_20__investment_modes_and_historical_reference.sql",
+  "V1_21__classroom_display_settings.sql",
 ];
 
 function unique(values) {
