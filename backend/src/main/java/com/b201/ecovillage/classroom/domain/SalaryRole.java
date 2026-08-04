@@ -155,4 +155,8 @@ public class SalaryRole {
     public String getStatus() {
         return status;
     }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
 }

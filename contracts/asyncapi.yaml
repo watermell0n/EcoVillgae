@@ -1445,7 +1445,7 @@ components:
         - "WS-ACT-001"
         - "WS-ECO-001"
       x-origin-api-ids:
-        - "API-AI-004"
+        - "API-AI-006"
       x-state-machine-ids: []
       x-rtm-ids:
         - "AI-007"
@@ -2060,7 +2060,7 @@ components:
     EvtIvt002:
       name: "investment.price.changed"
       title: "EVT-IVT-002"
-      summary: "asset_id, price, change_rate_bps, price_version, occurred_at"
+      summary: "asset_id, price, change_rate_bps, price_version, approved_news_id?, approved_news_title?, occurred_at"
       contentType: "application/json"
       correlationId:
         $ref: "#/components/correlationIds/correlationId"
@@ -2072,6 +2072,7 @@ components:
       x-rtm-ids:
         - "FIN-005"
         - "FIN-007"
+        - "AI-011"
       payload:
         allOf:
           - $ref: "#/components/schemas/EventEnvelope"
@@ -2094,6 +2095,11 @@ components:
                   price_version:
                     type: "integer"
                     format: "int64"
+                  approved_news_id:
+                    type: "string"
+                    format: "uuid"
+                  approved_news_title:
+                    type: "string"
                   occurred_at:
                     type: "string"
                     format: "date-time"
@@ -2525,7 +2531,7 @@ components:
     EvtOps002:
       name: "operation.succeeded"
       title: "EVT-OPS-002"
-      summary: "operation_id, result_url?, result_resource_id?, expires_at?"
+      summary: "operation_id, result_type?, severity?, result_url?, result_resource_id?, expires_at?"
       contentType: "application/json"
       correlationId:
         $ref: "#/components/correlationIds/correlationId"
@@ -2536,6 +2542,7 @@ components:
       x-state-machine-ids: []
       x-rtm-ids:
         - "AI-006"
+        - "AI-010"
         - "DAT-003"
       payload:
         allOf:
@@ -2547,6 +2554,10 @@ components:
               payload:
                 type: "object"
                 properties:
+                  result_type:
+                    type: "string"
+                  severity:
+                    type: "string"
                   result_url:
                     type: "string"
                     format: "uri-reference"

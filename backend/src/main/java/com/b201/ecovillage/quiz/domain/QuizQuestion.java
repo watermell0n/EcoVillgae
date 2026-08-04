@@ -112,6 +112,13 @@ public class QuizQuestion {
         changeStatus(QuizQuestionStatus.APPROVED, changedAt);
     }
 
+    public void requireReview(Instant changedAt) {
+        if (status != QuizQuestionStatus.DRAFT) {
+            throw new IllegalStateException("only a draft question can require review");
+        }
+        changeStatus(QuizQuestionStatus.REVIEW_REQUIRED, changedAt);
+    }
+
     public void publish(Instant changedAt) {
         if (status != QuizQuestionStatus.APPROVED) {
             throw new IllegalStateException("only an approved question can be published");

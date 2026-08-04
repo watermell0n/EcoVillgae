@@ -12,6 +12,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+/**
+ * Digital-item ownership ledger. The current owner is classroomStudentId; presentation state is
+ * maintained by the character equipment aggregate.
+ */
 @Entity
 @Table(name = "inventory_items")
 public class InventoryItem {
@@ -34,9 +38,6 @@ public class InventoryItem {
 
     @Column(name = "locked_trade_id")
     private UUID lockedTradeId;
-
-    @Column(name = "equipped_at")
-    private Instant equippedAt;
 
     @Column(name = "acquired_at", nullable = false, updatable = false)
     private Instant acquiredAt;
@@ -151,6 +152,15 @@ public class InventoryItem {
         changeStatus(InventoryItemStatus.AVAILABLE, changedAt);
     }
 
+    private void requireOwner(UUID expectedOwnerId) {
+        if (!classroomStudentId.equals(expectedOwnerId)) {
+            throw new TradeOperationException(
+                "RESOURCE_NOT_OWNED",
+                "본인이 보유한 아이템만 변경할 수 있습니다."
+            );
+        }
+    }
+
     private void changeStatus(InventoryItemStatus next, Instant changedAt) {
         status = next;
         statusChangedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
@@ -169,6 +179,18 @@ public class InventoryItem {
         return classroomStudentId;
     }
 
+    public UUID getCharacterCatalogId() {
+        return characterCatalogId;
+    }
+
+    public UUID getSourceOrderItemId() {
+        return sourceOrderItemId;
+    }
+
+    public Instant getAcquiredAt() {
+        return acquiredAt;
+    }
+
     public UUID getLockedTradeId() {
         return lockedTradeId;
     }
@@ -176,4 +198,9 @@ public class InventoryItem {
     public InventoryItemStatus getStatus() {
         return status;
     }
+
+    public long getStateVersion() {
+        return stateVersion;
+    }
+
 }

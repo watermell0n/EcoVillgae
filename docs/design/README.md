@@ -5,6 +5,9 @@
 
 ## 학생 앱 디자인
 
+- 현재 캐릭터 구현은 `student-app/src/features/character/pixelRenderer.ts`의 단일 체형,
+  코드 기반 도트 렌더러를 기준으로 합니다. 상품은 이미지 파일이 아니라 슬롯과
+  카탈로그 코드로 조합합니다.
 - [FE 통합 디자인 가이드](FE_DESIGN_GUIDE.md): FE 라벨 Jira 이슈를 한곳에 모은 화면 생성 기준, IA, 상태·개인정보·컴포넌트 규칙
 - [FE 화면 생성 상세 스펙](FE_SCREEN_GENERATION_SPEC.md): 화면별 레이아웃, 색상, 필요 데이터, 상태, 금지 규칙
 - [학생 앱 디자인 페이지](STUDENT_DESIGN_PAGE.md): 학생 화면 생성용 페이지 구조, 디자인 토큰, 공통 컴포넌트, 화면별 디자인 구상

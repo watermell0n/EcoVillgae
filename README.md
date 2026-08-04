@@ -19,8 +19,10 @@
 - 학급 코드는 서버가 혼동하기 쉬운 문자를 제외한 영문 대문자·숫자 8자로 전역에서 유일하게 생성하며 개설 후 변경하지 않습니다.
 - 학급 소유 교사는 개설 시 학급 화폐 단위명을 필수로 입력합니다. 한글·영문·숫자 1~10자와 금칙어를 검증하고 개설 후에는 변경하지 않습니다.
 - 코스는 AI가 생성하지 않고 팀이 검증한 추천표를 사용합니다.
-- 모든 `1회` 코스는 퀴즈·게임만 사용하며 지갑과 학급 화폐를 생성하지 않습니다.
-- `1회` 코스도 개설 메타데이터로 단위명을 입력하지만 지갑·금액 화면에서는 사용하지 않습니다.
+- `1회` 코스에는 퀴즈·게임을 기본 추천하지만, 교사는 실제 일정·예산·선행조건이 유효하면
+  다른 모듈도 선택할 수 있습니다. 코스 라벨만으로 기능을 금지하지 않습니다.
+- `1회` 코스도 개설 메타데이터로 단위명을 입력하며, 지갑·금액 화면은 교사가 선택하고
+  활성화한 금액 관련 모듈이 있을 때만 사용합니다.
 - 금융 모듈 기본 추천은 초4 `정기예금`, 초5 `정기예금·정기적금`, 초6 `정기예금·정기적금·가상 투자`입니다.
 - 교육용 대출은 초5 1학기와 초6 1학기에 기본 추천합니다.
 - 교사는 추천 모듈을 추가하거나 제외할 수 있으며 시스템은 선수 모듈과 영향을 안내합니다.
@@ -29,14 +31,15 @@
 
 | 사용자·화면 | 기술·역할 |
 | --- | --- |
-| 학생 앱 | React Native·Expo 태블릿 앱에서 지갑, 상점, 캐릭터, 개인거래, 금융상품, 퀴즈·투표와 개인 리포트 사용 |
-| 교사용 앱 | React Native·Expo 앱에서 수업 진행, 자율시간 제어, 알림과 간단한 승인 처리 |
-| 관리자·교사 관리 웹 | Next.js에서 경제교실 개설, 코스·정책 설정, 콘텐츠 관리, 거래 승인, AI 운영 지원과 리포트 제공 |
+| 학생 앱 | React Native·Expo 기반 Galaxy Tab 앱에서 지갑, 상점, 캐릭터, 개인거래, 금융상품, 퀴즈·투표와 개인 리포트 사용 |
+| 교사 웹 | Next.js에서 수업 진행, 자율시간 제어, 경제교실 개설, 정책·콘텐츠 관리, 거래 승인, AI 운영 지원과 리포트 제공 |
+| 학교·플랫폼 관리자 웹 | Next.js에서 학교 범위 지원과 플랫폼 운영 기능 제공 |
 | 교실 공용 화면 | Next.js 발표용 화면에서 문제, 타이머, 익명 집계와 공개 가능한 결과만 표시 |
 
 - 학생은 학교에서 지급한 개인 태블릿을 사용합니다.
 - 개인 잔액, 금융상품, 세금과 평가 결과는 다른 학생이나 공용 화면에 공개하지 않습니다.
-- 교사용 앱과 관리 웹은 같은 API와 권한 정책을 사용합니다.
+- 교사의 수업 진행 화면과 관리 화면은 하나의 Next.js 웹 안에서 같은 인증 세션, API와 권한 정책을 사용합니다.
+- 교사는 학교 계정 OIDC로 로그인하며 백엔드는 서명·발급자·대상·만료와 사전 등록 계정을 검증합니다. 외부 계정 비밀번호는 이코빌리지에 입력하거나 저장하지 않습니다.
 - 경제교실에는 학급 소유 교사 1명과 공동 담당 교사 0명 이상을 둘 수 있습니다.
 - 소유 교사는 학급 구조·경제정책·모듈·종료를, 공동 담당 교사는 수업·승인·일상 운영을 담당합니다.
 
@@ -56,7 +59,7 @@
 
 | 규모 | 추천 깊이 |
 | --- | --- |
-| 1회 | 게임형·평가형 퀴즈만 사용, GAME은 점수·순위를 기록하되 공개는 교사 선택, TEST는 비공개 점수만 기록, 화폐 보상 없음 |
+| 1회 | 게임형·평가형 퀴즈를 기본 추천. GAME 점수·순위 공개는 교사 선택이며 다른 모듈도 실제 일정·정책이 유효하면 선택 가능 |
 | 1주 | 학년별 핵심 경제활동과 최소 금융 모듈 추천 |
 | 1달 | 반복 경제활동, 공동기금·투표와 선택형 AI 이벤트 추천 |
 | 1학기 | 장기 금융상품, 공공예산, 개인거래, 누적 리포트와 해당 학년 대출 추천 |
@@ -65,9 +68,14 @@
 
 ## 5. MVP 모듈
 
+API와 클라이언트가 사용하는 canonical code, 입력 별칭, 금액 사용 여부와 선수 조건은
+[정식 선택 모듈 카탈로그](docs/MODULE_CATALOG.md)를 따릅니다. `WALLET`은 선택 모듈이 아니라
+금액 기능이 처음 필요할 때 준비되는 기술 인프라입니다.
+
 ### 5.1 공통 기반
 
 - 학급 코드·출석번호·닉네임·비밀번호 기반 로그인
+- 교사용 학교 계정 OIDC 로그인과 앱·웹 다중 세션
 - 서버 생성 전역 유일 학급 코드와 개설 후 변경할 수 없는 학급 화폐 단위명
 - 로그인 실패 횟수로 학생 계정을 잠그지 않으며, 비밀번호 재설정은 기존 이코빌리지 본인 확인 절차를 재사용
 - 경제교실과 역할·권한
@@ -95,7 +103,8 @@
 - 문제은행·생성·수정·AI 초안 승인 권한은 교사에게만 있습니다.
 - 게임형은 정답·속도 점수와 교사가 선택한 경우 1~3위의 닉네임·장착 캐릭터 공개를 지원합니다.
 - 평가형은 학생별 응시·비공개 결과를 사용하며 속도 보너스·순위·화폐 보상을 제공하지 않습니다.
-- 1회 코스는 모든 퀴즈에서 화폐 보상을 제공하지 않습니다.
+- 코스 라벨만으로 GAME 화폐 보상을 금지하지 않습니다. 교사가 금액 관련 모듈과 보상을
+  활성화한 경우에만 실제 발행액·예산·보상 비중 규칙을 통과해 지급하며 TEST에는 지급하지 않습니다.
 - 1주 이상 게임형 넌센스 퀴즈는 동일한 소액 참여 보상만 제공하며 경제 퀴즈 상한의 30% 이하로 제한합니다.
 - AI 문제 생성은 교사가 입력한 주제와 학습목표를 이용한 객관식·OX 초안으로 제한합니다.
 - 애매하거나 잘못된 문항은 `INVALIDATED` 처리 후 재채점하고 보상 오류는 복구 거래로 정정합니다.
@@ -124,7 +133,8 @@
 
 - AI는 이야기·선택지·진행 문구를 만들고 규칙 엔진이 수치와 효과를 결정합니다.
 - 초4는 물가·공급·공동기금, 초5는 세금·예금·적금 금리까지, 초6은 전체 이벤트를 사용할 수 있습니다.
-- 1회 코스에서는 AI 경제 이벤트를 사용하지 않습니다.
+- 1회 코스에는 AI 경제 이벤트를 기본 추천하지 않지만, 교사가 관련 모듈을 선택하고 학년·
+  실제 일정·정책이 유효하면 사용할 수 있습니다.
 - 교사 승인 전에는 학생에게 공개하거나 효과를 적용하지 않습니다.
 - AI가 학생 계좌, 데이터베이스와 투자 가격을 직접 변경하지 않습니다.
 
@@ -173,15 +183,15 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 
 ## 8. 기술 기준
 
-- 학생·교사용 앱: React Native + Expo + TypeScript
-- 관리자·교사 관리 웹: Next.js App Router
+- 학생 앱: React Native + Expo + TypeScript
+- 교사·관리자 웹과 교실 공용 화면: Next.js App Router
 - 핵심 API: Java 21 + Spring Boot 4.1
 - AI 모듈: Python + FastAPI + Pydantic
 - 기본 AI: AWS Bedrock + OpenAI 어댑터
 - 클라우드: AWS 서울 리전, ECS Fargate, RDS, ElastiCache, S3, CloudFront, SQS
 - CI/CD·인프라: Jenkins, EAS, Terraform
 
-세부 내용은 [기술 스택](docs/TECH_STACK.md)을 따릅니다.
+세부 내용은 [기술 스택](docs/TECH_STACK.md)과 [학생 앱·교사 웹 전환 계획](docs/CLIENT_ARCHITECTURE_TRANSITION.md)을 따릅니다.
 
 ## 9. MVP 제외
 
@@ -196,7 +206,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 ## 10. 저장소 구조
 
 ```text
-student-app/          React Native·Expo 태블릿 앱
+student-app/          React Native·Expo 태블릿 앱 목표 영역(현재 Vite UI는 이전용 프로토타입)
 teacher-web/          Next.js 교사 관리 웹·교실 공용 화면
 backend/              Spring Boot 핵심 API·Flyway·DB 테스트
 ai-service/           FastAPI AI 서비스
@@ -235,7 +245,7 @@ docker compose --profile app up -d --build
 3. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결
 4. 실제 서비스 쿼리의 `EXPLAIN ANALYZE` 결과로 보조 인덱스 조정
 
-논리 ERD는 [논리 데이터 모델 v0.4](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
+논리 ERD는 [논리 데이터 모델 v0.5](docs/DATA_MODEL.md), 테이블·컬럼·자료형·인덱스·DB 제약조건은 [PostgreSQL 물리 스키마](docs/PHYSICAL_SCHEMA.md)로 확정했습니다. 실행 가능한 Flyway 마이그레이션과 Testcontainers 테스트는 [백엔드 DB 안내](backend/README.md)에 있습니다.
 
 ## 12. 관련 문서
 
@@ -246,22 +256,22 @@ docker compose --profile app up -d --build
 - [학년×규모 추천 코스](docs/COURSE_RECOMMENDATIONS.md)
 - [API 명세 전 결정사항](docs/API_PRE_DESIGN_DECISIONS.md)
 - [API 공통 규칙 v0.5](docs/API_COMMON_RULES.md)
-- [HTTP API 명세 v0.5](docs/HTTP_API_SPEC.md)
-- [WebSocket 명세 v0.3](docs/WEBSOCKET_SPEC.md)
-- [요구사항 기준선·용어집 v0.6](docs/REQUIREMENTS_BASELINE.md)
+- [HTTP API 명세 v0.8](docs/HTTP_API_SPEC.md)
+- [WebSocket 명세 v0.4](docs/WEBSOCKET_SPEC.md)
+- [요구사항 기준선·용어집 v0.8](docs/REQUIREMENTS_BASELINE.md)
 - [OpenAPI 3.1 HTTP 계약](contracts/openapi.yaml)
 - [AsyncAPI 3.1 WebSocket 계약](contracts/asyncapi.yaml)
 - [API 필드·저장 경계 매핑](contracts/api-field-mapping.json)
 - [API 계약 사용 안내](contracts/README.md)
 - [API·스키마 필드 정합성 검토](docs/reviews/API_SCHEMA_FIELD_AUDIT.md)
 - [임시 인증정보 저장 계약](docs/EPHEMERAL_AUTH_STORAGE.md)
-- [논리 데이터 모델·ERD v0.4](docs/DATA_MODEL.md)
-- [PostgreSQL 물리 스키마 v0.5](docs/PHYSICAL_SCHEMA.md)
+- [논리 데이터 모델·ERD v0.5](docs/DATA_MODEL.md)
+- [PostgreSQL 물리 스키마 v0.6](docs/PHYSICAL_SCHEMA.md)
 - [Flyway·Testcontainers 실행 안내](backend/README.md)
-- [RTM v1.3](docs/RTM.md)
-- [핵심 상태 머신 v0.4](docs/STATE_MACHINES.md)
-- [역할·권한 매트릭스 v0.5](docs/PERMISSION_MATRIX.md)
-- [화면 ID·행동 명세 v0.4](docs/SCREEN_SPEC.md)
+- [RTM v1.4](docs/RTM.md)
+- [핵심 상태 머신 v0.5](docs/STATE_MACHINES.md)
+- [역할·권한 매트릭스 v0.6](docs/PERMISSION_MATRIX.md)
+- [화면 ID·행동 명세 v0.5](docs/SCREEN_SPEC.md)
 - [AI 활용 방향](docs/AI_DIRECTION.md)
 - [확정 기술 스택](docs/TECH_STACK.md)
 - [MVP 이후 추가 모듈 및 발전 방향](docs/FUTURE_MODULES_AND_ROADMAP.md)

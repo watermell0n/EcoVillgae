@@ -111,6 +111,10 @@ public class StoreOrderItem {
         return subtotalAmount;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
     public long getTaxAmount() {
         return taxAmount;
     }

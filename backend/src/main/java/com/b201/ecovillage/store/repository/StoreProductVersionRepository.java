@@ -1,5 +1,6 @@
 package com.b201.ecovillage.store.repository;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,6 +15,13 @@ public interface StoreProductVersionRepository
         findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
             UUID classroomId,
             UUID storeProductId
+        );
+
+    Optional<StoreProductVersion>
+        findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullAndPublishedAtLessThanEqualOrderByVersionDesc(
+            UUID classroomId,
+            UUID storeProductId,
+            Instant publishedAt
         );
 
     Optional<StoreProductVersion> findByClassroomIdAndStoreProductIdAndVersion(

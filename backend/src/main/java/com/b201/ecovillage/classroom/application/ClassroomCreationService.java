@@ -20,16 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.classroom.domain.AutonomousSchedule;
 import com.b201.ecovillage.classroom.domain.AutonomousScheduleModule;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
-import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleModuleRepository;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
-import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
-import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
@@ -57,7 +54,6 @@ public class ClassroomCreationService {
     private final ClassroomRepository classroomRepository;
     private final ClassroomTeacherRepository classroomTeacherRepository;
     private final ClassroomModuleRepository classroomModuleRepository;
-    private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final AutonomousScheduleRepository scheduleRepository;
     private final AutonomousScheduleModuleRepository scheduleModuleRepository;
     private final ClassroomCodeGenerator classroomCodeGenerator;
@@ -69,7 +65,6 @@ public class ClassroomCreationService {
         ClassroomRepository classroomRepository,
         ClassroomTeacherRepository classroomTeacherRepository,
         ClassroomModuleRepository classroomModuleRepository,
-        ClassroomPolicyVersionRepository policyVersionRepository,
         AutonomousScheduleRepository scheduleRepository,
         AutonomousScheduleModuleRepository scheduleModuleRepository,
         ClassroomCodeGenerator classroomCodeGenerator,
@@ -80,7 +75,6 @@ public class ClassroomCreationService {
         this.classroomRepository = classroomRepository;
         this.classroomTeacherRepository = classroomTeacherRepository;
         this.classroomModuleRepository = classroomModuleRepository;
-        this.policyVersionRepository = policyVersionRepository;
         this.scheduleRepository = scheduleRepository;
         this.scheduleModuleRepository = scheduleModuleRepository;
         this.classroomCodeGenerator = classroomCodeGenerator;
@@ -124,23 +118,13 @@ public class ClassroomCreationService {
         );
         classroomModuleRepository.saveAll(
             validated.moduleCodes().stream()
-                .map(code -> ClassroomModule.activate(
+                .map(code -> ClassroomModule.disabled(
                     uuidGenerator.generate(),
                     classroomId,
                     code,
                     now
                 ))
                 .toList()
-        );
-        policyVersionRepository.save(
-            ClassroomPolicyVersion.salary(
-                uuidGenerator.generate(),
-                classroomId,
-                1,
-                command.salaryPolicy(),
-                "TEACHER",
-                now
-            )
         );
         saveSchedules(
             classroomId,
@@ -187,17 +171,14 @@ public class ClassroomCreationService {
         }
 
         String currencyName = normalizeCurrencyName(command.currencyName());
-        List<String> moduleCodes = normalizeModuleCodes(command.moduleCodes());
-        if (
-            command.courseSize() == CourseSize.ONE_SESSION
-                && moduleCodes.stream().anyMatch(code -> !isQuizOnlyModule(code))
-        ) {
+        if (command.salaryPolicy() != null && !command.salaryPolicy().isEmpty()) {
             throw new ClassroomOperationException(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "POLICY_VIOLATION",
-                "1회 코스는 퀴즈·게임 모듈만 사용할 수 있습니다."
+                "Initial salary policy must be confirmed when its module is activated."
             );
         }
+        List<String> moduleCodes = normalizeModuleCodes(command.moduleCodes());
         if (command.autonomousSchedules() == null) {
             return new ValidatedCreation(currencyName, moduleCodes);
         }
@@ -222,7 +203,7 @@ public class ClassroomCreationService {
 
     private static List<String> normalizeModuleCodes(List<String> values) {
         if (values == null || values.isEmpty()) {
-            throw validation("module_codes는 하나 이상이어야 합니다.");
+            return List.of();
         }
         List<String> normalized = values.stream()
             .map(value -> value == null ? "" : value.trim().toUpperCase(Locale.ROOT))
@@ -234,13 +215,6 @@ public class ClassroomCreationService {
             throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
         }
         return normalized;
-    }
-
-    private static boolean isQuizOnlyModule(String moduleCode) {
-        return moduleCode.equals("QUIZ")
-            || moduleCode.equals("GAME")
-            || moduleCode.equals("TEST")
-            || moduleCode.startsWith("QUIZ_");
     }
 
     private static void validateSchedule(

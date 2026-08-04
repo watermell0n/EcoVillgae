@@ -47,6 +47,7 @@ function camelFromId(id) {
 
 function normalizeHttpPath(rawPath) {
   return rawPath
+    .split("?", 1)[0]
     .replaceAll("{C}", "{classroom_id}")
     .replaceAll("{S}", "{student_id}")
     .replaceAll("{R}", "{resource_id}");
@@ -126,12 +127,25 @@ function parseMvpRequirementIds(markdown) {
 
 const mvpRequirementIds = parseMvpRequirementIds(rtmMarkdown);
 const mvpSupportApiIds = new Set([
+  "API-AI-003",
+  "API-AI-006",
   "API-AUTH-004",
   "API-AUTH-005",
   "API-AUTH-006",
   "API-AUTH-007",
+  "API-AUTH-008",
+  "API-FIN-007",
+  "API-FIN-008",
+  "API-FIN-009",
+  "API-MOD-002",
+  "API-POL-001",
+  "API-QZ-006",
+  "API-QZ-008",
+  "API-QZ-009",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-016",
+  "API-READ-027",
   "API-READ-028",
   "API-READ-029",
   "API-READ-030",
@@ -340,7 +354,11 @@ const requestFieldOverrides = {
     { name: "ends_on", schema: { type: "string", format: "date" } },
     { name: "student_count", schema: { type: "integer", minimum: 1 } },
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
-    { name: "salary_policy", schema: { type: "object", additionalProperties: true } },
+    {
+      name: "salary_policy",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
     {
       name: "module_codes",
       schema: { type: "array", uniqueItems: true, items: { type: "string" } },
@@ -365,6 +383,16 @@ const requestFieldOverrides = {
       values: ["GRADE_4_BASIC", "GRADE_5_STANDARD", "GRADE_6_ADVANCED"],
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    {
+      name: "classroom_code",
+      optional: true,
+      schema: { type: "string", minLength: 8, maxLength: 8 },
+    },
+    {
+      name: "currency_name",
+      optional: true,
+      schema: { type: "string", minLength: 1, maxLength: 10 },
+    },
   ],
   "API-CLS-003": [
     {
@@ -373,12 +401,12 @@ const requestFieldOverrides = {
         type: "array",
         items: {
           type: "object",
-          required: ["attendance_number", "nickname", "role_code"],
+          required: ["attendance_number", "nickname"],
           properties: {
             student_id: { type: "string", format: "uuid" },
             attendance_number: { type: "integer", minimum: 1 },
             nickname: { type: "string", minLength: 1, maxLength: 40 },
-            role_code: { type: "string" },
+            role_code: { type: ["string", "null"] },
           },
           additionalProperties: false,
         },
@@ -386,6 +414,7 @@ const requestFieldOverrides = {
     },
     {
       name: "salary_roles",
+      optional: true,
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
@@ -424,6 +453,20 @@ const requestFieldOverrides = {
       optional: true,
       schema: { type: "integer", minimum: 1, maximum: 480 },
     },
+    {
+      name: "preflight_run_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+    {
+      name: "preflight_warning_acknowledgements",
+      optional: true,
+      schema: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        uniqueItems: true,
+      },
+    },
   ],
   "API-CLS-008": [
     { name: "reauthentication_proof", schema: { type: "string", writeOnly: true } },
@@ -431,16 +474,34 @@ const requestFieldOverrides = {
     { name: "reason" },
   ],
   "API-MOD-001": [
+    { name: "expected_state_version", schema: { type: "integer", minimum: 0 } },
     { name: "confirm_prerequisites", schema: { type: "boolean", const: true } },
+    {
+      name: "initial_policy_values",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    {
+      name: "recommendation_action_ids",
+      optional: true,
+      schema: {
+        type: "array",
+        uniqueItems: true,
+        items: { type: "string", minLength: 1, maxLength: 100 },
+      },
+    },
+  ],
+  "API-MOD-002": [
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 500 } },
   ],
   "API-POL-001": [
-    { name: "price_adjustment_bps", schema: { type: "integer", format: "int32" } },
-    { name: "inflation_rate_bps", schema: { type: "integer", format: "int32" } },
+    { name: "price_adjustment_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
+    { name: "inflation_rate_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
     { name: "income_tax_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "vat_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "trade_tax_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
-    { name: "deposit_rate_bps", schema: { type: "integer", format: "int32" } },
-    { name: "loan_rate_bps", schema: { type: "integer", format: "int32" } },
+    { name: "deposit_rate_bps", schema: { type: "integer", format: "int32", minimum: 0, maximum: 10000 } },
+    { name: "loan_rate_bps", schema: { type: "integer", format: "int32", minimum: 0, maximum: 10000 } },
     { name: "stock_policy", schema: { type: "object", additionalProperties: true } },
     { name: "reward_policy", schema: { type: "object", additionalProperties: true } },
     { name: "limits", schema: { type: "object", additionalProperties: true } },
@@ -463,6 +524,7 @@ const requestFieldOverrides = {
       values: ["SALARY", "ACTIVITY", "QUIZ", "MANUAL_COMPENSATION"],
     },
     { name: "student_ids" },
+    { name: "period_key", schema: { type: "string", minLength: 1, maxLength: 40 } },
     { name: "amount", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "reason" },
@@ -497,21 +559,18 @@ const requestFieldOverrides = {
     { name: "description", optional: true },
   ],
   "API-FIN-007": [
-    {
-      name: "assets",
-      schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } },
-    },
-    {
-      name: "price_steps",
-      schema: { type: "array", minItems: 1, items: { type: "object", additionalProperties: true } },
-    },
-    {
-      name: "events",
-      schema: { type: "array", items: { type: "object", additionalProperties: true } },
-    },
-    { name: "limits", schema: { type: "object", additionalProperties: true } },
-    { name: "loss_cap_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
-    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    { name: "investment_mode", values: ["SHORT_TERM", "LONG_TERM"] },
+    { name: "prefer_historical_index", schema: { type: "boolean" } },
+  ],
+  "API-FIN-008": [
+    { name: "command", values: ["START"] },
+    { name: "expected_state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-FIN-009": [
+    { name: "side", values: ["BUY"] },
+    { name: "asset_id" },
+    { name: "quantity", schema: { type: "integer", minimum: 1, maximum: 100 } },
+    { name: "expected_price_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-FIN-010": [
     { name: "max_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
@@ -569,11 +628,43 @@ const requestFieldOverrides = {
     { name: "include_policy_history", optional: true, schema: { type: "boolean" } },
   ],
   "API-AI-002": [
-    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
+    {
+      name: "analysis_mode",
+      values: ["SETUP_PRECHECK", "ON_DEMAND", "AUTO_MONITOR"],
+    },
+    {
+      name: "trigger_context",
+      optional: true,
+      schema: { type: "object", additionalProperties: true },
+    },
+    { name: "period", optional: true, schema: { $ref: "#/components/schemas/Period" } },
     {
       name: "metric_scopes",
-      schema: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string" } },
+      optional: true,
+      schema: { type: "array", uniqueItems: true, items: { type: "string" } },
     },
+  ],
+  "API-AI-003": [
+    { name: "command", values: ["APPLY", "REJECT", "ACKNOWLEDGE"] },
+    {
+      name: "edited_values",
+      optional: true,
+      schema: {
+        type: "array",
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["action_id", "proposed_value"],
+          properties: {
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
+            proposed_value: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
+    { name: "expected_policy_version", optional: true, schema: { type: "integer", minimum: 0 } },
   ],
   "API-DAT-002": [
     { name: "source_classroom_id" },
@@ -613,6 +704,7 @@ const requestFieldOverrides = {
     { name: "display_session_id", optional: true },
   ],
   "API-SHP-001": [
+    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
     { name: "command", values: ["CREATE", "UPDATE", "PUBLISH", "UNPUBLISH"] },
     { name: "product_id", optional: true },
     { name: "name" },
@@ -627,7 +719,7 @@ const requestFieldOverrides = {
   "API-SHP-002": [
     { name: "product_id" },
     { name: "quantity", schema: { type: "integer", minimum: 1 } },
-    { name: "expected_product_version", schema: { type: "integer", minimum: 0 } },
+    { name: "expected_product_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-ITM-001": [{ name: "command", values: ["EQUIP", "UNEQUIP"] }],
   "API-CNT-001": [
@@ -700,7 +792,7 @@ const requestFieldOverrides = {
     { name: "reason", optional: true },
   ],
   "API-QZ-004": [
-    { name: "command", values: ["START", "CLOSE_SUBMISSIONS"] },
+    { name: "command", values: ["START", "UPDATE_REWARD", "CLOSE_SUBMISSIONS"] },
     { name: "question_version_ids" },
     { name: "participant_ids" },
     { name: "mode", values: ["GAME", "TEST"] },
@@ -772,14 +864,54 @@ const requestFieldOverrides = {
   ],
   "API-VOT-002": [{ name: "option_id" }],
   "API-AI-004": [
-    { name: "command", values: ["REQUEST_DRAFT", "APPROVE", "REJECT"] },
-    { name: "template_type" },
-    { name: "event_id", optional: true },
-    { name: "edits", optional: true, schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean"] } } },
+    {
+      name: "template_type",
+      values: ["PRICE", "SUPPLY", "TAX", "INTEREST_RATE", "INVESTMENT_NEWS", "REWARD", "PUBLIC_FUND"],
+    },
+    { name: "interest_rate_scope", optional: true, values: ["DEPOSIT", "SAVINGS", "LOAN"] },
+    { name: "teacher_context", optional: true, schema: { type: "string", maxLength: 1000 } },
   ],
   "API-AI-005": [
-    { name: "enabled", schema: { type: "boolean", const: false } },
+    // 학급 AI는 양방향 토글입니다. 끄기와 다시 켜기 모두 사유와 정책 버전을 남깁니다.
+    // 학교 단위 API-ADM-004는 권한·우선순위·일괄 이력을 별도로 정해야 해서 끄기 전용을 유지합니다.
+    { name: "enabled", schema: { type: "boolean" } },
     { name: "reason", schema: { type: "string", minLength: 1 } },
+  ],
+  "API-AI-006": [
+    { name: "decision", values: ["APPROVE", "REJECT"] },
+    {
+      name: "edits",
+      optional: true,
+      schema: {
+        type: "object",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 150 },
+          narrative: { type: "string", minLength: 1, maxLength: 2000 },
+          choices: {
+            type: "array",
+            maxItems: 5,
+            items: {
+              type: "object",
+              required: ["choice_key", "label"],
+              properties: {
+                choice_key: { type: "string", pattern: "^[A-Z][A-Z0-9_]{0,31}$" },
+                label: { type: "string", minLength: 1, maxLength: 200 },
+              },
+              additionalProperties: false,
+            },
+          },
+          progress_messages: {
+            type: "array",
+            minItems: 1,
+            maxItems: 10,
+            items: { type: "string", minLength: 1, maxLength: 300 },
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+    { name: "reason", schema: { type: "string", minLength: 1, maxLength: 1000 } },
+    { name: "expected_event_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-DAT-001": [
     { name: "format", values: ["PDF", "CSV"] },
@@ -808,6 +940,21 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
+const requiredExpectedStateVersionApis = new Set(["API-ITM-001", "API-SHP-001"]);
+
+function mutationContextFor(operation) {
+  if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  return mutationContextFields.map((field) => {
+    if (
+      field.name === "expected_state_version"
+      && requiredExpectedStateVersionApis.has(operation.apiId)
+    ) {
+      return { ...field, optional: false };
+    }
+    return field;
+  });
+}
+
 function projectionItemSchema(extraProperties = {}, required = []) {
   return {
     type: "object",
@@ -830,6 +977,73 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-FIN-007": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "market_status", schema: { type: "string", enum: ["DRAFT", "OPEN"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "step_count", schema: { type: "integer", minimum: 2 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "assets", schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-FIN-008": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "market_status", schema: { type: "string", enum: ["OPEN"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "step_count", schema: { type: "integer", minimum: 2 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "assets", schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-FIN-009": [
+    { name: "order_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["EXECUTED"] } },
+    { name: "quantity", schema: { type: "integer", minimum: 1, maximum: 100 } },
+    { name: "executed_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "price_version", schema: { type: "integer", minimum: 1 } },
+    { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "position_quantity", schema: { type: "integer", minimum: 1 } },
+    { name: "average_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-READ-016": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["DRAFT", "OPEN", "PAUSED", "CLOSED"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "current_step", schema: { type: "integer", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "teacher_view", schema: { type: "boolean" } },
+    { name: "assets", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-QZ-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "status_url", schema: { type: "string" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "review_status", schema: { type: "string", enum: ["REVIEW_REQUIRED"] } },
+    {
+      name: "question_ids",
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        items: { type: "string", format: "uuid" },
+      },
+    },
+  ],
+  "API-SHP-001": [
+    { name: "product_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+  ],
   "API-CRS-001": [
     {
       name: "recommendations",
@@ -905,6 +1119,8 @@ const responseFieldOverrides = {
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "currency_name", schema: { type: "string", minLength: 1, maxLength: 10 } },
+    { name: "wallet_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "role", schema: { type: "string", enum: ["STU"] } },
   ],
   "API-AUTH-002": [
@@ -918,16 +1134,64 @@ const responseFieldOverrides = {
   ],
   "API-AUTH-004": [
     { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
-    { name: "refresh_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    {
+      name: "refresh_token",
+      optional: true,
+      schema: { type: "string", readOnly: true, "x-sensitive": true },
+    },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "session_id", schema: { type: "string", format: "uuid" } },
+    { name: "role", schema: { type: "string", enum: ["STU", "TCH"] } },
   ],
   "API-AUTH-006": [
     { name: "session_id", schema: { type: "string", format: "uuid" } },
-    { name: "revoked_at", schema: { type: "string", format: "date-time" } },
+    { name: "user_id", schema: { type: "string", format: "uuid" } },
+    { name: "display_name", schema: { type: "string" } },
+    { name: "role", schema: { type: "string", enum: ["STU", "TCH"] } },
+    { name: "access_token_expires_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "schools",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["school_id", "role"],
+          properties: {
+            school_id: { type: "string", format: "uuid" },
+            role: { type: "string", enum: ["TEACHER", "SCHOOL_ADMIN"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "classrooms",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["classroom_id", "classroom_code", "role"],
+          properties: {
+            classroom_id: { type: "string", format: "uuid" },
+            classroom_code: { type: "string", minLength: 8, maxLength: 8 },
+            role: { type: "string", enum: ["STU", "OWN", "COT"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
   ],
   "API-AUTH-007": [
     { name: "ticket", schema: { type: "string", minLength: 20, readOnly: true, "x-sensitive": true } },
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-AUTH-008": [
+    { name: "access_token", schema: { type: "string", readOnly: true, "x-sensitive": true } },
+    { name: "expires_at", schema: { type: "string", format: "date-time" } },
+    { name: "session_id", schema: { type: "string", format: "uuid" } },
+    { name: "teacher_id", schema: { type: "string", format: "uuid" } },
+    { name: "display_name", schema: { type: "string" } },
+    { name: "role", schema: { type: "string", enum: ["TCH"] } },
   ],
   "API-CLS-001": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
@@ -936,10 +1200,40 @@ const responseFieldOverrides = {
     { name: "status", schema: { type: "string" } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-MOD-001": [
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "policy_area", optional: true, schema: { type: ["string", "null"] } },
+    { name: "policy_version", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "rule_version", schema: { type: "string" } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-MOD-002": [
+    { name: "module_id", schema: { type: "string", format: "uuid" } },
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["STOPPING"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "cleanup_required", schema: { type: "boolean", const: true } },
+    {
+      name: "cleanup_blockers",
+      schema: { type: "array", items: { type: "string" }, uniqueItems: true },
+    },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-POL-001": [
+    { name: "policy_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "policy_version", schema: { type: "integer", minimum: 1 } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
   "API-CLS-002": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "policy_version", schema: { type: "integer", minimum: 1 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
   ],
   "API-CLS-003": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
@@ -993,15 +1287,110 @@ const responseFieldOverrides = {
     { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-ITM-001": [
+    { name: "inventory_item_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["AVAILABLE", "EQUIPPED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
   "API-VOT-002": [
     { name: "receipt_hash", schema: { type: "string" } },
     { name: "cast_at", schema: { type: "string", format: "date-time" } },
   ],
   "API-AI-001": [
-    { name: "answer", schema: { type: "string" } },
-    { name: "metric_summary", schema: { type: "object", additionalProperties: { type: ["string", "integer", "number", "boolean"] } } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "answer", schema: { type: "string", minLength: 1, maxLength: 3000 } },
+    { name: "period", schema: { $ref: "#/components/schemas/Period" } },
     { name: "data_as_of", schema: { type: "string", format: "date-time" } },
-    { name: "source_labels", schema: { type: "array", items: { type: "string" } } },
+    {
+      name: "evidence",
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["fact_id", "label", "value", "unit"],
+          properties: {
+            fact_id: { type: "string", minLength: 1, maxLength: 100 },
+            label: { type: "string", minLength: 1, maxLength: 150 },
+            value: { type: ["string", "integer"] },
+            unit: { type: "string", enum: ["AMOUNT", "COUNT", "RATE_BPS", "STATUS", "TEXT"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "recommendations",
+      schema: {
+        type: "array",
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["text", "side_effects"],
+          properties: {
+            text: { type: "string", minLength: 1, maxLength: 700 },
+            side_effects: {
+              type: "array",
+              minItems: 1,
+              maxItems: 5,
+              items: { type: "string", minLength: 1, maxLength: 300 },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-AI-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "operation_status", schema: { type: "string" } },
+    { name: "run_status", schema: { type: "string" } },
+    { name: "fallback_used", schema: { type: "boolean" } },
+    { name: "fallback_code", schema: { type: ["string", "null"] } },
+    { name: "proposal_id", schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "summary", schema: { type: "string" } },
+    { name: "overall_severity", optional: true, schema: { type: "string" } },
+    { name: "candidates", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "checks", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "analysis_mode", optional: true, schema: { type: "string" } },
+    { name: "analysis_severity", optional: true, schema: { type: "string" } },
+    { name: "sample", optional: true, schema: { type: "object", additionalProperties: true } },
+    { name: "insufficient_codes", optional: true, schema: { type: "array", items: { type: "string" } } },
+    { name: "metrics", optional: true, schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-AI-003": [
+    { name: "proposal_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "decision_status", schema: { type: "string", enum: ["APPLIED", "REJECTED", "ACKNOWLEDGED"] } },
+    { name: "policy_version", optional: true, schema: { type: "integer", minimum: 1 } },
+    { name: "policy_version_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    {
+      name: "applied_values",
+      schema: {
+        type: "array",
+        maxItems: 100,
+        items: {
+          type: "object",
+          required: ["action_id", "proposed_value", "unit"],
+          properties: {
+            action_id: { type: "string", minLength: 1, maxLength: 100 },
+            proposed_value: { type: "integer", minimum: 0 },
+            unit: { type: "string", enum: ["AMOUNT", "COUNT", "RATE_BPS"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-AI-006": [
+    { name: "event_id", schema: { type: "string", format: "uuid" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["APPROVED", "REJECTED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "published_at", optional: true, schema: { type: "string", format: "date-time" } },
   ],
   "API-ADM-004": [
     { name: "school_id", schema: { type: "string", format: "uuid" } },
@@ -1029,6 +1418,13 @@ const responseFieldOverrides = {
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "classroom_code", schema: { type: "string" } },
     { name: "currency_name", schema: { type: "string" } },
+    { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
+    { name: "course_size", schema: { type: "string", enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"] } },
+    { name: "starts_on", schema: { type: ["string", "null"], format: "date" } },
+    { name: "ends_on", schema: { type: ["string", "null"], format: "date" } },
+    { name: "recommended_course_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "difficulty_profile", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "module_codes", schema: { type: "array", items: { type: "string" }, uniqueItems: true } },
     { name: "autonomous_schedules", schema: projectionItems({ module_codes: { type: "array", items: { type: "string" }, uniqueItems: true } }) },
     { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
@@ -1039,7 +1435,7 @@ const responseFieldOverrides = {
   ],
   "API-READ-006": [
     { name: "modules", schema: projectionItems({ module_code: { type: "string" }, config: { type: "object", additionalProperties: true } }) },
-    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
+    { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" }, values: { type: "object", additionalProperties: true } }) },
   ],
   "API-READ-007": [
     { name: "balance", schema: { type: "integer", format: "int64" } },
@@ -1047,16 +1443,100 @@ const responseFieldOverrides = {
   ],
   "API-READ-008": [{ name: "payslips", schema: projectionItems({ net_amount: { type: "integer", format: "int64" }, issued_at: { type: "string", format: "date-time" } }) }],
   "API-READ-009": [{ name: "transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) }],
-  "API-READ-010": [{ name: "products", schema: projectionItems({ unit_price: { type: "integer", format: "int64", minimum: 0 }, product_kind: { type: "string" } }) }],
+  "API-READ-010": [{
+    name: "products",
+    schema: projectionItems({
+      unit_price: { type: "integer", format: "int64", minimum: 0 },
+      vat_rate_bps: { type: "integer", minimum: 0, maximum: 10000 },
+      stock_quantity: { type: "integer", minimum: 0 },
+      product_kind: { type: "string" },
+      character_code: { type: ["string", "null"] },
+    }, [
+      "resource_id",
+      "label",
+      "status",
+      "version",
+      "state_version",
+      "unit_price",
+      "vat_rate_bps",
+      "available_quantity",
+      "product_kind",
+      "character_code",
+    ]),
+  }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
-  "API-READ-012": [{ name: "inventory_items", schema: projectionItems({ character_code: { type: "string" }, equipped: { type: "boolean" } }) }],
+  "API-READ-012": [{
+    name: "inventory_items",
+    schema: projectionItems(
+      { character_code: { type: "string" }, equipped: { type: "boolean" } },
+      ["resource_id", "label", "status", "version", "state_version", "character_code", "equipped"],
+    ),
+  }],
+  "API-READ-035": [
+    { name: "profile_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_student_id", schema: { type: "string", format: "uuid" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "equipment_changed_at", schema: { type: "string", format: "date-time" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+    { name: "updated_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "equipped_inventory_items",
+      schema: {
+        type: "object",
+        propertyNames: {
+          enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+        },
+        additionalProperties: { type: "string", format: "uuid" },
+      },
+    },
+  ],
   "API-READ-013": [{ name: "trades", schema: projectionItems({ counterpart_nickname: { type: "string" }, direction: { type: "string" } }) }],
   "API-READ-014": [{ name: "financial_products", schema: projectionItems({ product_type: { type: "string" }, interest_rate_bps: { type: "integer" } }) }],
   "API-READ-015": [
     { name: "deposit_accounts", schema: projectionItems({ principal_amount: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
     { name: "savings_accounts", schema: projectionItems({ principal_balance: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
   ],
-  "API-READ-020": [{ name: "questions", schema: projectionItems({ content_type: { type: "string" }, question_type: { type: "string" }, prompt: { type: "string" } }) }],
+  "API-READ-020": [{
+    name: "questions",
+    schema: projectionItems({
+      content_type: { type: "string", enum: ["ECONOMY", "NONSENSE"] },
+      question_type: { type: "string", enum: ["MULTIPLE_CHOICE", "OX"] },
+      prompt: { type: "string" },
+      explanation: { type: ["string", "null"] },
+      source: { type: "string", enum: ["TEACHER", "AI"] },
+      ai_run_id: { type: ["string", "null"], format: "uuid" },
+      options: {
+        type: "array",
+        minItems: 2,
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["option_id", "option_key", "option_text", "correct", "sort_order"],
+          properties: {
+            option_id: { type: "string", format: "uuid" },
+            option_key: { type: "string" },
+            option_text: { type: "string" },
+            correct: { type: "boolean" },
+            sort_order: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    }, [
+      "resource_id",
+      "label",
+      "status",
+      "version",
+      "state_version",
+      "content_type",
+      "question_type",
+      "prompt",
+      "explanation",
+      "source",
+      "ai_run_id",
+      "options",
+    ]),
+  }],
   "API-READ-021": [
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
@@ -1178,6 +1658,224 @@ const responseFieldOverrides = {
     { name: "timer", optional: true, schema: { type: "object", required: ["server_time", "ends_at"], properties: { server_time: { type: "string", format: "date-time" }, ends_at: { type: "string", format: "date-time" } }, additionalProperties: false } },
     { name: "public_data", schema: { type: "object", additionalProperties: { type: ["string", "integer", "boolean", "array", "object", "null"] } } },
   ],
+  "API-READ-027": [
+    {
+      name: "items",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "ai_run_id",
+            "feature_type",
+            "run_type",
+            "trigger_type",
+            "status",
+            "requested_at",
+            "analysis_period_from",
+            "prompt_version",
+            "fallback_used",
+            "validation_codes",
+            "evidence_codes",
+            "rule_versions",
+            "proposals",
+          ],
+          properties: {
+            ai_run_id: { type: "string", format: "uuid" },
+            operation_id: { type: ["string", "null"], format: "uuid" },
+            feature_type: {
+              type: "string",
+              enum: ["BALANCING", "TEACHER_CHAT", "ECONOMIC_EVENT", "QUIZ_DRAFT"],
+            },
+            run_type: {
+              type: "string",
+              enum: [
+                "SETUP_PRECHECK",
+                "ON_DEMAND",
+                "AUTO_MONITOR",
+                "TEACHER_CHAT",
+                "ECONOMIC_EVENT_DRAFT",
+                "QUIZ_DRAFT",
+              ],
+            },
+            trigger_type: { type: "string" },
+            status: {
+              type: "string",
+              enum: [
+                "REQUESTED",
+                "DATA_CHECK",
+                "INSUFFICIENT_DATA",
+                "GENERATING",
+                "VALIDATING",
+                "AWAITING_TEACHER",
+                "ACKNOWLEDGED",
+                "COMPLETED",
+                "FAILED",
+                "TIMED_OUT",
+                "REJECTED_OUTPUT",
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "APPLYING",
+                "APPLY_FAILED",
+              ],
+            },
+            requested_at: { type: "string", format: "date-time" },
+            completed_at: { type: ["string", "null"], format: "date-time" },
+            analysis_period_from: { type: ["string", "null"], format: "date-time" },
+            data_as_of: { type: ["string", "null"], format: "date-time" },
+            prompt_version: { type: "string" },
+            provider: { type: ["string", "null"] },
+            model_id: { type: ["string", "null"] },
+            safety_status: { type: ["string", "null"] },
+            fallback_used: { type: "boolean" },
+            fallback_code: { type: ["string", "null"] },
+            severity: {
+              type: ["string", "null"],
+              enum: ["PASS", "NORMAL", "OBSERVE", "WARN", "BLOCK", null],
+            },
+            validation_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
+            evidence_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
+            rule_versions: {
+              type: "object",
+              additionalProperties: { type: "string" },
+            },
+            proposals: {
+              type: "array",
+              maxItems: 100,
+              items: {
+                type: "object",
+                required: [
+                  "proposal_id",
+                  "proposal_type",
+                  "source_type",
+                  "status",
+                  "summary",
+                  "proposed_values",
+                  "allowed_ranges",
+                  "created_at",
+                  "expires_at",
+                  "status_changed_at",
+                  "state_version",
+                ],
+                properties: {
+                  proposal_id: { type: "string", format: "uuid" },
+                  proposal_type: { type: "string" },
+                  source_type: { type: "string" },
+                  status: { type: "string" },
+                  severity: {
+                    type: ["string", "null"],
+                    enum: ["PASS", "NORMAL", "OBSERVE", "WARN", "BLOCK", null],
+                  },
+                  metric_code: { type: ["string", "null"] },
+                  direction: { type: ["string", "null"] },
+                  dedupe_key: { type: ["string", "null"] },
+                  summary: { type: "string", maxLength: 1500 },
+                  context_type: { type: ["string", "null"] },
+                  target_type: { type: ["string", "null"] },
+                  target_id: { type: ["string", "null"], format: "uuid" },
+                  target_version: {
+                    type: ["integer", "null"],
+                    format: "int64",
+                    minimum: 0,
+                  },
+                  proposed_values: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "target_type",
+                        "target_id",
+                        "current_value",
+                        "proposed_value",
+                        "unit",
+                        "label",
+                        "side_effects",
+                        "evidence_metric_codes",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        target_type: { type: ["string", "null"] },
+                        target_id: { type: ["string", "null"], format: "uuid" },
+                        current_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        proposed_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        unit: { type: ["string", "null"] },
+                        label: { type: ["string", "null"] },
+                        rationale: { type: ["string", "null"] },
+                        expected_effect: { type: ["string", "null"] },
+                        side_effects: { type: "array", items: { type: "string" } },
+                        evidence_metric_codes: { type: "array", items: { type: "string" } },
+                        priority: { type: ["integer", "null"] },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  allowed_ranges: {
+                    type: "array",
+                    maxItems: 100,
+                    items: {
+                      type: "object",
+                      required: [
+                        "action_id",
+                        "target_type",
+                        "target_id",
+                        "current_value",
+                        "allowed_min_value",
+                        "allowed_max_value",
+                      ],
+                      properties: {
+                        action_id: { type: ["string", "null"] },
+                        target_type: { type: ["string", "null"] },
+                        target_id: { type: ["string", "null"], format: "uuid" },
+                        current_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        allowed_min_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                        allowed_max_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  created_at: { type: "string", format: "date-time" },
+                  expires_at: { type: "string", format: "date-time" },
+                  status_changed_at: { type: "string", format: "date-time" },
+                  decision_status: { type: ["string", "null"] },
+                  decided_at: { type: ["string", "null"], format: "date-time" },
+                  policy_version: { type: ["integer", "null"], minimum: 1 },
+                  applied_policy_version_id: {
+                    type: ["string", "null"],
+                    format: "uuid",
+                  },
+                  state_version: {
+                    type: "integer",
+                    format: "int64",
+                    minimum: 0,
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
   "API-READ-029": [
     {
       name: "items",
@@ -1212,10 +1910,33 @@ const responseFieldOverrides = {
   ],
   "API-READ-030": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
-    { name: "status", schema: { type: "string" } },
+    { name: "operation_type", schema: { type: "string" } },
+    {
+      name: "status",
+      schema: { type: "string", enum: ["RUNNING", "COMPLETED", "FAILED"] },
+    },
     { name: "progress_percent", schema: { type: "integer", minimum: 0, maximum: 100 } },
-    { name: "result_url", optional: true, schema: { type: "string", format: "uri-reference" } },
-    { name: "error_code", optional: true, schema: { type: "string" } },
+    {
+      name: "result_url",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uri-reference" },
+    },
+    { name: "error_code", optional: true, schema: { type: ["string", "null"] } },
+    { name: "started_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "completed_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "expires_at",
+      optional: true,
+      schema: { type: ["string", "null"], format: "date-time" },
+    },
+    {
+      name: "state_version",
+      schema: { type: "integer", format: "int64", minimum: 0 },
+    },
   ],
 };
 
@@ -1254,7 +1975,7 @@ const storageByDomain = {
   DSP: ["activity_sessions", "redis.display-session", "realtime_streams", "outbox_events", "audit_events"],
   TXN: ["transaction_groups", "ledger_entries", "ledger_accounts", "policy_snapshots"],
   SHP: ["store_products", "store_product_versions", "store_stocks", "store_orders", "store_order_items"],
-  ITM: ["inventory_items"],
+  ITM: ["inventory_items", "student_character_profiles", "character_equipment"],
   CNT: ["character_catalog", "classroom_characters"],
   TRD: ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "transaction_groups"],
   FIN: ["financial_products", "financial_product_versions", "deposit_accounts", "savings_accounts", "investment_orders", "loans", "credit_profiles", "transaction_groups"],
@@ -1277,7 +1998,8 @@ const storageByReadApi = {
   "API-READ-009": ["transaction_groups", "ledger_entries", "transaction_business_refs"],
   "API-READ-010": ["store_products", "store_product_versions", "store_stocks", "classroom_characters"],
   "API-READ-011": ["store_orders", "store_order_items"],
-  "API-READ-012": ["inventory_items", "character_catalog"],
+  "API-READ-012": ["inventory_items", "character_catalog", "student_character_profiles", "character_equipment"],
+  "API-READ-035": ["student_character_profiles", "character_equipment"],
   "API-READ-013": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions"],
   "API-READ-014": ["financial_products", "financial_product_versions"],
   "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
@@ -1295,6 +2017,7 @@ const storageByReadApi = {
   ],
   "API-READ-024": ["activity_sessions", "activity_participants"],
   "API-READ-025": ["activity_sessions", "activity_participants", "redis.display-session", "realtime_streams", "outbox_events"],
+  "API-READ-027": ["ai_runs", "ai_artifacts", "ai_proposals", "ai_decisions", "economic_event_drafts"],
   "API-READ-028": [
     "classroom_students",
     "ledger_accounts",
@@ -1317,13 +2040,34 @@ function storageTargets(operation) {
       "student_credentials",
       "device_links",
       "student_sessions",
+      "ledger_accounts",
     ];
   }
   if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
   if (operation.apiId === "API-AUTH-003") return ["redis.password-reset", "student_credentials", "student_sessions"];
-  if (operation.apiId === "API-AUTH-004") return ["external_idp.refresh-session", "student_sessions"];
-  if (operation.apiId === "API-AUTH-005") return ["external_idp.refresh-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-004") return ["redis.teacher-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-005") return ["redis.teacher-session", "student_sessions"];
+  if (operation.apiId === "API-AUTH-006") {
+    return [
+      "users",
+      "school_memberships",
+      "classroom_teachers",
+      "classrooms",
+      "classroom_students",
+      "student_sessions",
+      "redis.teacher-session",
+    ];
+  }
   if (operation.apiId === "API-AUTH-007") return ["redis.realtime-ticket"];
+  if (operation.apiId === "API-AUTH-008") {
+    return [
+      "external_idp.id-token",
+      "users",
+      "school_memberships",
+      "classroom_teachers",
+      "redis.teacher-session",
+    ];
+  }
   if (operation.apiId === "API-DSP-001") {
     return [
       "activity_sessions",
@@ -1344,6 +2088,7 @@ function storageTargets(operation) {
       "realtime_streams",
       "outbox_events",
       "audit_events",
+      "ai_runs",
     ];
   }
   if (operation.apiId === "API-TRD-004") {
@@ -1360,6 +2105,30 @@ function storageTargets(operation) {
   }
   if (operation.apiId === "API-ADM-004") return ["school_ai_setting_versions", "audit_events"];
   if (operation.apiId === "API-AI-005") return ["classroom_policy_versions", "audit_events"];
+  if (operation.apiId === "API-QZ-008") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "activity_participants",
+      "quiz_question_issues",
+      "idempotency_records",
+    ];
+  }
+  if (operation.apiId === "API-QZ-009") {
+    return [
+      "quiz_sessions",
+      "quiz_session_questions",
+      "quiz_submissions",
+      "quiz_answers",
+      "quiz_result_versions",
+      "quiz_student_results",
+      "quiz_question_issues",
+      "regrading_runs",
+      "transaction_groups",
+      "ledger_entries",
+      "idempotency_records",
+    ];
+  }
   if (operation.apiId.startsWith("API-READ-")) return storageByReadApi[operation.apiId] ?? ["service_projection"];
   return storageByDomain[operation.apiId.split("-")[1]] ?? ["service_projection"];
 }
@@ -1367,6 +2136,7 @@ function storageTargets(operation) {
 const exactFieldTargets = {
   classroom_code: "classrooms.classroom_code",
   currency_name: "classrooms.currency_name",
+  wallet_balance: "ledger_accounts.current_balance",
   student_count: "classrooms.planned_student_count",
   planned_student_count: "classrooms.planned_student_count",
   attendance_number: "classroom_students.roster_number",
@@ -1383,6 +2153,7 @@ const exactFieldTargets = {
   ticket: "redis.realtime-ticket.token_hash",
   display_token: "redis.display-session.token_hash",
   reset_request_id: "redis.password-reset.request_id",
+  id_token: "external_idp.id-token",
 };
 
 function schemaType(schema) {
@@ -1411,10 +2182,13 @@ function requestSchema(operation) {
   if (operation.apiId === "API-AUTH-001") {
     return { $ref: "#/components/schemas/StudentSessionRequest" };
   }
+  if (operation.apiId === "API-AUTH-008") {
+    return { $ref: "#/components/schemas/TeacherSessionRequest" };
+  }
 
   const strict = implementationStatus(operation) === "mvp-contract";
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  const fields = [...mutationContextFields, ...domainFields];
+  const fields = [...mutationContextFor(operation), ...domainFields];
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -1435,6 +2209,39 @@ function requestSchema(operation) {
 
 function successResponseSchema(operation) {
   const fields = responseFields(operation);
+  if (operation.apiId === "API-AUTH-004") {
+    const dataSchema = (selectedFields, role) => {
+      const properties = {};
+      const required = [];
+      for (const field of selectedFields) {
+        properties[field.name] = field.name === "role"
+          ? { type: "string", enum: [role] }
+          : schemaForField(field);
+        required.push(field.name);
+      }
+      return {
+        type: "object",
+        title: role === "STU" ? "StudentTokenRefresh" : "TeacherTokenRefresh",
+        required,
+        properties,
+        additionalProperties: false,
+      };
+    };
+    return {
+      type: "object",
+      required: ["data", "meta"],
+      properties: {
+        data: {
+          oneOf: [
+            dataSchema(fields, "STU"),
+            dataSchema(fields.filter((field) => field.name !== "refresh_token"), "TCH"),
+          ],
+        },
+        meta: { $ref: "#/components/schemas/Meta" },
+      },
+      additionalProperties: false,
+    };
+  }
   const properties = {};
   const required = [];
   for (const field of fields) {
@@ -1583,11 +2390,11 @@ function parameterRefs(operation) {
 }
 
 function securityFor(operation) {
-  if (["API-AUTH-001", "API-AUTH-002"].includes(operation.apiId)) return [];
+  if (["API-AUTH-001", "API-AUTH-002", "API-AUTH-008"].includes(operation.apiId)) return [];
   if (operation.apiId === "API-AUTH-004")
     return [{ refreshCookie: [] }, { refreshHeader: [] }];
   if (operation.apiId === "API-READ-025") return [{ displayBearer: [] }];
-  return [{ bearerAuth: [] }, { cookieAuth: [] }];
+  return [{ bearerAuth: [] }];
 }
 
 function buildOpenApi(operations) {
@@ -1614,6 +2421,9 @@ function buildOpenApi(operations) {
         `사람이 검토하는 원문 기준: \`${operation.apiId}\` in \`docs/HTTP_API_SPEC.md\`.`,
         operation.roles ? `허용 역할: ${operation.roles}.` : "",
         operation.contract ? `핵심 계약: ${operation.contract}.` : "",
+        operation.apiId === "API-AUTH-004"
+          ? "학생 앱은 X-Refresh-Token 헤더를 사용하고 새 갱신 토큰을 본문으로 받습니다. 교사 웹은 HttpOnly 갱신 쿠키를 사용하며 갱신 토큰을 본문으로 받지 않습니다."
+          : "",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -1623,7 +2433,7 @@ function buildOpenApi(operations) {
         [status]:
           status === "204"
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
-            : status === "202"
+            : status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002"
               ? { $ref: "#/components/responses/Accepted" }
               : contractStatus === "mvp-contract"
                 ? {
@@ -1642,6 +2452,15 @@ function buildOpenApi(operations) {
         "503": { $ref: "#/components/responses/ServiceUnavailable" },
       },
     };
+
+    if (["API-AUTH-004", "API-AUTH-008"].includes(operation.apiId)) {
+      op.responses[status].headers = {
+        "Set-Cookie": {
+          description: "교사 웹에서만 사용하는 HttpOnly 회전형 갱신 쿠키. 학생 응답에는 설정하지 않습니다.",
+          schema: { type: "string" },
+        },
+      };
+    }
 
     if (!["GET", "DELETE"].includes(operation.method) && operation.apiId !== "API-AUTH-004") {
       op.requestBody = {
@@ -1689,7 +2508,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 107개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 110개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -1707,25 +2526,19 @@ function buildOpenApi(operations) {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
-          description: "학생·교사용 앱과 내부 서비스의 짧은 수명 액세스 토큰",
-        },
-        cookieAuth: {
-          type: "apiKey",
-          in: "cookie",
-          name: "ECOVILLAGE_SESSION",
-          description: "교사·관리자 웹의 HttpOnly·Secure 세션 쿠키",
+          description: "학생 Expo 앱과 교사·관리자 웹이 메모리에 유지하는 짧은 수명 액세스 토큰",
         },
         refreshCookie: {
           type: "apiKey",
           in: "cookie",
-          name: "ECOVILLAGE_REFRESH",
+          name: "ecovillage_teacher_refresh",
           description: "교사·관리자 웹의 회전형 갱신 토큰",
         },
         refreshHeader: {
           type: "apiKey",
           in: "header",
           name: "X-Refresh-Token",
-          description: "Expo SecureStore에서 읽어 전송하는 학생·교사용 앱의 회전형 갱신 토큰",
+          description: "Expo SecureStore에서 읽어 전송하는 학생 앱의 회전형 갱신 토큰",
         },
         displayBearer: {
           type: "http",
@@ -1764,16 +2577,6 @@ function buildOpenApi(operations) {
         ...pathParameters,
       },
       schemas: {
-        MutationContext: {
-          type: "object",
-          properties: {
-            expected_state_version: { type: "integer", format: "int64", minimum: 0 },
-            screen_id: { type: "string", pattern: "^SCR-[A-Z]+-\\d{3}$" },
-            ui_action_id: { type: "string", pattern: "^UIA-[A-Z]+-\\d{3}$" },
-            client_occurred_at: { type: "string", format: "date-time" },
-          },
-          additionalProperties: true,
-        },
         StudentSessionRequest: {
           type: "object",
           required: [
@@ -1795,6 +2598,20 @@ function buildOpenApi(operations) {
             nickname: { type: "string", minLength: 1, maxLength: 40 },
             password: { type: "string", format: "password", minLength: 8, writeOnly: true },
             device_id: { type: "string", format: "uuid" },
+          },
+          additionalProperties: false,
+        },
+        TeacherSessionRequest: {
+          type: "object",
+          required: ["id_token"],
+          properties: {
+            id_token: {
+              type: "string",
+              minLength: 1,
+              maxLength: 20000,
+              writeOnly: true,
+              description: "Authorization Code + PKCE 완료 후 외부 OIDC 제공자가 발급한 ID 토큰",
+            },
           },
           additionalProperties: false,
         },
@@ -2331,6 +3148,18 @@ const studentSessionRequestFields = [
   { name: "device_id" },
 ];
 
+const teacherSessionRequestFields = [
+  {
+    name: "id_token",
+    schema: {
+      type: "string",
+      minLength: 1,
+      maxLength: 20000,
+      writeOnly: true,
+    },
+  },
+];
+
 const acceptedResponseFields = [
   { name: "operation_id", schema: { type: "string", format: "uuid" } },
   { name: "status", schema: { type: "string", enum: ["QUEUED", "RUNNING"] } },
@@ -2344,14 +3173,17 @@ function hasRequestBody(operation) {
 function requestFieldsForManifest(operation) {
   if (!hasRequestBody(operation)) return [];
   if (operation.apiId === "API-AUTH-001") return studentSessionRequestFields;
+  if (operation.apiId === "API-AUTH-008") return teacherSessionRequestFields;
   const domainFields = requestFieldOverrides[operation.apiId] ?? extractEnglishFields(operation.contract);
-  return [...mutationContextFields, ...domainFields];
+  return [...mutationContextFor(operation), ...domainFields];
 }
 
 function responseFieldsForManifest(operation) {
   const status = successStatus(operation);
   if (status === "204") return [];
-  if (status === "202") return acceptedResponseFields;
+  if (status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002") {
+    return acceptedResponseFields;
+  }
   return responseFields(operation);
 }
 
@@ -2372,6 +3204,7 @@ function buildApiFieldMapping(operations) {
       const explicitRequest =
         !hasRequestBody(operation) ||
         operation.apiId === "API-AUTH-001" ||
+        operation.apiId === "API-AUTH-008" ||
         Object.hasOwn(requestFieldOverrides, operation.apiId);
       return {
         api_id: operation.apiId,
@@ -2412,9 +3245,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 107, `HTTP 작업 수가 107이 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 107, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 107, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 110, `HTTP 작업 수가 110개가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 110, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 110, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -2431,8 +3264,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 107,
-      "OpenAPI 작업 수가 107이 아닙니다.",
+      ) === 110,
+      "OpenAPI 작업 수가 110개가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

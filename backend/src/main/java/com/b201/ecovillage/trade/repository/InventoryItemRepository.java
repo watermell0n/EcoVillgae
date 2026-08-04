@@ -15,6 +15,42 @@ import com.b201.ecovillage.trade.domain.InventoryItem;
 
 public interface InventoryItemRepository extends JpaRepository<InventoryItem, UUID> {
 
+    List<InventoryItem> findAllByClassroomIdAndClassroomStudentIdOrderByAcquiredAtDesc(
+        UUID classroomId,
+        UUID classroomStudentId
+    );
+
+    boolean existsByClassroomIdAndClassroomStudentIdAndCharacterCatalogId(
+        UUID classroomId,
+        UUID classroomStudentId,
+        UUID characterCatalogId
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select item
+          from InventoryItem item
+         where item.classroomId = :classroomId
+           and item.id = :itemId
+        """)
+    java.util.Optional<InventoryItem> findByIdForUpdate(
+        @Param("classroomId") UUID classroomId,
+        @Param("itemId") UUID itemId
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select item
+          from InventoryItem item
+         where item.classroomId = :classroomId
+           and item.classroomStudentId = :studentId
+         order by item.id
+        """)
+    List<InventoryItem> findAllOwnedForUpdate(
+        @Param("classroomId") UUID classroomId,
+        @Param("studentId") UUID studentId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select item

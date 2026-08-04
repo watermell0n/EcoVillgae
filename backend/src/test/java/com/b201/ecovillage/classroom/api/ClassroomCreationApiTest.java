@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,6 +73,9 @@ class ClassroomCreationApiTest {
     @Autowired
     private AutonomousScheduleModuleRepository scheduleModuleRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private UUID schoolId;
     private Principal principal;
 
@@ -94,7 +98,7 @@ class ClassroomCreationApiTest {
     }
 
     @Test
-    void createsClassroomOwnerModulesScheduleAndDefaultPolicyAtomically() throws Exception {
+    void createsClassroomOwnerAndDisabledSelectedModulesWithoutDefaultPolicy() throws Exception {
         String response = mockMvc.perform(
             post("/classrooms")
                 .principal(principal)
@@ -123,9 +127,17 @@ class ClassroomCreationApiTest {
         assertEquals(1, classroomRepository.count());
         assertEquals(1, classroomTeacherRepository.count());
         assertEquals(2, classroomModuleRepository.count());
-        assertEquals(1, policyVersionRepository.count());
+        assertEquals(0, policyVersionRepository.count());
         assertEquals(1, scheduleRepository.count());
         assertEquals(2, scheduleModuleRepository.count());
+        assertEquals(0L, jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM ledger_accounts",
+            Long.class
+        ));
+        assertTrue(classroomModuleRepository.findAll().stream().allMatch(
+            module -> "DISABLED".equals(module.getStatus())
+                && module.getEnabledAt() == null
+        ));
 
         mockMvc.perform(
             get("/classrooms/{classroomId}/configuration", id)
@@ -136,8 +148,129 @@ class ClassroomCreationApiTest {
             .andExpect(jsonPath("$.data.currency_name").value("에코"))
             .andExpect(jsonPath("$.data.module_codes.length()").value(2))
             .andExpect(jsonPath("$.data.autonomous_schedules.length()").value(1))
-            .andExpect(jsonPath("$.data.policy_versions[0].policy_area").value("SALARY"))
-            .andExpect(jsonPath("$.data.policy_versions[0].version").value(1));
+            .andExpect(jsonPath("$.data.policy_versions.length()").value(0));
+    }
+
+    @Test
+    void createsClassroomWithoutAnyOptionalModules() throws Exception {
+        String body = """
+            {
+              "school_id": "%s",
+              "currency_name": "ECO",
+              "grade": 5,
+              "course_size": "ONE_MONTH",
+              "starts_on": "2026-08-01",
+              "ends_on": "2026-08-31",
+              "student_count": 24,
+              "timezone": "Asia/Seoul",
+              "module_codes": []
+            }
+            """.formatted(schoolId);
+
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isCreated());
+
+        assertEquals(0, classroomModuleRepository.count());
+        assertEquals(0, policyVersionRepository.count());
+        assertEquals(0L, jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM ledger_accounts",
+            Long.class
+        ));
+    }
+
+    @Test
+    void canonicalizesLegacyModuleAliasesBeforePersistenceAndOutput() throws Exception {
+        String body = """
+            {
+              "school_id": "%s",
+              "currency_name": "ECO",
+              "grade": 5,
+              "course_size": "ONE_MONTH",
+              "starts_on": "2026-08-01",
+              "ends_on": "2026-08-31",
+              "student_count": 24,
+              "timezone": "Asia/Seoul",
+              "module_codes": ["income", "tax"],
+              "autonomous_schedules": [{
+                "day_of_week": 1,
+                "local_start_time": "12:10:00",
+                "local_end_time": "12:50:00",
+                "module_codes": ["INCOME", "TAX"]
+              }]
+            }
+            """.formatted(schoolId);
+
+        String response = mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        UUID classroomId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(
+            response,
+            "$.data.classroom_id"
+        ));
+        assertEquals(
+            java.util.Set.of("ROLE_SALARY", "INCOME_TAX"),
+            classroomModuleRepository.findAll().stream()
+                .map(module -> module.getModuleCode())
+                .collect(java.util.stream.Collectors.toSet())
+        );
+        assertEquals(
+            java.util.Set.of("ROLE_SALARY", "INCOME_TAX"),
+            scheduleModuleRepository.findAll().stream()
+                .map(module -> module.getModuleCode())
+                .collect(java.util.stream.Collectors.toSet())
+        );
+
+        mockMvc.perform(
+            get("/classrooms/{classroomId}/configuration", classroomId)
+                .principal(principal)
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.module_codes").value(
+                org.hamcrest.Matchers.containsInAnyOrder("ROLE_SALARY", "INCOME_TAX")
+            ));
+    }
+
+    @Test
+    void rejectsUnknownAndTechnicalInfrastructureModuleCodes() throws Exception {
+        String unknown = validCreationBody("에코", "ONE_WEEK")
+            .replace("\"STORE\", \"QUIZ_GAME\"", "\"UNKNOWN_MODULE\"");
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(unknown)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODULE_CODE"));
+
+        String wallet = unknown.replace("UNKNOWN_MODULE", "WALLET");
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(wallet)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODULE_CODE"));
+
+        assertEquals(0, classroomRepository.count());
     }
 
     @Test
@@ -158,7 +291,7 @@ class ClassroomCreationApiTest {
     }
 
     @Test
-    void restrictsOneSessionToQuizModules() throws Exception {
+    void allowsTeacherSelectedModulesForOneSession() throws Exception {
         mockMvc.perform(
             post("/classrooms")
                 .principal(principal)
@@ -166,10 +299,13 @@ class ClassroomCreationApiTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(validCreationBody("에코", "ONE_SESSION"))
         )
-            .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.error.code").value("POLICY_VIOLATION"));
+            .andExpect(status().isCreated());
 
-        assertTrue(classroomRepository.findAll().isEmpty());
+        assertEquals(1, classroomRepository.count());
+        assertEquals(2, classroomModuleRepository.count());
+        assertTrue(classroomModuleRepository.findAll().stream().allMatch(
+            module -> "DISABLED".equals(module.getStatus())
+        ));
     }
 
     @Test
@@ -211,13 +347,13 @@ class ClassroomCreationApiTest {
               "ends_on": "2026-08-31",
               "student_count": 24,
               "timezone": "Asia/Seoul",
-              "salary_policy": {"tax_rate_bps": 1000},
-              "module_codes": ["STORE", "QUIZ"],
+              "salary_policy": {},
+              "module_codes": ["STORE", "QUIZ_GAME"],
               "autonomous_schedules": [{
                 "day_of_week": 1,
                 "local_start_time": "12:10:00",
                 "local_end_time": "12:50:00",
-                "module_codes": ["STORE", "QUIZ"]
+                "module_codes": ["STORE", "QUIZ_GAME"]
               }]
             }
             """.formatted(schoolId, currencyName, courseSize);

@@ -28,8 +28,10 @@ student-app/.expo-shared/
 student-app/dist/
 student-app/coverage/
 teacher-web/.next/
+teacher-web/.next-stale-*/
 teacher-web/out/
 teacher-web/coverage/
+.next/
 **/*.tsbuildinfo
 
 # Python
@@ -39,6 +41,7 @@ ai-service/__pycache__/
 ai-service/.pytest_cache/
 ai-service/.mypy_cache/
 ai-service/.ruff_cache/
+ai-service/build/
 **/*.py[cod]
 
 # Terraform

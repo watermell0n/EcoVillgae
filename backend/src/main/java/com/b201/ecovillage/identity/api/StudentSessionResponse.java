@@ -8,6 +8,8 @@ public record StudentSessionResponse(
     String refreshToken,
     Instant expiresAt,
     UUID classroomId,
+    String currencyName,
+    long walletBalance,
     UUID studentId,
     String role
 ) {

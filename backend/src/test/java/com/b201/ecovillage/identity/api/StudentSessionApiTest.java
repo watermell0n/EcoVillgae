@@ -5,13 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -29,6 +35,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.StudentCredential;
 import com.b201.ecovillage.identity.domain.StudentSession;
 import com.b201.ecovillage.identity.domain.StudentSessionStatus;
@@ -51,6 +58,7 @@ import com.b201.ecovillage.identity.repository.StudentSessionRepository;
 class StudentSessionApiTest {
 
     private static final String CLASSROOM_CODE = "ABCD2345";
+    private static final String CURRENCY_NAME = "별";
     private static final String NICKNAME = "경제왕";
     private static final String PASSWORD = "economy123!";
     private static final Instant CREATED_AT = Instant.parse("2026-07-30T00:00:00Z");
@@ -85,7 +93,19 @@ class StudentSessionApiTest {
         studentId = UUID.randomUUID();
 
         classroomRepository.save(
-            Classroom.active(classroomId, CLASSROOM_CODE, CREATED_AT)
+            Classroom.create(
+                classroomId,
+                new UUID(0, 0),
+                CLASSROOM_CODE,
+                CURRENCY_NAME,
+                4,
+                CourseSize.ONE_WEEK,
+                30,
+                LocalDate.of(2026, 7, 30),
+                LocalDate.of(2026, 8, 6),
+                "Asia/Seoul",
+                CREATED_AT
+            )
         );
         classroomStudentRepository.save(
             ClassroomStudent.enroll(studentId, classroomId, 7, NICKNAME, CREATED_AT)
@@ -116,6 +136,8 @@ class StudentSessionApiTest {
             .andExpect(jsonPath("$.data.refresh_token").isString())
             .andExpect(jsonPath("$.data.expires_at").isString())
             .andExpect(jsonPath("$.data.classroom_id").value(classroomId.toString()))
+            .andExpect(jsonPath("$.data.currency_name").value(CURRENCY_NAME))
+            .andExpect(jsonPath("$.data.wallet_balance").value(0))
             .andExpect(jsonPath("$.data.student_id").value(studentId.toString()))
             .andExpect(jsonPath("$.data.role").value("STU"))
             .andExpect(jsonPath("$.meta.request_id").value(requestId.toString()))
@@ -278,6 +300,82 @@ class StudentSessionApiTest {
             .andExpect(header().exists("Retry-After"))
             .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
             .andExpect(jsonPath("$.error.retryable").value(true));
+    }
+
+    @Test
+    void authenticatesRefreshesAndRevokesStudentSession() throws Exception {
+        MvcResult login = mockMvc.perform(
+            validLoginRequest(CLASSROOM_CODE, NICKNAME, PASSWORD, UUID.randomUUID())
+                .header("Idempotency-Key", UUID.randomUUID())
+        )
+            .andExpect(status().isCreated())
+            .andReturn();
+        String accessToken = JsonPath.read(
+            login.getResponse().getContentAsString(),
+            "$.data.access_token"
+        );
+        String refreshToken = JsonPath.read(
+            login.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+
+        mockMvc.perform(
+            get("/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.user_id").value(studentId.toString()))
+            .andExpect(jsonPath("$.data.role").value("STU"))
+            .andExpect(jsonPath("$.data.classrooms[0].classroom_id")
+                .value(classroomId.toString()));
+
+        MvcResult refresh = mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", refreshToken)
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"))
+            .andExpect(jsonPath("$.data.refresh_token").isString())
+            .andReturn();
+        String rotatedAccessToken = JsonPath.read(
+            refresh.getResponse().getContentAsString(),
+            "$.data.access_token"
+        );
+        String rotatedRefreshToken = JsonPath.read(
+            refresh.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+        assertNotEquals(refreshToken, rotatedRefreshToken);
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", refreshToken)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(
+            post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .cookie(new Cookie("ecovillage_teacher_refresh", rotatedRefreshToken))
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
+
+        mockMvc.perform(
+            delete("/auth/sessions/current")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + rotatedAccessToken)
+        ).andExpect(status().isNoContent());
+
+        mockMvc.perform(
+            get("/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + rotatedAccessToken)
+        )
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_ACCESS_TOKEN"));
     }
 
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder

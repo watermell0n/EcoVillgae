@@ -40,6 +40,13 @@ const expectedMigrations = [
   "V1_11__mvp_schema_alignment.sql",
   "V1_12__seed_course_recommendations.sql",
   "V1_13__activity_public_fields.sql",
+  "V1_14__ai_v1_2_execution.sql",
+  "V1_15__quiz_result_workflow.sql",
+  "V1_16__student_character_profiles_and_equipment.sql",
+  "V1_17__basic_character_catalog.sql",
+  "V1_18__teacher_local_credentials.sql",
+  "V1_19__canonical_module_catalog.sql",
+  "V1_20__investment_modes_and_historical_reference.sql",
 ];
 
 function unique(values) {
@@ -104,8 +111,8 @@ for (const table of difference(implementedTables, documentedTables)) {
 for (const table of duplicates(implementedTables)) {
   errors.push(`table is created more than once: ${table}`);
 }
-if (implementedTables.length !== 85) {
-  errors.push(`expected 85 tables, found ${implementedTables.length}`);
+if (implementedTables.length !== 88) {
+  errors.push(`expected 88 tables, found ${implementedTables.length}`);
 }
 
 const documentedIndexes = [
@@ -117,12 +124,12 @@ const implementedIndexes = [
 for (const index of difference(documentedIndexes, implementedIndexes)) {
   errors.push(`documented IX index is not implemented: ${index}`);
 }
-if (documentedIndexes.length !== 37) {
-  errors.push(`expected 37 documented indexes, found ${documentedIndexes.length}`);
+if (documentedIndexes.length !== 40) {
+  errors.push(`expected 40 documented indexes, found ${documentedIndexes.length}`);
 }
 
 const expectedDbTests = Array.from(
-  { length: 20 },
+  { length: 22 },
   (_, index) => `DBT-${String(index + 1).padStart(3, "0")}`,
 );
 const implementedDbTests = unique([
@@ -134,12 +141,17 @@ for (const testId of difference(expectedDbTests, implementedDbTests)) {
 
 const constraintDeclarations = sql
   .split(/\r?\n/)
-  .filter((line) => !/^\s*DROP CONSTRAINT\b/.test(line))
+  .filter((line) => !/\bDROP CONSTRAINT\b/.test(line))
   .join("\n");
+const droppedConstraints = new Set([
+  ...sql.matchAll(/\bDROP CONSTRAINT ([a-z][a-z0-9_]*)/g),
+].map((match) => match[1]));
 for (const constraint of duplicates([
   ...constraintDeclarations.matchAll(/\bCONSTRAINT ([a-z][a-z0-9_]*)/g),
 ].map((match) => match[1]))) {
-  errors.push(`constraint name is duplicated: ${constraint}`);
+  if (!droppedConstraints.has(constraint)) {
+    errors.push(`constraint name is duplicated: ${constraint}`);
+  }
 }
 for (const trigger of duplicates([
   ...sql.matchAll(/^CREATE (?:CONSTRAINT )?TRIGGER ([a-z][a-z0-9_]*)/gm),

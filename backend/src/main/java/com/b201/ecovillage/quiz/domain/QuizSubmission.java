@@ -113,6 +113,14 @@ public class QuizSubmission {
         return id;
     }
 
+    public UUID getClassroomStudentId() {
+        return classroomStudentId;
+    }
+
+    public UUID getQuizSessionId() {
+        return quizSessionId;
+    }
+
     public int getAnswerSheetVersion() {
         return answerSheetVersion;
     }
@@ -123,5 +131,9 @@ public class QuizSubmission {
 
     public long getStateVersion() {
         return stateVersion;
+    }
+
+    public boolean isSubmitted() {
+        return "SUBMITTED".equals(status);
     }
 }

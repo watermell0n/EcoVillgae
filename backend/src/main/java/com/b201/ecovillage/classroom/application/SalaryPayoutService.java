@@ -22,6 +22,7 @@ import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.domain.Payslip;
 import com.b201.ecovillage.classroom.domain.SalaryRole;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.PayslipRepository;
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -62,6 +63,7 @@ public class SalaryPayoutService {
     private final ClassroomStudentRepository studentRepository;
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
+    private final ClassroomModuleRepository moduleRepository;
     private final PayslipRepository payslipRepository;
     private final UserAccountRepository userAccountRepository;
     private final LedgerAccountRepository ledgerAccountRepository;
@@ -77,6 +79,7 @@ public class SalaryPayoutService {
         ClassroomStudentRepository studentRepository,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
+        ClassroomModuleRepository moduleRepository,
         PayslipRepository payslipRepository,
         UserAccountRepository userAccountRepository,
         LedgerAccountRepository ledgerAccountRepository,
@@ -91,6 +94,7 @@ public class SalaryPayoutService {
         this.studentRepository = studentRepository;
         this.salaryRoleRepository = salaryRoleRepository;
         this.policyVersionRepository = policyVersionRepository;
+        this.moduleRepository = moduleRepository;
         this.payslipRepository = payslipRepository;
         this.userAccountRepository = userAccountRepository;
         this.ledgerAccountRepository = ledgerAccountRepository;
@@ -139,6 +143,23 @@ public class SalaryPayoutService {
                 HttpStatus.CONFLICT,
                 "STATE_VERSION_CONFLICT",
                 "경제교실 상태가 변경되었습니다."
+            );
+        }
+        boolean salaryModuleActive = moduleRepository
+            .existsByClassroomIdAndModuleCodeAndStatus(
+                command.classroomId(),
+                "ROLE_SALARY",
+                "ACTIVE"
+            ) || moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+                command.classroomId(),
+                "SALARY",
+                "ACTIVE"
+            );
+        if (!salaryModuleActive) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                "Salary payouts require the role and salary module to be active."
             );
         }
 

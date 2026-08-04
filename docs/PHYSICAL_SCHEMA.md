@@ -1,17 +1,17 @@
 # 이코빌리지 PostgreSQL 물리 스키마
 
-- 버전: v0.5
+- 버전: v0.6
 - 기준일: 2026-07-30
 - 개발 기준 브랜치: `develop`
-- 입력: [논리 데이터 모델 v0.4](DATA_MODEL.md)
-- 상태: MVP 물리 기준선과 Flyway·Testcontainers 구현 완료
+- 입력: [논리 데이터 모델 v0.5](DATA_MODEL.md)
+- 상태: MVP 물리 기준선·AI v1.2 선택형 모듈 계약 반영, 관련 Flyway 구현 예정
 - 대상: PostgreSQL 17, Flyway migration
 
 ## 1. 목적과 범위
 
-이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
+이 문서는 논리 ERD의 87개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_13`과 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_17`와 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -168,6 +168,8 @@ ON DELETE RESTRICT
 | `payslips` | I | `classroom_student_id uuid FK(classroom_students)`, `salary_role_id uuid? FK(salary_roles)`, `period_key varchar(40)`, `gross_amount bigint`, `deduction_amount bigint`, `tax_amount bigint`, `net_amount bigint`, `policy_snapshot_id uuid FK(policy_snapshots)`, `transaction_group_id uuid FK(transaction_groups)`, `issued_at timestamptz D=now()` | `(classroom_student_id,period_key) UQ`, 금액 산식 |
 | `school_ai_setting_versions` | 없음 | `id uuid PK`, `school_id uuid FK(schools)`, `version integer`, `enabled boolean`, `reason text`, `effective_from timestamptz`, `superseded_at timestamptz?`, `created_by_user_id uuid FK(users)`, `created_at timestamptz D=now()` | `(school_id,version) UQ`, 학교별 현재 버전 1개, 이력 불변 |
 
+전역 필수 모듈은 없습니다. 역할·급여 모듈이 비활성화된 학급은 `salary_roles`와 `payslips` 행을 만들지 않으며 `classroom_students.salary_role_id`를 `NULL`로 유지할 수 있습니다. 금액 모듈이 처음 활성화될 때 필요한 `ledger_accounts`를 생성하므로 지갑·원장은 교사가 고르는 기능 모듈이나 방 생성의 필수 데이터가 아닙니다. 초기 정책이 필요한 모듈은 `classroom_policy_versions` 저장과 `classroom_modules` 활성 전이를 같은 서비스 트랜잭션에서 처리합니다.
+
 ### 4.2 거래 원장·멱등성·상태·이벤트·감사
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
@@ -196,7 +198,9 @@ ON DELETE RESTRICT
 | `store_order_items` | I | `store_order_id uuid FK(store_orders)`, `store_product_version_id uuid FK(store_product_versions)`, `quantity integer`, `unit_price bigint`, `vat_rate_bps integer`, `subtotal_amount bigint`, `tax_amount bigint`, `total_amount bigint` | `(store_order_id,store_product_version_id) UQ`, 수량>0 |
 | `character_catalog` | G | `character_code varchar(80)`, `name varchar(120)`, `source_title varchar(200)`, `source_url text`, `rights_status varchar(40)`, `rights_evidence_key varchar(512)`, `reviewed_at timestamptz?`, `status varchar(40)` | `character_code UQ`, 승인 전 판매 금지 |
 | `classroom_characters` | S | `character_catalog_id uuid FK(character_catalog)`, `store_product_id uuid? FK(store_products)`, `display_name varchar(120)`, `sort_order integer D=0` | `(classroom_id,character_catalog_id) UQ` |
-| `inventory_items` | S | `classroom_student_id uuid FK(classroom_students)`, `character_catalog_id uuid FK(character_catalog)`, `source_order_item_id uuid? FK(store_order_items)`, `locked_trade_id uuid? FK(trades)`, `equipped_at timestamptz?`, `acquired_at timestamptz D=now()` | SM-ITM-001, 잠금·장착 일관성 |
+| `inventory_items` | S | `classroom_student_id uuid FK(classroom_students)`, `character_catalog_id uuid FK(character_catalog)`, `source_order_item_id uuid? FK(store_order_items)`, `locked_trade_id uuid? FK(trades)`, `acquired_at timestamptz D=now()` | 디지털 소유 원장, 상태 `AVAILABLE·LOCKED_TRADE`, 거래 잠금 일관성 |
+| `student_character_profiles` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `state_version bigint D=0`, `equipment_revision bigint D=0`, `equipment_changed_at timestamptz D=now()` | 학생당 최대 1개, 단일 고정 체형, 슬롯별 장착 상태의 낙관적 버전 |
+| `character_equipment` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `character_profile_id uuid FK(student_character_profiles)`, `inventory_item_id uuid FK(inventory_items)`, `slot varchar(40)`, `state_version bigint D=0`, `equipped_at timestamptz D=now()` | 장착 표현 상태, 프로필별 슬롯 UQ, 인벤토리 아이템 UQ, 낙관적 버전 |
 | `trades` | S | `proposer_student_id uuid FK(classroom_students)`, `counterpart_student_id uuid FK(classroom_students)`, `description text?`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `transaction_group_id uuid? FK(transaction_groups)`, `counterpart_decided_at timestamptz?`, `teacher_decided_at timestamptz?`, `expires_at timestamptz?` | SM-TRD-001, 자기거래 금지 |
 | `trade_money_legs` | I | `trade_id uuid FK(trades)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)`, `amount bigint` | `(trade_id,from_student_id,to_student_id) UQ`, 금액>0 |
 | `trade_item_legs` | I | `trade_id uuid FK(trades)`, `inventory_item_id uuid FK(inventory_items)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)` | `(trade_id,inventory_item_id) UQ`, 동일 학생 금지 |
@@ -212,8 +216,8 @@ ON DELETE RESTRICT
 | `savings_accounts` | S | `classroom_student_id uuid FK(classroom_students)`, `product_version_id uuid FK(financial_product_versions)`, `installment_amount bigint`, `installment_count integer`, `paid_installment_count integer D=0`, `principal_balance bigint D=0`, `expected_interest_amount bigint`, `opened_at timestamptz D=now()`, `matures_at timestamptz`, `closed_at timestamptz?`, `opening_transaction_group_id uuid? FK(transaction_groups)`, `closing_transaction_group_id uuid? FK(transaction_groups)` | SM-SAV-001 |
 | `savings_installments` | S | `savings_account_id uuid FK(savings_accounts)`, `installment_number integer`, `scheduled_amount bigint`, `due_at timestamptz`, `retryable_until timestamptz`, `paid_at timestamptz?`, `transaction_group_id uuid? FK(transaction_groups)` | `(savings_account_id,installment_number) UQ`, SM-SAV-002 |
 | `investment_markets` | S | `active_scenario_version_id uuid? FK(investment_scenario_versions)`, `current_step integer D=0`, `opened_at timestamptz?`, `closed_at timestamptz?` | 학급당 1개 UQ, SM-IVT-001 |
-| `investment_scenario_versions` | I | `investment_market_id uuid FK(investment_markets)`, `version integer`, `name varchar(120)`, `scenario_seed varchar(128)?`, `status varchar(40)`, `published_at timestamptz?` | `(investment_market_id,version) UQ`, 게시 후 불변 |
-| `investment_assets` | S | `scenario_version_id uuid FK(investment_scenario_versions)`, `symbol varchar(20)`, `name varchar(120)`, `display_order integer D=0` | `(scenario_version_id,symbol) UQ` |
+| `investment_scenario_versions` | I | `investment_market_id uuid FK(investment_markets)`, `version integer`, `name varchar(120)`, `scenario_seed varchar(128)?`, `investment_mode varchar(20) D=LONG_TERM`, `scenario_source varchar(30) D=AI_GENERATED`, `reference_series_code varchar(40)?`, `reference_event_name varchar(120)?`, `reference_source_name varchar(120)?`, `reference_source_url varchar(500)?`, `reference_period_start date?`, `reference_period_end date?`, `status varchar(40)`, `published_at timestamptz?` | `(investment_market_id,version) UQ`, 역사 지수 참조는 LONG_TERM+HISTORICAL_INDEX에서만 필수, 게시 후 불변 |
+| `investment_assets` | S | `scenario_version_id uuid FK(investment_scenario_versions)`, `symbol varchar(20)`, `name varchar(120)`, `fictional_company_profile varchar(1000)`, `display_order integer D=0` | `(scenario_version_id,symbol) UQ` |
 | `investment_price_steps` | I | `investment_asset_id uuid FK(investment_assets)`, `step_number integer`, `price bigint`, `change_rate_bps integer`, `revealed_at timestamptz?` | `(investment_asset_id,step_number) UQ`, 가격>0 |
 | `investment_orders` | S | `classroom_student_id uuid FK(classroom_students)`, `investment_asset_id uuid FK(investment_assets)`, `side varchar(10)`, `quantity integer`, `executed_price bigint?`, `executed_price_step integer?`, `transaction_group_id uuid? FK(transaction_groups)`, `submitted_at timestamptz D=now()`, `executed_at timestamptz?`, `reject_reason varchar(80)?` | SM-IVT-002, 정수 수량>0 |
 | `investment_positions` | 없음 | `id uuid PK`, `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `investment_asset_id uuid FK(investment_assets)`, `quantity integer D=0`, `average_price bigint D=0`, `state_version bigint D=0`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | `(classroom_student_id,investment_asset_id) UQ`, 수량 0 이상 |
@@ -239,8 +243,8 @@ ON DELETE RESTRICT
 | `quiz_answers` | I | `quiz_submission_id uuid FK(quiz_submissions)`, `quiz_session_question_id uuid FK(quiz_session_questions)`, `selected_option_key varchar(20)?`, `free_text text?`, `is_correct boolean?`, `score_awarded integer?`, `response_time_ms integer?`, `answered_at timestamptz D=now()` | `(quiz_submission_id,quiz_session_question_id) UQ` |
 | `quiz_result_versions` | I | `quiz_session_id uuid FK(quiz_sessions)`, `version integer`, `status varchar(40)`, `reward_transaction_group_id uuid? FK(transaction_groups)`, `published_at timestamptz?`, `supersedes_result_version_id uuid? FK(quiz_result_versions)` | `(quiz_session_id,version) UQ`, 게시 후 불변 |
 | `quiz_student_results` | I | `quiz_result_version_id uuid FK(quiz_result_versions)`, `classroom_student_id uuid FK(classroom_students)`, `score integer`, `correct_count integer`, `rank integer?`, `reward_amount bigint D=0`, `total_response_time_ms bigint?` | `(quiz_result_version_id,classroom_student_id) UQ` |
-| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | SM-QAD-001 |
-| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
+| `quiz_question_issues` | S | `quiz_session_question_id uuid FK(quiz_session_questions)`, `reported_by_student_id uuid? FK(classroom_students)`, `reason text`, `resolution text?`, `resolved_by_user_id uuid? FK(users)`, `resolved_at timestamptz?` | 학생별·세션 문항별 신고 1회 부분 UQ, SM-QAD-001 |
+| `regrading_runs` | S | `quiz_session_id uuid FK(quiz_sessions)`, `source_result_version_id uuid FK(quiz_result_versions)`, `new_result_version_id uuid? FK(quiz_result_versions)`, `reason text`, `started_by_user_id uuid FK(users)`, `started_at timestamptz D=now()`, `completed_at timestamptz?` | 세션별 활성 재채점 1개 부분 UQ, 상태 `REQUESTED·RUNNING·COMPLETED·FAILED` |
 | `votes` | 없음 | `activity_session_id uuid PK FK(activity_sessions)`, `classroom_id uuid`, `title varchar(160)`, `description text?`, `anonymous boolean D=true`, `status varchar(40)`, `state_version bigint D=0`, `opens_at timestamptz?`, `closes_at timestamptz?`, `created_at timestamptz D=now()`, `updated_at timestamptz D=now()` | 상태 `READY·OPEN·CLOSED·RESULT_PUBLISHED` |
 | `vote_options` | I | `vote_id uuid FK(votes)`, `label varchar(160)`, `description text?`, `sort_order integer`, `budget_amount bigint?` | `(vote_id,sort_order) UQ` |
 | `vote_eligibilities` | I | `vote_id uuid FK(votes)`, `classroom_student_id uuid FK(classroom_students)`, `eligibility_token_hash varchar(128)`, `used_at timestamptz?` | `(vote_id,classroom_student_id) UQ`, `(vote_id,eligibility_token_hash) UQ |
@@ -250,11 +254,11 @@ ON DELETE RESTRICT
 
 | 테이블 | 공통 | 추가 컬럼 | 키·상태 |
 | --- | --- | --- | --- |
-| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid FK(users)`, `run_type varchar(40)`, `model_provider varchar(40)`, `model_id varchar(120)`, `prompt_version varchar(40)`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
+| `ai_runs` | S | `async_operation_id uuid? FK(async_operations)`, `requested_by_user_id uuid? FK(users)`, `run_type varchar(40)`, `trigger_type varchar(40)`, `analysis_period_from timestamptz?`, `analysis_period_to timestamptz?`, `model_provider varchar(40)?`, `model_id varchar(120)?`, `prompt_version varchar(40)?`, `input_scope jsonb`, `validation_result jsonb?`, `requested_at timestamptz D=now()`, `completed_at timestamptz?`, `error_code varchar(80)?`, `retention_until timestamptz` | 자동·규칙 전용 실행은 요청 사용자·모델 메타 NULL, `async_operation_id UQ` 또는 NULL, SM-AIR-001 |
 | `ai_artifacts` | I | `ai_run_id uuid FK(ai_runs)`, `artifact_type varchar(40)`, `content jsonb`, `schema_version varchar(20)`, `safety_status varchar(40)` | 생성 후 불변 |
-| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED` |
-| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 제안당 최종 결정 1개 UQ |
-| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·APPLIED·CANCELED` |
+| `ai_proposals` | S | `ai_run_id uuid FK(ai_runs)`, `proposal_type varchar(40)`, `source_type varchar(40)`, `severity varchar(20)?`, `metric_code varchar(80)?`, `direction varchar(20)?`, `dedupe_key varchar(200)?`, `proposed_values jsonb`, `allowed_ranges jsonb`, `expires_at timestamptz`, `applied_policy_version_id uuid? FK(classroom_policy_versions)` | 상태 `AWAITING_TEACHER·ACKNOWLEDGED·APPROVED·REJECTED·EXPIRED·APPLIED·APPLY_FAILED`, 같은 자동 분석 구간의 dedupe key는 서비스에서 멱등 저장 |
+| `ai_decisions` | I | `ai_proposal_id uuid FK(ai_proposals)`, `decided_by_user_id uuid FK(users)`, `decision varchar(40)`, `reason text?`, `decided_at timestamptz D=now()` | 결정 `ACKNOWLEDGE·APPROVE·REJECT`, 정책 적용 최종 결정은 1개 UQ |
+| `economic_event_drafts` | S | `ai_run_id uuid? FK(ai_runs)`, `activity_session_id uuid? FK(activity_sessions)`, `source_type varchar(40)`, `source_proposal_id uuid? FK(ai_proposals)`, `investment_price_step_id uuid? FK(investment_price_steps)`, `title varchar(160)`, `content text`, `economic_effect jsonb`, `valid_from timestamptz?`, `valid_until timestamptz?`, `revealed_at timestamptz?` | 상태 `DRAFT·APPROVED·SCHEDULED·REVEALED·APPLIED·CANCELED`, INVESTMENT_NEWS는 가격 단계 연결 필수·단계당 활성 뉴스 1개 |
 | `async_operations` | S | `operation_type varchar(40)`, `requested_by_user_id uuid? FK(users)`, `progress_percent integer D=0`, `result_location varchar(512)?`, `error_code varchar(80)?`, `error_detail text?`, `started_at timestamptz?`, `completed_at timestamptz?`, `expires_at timestamptz?` | 진행률 0~100 |
 | `export_operations` | 없음 | `async_operation_id uuid PK FK(async_operations)`, `classroom_id uuid`, `requested_by_user_id uuid FK(users)`, `export_type varchar(40)`, `filter_snapshot jsonb`, `result_s3_key varchar(512)?`, `retention_until timestamptz`, `created_at timestamptz D=now()` | 비밀 URL 저장 금지 |
 | `report_snapshots` | I | `classroom_student_id uuid? FK(classroom_students)`, `report_type varchar(40)`, `schema_version varchar(20)`, `snapshot jsonb`, `as_of timestamptz`, `retention_until timestamptz` | 개인·학급 리포트 구분, 생성 후 불변 |
@@ -283,8 +287,11 @@ ON DELETE RESTRICT
 | UK-016 | `salary_roles` | `UNIQUE (classroom_id,role_code)` | 학생 배정과 API가 참조하는 학급 내 안정 역할 코드 |
 | UK-017 | `autonomous_schedule_modules` | `UNIQUE (autonomous_schedule_id,module_code)` | 같은 일정에 같은 모듈 중복 연결 방지 |
 | UK-018 | `school_ai_setting_versions` | `UNIQUE (school_id) WHERE superseded_at IS NULL` | 학교별 현재 AI 설정을 한 버전으로 제한 |
+| UK-019 | `student_character_profiles` | `UNIQUE (classroom_id,classroom_student_id)` | 학생별 캐릭터 프로필 최대 1개 |
+| UK-020 | `character_equipment` | `UNIQUE (character_profile_id,slot)` | 프로필별 슬롯당 장착 행 최대 1개 |
+| UK-021 | `character_equipment` | `UNIQUE (inventory_item_id)` | 같은 보유 아이템의 중복 장착 방지 |
 
-UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010·017은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
+UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010·017·019~021은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
 
 ## 6. 검사 제약조건
 
@@ -304,7 +311,7 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-012 | `store_stocks` | `available_quantity>=0 AND reserved_quantity>=0` |
 | CK-013 | `store_orders` | `subtotal_amount+tax_amount=total_amount` |
 | CK-014 | `store_order_items` | `quantity>0`, 금액 산식과 `vat_rate_bps BETWEEN 0 AND 10000` |
-| CK-015 | `inventory_items` | `LOCKED_TRADE`일 때만 `locked_trade_id` 존재, `EQUIPPED`일 때만 `equipped_at` 존재 |
+| CK-015 | `inventory_items` | 상태는 `AVAILABLE·LOCKED_TRADE`이며 `LOCKED_TRADE`일 때만 `locked_trade_id` 존재 |
 | CK-016 | `trades` | `proposer_student_id<>counterpart_student_id` |
 | CK-017 | `trade_money_legs` | `amount>0 AND from_student_id<>to_student_id` |
 | CK-018 | `trade_item_legs` | `from_student_id<>to_student_id` |
@@ -329,6 +336,8 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-037 | `classrooms` | `planned_student_count>0` |
 | CK-038 | `salary_roles` | `role_code`는 영문 대문자로 시작하는 영문 대문자·숫자·밑줄 1~40자 |
 | CK-039 | `school_ai_setting_versions` | `version>0`, 사유는 공백이 아니며 `superseded_at`은 `effective_from`보다 뒤 |
+| CK-040 | `student_character_profiles` | `state_version>=0 AND equipment_revision>=0` |
+| CK-041 | `character_equipment` | 슬롯은 10개 허용값 중 하나이고 `state_version>=0` |
 
 상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 
@@ -391,6 +400,19 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 
 같은 학급의 같은 해시가 이미 있으면 기존 스냅샷을 재사용할 수 있습니다.
 
+### 7.6 디지털 아이템 소유와 장착
+
+- `inventory_items`는 소유자와 거래 잠금만 기록하는 단일 소유 원장입니다. 장착 중인 아이템도
+  소유 원장 상태는 `AVAILABLE`이며, 실제 장착 여부는 `character_equipment` 존재로 판단합니다.
+- `character_equipment`의 학급·학생·프로필·인벤토리 복합 FK는 다른 학급 또는 다른 학생의
+  아이템을 장착하는 것을 차단합니다.
+- `trg_character_equipment_validate_item`은 인벤토리 행을 잠근 뒤 `AVAILABLE`인 소유 아이템과
+  `character_code` 접두사의 슬롯 일치를 검사합니다. `bg_*`는 `BACKGROUND`로 정규화합니다.
+- `trg_inventory_items_equipment_lock`은 장착 행이 남아 있는 아이템을 `LOCKED_TRADE`로 바꾸지
+  못하게 합니다. 서비스도 거래 등록 전에 장착 여부를 확인해야 합니다.
+- `student_character_profiles`, `character_equipment`, `inventory_items`의 `state_version`은 각각
+  낙관적 동시성에 사용합니다. 외부 장착 명령은 프로필 버전을 기준으로 충돌을 판정합니다.
+
 ## 8. 조회 인덱스
 
 PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK 자식 인덱스를 자동 생성하지 않으므로 모든 FK 선두 컬럼에 별도 인덱스가 필요합니다.
@@ -415,7 +437,7 @@ PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK �
 | IX-016 | `ix_store_products_classroom_status` | `(classroom_id,status,product_kind)` | 상점 상품 |
 | IX-017 | `ix_store_orders_student_time` | `(classroom_student_id,created_at DESC)` | 학생 주문 |
 | IX-018 | `ix_store_orders_fulfillment` | `(classroom_id,status,created_at)` | 수령 처리 |
-| IX-019 | `ix_inventory_items_owner_status` | `(classroom_student_id,status,acquired_at DESC)` | 보유·장착 목록 |
+| IX-019 | `ix_inventory_items_owner_status` | `(classroom_student_id,status,acquired_at DESC)` | 보유·거래 잠금 목록 |
 | IX-020 | `ix_trades_proposer_status` | `(proposer_student_id,status,created_at DESC)` | 보낸 거래 |
 | IX-021 | `ix_trades_counterpart_status` | `(counterpart_student_id,status,created_at DESC)` | 받은 거래 |
 | IX-022 | `ix_trades_teacher_queue` | `(classroom_id,status,created_at) WHERE status='AWAITING_TEACHER'` | 교사 승인함 |
@@ -434,6 +456,9 @@ PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK �
 | IX-035 | `ix_async_operations_status` | `(classroom_id,status,created_at)` | 비동기 작업 감시 |
 | IX-036 | `ix_report_snapshots_retention` | `(retention_until)` | 보관 만료 |
 | IX-037 | `ix_autonomous_schedule_modules_module` | `(classroom_id,module_code,autonomous_schedule_id)` | 모듈별 자율시간 조회 |
+| IX-038 | `ix_student_character_profiles_student` | `(classroom_id,classroom_student_id)` | 본인 캐릭터 프로필 조회 |
+| IX-039 | `ix_character_equipment_profile` | `(classroom_id,character_profile_id)` | 프로필 장착 슬롯 조회 |
+| IX-040 | `ix_character_equipment_owner` | `(classroom_id,classroom_student_id)` | 학생별 장착 상태 조회 |
 
 JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN ANALYZE` 근거가 생긴 필드만 표현식 또는 GIN 인덱스로 추가합니다.
 
@@ -491,8 +516,12 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P11 | `V1_11__mvp_schema_alignment.sql` | 예상 학생 수·안정 역할 코드·자율시간 모듈 연결·학교 AI 설정 버전 |
 | P12 | `V1_12__seed_course_recommendations.sql` | 초4~6 × 1회·1주·1달·1학기 12개 추천 코스와 버전·모듈 제품 데이터 |
 | P13 | `V1_13__activity_public_fields.sql` | 지도 활동별 교사 승인 공용 화면 필드 allowlist |
+| P14 | `V1_14__ai_v1_2_execution.sql` | AI 실행 메타데이터·확인 결정·모니터 중복 방지 |
+| P15 | `V1_15__quiz_result_workflow.sql` | 학생별 중복 신고·세션별 동시 재채점 방지 부분 UQ |
+| P16 | `V1_16__student_character_profiles_and_equipment.sql` | 단일 체형 프로필, 슬롯별 장착, 54개 코드형 도트 상품과 학급 상점 초기 데이터 |
+| P17 | `V1_17__basic_character_catalog.sql` | 기본 테마 코드형 도트 파츠 10개 추가 및 기존 학급 상점 보강 |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_13`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_17`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -518,6 +547,8 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | DBT-018 | 학급 코드가 전역에서 유일하고 형식이 유효하며, 화폐 단위명 형식과 생성 후 불변성이 강제됨 |
 | DBT-019 | 예상 학생 수, 역할 코드, 자율시간-모듈 학급 범위, 학교 AI 현재 설정 제약이 강제됨 |
 | DBT-020 | 격리된 PostgreSQL에서 전체 Flyway 스키마를 정리하고 재생성할 수 있음 |
+| DBT-021 | 학생별 프로필·프로필별 슬롯·아이템별 장착 유일성과 10개 장착 슬롯 허용값이 강제됨 |
+| DBT-022 | 장착 행은 같은 학생의 `AVAILABLE` 아이템만 참조하고, 장착 아이템을 해제하지 않은 거래 잠금은 실패 |
 
 ## 13. 애플리케이션 책임
 
@@ -540,17 +571,37 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 
 구현 결과:
 
-- 논리 ERD 85개 엔티티가 85개 물리 테이블에 1:1 매핑
+- 논리 ERD 87개 엔티티가 87개 물리 테이블에 1:1 매핑
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_13`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드 데이터 구현
-- Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
+- Flyway `V1_1`~`V1_17`에 조회 인덱스 40개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터·퀴즈 신고/재채점 동시성 제약·캐릭터 슬롯 장착·64개 코드형 도트 상품 구현
+- Testcontainers에 DBT-001~022와 87개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
-- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_13` 13개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
-- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_13` 전체 재적용 성공
+- PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_14` 14개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
+- 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_14` 전체 재적용 성공
 - 안전장치가 있는 로컬 외부 DB 경로로 테이블 생성 검사와 DBT-001~020 총 21개 실행, 건너뜀 0건으로 성공
+- `ai_runs` 분석 구간과 `ai_proposals.dedupe_key`를 `ON_DEMAND`·`AUTO_MONITOR` 실제
+  집계 서비스에 연결하고, 확인된 알림도 다음 7일 구간에서 다시 발생하면 새 제안으로
+  저장하도록 구현
 - Testcontainers 21개 전체 실행은 Docker 사용 가능 Jenkins의 결과를 최종 PASS 기준으로 사용
+
+`V1_14__ai_v1_2_execution.sql`은 기존 마이그레이션을 소급 수정하지 않고 `ai_runs`의
+트리거·분석 구간, `ai_proposals`의 출처·심각도·지표·방향·중복키,
+`ai_decisions`의 확인 후 승인 가능 제약, `economic_event_drafts`의 출처 제안 연결을
+추가합니다. `ACKNOWLEDGED`는 최종 거절이 아니므로 같은 제안에 확인 결정 1개와 최종
+승인·거절 결정 1개를 각각 허용합니다.
+
+`V1_15__quiz_result_workflow.sql`은 학생별 같은 세션 문항 중복 신고와 같은 세션의
+활성 재채점 중복 실행을 부분 유일 인덱스로 차단합니다.
+
+`V1_16__student_character_profiles_and_equipment.sql`은 한 학생의 단일 캐릭터
+프로필과 슬롯별 장착 상태를 분리합니다. 장착된 아이템은 계속 학생 소유여야 하며
+배경을 포함한 서로 다른 슬롯은 동시에 유지됩니다.
+
+`V1_17__basic_character_catalog.sql`은 빨간 캡·비니·선글라스·헤드폰·파란
+티셔츠·노란 후드·초록 조끼·멜빵바지·운동화·배낭을 코드형 레이어 상품으로
+추가하고, 이미 생성된 학급 상점에도 누락 없이 보강합니다.
 
 후속 작업:
 

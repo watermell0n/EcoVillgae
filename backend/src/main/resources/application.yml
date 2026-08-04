@@ -41,6 +41,34 @@ ecovillage:
     token-pepper: ${AUTH_TOKEN_PEPPER:local-development-token-pepper-change-before-deploy}
     login-attempt-limit: ${AUTH_LOGIN_ATTEMPT_LIMIT:20}
     login-attempt-window: ${AUTH_LOGIN_ATTEMPT_WINDOW:1m}
+    refresh-cookie-name: ${AUTH_REFRESH_COOKIE_NAME:ecovillage_teacher_refresh}
+    refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:false}
+  teacher-oidc:
+    enabled: ${TEACHER_OIDC_ENABLED:false}
+    issuer: ${TEACHER_OIDC_ISSUER:}
+    jwk-set-uri: ${TEACHER_OIDC_JWK_SET_URI:}
+    client-id: ${TEACHER_OIDC_CLIENT_ID:}
+    name-claim: ${TEACHER_OIDC_NAME_CLAIM:name}
+  web:
+    allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  ai-service:
+    enabled: ${AI_SERVICE_ENABLED:true}
+    base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:8000}
+    token: ${AI_INTERNAL_SERVICE_TOKEN:local-development-token}
+    connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:2s}
+    read-timeout: ${AI_SERVICE_READ_TIMEOUT:10s}
+    total-timeout: ${AI_SERVICE_TOTAL_TIMEOUT:15s}
+    max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:2}
+  ai-monitor:
+    enabled: ${AI_MONITOR_ENABLED:true}
+    cron: ${AI_MONITOR_CRON:0 5 0 * * *}
+  realtime:
+    redis-enabled: ${REALTIME_REDIS_ENABLED:false}
+    ticket-ttl: ${REALTIME_TICKET_TTL:60s}
+    connection-ttl: ${REALTIME_CONNECTION_TTL:8h}
+    heartbeat-interval: ${REALTIME_HEARTBEAT_INTERVAL:25s}
+    dispatch-batch-size: ${REALTIME_DISPATCH_BATCH_SIZE:100}
+    dispatch-delay-ms: ${REALTIME_DISPATCH_DELAY_MS:250}
 
 management:
   endpoints:

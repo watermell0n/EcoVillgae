@@ -3,7 +3,7 @@
 - 버전: v0.5
 - 기준일: 2026-07-30
 - 상태: 공통 계약 확정
-- 범위: 학생·교사용 앱, 교사·관리자 웹, 핵심 API, AI 내부 API, 실시간 연결
+- 범위: 학생 앱, 교사·관리자 웹, 핵심 API, AI 내부 API, 실시간 연결
 
 이 문서는 개별 HTTP 엔드포인트와 WebSocket 이벤트를 작성할 때 공통으로 적용할 계약입니다. 제품 정책은 [API 명세 전 결정사항](API_PRE_DESIGN_DECISIONS.md), 권한은 [역할·권한 매트릭스](PERMISSION_MATRIX.md), 상태 전이는 [핵심 상태 머신](STATE_MACHINES.md), 화면 행동은 [화면 ID·행동 명세](SCREEN_SPEC.md)를 우선합니다.
 
@@ -45,9 +45,9 @@
 
 ### 3.2 교사·관리자
 
-- 교사용 앱은 Bearer 액세스 토큰과 회전형 갱신 토큰을 사용합니다.
-- 교사·관리자 웹은 `HttpOnly`, `Secure`, `SameSite` 쿠키 세션과 CSRF 방어를 사용합니다.
-- 교사는 수업 중 앱과 관리 웹을 함께 사용할 수 있으므로 학생의 단일 태블릿 세션 정책을 적용하지 않습니다.
+- 교사 로그인은 외부 OIDC의 Authorization Code + PKCE 흐름을 사용합니다. 핵심 API는 `id_token`의 서명, `issuer`, `audience`, 만료와 사전 등록된 `users.external_subject`를 검증하며 외부 비밀번호를 받거나 저장하지 않습니다.
+- 교사·관리자 웹의 갱신 토큰은 `HttpOnly`, 운영 환경 `Secure`, `SameSite=Strict` 쿠키에 저장합니다. 액세스 토큰은 짧게 유지하며 상태 변경 요청에는 기존 멱등성 방어를 함께 적용합니다.
+- 교사 웹은 수업 진행 화면과 관리 화면에서 같은 인증 세션을 사용합니다. 교사에게는 학생의 단일 태블릿 세션 정책을 적용하지 않고 허용된 복수 브라우저 세션을 회전형 갱신 토큰으로 관리합니다.
 - 비밀번호 재설정은 기존 이코빌리지의 본인 확인 절차를 호출하고 닉네임 재설정 경로는 만들지 않습니다.
 
 ### 3.3 내부 서비스
@@ -81,12 +81,17 @@
 
 | 헤더 | 적용 | 규칙 |
 | --- | --- | --- |
-| `Authorization` | 앱·내부 서비스 | `Bearer {token}` |
-| `X-Refresh-Token` | 앱 토큰 갱신 | `API-AUTH-004`에서만 SecureStore의 회전형 갱신 토큰 전송, 로그 마스킹 |
+| `Authorization` | 학생 앱·교사 웹·내부 서비스 | `Bearer {access_token}`. 학생 앱과 교사 웹 모두 짧은 수명의 액세스 토큰만 메모리에 유지 |
+| `X-Refresh-Token` | 학생 앱 토큰 갱신 | `API-AUTH-004`에서만 Expo SecureStore의 회전형 갱신 토큰 전송, 로그 마스킹. 교사 웹은 사용 금지 |
 | `Idempotency-Key` | 모든 변경 명령 | 클라이언트가 사용자 행동마다 생성한 UUID, 화면의 `request_id`와 같은 값 |
 | `X-Correlation-Id` | 모든 요청 | 분산 추적 ID, 없으면 게이트웨이가 생성 |
 | `Accept-Language` | 선택 | 기본 `ko-KR`, 화면 메시지 언어 선택 |
 | `Content-Type` | 본문 요청 | `application/json` |
+
+교사 웹의 갱신 토큰은 `ecovillage_teacher_refresh` HttpOnly·Secure·SameSite=Strict
+쿠키로만 전송합니다. 보호 API는 구현되지 않은 일반 세션 쿠키를 허용하지 않고
+`Authorization` Bearer 액세스 토큰을 요구합니다. 교사 쿠키와 학생 갱신 헤더를 한
+요청에 함께 보내면 `AMBIGUOUS_REFRESH_TOKEN`으로 거절합니다.
 
 ### 5.2 명령 본문 컨텍스트
 
@@ -299,7 +304,7 @@ WebSocket 이벤트는 `EVT-{영역}-{3자리 번호}`, 채널은 `WS-{영역}-{
 
 ## 15. 계약과 다음 작업
 
-화면 행동 `UIA-*` 68건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml), [API 필드 매핑](../contracts/api-field-mapping.json), [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 비밀번호 재설정·WebSocket 티켓·공용 화면 토큰은 [임시 인증정보 저장 계약](EPHEMERAL_AUTH_STORAGE.md)을 따릅니다. 물리 제약·원장 지연 제약 트리거, 추천 코스 제품 데이터와 활동 공개 필드 allowlist는 Flyway `V1_1`~`V1_13`, 핵심 DB 검증은 DBT-001~020에 반영했습니다.
+화면 행동 `UIA-*` 69건의 HTTP 연결은 [HTTP API 명세](HTTP_API_SPEC.md), 실시간 채널·이벤트는 [WebSocket 명세](WEBSOCKET_SPEC.md)에서 완료했습니다. 구현 도구가 읽는 기준은 [OpenAPI 3.1 계약](../contracts/openapi.yaml), [API 필드 매핑](../contracts/api-field-mapping.json), [AsyncAPI 3.1 계약](../contracts/asyncapi.yaml)입니다. 교사 회전형 세션·비밀번호 재설정·WebSocket 티켓·공용 화면 토큰은 [임시 인증정보 저장 계약](EPHEMERAL_AUTH_STORAGE.md)을 따릅니다. 물리 제약·원장 지연 제약 트리거, 추천 코스 제품 데이터와 활동 공개 필드 allowlist는 Flyway `V1_1`~`V1_13`, 핵심 DB 검증은 DBT-001~020에 반영했습니다.
 
 1. 계약 기반 클라이언트·서버 인터페이스 생성
 2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결

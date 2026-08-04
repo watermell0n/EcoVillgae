@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.domain.AutonomousSchedule;
 import com.b201.ecovillage.classroom.domain.AutonomousScheduleModule;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleModuleRepository;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
@@ -62,7 +63,7 @@ public class ClassroomConfigurationService {
                 "경제교실을 찾을 수 없습니다."
             ));
         List<String> moduleCodes = classroomModuleRepository
-            .findAllByClassroomIdAndStatusOrderByModuleCode(classroomId, "ACTIVE")
+            .findAllByClassroomIdOrderByModuleCode(classroomId)
             .stream()
             .map(module -> module.getModuleCode())
             .toList();
@@ -114,11 +115,27 @@ public class ClassroomConfigurationService {
                     policy.getPolicyArea()
                 ))
                 .toList();
+        ClassroomPolicyVersion coursePolicy = policyVersionRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
+                classroomId,
+                CourseConfigurationCommandService.POLICY_AREA
+            )
+            .orElse(null);
+        Map<String, Object> courseValues = coursePolicy == null
+            ? Map.of()
+            : coursePolicy.getPolicyValues();
 
         return new ClassroomConfigurationResult(
             classroom.getId(),
             classroom.getClassroomCode(),
             classroom.getCurrencyName(),
+            classroom.getGrade(),
+            classroom.getCourseSize(),
+            classroom.getActualStartsOn(),
+            classroom.getActualEndsOn(),
+            classroom.getCourseTemplateVersionId(),
+            String.valueOf(courseValues.getOrDefault("difficulty_profile", "")),
+            classroom.getStateVersion(),
             moduleCodes,
             scheduleResults,
             policies

@@ -28,7 +28,7 @@ public class StudentSession {
     @Column(name = "device_link_id")
     private UUID deviceLinkId;
 
-    @Column(name = "token_hash", nullable = false, updatable = false, length = 128)
+    @Column(name = "token_hash", nullable = false, length = 128)
     private String tokenHash;
 
     @Enumerated(EnumType.STRING)
@@ -101,6 +101,15 @@ public class StudentSession {
         this.status = StudentSessionStatus.REVOKED;
         this.revokedAt = changedAt;
         this.updatedAt = changedAt;
+    }
+
+    public void rotate(String tokenHash, Instant expiresAt, Instant rotatedAt) {
+        if (status != StudentSessionStatus.ACTIVE) {
+            throw new IllegalStateException("Only an active student session can rotate");
+        }
+        this.tokenHash = requireText(tokenHash, "tokenHash");
+        this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+        this.updatedAt = Objects.requireNonNull(rotatedAt, "rotatedAt must not be null");
     }
 
     public UUID getId() {

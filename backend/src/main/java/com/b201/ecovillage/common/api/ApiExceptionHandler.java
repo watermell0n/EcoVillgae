@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -23,6 +24,8 @@ import com.b201.ecovillage.identity.application.ClassroomNotActiveException;
 import com.b201.ecovillage.identity.application.InvalidCredentialsException;
 import com.b201.ecovillage.identity.application.InvalidLoginRequestException;
 import com.b201.ecovillage.identity.application.LoginRateLimitedException;
+import com.b201.ecovillage.identity.application.TeacherAuthenticationException;
+import com.b201.ecovillage.identity.application.TeacherRegistrationException;
 import com.b201.ecovillage.ledger.application.LedgerTransactionValidationException;
 import com.b201.ecovillage.ledger.domain.InsufficientLedgerBalanceException;
 import com.b201.ecovillage.store.domain.InsufficientStoreStockException;
@@ -54,6 +57,36 @@ public class ApiExceptionHandler {
         );
     }
 
+    @ExceptionHandler(TeacherAuthenticationException.class)
+    ResponseEntity<ApiErrorResponse> handleTeacherAuthentication(
+        TeacherAuthenticationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.getStatus(),
+            exception.getCode(),
+            exception.getMessage(),
+            exception.isRetryable(),
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(TeacherRegistrationException.class)
+    ResponseEntity<ApiErrorResponse> handleTeacherRegistration(
+        TeacherRegistrationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.getStatus(),
+            exception.getCode(),
+            exception.getMessage(),
+            false,
+            List.of(),
+            request
+        );
+    }
+
     @ExceptionHandler(ClassroomOperationException.class)
     ResponseEntity<ApiErrorResponse> handleClassroomOperation(
         ClassroomOperationException exception,
@@ -64,6 +97,21 @@ public class ApiExceptionHandler {
             exception.getCode(),
             exception.getMessage(),
             exception.getStatus().is5xxServerError(),
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ResponseEntity<ApiErrorResponse> handleOptimisticConflict(
+        ObjectOptimisticLockingFailureException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            HttpStatus.CONFLICT,
+            "STATE_VERSION_CONFLICT",
+            "The resource state changed while the command was being processed.",
+            false,
             List.of(),
             request
         );

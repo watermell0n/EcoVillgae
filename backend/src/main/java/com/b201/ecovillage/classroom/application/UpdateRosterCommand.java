@@ -8,7 +8,7 @@ public record UpdateRosterCommand(
     UUID classroomId,
     List<StudentRosterCommand> students,
     List<SalaryRoleCommand> salaryRoles,
-    long expectedPolicyVersion,
+    Long expectedPolicyVersion,
     Long expectedStateVersion
 ) {
 }

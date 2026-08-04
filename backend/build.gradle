@@ -24,9 +24,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.springframework.security:spring-security-crypto'
+    implementation 'org.springframework.security:spring-security-oauth2-jose'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
     runtimeOnly 'org.postgresql:postgresql'
 
@@ -44,4 +46,7 @@ tasks.named('jar') {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 테스트 클래스마다 다른 데이터 소스를 쓰면 Spring 컨텍스트가 따로 떠서 함께 상주한다.
+    // 기본 힙으로는 전체 실행 중 OutOfMemoryError가 나므로 넉넉하게 잡는다.
+    maxHeapSize = '2g'
 }

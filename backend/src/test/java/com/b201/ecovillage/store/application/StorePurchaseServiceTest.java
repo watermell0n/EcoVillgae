@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.b201.ecovillage.character.repository.ClassroomCharacterRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -53,6 +54,7 @@ import com.b201.ecovillage.store.repository.StoreOrderRepository;
 import com.b201.ecovillage.store.repository.StoreProductRepository;
 import com.b201.ecovillage.store.repository.StoreProductVersionRepository;
 import com.b201.ecovillage.store.repository.StoreStockRepository;
+import com.b201.ecovillage.trade.repository.InventoryItemRepository;
 
 class StorePurchaseServiceTest {
 
@@ -64,6 +66,8 @@ class StorePurchaseServiceTest {
     private StoreProductRepository productRepository;
     private StoreProductVersionRepository productVersionRepository;
     private StoreStockRepository stockRepository;
+    private ClassroomCharacterRepository classroomCharacterRepository;
+    private InventoryItemRepository inventoryItemRepository;
     private StoreOrderRepository orderRepository;
     private StoreOrderItemRepository orderItemRepository;
     private LedgerAccountRepository ledgerAccountRepository;
@@ -83,6 +87,8 @@ class StorePurchaseServiceTest {
         productRepository = mock(StoreProductRepository.class);
         productVersionRepository = mock(StoreProductVersionRepository.class);
         stockRepository = mock(StoreStockRepository.class);
+        classroomCharacterRepository = mock(ClassroomCharacterRepository.class);
+        inventoryItemRepository = mock(InventoryItemRepository.class);
         orderRepository = mock(StoreOrderRepository.class);
         orderItemRepository = mock(StoreOrderItemRepository.class);
         ledgerAccountRepository = mock(LedgerAccountRepository.class);
@@ -99,6 +105,8 @@ class StorePurchaseServiceTest {
             productRepository,
             productVersionRepository,
             stockRepository,
+            classroomCharacterRepository,
+            inventoryItemRepository,
             orderRepository,
             orderItemRepository,
             ledgerAccountRepository,
@@ -169,9 +177,10 @@ class StorePurchaseServiceTest {
             .thenReturn(Optional.of(product));
         when(
             productVersionRepository
-                .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+                .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullAndPublishedAtLessThanEqualOrderByVersionDesc(
                     classroomId,
-                    productId
+                    productId,
+                    NOW
                 )
         ).thenReturn(Optional.of(version));
         when(stockRepository.findForUpdate(classroomId, productId))

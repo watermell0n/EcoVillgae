@@ -12,7 +12,9 @@ public record AuthenticationProperties(
     String jwtSecret,
     String tokenPepper,
     int loginAttemptLimit,
-    Duration loginAttemptWindow
+    Duration loginAttemptWindow,
+    String refreshCookieName,
+    boolean refreshCookieSecure
 ) {
 
     public AuthenticationProperties {
@@ -25,6 +27,7 @@ public record AuthenticationProperties(
             throw new IllegalArgumentException("loginAttemptLimit must be positive");
         }
         requirePositive(loginAttemptWindow, "loginAttemptWindow");
+        requireText(refreshCookieName, "refreshCookieName");
     }
 
     private static void requireText(String value, String field) {

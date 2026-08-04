@@ -17,7 +17,10 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import jakarta.persistence.EntityManager;
+
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
@@ -39,6 +42,8 @@ import com.b201.ecovillage.quiz.repository.QuizOptionRepository;
 import com.b201.ecovillage.quiz.repository.QuizQuestionVersionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionQuestionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionRepository;
+import com.b201.ecovillage.quiz.repository.QuizSubmissionRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 class QuizSessionCommandServiceTest {
 
@@ -59,11 +64,15 @@ class QuizSessionCommandServiceTest {
         QuizSessionRepository sessionRepository = mock(QuizSessionRepository.class);
         QuizSessionQuestionRepository sessionQuestionRepository =
             mock(QuizSessionQuestionRepository.class);
+        QuizSubmissionRepository submissionRepository = mock(QuizSubmissionRepository.class);
         QuizQuestionVersionRepository versionRepository =
             mock(QuizQuestionVersionRepository.class);
         QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
         IdempotencyRecordRepository idempotencyRepository =
             mock(IdempotencyRecordRepository.class);
+        EffectiveAccessModeService accessModeService = mock(EffectiveAccessModeService.class);
+        RealtimeEventPublisher eventPublisher = mock(RealtimeEventPublisher.class);
+        EntityManager entityManager = mock(EntityManager.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
         QuizSessionCommandService service = new QuizSessionCommandService(
@@ -75,10 +84,14 @@ class QuizSessionCommandServiceTest {
             participantRepository,
             sessionRepository,
             sessionQuestionRepository,
+            submissionRepository,
             versionRepository,
             optionRepository,
             idempotencyRepository,
+            accessModeService,
+            eventPublisher,
             uuidGenerator,
+            entityManager,
             clock
         );
 

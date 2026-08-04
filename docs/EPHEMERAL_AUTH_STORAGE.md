@@ -2,12 +2,12 @@
 
 - 버전: v1.0
 - 기준일: 2026-07-30
-- 범위: 비밀번호 재설정, WebSocket 연결 티켓, 공용 화면 세션
+- 범위: 교사 회전형 세션, 비밀번호 재설정, WebSocket 연결 티켓, 공용 화면 세션
 - 기준: Redis는 일회용 권한의 만료·소비 상태만 보관하며 업무 데이터의 최종 근거가 아닙니다.
 
 ## 1. 공통 보안 규칙
 
-1. 클라이언트에 주는 토큰은 CSPRNG로 생성하고 Redis 키에는 원문 대신 `SHA-256(token)`의 소문자 hex를 사용합니다.
+1. 클라이언트에 주는 토큰은 CSPRNG로 생성하고 Redis 키에는 원문 대신 서버 비밀 pepper를 사용한 `HMAC-SHA-256(token)` hex를 사용합니다.
 2. 원문 토큰·비밀번호·검증값은 PostgreSQL, 감사 이벤트, 애플리케이션 로그, 오류 응답에 저장하지 않습니다.
 3. 일회용 값은 Lua script 또는 동등한 원자적 `GET`+`DEL` 연산으로 한 번만 소비합니다.
 4. TTL 만료, 범위 불일치, 이미 소비됨, Redis 장애는 모두 권한 거절로 처리합니다. Redis 장애 때 우회 인증을 허용하지 않습니다.
@@ -17,6 +17,7 @@
 
 | 용도·API | Redis 키 | TTL | 최소 payload | 소비·폐기 |
 | --- | --- | --- | --- | --- |
+| 교사 세션 `API-AUTH-004~006·008` | `auth:teacher-session:v1:{session_id}`, `auth:teacher-refresh:v1:{hmac(refresh_token)}` | 마지막 발급·회전부터 14일 | `session_id`, `user_id`, `external_subject`, `refresh_hash`, `status`, `issued_at`, `expires_at`, `revoked_at?` | 갱신 시 Lua로 이전 인덱스 삭제와 새 해시 교체를 원자 처리. 로그아웃 시 `REVOKED`로 바꾸고 갱신 인덱스 삭제 |
 | 비밀번호 재설정 `API-AUTH-002~003` | `auth:password-reset:v1:{sha256(reset_request_id)}` | 10분 | `classroom_id`, `student_id`, `verification_method`, `verified_at`, `requested_by_user_id`, `attempt_count` | `API-AUTH-003` 성공 시 원자 소비. 실패 검증은 횟수를 증가시키고 5회면 즉시 폐기 |
 | WebSocket 티켓 `API-AUTH-007` | `auth:realtime-ticket:v1:{sha256(ticket)}` | 60초 | `subject_type`, `subject_id`, `classroom_id`, 허용 `channel_ids`, 허용 `resource_ids`, `issued_at` | WebSocket 연결 성립 시 원자 소비. 재연결에는 새 티켓 필요 |
 | 공용 화면 세션 `API-DSP-001` | `auth:display-session:v1:{sha256(display_token)}` | 활동 종료+5분과 발급 후 8시간 중 빠른 시각 | `display_session_id`, `classroom_id`, `activity_id`, 공개 채널 allowlist, `issued_by_user_id`, `issued_at` | `DISCONNECT`, 활동 종료·취소, 교실 종료 시 즉시 삭제 |
@@ -25,7 +26,7 @@
 
 - `API-AUTH-003.new_password`는 서비스 메모리에서 Argon2id로 해시한 뒤 `student_credentials.password_hash`만 교체하고 `credential_version`을 증가시킵니다.
 - 재설정 성공 시 해당 학생의 활성 `student_sessions`를 모두 폐기합니다. 새 비밀번호 원문은 응답하지 않습니다.
-- 교사·관리자 웹의 회전형 갱신 세션은 외부 IdP의 세션 저장소를 기준으로 하고, 학생 세션은 `student_sessions.token_hash`를 기준으로 합니다.
+- 교사 웹의 이코빌리지 갱신 세션은 Redis의 교사 세션 레코드를 기준으로 하고, 외부 IdP는 최초 교사 신원 검증의 기준입니다. 학생 세션은 `student_sessions.token_hash`를 기준으로 합니다.
 
 ## 4. 공용 projection 경계
 

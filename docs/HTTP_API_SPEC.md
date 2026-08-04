@@ -1,13 +1,13 @@
 # 이코빌리지 HTTP API 명세
 
-- 버전: v0.5
-- 기준일: 2026-07-30
-- 상태: 화면 행동 68건 HTTP 매핑·OpenAPI 3.1·API 필드 저장 매핑 완료
+- 버전: v0.8
+- 기준일: 2026-07-31
+- 상태: 화면 행동 69건 HTTP 매핑·AI v1.2 선택형 모듈 계약·OpenAPI 3.1·API 필드 저장 매핑 완료
 - 기준: [API 공통 규칙](API_COMMON_RULES.md), [화면 ID·행동 명세](SCREEN_SPEC.md), [역할·권한 매트릭스](PERMISSION_MATRIX.md), [핵심 상태 머신](STATE_MACHINES.md)
 
 ## 1. 범위와 읽는 법
 
-이 문서는 학생·교사용 앱, 교사·관리자 웹과 내부 서비스가 사용하는 HTTP 작업을 정의합니다. 모든 경로의 기본 prefix는 `/api/v1`이며 표에는 prefix를 생략합니다.
+이 문서는 학생 앱, 교사·관리자 웹과 내부 서비스가 사용하는 HTTP 작업을 정의합니다. 모든 경로의 기본 prefix는 `/api/v1`이며 표에는 prefix를 생략합니다.
 
 - `STU`: 학생
 - `OWN`: 학급 소유 교사
@@ -64,14 +64,15 @@
 | API-AUTH-001 · UIA-AUTH-001 | `POST /auth/student-sessions` | 인증 전 STU | `classroom_code, attendance_number, nickname, password, device_id` → 토큰·학생 세션·유효 진입 화면 | PM-AUTH-001 · SM — | `INVALID_CREDENTIALS`, `CLASS_NOT_ACTIVE`, `RATE_LIMITED` | AUTH-001·AUTH-003·AUTH-005·AUTH-007 |
 | API-AUTH-002 · UIA-AUTH-002 | `POST /auth/student-password-reset-requests` | 인증 전 STU | 기존 본인 확인 입력 → `reset_request_id, next_step` | PM-AUTH-002 · SM — | `IDENTITY_VERIFICATION_FAILED`, `RESOURCE_NOT_FOUND` | AUTH-006 |
 | API-AUTH-003 · UIA-AUTH-003 | `POST /classrooms/{C}/students/{S}/password-reset-commands` | OWN·COT | `command=COMPLETE, reset_request_id, new_password, reason` → 원문 비밀번호 비저장·일회용 재설정 결과 | PM-AUTH-002 · SM — | `CLASS_NOT_ASSIGNED`, `INVALID_RESET_REQUEST`, `VALIDATION_ERROR` | AUTH-006 |
+| API-AUTH-008 · UIA-AUTH-004 | `POST /auth/teacher-sessions` | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 받은 `id_token` → 등록 교사 확인, 본문의 단기 액세스 토큰과 HttpOnly 갱신 쿠키, 교사 다중 브라우저 세션 | PM-AUTH-003 · SM — | `INVALID_ID_TOKEN`, `TEACHER_NOT_REGISTERED`, `ACCOUNT_INACTIVE`, `AUTH_PROVIDER_UNAVAILABLE` | AUTH-002·AUTH-008 |
 
 ### 3.1 세션 지원 API
 
 | API ID | 메서드·경로 | 설명 |
 | --- | --- | --- |
-| API-AUTH-004 | `POST /auth/token-refreshes` | 회전형 갱신 토큰으로 새 앱 토큰 발급 |
+| API-AUTH-004 | `POST /auth/token-refreshes` | STU는 SecureStore의 갱신 토큰을 `X-Refresh-Token`으로 보내고 새 액세스·갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
-| API-AUTH-006 | `GET /auth/me` | 현재 사용자·역할·학교·담당 학급과 세션 정책 조회 |
+| API-AUTH-006 | `GET /auth/me` | 현재 세션·사용자·역할·학교·담당 학급과 액세스 토큰 만료 조회 |
 | API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
 
 비밀번호·토큰·재설정 증명값은 응답 이후 다시 조회할 수 없고 감사 로그에도 저장하지 않습니다.
@@ -81,20 +82,20 @@
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
 | API-CRS-001 | `GET /course-recommendations?grade={4..6}&course_size={label}` | 인증 교사 | 학년·규모를 함께 지정하면 해당 조합, 둘 다 생략하면 전체 12개 → 버전·난이도·학습 중점·핵심/선택/기반 모듈·선수개념·제외 영향 | PM-CLS-005 · SM — | `AUTH_REQUIRED`, `ROLE_NOT_ALLOWED`, `VALIDATION_ERROR`, `COURSE_VERSION_MISSING` | CRS-003·CRS-004·CRS-005 |
-| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 급여, 모듈, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`와 `ACTIVE` 학급 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
+| API-CLS-001 · UIA-CLS-001 | `POST /classrooms` | OWN | 학교, 학년, 규모 라벨, 실제 기간, 인원, 0개 이상의 canonical `module_codes`, 자율시간, 필수 `currency_name` → 서버 생성 전역 유일 `classroom_code`, `ACTIVE` 학급, 선택 모듈의 `DISABLED` 등록 상태. `INCOME·SALARY→ROLE_SALARY`, `TAX→INCOME_TAX`; `WALLET` 선택 불가 | PM-CLS-001·PM-CLS-005·PM-CLS-007 · SM-CLS-001·SM-MOD-001 | `INVALID_CURRENCY_NAME`, `UNSUPPORTED_MODULE_CODE`, `CLASSROOM_CODE_GENERATION_FAILED`, `VALIDATION_ERROR`, `POLICY_VIOLATION` | AUTH-007·CLS-001·CLS-010·CRS-001·CRS-002 |
 | API-CLS-002 · UIA-CLS-002 | `PUT /classrooms/{C}/course-configuration` | OWN | 학년·규모·기간·코스·난이도 → 새 설정 버전, 학급 코드·화폐 단위명 변경 불가 | PM-CLS-005 · SM-CLS-001 | `IMMUTABLE_CLASSROOM_FIELD`, `CLASS_NOT_ACTIVE`, `ACTIVITY_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | CRS-001·CRS-003·CRS-004·CRS-005 |
-| API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임·역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
+| API-CLS-003 · UIA-CLS-003 | `PUT /classrooms/{C}/roster-and-salaries` | OWN | 학생 번호·닉네임, 역할·급여 모듈 활성 시 선택형 역할·역할급여 → 검증된 명단·정책 버전 | PM-CLS-004·PM-CLS-005 · SM-CLS-001·SM-MOD-001 | `DUPLICATE_ATTENDANCE_NUMBER`, `DUPLICATE_NICKNAME`, `MODULE_NOT_ACTIVE`, `CLASS_NOT_ACTIVE` | CLS-001·ECO-004 |
 | API-CLS-004 · UIA-CLS-004 | `POST /classrooms/{C}/co-teacher-commands` | OWN | `command=INVITE\|REMOVE, teacher_id, reason` → 담당 교사 목록 | PM-CLS-002 · SM-CLS-001 | `TEACHER_NOT_IN_SCHOOL`, `OWNER_REQUIRED`, `LAST_OWNER_REQUIRED` | AUTH-002 |
 | API-CLS-005 · UIA-CLS-005 | `POST /classrooms/{C}/ownership-transfer-commands` | OWN·대상 COT | `command=REQUEST\|ACCEPT\|CANCEL, transfer_id?, target_teacher_id?` → OWN·COT 원자 교환 | PM-CLS-003 · SM-CLS-001 | `TARGET_NOT_CO_TEACHER`, `TRANSFER_EXPIRED`, `INVALID_STATE_TRANSITION` | AUTH-002 |
 | API-CLS-006 · UIA-CLS-006 | `PUT /classrooms/{C}/autonomous-schedules` | OWN | 시간대, 요일·현지 시작/종료, 사용 모듈 → 일정 버전 | PM-CLS-007 · SM-APP-001 | `INVALID_TIME_RANGE`, `POLICY_VERSION_CONFLICT` | CLS-004·CLS-005 |
-| API-CLS-007 · UIA-CLS-007 | `POST /classrooms/{C}/access-mode-commands` | OWN·COT | `command=OPEN\|CLOSE\|EXTEND, duration_minutes?` → 계산된 앱 모드·종료시각 | PM-CLS-008 · SM-APP-001 | `GUIDED_MODE_ACTIVE`, `CLASS_NOT_ACTIVE`, `STATE_VERSION_CONFLICT` | CLS-003·CLS-004·CLS-005·CLS-006 |
+| API-CLS-007 · UIA-CLS-007 | `POST /classrooms/{C}/access-mode-commands` | OWN·COT | `command=OPEN\|CLOSE\|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements?` → 첫 OPEN은 유효한 `CLASSROOM_SETUP` 실행 ID가 필수이고 WARN의 모든 `check_id` 확인 후 경제 설정 점검과 계산된 앱 모드·종료시각 반환 | PM-CLS-008 · SM-APP-001·SM-AIR-001 | `PREFLIGHT_CHECK_REQUIRED`, `PREFLIGHT_WARNING_ACKNOWLEDGEMENT_REQUIRED`, `PREFLIGHT_BLOCKED`, `GUIDED_MODE_ACTIVE`, `CLASS_NOT_ACTIVE`, `STATE_VERSION_CONFLICT` | CLS-003·CLS-004·CLS-005·CLS-006·AI-009 |
 | API-CLS-008 · UIA-CLS-008 | `POST /classrooms/{C}/closure-operations` | OWN | 재인증 증명, 영향 확인, 사유 → `202 operation_id`, 학급 `CLOSING` | PM-CLS-006·PM-FIN-009 · SM-CLS-001 | `REAUTHENTICATION_REQUIRED`, `CLOSURE_ALREADY_RUNNING`, `INVALID_STATE_TRANSITION` | CLS-007·CLS-008·FIN-012 |
 
 ### 4.1 모듈·정책
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-MOD-001 · UIA-MOD-001 | `POST /classrooms/{C}/modules/{module_code}/activation-commands` | OWN | 선수 모듈·학년 정책 확인 → `DISABLED → ACTIVE` | PM-MOD-001 · SM-MOD-001 | `PREREQUISITE_MODULE_REQUIRED`, `GRADE_POLICY_VIOLATION`, `INVALID_STATE_TRANSITION` | CLS-002·CRS-005·CRS-006 |
+| API-MOD-001 · UIA-MOD-001 | `POST /classrooms/{C}/modules/{module_code}/activation-commands` | OWN | canonical code 또는 입력 호환 별칭, `expected_state_version, confirm_prerequisites=true, initial_policy_values?, recommendation_action_ids?` → canonical code 정규화, 조건부 선행 관계·초기 정책 검증 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 · SM-MOD-001·SM-AIR-001 | `UNSUPPORTED_MODULE_CODE`, `PREREQUISITE_MODULE_REQUIRED`, `INITIAL_POLICY_REQUIRED`, `POLICY_VIOLATION`, `GRADE_POLICY_VIOLATION`, `STATE_VERSION_CONFLICT`, `INVALID_STATE_TRANSITION` | CLS-002·CRS-005·CRS-006·AI-009 |
 | API-MOD-002 · UIA-MOD-002 | `POST /classrooms/{C}/modules/{module_code}/stop-commands` | OWN | `reason` → `ACTIVE → STOPPING`, 정리 작업 | PM-MOD-001 · SM-MOD-001 | `LIVE_ACTIVITY_EXISTS`, `MODULE_NOT_ACTIVE`, `SETTLEMENT_REQUIRED` | CLS-002·TRD-004 |
 | API-POL-001 · UIA-POL-001 | `PUT /classrooms/{C}/economic-policy` | OWN | 가격·재고·보상·세율·물가·예금·대출 금리·한도 → 새 정책 버전 | PM-POL-001 · SM-CLS-001 | `POLICY_VERSION_CONFLICT`, `POLICY_VIOLATION` | FIN-011·AI-003 |
 | API-POL-002 · UIA-POL-002 | `PUT /classrooms/{C}/public-fund-policy` | OWN | 세금·기금 기본/커스텀 사용처와 예산 항목 → 정책 버전 | PM-POL-002 · SM-CLS-001 | `INVALID_BUDGET_ALLOCATION`, `POLICY_VERSION_CONFLICT` | ECO-008·ECO-009 |
@@ -120,11 +121,11 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·가격·부가세·재고·유형 → 상품 버전 | PM-SHP-001 · SM-CLS-001 | `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED`, `POLICY_VERSION_CONFLICT` | ECO-005·ECO-007 |
+| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `expected_state_version, expected_policy_version`, 수정 시 `expected_product_version`, `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·가격·부가세·재고·유형 → `product_id, status, state_version, version` | PM-SHP-001 · SM-CLS-001 | `STATE_VERSION_CONFLICT`, `POLICY_VERSION_CONFLICT`, `PRODUCT_VERSION_CONFLICT`, `PRICE_OUT_OF_RANGE`, `INVALID_STOCK`, `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED` | ECO-005·ECO-007 |
 | API-SHP-002 · UIA-SHP-002 | `POST /classrooms/{C}/store/orders` | STU | `product_id, quantity, expected_product_version` → 결제·세금·지급 또는 수령 대기 주문 | PM-SHP-002 · SM-SHP-001·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `OUT_OF_STOCK`, `PRICE_CHANGED`, `APP_MODE_BLOCKED` | ECO-001·ECO-005·ECO-006 |
 | API-SHP-003 · UIA-SHP-003 | `POST /classrooms/{C}/store/orders/{R}/ready-for-pickup-commands` | OWN·COT | 준비 완료 → `PAID → READY_FOR_PICKUP` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `ORDER_NOT_PHYSICAL` | ECO-005 |
 | API-SHP-004 · UIA-SHP-004 | `POST /classrooms/{C}/store/orders/{R}/receipt-confirmations` | OWN·COT | 학생 확인 정보 → `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `STUDENT_MISMATCH` | ECO-005 |
-| API-ITM-001 · UIA-ITM-001 | `POST /classrooms/{C}/inventory-items/{R}/commands` | STU | `command=EQUIP\|UNEQUIP` → `AVAILABLE ↔ EQUIPPED` | PM-ITM-001 · SM-ITM-001 | `RESOURCE_NOT_OWNED`, `ITEM_LOCKED`, `INVALID_STATE_TRANSITION` | ECO-007·TRD-002 |
+| API-ITM-001 · UIA-ITM-001 | `POST /classrooms/{C}/inventory-items/{R}/commands` | STU | `command=EQUIP\|UNEQUIP` → `character_equipment` 슬롯 행 생성·교체·삭제, 응답 `status`는 장착 여부를 `EQUIPPED\|AVAILABLE`로 합성 | PM-ITM-001 · SM-ITM-001 | `RESOURCE_NOT_OWNED`, `ITEM_LOCKED`, `INVALID_STATE_TRANSITION` | ECO-007·TRD-002 |
 | API-CNT-001 · UIA-CNT-001 | `POST /platform/character-sources/{R}/review-commands` | POP | `command=APPROVE\|REJECT\|PUBLISH\|UNPUBLISH`, 출처·지역·권리·검토일·증적 → 전역 게시 상태 | PM-CNT-001 · SM — | `RIGHTS_EVIDENCE_REQUIRED`, `REGION_NOT_REVIEWED` | ECO-010 |
 | API-CNT-002 · UIA-CNT-002 | `PUT /classrooms/{C}/character-catalog/{R}` | OWN | 전역 캐릭터 ID, 학급 표시명·판매 여부 → 학급 카탈로그 항목 | PM-CNT-001·PM-SHP-001 · SM-CLS-001 | `CHARACTER_NOT_PUBLISHED`, `OWNER_REQUIRED` | ECO-007·ECO-010 |
 
@@ -147,9 +148,9 @@
 | API-FIN-004 · UIA-FIN-004 | `POST /classrooms/{C}/savings-accounts` | STU | `product_id, installment_amount` → 계좌·2~12회 일정·첫 납입 | PM-FIN-002 · SM-SAV-001·SM-SAV-002·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `INVALID_SCHEDULE`, `PRODUCT_NOT_ACTIVE` | FIN-002·FIN-004 |
 | API-FIN-005 · UIA-FIN-005 | `POST /classrooms/{C}/savings-accounts/{R}/installments/{installment_id}/commands` | STU | `command=RETRY_PAYMENT` → `MISSED → PAID`와 원장 | PM-FIN-002 · SM-SAV-002·SM-TXN-001 | `RETRY_WINDOW_EXPIRED`, `INSUFFICIENT_BALANCE`, `INVALID_STATE_TRANSITION` | FIN-003·FIN-004 |
 | API-FIN-006 · UIA-FIN-006 | `POST /classrooms/{C}/savings-accounts/{R}/commands` | STU | `command=EARLY_TERMINATE` → 지급 원장·`EARLY_TERMINATED` | PM-FIN-002 · SM-SAV-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `RESOURCE_NOT_OWNED` | FIN-004 |
-| API-FIN-007 · UIA-FIN-007 | `PUT /classrooms/{C}/investment-market/scenario` | OWN | 가상자산 4종, 가격 단계·이벤트·한도·손실상한 → DRAFT 시나리오 버전 | PM-FIN-001 · SM-IVT-001 | `MARKET_NOT_DRAFT`, `INVALID_PRICE_STEP`, `POLICY_VERSION_CONFLICT` | FIN-005·FIN-007 |
-| API-FIN-008 · UIA-FIN-008 | `POST /classrooms/{C}/investment-market/commands` | OWN·COT | `command=START\|RESUME\|PAUSE\|CLOSE` → 시장 상태·종료 시 자동 정산 | PM-FIN-004 · SM-IVT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `SETTLEMENT_FAILED` | FIN-005·FIN-007·FIN-012 |
-| API-FIN-009 · UIA-FIN-009 | `POST /classrooms/{C}/investment-orders` | STU | `side=BUY\|SELL, asset_id, quantity, expected_price_version` → 체결·원장·보유량 | PM-FIN-003 · SM-IVT-002·SM-TXN-001 | `MARKET_NOT_OPEN`, `PRICE_CHANGED`, `INSUFFICIENT_BALANCE`, `LIMIT_EXCEEDED` | FIN-006·FIN-007 |
+| API-FIN-007 · UIA-FIN-007 | `PUT /classrooms/{C}/investment-market/scenario` | OWN | `investment_mode=SHORT_TERM\|LONG_TERM, prefer_historical_index` → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처·기간을 판본에 보존 | PM-FIN-001 · SM-IVT-001 | `MARKET_NOT_DRAFT`, `INVALID_PRICE_STEP`, `INVALID_INVESTMENT_MODE`, `INVESTMENT_MODE_MISMATCH` | FIN-005·FIN-007·AI-011 |
+| API-FIN-008 · UIA-FIN-008 | `POST /classrooms/{C}/investment-market/commands` | OWN·COT | 6단계 연결 범위의 `command=START, expected_state_version` → 시나리오 게시·첫 가격 공개·시장 OPEN. 후속 `ADVANCE_DAY\|RESUME\|PAUSE\|CLOSE`와 정산은 다음 단계 범위 | PM-FIN-004 · SM-IVT-001·SM-TXN-001 | `INVALID_STATE_TRANSITION`, `STATE_VERSION_CONFLICT`, `SETTLEMENT_FAILED` | FIN-005·FIN-007·FIN-012 |
+| API-FIN-009 · UIA-FIN-009 | `POST /classrooms/{C}/investment-orders` | STU | 6단계 연결 범위의 `side=BUY, asset_id, quantity, expected_price_version` → 현재 공개 가격 재검증 후 학생 지갑·투자 청산 계정 원장과 주문·보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위 | PM-FIN-003 · SM-IVT-002·SM-TXN-001 | `MARKET_NOT_OPEN`, `PRICE_CHANGED`, `INSUFFICIENT_BALANCE`, `LIMIT_EXCEEDED` | FIN-006·FIN-007 |
 | API-FIN-010 · UIA-FIN-010 | `PUT /classrooms/{C}/loan-policy` | OWN | 한도·기간금리·회차·유예·신용 조정 → 신규 신청 정책 버전 | PM-FIN-001 · SM-LON-001·SM-CRD-001 | `INVALID_RATE`, `POLICY_VERSION_CONFLICT` | FIN-008·FIN-009·FIN-010·FIN-011 |
 | API-FIN-011 · UIA-FIN-011 | `POST /classrooms/{C}/loan-application-commands` | STU | `command=APPLY\|CANCEL, application_id?, amount?, installments?` → `APPLIED` 또는 취소 | PM-FIN-005 · SM-LON-001 | `CREDIT_RESTRICTED`, `ACTIVE_LOAN_LIMIT`, `INVALID_STATE_TRANSITION` | FIN-008·FIN-010 |
 | API-FIN-012 · UIA-FIN-012 | `POST /classrooms/{C}/loan-applications/{R}/teacher-decisions` | OWN·COT | `decision=APPROVE\|REJECT, reason` → 승인 시 원금·계좌 원자 생성 | PM-FIN-006 · SM-LON-001·SM-TXN-001 | `CREDIT_CHANGED`, `ACTIVE_LOAN_LIMIT`, `POLICY_VERSION_CONFLICT` | FIN-008·FIN-010 |
@@ -160,9 +161,9 @@
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
 | API-QZ-001 · UIA-QZ-001 | `POST /classrooms/{C}/quiz-question-commands` | OWN·COT | `command=CREATE\|UPDATE`, 유형·문항·선택지·정답·해설 → DRAFT 또는 새 버전 | PM-QZ-001 · SM-QST-001 | `QUESTION_ALREADY_PUBLISHED`, `AMBIGUOUS_ANSWER`, `VALIDATION_ERROR` | QZ-001·QZ-002·QZ-007·QZ-008 |
-| API-QZ-002 · UIA-QZ-002 | `POST /classrooms/{C}/ai/quiz-draft-operations` | OWN·COT | 학년·주제·ECONOMY/NONSENSE·객관식/OX·개수 → `202 operation_id`, REVIEW_REQUIRED 초안 | PM-QZ-001·PM-AI-002 · SM-AIR-001·SM-QST-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT` | QZ-006·QZ-007·AI-001 |
+| API-QZ-002 · UIA-QZ-002 | `POST /classrooms/{C}/ai/quiz-draft-operations` | OWN·COT | 학년·주제·ECONOMY/NONSENSE·객관식/OX·개수 → `202 operation_id, ai_run_id, question_ids`, REVIEW_REQUIRED 초안 | PM-QZ-001·PM-AI-002 · SM-AIR-001·SM-QST-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT` | QZ-006·QZ-007·AI-001 |
 | API-QZ-003 · UIA-QZ-003 | `POST /classrooms/{C}/quiz-questions/{R}/commands` | OWN·COT | `command=APPROVE\|PUBLISH\|RETIRE, reason?` → 허용 상태 전이 | PM-QZ-001 · SM-QST-001 | `REVIEW_REQUIRED`, `INVALID_STATE_TRANSITION`, `CONTENT_POLICY_VIOLATION` | QZ-002·QZ-007·QZ-008 |
-| API-QZ-004 · UIA-QZ-004 | `POST /classrooms/{C}/quiz-sessions/{R}/commands` | OWN·COT | `command=START\|CLOSE_SUBMISSIONS`, 문제 버전·참가자·보상·공개범위 → `OPEN` 또는 `SCORING` | PM-QZ-002 · SM-QZS-001·SM-ACT-001 | `QUESTION_NOT_PUBLISHED`, `INVALID_REWARD_POLICY`, `INVALID_STATE_TRANSITION` | QZ-001·QZ-003·QZ-004·QZ-005 |
+| API-QZ-004 · UIA-QZ-004 | `POST /classrooms/{C}/quiz-sessions/{R}/commands` | OWN·COT | `command=START\|UPDATE_REWARD\|CLOSE_SUBMISSIONS`, 문제 버전·참가자·GAME 보상·공개범위 → `OPEN` 또는 `SCORING`. `UPDATE_REWARD`는 `OPEN` GAME과 일치하는 `expected_state_version`에서만 허용 | PM-QZ-002 · SM-QZS-001·SM-ACT-001 | `QUESTION_NOT_PUBLISHED`, `INVALID_REWARD_POLICY`, `FORBIDDEN_REWARD_CONTEXT`, `STATE_VERSION_CONFLICT`, `INVALID_STATE_TRANSITION` | QZ-001·QZ-003·QZ-004·QZ-005 |
 | API-QZ-005 · UIA-QZ-005 | `POST /classrooms/{C}/quiz-sessions/{R}/game-answers` | STU | `question_id, option_id, client_answered_at` → 서버 접수시각·답안 상태 | PM-QZ-002 · SM-QZS-001 | `SUBMISSION_CLOSED`, `NOT_PARTICIPANT`, `ANSWER_ALREADY_SUBMITTED` | QZ-003 |
 | API-QZ-006 · UIA-QZ-006 | `PUT /classrooms/{C}/quiz-sessions/{R}/test-answer-sheet` | STU | 문항별 답안과 저장 버전 → 개인 답안지 버전·제출 상태 | PM-QZ-002 · SM-QZS-001 | `SUBMISSION_CLOSED`, `NOT_EXAMINEE`, `STATE_VERSION_CONFLICT` | QZ-004 |
 | API-QZ-007 · UIA-QZ-007 | `POST /classrooms/{C}/quiz-sessions/{R}/result-commands` | OWN·COT | `command=CONFIRM\|PUBLISH\|CLOSE, leaderboard_public?` → 결과 버전·보상 원장·공개 상태. `leaderboard_public=true`는 GAME에서만 허용하고 TEST는 항상 `false` | PM-QZ-002 · SM-QZS-001·SM-TXN-001 | `SCORING_NOT_FINISHED`, `INVALID_STATE_TRANSITION`, `PUBLIC_DATA_ONLY` | QZ-003·QZ-004·QZ-005 |
@@ -177,11 +178,16 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-AI-001 · UIA-AI-001 | `POST /classrooms/{C}/ai/chat-requests` | OWN·COT | 질문·선택한 집계 범위 → 답변·근거·`ai_run_id` | PM-AI-001·PM-DAT-001 · SM-AIR-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT`, `INDIVIDUAL_ANALYSIS_FORBIDDEN` | AI-001·AI-005·AI-006 |
-| API-AI-002 · UIA-AI-002 | `POST /classrooms/{C}/ai/balancing-analysis-operations` | OWN·COT | 분석 기간·대상 지표 → `202 operation_id`, 제안 목록 | PM-AI-003 · SM-AIR-001 | `INSUFFICIENT_ANALYSIS_DATA`, `AI_DISABLED`, `ANALYSIS_ALREADY_RUNNING` | AI-001·AI-003·AI-004 |
-| API-AI-003 · UIA-AI-003 | `POST /classrooms/{C}/ai/balancing-proposals/{R}/commands` | OWN | `command=APPLY\|REJECT, edited_values?, reason` → 정책 버전 또는 거절 | PM-AI-004·PM-POL-001 · SM-AIR-001 | `OWNER_REQUIRED`, `POLICY_VERSION_CONFLICT`, `PROPOSAL_EXPIRED` | AI-002·AI-003·FIN-011 |
-| API-AI-004 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-event-commands` | OWN·COT | `command=REQUEST_DRAFT\|APPROVE\|REJECT, template_type, event_id?, edits?` → AI 실행 또는 승인 이벤트 | PM-AI-002 · SM-AIR-001·SM-ACT-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `AI_DISABLED` | AI-001·AI-002·AI-007 |
-| API-AI-005 · UIA-AI-005 | `PUT /classrooms/{C}/ai-settings` | OWN | `enabled=false, reason` → 학급 AI 설정 버전 | PM-AI-005 · SM-AIR-001 | `OWNER_REQUIRED`, `AI_APPLICATION_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | AI-001 |
+| API-AI-001 · UIA-AI-001 | `POST /classrooms/{C}/ai/chat-requests` | OWN·COT | `question, period, metric_scopes, include_policy_history?` → `ai_run_id, answer, period, data_as_of, evidence, recommendations` | PM-AI-001·PM-DAT-001 · SM-AIR-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT`, `INDIVIDUAL_ANALYSIS_FORBIDDEN` | AI-001·AI-005·AI-006 |
+| API-AI-002 · UIA-AI-002 | `POST /classrooms/{C}/ai/balancing-analysis-operations` | OWN·COT | `analysis_mode=SETUP_PRECHECK\|ON_DEMAND\|AUTO_MONITOR, trigger_context?, period?, metric_scopes?` → `202 operation_id`, 규칙 기반 추천·점검 또는 운영 제안 목록 | PM-AI-003 · SM-AIR-001 | `INSUFFICIENT_ANALYSIS_DATA`, `AI_DISABLED`, `ANALYSIS_ALREADY_RUNNING`, `INVALID_RECOMMENDATION_CONTEXT` | AI-001·AI-003·AI-004·AI-009·AI-010 |
+| API-AI-003 · UIA-AI-003 | `POST /classrooms/{C}/ai/balancing-proposals/{R}/commands` | OWN, COT는 확인만 | `command=APPLY\|REJECT\|ACKNOWLEDGE, edited_values?, reason, expected_policy_version?` → 설정 점검 제안은 기존 모듈·상품·퀴즈 명령에, 운영 밸런싱 제안은 허용 범위와 최신 대상값을 재검증한 뒤 상품 가격·재고와 예금·적금·대출 금리의 새 버전에 원자 적용하고 `proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version` 반환 | PM-AI-004·PM-POL-001 · SM-AIR-001 | `OWNER_REQUIRED`, `POLICY_VERSION_CONFLICT`, `STATE_VERSION_CONFLICT`, `STALE_PROPOSAL`, `PROPOSAL_EXPIRED`, `ALREADY_ACKNOWLEDGED`, `FORBIDDEN_REWARD_CONTEXT` | AI-002·AI-003·AI-009·AI-010·FIN-011 |
+| API-AI-004 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-event-draft-operations` | OWN·COT | `source_type=TEACHER_REQUEST\|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE\|SUPPLY\|TAX\|INTEREST_RATE\|INVESTMENT_NEWS\|REWARD\|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets?` → `202 operation_id` | PM-AI-002 · SM-AIR-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `AI_DISABLED`, `DUPLICATE_EVENT_RECOMMENDATION`, `INVALID_INVESTMENT_STEP_BINDING` | AI-001·AI-007·AI-011 |
+| API-AI-005 · UIA-AI-005 | `PUT /classrooms/{C}/ai-settings` | OWN | `enabled=true\|false, reason` → 학급 AI 설정 버전 | PM-AI-005 · SM-AIR-001 | `OWNER_REQUIRED`, `AI_APPLICATION_IN_PROGRESS`, `POLICY_VERSION_CONFLICT` | AI-001 |
+| API-AI-006 · UIA-AI-004 | `POST /classrooms/{C}/ai/economic-events/{R}/decisions` | OWN·COT | `decision=APPROVE\|REJECT, edits?, reason, expected_event_version` → 일반 이벤트는 게시 상태, 투자 뉴스는 연결 가격 단계의 공개 대기 상태 | PM-AI-002 · SM-AIR-001·SM-ACT-001·SM-IVT-001 | `FORBIDDEN_EVENT_EFFECT`, `GRADE_POLICY_VIOLATION`, `PROPOSAL_EXPIRED`, `INVALID_INVESTMENT_STEP_BINDING` | AI-001·AI-002·AI-007·AI-011 |
+
+`SETUP_PRECHECK`는 학생·거래 최소 표본 규칙을 적용하지 않습니다. 개설 마법사에서는 공통 필수값만 점검하고, 역할·급여·소득세·예금·대출은 해당 모듈 활성화 문맥에서 초기 정책을 추천합니다. 상품 작성 문맥에서는 가격, 퀴즈 세션 작성 문맥에서는 GAME 보상만 추천합니다. `ON_DEMAND`와 `AUTO_MONITOR`만 운영 지표와 AI-004 데이터 충분성 규칙을 사용합니다. 추천 수치는 Spring 규칙 엔진이 계산하며 AI 실패 시에도 수치·정적 점검 결과는 반환합니다.
+
+`AUTO_MONITOR`는 사용자 호출이 아니라 서버 스케줄러가 같은 애플리케이션 서비스를 실행하는 트리거입니다. `NORMAL`은 제안을 만들지 않고 실행만 완료하며 `OBSERVE·WARN`은 교사 확인 대상을 만듭니다. 설정·정책은 `API-AI-003 command=APPLY` 전까지 변경되지 않습니다.
 
 ### 8.2 데이터·내보내기
 
@@ -218,31 +224,32 @@
 | API-READ-007 | `GET /classrooms/{C}/students/me/wallet` | STU | 본인 잔액·최근 거래·정책 기준 | SCR-STU-004 / ECO-001·ECO-003 |
 | API-READ-008 | `GET /classrooms/{C}/students/me/payslips` | STU | 본인 총소득·공제·세금·실수령액 | SCR-STU-005 / ECO-004 |
 | API-READ-009 | `GET /classrooms/{C}/ledger-transactions` | OWN·COT | 필터·전후잔액·정책 스냅샷·복구 연결 | SCR-WEB-012 / ECO-001·ECO-002·ECO-003 |
-| API-READ-010 | `GET /classrooms/{C}/store/catalog` | STU·OWN·COT | 역할별 상품·가격·세금·재고 | SCR-STU-006·SCR-WEB-011 / ECO-005 |
+| API-READ-010 | `GET /classrooms/{C}/store/catalog` | STU·OWN·COT | 학생은 게시·구매 가능 상품만, 교사는 draft·게시 상태와 최신 상품 버전을 포함한 상품·가격·세금·재고 | SCR-STU-006·SCR-WEB-011 / ECO-005 |
 | API-READ-011 | `GET /classrooms/{C}/store/orders` | STU·OWN·COT | 학생은 본인 주문, 교사는 수령 대기·처리 상태 | SCR-STU-007·SCR-TCH-010 / ECO-005·ECO-006 |
 | API-READ-012 | `GET /classrooms/{C}/students/me/inventory` | STU | 본인 캐릭터·아이템·장착·잠금 상태 | SCR-STU-008 / ECO-007·TRD-002 |
 | API-READ-013 | `GET /classrooms/{C}/trades` | STU·OWN·COT | 학생은 관련 거래, 교사는 담당 학급 승인·기록 | SCR-STU-009·SCR-TCH-008·SCR-WEB-013 / TRD-001·TRD-004 |
 | API-READ-014 | `GET /classrooms/{C}/financial-products` | STU·OWN·COT | 예금·적금·대출 상품과 신규 적용 정책 | SCR-STU-013·SCR-WEB-014·SCR-WEB-016 / FIN-001·FIN-002·FIN-008 |
 | API-READ-015 | `GET /classrooms/{C}/students/me/deposit-and-savings` | STU | 본인 예금·적금 계좌·납입·만기·해지 예상 | SCR-STU-014·SCR-STU-015 / FIN-001·FIN-002·FIN-003·FIN-004 |
-| API-READ-016 | `GET /classrooms/{C}/investment-market` | STU·OWN·COT | 시장 상태·가격 버전·선 그래프·한도 | SCR-STU-016·SCR-WEB-015 / FIN-005·FIN-007 |
+| API-READ-016 | `GET /classrooms/{C}/investment-market` | STU·OWN·COT | 시장 상태·가격 버전·과거 선 그래프·한도·현재 단계까지 승인된 투자 뉴스. 미래 가격·미공개 뉴스 제외 | SCR-STU-016·SCR-WEB-015 / FIN-005·FIN-007·AI-011 |
 | API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 본인 보유량·체결·손익·수익률 | SCR-STU-018 / FIN-006·FIN-007 |
 | API-READ-018 | `GET /classrooms/{C}/students/me/loans-and-credit` | STU | 본인 대출·상환일정·연체·신용 상태 | SCR-STU-019·SCR-STU-020 / FIN-008·FIN-009·FIN-010 |
 | API-READ-019 | `GET /classrooms/{C}/loan-approval-queue` | OWN·COT | 최신 신용·활성 대출·정책과 승인 대기 | SCR-TCH-009·SCR-WEB-016 / FIN-008·FIN-010 |
-| API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
+| API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태와 최신 선택지·정답·해설·AI 실행 출처 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
 | API-READ-021 | `GET /classrooms/{C}/quiz-sessions/{R}` | STU·OWN·COT | 역할별 진행 상태·문항 스냅샷·제출 상태 | SCR-TCH-005·SCR-STU-021·SCR-STU-022 / QZ-003·QZ-004 |
 | API-READ-022 | `GET /classrooms/{C}/quiz-sessions/{R}/results` | STU·OWN·COT | 학생은 본인, 교사는 학급 결과·무효화 상태 | SCR-STU-023·SCR-WEB-019 / QZ-003·QZ-004·QZ-009 |
 | API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·예산 선택지·익명 집계·현재 공동기금·확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
 | API-READ-024 | `GET /classrooms/{C}/guided-activities/{R}` | STU·OWN·COT | 역할별 활동·참여·GUIDED·공개 설정 | SCR-TCH-004·SCR-STU-021 / CLS-009 |
 | API-READ-025 | `GET /public/display-sessions/{display_session_id}/bootstrap` | DSP | 문제·타이머·익명 집계·허용된 공개 결과만 | SCR-PUB-001·SCR-PUB-002·SCR-PUB-003·SCR-PUB-004 / AUTH-004·CLS-009·QZ-003 |
-| API-READ-026 | `GET /classrooms/{C}/teacher-dashboard` | OWN·COT | 승인·수령·정산·활동 알림과 요약 | SCR-TCH-002·SCR-TCH-012 / DAT-003 |
-| API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | AI 실행·근거·검증·승인 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008 |
+| API-READ-026 | `GET /classrooms/{C}/teacher-dashboard` | OWN·COT | 승인·수령·정산·활동 알림, OBSERVE·WARN 경제 알림과 학급 요약 | SCR-TCH-002·SCR-TCH-012 / AI-010·DAT-003 |
+| API-READ-027 | `GET /classrooms/{C}/ai/runs-and-proposals` | OWN·COT | 최신순 cursor, 분석 시작·종료 구간, run/trigger·규칙 버전·provider/fallback·검증 코드와 제안 target ID/current value·허용 범위·근거·예상 효과·부작용·결정 상태, 학생 개인 원문 제외 | SCR-WEB-021·SCR-WEB-022·SCR-WEB-023 / AI-003·AI-005·AI-008·AI-009·AI-010 |
 | API-READ-028 | `GET /classrooms/{C}/reports?from={instant}&to={instant}` | OWN·COT | 기간 내 학급 화폐·지갑·소비·예적금 원금·공동기금·활성 학생·퀴즈 참여 집계. 개인 식별자·닉네임·개인 잔액은 반환하지 않음 | SCR-WEB-024 / DAT-001·DAT-003 |
 | API-READ-029 | `GET /classrooms/{C}/audit-events` | OWN·COT·SAD | 역할 범위별 감사 이벤트·요청번호·전후상태 | SCR-WEB-025·SCR-ADM-005 / AI-008·DAT-004 |
-| API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | 비동기 작업 상태·실패코드·만료 다운로드 URL | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
+| API-READ-030 | `GET /operations/{operation_id}` | 요청 실행자·허용 담당자 | `RUNNING/COMPLETED/FAILED`, 진행률·결과 URL·실패 코드·완료/만료 시각 | 내보내기·AI·정산 화면 / SYS-005·DAT-003 |
 | API-READ-031 | `GET /schools/{school_id}/teachers` | SAD | 학교 교사 계정·소속·상태 | SCR-ADM-002 / AUTH-002 |
 | API-READ-032 | `GET /schools/{school_id}/devices` | SAD | 학교 지급 기기·분실·연결·세션 메타데이터 | SCR-ADM-003 / AUTH-003·DAT-005 |
 | API-READ-033 | `GET /platform/ai-settings` | POP | 공급자·모델 라우팅·전역 한도·설정 버전 | SCR-OPS-002 / SYS-002·AI-006 |
 | API-READ-034 | `GET /platform/service-credentials` | POP | 자격증명 메타데이터만, 비밀값 제외 | SCR-OPS-002 / SYS-002 |
+| API-READ-035 | `GET /classrooms/{C}/students/me/character-profile` | STU | 프로필 ID·프로필 집계 버전·변경 시각·슬롯별 장착 `inventory_item_id` | SCR-STU-008 / ECO-007 |
 
 ## 11. 역할별 응답 DTO 경계
 
@@ -314,18 +321,18 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 
 ## 14. 커버리지
 
-- 화면 행동: 68개
-- HTTP 연결 대상 행동: 68개
-- 명령 API ID: 68개
+- 화면 행동: 69개
+- HTTP 연결 대상 행동: 69개
+- 명령 API ID: 69개
 - 세션 지원 API: 4개
 - 조회 API: 34개
-- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 107개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 68개 strict·후속 39개 planned
+- 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 109개 작업
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 78개 strict·후속 31개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업
 
-HTTP API ID의 RTM 역방향 연결은 [RTM v1.3](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 완료했습니다. 구현 기준 파일은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [API 필드 매핑](../contracts/api-field-mapping.json)입니다.
+HTTP API ID의 RTM 역방향 연결은 [RTM v1.4](RTM.md), 실시간 계약은 [WebSocket 명세](WEBSOCKET_SPEC.md), 논리·물리 데이터 연결과 Flyway·DB 무결성 테스트는 [논리 데이터 모델](DATA_MODEL.md)과 [물리 스키마](PHYSICAL_SCHEMA.md)에서 관리합니다. AI v1.2 사람 검토 계약의 기계 동기화 대상은 [OpenAPI 3.1 계약](../contracts/openapi.yaml)과 [API 필드 매핑](../contracts/api-field-mapping.json)입니다.
 
 1. OpenAPI·[필드 매핑](../contracts/api-field-mapping.json) 기반 TypeScript 클라이언트·Spring 인터페이스 생성
 2. 역할·상태·오류를 포함한 서비스·E2E 인수 테스트 연결

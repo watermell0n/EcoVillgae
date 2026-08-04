@@ -3,7 +3,17 @@ import path from "node:path";
 import process from "node:process";
 
 const root = process.cwd();
-const excludedDirectories = new Set([".git", ".gradle", "build", "node_modules"]);
+const excludedDirectories = new Set([
+  ".codex",
+  ".docker-config",
+  ".git",
+  ".gradle",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  "build",
+  "node_modules",
+]);
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -14,7 +24,10 @@ function walkMarkdown(directory = ".") {
   return fs.readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      return excludedDirectories.has(entry.name) ? [] : walkMarkdown(relativePath);
+      const isGeneratedPythonCache = entry.name.startsWith(".pytest_cache");
+      return excludedDirectories.has(entry.name) || isGeneratedPythonCache
+        ? []
+        : walkMarkdown(relativePath);
     }
     return entry.isFile() && entry.name.endsWith(".md") ? [relativePath] : [];
   });
@@ -56,7 +69,7 @@ assert(brokenLinks.length === 0, `깨진 로컬 문서 링크\n${brokenLinks.joi
 const definitionSources = [
   {
     name: "요구사항",
-    expected: 78,
+    expected: 82,
     files: ["docs/REQUIREMENTS_BASELINE.md"],
     pattern: /^\| ((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])((?:SYS|AUTH|CLS|CRS|ECO|TRD|FIN|QZ|AI|DAT)-\d{3})(?!\d)/g,
@@ -70,7 +83,7 @@ const definitionSources = [
   },
   {
     name: "권한 규칙",
-    expected: 57,
+    expected: 58,
     files: ["docs/PERMISSION_MATRIX.md"],
     pattern: /^\| (PM-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(PM-[A-Z]+-\d{3})(?!\d)/g,
@@ -84,14 +97,14 @@ const definitionSources = [
   },
   {
     name: "화면 행동",
-    expected: 68,
+    expected: 69,
     files: ["docs/SCREEN_SPEC.md"],
     pattern: /^\| (UIA-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UIA-[A-Z]+-\d{3})(?!\d)/g,
   },
   {
     name: "HTTP API",
-    expected: 115,
+    expected: 118,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
@@ -119,28 +132,28 @@ const definitionSources = [
   },
   {
     name: "핵심 유일성",
-    expected: 18,
+    expected: 21,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (UK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UK-\d{3})(?!\d)/g,
   },
   {
     name: "검사 제약",
-    expected: 39,
+    expected: 41,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (CK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(CK-\d{3})(?!\d)/g,
   },
   {
     name: "조회 인덱스",
-    expected: 37,
+    expected: 40,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (IX-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(IX-\d{3})(?!\d)/g,
   },
   {
     name: "DB 인수 기준",
-    expected: 20,
+    expected: 22,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (DBT-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(DBT-\d{3})(?!\d)/g,
