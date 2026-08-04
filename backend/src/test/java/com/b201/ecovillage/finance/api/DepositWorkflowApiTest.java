@@ -166,6 +166,9 @@ class DepositWorkflowApiTest {
             .andExpect(jsonPath("$.data.financial_products[0].resource_id")
                 .value(productId.toString()))
             .andExpect(jsonPath("$.data.financial_products[0].version").value(2))
+            // 학생 앱은 이 값으로 가입 가능 여부를 판단합니다. PUBLISHED 외의 값으로 바뀌면
+            // 학생 은행 화면이 조용히 빈 목록이 되므로 계약으로 고정합니다.
+            .andExpect(jsonPath("$.data.financial_products[0].status").value("PUBLISHED"))
             .andExpect(jsonPath("$.data.financial_products[0].product_type")
                 .value("DEPOSIT"))
             .andExpect(jsonPath("$.data.financial_products[0].minimum_amount").value(100))

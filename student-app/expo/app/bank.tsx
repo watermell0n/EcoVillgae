@@ -5,7 +5,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
-import { fetchFinanceAccounts, fetchFinancialProducts, subscribeDeposit, type FinancialProduct } from "@/features/student/api";
+import { fetchFinanceAccounts, fetchFinancialProducts, subscribeDeposit, SUBSCRIBABLE_PRODUCT_STATUS, type FinancialProduct } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
 export default function BankScreen() {
@@ -20,7 +20,7 @@ export default function BankScreen() {
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
     }
   });
-  const activeProducts = products.data?.filter((product) => product.status === "ACTIVE" && product.productType === "DEPOSIT") ?? [];
+  const activeProducts = products.data?.filter((product) => product.status === SUBSCRIBABLE_PRODUCT_STATUS && product.productType === "DEPOSIT") ?? [];
 
   return (
     <Screen title="이코 은행" right={<BackButton />}>
