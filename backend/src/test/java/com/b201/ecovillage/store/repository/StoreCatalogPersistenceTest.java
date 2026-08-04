@@ -67,12 +67,27 @@ class StoreCatalogPersistenceTest {
                 NOW
             )
         );
+        versionRepository.save(
+            StoreProductVersion.publish(
+                UUID.randomUUID(),
+                classroomId,
+                productId,
+                2,
+                StoreProductKind.PHYSICAL,
+                350,
+                1_000,
+                true,
+                Map.of("sku", "PENCIL-V2"),
+                NOW.plusSeconds(60)
+            )
+        );
         stockRepository.save(StoreStock.initialize(productId, classroomId, 20, NOW));
 
         StoreProductVersion current = versionRepository
-            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullAndPublishedAtLessThanEqualOrderByVersionDesc(
                 classroomId,
-                productId
+                productId,
+                NOW
             )
             .orElseThrow();
 

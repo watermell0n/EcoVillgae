@@ -24,9 +24,12 @@ import com.b201.ecovillage.finance.application.DepositAccountQueryService;
 import com.b201.ecovillage.finance.application.DepositAccountResult;
 import com.b201.ecovillage.finance.application.DepositSubscriptionCommand;
 import com.b201.ecovillage.finance.application.DepositSubscriptionService;
+import com.b201.ecovillage.finance.application.DepositTerminationCommand;
+import com.b201.ecovillage.finance.application.DepositTerminationService;
 import com.b201.ecovillage.finance.application.FinancialProductCommand;
 import com.b201.ecovillage.finance.application.FinancialProductCommandService;
 import com.b201.ecovillage.finance.application.FinancialResourceResult;
+import com.b201.ecovillage.finance.application.FinancialProductQueryService;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}")
@@ -34,22 +37,63 @@ public class FinanceController {
 
     private final FinancialProductCommandService productService;
     private final DepositSubscriptionService depositService;
+    private final DepositTerminationService terminationService;
     private final DepositAccountQueryService queryService;
+    private final FinancialProductQueryService productQueryService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public FinanceController(
         FinancialProductCommandService productService,
         DepositSubscriptionService depositService,
+        DepositTerminationService terminationService,
         DepositAccountQueryService queryService,
+        FinancialProductQueryService productQueryService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.productService = productService;
         this.depositService = depositService;
+        this.terminationService = terminationService;
         this.queryService = queryService;
+        this.productQueryService = productQueryService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @GetMapping("/financial-products")
+    public ResponseEntity<ApiResponse<FinancialProductsResponse>> findProducts(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        List<FinancialProductViewResponse> products = productQueryService
+            .findVisible(subject(principal), classroomId)
+            .stream()
+            .map(view -> new FinancialProductViewResponse(
+                view.resourceId(),
+                view.label(),
+                view.status(),
+                view.version(),
+                view.stateVersion(),
+                view.productType(),
+                view.termUnits(),
+                view.interestRateBps(),
+                view.earlyTerminationRateBps(),
+                view.minimumAmount(),
+                view.maximumAmount()
+            ))
+            .toList();
+        return response(
+            HttpStatus.OK,
+            new FinancialProductsResponse(products),
+            requestId,
+            resolvedCorrelationId
+        );
     }
 
     @PostMapping("/financial-product-commands")
@@ -131,6 +175,41 @@ public class FinanceController {
         );
     }
 
+    @PostMapping("/deposit-accounts/{accountId}/commands")
+    public ResponseEntity<ApiResponse<FinancialResourceResponse>> commandDeposit(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID accountId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody DepositAccountCommandRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        DepositAccountResult result = terminationService.terminate(
+            new DepositTerminationCommand(
+                subject(principal),
+                classroomId,
+                accountId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.command()
+            )
+        );
+        return response(
+            HttpStatus.OK,
+            new FinancialResourceResponse(
+                result.accountId(),
+                result.status(),
+                result.stateVersion()
+            ),
+            requestId,
+            resolvedCorrelationId
+        );
+    }
+
     @GetMapping("/students/me/deposit-and-savings")
     public ResponseEntity<ApiResponse<DepositAndSavingsResponse>> findMyAccounts(
         @PathVariable UUID classroomId,
@@ -151,7 +230,11 @@ public class FinanceController {
                 view.version(),
                 view.stateVersion(),
                 view.principalAmount(),
-                view.maturesAt()
+                view.expectedInterestAmount(),
+                view.maturityAmount(),
+                view.openedAt(),
+                view.maturesAt(),
+                view.closedAt()
             ))
             .toList();
         return response(

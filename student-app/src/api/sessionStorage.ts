@@ -25,7 +25,16 @@ export function loadStudentSession(): StudentSession | null {
   }
 
   try {
-    return JSON.parse(saved) as StudentSession;
+    const session = JSON.parse(saved) as Partial<StudentSession>;
+    if (typeof session.currencyName !== "string" || session.currencyName.trim().length === 0) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    if (typeof session.walletBalance !== "number" || !Number.isFinite(session.walletBalance)) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return session as StudentSession;
   } catch {
     localStorage.removeItem(SESSION_KEY);
     return null;

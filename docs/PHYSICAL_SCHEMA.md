@@ -9,9 +9,9 @@
 
 ## 1. 목적과 범위
 
-이 문서는 논리 ERD의 85개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
+이 문서는 논리 ERD의 87개 엔티티를 PostgreSQL 17 테이블로 변환하는 기준입니다. 테이블명, 컬럼, 자료형, NULL, 기본값, 기본키·외래키·유일성, 조회 인덱스와 DB 무결성 규칙을 확정합니다.
 
-실행 가능한 Flyway `V1_1`~`V1_15`와 Testcontainers 무결성 테스트는
+실행 가능한 Flyway `V1_1`~`V1_17`와 Testcontainers 무결성 테스트는
 [`backend`](../backend/README.md)에 있습니다. DDL은 이 문서의 테이블·제약·인덱스
 식별자를 구현하며, 공개 화면용 최소 projection 4개를 함께 제공합니다.
 
@@ -198,7 +198,9 @@ ON DELETE RESTRICT
 | `store_order_items` | I | `store_order_id uuid FK(store_orders)`, `store_product_version_id uuid FK(store_product_versions)`, `quantity integer`, `unit_price bigint`, `vat_rate_bps integer`, `subtotal_amount bigint`, `tax_amount bigint`, `total_amount bigint` | `(store_order_id,store_product_version_id) UQ`, 수량>0 |
 | `character_catalog` | G | `character_code varchar(80)`, `name varchar(120)`, `source_title varchar(200)`, `source_url text`, `rights_status varchar(40)`, `rights_evidence_key varchar(512)`, `reviewed_at timestamptz?`, `status varchar(40)` | `character_code UQ`, 승인 전 판매 금지 |
 | `classroom_characters` | S | `character_catalog_id uuid FK(character_catalog)`, `store_product_id uuid? FK(store_products)`, `display_name varchar(120)`, `sort_order integer D=0` | `(classroom_id,character_catalog_id) UQ` |
-| `inventory_items` | S | `classroom_student_id uuid FK(classroom_students)`, `character_catalog_id uuid FK(character_catalog)`, `source_order_item_id uuid? FK(store_order_items)`, `locked_trade_id uuid? FK(trades)`, `equipped_at timestamptz?`, `acquired_at timestamptz D=now()` | SM-ITM-001, 잠금·장착 일관성 |
+| `inventory_items` | S | `classroom_student_id uuid FK(classroom_students)`, `character_catalog_id uuid FK(character_catalog)`, `source_order_item_id uuid? FK(store_order_items)`, `locked_trade_id uuid? FK(trades)`, `acquired_at timestamptz D=now()` | 디지털 소유 원장, 상태 `AVAILABLE·LOCKED_TRADE`, 거래 잠금 일관성 |
+| `student_character_profiles` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `state_version bigint D=0`, `equipment_revision bigint D=0`, `equipment_changed_at timestamptz D=now()` | 학생당 최대 1개, 단일 고정 체형, 슬롯별 장착 상태의 낙관적 버전 |
+| `character_equipment` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `character_profile_id uuid FK(student_character_profiles)`, `inventory_item_id uuid FK(inventory_items)`, `slot varchar(40)`, `state_version bigint D=0`, `equipped_at timestamptz D=now()` | 장착 표현 상태, 프로필별 슬롯 UQ, 인벤토리 아이템 UQ, 낙관적 버전 |
 | `trades` | S | `proposer_student_id uuid FK(classroom_students)`, `counterpart_student_id uuid FK(classroom_students)`, `description text?`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `transaction_group_id uuid? FK(transaction_groups)`, `counterpart_decided_at timestamptz?`, `teacher_decided_at timestamptz?`, `expires_at timestamptz?` | SM-TRD-001, 자기거래 금지 |
 | `trade_money_legs` | I | `trade_id uuid FK(trades)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)`, `amount bigint` | `(trade_id,from_student_id,to_student_id) UQ`, 금액>0 |
 | `trade_item_legs` | I | `trade_id uuid FK(trades)`, `inventory_item_id uuid FK(inventory_items)`, `from_student_id uuid FK(classroom_students)`, `to_student_id uuid FK(classroom_students)` | `(trade_id,inventory_item_id) UQ`, 동일 학생 금지 |
@@ -285,8 +287,11 @@ ON DELETE RESTRICT
 | UK-016 | `salary_roles` | `UNIQUE (classroom_id,role_code)` | 학생 배정과 API가 참조하는 학급 내 안정 역할 코드 |
 | UK-017 | `autonomous_schedule_modules` | `UNIQUE (autonomous_schedule_id,module_code)` | 같은 일정에 같은 모듈 중복 연결 방지 |
 | UK-018 | `school_ai_setting_versions` | `UNIQUE (school_id) WHERE superseded_at IS NULL` | 학교별 현재 AI 설정을 한 버전으로 제한 |
+| UK-019 | `student_character_profiles` | `UNIQUE (classroom_id,classroom_student_id)` | 학생별 캐릭터 프로필 최대 1개 |
+| UK-020 | `character_equipment` | `UNIQUE (character_profile_id,slot)` | 프로필별 슬롯당 장착 행 최대 1개 |
+| UK-021 | `character_equipment` | `UNIQUE (inventory_item_id)` | 같은 보유 아이템의 중복 장착 방지 |
 
-UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010·017은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
+UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE UNIQUE INDEX`로, UK-010·017·019~021은 테이블 `UNIQUE` 제약으로 구현합니다. `classrooms.classroom_code`의 전역 유일 제약은 별도 테이블 UQ로 관리합니다. 학급 소유 교사는 최초 학급 생성 트랜잭션에서 반드시 함께 삽입하고, 서비스 인수 테스트로 “0명” 상태가 커밋되지 않도록 보완합니다.
 
 ## 6. 검사 제약조건
 
@@ -306,7 +311,7 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-012 | `store_stocks` | `available_quantity>=0 AND reserved_quantity>=0` |
 | CK-013 | `store_orders` | `subtotal_amount+tax_amount=total_amount` |
 | CK-014 | `store_order_items` | `quantity>0`, 금액 산식과 `vat_rate_bps BETWEEN 0 AND 10000` |
-| CK-015 | `inventory_items` | `LOCKED_TRADE`일 때만 `locked_trade_id` 존재, `EQUIPPED`일 때만 `equipped_at` 존재 |
+| CK-015 | `inventory_items` | 상태는 `AVAILABLE·LOCKED_TRADE`이며 `LOCKED_TRADE`일 때만 `locked_trade_id` 존재 |
 | CK-016 | `trades` | `proposer_student_id<>counterpart_student_id` |
 | CK-017 | `trade_money_legs` | `amount>0 AND from_student_id<>to_student_id` |
 | CK-018 | `trade_item_legs` | `from_student_id<>to_student_id` |
@@ -331,6 +336,8 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-037 | `classrooms` | `planned_student_count>0` |
 | CK-038 | `salary_roles` | `role_code`는 영문 대문자로 시작하는 영문 대문자·숫자·밑줄 1~40자 |
 | CK-039 | `school_ai_setting_versions` | `version>0`, 사유는 공백이 아니며 `superseded_at`은 `effective_from`보다 뒤 |
+| CK-040 | `student_character_profiles` | `state_version>=0 AND equipment_revision>=0` |
+| CK-041 | `character_equipment` | 슬롯은 10개 허용값 중 하나이고 `state_version>=0` |
 
 상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 
@@ -393,6 +400,19 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 
 같은 학급의 같은 해시가 이미 있으면 기존 스냅샷을 재사용할 수 있습니다.
 
+### 7.6 디지털 아이템 소유와 장착
+
+- `inventory_items`는 소유자와 거래 잠금만 기록하는 단일 소유 원장입니다. 장착 중인 아이템도
+  소유 원장 상태는 `AVAILABLE`이며, 실제 장착 여부는 `character_equipment` 존재로 판단합니다.
+- `character_equipment`의 학급·학생·프로필·인벤토리 복합 FK는 다른 학급 또는 다른 학생의
+  아이템을 장착하는 것을 차단합니다.
+- `trg_character_equipment_validate_item`은 인벤토리 행을 잠근 뒤 `AVAILABLE`인 소유 아이템과
+  `character_code` 접두사의 슬롯 일치를 검사합니다. `bg_*`는 `BACKGROUND`로 정규화합니다.
+- `trg_inventory_items_equipment_lock`은 장착 행이 남아 있는 아이템을 `LOCKED_TRADE`로 바꾸지
+  못하게 합니다. 서비스도 거래 등록 전에 장착 여부를 확인해야 합니다.
+- `student_character_profiles`, `character_equipment`, `inventory_items`의 `state_version`은 각각
+  낙관적 동시성에 사용합니다. 외부 장착 명령은 프로필 버전을 기준으로 충돌을 판정합니다.
+
 ## 8. 조회 인덱스
 
 PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK 자식 인덱스를 자동 생성하지 않으므로 모든 FK 선두 컬럼에 별도 인덱스가 필요합니다.
@@ -417,7 +437,7 @@ PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK �
 | IX-016 | `ix_store_products_classroom_status` | `(classroom_id,status,product_kind)` | 상점 상품 |
 | IX-017 | `ix_store_orders_student_time` | `(classroom_student_id,created_at DESC)` | 학생 주문 |
 | IX-018 | `ix_store_orders_fulfillment` | `(classroom_id,status,created_at)` | 수령 처리 |
-| IX-019 | `ix_inventory_items_owner_status` | `(classroom_student_id,status,acquired_at DESC)` | 보유·장착 목록 |
+| IX-019 | `ix_inventory_items_owner_status` | `(classroom_student_id,status,acquired_at DESC)` | 보유·거래 잠금 목록 |
 | IX-020 | `ix_trades_proposer_status` | `(proposer_student_id,status,created_at DESC)` | 보낸 거래 |
 | IX-021 | `ix_trades_counterpart_status` | `(counterpart_student_id,status,created_at DESC)` | 받은 거래 |
 | IX-022 | `ix_trades_teacher_queue` | `(classroom_id,status,created_at) WHERE status='AWAITING_TEACHER'` | 교사 승인함 |
@@ -436,6 +456,9 @@ PK·UQ·FK 인덱스 외에 다음 인덱스를 만듭니다. PostgreSQL은 FK �
 | IX-035 | `ix_async_operations_status` | `(classroom_id,status,created_at)` | 비동기 작업 감시 |
 | IX-036 | `ix_report_snapshots_retention` | `(retention_until)` | 보관 만료 |
 | IX-037 | `ix_autonomous_schedule_modules_module` | `(classroom_id,module_code,autonomous_schedule_id)` | 모듈별 자율시간 조회 |
+| IX-038 | `ix_student_character_profiles_student` | `(classroom_id,classroom_student_id)` | 본인 캐릭터 프로필 조회 |
+| IX-039 | `ix_character_equipment_profile` | `(classroom_id,character_profile_id)` | 프로필 장착 슬롯 조회 |
+| IX-040 | `ix_character_equipment_owner` | `(classroom_id,classroom_student_id)` | 학생별 장착 상태 조회 |
 
 JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN ANALYZE` 근거가 생긴 필드만 표현식 또는 GIN 인덱스로 추가합니다.
 
@@ -495,8 +518,10 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | P13 | `V1_13__activity_public_fields.sql` | 지도 활동별 교사 승인 공용 화면 필드 allowlist |
 | P14 | `V1_14__ai_v1_2_execution.sql` | AI 실행 메타데이터·확인 결정·모니터 중복 방지 |
 | P15 | `V1_15__quiz_result_workflow.sql` | 학생별 중복 신고·세션별 동시 재채점 방지 부분 UQ |
+| P16 | `V1_16__student_character_profiles_and_equipment.sql` | 단일 체형 프로필, 슬롯별 장착, 54개 코드형 도트 상품과 학급 상점 초기 데이터 |
+| P17 | `V1_17__basic_character_catalog.sql` | 기본 테마 코드형 도트 파츠 10개 추가 및 기존 학급 상점 보강 |
 
-하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_15`로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
+하나의 제품 초기 버전이므로 Flyway version은 `V1_1`~`V1_17`으로 분리합니다. 이미 공유 환경에 적용한 파일은 수정하지 않고 새 migration을 추가합니다.
 
 ## 12. Testcontainers 인수 기준
 
@@ -522,6 +547,8 @@ JSONB 인덱스는 기본 생성하지 않습니다. 실제 쿼리와 `EXPLAIN A
 | DBT-018 | 학급 코드가 전역에서 유일하고 형식이 유효하며, 화폐 단위명 형식과 생성 후 불변성이 강제됨 |
 | DBT-019 | 예상 학생 수, 역할 코드, 자율시간-모듈 학급 범위, 학교 AI 현재 설정 제약이 강제됨 |
 | DBT-020 | 격리된 PostgreSQL에서 전체 Flyway 스키마를 정리하고 재생성할 수 있음 |
+| DBT-021 | 학생별 프로필·프로필별 슬롯·아이템별 장착 유일성과 10개 장착 슬롯 허용값이 강제됨 |
+| DBT-022 | 장착 행은 같은 학생의 `AVAILABLE` 아이템만 참조하고, 장착 아이템을 해제하지 않은 거래 잠금은 실패 |
 
 ## 13. 애플리케이션 책임
 
@@ -544,12 +571,12 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 
 구현 결과:
 
-- 논리 ERD 85개 엔티티가 85개 물리 테이블에 1:1 매핑
+- 논리 ERD 87개 엔티티가 87개 물리 테이블에 1:1 매핑
 - 전체 컬럼·자료형·NULL·기본값 규칙 명시
 - PK·학급 복합 FK·UQ·부분 UQ 정의
 - 원장 균형·불변성·복구·정책 스냅샷 규칙 정의
-- Flyway `V1_1`~`V1_15`에 조회 인덱스 37개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터·퀴즈 신고/재채점 동시성 제약 구현
-- Testcontainers에 DBT-001~020과 85개 테이블 생성 검사 구현
+- Flyway `V1_1`~`V1_17`에 조회 인덱스 40개, FK 보조 인덱스 14개, 학급 식별·공개 순위·MVP 필드·추천 코스·활동 공개 필드·AI v1.2 실행 메타데이터·퀴즈 신고/재채점 동시성 제약·캐릭터 슬롯 장착·64개 코드형 도트 상품 구현
+- Testcontainers에 DBT-001~022와 87개 테이블 생성 검사 구현
 - Java 21·Spring Boot 4.1·Testcontainers 2.0.5 기준 테스트 컴파일 성공
 - PostgreSQL 17.10의 빈 격리 데이터베이스에 Flyway `V1_1`~`V1_14` 14개 직접 적용, 85개 물리 테이블과 Hibernate 스키마 검증 성공
 - 격리 데이터베이스 삭제·재생성 후 `V1_1`~`V1_14` 전체 재적용 성공
@@ -567,6 +594,14 @@ DB는 결과 무결성과 불변성을 보장하고, 서비스는 명령의 의�
 
 `V1_15__quiz_result_workflow.sql`은 학생별 같은 세션 문항 중복 신고와 같은 세션의
 활성 재채점 중복 실행을 부분 유일 인덱스로 차단합니다.
+
+`V1_16__student_character_profiles_and_equipment.sql`은 한 학생의 단일 캐릭터
+프로필과 슬롯별 장착 상태를 분리합니다. 장착된 아이템은 계속 학생 소유여야 하며
+배경을 포함한 서로 다른 슬롯은 동시에 유지됩니다.
+
+`V1_17__basic_character_catalog.sql`은 빨간 캡·비니·선글라스·헤드폰·파란
+티셔츠·노란 후드·초록 조끼·멜빵바지·운동화·배낭을 코드형 레이어 상품으로
+추가하고, 이미 생성된 학급 상점에도 누락 없이 보강합니다.
 
 후속 작업:
 

@@ -61,6 +61,8 @@ public class StudentSessionController {
             result.refreshToken(),
             result.expiresAt(),
             result.classroomId(),
+            result.currencyName(),
+            result.walletBalance(),
             result.studentId(),
             "STU"
         );

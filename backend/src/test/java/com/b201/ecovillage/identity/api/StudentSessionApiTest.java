@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.StudentCredential;
 import com.b201.ecovillage.identity.domain.StudentSession;
 import com.b201.ecovillage.identity.domain.StudentSessionStatus;
@@ -56,6 +58,7 @@ import com.b201.ecovillage.identity.repository.StudentSessionRepository;
 class StudentSessionApiTest {
 
     private static final String CLASSROOM_CODE = "ABCD2345";
+    private static final String CURRENCY_NAME = "별";
     private static final String NICKNAME = "경제왕";
     private static final String PASSWORD = "economy123!";
     private static final Instant CREATED_AT = Instant.parse("2026-07-30T00:00:00Z");
@@ -90,7 +93,19 @@ class StudentSessionApiTest {
         studentId = UUID.randomUUID();
 
         classroomRepository.save(
-            Classroom.active(classroomId, CLASSROOM_CODE, CREATED_AT)
+            Classroom.create(
+                classroomId,
+                new UUID(0, 0),
+                CLASSROOM_CODE,
+                CURRENCY_NAME,
+                4,
+                CourseSize.ONE_WEEK,
+                30,
+                LocalDate.of(2026, 7, 30),
+                LocalDate.of(2026, 8, 6),
+                "Asia/Seoul",
+                CREATED_AT
+            )
         );
         classroomStudentRepository.save(
             ClassroomStudent.enroll(studentId, classroomId, 7, NICKNAME, CREATED_AT)
@@ -121,6 +136,8 @@ class StudentSessionApiTest {
             .andExpect(jsonPath("$.data.refresh_token").isString())
             .andExpect(jsonPath("$.data.expires_at").isString())
             .andExpect(jsonPath("$.data.classroom_id").value(classroomId.toString()))
+            .andExpect(jsonPath("$.data.currency_name").value(CURRENCY_NAME))
+            .andExpect(jsonPath("$.data.wallet_balance").value(0))
             .andExpect(jsonPath("$.data.student_id").value(studentId.toString()))
             .andExpect(jsonPath("$.data.role").value("STU"))
             .andExpect(jsonPath("$.meta.request_id").value(requestId.toString()))

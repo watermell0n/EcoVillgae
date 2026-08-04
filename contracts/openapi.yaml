@@ -4,7 +4,7 @@ info:
   title: "이코빌리지 Core HTTP API"
   version: "0.1.0"
   summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API"
-  description: "HTTP_API_SPEC.md의 109개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
+  description: "HTTP_API_SPEC.md의 110개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다."
   license:
     name: "Proprietary"
     identifier: "LicenseRef-Proprietary"
@@ -67,6 +67,7 @@ paths:
         - "student_credentials"
         - "device_links"
         - "student_sessions"
+        - "ledger_accounts"
       x-ui-action-ids:
         - "UIA-AUTH-001"
       x-roles:
@@ -106,6 +107,8 @@ paths:
                       - "expires_at"
                       - "classroom_id"
                       - "student_id"
+                      - "currency_name"
+                      - "wallet_balance"
                       - "role"
                     properties:
                       access_token:
@@ -125,6 +128,14 @@ paths:
                       student_id:
                         type: "string"
                         format: "uuid"
+                      currency_name:
+                        type: "string"
+                        minLength: 1
+                        maxLength: 10
+                      wallet_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
                       role:
                         type: "string"
                         enum:
@@ -3640,7 +3651,7 @@ paths:
                   minimum: 1
                 expected_product_version:
                   type: "integer"
-                  minimum: 0
+                  minimum: 1
               required:
                 - "product_id"
                 - "quantity"
@@ -3964,6 +3975,8 @@ paths:
       x-schema-closure: "strict"
       x-storage-targets:
         - "inventory_items"
+        - "student_character_profiles"
+        - "character_equipment"
       x-ui-action-ids:
         - "UIA-ITM-001"
       x-roles:
@@ -3977,8 +3990,8 @@ paths:
         - "TRD-002"
       tags:
         - "Inventory"
-      summary: "command=EQUIP|UNEQUIP → AVAILABLE ↔ EQUIPPED"
-      description: "사람이 검토하는 원문 기준: `API-ITM-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=EQUIP|UNEQUIP → AVAILABLE ↔ EQUIPPED."
+      summary: "command=EQUIP|UNEQUIP → character_equipment 슬롯 행 생성, 교체, 삭제, 응답 status는 장착 여부를 EQUIPPED|AVAILABLE로 합성"
+      description: "사람이 검토하는 원문 기준: `API-ITM-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: command=EQUIP|UNEQUIP → character_equipment 슬롯 행 생성, 교체, 삭제, 응답 status는 장착 여부를 EQUIPPED|AVAILABLE로 합성."
       security:
         - bearerAuth: []
       parameters:
@@ -4002,12 +4015,16 @@ paths:
                     required:
                       - "inventory_item_id"
                       - "status"
+                      - "state_version"
                     properties:
                       inventory_item_id:
                         type: "string"
                         format: "uuid"
                       status:
                         type: "string"
+                        enum:
+                          - "AVAILABLE"
+                          - "EQUIPPED"
                       state_version:
                         type: "integer"
                         format: "int64"
@@ -4061,6 +4078,7 @@ paths:
                     - "EQUIP"
                     - "UNEQUIP"
               required:
+                - "expected_state_version"
                 - "command"
               additionalProperties: false
   "/platform/character-sources/{resource_id}/review-commands":
@@ -10245,6 +10263,17 @@ paths:
                               type:
                                 - "string"
                                 - "null"
+                          required:
+                            - "resource_id"
+                            - "label"
+                            - "status"
+                            - "version"
+                            - "state_version"
+                            - "unit_price"
+                            - "vat_rate_bps"
+                            - "available_quantity"
+                            - "product_kind"
+                            - "character_code"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -10277,6 +10306,8 @@ paths:
       x-storage-targets:
         - "inventory_items"
         - "character_catalog"
+        - "student_character_profiles"
+        - "character_equipment"
       x-roles:
         - "STU"
       x-permission-ids: []
@@ -10333,6 +10364,14 @@ paths:
                               type: "string"
                             equipped:
                               type: "boolean"
+                          required:
+                            - "resource_id"
+                            - "label"
+                            - "status"
+                            - "version"
+                            - "state_version"
+                            - "character_code"
+                            - "equipped"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -12352,6 +12391,111 @@ paths:
       responses:
         200:
           $ref: "#/components/responses/Success"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/students/me/character-profile":
+    get:
+      operationId: "apiRead035"
+      x-api-id: "API-READ-035"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "student_character_profiles"
+        - "character_equipment"
+      x-roles:
+        - "STU"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-008"
+        - "ECO-007"
+      tags:
+        - "Queries"
+      summary: "프로필 ID, 프로필 집계 버전, 변경 시각, 슬롯별 장착 inventory_item_id"
+      description: "사람이 검토하는 원문 기준: `API-READ-035` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 프로필 ID, 프로필 집계 버전, 변경 시각, 슬롯별 장착 inventory_item_id."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "profile_id"
+                      - "classroom_student_id"
+                      - "state_version"
+                      - "equipment_changed_at"
+                      - "created_at"
+                      - "updated_at"
+                      - "equipped_inventory_items"
+                    properties:
+                      profile_id:
+                        type: "string"
+                        format: "uuid"
+                      classroom_student_id:
+                        type: "string"
+                        format: "uuid"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      equipment_changed_at:
+                        type: "string"
+                        format: "date-time"
+                      created_at:
+                        type: "string"
+                        format: "date-time"
+                      updated_at:
+                        type: "string"
+                        format: "date-time"
+                      equipped_inventory_items:
+                        type: "object"
+                        propertyNames:
+                          enum:
+                            - "BACKGROUND"
+                            - "EFFECT"
+                            - "BACK"
+                            - "BOTTOM"
+                            - "SHOES"
+                            - "TOP"
+                            - "NECK"
+                            - "FACE"
+                            - "HAND"
+                            - "HAT"
+                        additionalProperties:
+                          type: "string"
+                          format: "uuid"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:

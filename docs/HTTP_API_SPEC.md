@@ -125,7 +125,7 @@
 | API-SHP-002 · UIA-SHP-002 | `POST /classrooms/{C}/store/orders` | STU | `product_id, quantity, expected_product_version` → 결제·세금·지급 또는 수령 대기 주문 | PM-SHP-002 · SM-SHP-001·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `OUT_OF_STOCK`, `PRICE_CHANGED`, `APP_MODE_BLOCKED` | ECO-001·ECO-005·ECO-006 |
 | API-SHP-003 · UIA-SHP-003 | `POST /classrooms/{C}/store/orders/{R}/ready-for-pickup-commands` | OWN·COT | 준비 완료 → `PAID → READY_FOR_PICKUP` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `ORDER_NOT_PHYSICAL` | ECO-005 |
 | API-SHP-004 · UIA-SHP-004 | `POST /classrooms/{C}/store/orders/{R}/receipt-confirmations` | OWN·COT | 학생 확인 정보 → `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `STUDENT_MISMATCH` | ECO-005 |
-| API-ITM-001 · UIA-ITM-001 | `POST /classrooms/{C}/inventory-items/{R}/commands` | STU | `command=EQUIP\|UNEQUIP` → `AVAILABLE ↔ EQUIPPED` | PM-ITM-001 · SM-ITM-001 | `RESOURCE_NOT_OWNED`, `ITEM_LOCKED`, `INVALID_STATE_TRANSITION` | ECO-007·TRD-002 |
+| API-ITM-001 · UIA-ITM-001 | `POST /classrooms/{C}/inventory-items/{R}/commands` | STU | `command=EQUIP\|UNEQUIP` → `character_equipment` 슬롯 행 생성·교체·삭제, 응답 `status`는 장착 여부를 `EQUIPPED\|AVAILABLE`로 합성 | PM-ITM-001 · SM-ITM-001 | `RESOURCE_NOT_OWNED`, `ITEM_LOCKED`, `INVALID_STATE_TRANSITION` | ECO-007·TRD-002 |
 | API-CNT-001 · UIA-CNT-001 | `POST /platform/character-sources/{R}/review-commands` | POP | `command=APPROVE\|REJECT\|PUBLISH\|UNPUBLISH`, 출처·지역·권리·검토일·증적 → 전역 게시 상태 | PM-CNT-001 · SM — | `RIGHTS_EVIDENCE_REQUIRED`, `REGION_NOT_REVIEWED` | ECO-010 |
 | API-CNT-002 · UIA-CNT-002 | `PUT /classrooms/{C}/character-catalog/{R}` | OWN | 전역 캐릭터 ID, 학급 표시명·판매 여부 → 학급 카탈로그 항목 | PM-CNT-001·PM-SHP-001 · SM-CLS-001 | `CHARACTER_NOT_PUBLISHED`, `OWNER_REQUIRED` | ECO-007·ECO-010 |
 
@@ -249,6 +249,7 @@
 | API-READ-032 | `GET /schools/{school_id}/devices` | SAD | 학교 지급 기기·분실·연결·세션 메타데이터 | SCR-ADM-003 / AUTH-003·DAT-005 |
 | API-READ-033 | `GET /platform/ai-settings` | POP | 공급자·모델 라우팅·전역 한도·설정 버전 | SCR-OPS-002 / SYS-002·AI-006 |
 | API-READ-034 | `GET /platform/service-credentials` | POP | 자격증명 메타데이터만, 비밀값 제외 | SCR-OPS-002 / SYS-002 |
+| API-READ-035 | `GET /classrooms/{C}/students/me/character-profile` | STU | 프로필 ID·프로필 집계 버전·변경 시각·슬롯별 장착 `inventory_item_id` | SCR-STU-008 / ECO-007 |
 
 ## 11. 역할별 응답 DTO 경계
 

@@ -63,6 +63,14 @@ public enum ClassroomPermission {
         "PM-FIN-001",
         Set.of(ClassroomActorRole.OWN)
     ),
+    READ_FINANCIAL_PRODUCTS(
+        "PM-FIN-READ",
+        Set.of(
+            ClassroomActorRole.STU,
+            ClassroomActorRole.OWN,
+            ClassroomActorRole.COT
+        )
+    ),
     USE_FINANCIAL_PRODUCTS(
         "PM-FIN-002",
         Set.of(ClassroomActorRole.STU)

@@ -38,6 +38,16 @@ function joinUrl(path: string) {
   return `${API_BASE_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 }
 
+export function getRealtimeWebSocketUrl() {
+  const configured = import.meta.env.VITE_WEBSOCKET_URL as string | undefined;
+  const url = new URL(configured ?? API_BASE_URL, window.location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  if (!configured || url.pathname === "/" || url.pathname === "/api") {
+    url.pathname = "/ws/v1";
+  }
+  return url.toString();
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");

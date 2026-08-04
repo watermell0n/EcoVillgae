@@ -5,7 +5,6 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.finance.domain.FinancialProduct;
@@ -23,20 +22,22 @@ public class DepositAccountQueryService {
     private final DepositAccountRepository accountRepository;
     private final FinancialProductVersionRepository versionRepository;
     private final FinancialProductRepository productRepository;
+    private final DepositMaturityService maturityService;
 
     public DepositAccountQueryService(
         ClassroomAuthorizationService authorizationService,
         DepositAccountRepository accountRepository,
         FinancialProductVersionRepository versionRepository,
-        FinancialProductRepository productRepository
+        FinancialProductRepository productRepository,
+        DepositMaturityService maturityService
     ) {
         this.authorizationService = authorizationService;
         this.accountRepository = accountRepository;
         this.versionRepository = versionRepository;
         this.productRepository = productRepository;
+        this.maturityService = maturityService;
     }
 
-    @Transactional(readOnly = true)
     public List<DepositAccountView> findMine(String subject, UUID classroomId) {
         UUID studentId = studentId(subject);
         authorizationService.authorize(
@@ -45,6 +46,7 @@ public class DepositAccountQueryService {
             ClassroomPermission.READ_OWN_STUDENT_DATA,
             studentId
         );
+        maturityService.matureDueAccounts(classroomId);
         return accountRepository
             .findAllByClassroomIdAndClassroomStudentIdOrderByOpenedAtDesc(
                 classroomId,
@@ -68,7 +70,11 @@ public class DepositAccountQueryService {
                     version.getVersion(),
                     account.getStateVersion(),
                     account.getPrincipalAmount(),
-                    account.getMaturesAt()
+                    account.getExpectedInterestAmount(),
+                    account.maturityAmount(),
+                    account.getOpenedAt(),
+                    account.getMaturesAt(),
+                    account.getClosedAt()
                 );
             })
             .toList();

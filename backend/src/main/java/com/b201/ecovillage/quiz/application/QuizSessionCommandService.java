@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -48,6 +49,8 @@ import com.b201.ecovillage.quiz.repository.QuizOptionRepository;
 import com.b201.ecovillage.quiz.repository.QuizQuestionVersionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionQuestionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionRepository;
+import com.b201.ecovillage.quiz.repository.QuizSubmissionRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
 public class QuizSessionCommandService {
@@ -64,9 +67,12 @@ public class QuizSessionCommandService {
     private final ActivityParticipantRepository participantRepository;
     private final QuizSessionRepository sessionRepository;
     private final QuizSessionQuestionRepository sessionQuestionRepository;
+    private final QuizSubmissionRepository submissionRepository;
     private final QuizQuestionVersionRepository versionRepository;
     private final QuizOptionRepository optionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final EffectiveAccessModeService accessModeService;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final EntityManager entityManager;
     private final Clock clock;
@@ -80,9 +86,12 @@ public class QuizSessionCommandService {
         ActivityParticipantRepository participantRepository,
         QuizSessionRepository sessionRepository,
         QuizSessionQuestionRepository sessionQuestionRepository,
+        QuizSubmissionRepository submissionRepository,
         QuizQuestionVersionRepository versionRepository,
         QuizOptionRepository optionRepository,
         IdempotencyRecordRepository idempotencyRepository,
+        EffectiveAccessModeService accessModeService,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         EntityManager entityManager,
         Clock clock
@@ -95,9 +104,12 @@ public class QuizSessionCommandService {
         this.participantRepository = participantRepository;
         this.sessionRepository = sessionRepository;
         this.sessionQuestionRepository = sessionQuestionRepository;
+        this.submissionRepository = submissionRepository;
         this.versionRepository = versionRepository;
         this.optionRepository = optionRepository;
         this.idempotencyRepository = idempotencyRepository;
+        this.accessModeService = accessModeService;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.entityManager = entityManager;
         this.clock = clock;
@@ -151,7 +163,100 @@ public class QuizSessionCommandService {
             session.getStateVersion()
         );
         remember(command, teacher.getId(), requestHash, result, now);
+        publishRealtime(command, session, now);
         return result;
+    }
+
+    private void publishRealtime(
+        QuizSessionCommand command,
+        QuizSession session,
+        Instant now
+    ) {
+        if (command.command() == QuizSessionCommandType.START) {
+            eventPublisher.publish(
+                command.classroomId(),
+                "QUIZ",
+                command.sessionId(),
+                "quiz.session.started",
+                "QUIZ",
+                command.sessionId(),
+                session.getStateVersion(),
+                Map.of(
+                    "mode", session.getMode().name(),
+                    "content_type", command.contentType().name(),
+                    "question_count", command.questionVersionIds().size(),
+                    "reward_policy_public", session.getRewardPolicyPublic()
+                ),
+                true
+            );
+            eventPublisher.publish(
+                command.classroomId(),
+                "CLASSROOM_LIFECYCLE",
+                null,
+                "classroom.app_mode.changed",
+                "QUIZ",
+                command.sessionId(),
+                session.getStateVersion(),
+                Map.of(
+                    "mode", "GUIDED",
+                    "source", "GUIDED_ACTIVITY",
+                    "starts_at", now.toString(),
+                    "ends_at", now.toString(),
+                    "active_activity_id", command.sessionId().toString(),
+                    "activity_type", "QUIZ"
+                ),
+                true
+            );
+            return;
+        }
+        if (command.command() == QuizSessionCommandType.CLOSE_SUBMISSIONS) {
+            long submitted = submissionRepository
+                .findAllByClassroomIdAndQuizSessionId(
+                    command.classroomId(),
+                    command.sessionId()
+                )
+                .stream()
+                .filter(submission -> "SUBMITTED".equals(submission.getStatus()))
+                .map(submission -> submission.getClassroomStudentId())
+                .distinct()
+                .count();
+            long total = participantRepository.countByClassroomIdAndActivitySessionId(
+                command.classroomId(),
+                command.sessionId()
+            );
+            eventPublisher.publish(
+                command.classroomId(),
+                "QUIZ",
+                command.sessionId(),
+                "quiz.submissions.closed",
+                "QUIZ",
+                command.sessionId(),
+                session.getStateVersion(),
+                Map.of(
+                    "closed_at", now.toString(),
+                    "submitted_count", submitted,
+                    "total_count", total
+                ),
+                true
+            );
+            String nextMode = accessModeService.get(command.classroomId()).mode().name();
+            eventPublisher.publish(
+                command.classroomId(),
+                "CLASSROOM_LIFECYCLE",
+                null,
+                "classroom.app_mode.changed",
+                "QUIZ",
+                command.sessionId(),
+                session.getStateVersion(),
+                Map.of(
+                    "mode", nextMode,
+                    "source", "GUIDED_ACTIVITY",
+                    "starts_at", now.toString(),
+                    "ends_at", now.toString()
+                ),
+                true
+            );
+        }
     }
 
     private QuizSession start(

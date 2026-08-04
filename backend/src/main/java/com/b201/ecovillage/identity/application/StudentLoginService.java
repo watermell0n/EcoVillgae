@@ -27,6 +27,9 @@ import com.b201.ecovillage.identity.repository.StudentSessionRepository;
 import com.b201.ecovillage.identity.security.IdentitySecretHasher;
 import com.b201.ecovillage.identity.security.IssuedStudentTokens;
 import com.b201.ecovillage.identity.security.StudentTokenIssuer;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
+import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 
 @Service
 public class StudentLoginService {
@@ -39,6 +42,7 @@ public class StudentLoginService {
     private final StudentCredentialRepository studentCredentialRepository;
     private final DeviceLinkRepository deviceLinkRepository;
     private final StudentSessionRepository studentSessionRepository;
+    private final LedgerAccountRepository ledgerAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final StudentTokenIssuer tokenIssuer;
     private final IdentitySecretHasher secretHasher;
@@ -52,6 +56,7 @@ public class StudentLoginService {
         StudentCredentialRepository studentCredentialRepository,
         DeviceLinkRepository deviceLinkRepository,
         StudentSessionRepository studentSessionRepository,
+        LedgerAccountRepository ledgerAccountRepository,
         PasswordEncoder passwordEncoder,
         StudentTokenIssuer tokenIssuer,
         IdentitySecretHasher secretHasher,
@@ -64,6 +69,7 @@ public class StudentLoginService {
         this.studentCredentialRepository = studentCredentialRepository;
         this.deviceLinkRepository = deviceLinkRepository;
         this.studentSessionRepository = studentSessionRepository;
+        this.ledgerAccountRepository = ledgerAccountRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenIssuer = tokenIssuer;
         this.secretHasher = secretHasher;
@@ -152,6 +158,16 @@ public class StudentLoginService {
             tokens.refreshToken(),
             tokens.accessTokenExpiresAt(),
             classroom.getId(),
+            classroom.getCurrencyName(),
+            ledgerAccountRepository
+                .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                    classroom.getId(),
+                    student.getId(),
+                    LedgerAccountType.STUDENT_WALLET,
+                    LedgerAccountStatus.ACTIVE
+                )
+                .map(account -> account.getCurrentBalance())
+                .orElse(0L),
             student.getId()
         );
     }

@@ -3,6 +3,7 @@ package com.b201.ecovillage.finance.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.finance.domain.DepositAccount;
 import com.b201.ecovillage.finance.domain.FinancialProduct;
 import com.b201.ecovillage.finance.domain.FinancialProductType;
@@ -51,6 +53,7 @@ import com.b201.ecovillage.ledger.domain.TransactionGroupStatus;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
 import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 import com.b201.ecovillage.ledger.repository.PolicySnapshotRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 class DepositSubscriptionServiceTest {
 
@@ -59,6 +62,7 @@ class DepositSubscriptionServiceTest {
     private DepositAccountRepository accountRepository;
     private IdempotencyRecordRepository idempotencyRepository;
     private AtomicLedgerTransactionService transactionService;
+    private RealtimeEventPublisher eventPublisher;
     private DepositSubscriptionService service;
     private DepositSubscriptionCommand command;
     private AtomicReference<DepositAccount> savedAccount;
@@ -71,6 +75,7 @@ class DepositSubscriptionServiceTest {
         ClassroomRepository classroomRepository = mock(ClassroomRepository.class);
         ClassroomStudentRepository studentRepository =
             mock(ClassroomStudentRepository.class);
+        ClassroomModuleRepository moduleRepository = mock(ClassroomModuleRepository.class);
         FinancialProductRepository productRepository =
             mock(FinancialProductRepository.class);
         FinancialProductVersionRepository versionRepository =
@@ -81,6 +86,7 @@ class DepositSubscriptionServiceTest {
         PolicySnapshotRepository snapshotRepository = mock(PolicySnapshotRepository.class);
         idempotencyRepository = mock(IdempotencyRecordRepository.class);
         transactionService = mock(AtomicLedgerTransactionService.class);
+        eventPublisher = mock(RealtimeEventPublisher.class);
 
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
@@ -88,6 +94,7 @@ class DepositSubscriptionServiceTest {
             authorizationService,
             classroomRepository,
             studentRepository,
+            moduleRepository,
             productRepository,
             versionRepository,
             accountRepository,
@@ -95,6 +102,7 @@ class DepositSubscriptionServiceTest {
             snapshotRepository,
             idempotencyRepository,
             transactionService,
+            eventPublisher,
             uuidGenerator,
             clock
         );
@@ -172,6 +180,11 @@ class DepositSubscriptionServiceTest {
         when(classroomRepository.findById(classroomId))
             .thenReturn(Optional.of(Classroom.active(classroomId, "ABCD1234", NOW)));
         when(studentRepository.findById(studentId)).thenReturn(Optional.of(student));
+        when(moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            classroomId,
+            "DEPOSIT",
+            "ACTIVE"
+        )).thenReturn(true);
         when(
             idempotencyRepository.findForReplay(
                 eq(classroomId),
@@ -282,5 +295,8 @@ class DepositSubscriptionServiceTest {
         assertEquals(first.accountId(), repeated.accountId());
         verify(transactionService, times(1)).execute(any(UUID.class), any(), anyList());
         verify(accountRepository, times(1)).save(any());
+        verify(eventPublisher, times(1)).publish(
+            any(), any(), any(), any(), any(), any(), anyLong(), any(), eq(false)
+        );
     }
 }

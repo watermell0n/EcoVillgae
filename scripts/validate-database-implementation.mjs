@@ -42,6 +42,8 @@ const expectedMigrations = [
   "V1_13__activity_public_fields.sql",
   "V1_14__ai_v1_2_execution.sql",
   "V1_15__quiz_result_workflow.sql",
+  "V1_16__student_character_profiles_and_equipment.sql",
+  "V1_17__basic_character_catalog.sql",
 ];
 
 function unique(values) {
@@ -106,8 +108,8 @@ for (const table of difference(implementedTables, documentedTables)) {
 for (const table of duplicates(implementedTables)) {
   errors.push(`table is created more than once: ${table}`);
 }
-if (implementedTables.length !== 85) {
-  errors.push(`expected 85 tables, found ${implementedTables.length}`);
+if (implementedTables.length !== 87) {
+  errors.push(`expected 87 tables, found ${implementedTables.length}`);
 }
 
 const documentedIndexes = [
@@ -119,12 +121,12 @@ const implementedIndexes = [
 for (const index of difference(documentedIndexes, implementedIndexes)) {
   errors.push(`documented IX index is not implemented: ${index}`);
 }
-if (documentedIndexes.length !== 37) {
-  errors.push(`expected 37 documented indexes, found ${documentedIndexes.length}`);
+if (documentedIndexes.length !== 40) {
+  errors.push(`expected 40 documented indexes, found ${documentedIndexes.length}`);
 }
 
 const expectedDbTests = Array.from(
-  { length: 20 },
+  { length: 22 },
   (_, index) => `DBT-${String(index + 1).padStart(3, "0")}`,
 );
 const implementedDbTests = unique([

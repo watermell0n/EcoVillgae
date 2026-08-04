@@ -33,7 +33,7 @@ MVP 범위는 초등학교 4~6학년이며 상점·캐릭터·개인거래·예�
 | DM-005 | 금액 변경은 복식 원장으로 기록하며 거래 그룹 안의 원장 항목 합계는 항상 0입니다. 지갑 잔액은 원장 계정의 현재 잔액 캐시이고 원장이 최종 근거입니다. |
 | DM-006 | 완료 거래는 수정·삭제하지 않습니다. 운영 오류는 원거래를 참조하는 별도 복구 거래로 기록합니다. |
 | DM-007 | 거래 당시 가격·세율·금리·반올림·상품 조건은 불변 정책 스냅샷으로 고정하며 이후 정책 변경을 소급하지 않습니다. |
-| DM-008 | 상태 보유 엔티티는 `status`, `state_version`, `status_changed_at`을 가지며 모든 전이는 공통 상태 이력에 남깁니다. |
+| DM-008 | 상태 보유 엔티티는 상태와 낙관적 `state_version`을 분리해 관리합니다. 디지털 아이템은 `inventory_items`를 소유 원장으로 두고 가역적인 장착 표현 상태를 `student_character_profiles`·`character_equipment`로 분리합니다. |
 | DM-009 | 도메인 변경, 원장과 outbox 이벤트는 같은 DB 트랜잭션으로 커밋합니다. Redis는 기준 데이터를 보유하지 않습니다. |
 | DM-010 | 공개 화면은 공개 projection만 사용합니다. 학생 잔액·신용·대출·개인거래·TEST 결과를 공개용 테이블이나 이벤트 payload에 복제하지 않습니다. |
 | DM-011 | 게시·가입·실행에 사용된 버전은 수정하지 않고 새 버전을 만듭니다. 퀴즈 문제, 금융상품, 정책, 투자 시나리오가 이 원칙을 따릅니다. |
@@ -323,6 +323,9 @@ erDiagram
     CLASSROOMS ||--o{ CLASSROOM_CHARACTERS : selects
     CLASSROOM_STUDENTS ||--o{ INVENTORY_ITEMS : owns
     STORE_ORDER_ITEMS o|--o{ INVENTORY_ITEMS : grants
+    CLASSROOM_STUDENTS ||--o| STUDENT_CHARACTER_PROFILES : has_profile
+    STUDENT_CHARACTER_PROFILES ||--o{ CHARACTER_EQUIPMENT : equips
+    INVENTORY_ITEMS ||--o| CHARACTER_EQUIPMENT : presents
     CLASSROOM_STUDENTS ||--o{ TRADES : proposes
     CLASSROOM_STUDENTS ||--o{ TRADES : receives
     TRADES ||--o{ TRADE_MONEY_LEGS : exchanges
@@ -367,6 +370,24 @@ erDiagram
         datetime acquired_at
         bigint state_version
     }
+    STUDENT_CHARACTER_PROFILES {
+        uuid id PK
+        uuid classroom_id FK
+        uuid classroom_student_id FK
+        bigint state_version
+        bigint equipment_revision
+        datetime equipment_changed_at
+    }
+    CHARACTER_EQUIPMENT {
+        uuid id PK
+        uuid classroom_id FK
+        uuid classroom_student_id FK
+        uuid character_profile_id FK
+        uuid inventory_item_id FK
+        string slot
+        bigint state_version
+        datetime equipped_at
+    }
     TRADES {
         uuid id PK
         uuid proposer_student_id FK
@@ -387,6 +408,11 @@ erDiagram
 - 디지털 상품은 결제와 `inventory_items` 생성을 같은 트랜잭션으로 처리합니다.
 - 실제 상품은 `PAID → READY_FOR_PICKUP → RECEIVED`를 사용하고 수령 전 재고는 이미 차감된 상태입니다.
 - 캐릭터 원작 정보는 전역 `character_catalog`에 출처·권리 상태·검토일을 저장하고, 학급 판매 설정은 `classroom_characters`로 분리합니다.
+- `inventory_items`는 디지털 아이템의 현재 소유자를 기록하는 단일 원장입니다. 상태는 `AVAILABLE·LOCKED_TRADE`만 사용하며 장착 여부나 `equipped_at`을 저장하지 않습니다.
+- 학생은 최대 한 개의 `student_character_profiles`를 가지며 기본 체형은 `BASE`입니다. 체형은 `CHUBBY·BASE·SLIM·VERY_SLIM` 네 값만 허용합니다.
+- `character_equipment`는 프로필의 장착 표현 상태입니다. 슬롯은 `BACKGROUND·EFFECT·BACK·BOTTOM·SHOES·TOP·NECK·FACE·HAND·HAT`이며 프로필별 슬롯당 한 행, 인벤토리 아이템당 최대 한 행입니다.
+- 장착 행은 같은 학급·같은 학생이 소유하고 상태가 `AVAILABLE`인 아이템만 참조할 수 있습니다. 장착 중인 아이템은 먼저 해제하지 않으면 `LOCKED_TRADE`로 바꿀 수 없습니다.
+- 프로필·장착 행·소유 원장은 각각 `state_version`으로 낙관적 동시성을 보호합니다. 장착 명령의 외부 버전 기준은 프로필 `state_version`입니다.
 - 개인거래에는 제안자와 상대방이 반드시 다르고 두 학생 모두 같은 학급에 소속되어야 합니다.
 - `trade_item_legs`에 포함된 아이템은 거래가 대기 중인 동안 `LOCKED_TRADE`이며 다른 거래·장착에 사용할 수 없습니다.
 - 상대 학생 동의와 교사 승인 기록은 `trade_decisions`에 별도 보존합니다.
@@ -712,6 +738,7 @@ erDiagram
 | `API-CLS`, `EVT-CLS` | `classrooms` | 교사·학생·일정·일정-모듈·급여 역할·정책 | SM-CLS-001·SM-APP-001·SM-MOD-001 |
 | `API-TXN`, `EVT-TXN` | `transaction_groups` | 원장 계정·원장 항목·복구 연결 | SM-TXN-001 |
 | `API-SHP`, `EVT-SHP` | `store_orders` | 주문 항목·재고·아이템 | SM-SHP-001·SM-ITM-001 |
+| `GET /classrooms/{C}/students/me/character-profile` | `student_character_profiles` | 슬롯별 `character_equipment`와 보유 `inventory_items` 참조 | 없음(낙관적 버전) |
 | `API-TRD`, `EVT-TRD` | `trades` | 금액 leg·아이템 leg·결정 | SM-TRD-001·SM-ITM-001·SM-TXN-001 |
 | `API-FIN` 예금·적금 | `deposit_accounts`, `savings_accounts` | 상품 버전·납입 일정 | SM-DEP-001·SM-SAV-001·SM-SAV-002 |
 | `API-FIN`, `EVT-IVT` 투자 | `investment_markets` | 시나리오·자산·가격·주문·포지션 | SM-IVT-001·SM-IVT-002 |
@@ -727,7 +754,7 @@ erDiagram
 | --- | --- |
 | AUTH-001~008 | `classrooms`, `classroom_students`, `student_credentials`, `student_sessions`, `device_links`, `users`, `school_memberships`, Redis 교사 세션 |
 | CLS-001~010·CRS-001~006 | `classrooms`, `classroom_teachers`, `classroom_modules`, `autonomous_schedules`, `autonomous_schedule_modules`, `salary_roles`, `course_template_versions`, `activity_sessions` |
-| ECO-001~010 | `ledger_accounts`, `transaction_groups`, `ledger_entries`, `policy_snapshots`, `payslips`, `store_*`, `inventory_items`, `character_catalog` |
+| ECO-001~010 | `ledger_accounts`, `transaction_groups`, `ledger_entries`, `policy_snapshots`, `payslips`, `store_*`, `inventory_items`, `student_character_profiles`, `character_equipment`, `character_catalog` |
 | TRD-001~005 | `trades`, `trade_money_legs`, `trade_item_legs`, `trade_decisions`, `idempotency_records` |
 | FIN-001~012 | `financial_product_versions`, 예금·적금·투자·대출·신용 엔티티, `policy_snapshots`, 원장 엔티티 |
 | QZ-001~009 | 퀴즈 문제 버전·실행·제출·결과·신고·재채점 엔티티 |
@@ -737,7 +764,7 @@ erDiagram
 
 ## 11. 물리 스키마 검증 결과
 
-1. 85개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 85개 테이블에 1:1 매핑했습니다.
+1. 87개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 87개 테이블에 1:1 매핑했습니다.
 2. 전역 학급 코드, 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
 3. 거래 그룹 합계 0, 전후 잔액, 계정 sequence와 완료 후 불변성을 지연 제약 트리거로 설계했습니다.
 4. 상태 전이는 서비스가 판정하고 DB는 상태 집합·결과 무결성·불변성을 강제하도록 책임을 구분했습니다.
@@ -746,8 +773,8 @@ erDiagram
 
 ## 12. 구현 상태와 후속 작업
 
-Flyway `V1_1`~`V1_13`과 DBT-001~020에 85개 테이블, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계, 추천 코스 제품 데이터와 활동 공개 필드 allowlist를 반영했습니다.
+Flyway `V1_1`~`V1_14`과 DBT-001~022에 87개 테이블, 캐릭터 소유·장착 분리, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계, 추천 코스 제품 데이터와 활동 공개 필드 allowlist를 반영했습니다.
 
-1. Docker 사용 가능 Jenkins에서 Testcontainers 21개를 모두 실행합니다.
+1. Docker 사용 가능 Jenkins에서 물리 테이블 수 검사와 DBT-001~022, Testcontainers 23개를 모두 실행합니다.
 2. [API·스키마 필드 매핑](../contracts/api-field-mapping.json)을 구현 DTO·영속 계층과 동기화합니다.
 3. 서비스·E2E 인수 테스트를 RTM에 연결합니다.

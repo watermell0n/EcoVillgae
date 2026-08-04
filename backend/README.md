@@ -157,3 +157,15 @@ Testcontainers 내부에서 `clean → 전체 재적용`이 가능한지도 검�
 - 활성 학생의 출석번호와 대소문자를 무시한 닉네임은 학급 안에서 유일합니다.
 - 학생 탈퇴·종료는 행을 삭제하지 않고 상태와 종료 시각을 기록합니다.
 - 적용한 Flyway 파일은 수정하지 않고 새 버전을 추가합니다.
+
+## Realtime WebSocket
+
+Authenticated teacher and student clients issue a 60-second, single-use ticket with
+`POST /auth/realtime-tickets`, then connect to `GET /ws/v1?ticket={ticket}`. The
+server supports channel subscriptions, sequence replay, recovery-required responses,
+event acknowledgement, heartbeat messages, and automatic connection expiry.
+
+Local `bootRun` uses the in-process event bus by default. Docker Compose sets
+`REALTIME_REDIS_ENABLED=true`, so multiple backend instances exchange committed
+outbox events through Redis Pub/Sub. Configure browser origins with
+`WEB_ALLOWED_ORIGINS`; the local default includes ports `3000` and `5173`.

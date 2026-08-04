@@ -193,6 +193,24 @@ public class GuidedActivityCommandService {
         );
         eventPublisher.publish(
             command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.app_mode.changed",
+            "ACTIVITY",
+            command.activityId(),
+            activity.getStateVersion(),
+            Map.of(
+                "mode", "GUIDED",
+                "source", "GUIDED_ACTIVITY",
+                "starts_at", now.toString(),
+                "ends_at", now.toString(),
+                "active_activity_id", activity.getId().toString(),
+                "activity_type", activity.getActivityType()
+            ),
+            true
+        );
+        eventPublisher.publish(
+            command.classroomId(),
             "ACTIVITY",
             command.activityId(),
             "activity.participation.updated",
@@ -319,6 +337,22 @@ public class GuidedActivityCommandService {
             command.activityId(),
             activity.getStateVersion(),
             payload,
+            true
+        );
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.app_mode.changed",
+            "ACTIVITY",
+            command.activityId(),
+            activity.getStateVersion(),
+            Map.of(
+                "mode", nextMode,
+                "source", "GUIDED_ACTIVITY",
+                "starts_at", now.toString(),
+                "ends_at", now.toString()
+            ),
             true
         );
         displaySessionService.revokeAllForActivity(command.activityId());
