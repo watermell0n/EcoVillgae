@@ -3,8 +3,20 @@ import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View }
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Screen } from "@/components/Screen";
+import { ItemSprite } from "@/features/character/components/ItemSprite";
 import { fetchStoreCatalog, purchaseStoreProduct, type StoreProduct } from "@/features/store/api";
 import { colors, radii } from "@/theme/tokens";
+
+/** 서버 StoreProductKind는 DIGITAL·PHYSICAL·CHARACTER 셋이다. */
+const KIND_LABEL: Record<string, string> = {
+  CHARACTER: "캐릭터 아이템",
+  DIGITAL: "캐릭터 아이템",
+  PHYSICAL: "실제 상품"
+};
+
+function isWearable(product: StoreProduct) {
+  return Boolean(product.characterCode) && product.productKind !== "PHYSICAL";
+}
 
 export default function ShopScreen() {
   const { identity } = useAuth();
@@ -48,9 +60,13 @@ export default function ShopScreen() {
         <View style={styles.grid}>
           {catalog.data?.length === 0 ? <Text style={styles.helper}>지금 살 수 있는 상품이 없어요.</Text> : catalog.data?.map((product) => (
             <View key={product.resourceId} style={styles.product}>
-              <Text style={styles.productIcon}>{product.productKind === "DIGITAL" ? "✨" : "🎁"}</Text>
+              <View style={styles.productArt}>
+                {isWearable(product)
+                  ? <ItemSprite spriteKey={product.characterCode!} scale={2} withBase />
+                  : <Text style={styles.productIcon}>🎁</Text>}
+              </View>
               <Text style={styles.productTitle}>{product.label}</Text>
-              <Text style={styles.productKind}>{product.productKind === "DIGITAL" ? "캐릭터 아이템" : "교실 상품"}</Text>
+              <Text style={styles.productKind}>{KIND_LABEL[product.productKind] ?? "교실 상품"}</Text>
               <Text style={styles.price}>{product.unitPrice} 비빔</Text>
               <Pressable accessibilityRole="button" disabled={purchase.isPending} onPress={() => confirmPurchase(product)} style={[styles.buy, purchase.isPending && styles.buyDisabled]}>
                 <Text style={styles.buyText}>{purchase.isPending ? "처리 중" : "구매하기"}</Text>
@@ -88,6 +104,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     gap: 8
   },
+  productArt: { height: 112, alignItems: "center", justifyContent: "center" },
   productIcon: { fontSize: 42 },
   productTitle: { color: colors.ink900, fontSize: 19, fontWeight: "900" },
   productKind: { color: colors.muted600, fontSize: 13 },
