@@ -108,6 +108,8 @@ services:
       AUTH_TOKEN_PEPPER: ${AUTH_TOKEN_PEPPER:-local-development-token-pepper-change-before-deploy}
       AUTH_LOGIN_ATTEMPT_LIMIT: ${AUTH_LOGIN_ATTEMPT_LIMIT:-20}
       AUTH_LOGIN_ATTEMPT_WINDOW: ${AUTH_LOGIN_ATTEMPT_WINDOW:-1m}
+      # 교사 웹과 학생 앱 웹 실행 주소를 함께 허용한다.
+      WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-http://localhost:3000}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     ports:
       - "${BACKEND_PORT:-8080}:8080"
