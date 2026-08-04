@@ -114,6 +114,12 @@ class DepositWorkflowApiTest {
             "DEPOSIT",
             CREATED_AT
         ));
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "SAVINGS",
+            CREATED_AT
+        ));
         wallet = LedgerAccount.studentWallet(
             UUID.randomUUID(),
             classroomId,
@@ -232,6 +238,48 @@ class DepositWorkflowApiTest {
         assertEquals(0, liabilityBalance());
     }
 
+    @Test
+    void opensSavingsAccountPaysFirstInstallmentAndReturnsScheduleProgress()
+        throws Exception {
+        activateSavingsModule();
+        UUID productId = createAndPublishSavingsProduct();
+
+        mockMvc.perform(get("/classrooms/{classroomId}/financial-products", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.financial_products[0].product_type").value("SAVINGS"))
+            .andExpect(jsonPath("$.data.financial_products[0].installment_count").value(5))
+            .andExpect(jsonPath("$.data.financial_products[0].installment_amount").value(20));
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("product_id", productId.toString());
+        body.put("installment_amount", 20);
+        body.put("expected_product_version", 2);
+        mockMvc.perform(post("/classrooms/{classroomId}/savings-accounts", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertEquals(4_980, walletBalance());
+        assertEquals(20, savingsLiabilityBalance());
+        assertEquals(1, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM savings_accounts WHERE classroom_id = ?", Integer.class, classroomId
+        ));
+        assertEquals(5, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM savings_installments WHERE classroom_id = ?", Integer.class, classroomId
+        ));
+        mockMvc.perform(get("/classrooms/{classroomId}/students/me/deposit-and-savings", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.savings_accounts[0].paid_installment_count").value(1))
+            .andExpect(jsonPath("$.data.savings_accounts[0].installment_count").value(5))
+            .andExpect(jsonPath("$.data.savings_accounts[0].principal_balance").value(20));
+    }
+
     private UUID createAndPublishProduct() throws Exception {
         JsonNode created = productCommand(
             UUID.randomUUID(),
@@ -249,6 +297,42 @@ class DepositWorkflowApiTest {
             1
         );
         assertEquals("PUBLISHED", published.path("data").path("status").asText());
+        return productId;
+    }
+
+    private UUID createAndPublishSavingsProduct() throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "CREATE");
+        body.put("product_type", "SAVINGS");
+        body.put("name", "Daily savings");
+        body.put("term_units", 5);
+        body.put("interest_rate_bps", 500);
+        body.put("early_termination_rate_bps", 100);
+        body.put("installment_count", 5);
+        body.put("installment_amount", 20);
+        body.put("minimum_amount", 20);
+        body.put("maximum_amount", 20);
+        MvcResult createResult = mockMvc.perform(post(
+                "/classrooms/{classroomId}/financial-product-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andReturn();
+        UUID productId = UUID.fromString(objectMapper.readTree(createResult.getResponse().getContentAsByteArray())
+            .path("data").path("financial_resource_id").asText());
+        body.put("command", "PUBLISH");
+        body.put("product_id", productId.toString());
+        body.put("expected_product_version", 1);
+        mockMvc.perform(post("/classrooms/{classroomId}/financial-product-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
         return productId;
     }
 
@@ -337,6 +421,14 @@ class DepositWorkflowApiTest {
         moduleRepository.save(module);
     }
 
+    private void activateSavingsModule() {
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "SAVINGS")
+            .orElseThrow();
+        module.activate(Map.of(), CREATED_AT.plusSeconds(1));
+        moduleRepository.save(module);
+    }
+
     private long walletBalance() {
         return ledgerAccountRepository
             .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
@@ -355,6 +447,18 @@ class DepositWorkflowApiTest {
                 classroomId,
                 "DEPOSIT_LIABILITY",
                 LedgerAccountType.DEPOSIT_LIABILITY,
+                LedgerAccountStatus.ACTIVE
+            )
+            .orElseThrow()
+            .getCurrentBalance();
+    }
+
+    private long savingsLiabilityBalance() {
+        return ledgerAccountRepository
+            .findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(
+                classroomId,
+                "SAVINGS_LIABILITY",
+                LedgerAccountType.SAVINGS_LIABILITY,
                 LedgerAccountStatus.ACTIVE
             )
             .orElseThrow()

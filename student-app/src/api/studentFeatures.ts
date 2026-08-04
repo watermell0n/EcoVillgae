@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import { createUuid } from "./uuid";
 
 const MOCK_FEATURES = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES === "true";
 
@@ -243,11 +244,11 @@ export async function purchaseStoreItem(
   expectedProductVersion = 1,
   mockUnitPrice = 50,
   mockVatRateBps = 0,
-  idempotencyKey: string = crypto.randomUUID()
+  idempotencyKey: string = createUuid()
 ) {
   if (MOCK_FEATURES) {
     return {
-      orderId: crypto.randomUUID(),
+      orderId: createUuid(),
       status: "CREATED",
       totalAmount: calculateStoreTotal(mockUnitPrice, quantity, mockVatRateBps),
       stateVersion: 1
@@ -319,7 +320,7 @@ export async function subscribeDeposit(
 ) {
   if (MOCK_FEATURES) {
     return {
-      financialResourceId: crypto.randomUUID(),
+      financialResourceId: createUuid(),
       status: "ACTIVE",
       stateVersion: 1
     } satisfies FinancialResourceResponse;
@@ -545,7 +546,7 @@ export async function fetchVote(classroomId: string, voteId = ids.vote) {
 export async function castVote(classroomId: string, voteId = ids.vote, optionId = ids.voteOption) {
   if (MOCK_FEATURES) {
     return {
-      receiptHash: crypto.randomUUID(),
+      receiptHash: createUuid(),
       castAt: now()
     };
   }

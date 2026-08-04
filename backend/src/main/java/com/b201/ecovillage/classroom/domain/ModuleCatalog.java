@@ -54,7 +54,8 @@ public final class ModuleCatalog {
     private static final Map<String, String> LEGACY_ALIASES = Map.of(
         "INCOME", "ROLE_SALARY",
         "SALARY", "ROLE_SALARY",
-        "TAX", "INCOME_TAX"
+        "TAX", "INCOME_TAX",
+        "QUIZ", "QUIZ_GAME"
     );
     private static final Set<String> CODES = Set.copyOf(BY_CODE.keySet());
 

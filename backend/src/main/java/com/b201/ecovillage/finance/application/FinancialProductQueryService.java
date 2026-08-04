@@ -84,6 +84,8 @@ public class FinancialProductQueryService {
             version.getTermUnits(),
             version.getInterestRateBps(),
             version.getEarlyTerminationRateBps(),
+            version.getInstallmentCount(),
+            version.getInstallmentAmount(),
             version.getMinimumAmount(),
             version.getMaximumAmount()
         );

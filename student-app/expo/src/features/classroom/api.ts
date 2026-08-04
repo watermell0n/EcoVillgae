@@ -53,6 +53,7 @@ const mockModules: ClassroomModule[] = [
   { resourceId: "mock-store", label: "상점", status: "ACTIVE", version: 1, stateVersion: 1, code: "STORE", config: {} },
   { resourceId: "mock-character", label: "캐릭터", status: "ACTIVE", version: 1, stateVersion: 1, code: "CHARACTER", config: {} },
   { resourceId: "mock-deposit", label: "예금", status: "ACTIVE", version: 1, stateVersion: 1, code: "DEPOSIT", config: {} },
+  { resourceId: "mock-savings", label: "적금", status: "ACTIVE", version: 1, stateVersion: 1, code: "SAVINGS", config: {} },
   { resourceId: "mock-investment", label: "투자", status: "ACTIVE", version: 1, stateVersion: 1, code: "INVESTMENT", config: {} },
   { resourceId: "mock-trade", label: "개인 거래", status: "ACTIVE", version: 1, stateVersion: 1, code: "TRADE", config: {} },
   { resourceId: "mock-quiz", label: "퀴즈", status: "ACTIVE", version: 1, stateVersion: 1, code: "QUIZ_GAME", config: { active_quiz_session_id: "mock-quiz-session" } },

@@ -12,6 +12,8 @@ public record FinancialProductViewResponse(
     int termUnits,
     int interestRateBps,
     int earlyTerminationRateBps,
+    Integer installmentCount,
+    Long installmentAmount,
     long minimumAmount,
     long maximumAmount
 ) {

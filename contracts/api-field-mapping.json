@@ -4872,7 +4872,7 @@
       "api_id": "API-FIN-004",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/savings-accounts",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "financial_products",
         "financial_product_versions",
@@ -4884,8 +4884,8 @@
         "transaction_groups"
       ],
       "request": {
-        "mode": "planned",
-        "schema_source": "inferred-planned",
+        "mode": "strict",
+        "schema_source": "explicit",
         "fields": [
           {
             "name": "expected_state_version",
@@ -4940,11 +4940,20 @@
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
+          },
+          {
+            "name": "expected_product_version",
+            "required": true,
+            "type": "integer",
+            "target": "service_validation.product_version",
+            "transform": "Rejects stale savings product terms before the first installment is posted",
+            "nullable": false,
+            "visibility": "role-scoped"
           }
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
             "name": "financial_resource_id",

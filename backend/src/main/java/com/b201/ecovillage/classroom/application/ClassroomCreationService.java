@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.classroom.domain.AutonomousSchedule;
 import com.b201.ecovillage.classroom.domain.AutonomousScheduleModule;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleModuleRepository;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
@@ -214,13 +215,22 @@ public class ClassroomCreationService {
         if (values == null || values.isEmpty()) {
             return List.of();
         }
-        List<String> normalized = values.stream()
+        List<String> requested = values.stream()
             .map(value -> value == null ? "" : value.trim().toUpperCase(Locale.ROOT))
             .toList();
         if (
-            normalized.stream().anyMatch(value -> !MODULE_CODE.matcher(value).matches())
-                || new HashSet<>(normalized).size() != normalized.size()
+            requested.stream().anyMatch(value -> !MODULE_CODE.matcher(value).matches())
         ) {
+            throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
+        }
+        List<String> normalized = requested.stream()
+            .map(code -> ModuleCatalog.find(code).orElseThrow(() -> new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "UNSUPPORTED_MODULE_CODE",
+                "지원하지 않는 모듈 코드입니다: " + code
+            )).code())
+            .toList();
+        if (new HashSet<>(normalized).size() != normalized.size()) {
             throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
         }
         return normalized;
@@ -243,7 +253,12 @@ public class ClassroomCreationService {
         List<String> codes = schedule.moduleCodes() == null
             ? List.of()
             : schedule.moduleCodes().stream()
-                .map(value -> value.toUpperCase(Locale.ROOT))
+                .map(value -> value == null ? "" : value.trim().toUpperCase(Locale.ROOT))
+                .map(code -> ModuleCatalog.find(code).orElseThrow(() -> new ClassroomOperationException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "UNSUPPORTED_MODULE_CODE",
+                    "지원하지 않는 모듈 코드입니다: " + code
+                )).code())
                 .toList();
         if (new HashSet<>(codes).size() != codes.size() || !selectedModuleCodes.containsAll(codes)) {
             throw new ClassroomOperationException(

@@ -30,6 +30,9 @@ import com.b201.ecovillage.finance.application.FinancialProductCommand;
 import com.b201.ecovillage.finance.application.FinancialProductCommandService;
 import com.b201.ecovillage.finance.application.FinancialResourceResult;
 import com.b201.ecovillage.finance.application.FinancialProductQueryService;
+import com.b201.ecovillage.finance.application.SavingsAccountQueryService;
+import com.b201.ecovillage.finance.application.SavingsSubscriptionCommand;
+import com.b201.ecovillage.finance.application.SavingsSubscriptionService;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}")
@@ -39,6 +42,8 @@ public class FinanceController {
     private final DepositSubscriptionService depositService;
     private final DepositTerminationService terminationService;
     private final DepositAccountQueryService queryService;
+    private final SavingsSubscriptionService savingsService;
+    private final SavingsAccountQueryService savingsQueryService;
     private final FinancialProductQueryService productQueryService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -48,6 +53,8 @@ public class FinanceController {
         DepositSubscriptionService depositService,
         DepositTerminationService terminationService,
         DepositAccountQueryService queryService,
+        SavingsSubscriptionService savingsService,
+        SavingsAccountQueryService savingsQueryService,
         FinancialProductQueryService productQueryService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -56,6 +63,8 @@ public class FinanceController {
         this.depositService = depositService;
         this.terminationService = terminationService;
         this.queryService = queryService;
+        this.savingsService = savingsService;
+        this.savingsQueryService = savingsQueryService;
         this.productQueryService = productQueryService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
@@ -84,6 +93,8 @@ public class FinanceController {
                 view.termUnits(),
                 view.interestRateBps(),
                 view.earlyTerminationRateBps(),
+                view.installmentCount(),
+                view.installmentAmount(),
                 view.minimumAmount(),
                 view.maximumAmount()
             ))
@@ -210,6 +221,24 @@ public class FinanceController {
         );
     }
 
+    @PostMapping("/savings-accounts")
+    public ResponseEntity<ApiResponse<FinancialResourceResponse>> subscribeSavings(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody SavingsSubscriptionRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        FinancialResourceResult result = savingsService.subscribe(new SavingsSubscriptionCommand(
+            subject(principal), classroomId, requestId, resolvedCorrelationId, request.expectedStateVersion(),
+            request.productId(), request.installmentAmount(), request.expectedProductVersion()
+        ));
+        return response(HttpStatus.CREATED, new FinancialResourceResponse(
+            result.financialResourceId(), result.status(), result.stateVersion()
+        ), requestId, resolvedCorrelationId);
+    }
+
     @GetMapping("/students/me/deposit-and-savings")
     public ResponseEntity<ApiResponse<DepositAndSavingsResponse>> findMyAccounts(
         @PathVariable UUID classroomId,
@@ -237,9 +266,18 @@ public class FinanceController {
                 view.closedAt()
             ))
             .toList();
+        List<SavingsAccountViewResponse> savings = savingsQueryService
+            .findMine(subject(principal), classroomId)
+            .stream()
+            .map(view -> new SavingsAccountViewResponse(
+                view.resourceId(), view.label(), view.status(), view.installmentCount(),
+                view.paidInstallmentCount(), view.installmentAmount(), view.principalBalance(),
+                view.expectedInterestAmount(), view.openedAt(), view.maturesAt(), view.stateVersion()
+            ))
+            .toList();
         return response(
             HttpStatus.OK,
-            new DepositAndSavingsResponse(deposits, List.of()),
+            new DepositAndSavingsResponse(deposits, savings),
             requestId,
             resolvedCorrelationId
         );

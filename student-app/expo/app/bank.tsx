@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchFinanceAccounts, fetchFinancialProducts, subscribeDeposit, type FinancialProduct } from "@/features/student/api";
+import { fetchFinanceAccounts, fetchFinancialProducts, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
 
 type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
@@ -18,7 +18,11 @@ export default function BankScreen() {
   const products = useQuery({ queryKey: ["financial-products", identity?.classroomId], queryFn: () => fetchFinancialProducts(identity!.classroomId), enabled: Boolean(identity) });
   const accounts = useQuery({ queryKey: ["finance", identity?.classroomId], queryFn: () => fetchFinanceAccounts(identity!.classroomId), enabled: Boolean(identity) });
   const subscribe = useMutation({
-    mutationFn: ({ product, amount }: { product: FinancialProduct; amount: number }) => subscribeDeposit(identity!.classroomId, product, amount),
+    mutationFn: ({ product, amount }: { product: FinancialProduct; amount: number }) => (
+      product.productType === "SAVINGS"
+        ? subscribeSavings(identity!.classroomId, product, amount)
+        : subscribeDeposit(identity!.classroomId, product, amount)
+    ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
@@ -29,13 +33,19 @@ export default function BankScreen() {
     return [
       { id: "ACCOUNT" as const, label: "내 통장" },
       ...(codes.has("DEPOSIT") ? [{ id: "DEPOSIT" as const, label: "예금" }] : []),
-      ...(codes.has("SAVINGS") || codes.has("DEPOSIT") ? [{ id: "SAVINGS" as const, label: "적금" }] : []),
+      ...(codes.has("SAVINGS") ? [{ id: "SAVINGS" as const, label: "적금" }] : []),
       ...(codes.has("LOAN") ? [{ id: "LOAN" as const, label: "대출" }] : [])
     ];
   }, [access?.activeCodes]);
   const [selected, setSelected] = useState<BankTab>("ACCOUNT");
   const activeTab = availableTabs.some((tab) => tab.id === selected) ? selected : availableTabs[0]?.id;
-  const activeProducts = products.data?.filter((product) => product.status === "ACTIVE" && product.productType === activeTab) ?? [];
+  const activeProducts = products.data?.filter((product) => (
+    ["PUBLISHED", "ACTIVE"].includes(product.status)
+      && product.productType === activeTab
+  )) ?? [];
+  const hasAccounts = Boolean(
+    accounts.data && (accounts.data.depositAccounts.length > 0 || accounts.data.savingsAccounts.length > 0)
+  );
 
   return (
     <Screen title="이코 은행" right={<BackButton />}>
@@ -48,11 +58,18 @@ export default function BankScreen() {
       </View>
       {activeTab === "ACCOUNT" ? (
         <View style={styles.accountsSection}>
-          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : accounts.data?.depositAccounts.length === 0 ? <Text style={styles.emptyText}>아직 가입한 통장이 없어요.</Text> : accounts.data?.depositAccounts.map((account, index) => (
+          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : !hasAccounts ? <Text style={styles.emptyText}>아직 가입한 통장이 없어요.</Text> : accounts.data?.depositAccounts.map((account, index) => (
             <PassbookCover key={account.resourceId} title={account.label} subtitle={account.label.includes("적금") ? "납입 내역을 확인해요" : "만기까지 안전하게 보관해요"} color={account.label.includes("적금") ? "#D89A57" : "#6FAE83"}>
               <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>{account.label.includes("적금") ? "지금까지 납입한 금액" : "만기 예상 금액"}</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")}비빔</Text></View>
               <View style={styles.accountSchedule}><Text>{account.label.includes("적금") ? "1회차 납입 완료" : "만기일"}</Text><Text>{account.label.includes("적금") ? "다음 납입을 기다리고 있어요" : account.maturesAt || "만기일을 확인 중이에요"}</Text></View>
               <Text style={styles.passbookNumber}>통장 {String(index + 1).padStart(2, "0")}</Text>
+            </PassbookCover>
+          ))}
+          {accounts.data?.savingsAccounts.map((account, index) => (
+            <PassbookCover key={account.resourceId} title={account.label} subtitle={`${account.paidInstallmentCount}/${account.installmentCount}회 납입 완료`} color="#D89A57">
+              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>지금까지 납입한 금액</Text><Text style={styles.accountDetailValue}>{account.principalBalance.toLocaleString("ko-KR")}비빔</Text></View>
+              <View style={styles.accountSchedule}><Text>다음 회차 납입 금액</Text><Text>{account.installmentAmount.toLocaleString("ko-KR")}비빔</Text></View>
+              <Text style={styles.passbookNumber}>적금 통장 {String(index + 1).padStart(2, "0")}</Text>
             </PassbookCover>
           ))}
         </View>
@@ -71,11 +88,11 @@ export default function BankScreen() {
                   <Text style={styles.productRate}>연 {(product.interestRateBps / 100).toFixed(1)}%</Text>
                 </View>
                 <Pressable
-                  disabled={subscribe.isPending || product.productType !== "DEPOSIT"}
-                  onPress={() => subscribe.mutate({ product, amount: 100 })}
-                  style={[styles.passbookButton, (subscribe.isPending || product.productType !== "DEPOSIT") && styles.disabled]}
+                  disabled={subscribe.isPending || (product.productType === "SAVINGS" && !product.installmentAmount)}
+                  onPress={() => subscribe.mutate({ product, amount: product.productType === "SAVINGS" ? product.installmentAmount! : 100 })}
+                  style={[styles.passbookButton, (subscribe.isPending || (product.productType === "SAVINGS" && !product.installmentAmount)) && styles.disabled]}
                 >
-                  <Text style={styles.passbookButtonText}>{product.productType === "DEPOSIT" ? "가입하기" : "가입 준비 중"}</Text>
+                  <Text style={styles.passbookButtonText}>가입하기</Text>
                 </Pressable>
               </View>
             ))}

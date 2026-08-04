@@ -50,6 +50,7 @@ type LogEntry = {
 };
 
 type StudentRow = {
+  resourceId?: string;
   attendance: string;
   nickname: string;
   role: string;
@@ -59,6 +60,67 @@ type StudentRow = {
   currentScreen?: string;
   lastSeenAt?: string;
 };
+
+type PublishedQuizQuestion = {
+  version_id: string;
+  status: string;
+  content_type: string;
+};
+
+async function openPublishedQuizForStudents({
+  classroomId,
+  stateVersion,
+  students,
+  runAction,
+  addLog
+}: {
+  classroomId: string;
+  stateVersion: number;
+  students: StudentRow[];
+  runAction: (label: string, path: string, init: RequestInit, onSuccess: () => void) => Promise<void>;
+  addLog: (message: string, tone?: LogTone) => void;
+}) {
+  const participantIds = students.flatMap((student) => student.resourceId ? [student.resourceId] : []);
+  if (!participantIds.length) {
+    addLog("학생 명단을 저장한 뒤 퀴즈를 열어 주세요.", "warning");
+    return;
+  }
+
+  try {
+    const response = await apiRequest<{ questions?: PublishedQuizQuestion[] }>(
+      `/classrooms/${classroomId}/quiz-questions`
+    );
+    const questionVersionIds = (response.questions ?? [])
+      .filter((question) => question.status === "PUBLISHED" && question.content_type === "ECONOMY")
+      .map((question) => question.version_id);
+    if (!questionVersionIds.length) {
+      addLog("공개된 경제 퀴즈 문항이 없어요. 문항을 공개한 뒤 다시 시도해 주세요.", "warning");
+      return;
+    }
+
+    await runAction(
+      "학생 퀴즈 열기",
+      `/classrooms/${classroomId}/quiz-sessions/${crypto.randomUUID()}/commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expectedStateVersion: stateVersion,
+          command: "START",
+          questionVersionIds,
+          participantIds,
+          mode: "GAME",
+          contentType: "ECONOMY",
+          rewardPolicyPublic: {},
+          leaderboardPublic: true
+        })
+      },
+      () => addLog(`${participantIds.length}명에게 퀴즈를 열었어요.`)
+    );
+  } catch (error) {
+    const code = error instanceof ApiError ? ` (${error.code})` : "";
+    addLog(`공개 퀴즈를 불러오지 못했어요${code}. ${error instanceof Error ? error.message : ""}`, "error");
+  }
+}
 
 type ModuleRow = {
   name: string;
@@ -305,6 +367,7 @@ const moduleCodeByName: Record<string, string> = {
   캐릭터: "CHARACTER",
   "개인 거래": "TRADE",
   예금: "DEPOSIT",
+  적금: "SAVINGS",
   투자: "INVESTMENT",
   "공공 예산/투표": "PUBLIC_FUND",
   퀴즈: "QUIZ_GAME"
@@ -360,6 +423,7 @@ export default function TeacherConsole() {
   const [activeStateVersion, setActiveStateVersion] = useState(0);
   const [classroomStateVersion, setClassroomStateVersion] = useState(0);
   const [coursePolicyVersion, setCoursePolicyVersion] = useState(0);
+  const [salaryPolicyVersion, setSalaryPolicyVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
   const [authBusy, setAuthBusy] = useState(true);
   const [authError, setAuthError] = useState("");
@@ -538,6 +602,7 @@ export default function TeacherConsole() {
       };
       const rosterState = (serverState.rosterAndSalaries ?? {}) as {
         students?: Array<{
+          resource_id?: string;
           attendance_number?: number;
           nickname?: string;
           role_code?: string | null;
@@ -578,7 +643,9 @@ export default function TeacherConsole() {
       if (modulesState.modules) {
         setModules(modulesState.modules.flatMap((module) => {
           const names = module.module_code === "DEPOSIT"
-            ? ["예금", "적금"]
+            ? ["예금"]
+            : module.module_code === "SAVINGS"
+              ? ["적금"]
             : module.module_code === "INVESTMENT"
               ? ["단기 투자", "장기 투자"]
               : module.module_code === "LOAN"
@@ -626,11 +693,17 @@ export default function TeacherConsole() {
           (policy) => policy.policy_area === "COURSE_CONFIGURATION"
         )?.version ?? 0
       );
+      setSalaryPolicyVersion(
+        modulesState.policy_versions?.find(
+          (policy) => policy.policy_area === "SALARY"
+        )?.version ?? 0
+      );
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
         setStudents(rosterState.students.map((student) => {
           const salaryRole = student.role_code ? salaryByRole.get(student.role_code) : undefined;
           return {
+            resourceId: student.resource_id,
             attendance: String(student.attendance_number ?? ""),
             nickname: student.nickname ?? "",
             role: salaryRole?.label ?? student.role_code ?? "",
@@ -782,9 +855,11 @@ export default function TeacherConsole() {
               modules={modules}
               students={students}
               classroomId={activeClassroomId}
+              stateVersion={classroomStateVersion}
               runAction={runAction}
               addLog={addLog}
               onPrepareLesson={() => setView("control")}
+              onReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "setup" && (
@@ -792,7 +867,6 @@ export default function TeacherConsole() {
               settings={settings}
               setSettings={setSettings}
               modules={modules}
-              setModules={setModules}
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
@@ -810,6 +884,9 @@ export default function TeacherConsole() {
               addLog={addLog}
               classroomId={activeClassroomId}
               hasSalaryModule={modules.some((module) => module.name === "월급" && module.status === "열림")}
+              stateVersion={classroomStateVersion}
+              salaryPolicyVersion={salaryPolicyVersion}
+              onReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "shop" && (
@@ -838,6 +915,8 @@ export default function TeacherConsole() {
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
+              stateVersion={classroomStateVersion}
+              students={students}
             />
           )}
           {view === "approvals" && (
@@ -919,9 +998,19 @@ function TeacherLogin({
     setLocalError("");
     try {
       if (mode === "register") {
-        await onRegister(schoolCode, displayName, email, password);
+        const normalizedSchoolCode = schoolCode.trim().toUpperCase();
+        if (!/^[A-Z0-9-]{3,40}$/.test(normalizedSchoolCode)) {
+          throw new Error("학교 코드는 영문 대문자, 숫자, 하이픈을 사용해 3~40자로 입력해 주세요.");
+        }
+        if (!displayName.trim()) {
+          throw new Error("이름을 입력해 주세요.");
+        }
+        if (password.length < 4) {
+          throw new Error("비밀번호는 4자 이상으로 입력해 주세요.");
+        }
+        await onRegister(normalizedSchoolCode, displayName.trim(), email.trim(), password);
       } else {
-        await onLogin(email, password);
+        await onLogin(email.trim(), password);
       }
     } catch (loginError) {
       setLocalError(loginError instanceof Error ? loginError.message : "요청을 처리하지 못했습니다.");
@@ -946,12 +1035,26 @@ function TeacherLogin({
           {error || localError ? <div className="inline-error" role="alert">{error || localError}</div> : null}
           {mode === "register" ? (
             <>
-              <input required maxLength={40} value={schoolCode} onChange={(event) => setSchoolCode(event.target.value)} placeholder="학교 코드" autoComplete="organization" />
-              <input required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="이름" autoComplete="name" />
+              <label>
+                학교 코드
+                <input required maxLength={40} value={schoolCode} onChange={(event) => setSchoolCode(event.target.value.toUpperCase())} placeholder="예: ECO-SEOUL" autoComplete="organization" />
+                <small>학교에서 안내받은 코드가 필요합니다.</small>
+              </label>
+              <label>
+                이름
+                <input required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="이름" autoComplete="name" />
+              </label>
             </>
           ) : null}
-          <input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="이메일" autoComplete="email" />
-          <input required type="password" minLength={4} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호 (4자 이상)" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          <label>
+            이메일
+            <input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="teacher@example.com" autoComplete="email" />
+          </label>
+          <label>
+            비밀번호
+            <input required type="password" minLength={4} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="4자 이상 입력" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            {mode === "register" ? <small>4~72자로 입력해 주세요.</small> : null}
+          </label>
           <button type="submit" disabled={busy || starting}>
             {busy ? "로그인 상태 확인 중" : starting ? "처리 중" : mode === "login" ? "로그인" : "회원가입하고 로그인"}
           </button>
@@ -1635,18 +1738,22 @@ function Overview({
   modules,
   students,
   classroomId,
+  stateVersion,
   runAction,
   addLog,
-  onPrepareLesson
+  onPrepareLesson,
+  onReload
 }: Readonly<{
   mode: string;
   setMode: React.Dispatch<React.SetStateAction<string>>;
   modules: ModuleRow[];
   students: StudentRow[];
   classroomId: string;
+  stateVersion: number;
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   onPrepareLesson: () => void;
+  onReload: () => Promise<void>;
 }>) {
   const openCount = modules.filter((module) => module.status === "열림").length;
   const onlineCount = students.filter((student) => student.presence === "ONLINE").length;
@@ -1660,33 +1767,27 @@ function Overview({
       {
         method: "POST",
         body: JSON.stringify({
-          expected_state_version: 0,
+          expected_state_version: stateVersion,
           command: isFreeMode ? "CLOSE" : "OPEN",
           duration_minutes: 40,
           client_occurred_at: new Date().toISOString()
         })
       },
-      () => setMode(isFreeMode ? "선생님 수업" : "자율 활동")
+      () => {
+        setMode(isFreeMode ? "선생님 수업" : "자율 활동");
+        void onReload();
+      }
     );
   }
 
-  function openStudentActivity(kind: "자료" | "퀴즈") {
-    void runAction(
-      `${kind} 학생 화면 열기`,
-      `/classrooms/${classroomId}/guided-activities/${crypto.randomUUID()}/start-commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          expected_state_version: 0,
-          participant_ids: [],
-          public_fields: kind === "퀴즈" ? ["quiz"] : ["materials"]
-        })
-      },
-      () => {
-        setMode("선생님 수업");
-        addLog(`${kind}를 학생 화면에 띄웠어요.`);
-      }
-    );
+  function openStudentQuiz() {
+    void openPublishedQuizForStudents({
+      classroomId,
+      stateVersion,
+      students,
+      runAction,
+      addLog
+    });
   }
 
   return (
@@ -1704,8 +1805,8 @@ function Overview({
         </div>
         <div className="live-class-actions">
           <button type="button" onClick={onPrepareLesson}>수업 준비 열기</button>
-          <button type="button" onClick={() => openStudentActivity("자료")}>자료 띄우기</button>
-          <button type="button" onClick={() => openStudentActivity("퀴즈")}>퀴즈 띄우기</button>
+          <button type="button" disabled title="학생 자료 화면 연동은 아직 준비 중이에요.">자료 띄우기</button>
+          <button type="button" onClick={openStudentQuiz}>퀴즈 띄우기</button>
         </div>
       </PlainSection>
       <PlainSection title="학생 실시간 현황">
@@ -1729,7 +1830,6 @@ function Setup({
   setSettings,
   modules,
   runAction,
-  setModules,
   addLog,
   classroomId,
   stateVersion,
@@ -1740,7 +1840,6 @@ function Setup({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
-  setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
   stateVersion: number;
@@ -1752,23 +1851,40 @@ function Setup({
   }
 
   function toggleModule(moduleName: string) {
-    setModules((items) => {
-      const existing = items.find((item) => item.name === moduleName);
-      if (!existing) {
-        return [...items, {
-          name: moduleName,
-          status: "열림",
-          studentState: "학생 화면에 표시",
-          teacherTodo: "수업 중 조정 가능"
-        }];
+    const existing = modules.find((item) => item.name === moduleName);
+    if (!existing?.code) {
+      addLog(`${moduleName} 모듈이 이 교실에 생성되지 않았어요. 교실 생성 설정을 확인해 주세요.`, "error");
+      return;
+    }
+
+    const activating = existing.status !== "열림";
+    const path = activating
+      ? `/classrooms/${classroomId}/modules/${existing.code}/activation-commands`
+      : `/classrooms/${classroomId}/modules/${existing.code}/stop-commands`;
+    const body = activating
+      ? {
+        expected_state_version: stateVersion,
+        screen_id: "SCR-WEB-003",
+        ui_action_id: "UIA-MOD-001",
+        client_occurred_at: new Date().toISOString(),
+        confirm_prerequisites: true,
+        initial_policy_values: existing.code === "DEPOSIT" ? { rate_bps: 500 } : {},
+        recommendation_action_ids: []
       }
-      return items.map((item) => (
-        item.name === moduleName
-          ? { ...item, status: item.status === "열림" ? "닫힘" : "열림" }
-          : item
-      ));
-    });
-    addLog(`${moduleName} 기능을 ${modules.find((item) => item.name === moduleName)?.status === "열림" ? "닫았어요" : "열었어요"}.`);
+      : {
+        expected_state_version: stateVersion,
+        screen_id: "SCR-WEB-003",
+        ui_action_id: "UIA-MOD-002",
+        client_occurred_at: new Date().toISOString(),
+        reason: "교사 설정에서 비활성화"
+      };
+
+    void runAction(
+      `${moduleName} 기능 ${activating ? "활성화" : "비활성화"}`,
+      path,
+      { method: "POST", body: JSON.stringify(body) },
+      () => { void onReload(); }
+    );
   }
 
   function saveCourseConfiguration() {
@@ -1909,7 +2025,10 @@ function Roster({
   runAction,
   addLog,
   classroomId,
-  hasSalaryModule
+  hasSalaryModule,
+  stateVersion,
+  salaryPolicyVersion,
+  onReload
 }: Readonly<{
   settings: ClassSettings;
   students: StudentRow[];
@@ -1918,6 +2037,9 @@ function Roster({
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
   hasSalaryModule: boolean;
+  stateVersion: number;
+  salaryPolicyVersion: number;
+  onReload: () => Promise<void>;
 }>) {
   const [isManaging, setIsManaging] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -2020,8 +2142,8 @@ function Roster({
     salaryRoleDefinitions.map((role, index) => [role.name, `ROLE_${index + 1}`])
   );
   const rosterBody = {
-    expected_policy_version: 0,
-    expected_state_version: 0,
+    expected_policy_version: salaryPolicyVersion,
+    expected_state_version: stateVersion,
     students: students.map((student) => ({
       student_id: null,
       attendance_number: Number(student.attendance),
@@ -2152,7 +2274,7 @@ function Roster({
                 </label>
                 <label>
                   이름
-                  <input value={newStudent.nickname} onChange={(event) => updateNewStudent("nickname", event.target.value)} placeholder="학생 이름" />
+                  <input value={newStudent.nickname} onChange={(event) => updateNewStudent("nickname", event.target.value)} placeholder="학생이 로그인할 이름" />
                 </label>
                 {hasSalaryModule ? (
                   <>
@@ -2267,7 +2389,10 @@ function Roster({
             hasSalaryModule ? "명단·급여 저장" : "명단 저장",
             `/classrooms/${classroomId}/roster-and-salaries`,
             { method: "PUT", body: JSON.stringify(rosterBody) },
-            () => addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.")
+            () => {
+              addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
+              void onReload();
+            }
           )}
         />
         {hasSalaryModule ? <ActionLine
@@ -2742,11 +2867,15 @@ function FinanceAdmin({
 function Control({
   runAction,
   addLog,
-  classroomId
+  classroomId,
+  stateVersion,
+  students
 }: Readonly<{
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
+  stateVersion: number;
+  students: StudentRow[];
 }>) {
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
@@ -2797,20 +2926,14 @@ function Control({
     addLog("차시를 수업 준비에서 뺐어요.");
   }
 
-  function openForStudents(material: LessonMaterial, type: "자료" | "퀴즈") {
-    void runAction(
-      `${material.title} ${type} 열기`,
-      `/classrooms/${classroomId}/guided-activities/${crypto.randomUUID()}/start-commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          expected_state_version: 0,
-          participant_ids: [],
-          public_fields: type === "퀴즈" ? ["quiz"] : ["materials"]
-        })
-      },
-      () => addLog(`${material.stage} ${material.title} ${type}를 학생에게 열었어요.`)
-    );
+  function openQuizForStudents() {
+    void openPublishedQuizForStudents({
+      classroomId,
+      stateVersion,
+      students,
+      runAction,
+      addLog
+    });
   }
 
   function createQuiz() {
@@ -2859,8 +2982,8 @@ function Control({
                     <span>{material.status}</span>
                     <div className="row-actions">
                       <button type="button" onClick={() => startLessonEdit(material)}>수정</button>
-                      <button type="button" className="ghost" onClick={() => openForStudents(material, "자료")}>자료 띄우기</button>
-                      <button type="button" className="ghost" onClick={() => openForStudents(material, "퀴즈")}>퀴즈 열기</button>
+                      <button type="button" className="ghost" disabled title="학생 자료 화면 연동은 아직 준비 중이에요.">자료 띄우기</button>
+                      <button type="button" className="ghost" onClick={openQuizForStudents}>퀴즈 열기</button>
                       <button type="button" className="danger-text" onClick={() => removeLesson(material.id)}>삭제</button>
                     </div>
                   </>

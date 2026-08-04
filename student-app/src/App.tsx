@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "./api/client";
 import { createStudentSession, type StudentSession } from "./api/auth";
+import { createUuid } from "./api/uuid";
 import { StudentRealtimeClient, type RealtimeSubscriptionRequest } from "./api/realtime";
 import { clearStudentSession, getDeviceId, loadStudentSession, saveStudentSession } from "./api/sessionStorage";
 import {
@@ -483,7 +484,7 @@ function App() {
                 if (walletBalance < expectedTotal) {
                   return false;
                 }
-                const idempotencyKey = purchaseKeys.current.get(item.productId) ?? crypto.randomUUID();
+                const idempotencyKey = purchaseKeys.current.get(item.productId) ?? createUuid();
                 purchaseKeys.current.set(item.productId, idempotencyKey);
                 let purchase: Awaited<ReturnType<typeof purchaseStoreItem>>;
                 try {
@@ -624,12 +625,15 @@ function LandingScreen({ onStart }: { onStart: () => void }) {
 function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (session: StudentSession, nickname: string) => void }) {
   const [form, setForm] = useState({
     classroomCode: "",
+    attendanceNumber: "",
     nickname: "",
     password: ""
   });
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const canSubmit = form.classroomCode && form.nickname && form.password.length >= 4 && !loginLoading;
+  const attendanceNumber = Number(form.attendanceNumber);
+  const hasValidAttendanceNumber = Number.isInteger(attendanceNumber) && attendanceNumber > 0;
+  const canSubmit = form.classroomCode.trim() && hasValidAttendanceNumber && form.nickname.trim() && form.password.length >= 4 && !loginLoading;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -643,6 +647,7 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
     try {
       const nextSession = await createStudentSession({
         classroomCode: form.classroomCode.trim(),
+        attendanceNumber,
         nickname: form.nickname.trim(),
         password: form.password,
         deviceId: getDeviceId()
@@ -665,14 +670,36 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         <button className="ghost-back" type="button" onClick={onBack}>←</button>
         <span className="welcome-icon">🏘️</span>
         <h1>이코빌리지</h1>
-        <p>학급 코드로 계정을 만들거나 다시 로그인해요</p>
+        <p>선생님 명단의 출석번호와 이름으로 계정을 만들거나 다시 로그인해요</p>
         <label>
           학급 코드
-          <input value={form.classroomCode} disabled={loginLoading} onChange={(event) => setForm({ ...form, classroomCode: event.target.value })} />
+          <input
+            required
+            maxLength={64}
+            value={form.classroomCode}
+            disabled={loginLoading}
+            placeholder="예: ABC123"
+            autoCapitalize="characters"
+            onChange={(event) => setForm({ ...form, classroomCode: event.target.value.toUpperCase() })}
+          />
         </label>
         <label>
-          닉네임
-          <input value={form.nickname} disabled={loginLoading} onChange={(event) => setForm({ ...form, nickname: event.target.value })} />
+          출석번호
+          <input
+            required
+            type="number"
+            min={1}
+            step={1}
+            inputMode="numeric"
+            value={form.attendanceNumber}
+            disabled={loginLoading}
+            placeholder="선생님이 등록한 번호"
+            onChange={(event) => setForm({ ...form, attendanceNumber: event.target.value })}
+          />
+        </label>
+        <label>
+          이름 또는 닉네임
+          <input required maxLength={40} value={form.nickname} disabled={loginLoading} placeholder="선생님 명단과 같게 입력" onChange={(event) => setForm({ ...form, nickname: event.target.value })} />
         </label>
         <label>
           비밀번호
@@ -680,6 +707,7 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
         </label>
         {loginError && <p className="form-error">{loginError}</p>}
         <button className="primary-action wide" disabled={!canSubmit}>{loginLoading ? "확인 중" : "계정 만들기 / 로그인"}</button>
+        <p className="login-note">처음이면 이 정보로 계정이 생성됩니다. 이미 계정이 있다면 같은 정보와 비밀번호로 로그인하세요.</p>
         <p className="login-note">비밀번호를 잊었다면 선생님께 알려주세요.</p>
       </form>
     </main>

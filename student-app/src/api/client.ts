@@ -57,7 +57,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   if (!headers.has("Idempotency-Key") && init.method && init.method !== "GET") {
-    headers.set("Idempotency-Key", crypto.randomUUID());
+    headers.set("Idempotency-Key", createUuid());
   }
 
   const savedSession = localStorage.getItem(SESSION_KEY);
@@ -91,3 +91,4 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   return (parsed as ApiResponse<T>).data;
 }
+import { createUuid } from "./uuid";
