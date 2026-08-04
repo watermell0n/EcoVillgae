@@ -38,8 +38,8 @@ public class SetupPrecheckInvalidator {
                AND run_type = 'SETUP_PRECHECK'
                AND status IN ('AWAITING_TEACHER', 'APPROVED', 'COMPLETED')
             """,
-            Timestamp.from(now),
-            Timestamp.from(now),
+            now,
+            now,
             classroomId
         );
     }
