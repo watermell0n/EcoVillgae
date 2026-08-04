@@ -150,8 +150,9 @@ export async function subscribeSavings(classroomId: string, product: FinancialPr
   const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/savings-accounts`, {
     method: "POST",
     retryOnNetworkFailure: true,
+    // expected_state_version is omitted on purpose: the server compares it with the
+    // classroom state version, which the student app never receives.
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-014",
       ui_action_id: "UIA-FIN-004",
       client_occurred_at: now(),
