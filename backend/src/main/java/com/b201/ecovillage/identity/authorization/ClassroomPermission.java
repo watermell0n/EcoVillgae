@@ -75,6 +75,22 @@ public enum ClassroomPermission {
         "PM-FIN-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    MANAGE_INVESTMENT_SCENARIO(
+        "PM-FIN-001",
+        Set.of(ClassroomActorRole.OWN)
+    ),
+    CONTROL_INVESTMENT_MARKET(
+        "PM-FIN-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    READ_INVESTMENT_MARKET(
+        "PM-FIN-003",
+        Set.of(ClassroomActorRole.STU, ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    PLACE_INVESTMENT_ORDER(
+        "PM-FIN-003",
+        Set.of(ClassroomActorRole.STU)
+    ),
     MANAGE_QUIZ_QUESTIONS(
         "PM-QZ-001",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
@@ -121,6 +137,10 @@ public enum ClassroomPermission {
     ),
     ACKNOWLEDGE_AI_PROPOSAL(
         "PM-AI-004",
+        Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
+    ),
+    DECIDE_AI_EVENT_DRAFT(
+        "PM-AI-002",
         Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)
     ),
     APPLY_AI_PROPOSAL(

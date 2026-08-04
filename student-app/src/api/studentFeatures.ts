@@ -151,6 +151,13 @@ export type GuidedActivity = {
   participantCount: number;
 };
 
+export type InvestmentMode = "SHORT_TERM" | "LONG_TERM";
+
+export type InvestmentModuleState = {
+  active: boolean;
+  investmentMode: InvestmentMode;
+};
+
 type RawClassroomModule = {
   module_code: string;
   status: string;
@@ -173,6 +180,7 @@ export async function fetchActiveModuleCodes(classroomId: string) {
   );
 }
 
+
 const ids = {
   product: "00000000-0000-4000-8000-000000001001",
   depositProduct: "00000000-0000-4000-8000-000000002001",
@@ -190,6 +198,32 @@ export const demoIds = ids;
 
 function now() {
   return new Date().toISOString();
+}
+
+export async function fetchInvestmentModuleState(
+  classroomId: string
+): Promise<InvestmentModuleState> {
+  if (MOCK_FEATURES) {
+    return { active: true, investmentMode: "LONG_TERM" };
+  }
+
+  const response = await apiRequest<{
+    modules?: Array<{
+      module_code?: string;
+      moduleCode?: string;
+      status?: string;
+      config?: { investment_mode?: string; investmentMode?: string };
+    }>;
+  }>(`/classrooms/${classroomId}/modules-and-policies`);
+  const investment = response.modules?.find(
+    (module) => (module.module_code ?? module.moduleCode) === "INVESTMENT"
+  );
+  const configuredMode = investment?.config?.investment_mode
+    ?? investment?.config?.investmentMode;
+  return {
+    active: investment?.status === "ACTIVE",
+    investmentMode: configuredMode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM"
+  };
 }
 
 export function calculateStoreTotal(

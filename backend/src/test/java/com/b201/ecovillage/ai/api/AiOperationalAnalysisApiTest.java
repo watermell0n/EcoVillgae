@@ -147,6 +147,7 @@ class AiOperationalAnalysisApiTest {
 
     private UUID classroomId;
     private UUID teacherId;
+    private UUID productId;
     private Principal owner;
     private List<LedgerAccount> wallets;
 
@@ -251,6 +252,62 @@ class AiOperationalAnalysisApiTest {
         assertEquals(1, aiClient.calls.get());
         assertEquals(1, runRepository.count());
         assertEquals(1, proposalRepository.count());
+    }
+
+    @Test
+    void ownerAppliesAnOperationalPriceProposalOnlyAfterExplicitApproval() throws Exception {
+        addPurchases(P1_FROM, P2_FROM);
+        addPurchases(P2_FROM, P2_TO);
+        entityManager.flush();
+
+        MvcResult analysis = mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-analysis-operations",
+                classroomId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(onDemandBody(P2_FROM, P2_TO)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.data.run_status").value("AWAITING_TEACHER"))
+            .andReturn();
+        String proposalId = objectMapper.readTree(analysis.getResponse().getContentAsString())
+            .path("data")
+            .path("proposal_id")
+            .asText();
+
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/ai/balancing-proposals/{proposalId}/commands",
+                classroomId,
+                proposalId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "command": "APPLY",
+                      "edited_values": [{
+                        "action_id": "product-price-%s",
+                        "proposed_value": 110
+                      }],
+                      "reason": "운영 지표와 허용 범위를 확인하고 가격을 조정합니다."
+                    }
+                    """.formatted(productId)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.decision_status").value("APPLIED"))
+            .andExpect(jsonPath("$.data.applied_values[0].proposed_value").value(110));
+
+        entityManager.flush();
+        entityManager.clear();
+        StoreProductVersion latest = productVersionRepository
+            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+                classroomId,
+                productId
+            )
+            .orElseThrow();
+        assertEquals(2, latest.getVersion());
+        assertEquals(110, latest.getUnitPrice());
     }
 
     @Test
@@ -435,7 +492,7 @@ class AiOperationalAnalysisApiTest {
     }
 
     private void createProduct() {
-        UUID productId = UUID.randomUUID();
+        productId = UUID.randomUUID();
         StoreProduct product = StoreProduct.draft(
             productId,
             classroomId,

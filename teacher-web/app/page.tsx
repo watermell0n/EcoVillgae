@@ -803,6 +803,9 @@ export default function TeacherConsole() {
               initialPolicyVersion={aiSettings.version}
               canManage={teacherRoles.includes("OWN")}
               products={products}
+              modules={modules}
+              policyVersions={[]}
+              startDate={settings.startDate}
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
               quizSessionId={String(

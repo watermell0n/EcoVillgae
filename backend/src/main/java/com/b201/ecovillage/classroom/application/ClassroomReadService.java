@@ -30,7 +30,8 @@ public class ClassroomReadService {
     private static final String PRIVATE_POLICY_AREA = "AI_SETTINGS";
     private static final List<String> PUBLIC_MODULE_CONFIG_KEYS = List.of(
         "policy_area",
-        "policy_version"
+        "policy_version",
+        "investment_mode"
     );
 
     private final ClassroomAuthorizationService authorizationService;

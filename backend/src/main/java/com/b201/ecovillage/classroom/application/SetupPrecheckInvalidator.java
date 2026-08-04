@@ -1,8 +1,8 @@
 package com.b201.ecovillage.classroom.application;
 
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,7 +24,9 @@ public class SetupPrecheckInvalidator {
         if (!aiRunsTableExists()) {
             return 0;
         }
-        Instant now = clock.instant();
+        // The driver cannot infer a SQL type for java.time.Instant, so bind it as a
+        // Timestamp the same way the report projection queries do.
+        Timestamp now = Timestamp.from(clock.instant());
         return jdbcTemplate.update(
             """
             UPDATE ai_runs

@@ -14,7 +14,8 @@ public record TeacherChatCommand(
     String question,
     Instant periodFrom,
     Instant periodTo,
-    Set<BalancingContract.MetricCode> metricCodes
+    Set<BalancingContract.MetricCode> metricCodes,
+    boolean includePolicyHistory
 ) {
     public TeacherChatCommand {
         metricCodes = metricCodes == null ? Set.of() : Set.copyOf(metricCodes);

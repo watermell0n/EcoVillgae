@@ -250,17 +250,54 @@ class FakeGenerationProvider:
                 "scenario_version_id": context["scenario_version_id"],
                 "asset_id": context["asset_id"],
                 "price_step_id": context["price_step_id"],
+                "target_price_step_id": context["target_price_step_id"],
                 "asset_name": context["asset_name"],
                 "asset_symbol": context["asset_symbol"],
+                "investment_mode": context["investment_mode"],
+                "scenario_source": context["scenario_source"],
+                "settlement_rule": context["settlement_rule"],
                 "current_step_index": context["current_step_index"],
+                "target_step_index": context["target_step_index"],
             }
             output["title"] = f"{context['asset_name']}의 새로운 소식"
             output["narrative"] = (
-                f"가상 자산 {context['asset_name']}({context['asset_symbol']})에 "
-                "현재 확인할 수 있는 새로운 소식이 전해졌습니다."
+                f"가상 기업 {context['asset_name']}({context['asset_symbol']})에 "
+                "새로운 주문과 운영 소식이 전해져 상황을 살펴볼 때입니다."
             )
+            if context["investment_mode"] == "SHORT_TERM":
+                output["choices"] = [
+                    {
+                        "choice_key": "INVEST",
+                        "label": "오늘 투자한다",
+                        "consequence_text": "이야기의 단서를 근거로 선택하고 다음 날 정산합니다.",
+                    },
+                    {
+                        "choice_key": "SKIP",
+                        "label": "오늘은 건너뛴다",
+                        "consequence_text": "이번 선택을 쉬고 다음 이야기를 기다립니다.",
+                    },
+                ]
+            else:
+                output["choices"] = [
+                    {
+                        "choice_key": "INVEST_MORE",
+                        "label": "더 투자한다",
+                        "consequence_text": "새 소식을 근거로 보유 수량을 늘릴지 검토합니다.",
+                    },
+                    {
+                        "choice_key": "HOLD",
+                        "label": "그대로 둔다",
+                        "consequence_text": "현재 보유분을 유지하며 다음 소식을 기다립니다.",
+                    },
+                    {
+                        "choice_key": "SELL",
+                        "label": "보유분을 뺀다",
+                        "consequence_text": "현재 단계에서 보유분을 정리할지 검토합니다.",
+                    },
+                ]
             output["teacher_explanation"] = (
-                f"{context['asset_name']}의 목표 단계까지 받은 사실만 사용한 검토용 뉴스입니다."
+                f"{context['asset_name']}의 숨은 다음 단계 방향과 일치하도록 만든 "
+                "검토용 이야기입니다."
             )
         return output
 

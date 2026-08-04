@@ -53,13 +53,13 @@ public class FinancialProductVersion {
     @Column(name = "maximum_amount", nullable = false, updatable = false)
     private long maximumAmount;
 
-    @Column(nullable = false, updatable = false, length = 40)
+    @Column(nullable = false, length = 40)
     private String status;
 
     @Column(name = "published_at", nullable = false, updatable = false)
     private Instant publishedAt;
 
-    @Column(name = "retired_at", updatable = false)
+    @Column(name = "retired_at")
     private Instant retiredAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -178,6 +178,14 @@ public class FinancialProductVersion {
         return "PUBLISHED".equals(status);
     }
 
+    public void supersede(Instant changedAt) {
+        if (!"PUBLISHED".equals(status) || retiredAt != null) {
+            throw new IllegalStateException("only a published financial product version can be superseded");
+        }
+        status = "SUPERSEDED";
+        retiredAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public UUID getId() {
         return id;
     }
@@ -204,6 +212,14 @@ public class FinancialProductVersion {
 
     public int getEarlyTerminationRateBps() {
         return earlyTerminationRateBps;
+    }
+
+    public Integer getInstallmentCount() {
+        return installmentCount;
+    }
+
+    public Long getInstallmentAmount() {
+        return installmentAmount;
     }
 
     public long getMinimumAmount() {

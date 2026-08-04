@@ -64,8 +64,10 @@ export async function purchaseStoreProduct(classroomId: string, product: StorePr
   const response = await apiRequest<{ order_id: string; status: string; total_amount: number; state_version: number }>(`/classrooms/${classroomId}/store/orders`, {
     method: "POST",
     retryOnNetworkFailure: true,
+    // expected_state_version is omitted on purpose: the server compares it with the
+    // classroom state version, which the student app never receives. Sending a literal
+    // value rejects every purchase in a classroom that has been edited even once.
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-006",
       ui_action_id: "UIA-SHP-002",
       client_occurred_at: new Date().toISOString(),

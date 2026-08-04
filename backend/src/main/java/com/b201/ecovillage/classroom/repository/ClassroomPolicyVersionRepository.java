@@ -1,5 +1,6 @@
 package com.b201.ecovillage.classroom.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,5 +34,11 @@ public interface ClassroomPolicyVersionRepository
 
     List<ClassroomPolicyVersion> findAllByClassroomIdAndSupersededAtIsNullOrderByPolicyArea(
         UUID classroomId
+    );
+
+    List<ClassroomPolicyVersion> findAllByClassroomIdAndEffectiveFromBetweenOrderByEffectiveFromAsc(
+        UUID classroomId,
+        Instant from,
+        Instant to
     );
 }

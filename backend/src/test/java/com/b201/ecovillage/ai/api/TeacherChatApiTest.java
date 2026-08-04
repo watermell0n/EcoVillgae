@@ -39,6 +39,8 @@ import com.b201.ecovillage.ai.infrastructure.AiServiceCallException;
 import com.b201.ecovillage.ai.infrastructure.TeacherChatAiClient;
 import com.b201.ecovillage.ai.repository.AiArtifactRepository;
 import com.b201.ecovillage.ai.repository.AiRunRepository;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
+import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
@@ -84,6 +86,9 @@ class TeacherChatApiTest {
 
     @Autowired
     private ClassroomTeacherRepository teacherRepository;
+
+    @Autowired
+    private ClassroomPolicyVersionRepository policyRepository;
 
     @Autowired
     private UserAccountRepository userRepository;
@@ -239,9 +244,41 @@ class TeacherChatApiTest {
         assertEquals("1.2", captured.schemaVersion());
     }
 
+    @Test
+    void includesSafePolicyHistoryOnlyWhenRequested() throws Exception {
+        policyRepository.save(ClassroomPolicyVersion.policy(
+            UUID.randomUUID(),
+            classroomId,
+            "INCOME_TAX",
+            2,
+            Map.of("private_teacher_note", "AI에 전달하면 안 되는 원문"),
+            "TEACHER",
+            PERIOD_FROM.plusSeconds(86_400)
+        ));
+        entityManager.flush();
+
+        mockMvc.perform(chatRequest(owner, "최근 정책 변경도 함께 설명해 주세요.", true))
+            .andExpect(status().isOk());
+
+        List<TeacherChatContract.PolicyChange> changes = aiClient.lastRequest
+            .payload()
+            .recentPolicyChanges();
+        assertEquals(1, changes.size());
+        assertEquals("POLICY_CHANGE_INCOME_TAX_V2", changes.get(0).factId());
+        assertFalse(changes.get(0).summary().contains("AI에 전달하면 안 되는 원문"));
+    }
+
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder chatRequest(
         Principal principal,
         String question
+    ) {
+        return chatRequest(principal, question, false);
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder chatRequest(
+        Principal principal,
+        String question,
+        boolean includePolicyHistory
     ) {
         return post("/classrooms/{classroomId}/ai/chat-requests", classroomId)
             .principal(principal)
@@ -251,9 +288,10 @@ class TeacherChatApiTest {
                 {
                   "question": "%s",
                   "period": { "from": "%s", "to": "%s" },
-                  "metric_scopes": ["ISSUANCE_AMOUNT", "CONSUMPTION_RATE_BPS"]
+                  "metric_scopes": ["ISSUANCE_AMOUNT", "CONSUMPTION_RATE_BPS"],
+                  "include_policy_history": %s
                 }
-                """.formatted(question, PERIOD_FROM, PERIOD_TO));
+                """.formatted(question, PERIOD_FROM, PERIOD_TO, includePolicyHistory));
     }
 
     private static String randomClassroomCode() {

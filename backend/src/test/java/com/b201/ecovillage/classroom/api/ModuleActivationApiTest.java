@@ -408,6 +408,56 @@ class ModuleActivationApiTest {
         assertEquals("ACTIVE", salaryRoleRepository.findAll().getFirst().getStatus());
     }
 
+    @Test
+    void storesTeacherSelectedInvestmentModeInModuleConfig() throws Exception {
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "INVESTMENT",
+            NOW
+        ));
+
+        mockMvc.perform(activationRequest(
+            "INVESTMENT",
+            UUID.randomUUID(),
+            0,
+            "{\"investment_mode\": \"SHORT_TERM\"}"
+        ))
+            .andExpect(status().isOk());
+
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
+            .orElseThrow();
+        assertEquals("SHORT_TERM", module.getConfig().get("investment_mode"));
+    }
+
+    @Test
+    void rejectsUnknownInvestmentModeWithoutActivatingModule() throws Exception {
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "INVESTMENT",
+            NOW
+        ));
+
+        mockMvc.perform(activationRequest(
+            "INVESTMENT",
+            UUID.randomUUID(),
+            0,
+            "{\"investment_mode\": \"WEEKLY\"}"
+        ))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("INVALID_INVESTMENT_MODE"));
+
+        assertEquals(
+            "DISABLED",
+            moduleRepository
+                .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
+                .orElseThrow()
+                .getStatus()
+        );
+    }
+
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
         activationRequest(
             String moduleCode,

@@ -10,6 +10,7 @@ import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.quiz.domain.QuizQuestion;
 import com.b201.ecovillage.quiz.domain.QuizQuestionVersion;
+import com.b201.ecovillage.quiz.repository.QuizOptionRepository;
 import com.b201.ecovillage.quiz.repository.QuizQuestionRepository;
 import com.b201.ecovillage.quiz.repository.QuizQuestionVersionRepository;
 
@@ -19,15 +20,18 @@ public class QuizQuestionQueryService {
     private final ClassroomAuthorizationService authorizationService;
     private final QuizQuestionRepository questionRepository;
     private final QuizQuestionVersionRepository versionRepository;
+    private final QuizOptionRepository optionRepository;
 
     public QuizQuestionQueryService(
         ClassroomAuthorizationService authorizationService,
         QuizQuestionRepository questionRepository,
-        QuizQuestionVersionRepository versionRepository
+        QuizQuestionVersionRepository versionRepository,
+        QuizOptionRepository optionRepository
     ) {
         this.authorizationService = authorizationService;
         this.questionRepository = questionRepository;
         this.versionRepository = versionRepository;
+        this.optionRepository = optionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -59,7 +63,24 @@ public class QuizQuestionQueryService {
             question.getStateVersion(),
             version.getContentType(),
             version.getQuestionType(),
-            version.getPrompt()
+            version.getPrompt(),
+            version.getExplanation(),
+            version.getSource(),
+            version.getAiRunId(),
+            optionRepository
+                .findAllByClassroomIdAndQuizQuestionVersionIdOrderBySortOrder(
+                    classroomId,
+                    version.getId()
+                )
+                .stream()
+                .map(option -> new QuizQuestionView.Option(
+                    option.getId(),
+                    option.getOptionKey(),
+                    option.getOptionText(),
+                    option.isCorrect(),
+                    option.getSortOrder()
+                ))
+                .toList()
         );
     }
 }

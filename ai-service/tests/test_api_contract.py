@@ -341,12 +341,20 @@ def test_openapi_and_pydantic_expose_v1_2_feature_dimensions(client: TestClient)
     )
     assert {
         "scenario_version_id",
-        "asset_id",
-        "price_step_id",
-        "asset_name",
-        "asset_symbol",
-        "current_step_index",
-        "public_price_facts",
+            "asset_id",
+            "price_step_id",
+            "target_price_step_id",
+            "asset_name",
+            "asset_symbol",
+            "fictional_company_profile",
+            "investment_mode",
+            "scenario_source",
+            "settlement_rule",
+            "current_step_index",
+            "target_step_index",
+            "target_direction",
+            "historical_index_reference",
+            "public_price_facts",
     } <= set(contract_schemas["InvestmentNewsContext"]["required"])
     assert {
         "scenario_version_id",
@@ -354,7 +362,12 @@ def test_openapi_and_pydantic_expose_v1_2_feature_dimensions(client: TestClient)
         "price_step_id",
         "asset_name",
         "asset_symbol",
+        "target_price_step_id",
+        "investment_mode",
+        "scenario_source",
+        "settlement_rule",
         "current_step_index",
+        "target_step_index",
     } == set(contract_schemas["InvestmentNewsBinding"]["required"])
     assert generated_schemas["TeacherChatResponseMode"]["enum"] == [
         "ANSWER",

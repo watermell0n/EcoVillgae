@@ -164,4 +164,8 @@ public class ClassroomPolicyVersion {
     public String getStatus() {
         return status;
     }
+
+    public Instant getEffectiveFrom() {
+        return effectiveFrom;
+    }
 }

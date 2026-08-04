@@ -1092,6 +1092,18 @@ components:
         - INVESTMENT_NEWS
         - REWARD
         - PUBLIC_FUND
+    InvestmentMode:
+      type: string
+      enum: [SHORT_TERM, LONG_TERM]
+    InvestmentScenarioSource:
+      type: string
+      enum: [AI_GENERATED, HISTORICAL_INDEX]
+    InvestmentSettlementRule:
+      type: string
+      enum: [NEXT_DAY_MANDATORY, COURSE_END_FINAL]
+    InvestmentTargetDirection:
+      type: string
+      enum: [RISE, FALL, FLAT]
     InvestmentPriceFact:
       type: object
       additionalProperties: false
@@ -1110,6 +1122,38 @@ components:
         revealed_at:
           type: string
           format: date-time
+    HistoricalIndexReference:
+      type: object
+      additionalProperties: false
+      required:
+        - series_code
+        - event_name
+        - source_name
+        - source_url
+        - period_start
+        - period_end
+      properties:
+        series_code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_.-]{1,39}$'
+        event_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        source_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        source_url:
+          type: string
+          minLength: 1
+          maxLength: 500
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
     InvestmentNewsContext:
       type: object
       additionalProperties: false
@@ -1117,9 +1161,17 @@ components:
         - scenario_version_id
         - asset_id
         - price_step_id
+        - target_price_step_id
         - asset_name
         - asset_symbol
+        - fictional_company_profile
+        - investment_mode
+        - scenario_source
+        - settlement_rule
         - current_step_index
+        - target_step_index
+        - target_direction
+        - historical_index_reference
         - public_price_facts
       properties:
         scenario_version_id:
@@ -1131,6 +1183,9 @@ components:
         price_step_id:
           type: string
           format: uuid
+        target_price_step_id:
+          type: string
+          format: uuid
         asset_name:
           type: string
           minLength: 1
@@ -1138,9 +1193,28 @@ components:
         asset_symbol:
           type: string
           pattern: '^[A-Z][A-Z0-9]{1,9}$'
+        fictional_company_profile:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        investment_mode:
+          $ref: '#/components/schemas/InvestmentMode'
+        scenario_source:
+          $ref: '#/components/schemas/InvestmentScenarioSource'
+        settlement_rule:
+          $ref: '#/components/schemas/InvestmentSettlementRule'
         current_step_index:
           type: integer
           minimum: 1
+        target_step_index:
+          type: integer
+          minimum: 2
+        target_direction:
+          $ref: '#/components/schemas/InvestmentTargetDirection'
+        historical_index_reference:
+          oneOf:
+            - $ref: '#/components/schemas/HistoricalIndexReference'
+            - type: 'null'
         public_price_facts:
           type: array
           minItems: 1
@@ -1238,9 +1312,14 @@ components:
         - scenario_version_id
         - asset_id
         - price_step_id
+        - target_price_step_id
         - asset_name
         - asset_symbol
+        - investment_mode
+        - scenario_source
+        - settlement_rule
         - current_step_index
+        - target_step_index
       properties:
         scenario_version_id:
           type: string
@@ -1251,6 +1330,9 @@ components:
         price_step_id:
           type: string
           format: uuid
+        target_price_step_id:
+          type: string
+          format: uuid
         asset_name:
           type: string
           minLength: 1
@@ -1258,9 +1340,18 @@ components:
         asset_symbol:
           type: string
           pattern: '^[A-Z][A-Z0-9]{1,9}$'
+        investment_mode:
+          $ref: '#/components/schemas/InvestmentMode'
+        scenario_source:
+          $ref: '#/components/schemas/InvestmentScenarioSource'
+        settlement_rule:
+          $ref: '#/components/schemas/InvestmentSettlementRule'
         current_step_index:
           type: integer
           minimum: 1
+        target_step_index:
+          type: integer
+          minimum: 2
     EconomicEventOutput:
       type: object
       additionalProperties: false
