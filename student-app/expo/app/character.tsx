@@ -58,6 +58,7 @@ export default function CharacterScreen() {
   const equip = useMutation({
     mutationFn: ({ item, equipped }: { item: InventoryItem; equipped: boolean }) =>
       setInventoryEquipped(identity!.classroomId, item, equipped),
+    // 낙관적 반영으로 버튼이 즉시 바뀌게 한다. stateVersion은 여기서 고칠 수 없다.
     onSuccess: (_result, { item, equipped }) => {
       queryClient.setQueryData<InventoryItem[]>(inventoryKey, (current = []) =>
         current.map((candidate) => ({
@@ -69,7 +70,15 @@ export default function CharacterScreen() {
               : candidate.equipped
         }))
       );
-    }
+    },
+    /**
+     * 인벤토리의 state_version은 항목별 값이 아니라 캐릭터 프로필 버전이고, 한 응답의 모든
+     * 행이 같은 토큰을 공유한다(CharacterInventoryView 주석). 따라서 아무 항목이든 착용하면
+     * 프로필 버전이 올라가 캐시에 있는 모든 항목의 토큰이 한꺼번에 낡는다. 낙관적 반영만 하고
+     * 재조회하지 않으면 두 번째 착용부터 STATE_VERSION_CONFLICT로 실패한다.
+     * 성공이든 실패든 다시 조회해 서버 기준으로 맞춘다.
+     */
+    onSettled: () => queryClient.invalidateQueries({ queryKey: inventoryKey })
   });
 
   const items = inventory.data ?? [];
