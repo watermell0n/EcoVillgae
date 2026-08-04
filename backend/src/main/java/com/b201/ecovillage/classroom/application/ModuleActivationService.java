@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.classroom.domain.SalaryRole;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
@@ -36,6 +37,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
@@ -53,14 +55,6 @@ public class ModuleActivationService {
     private static final String ROUTE =
         "/classrooms/{classroom_id}/modules/{module_code}/activation-commands";
     private static final Duration IDEMPOTENCY_TTL = Duration.ofDays(365);
-    private static final Set<String> INITIAL_POLICY_MODULES = Set.of(
-        "ROLE_SALARY",
-        "SALARY",
-        "INCOME_TAX",
-        "DEPOSIT",
-        "LOAN"
-    );
-
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
@@ -70,6 +64,7 @@ public class ModuleActivationService {
     private final IdempotencyRecordRepository idempotencyRepository;
     private final RuleEngineService ruleEngineService;
     private final SetupPrecheckInvalidator precheckInvalidator;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -84,6 +79,7 @@ public class ModuleActivationService {
         IdempotencyRecordRepository idempotencyRepository,
         RuleEngineService ruleEngineService,
         SetupPrecheckInvalidator precheckInvalidator,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         ObjectMapper objectMapper,
         Clock clock
@@ -97,6 +93,7 @@ public class ModuleActivationService {
         this.idempotencyRepository = idempotencyRepository;
         this.ruleEngineService = ruleEngineService;
         this.precheckInvalidator = precheckInvalidator;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.objectMapper = objectMapper;
         this.clock = clock;
@@ -104,7 +101,8 @@ public class ModuleActivationService {
 
     @Transactional
     public ModuleActivationResult activate(ModuleActivationCommand command) {
-        String moduleCode = validate(command);
+        ModuleCatalog.Definition definition = validate(command);
+        String moduleCode = definition.code();
         authorizationService.authorize(
             command.teacherSubject(),
             command.classroomId(),
@@ -158,9 +156,9 @@ public class ModuleActivationService {
                 "The module state has changed."
             );
         }
-        validatePrerequisites(command.classroomId(), moduleCode);
+        validatePrerequisites(command.classroomId(), definition);
 
-        String policyArea = policyArea(moduleCode);
+        String policyArea = definition.policyArea();
         ClassroomPolicyVersion currentPolicy = policyArea == null
             ? null
             : policyRepository
@@ -171,7 +169,7 @@ public class ModuleActivationService {
                 .orElse(null);
         Map<String, Object> initialValues = copyValues(command.initialPolicyValues());
         if (
-            INITIAL_POLICY_MODULES.contains(moduleCode)
+            definition.initialPolicyRequired()
                 && currentPolicy == null
                 && initialValues.isEmpty()
         ) {
@@ -185,7 +183,8 @@ public class ModuleActivationService {
             ? currentPolicy.getPolicyValues()
             : initialValues;
         if (
-            Set.of("INCOME_TAX", "DEPOSIT", "LOAN").contains(moduleCode)
+            policyArea != null
+                && Set.of("INCOME_TAX_RATE", "DEPOSIT_RATE", "LOAN_RATE").contains(policyArea)
                 && rateValue(effectiveValues) == null
         ) {
             throw operation(
@@ -272,6 +271,22 @@ public class ModuleActivationService {
 
         ModuleActivationResult result = result(module, appliedPolicy, rules.ruleVersion(), false);
         remember(command, moduleCode, teacher.getId(), requestHash, result, now);
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.module.changed",
+            "CLASSROOM_MODULE",
+            module.getId(),
+            module.getStateVersion(),
+            Map.of(
+                "module_id", module.getId().toString(),
+                "module_code", module.getModuleCode(),
+                "status", module.getStatus(),
+                "state_version", module.getStateVersion()
+            ),
+            true
+        );
         return result;
     }
 
@@ -309,16 +324,14 @@ public class ModuleActivationService {
         return ruleEngineService.evaluate(builder.build());
     }
 
-    private void validatePrerequisites(UUID classroomId, String moduleCode) {
-        if (
-            "INCOME_TAX".equals(moduleCode)
-                && !active(classroomId, "ROLE_SALARY")
-                && !active(classroomId, "SALARY")
-        ) {
-            throw prerequisite("ROLE_SALARY");
-        }
-        if ("LOAN".equals(moduleCode) && !active(classroomId, "DEPOSIT")) {
-            throw prerequisite("DEPOSIT");
+    private void validatePrerequisites(
+        UUID classroomId,
+        ModuleCatalog.Definition definition
+    ) {
+        for (String prerequisite : definition.prerequisites()) {
+            if (!active(classroomId, prerequisite)) {
+                throw prerequisite(prerequisite);
+            }
         }
     }
 
@@ -536,7 +549,7 @@ public class ModuleActivationService {
         return value;
     }
 
-    private static String validate(ModuleActivationCommand command) {
+    private static ModuleCatalog.Definition validate(ModuleActivationCommand command) {
         if (
             command == null || command.classroomId() == null || command.requestId() == null
                 || command.moduleCode() == null || command.moduleCode().isBlank()
@@ -555,15 +568,11 @@ public class ModuleActivationService {
                 "Module prerequisites must be confirmed before activation."
             );
         }
-        String normalized = command.moduleCode().trim().toUpperCase(Locale.ROOT);
-        if (!normalized.matches("^[A-Z][A-Z0-9_]{0,39}$")) {
-            throw operation(
-                HttpStatus.BAD_REQUEST,
-                "VALIDATION_ERROR",
-                "The module code format is invalid."
-            );
-        }
-        return normalized;
+        return ModuleCatalog.find(command.moduleCode()).orElseThrow(() -> operation(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "UNSUPPORTED_MODULE_CODE",
+            "The module code is not selectable: " + command.moduleCode()
+        ));
     }
 
     private static void validateRecommendationActions(
@@ -603,18 +612,8 @@ public class ModuleActivationService {
         );
     }
 
-    private static String policyArea(String moduleCode) {
-        return switch (moduleCode) {
-            case "ROLE_SALARY", "SALARY" -> "SALARY";
-            case "INCOME_TAX" -> "INCOME_TAX_RATE";
-            case "DEPOSIT" -> "DEPOSIT_RATE";
-            case "LOAN" -> "LOAN_RATE";
-            default -> null;
-        };
-    }
-
     private static boolean isSalaryModule(String moduleCode) {
-        return "ROLE_SALARY".equals(moduleCode) || "SALARY".equals(moduleCode);
+        return "ROLE_SALARY".equals(moduleCode);
     }
 
     private static ClassroomOperationException prerequisite(String moduleCode) {

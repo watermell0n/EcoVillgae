@@ -45,7 +45,7 @@ public class AutonomousScheduleModule {
             autonomousScheduleId,
             "autonomousScheduleId must not be null"
         );
-        this.moduleCode = Objects.requireNonNull(moduleCode, "moduleCode must not be null");
+        this.moduleCode = ModuleCatalog.require(moduleCode).code();
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
     }
 

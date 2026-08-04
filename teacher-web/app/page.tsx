@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CalendarRange,
   Bot,
@@ -22,14 +22,17 @@ import {
   ApiError,
   apiRequest,
   BootstrapClassroom,
+  CreateClassroomResponse,
+  createTeacherPasswordSession,
   createTeacherSession,
   getClassroomServerState,
   getTeacherBootstrap,
   hasTeacherAccessToken,
   logoutTeacher,
+  registerTeacher,
   restoreTeacherSession
 } from "./api";
-import { beginTeacherOidcLogin, consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
+import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { TeacherRealtimeClient } from "./realtime";
 
@@ -93,6 +96,9 @@ type ApprovalRow = {
   target: string;
   amount: string;
   status: string;
+  tradeId?: string;
+  stateVersion?: number;
+  sample?: boolean;
 };
 
 type ClassSettings = {
@@ -107,6 +113,7 @@ type ClassSettings = {
   currency: string;
   period: string;
   incomeTax: string;
+  studentCount: string;
 };
 
 type LessonMaterial = {
@@ -127,13 +134,6 @@ const views = [
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
 ];
-
-const demoClassroomId = "00000000-0000-4000-8000-000000000101";
-const oidcConfigured = Boolean(
-  process.env.NEXT_PUBLIC_OIDC_AUTHORIZATION_URL
-  && process.env.NEXT_PUBLIC_OIDC_TOKEN_URL
-  && process.env.NEXT_PUBLIC_OIDC_CLIENT_ID
-);
 
 const initialModules: ModuleRow[] = [
   { name: "지갑", status: "열림", studentState: "기본 기능", teacherTodo: "자동 적용" },
@@ -179,9 +179,9 @@ const initialProducts: ProductRow[] = [
 ];
 
 const initialApprovals: ApprovalRow[] = [
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30", status: "교사 승인 대기" },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000", status: "권리 상품 확인" },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340", status: "결과 정산 대기" }
+  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30비빔", status: "교사 승인 대기", sample: true },
+  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000비빔", status: "권리 상품 확인", sample: true },
+  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340비빔", status: "결과 정산 대기", sample: true }
 ];
 
 const courseTemplates = [
@@ -228,7 +228,8 @@ const initialSettings: ClassSettings = {
   endDate: "2026-08-07",
   currency: "비빔",
   period: "1주 프로젝트",
-  incomeTax: "10"
+  incomeTax: "10",
+  studentCount: "25"
 };
 
 const initialLessonMaterials: LessonMaterial[] = [
@@ -293,6 +294,38 @@ const lessonQuizCatalog = [
   ,{ id: "quiz", title: "경제 개념 확인 퀴즈", module: "퀴즈", minutes: "10분", concept: "앞에서 배운 월급, 세금, 소비, 금융 개념을 짧은 문제로 다시 확인해요.", question: "경제 활동을 기록하면 좋은 점은 무엇인가요?", options: ["돈의 흐름을 알 수 있다", "잔액이 사라진다", "세금을 내지 않는다"], answer: 0 }
 ] as const;
 
+const moduleCodeByName: Record<string, string> = {
+  월급: "ROLE_SALARY",
+  세금: "INCOME_TAX",
+  상점: "STORE",
+  캐릭터: "CHARACTER",
+  "개인 거래": "TRADE",
+  예금: "DEPOSIT",
+  투자: "INVESTMENT",
+  "공공 예산/투표": "PUBLIC_FUND",
+  퀴즈: "QUIZ_GAME"
+};
+
+function courseSizeFor(period: string) {
+  return ({
+    "1회 체험": "ONE_SESSION",
+    "1주 프로젝트": "ONE_WEEK",
+    "1달 운영": "ONE_MONTH",
+    "1학기 운영": "SEMESTER"
+  } as const)[period] ?? "ONE_WEEK";
+}
+
+function selectedModuleCodes(selectedModules: Set<string>) {
+  const names = new Set<string>();
+  for (const selectedModule of selectedModules) {
+    names.add(selectedModule);
+    getRequiredModules(selectedModule).forEach((requiredModule) => names.add(requiredModule));
+  }
+  return [...names]
+    .map((name) => moduleCodeByName[name])
+     .filter((code): code is string => Boolean(code));
+}
+
 function getRequiredModules(moduleName: string): string[] {
   const visited = new Set<string>();
 
@@ -314,7 +347,8 @@ export default function TeacherConsole() {
   const [hasClassroom, setHasClassroom] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [classrooms, setClassrooms] = useState<BootstrapClassroom[]>([]);
-  const [activeClassroomId, setActiveClassroomId] = useState(demoClassroomId);
+  const [schoolId, setSchoolId] = useState("");
+  const [activeClassroomId, setActiveClassroomId] = useState("");
   const [activeStateVersion, setActiveStateVersion] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
   const [authBusy, setAuthBusy] = useState(true);
@@ -343,14 +377,7 @@ export default function TeacherConsole() {
           ? await createTeacherSession(await consumeTeacherOidcCallback()).then(() => getTeacherBootstrap())
           : await restoreTeacherSession();
         if (cancelled) return;
-        setClassrooms(bootstrap.classrooms);
-        setTeacherRoles(bootstrap.roles);
-        setHasClassroom(bootstrap.classrooms.length > 0);
-        if (bootstrap.classrooms[0]) {
-          setActiveClassroomId(bootstrap.classrooms[0].resource_id);
-          setActiveStateVersion(bootstrap.classrooms[0].state_version ?? 0);
-        }
-        setStage("classrooms");
+        enterClassrooms(bootstrap);
       } catch (error) {
         if (cancelled) return;
         if (hasOidcCallback() || (error instanceof ApiError && error.status !== 401)) {
@@ -398,10 +425,43 @@ export default function TeacherConsole() {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
 
-  async function runAction(label: string, path: string, init: RequestInit, onSuccess: () => void) {
+  function enterClassrooms(bootstrap: Awaited<ReturnType<typeof getTeacherBootstrap>>) {
+    setClassrooms(bootstrap.classrooms);
+    setSchoolId(bootstrap.schools[0]?.school_id ?? "");
+    setTeacherRoles(bootstrap.roles);
+    setHasClassroom(bootstrap.classrooms.length > 0);
+    if (bootstrap.classrooms[0]) {
+      setActiveClassroomId(bootstrap.classrooms[0].resource_id);
+      setActiveStateVersion(bootstrap.classrooms[0].state_version ?? 0);
+    }
+    setAuthError("");
+    setStage("classrooms");
+  }
+
+  async function loginWithPassword(email: string, password: string) {
+    await createTeacherPasswordSession(email, password);
+    enterClassrooms(await getTeacherBootstrap());
+  }
+
+  async function registerWithPassword(
+    schoolCode: string,
+    displayName: string,
+    email: string,
+    password: string
+  ) {
+    await registerTeacher(schoolCode, displayName, email, password);
+    enterClassrooms(await getTeacherBootstrap());
+  }
+
+  async function runAction(
+    label: string,
+    path: string,
+    init: RequestInit,
+    onSuccess: (result: unknown) => void
+  ) {
     try {
-      await apiRequest(path, init);
-      onSuccess();
+      const result = await apiRequest(path, init);
+      onSuccess(result);
       addLog(`${label}: 백엔드 처리 완료`);
     } catch (error) {
       const code = error instanceof ApiError ? ` (${error.code})` : "";
@@ -540,22 +600,6 @@ export default function TeacherConsole() {
     }
   }
 
-  function openDevelopmentPreview() {
-    const previewClassroom: BootstrapClassroom = {
-      resource_id: demoClassroomId,
-      label: settings.className,
-      status: "운영 준비",
-      state_version: 0,
-      classroom_code: settings.classCode,
-      currency_name: settings.currency
-    };
-    setClassrooms([previewClassroom]);
-    setTeacherRoles(["OWN"]);
-    setHasClassroom(true);
-    setAuthError("");
-    setStage("classrooms");
-  }
-
   function leaveClassroom() {
     setStage("classrooms");
     setView("overview");
@@ -566,8 +610,8 @@ export default function TeacherConsole() {
       <TeacherLogin
         busy={authBusy}
         error={authError}
-        onLogin={beginTeacherOidcLogin}
-        onPreview={!oidcConfigured ? openDevelopmentPreview : undefined}
+        onLogin={loginWithPassword}
+        onRegister={registerWithPassword}
       />
     );
   }
@@ -603,6 +647,7 @@ export default function TeacherConsole() {
         modules={modules}
         setModules={setModules}
         runAction={runAction}
+        schoolId={schoolId}
         onCancel={() => {
           setCreateStep("basic");
           setStage("classrooms");
@@ -612,6 +657,19 @@ export default function TeacherConsole() {
           setStage("classrooms");
         }}
         onLogout={logout}
+        onCreated={(classroom) => {
+          const created: BootstrapClassroom = {
+            resource_id: classroom.classroom_id,
+            label: classroom.classroom_code,
+            status: classroom.status,
+            state_version: classroom.state_version,
+            classroom_code: classroom.classroom_code,
+            currency_name: classroom.currency_name
+          };
+          setClassrooms((items) => [...items, created]);
+          setActiveClassroomId(created.resource_id);
+          setActiveStateVersion(created.state_version ?? 0);
+        }}
         onDone={(nextView) => {
           setHasClassroom(true);
           setHasDraft(false);
@@ -765,25 +823,40 @@ export default function TeacherConsole() {
 
 function TeacherLogin({
   onLogin,
-  onPreview,
+  onRegister,
   busy,
   error
 }: Readonly<{
-  onLogin: () => Promise<void>;
-  onPreview?: () => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onRegister: (
+    schoolCode: string,
+    displayName: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
   busy: boolean;
   error: string;
 }>) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [starting, setStarting] = useState(false);
   const [localError, setLocalError] = useState("");
 
-  async function startLogin() {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setStarting(true);
     setLocalError("");
     try {
-      await onLogin();
+      if (mode === "register") {
+        await onRegister(schoolCode, displayName, email, password);
+      } else {
+        await onLogin(email, password);
+      }
     } catch (loginError) {
-      setLocalError(loginError instanceof Error ? loginError.message : "로그인 페이지를 열지 못했어요.");
+      setLocalError(loginError instanceof Error ? loginError.message : "요청을 처리하지 못했습니다.");
     } finally {
       setStarting(false);
     }
@@ -799,17 +872,28 @@ function TeacherLogin({
             <small>교사 관리 웹</small>
           </div>
         </div>
-        <h1>교사 로그인</h1>
-        <div className="auth-form">
-          <p>학교에서 사용하는 교사 계정으로 안전하게 로그인합니다.</p>
+        <h1>{mode === "login" ? "교사 로그인" : "교사 회원가입"}</h1>
+        <form className="auth-form" onSubmit={(event) => void submit(event)}>
+          <p>{mode === "login" ? "등록한 이메일과 비밀번호로 로그인하세요." : "학교 코드로 소속을 확인한 뒤 교사 계정을 만듭니다."}</p>
           {error || localError ? <div className="inline-error" role="alert">{error || localError}</div> : null}
-          <button type="button" disabled={busy || starting} onClick={() => void startLogin()}>
-            {busy ? "로그인 상태 확인 중" : starting ? "로그인 페이지 여는 중" : "교사 계정으로 로그인"}
-          </button>
-          {onPreview ? (
-            <button type="button" className="preview-login" disabled={busy} onClick={onPreview}>로그인 없이 화면 미리보기</button>
+          {mode === "register" ? (
+            <>
+              <input required maxLength={40} value={schoolCode} onChange={(event) => setSchoolCode(event.target.value)} placeholder="학교 코드" autoComplete="organization" />
+              <input required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="이름" autoComplete="name" />
+            </>
           ) : null}
-        </div>
+          <input required type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="이메일" autoComplete="email" />
+          <input required type="password" minLength={mode === "register" ? 10 : undefined} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          <button type="submit" disabled={busy || starting}>
+            {busy ? "로그인 상태 확인 중" : starting ? "처리 중" : mode === "login" ? "로그인" : "회원가입하고 로그인"}
+          </button>
+          <button type="button" className="preview-login" disabled={busy || starting} onClick={() => {
+            setMode((current) => current === "login" ? "register" : "login");
+            setLocalError("");
+          }}>
+            {mode === "login" ? "교사 회원가입" : "이미 계정이 있어요"}
+          </button>
+        </form>
       </section>
     </main>
   );
@@ -898,9 +982,11 @@ function CreateClassroomFlow({
   modules,
   setModules,
   runAction,
+  schoolId,
   onCancel,
   onSaveDraft,
   onLogout,
+  onCreated,
   onDone
 }: Readonly<{
   step: CreateStep;
@@ -909,10 +995,17 @@ function CreateClassroomFlow({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: (
+    label: string,
+    path: string,
+    init: RequestInit,
+    onMockSuccess: (result: unknown) => void
+  ) => Promise<void>;
+  schoolId: string;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
+  onCreated: (classroom: CreateClassroomResponse) => void;
   onDone: (view: ViewKey) => void;
 }>) {
   const [focusedModule, setFocusedModule] = useState("단기 투자");
@@ -989,24 +1082,32 @@ function CreateClassroomFlow({
   }
 
   function createClassroom() {
+    if (!schoolId) {
+      return;
+    }
     runAction(
       "경제교실 개설",
       "/classrooms",
       {
         method: "POST",
         body: JSON.stringify({
-          name: settings.className,
-          school_name: settings.schoolName,
+          expected_state_version: 0,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-WEB-003",
+          client_occurred_at: new Date().toISOString(),
+          school_id: schoolId,
           grade: Number(settings.grade),
-          class_number: settings.classNumber,
-          description: settings.description,
           currency_name: settings.currency,
+          course_size: courseSizeFor(settings.period),
           starts_on: settings.startDate,
           ends_on: settings.endDate,
-          recommended_scale: settings.period
+          student_count: Math.max(1, Number(settings.studentCount) || 1),
+          timezone: "Asia/Seoul",
+          module_codes: selectedModuleCodes(selectedModules)
         })
       },
-      () => {
+      (result) => {
+        onCreated(result as CreateClassroomResponse);
         setShowConfirmation(false);
         setStep("complete");
       }
@@ -1040,6 +1141,7 @@ function CreateClassroomFlow({
               <label>학교명<input value={settings.schoolName} onChange={(event) => updateSettings("schoolName", event.target.value)} /></label>
               <label>학년<input value={settings.grade} onChange={(event) => updateSettings("grade", event.target.value)} /></label>
               <label>반<input value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} /></label>
+              <label>학생 수<input type="number" min="1" value={settings.studentCount} onChange={(event) => updateSettings("studentCount", event.target.value)} /></label>
               <label className="wide-field">수업 대상 설명<input value={settings.description} onChange={(event) => updateSettings("description", event.target.value)} /></label>
               <label>화폐명<input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} /></label>
             </div>
@@ -1124,8 +1226,9 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" disabled={!schoolId} onClick={createClassroom}>확정하고 개설하기</button>
             </div>
+            {!schoolId ? <p className="inline-error">소속 학교 정보를 불러오지 못했습니다. 다시 로그인해 주세요.</p> : null}
           </section>
         </div>
       ) : null}
@@ -1563,7 +1666,8 @@ function Setup({
           </label>
           <label>
             화폐 이름
-            <input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} />
+            <input value={settings.currency} readOnly aria-describedby="currency-name-help" />
+            <small id="currency-name-help">화폐 단위는 거래 원장과 연결되어 있어 교실 개설 후에는 변경할 수 없습니다.</small>
           </label>
           <label>
             운영 기간
@@ -1600,15 +1704,10 @@ function Setup({
       </PlainSection>
       <PlainSection title="저장">
         <ActionLine
-          label="학급 설정 저장"
-          value={`${settings.className} · ${settings.period} · 소득세 ${settings.incomeTax}%`}
+          label="운영 기간 저장"
+          value={`${settings.period} · ${settings.startDate} ~ ${settings.endDate}`}
           action="저장"
-          onClick={() => runAction(
-            "학급 설정 저장",
-            `/classrooms/${classroomId}/configuration`,
-            { method: "GET" },
-            () => addLog("학급 설정을 저장했어요.")
-          )}
+          onClick={() => addLog("운영 기간 변경은 다음 저장 API 연결 작업에서 적용됩니다.", "warning")}
         />
       </PlainSection>
     </div>
@@ -2435,13 +2534,27 @@ function Approvals({
               </div>
               <div>
                 <button onClick={() => {
-                  if (item.type === "거래") {
+                  if (item.type === "거래" && item.tradeId) {
                     runAction(
                       "거래 승인",
-                      `/classrooms/${classroomId}/trades/${crypto.randomUUID()}/teacher-decisions`,
-                      { method: "POST", body: JSON.stringify({ expectedStateVersion: 0, decision: "APPROVE", reason: "교사 확인" }) },
+                      `/classrooms/${classroomId}/trades/${item.tradeId}/teacher-decisions`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          expected_state_version: item.stateVersion ?? 0,
+                          screen_id: "SCR-WEB-006",
+                          ui_action_id: "UIA-WEB-006",
+                          client_occurred_at: new Date().toISOString(),
+                          decision: "APPROVE",
+                          reason: "교사 확인"
+                        })
+                      },
                       () => updateApproval(item.id, "승인 완료")
                     );
+                    return;
+                  }
+                  if (item.type === "거래") {
+                    addLog("표시된 거래는 데모 데이터입니다. 실제 거래가 생성되면 그 거래 ID로 승인할 수 있습니다.", "warning");
                     return;
                   }
                   updateApproval(item.id, "처리 완료");

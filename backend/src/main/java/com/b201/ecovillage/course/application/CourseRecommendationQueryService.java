@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.course.domain.CourseTemplate;
 import com.b201.ecovillage.course.domain.CourseTemplateModule;
 import com.b201.ecovillage.course.domain.CourseTemplateVersion;
@@ -107,11 +108,25 @@ public class CourseRecommendationQueryService {
     }
 
     private CourseModuleView moduleView(CourseTemplateModule module) {
+        ModuleCatalog.Definition definition = ModuleCatalog.find(module.getModuleCode())
+            .orElseThrow(() -> operation(
+                HttpStatus.CONFLICT,
+                "COURSE_MODULE_CODE_INVALID",
+                "A course template contains a non-canonical module code."
+            ));
         return new CourseModuleView(
-            module.getModuleCode(),
-            module.label(),
+            definition.code(),
+            definition.displayName(),
             module.getRecommendationLevel(),
-            module.prerequisites(),
+            module.prerequisites().stream()
+                .filter(code -> !ModuleCatalog.isWalletInfrastructure(code))
+                .map(code -> ModuleCatalog.find(code).orElseThrow(() -> operation(
+                    HttpStatus.CONFLICT,
+                    "COURSE_MODULE_CODE_INVALID",
+                    "A course template contains an invalid prerequisite module code."
+                )).code())
+                .distinct()
+                .toList(),
             module.exclusionImpact()
         );
     }

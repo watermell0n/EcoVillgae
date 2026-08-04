@@ -185,6 +185,95 @@ class ClassroomCreationApiTest {
     }
 
     @Test
+    void canonicalizesLegacyModuleAliasesBeforePersistenceAndOutput() throws Exception {
+        String body = """
+            {
+              "school_id": "%s",
+              "currency_name": "ECO",
+              "grade": 5,
+              "course_size": "ONE_MONTH",
+              "starts_on": "2026-08-01",
+              "ends_on": "2026-08-31",
+              "student_count": 24,
+              "timezone": "Asia/Seoul",
+              "module_codes": ["income", "tax"],
+              "autonomous_schedules": [{
+                "day_of_week": 1,
+                "local_start_time": "12:10:00",
+                "local_end_time": "12:50:00",
+                "module_codes": ["INCOME", "TAX"]
+              }]
+            }
+            """.formatted(schoolId);
+
+        String response = mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        UUID classroomId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(
+            response,
+            "$.data.classroom_id"
+        ));
+        assertEquals(
+            java.util.Set.of("ROLE_SALARY", "INCOME_TAX"),
+            classroomModuleRepository.findAll().stream()
+                .map(module -> module.getModuleCode())
+                .collect(java.util.stream.Collectors.toSet())
+        );
+        assertEquals(
+            java.util.Set.of("ROLE_SALARY", "INCOME_TAX"),
+            scheduleModuleRepository.findAll().stream()
+                .map(module -> module.getModuleCode())
+                .collect(java.util.stream.Collectors.toSet())
+        );
+
+        mockMvc.perform(
+            get("/classrooms/{classroomId}/configuration", classroomId)
+                .principal(principal)
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.module_codes").value(
+                org.hamcrest.Matchers.containsInAnyOrder("ROLE_SALARY", "INCOME_TAX")
+            ));
+    }
+
+    @Test
+    void rejectsUnknownAndTechnicalInfrastructureModuleCodes() throws Exception {
+        String unknown = validCreationBody("에코", "ONE_WEEK")
+            .replace("\"STORE\", \"QUIZ_GAME\"", "\"UNKNOWN_MODULE\"");
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(unknown)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODULE_CODE"));
+
+        String wallet = unknown.replace("UNKNOWN_MODULE", "WALLET");
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(wallet)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODULE_CODE"));
+
+        assertEquals(0, classroomRepository.count());
+    }
+
+    @Test
     void rejectsForbiddenCurrencyNameWithoutPartialRows() throws Exception {
         mockMvc.perform(
             post("/classrooms")
@@ -259,12 +348,12 @@ class ClassroomCreationApiTest {
               "student_count": 24,
               "timezone": "Asia/Seoul",
               "salary_policy": {},
-              "module_codes": ["STORE", "QUIZ"],
+              "module_codes": ["STORE", "QUIZ_GAME"],
               "autonomous_schedules": [{
                 "day_of_week": 1,
                 "local_start_time": "12:10:00",
                 "local_end_time": "12:50:00",
-                "module_codes": ["STORE", "QUIZ"]
+                "module_codes": ["STORE", "QUIZ_GAME"]
               }]
             }
             """.formatted(schoolId, currencyName, courseSize);

@@ -249,16 +249,62 @@ class ModuleActivationApiTest {
             """;
 
         mockMvc.perform(activationRequest(
-            "ROLE_SALARY",
+            "SALARY",
             UUID.randomUUID(),
             0,
             policy
         ))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.module_code").value("ROLE_SALARY"))
             .andExpect(jsonPath("$.data.policy_area").value("SALARY"));
 
         assertEquals(1, salaryRoleRepository.count());
         assertEquals(1, policyRepository.count());
+    }
+
+    @Test
+    void canonicalizesTaxAliasAndRequiresCanonicalSalaryPrerequisite() throws Exception {
+        ClassroomModule salary = ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "ROLE_SALARY",
+            NOW
+        );
+        salary.activate(Map.of(), NOW);
+        moduleRepository.save(salary);
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "INCOME_TAX",
+            NOW
+        ));
+
+        mockMvc.perform(activationRequest(
+            "TAX",
+            UUID.randomUUID(),
+            0,
+            "{\"rate_bps\": 500}"
+        ))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.module_code").value("INCOME_TAX"))
+            .andExpect(jsonPath("$.data.policy_area").value("INCOME_TAX_RATE"));
+
+        assertEquals("ACTIVE", moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "INCOME_TAX")
+            .orElseThrow()
+            .getStatus());
+    }
+
+    @Test
+    void rejectsUnknownModuleCodeAsUnprocessable() throws Exception {
+        mockMvc.perform(activationRequest(
+            "UNKNOWN_MODULE",
+            UUID.randomUUID(),
+            0,
+            null
+        ))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MODULE_CODE"));
     }
 
     @Test
