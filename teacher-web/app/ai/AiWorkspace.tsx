@@ -5,6 +5,7 @@ import { AlertTriangle, Bot, Check, ShieldOff } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
 import type { AiModuleRow, AiPolicyVersionRow } from "../types";
 import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
+import { MonitoringBalancingPanel } from "./MonitoringBalancingPanel";
 import { ModuleActivationPanel } from "./ModuleActivationPanel";
 import { TeacherChatPanel } from "./TeacherChatPanel";
 
@@ -201,6 +202,13 @@ export function AiWorkspace({
         canManage={canManage}
         onReload={onReload}
         onStateVersionChange={onStateVersionChange}
+      />
+
+      <MonitoringBalancingPanel
+        classroomId={classroomId}
+        enabled={enabled}
+        canManage={canManage}
+        onReload={onReload}
       />
 
       <DraftRecommendationPanel

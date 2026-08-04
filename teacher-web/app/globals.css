@@ -2137,6 +2137,319 @@ button:disabled {
   }
 }
 
+.monitoring-panel {
+  gap: 20px;
+}
+
+.monitoring-panel .section-title-line p,
+.monitor-proposal-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.monitor-state,
+.monitor-severity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.monitor-state.on {
+  color: #216c43;
+  background: #e9f8ef;
+}
+
+.monitor-state.off {
+  color: #7b8495;
+  background: #eef0f4;
+}
+
+.monitor-analysis-form {
+  display: grid;
+  gap: 16px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fafbfe;
+}
+
+.monitor-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 12px;
+}
+
+.monitor-period label,
+.monitor-proposed-values label {
+  display: grid;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-period input,
+.monitor-proposed-values input {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: #fff;
+}
+
+.monitor-analysis-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.monitor-analysis-form legend {
+  margin-bottom: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-metric-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.monitor-metric-picker label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink-soft);
+  background: #fff;
+  font-size: 12px;
+}
+
+.monitor-metric-picker input {
+  accent-color: var(--blue);
+}
+
+.monitor-analysis-form .wide-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+}
+
+.monitor-result {
+  display: grid;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #cfd5ff;
+  border-radius: 9px;
+  background: #f7f8ff;
+}
+
+.monitor-result > header,
+.monitor-proposal-card > header,
+.monitor-proposal-card > footer,
+.monitor-proposal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.monitor-result > p,
+.monitor-summary {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.monitor-severity.normal {
+  color: #216c43;
+  background: #e9f8ef;
+}
+
+.monitor-severity.observe {
+  color: #855e00;
+  background: #fff5d9;
+}
+
+.monitor-severity.warn {
+  color: #a73f32;
+  background: #ffebe8;
+}
+
+.monitor-metric-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.monitor-metric-results > div {
+  display: grid;
+  gap: 5px;
+  min-height: 82px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.monitor-metric-results span,
+.monitor-metric-results small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.monitor-metric-results .observe,
+.monitor-metric-results .warn {
+  border-color: #e7c97d;
+}
+
+.monitor-proposal-heading {
+  padding-top: 4px;
+}
+
+.monitor-proposal-heading h3 {
+  font-size: 16px;
+}
+
+.monitor-proposal-heading .ghost-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.monitor-proposal-list {
+  display: grid;
+  gap: 13px;
+}
+
+.monitor-proposal-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.monitor-proposal-card.auto_monitor {
+  border-left: 4px solid #f0b84a;
+}
+
+.monitor-proposal-card > header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monitor-proposal-card > header > span,
+.monitor-proposal-card > footer small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.monitor-proposed-values {
+  display: grid;
+  gap: 10px;
+}
+
+.monitor-proposed-values > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(210px, 1fr);
+  gap: 6px 16px;
+  padding: 13px;
+  border-radius: 7px;
+  background: #f7f8fb;
+}
+
+.monitor-proposed-values label {
+  grid-row: 1 / span 4;
+}
+
+.monitor-proposed-values small,
+.monitor-proposed-values p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.monitor-proposed-values p strong {
+  color: var(--ink-soft);
+}
+
+.monitor-proposal-card > footer {
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.monitor-proposal-card > footer small {
+  margin-right: auto;
+}
+
+.monitor-proposal-card > footer button {
+  min-height: 35px;
+  padding: 0 11px;
+}
+
+.monitor-proposal-card > footer .reject {
+  color: #a73f32;
+  border-color: #e8b7b1;
+  background: #fff;
+}
+
+.monitor-proposal-card > footer .apply {
+  color: #fff;
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+@media (max-width: 800px) {
+  .monitor-metric-picker,
+  .monitor-metric-results {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monitor-proposed-values > div {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-proposed-values label {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .monitor-period,
+  .monitor-metric-picker,
+  .monitor-metric-results {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-proposal-card > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .monitor-proposal-card > footer small {
+    margin-right: 0;
+  }
+}
+
 .teacher-chat-content {
   display: grid;
   gap: 18px;

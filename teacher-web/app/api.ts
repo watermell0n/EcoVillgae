@@ -366,6 +366,112 @@ export type AiProposalCommandResponse = {
   state_version: number;
 };
 
+export type BalancingMetricCode =
+  | "LIQUID_MONEY_CHANGE_RATE_BPS"
+  | "ISSUANCE_AMOUNT"
+  | "RECOVERY_AMOUNT"
+  | "ISSUANCE_RECOVERY_RATE_BPS"
+  | "WALLET_AVERAGE_CHANGE_RATE_BPS"
+  | "WALLET_MEDIAN_CHANGE_RATE_BPS"
+  | "ASSET_CONCENTRATION_TOP20_BPS"
+  | "CONSUMPTION_RATE_BPS"
+  | "PRODUCT_SELL_THROUGH_RATE_BPS"
+  | "PRODUCT_STOCKOUT_SHARE_BPS"
+  | "FINANCIAL_PARTICIPATION_RATE_BPS"
+  | "PAYMENT_MISS_RATE_BPS"
+  | "INVESTMENT_PARTICIPATION_RATE_BPS"
+  | "INVESTMENT_MEDIAN_RETURN_BPS"
+  | "INVESTMENT_LOSS_PARTICIPANT_RATE_BPS"
+  | "REWARD_ISSUANCE_SHARE_BPS";
+
+export type BalancingMetric = {
+  code: BalancingMetricCode;
+  value: number | null;
+  previous_value: number | null;
+  availability: "AVAILABLE" | "UNAVAILABLE";
+  unavailable_reason: string | null;
+  unit: "AMOUNT" | "COUNT" | "RATE_BPS";
+  state: "NORMAL" | "OBSERVE" | "WARN" | "UNAVAILABLE";
+  direction: "LOW" | "NORMAL" | "HIGH" | "NOT_APPLICABLE";
+  subject_label: string;
+};
+
+export type OperationalAnalysisResponse = {
+  operation_id: string;
+  ai_run_id: string;
+  operation_status: string;
+  run_status: string;
+  analysis_mode: "ON_DEMAND" | "AUTO_MONITOR";
+  analysis_severity: "NORMAL" | "OBSERVE" | "WARN";
+  sample: {
+    active_students: number;
+    related_transactions: number;
+    status: "SUFFICIENT" | "INSUFFICIENT";
+  };
+  insufficient_codes: string[];
+  metrics: BalancingMetric[];
+  proposal_id: string | null;
+  fallback_used: boolean;
+  fallback_code: string | null;
+  summary: string;
+};
+
+export type BalancingProposal = {
+  proposal_id: string;
+  proposal_type: string;
+  source_type: "ON_DEMAND" | "AUTO_MONITOR" | string;
+  status: string;
+  severity: "NORMAL" | "OBSERVE" | "WARN" | null;
+  metric_code: BalancingMetricCode | null;
+  direction: string | null;
+  dedupe_key: string | null;
+  summary: string;
+  proposed_values: Array<{
+    action_id: string;
+    target_type: string;
+    target_id: string;
+    current_value: number | null;
+    proposed_value: number;
+    unit: "AMOUNT" | "COUNT" | "RATE_BPS";
+    label: string;
+    rationale: string | null;
+    expected_effect: string | null;
+    side_effects: string[];
+    evidence_metric_codes: BalancingMetricCode[];
+    priority: number | null;
+  }>;
+  allowed_ranges: Array<{
+    action_id: string;
+    target_type: string;
+    target_id: string;
+    current_value: number;
+    allowed_min_value: number;
+    allowed_max_value: number;
+  }>;
+  created_at: string;
+  expires_at: string;
+  status_changed_at: string;
+  decision_status: string | null;
+  state_version: number;
+};
+
+export type AiRunHistoryItem = {
+  ai_run_id: string;
+  operation_id: string | null;
+  feature_type: "BALANCING" | "TEACHER_CHAT" | "ECONOMIC_EVENT" | "QUIZ_DRAFT";
+  run_type: string;
+  trigger_type: string;
+  status: string;
+  requested_at: string;
+  completed_at: string | null;
+  analysis_period_from: string | null;
+  data_as_of: string | null;
+  fallback_used: boolean;
+  fallback_code: string | null;
+  severity: "PASS" | "BLOCK" | "NORMAL" | "OBSERVE" | "WARN" | null;
+  proposals: BalancingProposal[];
+};
+
 export const MODULE_DEFINITIONS = [
   { code: "ROLE_SALARY", name: "역할·급여", description: "직업 역할과 역할별 급여를 설정합니다." },
   { code: "INCOME_TAX", name: "소득세", description: "급여에서 공동기금으로 회수할 소득세율을 설정합니다." },

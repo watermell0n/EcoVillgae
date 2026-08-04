@@ -440,7 +440,16 @@ public class OperationalAnalysisService {
         proposed.put("period", toMap(evaluation.period()));
         proposed.put("items", output.proposals().stream().map(this::toMap).toList());
         Map<String, Object> allowed = new LinkedHashMap<>();
-        allowed.put("items", allowedActions.stream().map(this::toMap).toList());
+        allowed.put("items", allowedActions.stream().map(action -> Map.<String, Object>of(
+            "action_id", action.actionId(),
+            "target_type", action.targetType().name(),
+            "target_id", action.targetId().toString(),
+            "current_value", action.currentValue(),
+            "allowed_min_value", action.minValue(),
+            "allowed_max_value", action.maxValue(),
+            "unit", action.unit().name(),
+            "label", action.label()
+        )).toList());
         return AiProposal.balancing(
             uuidGenerator.generate(),
             classroomId,

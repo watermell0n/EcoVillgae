@@ -8119,8 +8119,8 @@ paths:
         - "FIN-011"
       tags:
         - "AI"
-      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환"
-      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → MODULE_ACTIVATION은 모듈 활성화, PRODUCT_DRAFT는 상품 가격, QUIZ_SESSION_DRAFT는 GAME 보상 명령에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환."
+      summary: "command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → 설정 점검 제안은 기존 모듈, 상품, 퀴즈 명령에, 운영 밸런싱 제안은 허용 범위와 최신 대상값을 재검증한 뒤 상품 가격, 재고와 예금, 적금, 대출 금리의 새 버전에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환"
+      description: "사람이 검토하는 원문 기준: `API-AI-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT는 확인만.\n\n핵심 계약: command=APPLY|REJECT|ACKNOWLEDGE, edited_values?, reason, expected_policy_version? → 설정 점검 제안은 기존 모듈, 상품, 퀴즈 명령에, 운영 밸런싱 제안은 허용 범위와 최신 대상값을 재검증한 뒤 상품 가격, 재고와 예금, 적금, 대출 금리의 새 버전에 원자 적용하고 proposal_id, ai_run_id, decision_status, policy_version?, applied_values, state_version 반환."
       security:
         - bearerAuth: []
       parameters:
@@ -11677,8 +11677,8 @@ paths:
         - "AI-010"
       tags:
         - "Queries"
-      summary: "최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외"
-      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신순 cursor, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/version, 허용 범위, 결정 상태, 학생 개인 원문 제외."
+      summary: "최신순 cursor, 분석 시작, 종료 구간, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/current value, 허용 범위, 근거, 예상 효과, 부작용, 결정 상태, 학생 개인 원문 제외"
+      description: "사람이 검토하는 원문 기준: `API-READ-027` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최신순 cursor, 분석 시작, 종료 구간, run/trigger, 규칙 버전, provider/fallback, 검증 코드와 제안 target ID/current value, 허용 범위, 근거, 예상 효과, 부작용, 결정 상태, 학생 개인 원문 제외."
       security:
         - bearerAuth: []
       parameters:
@@ -11713,6 +11713,7 @@ paths:
                             - "trigger_type"
                             - "status"
                             - "requested_at"
+                            - "analysis_period_from"
                             - "prompt_version"
                             - "fallback_used"
                             - "validation_codes"
@@ -11773,6 +11774,11 @@ paths:
                                 - "string"
                                 - "null"
                               format: "date-time"
+                            analysis_period_from:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
                             data_as_of:
                               type:
                                 - "string"
@@ -11804,6 +11810,8 @@ paths:
                                 - "null"
                               enum:
                                 - "PASS"
+                                - "NORMAL"
+                                - "OBSERVE"
                                 - "WARN"
                                 - "BLOCK"
                                 - null
@@ -11854,6 +11862,8 @@ paths:
                                       - "null"
                                     enum:
                                       - "PASS"
+                                      - "NORMAL"
+                                      - "OBSERVE"
                                       - "WARN"
                                       - "BLOCK"
                                       - null
@@ -11900,9 +11910,12 @@ paths:
                                         - "action_id"
                                         - "target_type"
                                         - "target_id"
+                                        - "current_value"
                                         - "proposed_value"
                                         - "unit"
                                         - "label"
+                                        - "side_effects"
+                                        - "evidence_metric_codes"
                                       properties:
                                         action_id:
                                           type:
@@ -11917,6 +11930,11 @@ paths:
                                             - "string"
                                             - "null"
                                           format: "uuid"
+                                        current_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
                                         proposed_value:
                                           type:
                                             - "integer"
@@ -11930,6 +11948,26 @@ paths:
                                           type:
                                             - "string"
                                             - "null"
+                                        rationale:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        expected_effect:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        side_effects:
+                                          type: "array"
+                                          items:
+                                            type: "string"
+                                        evidence_metric_codes:
+                                          type: "array"
+                                          items:
+                                            type: "string"
+                                        priority:
+                                          type:
+                                            - "integer"
+                                            - "null"
                                       additionalProperties: false
                                   allowed_ranges:
                                     type: "array"
@@ -11938,6 +11976,9 @@ paths:
                                       type: "object"
                                       required:
                                         - "action_id"
+                                        - "target_type"
+                                        - "target_id"
+                                        - "current_value"
                                         - "allowed_min_value"
                                         - "allowed_max_value"
                                       properties:
@@ -11945,6 +11986,20 @@ paths:
                                           type:
                                             - "string"
                                             - "null"
+                                        target_type:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                        target_id:
+                                          type:
+                                            - "string"
+                                            - "null"
+                                          format: "uuid"
+                                        current_value:
+                                          type:
+                                            - "integer"
+                                            - "null"
+                                          format: "int64"
                                         allowed_min_value:
                                           type:
                                             - "integer"
