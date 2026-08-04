@@ -43,15 +43,11 @@ export const CHARACTER_ITEMS: Readonly<Record<string, CharacterItemDefinition>> 
   face_headphones: {
     assets: { behind: 'face_headphones_back', front: 'face_headphones_front' },
   },
-  top_blue_tshirt: {
-    assets: { main: 'top_blue_tshirt', occlusion: 'top_blue_tshirt_occlusion' },
-  },
+  top_blue_tshirt: { assets: { main: 'top_blue_tshirt' } },
   top_yellow_hoodie: { assets: { main: 'top_yellow_hoodie' } },
   top_green_vest: { assets: { main: 'top_green_vest' } },
   bottom_overalls: { assets: { main: 'bottom_overalls' } },
-  shoes_sneakers: {
-    assets: { main: 'shoes_sneakers', occlusion: 'shoes_sneakers_occlusion' },
-  },
+  shoes_sneakers: { assets: { main: 'shoes_sneakers' } },
   /**
    * 배포된 스프라이트는 가방 본체가 아니라 **어깨끈만** 그려져 있다. BACK 슬롯의
    * 기본 위치(BASE보다 뒤)에 놓으면 276px 중 254px(92%)이 몸에 가려 갈색 조각만
@@ -86,18 +82,6 @@ export const PENDING_ASSET_KEYS: ReadonlySet<string> = new Set(
   CATALOG.filter((item) => !CHARACTER_ITEMS[item.spriteKey]).map((item) => item.spriteKey),
 );
 
-/**
- * 가림 마스크 렌더링 스위치.
- *
- * 현재 배포된 마스크 2종(`top_blue_tshirt`, `shoes_sneakers`)은 상품이 실제로 덮는
- * 영역보다 넓게 파낸다. 티셔츠의 경우 옷깃 안쪽까지 지워서 목에 구멍이 생긴다.
- * 마스크 아트를 규격 §6.3에 맞게 다시 만든 뒤 켠다(규격 §11 2단계).
- *
- * 그때까지 웹과 Expo 모두 끈 상태로 두어 두 플랫폼의 결과를 동일하게 유지한다.
- * 한쪽만 켜면 같은 상품이 서로 다르게 보인다.
- */
-export const OCCLUSION_ENABLED = false;
-
 /** 에셋 식별자 → `character/` 아래 상대 경로. 웹 URL과 CI 검사가 함께 쓴다. */
 export const CHARACTER_ASSET_PATHS: Readonly<Record<string, string>> = (() => {
   const paths: Record<string, string> = { base_default: 'base/base_default.png' };
@@ -130,14 +114,12 @@ export const SPRITE_KEY_BY_ASSET_ID: Readonly<Record<string, string>> = (() => {
   return owners;
 })();
 
-/** 렌더에 실제로 필요한 에셋 식별자 전체. 마스크는 스위치가 켜졌을 때만 포함한다. */
-export function requiredAssetIds(includeOcclusion = OCCLUSION_ENABLED): string[] {
+/** 렌더에 실제로 필요한 에셋 식별자 전체. */
+export function requiredAssetIds(): string[] {
   const ids = new Set<string>(['base_default']);
   for (const definition of Object.values(CHARACTER_ITEMS)) {
-    for (const [part, assetId] of Object.entries(definition.assets)) {
-      if (!assetId) continue;
-      if (part === 'occlusion' && !includeOcclusion) continue;
-      ids.add(assetId);
+    for (const assetId of Object.values(definition.assets)) {
+      if (assetId) ids.add(assetId);
     }
   }
   return [...ids].sort();

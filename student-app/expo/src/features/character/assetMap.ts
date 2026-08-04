@@ -31,9 +31,8 @@ const SOURCES: Readonly<Record<string, ImageSourcePropType>> = {
 
   back_backpack: require('../../../assets/character/items/back/back_backpack.png'),
 
-  // 가림 마스크. core의 OCCLUSION_ENABLED가 켜질 때 쓰인다.
-  top_blue_tshirt_occlusion: require('../../../assets/character/masks/top_blue_tshirt_occlusion.png'),
-  shoes_sneakers_occlusion: require('../../../assets/character/masks/shoes_sneakers_occlusion.png'),
+  // 가림 마스크는 상품이 몸 실루엣을 새로 정의해야 할 때만 둔다(규격 §6.3).
+  // 현재 10종은 불투명 의상을 위에 덮는 것으로 충분해 마스크가 없다.
 };
 
 export const BASE_ASSET = SOURCES.base_default;

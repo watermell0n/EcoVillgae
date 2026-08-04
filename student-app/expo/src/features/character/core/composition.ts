@@ -8,12 +8,7 @@
  */
 
 import { CATALOG_BY_ID } from './catalog';
-import {
-  CHARACTER_ITEMS,
-  OCCLUSION_ENABLED,
-  coveredSlots,
-  itemDefinitionFor,
-} from './items';
+import { CHARACTER_ITEMS, coveredSlots, itemDefinitionFor } from './items';
 import { BASE_BODY_Z, bandFor, bandZ, type ItemLayerPart } from './layerOrder';
 import { SLOT_Z_ORDER, type EquippedMap, type Slot } from './types';
 
@@ -21,7 +16,13 @@ export interface CharacterLayer {
   /** React 리스트 key. 안정적이어야 한다. */
   key: string;
   assetId: string;
-  /** 이 레이어 직전에 적용할 가림 마스크. OCCLUSION_ENABLED가 꺼져 있으면 없다. */
+  /**
+   * 이 레이어 직전에 적용할 가림 마스크.
+   *
+   * 상품이 몸 실루엣을 새로 정의해야 할 때만 쓴다(규격 §6.3). 불투명한 의상을 위에
+   * 덮는 것만으로 충분한 경우에는 마스크를 두지 않는다 — 오히려 상품이 덮지 않는
+   * 영역까지 파내서 몸에 구멍이 생긴다. 현재 배포된 10종은 모두 마스크가 없다.
+   */
   occlusionAssetId?: string;
   z: number;
 }
@@ -61,7 +62,7 @@ export function planCharacterLayers(equipped: EquippedMap): CharacterComposition
       continue;
     }
 
-    const occlusion = OCCLUSION_ENABLED ? definition.assets.occlusion : undefined;
+    const occlusion = definition.assets.occlusion;
     let attachedOcclusion = false;
 
     for (const [partIndex, part] of PART_ORDER.entries()) {

@@ -259,7 +259,7 @@ export const CHARACTER_PALETTE = {
 | --- | --- | --- | --- |
 | `hat_red_cap` | `#d94b45` | `#a93b38` | `#73302f` |
 | `hat_teal_beanie` | `#09a8b2` | `#087f8c` | `#075a66` |
-| `top_blue_tshirt` | `#5f80b0` | `#466696` | `#30466d` |
+| `top_blue_tshirt` | `#5f80b0` | `#466696` | `#30466d` (+ 어깨 하이라이트 `#8ba4c8`) |
 | `top_yellow_hoodie` | `#f4c348` | `#d69b2f` | `#a96f22` |
 | `top_green_vest` | `#709a3f` | `#527532` | `#38522b` |
 | `bottom_overalls` | `#5672a0` | `#3d5680` | `#293d61` |
@@ -348,16 +348,23 @@ interface LayeredCharacterItem {
 
 ## 6. 가림 마스크
 
-### 6.0 현재 꺼져 있다
+### 6.0 필요할 때만 둔다 — 현재 배포 상품에는 없다
 
-`core/items.ts`의 `OCCLUSION_ENABLED`가 `false`다. 배포된 마스크 2종이 상품이 실제로
-덮는 영역보다 넓게 파내기 때문이다 — 티셔츠 마스크는 옷깃 안쪽까지 지워서 목에 구멍이
-생긴다(마스크 적용/미적용 차이 131px 중 대부분이 이 구멍이다).
+**불투명한 의상을 위에 덮는 것으로 충분하면 마스크를 두지 않는다.** 마스크는 상품이
+몸 실루엣을 새로 정의해야 할 때만 쓴다.
 
-마스크 아트를 §6.3에 맞게 다시 만든 뒤 켠다(§11 2단계). 그때까지 웹과 Expo 모두 끈
-상태로 두어 두 플랫폼 결과를 동일하게 유지한다. **한쪽만 켜면 같은 상품이 다르게 보인다.**
+2026-08-05에 배포되어 있던 마스크 2종(`top_blue_tshirt`, `shoes_sneakers`)을 삭제했다.
+상품이 실제로 덮는 영역보다 넓게 파내서 티셔츠 착용 시 목에 구멍이 생겼다.
+검증 결과 두 상품 모두 마스크가 필요하지 않았다 — 상품 bbox 안에서 몸이 비치는 지점을
+전수 조사했더니 티셔츠 8px은 몸의 **입**(`y27, x28..35`), 운동화 2px은 **다리 사이 틈**
+(`y56, x31..32`)이었고 둘 다 정상적으로 보여야 하는 부분이었다. 실제 누출은 0이다.
 
-### 6.1 필요한 슬롯
+마스크 렌더링 자체는 살아 있다. `assets.occlusion`을 등록한 상품이 생기면 즉시 적용된다.
+새 상품에 마스크가 필요한지 판단하려면 위와 같이 **상품 bbox 안에서 몸이 비치는 지점을
+확인**한다. 비치는 것이 몸의 실루엣 외곽선이면 마스크가 필요하고, 얼굴·틈처럼 보여야
+하는 부분이면 필요 없다.
+
+### 6.1 마스크가 필요할 수 있는 슬롯
 
 ```text
 TOP     의상 아래 몸 색·외곽선 제거
@@ -493,18 +500,26 @@ interface CharacterItemDefinition {
 
 ## 9. 문제 상품 재작업 기준
 
-### 9.1 배낭 `back_backpack`
+### 9.1 배낭 `back_backpack` — **해결 (2026-08-05)**
 
-현재: 가방 본체가 캔버스 좌우 끝(`x2..10`, `x38..46` — 48×56 기준)에 그려져 몸에 가려 갈색 막대 2개로 보인다.
+원인은 아트가 아니라 **레이어 배정**이었다. 배포된 스프라이트에는 가방 본체가 없고
+**어깨끈만** 그려져 있는데, BACK 슬롯의 기본 위치(BASE보다 뒤)에 놓여서 276px 중
+254px(92%)이 몸에 가려 갈색 조각만 보였다.
 
 ```text
-back_backpack_behind.png   가방 본체를 BACK_CENTER(x 31/32 경계, y36) 중심으로
-                           몸통 폭(x9..54)보다 좌우 3~4px 넓게 → 양옆으로 노출
-back_backpack_front.png    어깨끈만. COLLAR(y26)에서 TORSO_CENTER(y38)까지 대각선
-back_backpack_occlusion.png 몸통과 겹치는 본체 영역을 지움
+assets: { front: 'back_backpack' }   어깨끈은 몸 앞으로 지나가는 부위다
 ```
 
-캔버스 최외곽(`x0..2`, `x61..63`)에 픽셀을 두지 않는다.
+어깨끈 좌우가 60쌍 어긋나 있던 것도 함께 맞췄다. 팔이 없는 정면 캐릭터에서는
+어깨끈만으로 배낭으로 읽히므로 가방 본체는 두지 않는다.
+
+가방 본체를 추가하려면 `behind`에 별도 파일을 넣는다. 그때 규칙:
+
+```text
+본체를 BACK_CENTER(x 31/32 경계, y36) 중심으로
+몸통 폭(x9..54)보다 좌우 3~4px 넓게 → 양옆으로 노출
+캔버스 최외곽(x0..2, x61..63)에는 픽셀을 두지 않는다
+```
 
 ### 9.2 공룡 꼬리 `back_dinosaur_tail`
 
@@ -681,26 +696,30 @@ PR에서 확대 시트로 눈으로 확인할 수 있게 한다.
 ✅ 자동 검사 스크립트 (§10) — scripts/character/
 ```
 
-### 2단계 · 기존 10종 검수
+### 2단계 · 기존 10종 검수 — **완료 (2026-08-05)**
 
-`scripts/character/known-issues.json`의 기준선을 0으로 줄이는 것이 이 단계의 목표다.
-현재 9개 파일 318건이 남아 있다.
+`known-issues.json` 기준선 9개 파일 318건을 **0건**으로 줄였다. 파일은 빈 객체(`{}`)로
+남겨 두어, 앞으로 어떤 파일에서든 위반이 나오면 즉시 실패한다.
 
-| 파일 | 남은 항목 |
+| 파일 | 조치 |
 | --- | --- |
-| `items/face/face_sunglasses.png` | 실루엣 29 / 잉크 34 — 대칭이어야 하는데 어긋났다 |
-| `items/face/face_headphones_back.png` | 실루엣 26 / 잉크 14 |
-| `items/face/face_headphones_front.png` | 실루엣 20 / 잉크 21 |
-| `items/bottom/bottom_overalls.png` | 실루엣 23 / 잉크 25 / 미등록 색 3 |
-| `masks/top_blue_tshirt_occlusion.png` | 실루엣 24 + §6.0 과다 파냄 |
-| `items/top/top_blue_tshirt.png` | 실루엣 16 / 잉크 27 / 미등록 색 1 |
-| `items/top/top_yellow_hoodie.png` | 실루엣 11 / 잉크 11 |
-| `items/top/top_green_vest.png` | 실루엣 9 / 잉크 11 / 미등록 색 1 |
-| `items/hat/hat_teal_beanie.png` | 실루엣 6 / 잉크 6 + `y0` 경계 접촉 |
+| `items/face/face_sunglasses.png` | 대칭 정규화 63px |
+| `items/face/face_headphones_back/front.png` | 대칭 정규화 81px. 같은 물체이므로 기준 절반을 통일했다 |
+| `items/bottom/bottom_overalls.png` | 대칭 정규화 48px + 잔여 색 3px 치환 |
+| `items/top/top_blue_tshirt.png` | 대칭 정규화 43px. `#8ba4c8`은 `x21/x42` 미러 쌍이라 하이라이트로 등록 |
+| `items/top/top_yellow_hoodie.png` | 대칭 정규화 22px |
+| `items/top/top_green_vest.png` | 대칭 정규화 20px + 잔여 색 1px |
+| `items/hat/hat_teal_beanie.png` | 대칭 정규화 12px |
+| `items/back/back_backpack.png` | 레이어를 `front`로 (§9.1) + 대칭 정규화 110px |
+| `masks/*_occlusion.png` | 삭제 (§6.0) |
 
-추가로 §3.1 실루엣 정본이 바뀌었으므로(얼굴 `x14..48`→`x15..48` 등) 상품이 몸에
-1px 어긋나는지 확인한다. 그리고 `back_backpack`은 몸에 완전히 가려 보이지 않으므로
-§9.1대로 앞·뒤 분리가 필요하다 — 렌더 감사 시트에서 확인된다.
+명암 램프는 손대지 않았다. 전체를 미러링하면 좌상단 광원 표현이 사라진다.
+`scripts/character/normalize-symmetry.js`가 알파와 잉크만 맞추고, 새로 채워지는 칸의
+색은 **같은 쪽 이웃**에서 가져와 그쪽 면의 밝기를 유지한다.
+
+남은 경고 2건은 결함이 아니다. `hat_teal_beanie`와 `face_headphones_back`이 `y0`에
+닿지만, 머리 꼭대기가 `y4`라 모자류의 여유는 4px뿐이고 §3.4도 모자에 `y0..18`을 준다.
+정면 대칭 예외로 남은 상품은 `hat_red_cap`(챙), 목도리 2종, 서류가방·꼬리·손 소품이다.
 
 ```text
 hat_red_cap        hat_teal_beanie
@@ -812,10 +831,12 @@ BASIC / 여름 / 겨울 / 야구 / 우주 / 경찰 / 파일럿 / 마법사 / 기
 
 ```text
 docs/legacy/pixel-renderer-48x56/     §11 4단계 완료 후 삭제
-scripts/character/known-issues.json   §11 2단계 완료 후 삭제
-core/items.ts OCCLUSION_ENABLED       마스크 아트 수정 후 상수 제거하고 항상 켬
 core/items.ts PLANNED_COMPATIBILITY   상품이 CHARACTER_ITEMS로 올라오면 합쳐서 제거
 ```
+
+`scripts/character/known-issues.json`은 비었지만(`{}`) 남겨 둔다. 비어 있는 상태가
+"어떤 위반도 허용하지 않음"이라는 뜻이고, 검사기가 매 실행마다 읽어 판정에 쓴다.
+3·4단계에서 외부 이미지를 들여올 때 부채가 생기면 다시 기준선을 쓸 수 있다.
 
 ---
 
