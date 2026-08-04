@@ -93,6 +93,9 @@ type ApprovalRow = {
   target: string;
   amount: string;
   status: string;
+  tradeId?: string;
+  stateVersion?: number;
+  sample?: boolean;
 };
 
 type ClassSettings = {
@@ -167,9 +170,9 @@ const initialProducts: ProductRow[] = [
 ];
 
 const initialApprovals: ApprovalRow[] = [
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30비빔", status: "교사 승인 대기" },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000비빔", status: "권리 상품 확인" },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340비빔", status: "결과 정산 대기" }
+  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30비빔", status: "교사 승인 대기", sample: true },
+  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000비빔", status: "권리 상품 확인", sample: true },
+  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340비빔", status: "결과 정산 대기", sample: true }
 ];
 
 const courseTemplates = [
@@ -1526,7 +1529,8 @@ function Setup({
           </label>
           <label>
             화폐 이름
-            <input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} />
+            <input value={settings.currency} readOnly aria-describedby="currency-name-help" />
+            <small id="currency-name-help">화폐 단위는 거래 원장과 연결되어 있어 교실 개설 후에는 변경할 수 없습니다.</small>
           </label>
           <label>
             운영 기간
@@ -1563,15 +1567,10 @@ function Setup({
       </PlainSection>
       <PlainSection title="저장">
         <ActionLine
-          label="학급 설정 저장"
-          value={`${settings.className} · ${settings.period} · 소득세 ${settings.incomeTax}%`}
+          label="운영 기간 저장"
+          value={`${settings.period} · ${settings.startDate} ~ ${settings.endDate}`}
           action="저장"
-          onClick={() => runAction(
-            "학급 설정 저장",
-            `/classrooms/${classroomId}/configuration`,
-            { method: "GET" },
-            () => addLog("학급 설정을 저장했어요.")
-          )}
+          onClick={() => addLog("운영 기간 변경은 다음 저장 API 연결 작업에서 적용됩니다.", "warning")}
         />
       </PlainSection>
     </div>
@@ -2362,13 +2361,27 @@ function Approvals({
               </div>
               <div>
                 <button onClick={() => {
-                  if (item.type === "거래") {
+                  if (item.type === "거래" && item.tradeId) {
                     runAction(
                       "거래 승인",
-                      `/classrooms/${classroomId}/trades/${crypto.randomUUID()}/teacher-decisions`,
-                      { method: "POST", body: JSON.stringify({ expectedStateVersion: 0, decision: "APPROVE", reason: "교사 확인" }) },
+                      `/classrooms/${classroomId}/trades/${item.tradeId}/teacher-decisions`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          expected_state_version: item.stateVersion ?? 0,
+                          screen_id: "SCR-WEB-006",
+                          ui_action_id: "UIA-WEB-006",
+                          client_occurred_at: new Date().toISOString(),
+                          decision: "APPROVE",
+                          reason: "교사 확인"
+                        })
+                      },
                       () => updateApproval(item.id, "승인 완료")
                     );
+                    return;
+                  }
+                  if (item.type === "거래") {
+                    addLog("표시된 거래는 데모 데이터입니다. 실제 거래가 생성되면 그 거래 ID로 승인할 수 있습니다.", "warning");
                     return;
                   }
                   updateApproval(item.id, "처리 완료");
