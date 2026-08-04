@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ClipboardCheck,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   MonitorPlay,
   School,
@@ -34,9 +35,10 @@ import {
 } from "./api";
 import { beginTeacherOidcLogin, consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
+import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
 import { SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 
-type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "control" | "approvals" | "ai";
+type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "quiz" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "complete";
 type LogTone = "success" | "warning" | "error";
@@ -129,6 +131,7 @@ const views = [
   { key: "setup" as const, label: "학급 설정", icon: Settings },
   { key: "roster" as const, label: "학생·급여", icon: Users },
   { key: "shop" as const, label: "상점 상품", icon: ShoppingBag },
+  { key: "quiz" as const, label: "퀴즈 문제은행", icon: ListChecks },
   { key: "control" as const, label: "수업 제어", icon: MonitorPlay },
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
@@ -663,6 +666,13 @@ export default function TeacherConsole() {
               stateVersion={activeStateVersion}
               policyVersion={Number(modules.find((module) => module.code === "STORE")?.config?.policy_version ?? 0)}
               onStateVersionChange={setActiveStateVersion}
+            />
+          )}
+          {view === "quiz" && (
+            <QuizDraftWorkspace
+              classroomId={activeClassroomId}
+              initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
+              aiEnabled={aiSettings.enabled}
             />
           )}
           {view === "control" && (

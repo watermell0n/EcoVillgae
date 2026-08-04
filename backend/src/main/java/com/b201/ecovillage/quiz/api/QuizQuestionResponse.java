@@ -1,5 +1,6 @@
 package com.b201.ecovillage.quiz.api;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.b201.ecovillage.quiz.domain.QuizContentType;
@@ -13,6 +14,22 @@ public record QuizQuestionResponse(
     long stateVersion,
     QuizContentType contentType,
     QuizQuestionType questionType,
-    String prompt
+    String prompt,
+    String explanation,
+    String source,
+    UUID aiRunId,
+    List<OptionResponse> options
 ) {
+    public QuizQuestionResponse {
+        options = List.copyOf(options);
+    }
+
+    public record OptionResponse(
+        UUID optionId,
+        String optionKey,
+        String optionText,
+        boolean correct,
+        int sortOrder
+    ) {
+    }
 }

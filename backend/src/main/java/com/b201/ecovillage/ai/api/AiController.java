@@ -121,7 +121,7 @@ public class AiController {
     }
 
     @PostMapping("/quiz-draft-operations")
-    public ResponseEntity<ApiResponse<AsyncOperationAcceptedResponse>> createQuizDraft(
+    public ResponseEntity<ApiResponse<QuizDraftOperationResponse>> createQuizDraft(
         @PathVariable UUID classroomId,
         @RequestHeader("Idempotency-Key") UUID requestId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
@@ -155,10 +155,13 @@ public class AiController {
             questionType,
             request.questionCount()
         ));
-        AsyncOperationAcceptedResponse response = new AsyncOperationAcceptedResponse(
+        QuizDraftOperationResponse response = new QuizDraftOperationResponse(
             result.operationId(),
             result.status(),
-            result.statusUrl()
+            result.statusUrl(),
+            result.aiRunId(),
+            "REVIEW_REQUIRED",
+            result.questionIds()
         );
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
             new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))

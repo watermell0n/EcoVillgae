@@ -46,10 +46,10 @@ public class QuizQuestionVersion {
     @Column(updatable = false, columnDefinition = "text")
     private String explanation;
 
-    @Column(nullable = false, updatable = false, length = 40)
+    @Column(nullable = false, length = 40)
     private String source;
 
-    @Column(name = "ai_run_id", updatable = false)
+    @Column(name = "ai_run_id")
     private UUID aiRunId;
 
     @Column(name = "published_at")
@@ -128,6 +128,15 @@ public class QuizQuestionVersion {
         status = QuizQuestionStatus.APPROVED;
     }
 
+    public void requireAiReview(UUID runId) {
+        if (status != QuizQuestionStatus.DRAFT) {
+            throw new IllegalStateException("only a draft question version can require AI review");
+        }
+        status = QuizQuestionStatus.REVIEW_REQUIRED;
+        source = "AI";
+        aiRunId = Objects.requireNonNull(runId, "runId must not be null");
+    }
+
     public void publish(Instant publishedAt) {
         if (status != QuizQuestionStatus.APPROVED) {
             throw new IllegalStateException("question version cannot be published");
@@ -169,6 +178,14 @@ public class QuizQuestionVersion {
 
     public String getExplanation() {
         return explanation;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public UUID getAiRunId() {
+        return aiRunId;
     }
 
     private static String required(String value, String field) {

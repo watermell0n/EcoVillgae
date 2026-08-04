@@ -990,6 +990,22 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-QZ-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "status_url", schema: { type: "string" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "review_status", schema: { type: "string", enum: ["REVIEW_REQUIRED"] } },
+    {
+      name: "question_ids",
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        items: { type: "string", format: "uuid" },
+      },
+    },
+  ],
   "API-SHP-001": [
     { name: "product_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
@@ -1406,7 +1422,47 @@ const responseFieldOverrides = {
     { name: "deposit_accounts", schema: projectionItems({ principal_amount: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
     { name: "savings_accounts", schema: projectionItems({ principal_balance: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
   ],
-  "API-READ-020": [{ name: "questions", schema: projectionItems({ content_type: { type: "string" }, question_type: { type: "string" }, prompt: { type: "string" } }) }],
+  "API-READ-020": [{
+    name: "questions",
+    schema: projectionItems({
+      content_type: { type: "string", enum: ["ECONOMY", "NONSENSE"] },
+      question_type: { type: "string", enum: ["MULTIPLE_CHOICE", "OX"] },
+      prompt: { type: "string" },
+      explanation: { type: ["string", "null"] },
+      source: { type: "string", enum: ["TEACHER", "AI"] },
+      ai_run_id: { type: ["string", "null"], format: "uuid" },
+      options: {
+        type: "array",
+        minItems: 2,
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["option_id", "option_key", "option_text", "correct", "sort_order"],
+          properties: {
+            option_id: { type: "string", format: "uuid" },
+            option_key: { type: "string" },
+            option_text: { type: "string" },
+            correct: { type: "boolean" },
+            sort_order: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    }, [
+      "resource_id",
+      "label",
+      "status",
+      "version",
+      "state_version",
+      "content_type",
+      "question_type",
+      "prompt",
+      "explanation",
+      "source",
+      "ai_run_id",
+      "options",
+    ]),
+  }],
   "API-READ-021": [
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
@@ -2277,7 +2333,7 @@ function buildOpenApi(operations) {
         [status]:
           status === "204"
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
-            : status === "202" && operation.apiId !== "API-AI-002"
+            : status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002"
               ? { $ref: "#/components/responses/Accepted" }
               : contractStatus === "mvp-contract"
                 ? {
@@ -3025,7 +3081,9 @@ function requestFieldsForManifest(operation) {
 function responseFieldsForManifest(operation) {
   const status = successStatus(operation);
   if (status === "204") return [];
-  if (status === "202" && operation.apiId !== "API-AI-002") return acceptedResponseFields;
+  if (status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002") {
+    return acceptedResponseFields;
+  }
   return responseFields(operation);
 }
 

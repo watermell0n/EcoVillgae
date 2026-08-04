@@ -311,6 +311,36 @@ export type TeacherChatResponse = {
   recommendations: TeacherChatRecommendation[];
 };
 
+export type QuizDraftOperationResponse = {
+  operation_id: string;
+  status: string;
+  status_url: string;
+  ai_run_id: string;
+  review_status: "REVIEW_REQUIRED";
+  question_ids: string[];
+};
+
+export type QuizQuestion = {
+  resource_id: string;
+  label: string;
+  status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
+  version: number;
+  state_version: number;
+  content_type: "ECONOMY" | "NONSENSE";
+  question_type: "MULTIPLE_CHOICE" | "OX";
+  prompt: string;
+  explanation: string | null;
+  source: "TEACHER" | "AI";
+  ai_run_id: string | null;
+  options: Array<{
+    option_id: string;
+    option_key: string;
+    option_text: string;
+    correct: boolean;
+    sort_order: number;
+  }>;
+};
+
 export type ModuleActivationResponse = {
   module_code: string;
   status: "ACTIVE";

@@ -161,7 +161,7 @@
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
 | API-QZ-001 · UIA-QZ-001 | `POST /classrooms/{C}/quiz-question-commands` | OWN·COT | `command=CREATE\|UPDATE`, 유형·문항·선택지·정답·해설 → DRAFT 또는 새 버전 | PM-QZ-001 · SM-QST-001 | `QUESTION_ALREADY_PUBLISHED`, `AMBIGUOUS_ANSWER`, `VALIDATION_ERROR` | QZ-001·QZ-002·QZ-007·QZ-008 |
-| API-QZ-002 · UIA-QZ-002 | `POST /classrooms/{C}/ai/quiz-draft-operations` | OWN·COT | 학년·주제·ECONOMY/NONSENSE·객관식/OX·개수 → `202 operation_id`, REVIEW_REQUIRED 초안 | PM-QZ-001·PM-AI-002 · SM-AIR-001·SM-QST-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT` | QZ-006·QZ-007·AI-001 |
+| API-QZ-002 · UIA-QZ-002 | `POST /classrooms/{C}/ai/quiz-draft-operations` | OWN·COT | 학년·주제·ECONOMY/NONSENSE·객관식/OX·개수 → `202 operation_id, ai_run_id, question_ids`, REVIEW_REQUIRED 초안 | PM-QZ-001·PM-AI-002 · SM-AIR-001·SM-QST-001 | `AI_DISABLED`, `AI_DAILY_LIMIT_EXCEEDED`, `AI_TIMEOUT` | QZ-006·QZ-007·AI-001 |
 | API-QZ-003 · UIA-QZ-003 | `POST /classrooms/{C}/quiz-questions/{R}/commands` | OWN·COT | `command=APPROVE\|PUBLISH\|RETIRE, reason?` → 허용 상태 전이 | PM-QZ-001 · SM-QST-001 | `REVIEW_REQUIRED`, `INVALID_STATE_TRANSITION`, `CONTENT_POLICY_VIOLATION` | QZ-002·QZ-007·QZ-008 |
 | API-QZ-004 · UIA-QZ-004 | `POST /classrooms/{C}/quiz-sessions/{R}/commands` | OWN·COT | `command=START\|UPDATE_REWARD\|CLOSE_SUBMISSIONS`, 문제 버전·참가자·GAME 보상·공개범위 → `OPEN` 또는 `SCORING`. `UPDATE_REWARD`는 `OPEN` GAME과 일치하는 `expected_state_version`에서만 허용 | PM-QZ-002 · SM-QZS-001·SM-ACT-001 | `QUESTION_NOT_PUBLISHED`, `INVALID_REWARD_POLICY`, `FORBIDDEN_REWARD_CONTEXT`, `STATE_VERSION_CONFLICT`, `INVALID_STATE_TRANSITION` | QZ-001·QZ-003·QZ-004·QZ-005 |
 | API-QZ-005 · UIA-QZ-005 | `POST /classrooms/{C}/quiz-sessions/{R}/game-answers` | STU | `question_id, option_id, client_answered_at` → 서버 접수시각·답안 상태 | PM-QZ-002 · SM-QZS-001 | `SUBMISSION_CLOSED`, `NOT_PARTICIPANT`, `ANSWER_ALREADY_SUBMITTED` | QZ-003 |
@@ -234,7 +234,7 @@
 | API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 본인 보유량·체결·손익·수익률 | SCR-STU-018 / FIN-006·FIN-007 |
 | API-READ-018 | `GET /classrooms/{C}/students/me/loans-and-credit` | STU | 본인 대출·상환일정·연체·신용 상태 | SCR-STU-019·SCR-STU-020 / FIN-008·FIN-009·FIN-010 |
 | API-READ-019 | `GET /classrooms/{C}/loan-approval-queue` | OWN·COT | 최신 신용·활성 대출·정책과 승인 대기 | SCR-TCH-009·SCR-WEB-016 / FIN-008·FIN-010 |
-| API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
+| API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태와 최신 선택지·정답·해설·AI 실행 출처 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |
 | API-READ-021 | `GET /classrooms/{C}/quiz-sessions/{R}` | STU·OWN·COT | 역할별 진행 상태·문항 스냅샷·제출 상태 | SCR-TCH-005·SCR-STU-021·SCR-STU-022 / QZ-003·QZ-004 |
 | API-READ-022 | `GET /classrooms/{C}/quiz-sessions/{R}/results` | STU·OWN·COT | 학생은 본인, 교사는 학급 결과·무효화 상태 | SCR-STU-023·SCR-WEB-019 / QZ-003·QZ-004·QZ-009 |
 | API-READ-023 | `GET /classrooms/{C}/votes/{R}` | STU·OWN·COT | 참여 여부·예산 선택지·익명 집계·현재 공동기금·확정 사용처와 연결 원장 거래. 진행 중 학생 화면에는 개인 선택과 선택지별 집계를 숨김 | SCR-STU-012·SCR-TCH-006 / ECO-008 |

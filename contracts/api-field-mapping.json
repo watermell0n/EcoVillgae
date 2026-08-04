@@ -6272,6 +6272,33 @@
             "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
+          },
+          {
+            "name": "ai_run_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.ai_run_id",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "review_status",
+            "required": true,
+            "type": "string",
+            "target": "projection.review_status",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "question_ids",
+            "required": true,
+            "type": "array",
+            "target": "projection.question_ids",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
           }
         ]
       }
