@@ -44,6 +44,8 @@ import com.b201.ecovillage.identity.application.TeacherSessionStatus;
 import com.b201.ecovillage.identity.application.TeacherSessionStore;
 import com.b201.ecovillage.identity.application.VerifiedTeacherIdentity;
 import com.b201.ecovillage.identity.domain.UserAccount;
+import com.b201.ecovillage.identity.domain.School;
+import com.b201.ecovillage.identity.repository.SchoolRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 
 @SpringBootTest(properties = {
@@ -67,6 +69,9 @@ class TeacherSessionApiTest {
 
     @Autowired
     private UserAccountRepository userAccountRepository;
+
+    @Autowired
+    private SchoolRepository schoolRepository;
 
     @Autowired
     private InMemoryTeacherSessionStore sessionStore;
@@ -264,6 +269,48 @@ class TeacherSessionApiTest {
         )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error.code").value("MALFORMED_JSON"));
+    }
+
+    @Test
+    void registersTeacherAndCreatesPasswordSession() throws Exception {
+        schoolRepository.save(
+            School.create(UUID.randomUUID(), "ECO-TEST", "에코 초등학교", CREATED_AT)
+        );
+
+        MvcResult registration = mockMvc.perform(
+            post("/auth/teacher-registrations")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "school_code": "eco-test",
+                      "display_name": "로컬 교사",
+                      "email": "teacher@example.com",
+                      "password": "secure-password"
+                    }
+                    """)
+        )
+            .andExpect(status().isCreated())
+            .andExpect(cookie().httpOnly("ecovillage_teacher_refresh", true))
+            .andExpect(jsonPath("$.data.access_token").isString())
+            .andExpect(jsonPath("$.data.display_name").value("로컬 교사"))
+            .andReturn();
+
+        mockMvc.perform(
+            post("/auth/teacher-password-sessions")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "email": "TEACHER@example.com",
+                      "password": "secure-password"
+                    }
+                    """)
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.teacher_id").value(
+                read(registration, "$.data.teacher_id")
+            ));
     }
 
     private MvcResult login() throws Exception {
