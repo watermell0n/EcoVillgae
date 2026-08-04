@@ -53,7 +53,7 @@ export function appliedPolicyValues(
     if (typeof rateBps !== "number") return [];
     return [{
       label: policyArea === "INCOME_TAX_RATE" ? "적용된 소득세율" : "적용된 기준금리",
-      text: `${bpsToPercentText(rateBps)} (${rateBps.toLocaleString("ko-KR")} bps)`
+      text: bpsToPercentText(rateBps)
     }];
   }
 
