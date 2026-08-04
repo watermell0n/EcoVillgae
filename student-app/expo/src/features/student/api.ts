@@ -53,16 +53,18 @@ export type FinancialProduct = {
   version: number;
   productType: string;
   interestRateBps: number;
+  installmentCount?: number;
+  installmentAmount?: number;
 };
 
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
     { resourceId: "mock-deposit-product", label: "3일 예금", status: "ACTIVE", version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
-    { resourceId: "mock-savings-product", label: "매일 적금", status: "ACTIVE", version: 1, productType: "SAVINGS", interestRateBps: 1500 }
+    { resourceId: "mock-savings-product", label: "매일 적금", status: "ACTIVE", version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
   ];
 
   const response = await apiRequest<{
-    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number }>;
+    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number; installment_count?: number | null; installment_amount?: number | null }>;
   }>(`/classrooms/${classroomId}/financial-products`);
   return response.financial_products.flatMap((product) => product.resource_id ? [{
     resourceId: product.resource_id,
@@ -70,7 +72,9 @@ export async function fetchFinancialProducts(classroomId: string): Promise<Finan
     status: product.status ?? "DISABLED",
     version: product.version ?? 0,
     productType: product.product_type ?? "UNKNOWN",
-    interestRateBps: product.interest_rate_bps ?? 0
+    interestRateBps: product.interest_rate_bps ?? 0,
+    installmentCount: product.installment_count ?? undefined,
+    installmentAmount: product.installment_amount ?? undefined
   }] : []);
 }
 
@@ -83,10 +87,22 @@ export type DepositAccount = {
   maturesAt: string;
 };
 
+export type SavingsAccount = {
+  resourceId: string;
+  label: string;
+  status: string;
+  installmentCount: number;
+  paidInstallmentCount: number;
+  installmentAmount: number;
+  principalBalance: number;
+  maturesAt: string;
+};
+
 export async function fetchFinanceAccounts(classroomId: string) {
-  if (useMocks) return { depositAccounts: [] as DepositAccount[] };
+  if (useMocks) return { depositAccounts: [] as DepositAccount[], savingsAccounts: [] as SavingsAccount[] };
   const response = await apiRequest<{
     deposit_accounts: Array<{ resource_id?: string; label?: string; status?: string; state_version?: number; principal_amount?: number; matures_at?: string }>;
+    savings_accounts: Array<{ resource_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; matures_at?: string }>;
   }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
   return {
     depositAccounts: response.deposit_accounts.flatMap((account) => account.resource_id ? [{
@@ -95,6 +111,16 @@ export async function fetchFinanceAccounts(classroomId: string) {
       status: account.status ?? "UNKNOWN",
       stateVersion: account.state_version ?? 0,
       principalAmount: account.principal_amount ?? 0,
+      maturesAt: account.matures_at ?? ""
+    }] : []),
+    savingsAccounts: response.savings_accounts.flatMap((account) => account.resource_id ? [{
+      resourceId: account.resource_id,
+      label: account.label ?? "적금",
+      status: account.status ?? "UNKNOWN",
+      installmentCount: account.installment_count ?? 0,
+      paidInstallmentCount: account.paid_installment_count ?? 0,
+      installmentAmount: account.installment_amount ?? 0,
+      principalBalance: account.principal_balance ?? 0,
       maturesAt: account.matures_at ?? ""
     }] : [])
   };
@@ -112,6 +138,24 @@ export async function subscribeDeposit(classroomId: string, product: FinancialPr
       client_occurred_at: now(),
       product_id: product.resourceId,
       principal,
+      expected_product_version: product.version
+    })
+  });
+  return { financialResourceId: response.financial_resource_id, status: response.status, stateVersion: response.state_version };
+}
+
+export async function subscribeSavings(classroomId: string, product: FinancialProduct, installmentAmount: number) {
+  if (useMocks) return { financialResourceId: randomUUID(), status: "ACTIVE", stateVersion: 1 };
+  const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/savings-accounts`, {
+    method: "POST",
+    retryOnNetworkFailure: true,
+    body: JSON.stringify({
+      expected_state_version: 0,
+      screen_id: "SCR-STU-014",
+      ui_action_id: "UIA-FIN-004",
+      client_occurred_at: now(),
+      product_id: product.resourceId,
+      installment_amount: installmentAmount,
       expected_product_version: product.version
     })
   });

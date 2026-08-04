@@ -305,6 +305,7 @@ const moduleCodeByName: Record<string, string> = {
   캐릭터: "CHARACTER",
   "개인 거래": "TRADE",
   예금: "DEPOSIT",
+  적금: "SAVINGS",
   투자: "INVESTMENT",
   "공공 예산/투표": "PUBLIC_FUND",
   퀴즈: "QUIZ_GAME"
@@ -578,7 +579,9 @@ export default function TeacherConsole() {
       if (modulesState.modules) {
         setModules(modulesState.modules.flatMap((module) => {
           const names = module.module_code === "DEPOSIT"
-            ? ["예금", "적금"]
+            ? ["예금"]
+            : module.module_code === "SAVINGS"
+              ? ["적금"]
             : module.module_code === "INVESTMENT"
               ? ["단기 투자", "장기 투자"]
               : module.module_code === "LOAN"
@@ -792,7 +795,6 @@ export default function TeacherConsole() {
               settings={settings}
               setSettings={setSettings}
               modules={modules}
-              setModules={setModules}
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
@@ -1729,7 +1731,6 @@ function Setup({
   setSettings,
   modules,
   runAction,
-  setModules,
   addLog,
   classroomId,
   stateVersion,
@@ -1740,7 +1741,6 @@ function Setup({
   setSettings: React.Dispatch<React.SetStateAction<ClassSettings>>;
   modules: ModuleRow[];
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
-  setModules: React.Dispatch<React.SetStateAction<ModuleRow[]>>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
   stateVersion: number;
@@ -1752,23 +1752,40 @@ function Setup({
   }
 
   function toggleModule(moduleName: string) {
-    setModules((items) => {
-      const existing = items.find((item) => item.name === moduleName);
-      if (!existing) {
-        return [...items, {
-          name: moduleName,
-          status: "열림",
-          studentState: "학생 화면에 표시",
-          teacherTodo: "수업 중 조정 가능"
-        }];
+    const existing = modules.find((item) => item.name === moduleName);
+    if (!existing?.code) {
+      addLog(`${moduleName} 모듈이 이 교실에 생성되지 않았어요. 교실 생성 설정을 확인해 주세요.`, "error");
+      return;
+    }
+
+    const activating = existing.status !== "열림";
+    const path = activating
+      ? `/classrooms/${classroomId}/modules/${existing.code}/activation-commands`
+      : `/classrooms/${classroomId}/modules/${existing.code}/stop-commands`;
+    const body = activating
+      ? {
+        expected_state_version: stateVersion,
+        screen_id: "SCR-WEB-003",
+        ui_action_id: "UIA-MOD-001",
+        client_occurred_at: new Date().toISOString(),
+        confirm_prerequisites: true,
+        initial_policy_values: existing.code === "DEPOSIT" ? { rate_bps: 500 } : {},
+        recommendation_action_ids: []
       }
-      return items.map((item) => (
-        item.name === moduleName
-          ? { ...item, status: item.status === "열림" ? "닫힘" : "열림" }
-          : item
-      ));
-    });
-    addLog(`${moduleName} 기능을 ${modules.find((item) => item.name === moduleName)?.status === "열림" ? "닫았어요" : "열었어요"}.`);
+      : {
+        expected_state_version: stateVersion,
+        screen_id: "SCR-WEB-003",
+        ui_action_id: "UIA-MOD-002",
+        client_occurred_at: new Date().toISOString(),
+        reason: "교사 설정에서 비활성화"
+      };
+
+    void runAction(
+      `${moduleName} 기능 ${activating ? "활성화" : "비활성화"}`,
+      path,
+      { method: "POST", body: JSON.stringify(body) },
+      () => { void onReload(); }
+    );
   }
 
   function saveCourseConfiguration() {

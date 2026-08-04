@@ -5340,8 +5340,8 @@ paths:
     post:
       operationId: "apiFin004"
       x-api-id: "API-FIN-004"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -5422,10 +5422,15 @@ paths:
                 installment_amount:
                   type: "integer"
                   format: "int64"
+                  minimum: 1
+                expected_product_version:
+                  type: "integer"
+                  minimum: 1
               required:
                 - "product_id"
                 - "installment_amount"
-              additionalProperties: true
+                - "expected_product_version"
+              additionalProperties: false
   "/classrooms/{classroom_id}/savings-accounts/{resource_id}/installments/{installment_id}/commands":
     post:
       operationId: "apiFin005"
@@ -10720,6 +10725,15 @@ paths:
                               type: "string"
                             interest_rate_bps:
                               type: "integer"
+                            installment_count:
+                              type: "integer"
+                              minimum: 2
+                              nullable: true
+                            installment_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
+                              nullable: true
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -10830,19 +10844,30 @@ paths:
                               type: "string"
                             status:
                               type: "string"
-                            version:
+                            installment_count:
+                              type: "integer"
+                            paid_installment_count:
                               type: "integer"
                               minimum: 0
+                            installment_amount:
+                              type: "integer"
+                              format: "int64"
+                            principal_balance:
+                              type: "integer"
+                              format: "int64"
+                            expected_interest_amount:
+                              type: "integer"
+                              format: "int64"
+                            opened_at:
+                              type: "string"
+                              format: "date-time"
+                            matures_at:
+                              type: "string"
+                              format: "date-time"
                             state_version:
                               type: "integer"
                               format: "int64"
                               minimum: 0
-                            principal_balance:
-                              type: "integer"
-                              format: "int64"
-                            matures_at:
-                              type: "string"
-                              format: "date-time"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
