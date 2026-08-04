@@ -10,11 +10,12 @@ import type { ImageSourcePropType } from "react-native";
 import type { PixelStackProps } from "./PixelStack";
 
 /**
- * 네이티브 구현. RN Image에는 nearest-neighbor 옵션이 없어서 48x56 스프라이트를
+ * 네이티브 구현. RN Image에는 nearest-neighbor 옵션이 없어서 64×64 스프라이트를
  * 확대하면 도트가 뭉개진다. Skia로 그리면서 sampling을 Nearest로 고정한다.
  *
- * 이 태블릿은 밀도 320dpi(DPR 2)라 240x280 논리 크기가 물리적으로 480x560,
+ * 이 태블릿은 밀도 320dpi(DPR 2)라 320×320 논리 크기(배율 5)가 물리적으로 640×640,
  * 즉 원본의 10배 확대다. 보간을 끄지 않으면 확대가 그대로 흐림으로 보인다.
+ * 배율은 core의 characterDisplaySize가 정수로만 계산한다.
  */
 const NEAREST = { filter: FilterMode.Nearest, mipmap: MipmapMode.None } as const;
 

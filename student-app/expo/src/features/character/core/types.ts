@@ -10,7 +10,7 @@ export type Slot =
   | 'HAND'
   | 'HAT';
 
-// 상점·백엔드가 공유하는 슬롯 순서다. 실제 도트 레이어 순서는 pixelRenderer.ts가 관리한다.
+// 상점·백엔드가 공유하는 슬롯 순서다. 실제 렌더 레이어 순서는 layerOrder.ts가 관리한다.
 export const SLOT_Z_ORDER: Slot[] = [
   'BACKGROUND',
   'EFFECT',

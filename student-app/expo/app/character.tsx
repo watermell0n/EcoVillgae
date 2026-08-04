@@ -5,11 +5,15 @@ import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
-import { CATALOG_BY_ID } from "@/features/character/catalog";
 import { CharacterStage } from "@/features/character/components/CharacterStage";
 import { ItemSprite } from "@/features/character/components/ItemSprite";
-import { hasSprite } from "@/features/character/layerProfile";
-import { EMPTY_EQUIPPED, SLOT_LABEL, type EquippedMap } from "@/features/character/types";
+import {
+  CATALOG_BY_ID,
+  EMPTY_EQUIPPED,
+  SLOT_LABEL,
+  hasCharacterAsset,
+  type EquippedMap
+} from "@/features/character/core";
 import { fetchInventory, setInventoryEquipped, type InventoryItem } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
@@ -102,7 +106,7 @@ export default function CharacterScreen() {
                 <Text style={styles.itemTitle}>{item.label}</Text>
                 <Text style={styles.helper}>
                   {slotLabelFor(item.characterCode)}
-                  {hasSprite(item.characterCode) ? "" : " · 도트 준비 중"}
+                  {hasCharacterAsset(item.characterCode) ? "" : " · 도트 준비 중"}
                 </Text>
               </View>
               <Pressable

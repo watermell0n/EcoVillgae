@@ -1,8 +1,13 @@
 import { apiRequest } from "../../api/client";
-import { CATALOG, CATALOG_BY_ID } from "./catalog";
-import { conflictsFor } from "./assetProfile";
-import type { CosmeticDTO, EquippedMap, Slot } from "./types";
-import { EMPTY_EQUIPPED } from "./types";
+import {
+  CATALOG,
+  CATALOG_BY_ID,
+  EMPTY_EQUIPPED,
+  conflictsFor,
+  type CosmeticDTO,
+  type EquippedMap,
+  type Slot
+} from "@character-core";
 
 export type CharacterStoreItem = CosmeticDTO & {
   productId: string;

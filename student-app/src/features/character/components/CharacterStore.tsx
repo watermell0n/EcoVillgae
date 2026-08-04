@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { calculateStoreTotal } from '../../../api/studentFeatures';
-import { conflictsFor } from '../assetProfile';
-import { basicLayerProfileFor } from '../basicLayerProfile';
 import {
   acquireMockCharacter,
   equippedMap,
@@ -10,7 +8,14 @@ import {
   setCharacterEquipped,
   type CharacterStoreItem,
 } from '../characterApi';
-import { SLOT_LABEL, THEME_LABEL, type EquippedMap, type Slot } from '../types';
+import {
+  SLOT_LABEL,
+  THEME_LABEL,
+  conflictsFor,
+  hasCharacterAsset,
+  type EquippedMap,
+  type Slot,
+} from '@character-core';
 import { CharacterStage } from './CharacterStage';
 import { ProductPreview } from './ProductPreview';
 
@@ -80,8 +85,14 @@ function matchesCategory(item: CharacterStoreItem, category: Category): boolean 
   return item.slot === category;
 }
 
-function hasMigratedLayer(item: CharacterStoreItem): boolean {
-  return basicLayerProfileFor(item.spriteKey) !== null;
+/**
+ * 64×64 에셋이 배포된 상품만 상점에 노출한다.
+ *
+ * 이전에는 "48×56 PNG가 있는 10종"을 걸렀지만 이제는 core의 에셋 등록 여부로 판정한다.
+ * 규격 §11 3·4단계에서 상품을 등록하면 이 필터가 자동으로 열린다.
+ */
+function hasReadyAsset(item: CharacterStoreItem): boolean {
+  return hasCharacterAsset(item.spriteKey);
 }
 
 export function CharacterShop({
@@ -125,16 +136,16 @@ export function CharacterShop({
     };
   }, [classroomId]);
 
-  const migratedItems = useMemo(() => items.filter(hasMigratedLayer), [items]);
+  const readyItems = useMemo(() => items.filter(hasReadyAsset), [items]);
   const visibleItems = useMemo(
-    () => migratedItems.filter((item) => matchesCategory(item, category)),
-    [category, migratedItems],
+    () => readyItems.filter((item) => matchesCategory(item, category)),
+    [category, readyItems],
   );
-  const equipped = useMemo(() => equippedMap(migratedItems), [migratedItems]);
-  const selected = migratedItems.find((item) => item.id === lastSelectedId) ?? null;
+  const equipped = useMemo(() => equippedMap(readyItems), [readyItems]);
+  const selected = readyItems.find((item) => item.id === lastSelectedId) ?? null;
   const previewEquipped = useMemo(
-    () => previewEquipment(migratedItems, previewOverrides),
-    [migratedItems, previewOverrides],
+    () => previewEquipment(readyItems, previewOverrides),
+    [readyItems, previewOverrides],
   );
   const previewCount = Object.values(previewOverrides).filter(Boolean).length;
 
