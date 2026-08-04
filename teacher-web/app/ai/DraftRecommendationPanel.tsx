@@ -33,7 +33,8 @@ type AiHistoryItem = {
   fallback_used: boolean;
   proposals: Array<{
     proposal_id: string;
-    context_type: string;
+    // 운영 조정(BALANCING_RECOMMENDATION) 제안에는 규칙 문맥이 없어 null입니다.
+    context_type: string | null;
     target_id: string;
     status: string;
     decision_status: string | null;
@@ -46,6 +47,41 @@ function historyErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.status === 403) return "추천 이력을 볼 권한이 없어요.";
   if (error instanceof ApiError) return error.message;
   return "추천 이력을 불러오지 못했어요. 서버 연결을 확인해 주세요.";
+}
+
+// 이력에는 모듈 활성화·시작 전 점검 제안도 함께 내려옵니다.
+// 이전에는 상품이 아니면 전부 "GAME 보상"으로 표시돼 잘못 읽혔습니다.
+const CONTEXT_LABELS: Record<string, string> = {
+  MODULE_ACTIVATION: "모듈 초기 정책",
+  PRODUCT_DRAFT: "상품 가격",
+  QUIZ_SESSION_DRAFT: "GAME 보상",
+  CLASSROOM_SETUP: "시작 전 점검"
+};
+
+const DECISION_LABELS: Record<string, string> = {
+  AWAITING_TEACHER: "검토 대기",
+  ACKNOWLEDGED: "확인함",
+  APPROVED: "승인함",
+  APPLIED: "적용됨",
+  REJECTED: "거절함",
+  APPLY_FAILED: "적용 실패"
+};
+
+function contextLabel(contextType: string | null) {
+  if (!contextType) return "운영 조정";
+  return CONTEXT_LABELS[contextType] ?? contextType;
+}
+
+function decisionLabel(value: string) {
+  return DECISION_LABELS[value] ?? value;
+}
+
+// "2026. 8. 5. 오후 3:24:11"은 좁은 칸에서 줄바꿈이 심해 "08-05 15:24"로 줄입니다.
+function shortDateTime(value: string) {
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return value;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
 export function DraftRecommendationPanel({
@@ -108,6 +144,12 @@ export function DraftRecommendationPanel({
     void restoreHistory();
     return () => { cancelled = true; };
   }, [classroomId]);
+
+  const historyRows = useMemo(() => history.flatMap((item) => item.proposals.map((proposal) => ({
+    ...proposal,
+    requestedAt: item.requested_at,
+    fallbackUsed: item.fallback_used
+  }))).slice(0, 6), [history]);
 
   const selectedProduct = serverProducts.find((product) => product.resourceId === productId);
   // 입력칸의 글자는 금리·세율이면 %입니다. 검사와 전송은 서버와 같은 정수 값으로 환산해서 합니다.
@@ -329,20 +371,27 @@ export function DraftRecommendationPanel({
       <div className="recommendation-history">
         <h3>최근 추천·적용 이력</h3>
         {historyError ? <p className="empty-copy">{historyError}</p> : null}
-        {!historyError && history.flatMap((item) => item.proposals).length === 0 ? <p className="empty-copy">아직 추천 이력이 없어요.</p> : null}
-        {history.flatMap((item) => item.proposals.map((proposal) => ({ ...proposal, requestedAt: item.requested_at, fallbackUsed: item.fallback_used }))).slice(0, 6).map((proposal) => (
-          <div className="recommendation-history-row" key={proposal.proposal_id}>
-            <div>
-              <strong>{proposal.context_type === "PRODUCT_DRAFT" ? "상품 가격" : "GAME 보상"}</strong>
-              <span>{proposal.summary || "추천 검토"}</span>
-            </div>
-            <div>
-              {proposal.fallbackUsed ? <small>규칙 엔진 결과</small> : null}
-              <b>{proposal.decision_status || proposal.status}</b>
-              <time>{new Date(proposal.requestedAt).toLocaleString("ko-KR")}</time>
+        {!historyError && historyRows.length === 0 ? <p className="empty-copy">아직 추천 이력이 없어요.</p> : null}
+        {historyRows.length > 0 ? (
+          <div className="recommendation-history-scroll">
+            <div className="recommendation-history-table">
+              <div className="recommendation-history-head">
+                <span>종류</span><span>요약</span><span>결과</span><span>시각</span>
+              </div>
+              {historyRows.map((proposal) => (
+                <div className="recommendation-history-row" key={proposal.proposal_id}>
+                  <strong>{contextLabel(proposal.context_type)}</strong>
+                  <p>{proposal.summary || "추천 검토"}</p>
+                  <span className="history-result">
+                    <b>{decisionLabel(proposal.decision_status || proposal.status)}</b>
+                    {proposal.fallbackUsed ? <small>규칙 엔진 결과</small> : null}
+                  </span>
+                  <time dateTime={proposal.requestedAt}>{shortDateTime(proposal.requestedAt)}</time>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
+        ) : null}
       </div>
     </section>
   );

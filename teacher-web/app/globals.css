@@ -3054,9 +3054,10 @@ button:disabled {
   box-shadow: 0 1px 4px rgb(20 35 45 / 10%);
 }
 
+/* 라벨이 긴 항목이 많아 열 수를 고정하지 않고 폭에 맞춰 자동 배치합니다. */
 .recommendation-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -3130,51 +3131,77 @@ button:disabled {
   font-size: 1rem;
 }
 
+/* 좁아지면 세로로 무너지는 대신 표가 가로로 스크롤됩니다. */
+.recommendation-history-scroll {
+  overflow-x: auto;
+}
+
+.recommendation-history-table {
+  min-width: 560px;
+}
+
+.recommendation-history-head,
 .recommendation-history-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
-  align-items: center;
-  padding: 14px 0;
+  grid-template-columns: 104px minmax(200px, 1fr) 118px 92px;
+  gap: 16px;
+  align-items: start;
+}
+
+.recommendation-history-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dbe3e6;
+  color: #8a94a6;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.recommendation-history-row {
+  padding: 12px 0;
   border-bottom: 1px solid #edf1f2;
 }
 
-.recommendation-history-row > div {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
+.recommendation-history-row strong {
+  color: #354052;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
-.recommendation-history-row > div:last-child {
-  justify-content: flex-end;
-  color: #687488;
-}
-
-.recommendation-history-row span {
+/* 요약은 잘라내지 않고 두 줄까지 보여 줍니다. */
+.recommendation-history-row p {
+  display: -webkit-box;
+  margin: 0;
   overflow: hidden;
   color: #687488;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.recommendation-history-row .history-result {
+  display: grid;
+  gap: 2px;
+}
+
+.recommendation-history-row .history-result b {
+  color: #354052;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .recommendation-history-row time,
 .recommendation-history-row small {
-  font-size: 0.78rem;
+  color: #8a94a6;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 900px) {
+  /* 검토 내역은 세로로 접지 않고 .recommendation-history-scroll이 가로 스크롤합니다.
+     칸을 1열로 접으면 한 건이 네 줄로 늘어나 오히려 읽기 어려웠습니다. */
   .recommendation-form {
     grid-template-columns: 1fr;
-  }
-
-  .recommendation-history-row {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .recommendation-history-row > div:last-child {
-    justify-content: flex-start;
   }
 }
 
