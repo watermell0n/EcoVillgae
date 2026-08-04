@@ -8,6 +8,8 @@ public record StudentLoginResult(
     String refreshToken,
     Instant expiresAt,
     UUID classroomId,
+    String currencyName,
+    long walletBalance,
     UUID studentId
 ) {
 }

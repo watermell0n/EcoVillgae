@@ -1,88 +1,107 @@
-import { useEffect, useMemo, useState } from "react";
-import { computeBodyState } from "../bodyState";
+import { useEffect, useMemo, useState } from 'react';
+import { calculateStoreTotal } from '../../../api/studentFeatures';
+import { conflictsFor } from '../assetProfile';
+import { basicLayerProfileFor } from '../basicLayerProfile';
 import {
   acquireMockCharacter,
+  equippedMap,
   fetchCharacterStore,
   fetchOwnedCharacters,
   setCharacterEquipped,
-  type CharacterStoreItem
-} from "../characterApi";
-import { BODY_LABEL, SLOT_LABEL, THEME_LABEL, type BodyState, type Theme } from "../types";
-import { CatalogCharacterPreview, ProductPreview } from "./ProductPreview";
+  type CharacterStoreItem,
+} from '../characterApi';
+import { SLOT_LABEL, THEME_LABEL, type EquippedMap, type Slot } from '../types';
+import { CharacterStage } from './CharacterStage';
+import { ProductPreview } from './ProductPreview';
 
-const THEMES: Array<Theme | "ALL"> = ["ALL", "BASIC", "SEASONAL", "SPORTS", "CAREER", "FANTASY", "EVENT"];
-const PREVIEW_BODY_STATES: BodyState[] = ["CHUBBY", "BASE", "SLIM", "VERY_SLIM"];
+type Category =
+  | 'ALL'
+  | 'HAT'
+  | 'FACE'
+  | 'TOP'
+  | 'BOTTOM'
+  | 'SHOES'
+  | 'PROP'
+  | 'BACKGROUND';
+
+const CATEGORIES: Array<{ value: Category; icon: string; label: string }> = [
+  { value: 'ALL', icon: '★', label: '추천' },
+  { value: 'HAT', icon: '⌒', label: '모자' },
+  { value: 'FACE', icon: '☺', label: '얼굴' },
+  { value: 'TOP', icon: '♜', label: '상의' },
+  { value: 'BOTTOM', icon: '▥', label: '하의' },
+  { value: 'SHOES', icon: '◡', label: '신발' },
+  { value: 'PROP', icon: '✦', label: '소품' },
+];
 
 type CharacterShopProps = {
   classroomId: string;
+  currencyName: string;
   walletBalance: number;
-  savedBalance: number;
-  spendTotal: number;
   onBuy: (item: CharacterStoreItem) => Promise<boolean>;
 };
 
-function useBodyState(savedBalance: number, spendTotal: number) {
-  const [bodyState, setBodyState] = useState<BodyState>("BASE");
-  useEffect(() => {
-    setBodyState((previous) => computeBodyState(previous, savedBalance, spendTotal));
-  }, [savedBalance, spendTotal]);
-  return bodyState;
+type PreviewOverrides = Partial<Record<Slot, string | null>>;
+
+function previewEquipment(
+  items: CharacterStoreItem[],
+  overrides: PreviewOverrides,
+): EquippedMap {
+  return { ...equippedMap(items), ...overrides };
 }
 
-function BodyPreviewPicker({
-  actual,
-  value,
-  onChange
-}: {
-  actual: BodyState;
-  value: BodyState;
-  onChange: (bodyState: BodyState) => void;
-}) {
-  return (
-    <div className="body-preview-picker" aria-label="체형별 상품 핏 미리보기">
-      <div>
-        <b>체형별 핏 확인</b>
-        <span>현재 체형은 {BODY_LABEL[actual]}이에요.</span>
-      </div>
-      <div className="body-preview-options">
-        {PREVIEW_BODY_STATES.map((bodyState) => (
-          <button
-            className={value === bodyState ? "active" : ""}
-            key={bodyState}
-            onClick={() => onChange(bodyState)}
-            type="button"
-          >
-            {BODY_LABEL[bodyState]}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+function nextPreviewOverrides(
+  current: PreviewOverrides,
+  item: CharacterStoreItem,
+  equipped: EquippedMap,
+): PreviewOverrides {
+  const next = { ...current };
+  if (next[item.slot] === item.id) {
+    delete next[item.slot];
+    for (const conflictSlot of conflictsFor(item, { ...equipped, ...current })) {
+      delete next[conflictSlot];
+    }
+    return next;
+  }
+
+  const composed = { ...equipped, ...current };
+  for (const conflictSlot of conflictsFor(item, composed)) {
+    next[conflictSlot] = null;
+  }
+  next[item.slot] = item.id;
+  return next;
+}
+
+function matchesCategory(item: CharacterStoreItem, category: Category): boolean {
+  if (category === 'ALL') return true;
+  if (category === 'PROP') {
+    return ['BACK', 'NECK', 'HAND', 'EFFECT'].includes(item.slot);
+  }
+  return item.slot === category;
+}
+
+function hasMigratedLayer(item: CharacterStoreItem): boolean {
+  return basicLayerProfileFor(item.spriteKey) !== null;
 }
 
 export function CharacterShop({
   classroomId,
+  currencyName,
   walletBalance,
-  savedBalance,
-  spendTotal,
-  onBuy
+  onBuy,
 }: CharacterShopProps) {
   const [items, setItems] = useState<CharacterStoreItem[]>([]);
-  const [theme, setTheme] = useState<Theme | "ALL">("ALL");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
+  const [category, setCategory] = useState<Category>('ALL');
+  const [previewOverrides, setPreviewOverrides] = useState<PreviewOverrides>({});
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const bodyState = useBodyState(savedBalance, spendTotal);
-  const [previewBodyState, setPreviewBodyState] = useState<BodyState>(bodyState);
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setPreviewBodyState(bodyState);
-  }, [bodyState]);
-
-  async function refresh() {
+  async function refresh(): Promise<CharacterStoreItem[]> {
     const next = await fetchCharacterStore(classroomId);
     setItems(next);
-    setSelectedId((current) => current ?? next[0]?.id ?? null);
+    return next;
   }
 
   useEffect(() => {
@@ -92,10 +111,11 @@ export function CharacterShop({
       .then((next) => {
         if (!active) return;
         setItems(next);
-        setSelectedId(next[0]?.id ?? null);
       })
       .catch((error: unknown) => {
-        if (active) setMessage(error instanceof Error ? error.message : "캐릭터 상품을 불러오지 못했어요.");
+        if (active) {
+          setMessage(error instanceof Error ? error.message : '캐릭터 상품을 불러오지 못했어요.');
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -105,11 +125,40 @@ export function CharacterShop({
     };
   }, [classroomId]);
 
+  const migratedItems = useMemo(() => items.filter(hasMigratedLayer), [items]);
   const visibleItems = useMemo(
-    () => items.filter((item) => theme === "ALL" || item.theme === theme),
-    [items, theme]
+    () => migratedItems.filter((item) => matchesCategory(item, category)),
+    [category, migratedItems],
   );
-  const selected = items.find((item) => item.id === selectedId) ?? visibleItems[0] ?? null;
+  const equipped = useMemo(() => equippedMap(migratedItems), [migratedItems]);
+  const selected = migratedItems.find((item) => item.id === lastSelectedId) ?? null;
+  const previewEquipped = useMemo(
+    () => previewEquipment(migratedItems, previewOverrides),
+    [migratedItems, previewOverrides],
+  );
+  const previewCount = Object.values(previewOverrides).filter(Boolean).length;
+
+  function resetPreview() {
+    setPreviewOverrides({});
+    setLastSelectedId(null);
+  }
+
+  function togglePreview(item: CharacterStoreItem) {
+    const removing = previewOverrides[item.slot] === item.id;
+    setPreviewOverrides((current) => nextPreviewOverrides(current, item, equipped));
+    setLastSelectedId(removing ? null : item.id);
+  }
+
+  async function toggle(item: CharacterStoreItem) {
+    try {
+      await setCharacterEquipped(classroomId, item, !item.equipped);
+      await refresh();
+      resetPreview();
+      setMessage(item.equipped ? `${item.name}을(를) 벗었어요.` : `${item.name}을(를) 착용했어요.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '착용 상태를 바꾸지 못했어요.');
+    }
+  }
 
   async function buy(item: CharacterStoreItem) {
     if (item.owned) {
@@ -117,26 +166,27 @@ export function CharacterShop({
       return;
     }
     try {
-      const ok = await onBuy(item);
-      if (!ok) {
-        setMessage("비빔이 부족해요.");
+      setPurchasingId(item.id);
+      const purchased = await onBuy(item);
+      if (!purchased) {
+        setMessage(`${currencyName} 잔액이 부족해요.`);
         return;
       }
-      acquireMockCharacter(item.id);
-      await refresh();
-      setMessage(`${item.name}을 샀어요. 이제 캐릭터 보관함에서 착용할 수 있어요.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "구매하지 못했어요.");
-    }
-  }
 
-  async function toggle(item: CharacterStoreItem) {
-    try {
-      await setCharacterEquipped(classroomId, item, !item.equipped);
-      await refresh();
-      setMessage(item.equipped ? `${item.name}을 해제했어요.` : `${item.name}을 착용했어요.`);
+      acquireMockCharacter(item.id);
+      let next = await refresh();
+      const ownedItem = next.find((candidate) => candidate.id === item.id);
+      if (ownedItem?.owned && !ownedItem.equipped) {
+        await setCharacterEquipped(classroomId, ownedItem, true);
+        next = await refresh();
+      }
+      setItems(next);
+      resetPreview();
+      setMessage(`${item.name}을(를) 구매하고 바로 착용했어요.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "착용 상태를 바꾸지 못했어요.");
+      setMessage(error instanceof Error ? error.message : '구매하지 못했어요.');
+    } finally {
+      setPurchasingId(null);
     }
   }
 
@@ -146,65 +196,129 @@ export function CharacterShop({
         <div className="character-preview-heading">
           <div>
             <p className="eyebrow">착용 미리보기</p>
-            <h2>{selected?.name ?? "기본 캐릭터"}</h2>
+            <h2>{selected?.name ?? '나의 원래 모습'}</h2>
           </div>
-          <span className="body-pill">{BODY_LABEL[bodyState]}</span>
+          <span className="body-pill">BASE 체형</span>
         </div>
+
+        <CharacterStage equipped={previewEquipped} />
+
+        <div className="character-preview-summary">
+          <span>
+            {previewCount > 0
+              ? `${previewCount}개 슬롯을 함께 미리 착용 중`
+              : '현재 저장된 착용 조합'}
+          </span>
+          <button
+            className="original-look-button"
+            disabled={previewCount === 0}
+            onClick={resetPreview}
+            type="button"
+          >
+            ↻ 원래 모습
+          </button>
+        </div>
+
         {selected ? (
-          <CatalogCharacterPreview item={selected} bodyState={previewBodyState} />
-        ) : (
-          <div className="catalog-character-stage catalog-character-stage--empty">상품을 선택해 주세요.</div>
-        )}
-        <BodyPreviewPicker
-          actual={bodyState}
-          value={previewBodyState}
-          onChange={setPreviewBodyState}
-        />
-        <p className="character-preview-help">
-          오른쪽 상품과 같은 원본 도트로 체형별 착용 모습을 확인할 수 있어요.
-        </p>
+          <div className="selected-product-summary">
+            <ProductPreview compact item={selected} />
+            <div>
+              <b>{selected.name}</b>
+              <span>{SLOT_LABEL[selected.slot]}</span>
+              <strong>
+                {calculateStoreTotal(selected.price, 1, selected.vatRateBps)}
+                {currencyName}
+              </strong>
+            </div>
+          </div>
+        ) : null}
       </aside>
 
       <div className="character-catalog-panel">
-        <div className="character-theme-tabs" aria-label="캐릭터 상품 테마">
-          {THEMES.map((value) => (
+        <header className="character-catalog-header">
+          <div>
+            <p className="eyebrow">캐릭터 상점</p>
+            <h2>마음에 드는 도트 아이템을 골라 보세요</h2>
+          </div>
+          <div className="character-wallet" aria-label={`보유 ${walletBalance}${currencyName}`}>
+            <span>●</span>
+            보유 <strong>{walletBalance}</strong>{currencyName}
+          </div>
+        </header>
+
+        <div className="character-theme-tabs" aria-label="캐릭터 상품 분류">
+          {CATEGORIES.map(({ value, icon, label }) => (
             <button
-              className={theme === value ? "active" : ""}
+              className={category === value ? 'active' : ''}
               key={value}
-              onClick={() => setTheme(value)}
+              onClick={() => setCategory(value)}
+              type="button"
             >
-              {value === "ALL" ? "전체" : THEME_LABEL[value]}
+              <span aria-hidden="true">{icon}</span>
+              {label}
             </button>
           ))}
         </div>
-        {message ? <p className="shop-message">{message}</p> : null}
-        {loading ? <p className="character-empty">캐릭터 상품을 불러오는 중이에요.</p> : null}
+
+        {message ? <p className="shop-message" role="status">{message}</p> : null}
+        {loading ? <p className="character-empty">상품을 불러오는 중이에요.</p> : null}
         {!loading && visibleItems.length === 0 ? (
-          <p className="character-empty">현재 판매 중인 캐릭터 상품이 없어요.</p>
+          <p className="character-empty">이 분류에 판매 중인 상품이 없어요.</p>
         ) : null}
+
         <div className="character-product-grid">
           {visibleItems.map((item) => {
-            const insufficient = walletBalance < item.price;
+            const totalPrice = calculateStoreTotal(item.price, 1, item.vatRateBps);
+            const insufficient = walletBalance < totalPrice;
+            const purchasing = purchasingId === item.id;
+            const previewing = previewOverrides[item.slot] === item.id;
             return (
               <article
-                className={`character-product-card ${selected?.id === item.id ? "selected" : ""}`}
+                className={[
+                  'character-product-card',
+                  previewing ? 'selected' : '',
+                  item.equipped ? 'equipped' : '',
+                ].filter(Boolean).join(' ')}
                 key={item.id}
-                onClick={() => setSelectedId(item.id)}
+                onClick={() => togglePreview(item)}
               >
-                <ProductPreview item={item} bodyState={previewBodyState} />
+                <ProductPreview item={item} />
                 <div className="character-product-info">
+                  <span className="product-theme">{THEME_LABEL[item.theme]}</span>
                   <b>{item.name}</b>
-                  <span>{SLOT_LABEL[item.slot]} · {item.price}비빔</span>
+                  <strong>{totalPrice}{currencyName}</strong>
                 </div>
-                <button
-                  disabled={!item.owned && insufficient}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void buy(item);
-                  }}
-                >
-                  {item.equipped ? "착용 해제" : item.owned ? "착용하기" : insufficient ? "잔액 부족" : "구매하기"}
-                </button>
+                <div className="character-card-actions">
+                  <button
+                    className="preview-toggle-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      togglePreview(item);
+                    }}
+                    type="button"
+                  >
+                    {previewing ? '미리 벗기' : '미리 착용'}
+                  </button>
+                  <button
+                    className="character-item-action"
+                    disabled={purchasingId !== null || (!item.owned && insufficient)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void buy(item);
+                    }}
+                    type="button"
+                  >
+                    {item.equipped
+                      ? '착용 해제'
+                      : item.owned
+                        ? '착용하기'
+                        : purchasing
+                          ? '구매 중…'
+                          : insufficient
+                            ? `${currencyName} 부족`
+                            : '구매하기'}
+                  </button>
+                </div>
               </article>
             );
           })}
@@ -214,24 +328,9 @@ export function CharacterShop({
   );
 }
 
-export function CharacterWardrobe({
-  classroomId,
-  savedBalance,
-  spendTotal
-}: {
-  classroomId: string;
-  savedBalance: number;
-  spendTotal: number;
-}) {
+export function CharacterWardrobe({ classroomId }: { classroomId: string }) {
   const [items, setItems] = useState<CharacterStoreItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const bodyState = useBodyState(savedBalance, spendTotal);
-  const [previewBodyState, setPreviewBodyState] = useState<BodyState>(bodyState);
-
-  useEffect(() => {
-    setPreviewBodyState(bodyState);
-  }, [bodyState]);
+  const [message, setMessage] = useState('');
 
   async function refresh() {
     setItems(await fetchOwnedCharacters(classroomId));
@@ -241,30 +340,27 @@ export function CharacterWardrobe({
     let active = true;
     fetchOwnedCharacters(classroomId)
       .then((next) => {
-        if (!active) return;
-        setItems(next);
-        setSelectedId((current) => current ?? next.find((item) => item.equipped)?.id ?? next[0]?.id ?? null);
+        if (active) setItems(next);
       })
       .catch((error: unknown) => {
-        if (active) setMessage(error instanceof Error ? error.message : "보관함을 불러오지 못했어요.");
+        if (active) {
+          setMessage(error instanceof Error ? error.message : '보관함을 불러오지 못했어요.');
+        }
       });
     return () => {
       active = false;
     };
   }, [classroomId]);
 
-  const selected = items.find((item) => item.id === selectedId)
-    ?? items.find((item) => item.equipped)
-    ?? items[0]
-    ?? null;
+  const equipped = useMemo(() => equippedMap(items), [items]);
 
   async function toggle(item: CharacterStoreItem) {
     try {
       await setCharacterEquipped(classroomId, item, !item.equipped);
       await refresh();
-      setMessage(item.equipped ? `${item.name}을 해제했어요.` : `${item.name}을 착용했어요.`);
+      setMessage(item.equipped ? `${item.name}을(를) 벗었어요.` : `${item.name}을(를) 착용했어요.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "착용 상태를 바꾸지 못했어요.");
+      setMessage(error instanceof Error ? error.message : '착용 상태를 바꾸지 못했어요.');
     }
   }
 
@@ -274,20 +370,10 @@ export function CharacterWardrobe({
         <div className="character-preview-heading">
           <div>
             <p className="eyebrow">내 캐릭터</p>
-            <h2>{selected?.name ?? "착용 모습"}</h2>
+            <h2>현재 착용 모습</h2>
           </div>
-          <span className="body-pill">{BODY_LABEL[bodyState]}</span>
         </div>
-        {selected ? (
-          <CatalogCharacterPreview item={selected} bodyState={previewBodyState} />
-        ) : (
-          <div className="catalog-character-stage catalog-character-stage--empty">보유한 상품이 없어요.</div>
-        )}
-        <BodyPreviewPicker
-          actual={bodyState}
-          value={previewBodyState}
-          onChange={setPreviewBodyState}
-        />
+        <CharacterStage equipped={equipped} />
       </aside>
       <div className="character-catalog-panel">
         <div className="character-preview-heading">
@@ -296,23 +382,21 @@ export function CharacterWardrobe({
             <h2>보유 아이템 {items.length}개</h2>
           </div>
         </div>
-        {message ? <p className="shop-message">{message}</p> : null}
+        {message ? <p className="shop-message" role="status">{message}</p> : null}
         <div className="wardrobe-list">
           {items.map((item) => (
             <button
-              className={item.equipped ? "wardrobe-item equipped" : "wardrobe-item"}
+              className={item.equipped ? 'wardrobe-item equipped' : 'wardrobe-item'}
               key={item.id}
-              onClick={() => {
-                setSelectedId(item.id);
-                void toggle(item);
-              }}
+              onClick={() => void toggle(item)}
+              type="button"
             >
-              <ProductPreview item={item} bodyState={previewBodyState} />
+              <ProductPreview compact item={item} />
               <span>
                 <b>{item.name}</b>
                 <small>{SLOT_LABEL[item.slot]}</small>
               </span>
-              <strong>{item.equipped ? "착용 중" : "착용"}</strong>
+              <strong>{item.equipped ? '착용 중' : '착용'}</strong>
             </button>
           ))}
         </div>

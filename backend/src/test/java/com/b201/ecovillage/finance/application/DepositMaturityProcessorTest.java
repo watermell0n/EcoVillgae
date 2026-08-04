@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -36,6 +38,7 @@ import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
 import com.b201.ecovillage.ledger.domain.LedgerAccountType;
 import com.b201.ecovillage.ledger.domain.TransactionGroupStatus;
 import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 class DepositMaturityProcessorTest {
 
@@ -43,6 +46,7 @@ class DepositMaturityProcessorTest {
 
     private DepositAccountRepository accountRepository;
     private AtomicLedgerTransactionService transactionService;
+    private RealtimeEventPublisher eventPublisher;
     private DepositMaturityProcessor processor;
     private DepositAccount account;
     private UUID classroomId;
@@ -53,12 +57,14 @@ class DepositMaturityProcessorTest {
         accountRepository = mock(DepositAccountRepository.class);
         LedgerAccountRepository ledgerRepository = mock(LedgerAccountRepository.class);
         transactionService = mock(AtomicLedgerTransactionService.class);
+        eventPublisher = mock(RealtimeEventPublisher.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
         processor = new DepositMaturityProcessor(
             accountRepository,
             ledgerRepository,
             transactionService,
+            eventPublisher,
             uuidGenerator
         );
 
@@ -159,5 +165,8 @@ class DepositMaturityProcessorTest {
 
         assertFalse(processor.mature(classroomId, account.getId(), NOW.plusSeconds(1)));
         verify(transactionService, times(1)).execute(any(UUID.class), any(), anyList());
+        verify(eventPublisher, times(1)).publish(
+            any(), any(), any(), any(), any(), any(), anyLong(), any(), eq(false)
+        );
     }
 }

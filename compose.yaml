@@ -99,6 +99,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecovillage_dev}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REALTIME_REDIS_ENABLED: "true"
       AI_SERVICE_ENABLED: ${AI_SERVICE_ENABLED:-true}
       AI_SERVICE_BASE_URL: http://ai-service:8000
       AI_INTERNAL_SERVICE_TOKEN: ${ECOVILLAGE_AI_INTERNAL_SERVICE_TOKEN:-local-development-token}

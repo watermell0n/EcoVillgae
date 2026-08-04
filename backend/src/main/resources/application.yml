@@ -50,7 +50,7 @@ ecovillage:
     client-id: ${TEACHER_OIDC_CLIENT_ID:}
     name-claim: ${TEACHER_OIDC_NAME_CLAIM:name}
   web:
-    allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   ai-service:
     enabled: ${AI_SERVICE_ENABLED:true}
     base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:8000}
@@ -62,6 +62,13 @@ ecovillage:
   ai-monitor:
     enabled: ${AI_MONITOR_ENABLED:true}
     cron: ${AI_MONITOR_CRON:0 5 0 * * *}
+  realtime:
+    redis-enabled: ${REALTIME_REDIS_ENABLED:false}
+    ticket-ttl: ${REALTIME_TICKET_TTL:60s}
+    connection-ttl: ${REALTIME_CONNECTION_TTL:8h}
+    heartbeat-interval: ${REALTIME_HEARTBEAT_INTERVAL:25s}
+    dispatch-batch-size: ${REALTIME_DISPATCH_BATCH_SIZE:100}
+    dispatch-delay-ms: ${REALTIME_DISPATCH_DELAY_MS:250}
 
 management:
   endpoints:

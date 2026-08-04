@@ -113,7 +113,7 @@ class CourseRecommendationQueryServiceTest {
 
         assertEquals(1, result.size());
         assertEquals("G4_ONE_WEEK", result.getFirst().templateCode());
-        assertEquals(List.of("WALLET", "BUDGET"), result.getFirst()
+        assertEquals(List.of("BUDGET"), result.getFirst()
             .modules()
             .getFirst()
             .prerequisites());

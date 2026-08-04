@@ -10,7 +10,7 @@ export type Slot =
   | 'HAND'
   | 'HAT';
 
-// 기존 상점/백엔드 슬롯의 호환 순서다. 실제 부착점과 레이어는 character-rig.json에서 관리한다.
+// 상점·백엔드가 공유하는 슬롯 순서다. 실제 도트 레이어 순서는 pixelRenderer.ts가 관리한다.
 export const SLOT_Z_ORDER: Slot[] = [
   'BACKGROUND',
   'EFFECT',
@@ -46,16 +46,6 @@ export const THEME_LABEL: Record<Theme, string> = {
   CAREER: '직업',
   FANTASY: '판타지',
   EVENT: '행사',
-};
-
-export type BodyState = 'CHUBBY' | 'BASE' | 'SLIM' | 'VERY_SLIM';
-
-// 학생에게 노출되는 명칭은 체중을 직접 연상시키지 않는 중립적인 표현을 사용한다.
-export const BODY_LABEL: Record<BodyState, string> = {
-  CHUBBY: '포근',
-  BASE: '기본',
-  SLIM: '산뜻',
-  VERY_SLIM: '가벼움',
 };
 
 export interface CosmeticDTO {

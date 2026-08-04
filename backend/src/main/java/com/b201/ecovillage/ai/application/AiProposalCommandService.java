@@ -722,8 +722,8 @@ public class AiProposalCommandService {
             command.correlationId(),
             Map.of("proposal_status", previousStatus),
             after,
-            null,
-            null
+            "AI_PROPOSAL",
+            "AI 제안 상태가 " + status + "(으)로 변경되었습니다."
         );
     }
 
@@ -765,8 +765,8 @@ public class AiProposalCommandService {
             command.correlationId(),
             before,
             after,
-            null,
-            null
+            "AI_PROPOSAL",
+            "AI 제안이 적용되었습니다."
         );
     }
 

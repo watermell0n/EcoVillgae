@@ -10,6 +10,10 @@ public record DepositAccountView(
     int version,
     long stateVersion,
     long principalAmount,
-    Instant maturesAt
+    long expectedInterestAmount,
+    long maturityAmount,
+    Instant openedAt,
+    Instant maturesAt,
+    Instant closedAt
 ) {
 }

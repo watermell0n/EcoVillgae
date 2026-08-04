@@ -177,9 +177,10 @@ class StorePurchaseServiceTest {
             .thenReturn(Optional.of(product));
         when(
             productVersionRepository
-                .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+                .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullAndPublishedAtLessThanEqualOrderByVersionDesc(
                     classroomId,
-                    productId
+                    productId,
+                    NOW
                 )
         ).thenReturn(Optional.of(version));
         when(stockRepository.findForUpdate(classroomId, productId))

@@ -152,6 +152,23 @@ public class DepositAccount {
         this.updatedAt = closedAt;
     }
 
+    public void earlyTerminate(UUID closingTransactionGroupId, Instant closedAt) {
+        if (status != DepositAccountStatus.ACTIVE) {
+            throw new IllegalStateException("only active deposit can be terminated");
+        }
+        if (!closedAt.isBefore(maturesAt)) {
+            throw new IllegalStateException("matured deposit cannot be terminated early");
+        }
+        this.closingTransactionGroupId = Objects.requireNonNull(
+            closingTransactionGroupId,
+            "closingTransactionGroupId must not be null"
+        );
+        this.closedAt = Objects.requireNonNull(closedAt, "closedAt must not be null");
+        this.status = DepositAccountStatus.EARLY_TERMINATED;
+        this.statusChangedAt = closedAt;
+        this.updatedAt = closedAt;
+    }
+
     public long maturityAmount() {
         return Math.addExact(principalAmount, expectedInterestAmount);
     }
@@ -180,8 +197,20 @@ public class DepositAccount {
         return expectedInterestAmount;
     }
 
+    public Instant getOpenedAt() {
+        return openedAt;
+    }
+
     public Instant getMaturesAt() {
         return maturesAt;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public UUID getClosingTransactionGroupId() {
+        return closingTransactionGroupId;
     }
 
     public DepositAccountStatus getStatus() {

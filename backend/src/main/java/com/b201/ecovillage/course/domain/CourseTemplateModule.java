@@ -15,6 +15,8 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
+
 @Entity
 @Table(name = "course_template_modules")
 public class CourseTemplateModule {
@@ -62,7 +64,7 @@ public class CourseTemplateModule {
             courseTemplateVersionId,
             "courseTemplateVersionId must not be null"
         );
-        this.moduleCode = required(moduleCode, "moduleCode");
+        this.moduleCode = ModuleCatalog.require(moduleCode).code();
         this.recommendationLevel = required(
             recommendationLevel,
             "recommendationLevel"

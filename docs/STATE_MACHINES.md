@@ -28,7 +28,7 @@
 | SM-ACT-001 | 교사 지도 활동 | READY·LIVE·FINALIZING·COMPLETED |
 | SM-TXN-001 | 원장 거래 명령 | RECEIVED·VALIDATING·COMMITTED·REJECTED |
 | SM-TRD-001 | 학생 개인거래 | DRAFT·AWAITING_COUNTERPART·AWAITING_TEACHER·SETTLING·COMPLETED |
-| SM-ITM-001 | 거래 대상 아이템 | AVAILABLE·EQUIPPED·LOCKED_TRADE |
+| SM-ITM-001 | 디지털 아이템 거래 가용성 | AVAILABLE·LOCKED_TRADE |
 | SM-SHP-001 | 상점 주문 | REQUESTED·PAID·READY_FOR_PICKUP·RECEIVED |
 | SM-DEP-001 | 정기예금 | ACTIVE·MATURED·EARLY_TERMINATED·CLOSE_SETTLED |
 | SM-SAV-001 | 정기적금 계좌 | ACTIVE·MATURED·EARLY_TERMINATED·CLOSE_SETTLED |
@@ -117,7 +117,7 @@ stateDiagram-v2
 | STOPPING → DISABLED | 모듈별 활성 데이터 정리 완료, 기존 기록 보존 |
 | STOPPING → ACTIVE | 정리 트랜잭션이 반영되지 않았거나 교사가 확정 전에 중단 |
 
-전역 필수 모듈은 없습니다. 방 생성에서 고른 모듈도 먼저 `DISABLED`로 등록하며, 교사가 고른 모듈이 하나도 없어도 됩니다. 역할(직업)·급여를 `DISABLED`로 두면 학생은 역할과 급여 없이 다른 활성 모듈만 이용합니다. 지갑·원장은 선택 모듈이 아니라 금액을 다루는 활성 모듈이 필요할 때 서비스가 준비하는 기술 인프라입니다. 소득세→역할·급여, 대출→예금처럼 계산 불변식에 필요한 관계만 조건부 선행 모듈로 둡니다. 추천을 확인하지 않았거나 초기 정책 저장이 실패하면 상태는 `DISABLED`에 남습니다.
+전역 필수 모듈은 없습니다. 방 생성에서 고른 모듈도 먼저 `DISABLED`로 등록하며, 교사가 고른 모듈이 하나도 없어도 됩니다. 모듈 식별자는 [정식 선택 모듈 카탈로그](MODULE_CATALOG.md)의 canonical code만 저장·응답합니다. 역할(직업)·급여를 `DISABLED`로 두면 학생은 역할과 급여 없이 다른 활성 모듈만 이용합니다. 지갑·원장은 선택 모듈이 아니라 금액을 다루는 활성 모듈이 필요할 때 서비스가 준비하는 기술 인프라입니다. 소득세→역할·급여, 대출→예금처럼 계산 불변식에 필요한 관계만 조건부 선행 모듈로 둡니다. 추천을 확인하지 않았거나 초기 정책 저장이 실패하면 상태는 `DISABLED`에 남습니다.
 
 모듈별 중지 규칙:
 
@@ -205,14 +205,13 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> AVAILABLE
-    AVAILABLE --> EQUIPPED: 학생 장착
-    EQUIPPED --> AVAILABLE: 학생 해제
     AVAILABLE --> LOCKED_TRADE: 거래 제안 등록
     LOCKED_TRADE --> AVAILABLE: 취소·거절·만료·실패
     LOCKED_TRADE --> AVAILABLE: 거래 완료·새 소유자로 이전
 ```
 
-- EQUIPPED 아이템은 해제하기 전 거래에 등록할 수 없습니다.
+- 장착은 `inventory_items.status`를 바꾸지 않고 `character_equipment` 슬롯 행을 생성·교체·삭제한다.
+- 장착 관계가 있는 AVAILABLE 아이템은 해제하기 전 거래에 등록할 수 없습니다.
 - LOCKED_TRADE에서는 장착·다른 거래 등록·삭제를 금지합니다.
 - 거래 완료 전이에서는 소유자 변경과 잠금 해제를 같은 트랜잭션으로 수행합니다.
 

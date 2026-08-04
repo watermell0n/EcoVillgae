@@ -65,7 +65,7 @@ public class ClassroomModule {
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.classroomId = Objects.requireNonNull(classroomId, "classroomId must not be null");
-        this.moduleCode = Objects.requireNonNull(moduleCode, "moduleCode must not be null");
+        this.moduleCode = ModuleCatalog.require(moduleCode).code();
         this.config = Map.of();
         this.status = "DISABLED";
         this.statusChangedAt = Objects.requireNonNull(createdAt, "createdAt must not be null");

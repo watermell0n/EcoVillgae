@@ -1,11 +1,15 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "./api/client";
 import { createStudentSession, type StudentSession } from "./api/auth";
+import { StudentRealtimeClient, type RealtimeSubscriptionRequest } from "./api/realtime";
 import { clearStudentSession, getDeviceId, loadStudentSession, saveStudentSession } from "./api/sessionStorage";
 import {
   castVote,
+  calculateStoreTotal,
   createTrade,
   fetchDepositAndSavings,
+  fetchFinancialProducts,
+  fetchActiveModuleCodes,
   fetchGuidedActivity,
   fetchInvestmentModuleState,
   fetchQuizQuestions,
@@ -15,6 +19,7 @@ import {
   subscribeDeposit,
   submitGameAnswer,
   type DepositAccountView,
+  type FinancialProductView,
   type GuidedActivity,
   type InvestmentMode,
   type QuizQuestion,
@@ -52,6 +57,57 @@ type WalletTransaction = {
   memo: string;
 };
 
+type ActiveRealtimeActivity = {
+  classroomId: string;
+  activityId: string;
+  activityType: string;
+};
+
+const ACTIVE_REALTIME_ACTIVITY_KEY = "ecovillage.student.realtime.active-activity";
+
+const DEFAULT_ACTIVE_MODULE_CODES = new Set([
+  "STORE", "DEPOSIT", "SAVINGS", "LOAN", "INVESTMENT", "TRADE", "QUIZ", "ROLE_SALARY"
+]);
+
+function isPageAvailable(page: PageKey, activeModuleCodes: Set<string>) {
+  switch (page) {
+    case "shop": return activeModuleCodes.has("STORE");
+    case "bank": return ["DEPOSIT", "SAVINGS", "LOAN"].some((code) => activeModuleCodes.has(code));
+    case "investment": return activeModuleCodes.has("INVESTMENT");
+    case "trade": return activeModuleCodes.has("TRADE");
+    case "quiz": return activeModuleCodes.has("QUIZ");
+    case "paystub": return activeModuleCodes.has("ROLE_SALARY") || activeModuleCodes.has("SALARY");
+    default: return true;
+  }
+}
+
+function loadActiveRealtimeActivity(): ActiveRealtimeActivity | null {
+  try {
+    const value = sessionStorage.getItem(ACTIVE_REALTIME_ACTIVITY_KEY);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as Partial<ActiveRealtimeActivity>;
+    return typeof parsed.classroomId === "string"
+      && typeof parsed.activityId === "string"
+      && typeof parsed.activityType === "string"
+      ? parsed as ActiveRealtimeActivity
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeActiveRealtimeActivity(activity: ActiveRealtimeActivity | null) {
+  try {
+    if (activity) {
+      sessionStorage.setItem(ACTIVE_REALTIME_ACTIVITY_KEY, JSON.stringify(activity));
+    } else {
+      sessionStorage.removeItem(ACTIVE_REALTIME_ACTIVITY_KEY);
+    }
+  } catch {
+    // The connection still recovers by sequence when session storage is unavailable.
+  }
+}
+
 const menuItems: Array<{ key: PageKey; label: string; icon: string; disabled?: boolean }> = [
   { key: "village", label: "마을 광장", icon: "🏘️" },
   { key: "shop", label: "이코 상점", icon: "🏪" },
@@ -81,11 +137,6 @@ const pageTitles: Record<PageKey, string> = {
   profile: "프로필",
   class: "선생님 수업"
 };
-
-const financeProducts = [
-  { id: "deposit-1", title: "3일 예금", description: "오늘 넣으면 3일차에 이자를 받아요", amount: 100, rate: "10%" },
-  { id: "saving-1", title: "매일 적금", description: "매일 조금씩 모으는 연습이에요", amount: 30, rate: "15%" }
-];
 
 const shortTermInvestments = [
   { name: "거북이상사", price: 50, expected: "안정형", resultDate: "내일 공개", description: "가격 변화가 작고 결과가 빨리 나와요." },
@@ -122,7 +173,9 @@ function App() {
   const [authState, setAuthState] = useState<AuthState>(() => loadStudentSession() ? "app" : "landing");
   const [page, setPage] = useState<PageKey>("village");
   const [nickname, setNickname] = useState("학생");
-  const [walletBalance, setWalletBalance] = useState(studentHomeEnvelope.studentView.walletBalance);
+  const [walletBalance, setWalletBalance] = useState(
+    () => loadStudentSession()?.walletBalance ?? studentHomeEnvelope.studentView.walletBalance
+  );
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>(
     () => transactions.map((transaction) => ({
       id: transaction.id,
@@ -133,15 +186,27 @@ function App() {
     }))
   );
   const [deposits, setDeposits] = useState<DepositAccountView[]>([]);
+  const [financialProducts, setFinancialProducts] = useState<FinancialProductView[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
   const [vote, setVote] = useState<VoteView | null>(null);
   const [guidedActivity, setGuidedActivity] = useState<GuidedActivity | null>(null);
+  const [activeRealtimeActivity, setActiveRealtimeActivity] =
+    useState<ActiveRealtimeActivity | null>(() => loadActiveRealtimeActivity());
+  const [activeModuleCodes, setActiveModuleCodes] = useState<Set<string>>(
+    () => new Set(DEFAULT_ACTIVE_MODULE_CODES)
+  );
+  const [realtimeRefresh, setRealtimeRefresh] = useState(0);
   const [tradeResult, setTradeResult] = useState<TradeCommandResponse | null>(null);
   const [investmentMode, setInvestmentMode] = useState<InvestmentMode>("LONG_TERM");
   const [actionMessage, setActionMessage] = useState("");
   const [profilePassword, setProfilePassword] = useState("economy123!");
+  const purchaseKeys = useRef(new Map<string, string>());
   const activeClassroomId = session?.classroomId ?? studentHomeEnvelope.classroom.id;
+  const activeRealtimeActivityForClass = activeRealtimeActivity?.classroomId === activeClassroomId
+    ? activeRealtimeActivity
+    : null;
+  const currencyName = session?.currencyName ?? studentHomeEnvelope.classroom.currencyName;
 
   useEffect(() => {
     if (authState !== "app") {
@@ -151,12 +216,42 @@ function App() {
     let ignore = false;
     async function loadStudentFeatures() {
       try {
-        const [accountData, questionData, sessionData, voteData, activityData, investmentState] = await Promise.all([
+        // Module availability must recover independently. A stopped module can make one of
+        // its feature queries fail, but that must not keep the old menu state on screen.
+        const moduleCodes = await fetchActiveModuleCodes(activeClassroomId);
+        if (ignore) {
+          return;
+        }
+        setActiveModuleCodes(moduleCodes);
+
+        const [
+          accountData,
+          productData,
+          questionData,
+          sessionData,
+          voteData,
+          activityData,
+          investmentState
+        ] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
+          fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
-          fetchQuizSession(activeClassroomId),
-          fetchVote(activeClassroomId),
-          fetchGuidedActivity(activeClassroomId),
+          fetchQuizSession(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityType === "QUIZ"
+              ? activeRealtimeActivityForClass.activityId
+              : undefined
+          ),
+          fetchVote(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityType === "VOTE"
+              ? activeRealtimeActivityForClass.activityId
+              : undefined
+          ),
+          fetchGuidedActivity(
+            activeClassroomId,
+            activeRealtimeActivityForClass?.activityId
+          ),
           fetchInvestmentModuleState(activeClassroomId)
         ]);
 
@@ -165,6 +260,7 @@ function App() {
         }
 
         setDeposits(accountData.depositAccounts);
+        setFinancialProducts(productData);
         setQuizQuestions(questionData.questions);
         setQuizSession(sessionData);
         setVote(voteData);
@@ -181,7 +277,127 @@ function App() {
     return () => {
       ignore = true;
     };
-  }, [activeClassroomId, authState]);
+  }, [
+    activeClassroomId,
+    activeRealtimeActivityForClass?.activityId,
+    activeRealtimeActivityForClass?.activityType,
+    authState,
+    realtimeRefresh
+  ]);
+
+  useEffect(() => {
+    if (!isPageAvailable(page, activeModuleCodes)) {
+      setPage("village");
+      setActionMessage("선생님이 이 기능을 중지했어요.");
+    }
+  }, [activeModuleCodes, page]);
+
+  useEffect(() => {
+    if (
+      authState !== "app"
+      || !session
+      || session.accessToken.startsWith("mock-")
+    ) {
+      return;
+    }
+
+    const subscriptions: RealtimeSubscriptionRequest[] = [
+      { channelId: "WS-CLS-001", resourceId: activeClassroomId },
+      { channelId: "WS-STU-001", resourceId: session.studentId },
+      { channelId: "WS-ECO-001", resourceId: activeClassroomId }
+    ];
+    const activityResourceId = activeRealtimeActivityForClass?.activityId ?? guidedActivity?.activityId;
+    const quizResourceId = activeRealtimeActivityForClass?.activityType === "QUIZ"
+      ? activeRealtimeActivityForClass.activityId
+      : quizSession?.quizSessionId;
+    const voteResourceId = activeRealtimeActivityForClass?.activityType === "VOTE"
+      ? activeRealtimeActivityForClass.activityId
+      : vote?.voteId;
+    if (quizResourceId) {
+      subscriptions.push({ channelId: "WS-QZ-001", resourceId: quizResourceId });
+    }
+    if (voteResourceId) {
+      subscriptions.push({ channelId: "WS-VOT-001", resourceId: voteResourceId });
+    }
+    if (activityResourceId) {
+      subscriptions.push({ channelId: "WS-ACT-001", resourceId: activityResourceId });
+    }
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setRealtimeRefresh((value) => value + 1), 200);
+    };
+    const client = new StudentRealtimeClient({
+      subscriptions,
+      onEvent: (event) => {
+        if (
+          event.event_type === "classroom.module.changed"
+          && typeof event.payload.module_code === "string"
+          && typeof event.payload.status === "string"
+        ) {
+          const moduleCode = event.payload.module_code;
+          const status = event.payload.status;
+          setActiveModuleCodes((current) => {
+            const next = new Set(current);
+            if (status === "ACTIVE") next.add(moduleCode);
+            else next.delete(moduleCode);
+            return next;
+          });
+        }
+        if (
+          event.event_type === "classroom.app_mode.changed"
+          && event.payload.mode === "GUIDED"
+          && typeof event.payload.active_activity_id === "string"
+        ) {
+          const activeActivity: ActiveRealtimeActivity = {
+            classroomId: event.classroom_id,
+            activityId: event.payload.active_activity_id,
+            activityType: typeof event.payload.activity_type === "string"
+              ? event.payload.activity_type
+              : "ACTIVITY"
+          };
+          setActiveRealtimeActivity(activeActivity);
+          storeActiveRealtimeActivity(activeActivity);
+        }
+        if (
+          event.event_type === "activity.started"
+          || (
+            event.event_type === "classroom.app_mode.changed"
+            && event.payload.mode === "GUIDED"
+          )
+        ) {
+          setPage("class");
+        }
+        if (
+          event.event_type === "classroom.app_mode.changed"
+          && event.payload.mode !== "GUIDED"
+        ) {
+          setActiveRealtimeActivity(null);
+          storeActiveRealtimeActivity(null);
+          setPage((current) => current === "class" ? "village" : current);
+        }
+        refresh();
+      },
+      onRecoveryRequired: refresh,
+      onError: (error) => setActionMessage(error.message)
+    });
+    client.start();
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      client.stop();
+    };
+  }, [
+    activeClassroomId,
+    authState,
+    session?.accessToken,
+    session?.studentId,
+    activeRealtimeActivityForClass?.activityId,
+    activeRealtimeActivityForClass?.activityType,
+    quizSession?.quizSessionId,
+    vote?.voteId,
+    guidedActivity?.activityId
+  ]);
 
   if (authState === "landing") {
     return <LandingScreen onStart={() => setAuthState("login")} />;
@@ -194,6 +410,7 @@ function App() {
         onLogin={(nextSession, nextNickname) => {
           setSession(nextSession);
           saveStudentSession(nextSession);
+          setWalletBalance(nextSession.walletBalance);
           setNickname(nextNickname || "학생");
           setProfilePassword("economy123!");
           setAuthState("app");
@@ -204,33 +421,34 @@ function App() {
 
   const envelope = {
     ...studentHomeEnvelope,
+    classroom: { ...studentHomeEnvelope.classroom, currencyName },
     studentView: { ...studentHomeEnvelope.studentView, nickname, walletBalance }
   };
-  const savedBalance = walletBalance
-    + deposits.reduce((total, account) => total + account.principalAmount, 0);
-  const storeSpendTotal = walletTransactions.reduce(
-    (total, transaction) => (
-      transaction.amount < 0 && transaction.memo === "상점에서 구매했어요"
-        ? total + Math.abs(transaction.amount)
-        : total
-    ),
-    0
-  );
   const title = pageTitles[page];
+  const moveTo = (nextPage: PageKey) => {
+    if (!isPageAvailable(nextPage, activeModuleCodes)) {
+      setActionMessage("선생님이 이 기능을 중지했어요.");
+      return;
+    }
+    setPage(nextPage);
+  };
 
   return (
     <div className="student-shell">
       <Sidebar
         current={page}
-        onMove={setPage}
+        onMove={moveTo}
+        activeModuleCodes={activeModuleCodes}
       />
       <main className="student-main">
         <Header
           title={title}
           envelope={envelope}
-          onMove={setPage}
+          onMove={moveTo}
           onLogout={() => {
             clearStudentSession();
+            storeActiveRealtimeActivity(null);
+            setActiveRealtimeActivity(null);
             setSession(null);
             setPage("village");
             setAuthState("landing");
@@ -240,32 +458,63 @@ function App() {
           }}
         />
         <section className="content-area">
-          {page === "village" && <VillagePage onMove={setPage} />}
-          {page === "wallet" && <WalletPage walletBalance={walletBalance} transactions={walletTransactions} />}
-          {page === "paystub" && <PaystubPage />}
+          {page === "village" && (
+            <VillagePage
+              currencyName={currencyName}
+              onMove={moveTo}
+              activeModuleCodes={activeModuleCodes}
+            />
+          )}
+          {page === "wallet" && (
+            <WalletPage
+              currencyName={currencyName}
+              walletBalance={walletBalance}
+              transactions={walletTransactions}
+            />
+          )}
+          {page === "paystub" && <PaystubPage currencyName={currencyName} />}
           {page === "shop" && (
             <ShopPage
               classroomId={activeClassroomId}
+              currencyName={currencyName}
               walletBalance={walletBalance}
-              savedBalance={savedBalance}
-              spendTotal={storeSpendTotal}
               onBuy={async (item) => {
-                if (walletBalance < item.price) {
+                const expectedTotal = calculateStoreTotal(item.price, 1, item.vatRateBps);
+                if (walletBalance < expectedTotal) {
                   return false;
                 }
-                await purchaseStoreItem(
-                  activeClassroomId,
-                  item.productId,
-                  1,
-                  item.productVersion
-                );
-                const nextBalance = walletBalance - item.price;
+                const idempotencyKey = purchaseKeys.current.get(item.productId) ?? crypto.randomUUID();
+                purchaseKeys.current.set(item.productId, idempotencyKey);
+                let purchase: Awaited<ReturnType<typeof purchaseStoreItem>>;
+                try {
+                  purchase = await purchaseStoreItem(
+                    activeClassroomId,
+                    item.productId,
+                    1,
+                    item.productVersion,
+                    item.price,
+                    item.vatRateBps,
+                    idempotencyKey
+                  );
+                  purchaseKeys.current.delete(item.productId);
+                } catch (error) {
+                  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+                    purchaseKeys.current.delete(item.productId);
+                  }
+                  throw error;
+                }
+                const nextBalance = walletBalance - purchase.totalAmount;
                 setWalletBalance(nextBalance);
+                if (session) {
+                  const nextSession = { ...session, walletBalance: nextBalance };
+                  setSession(nextSession);
+                  saveStudentSession(nextSession);
+                }
                 setWalletTransactions((items) => [
                   {
                     id: `purchase-${Date.now()}`,
                     title: item.name,
-                    amount: -item.price,
+                    amount: -purchase.totalAmount,
                     after: nextBalance,
                     memo: "상점에서 구매했어요"
                   },
@@ -277,18 +526,30 @@ function App() {
           )}
           {page === "bank" && (
             <BankPage
+              currencyName={currencyName}
+              products={financialProducts}
               deposits={deposits}
-              onSubscribe={async (amount) => {
-                const result = await subscribeDeposit(activeClassroomId, undefined, amount);
+              onSubscribe={async (product) => {
+                const amount = product.minimumAmount;
+                const result = await subscribeDeposit(
+                  activeClassroomId,
+                  product.resourceId,
+                  amount,
+                  product.version
+                );
                 const latest = await fetchDepositAndSavings(activeClassroomId);
                 setDeposits(latest.depositAccounts);
+                setWalletBalance((balance) => balance - amount);
                 setActionMessage(`예금 가입 완료: ${result.status}`);
               }}
             />
           )}
-          {page === "investment" && <InvestmentPage mode={investmentMode} />}
+          {page === "investment" && (
+            <InvestmentPage mode={investmentMode} currencyName={currencyName} />
+          )}
           {page === "trade" && (
             <TradeApiPage
+              currencyName={currencyName}
               tradeResult={tradeResult}
               onCreateTrade={async (description, amount) => {
                 const result = await createTrade(activeClassroomId, description, amount);
@@ -310,8 +571,6 @@ function App() {
           {page === "character" && (
             <CharacterPage
               classroomId={activeClassroomId}
-              savedBalance={savedBalance}
-              spendTotal={storeSpendTotal}
             />
           )}
           {page === "profile" && (
@@ -433,7 +692,15 @@ function LoginScreen({ onBack, onLogin }: { onBack: () => void; onLogin: (sessio
   );
 }
 
-function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey) => void }) {
+function Sidebar({
+  current,
+  onMove,
+  activeModuleCodes
+}: {
+  current: PageKey;
+  onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
+}) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -445,7 +712,7 @@ function Sidebar({ current, onMove }: { current: PageKey; onMove: (page: PageKey
       </div>
       <nav>
         {menuItems.map((item) => (
-          <button key={item.key} className={current === item.key ? "side-item active" : "side-item"} onClick={() => onMove(item.key)}>
+          <button key={item.key} disabled={!isPageAvailable(item.key, activeModuleCodes)} className={current === item.key ? "side-item active" : "side-item"} onClick={() => onMove(item.key)}>
             <span>{item.icon}</span>
             {item.label}
           </button>
@@ -511,26 +778,41 @@ function Header({
   );
 }
 
-function VillagePage({ onMove }: { onMove: (page: PageKey) => void }) {
+function VillagePage({
+  currencyName,
+  onMove,
+  activeModuleCodes
+}: {
+  currencyName: string;
+  onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
+}) {
   const cards = useMemo(() => [
     ...moduleCards.filter((card) => card.id !== "paystub" && card.id !== "character"),
-    { id: "trade", title: "친구 거래소", subtitle: "친구와 아이템·비빔 거래를 제안해요", icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
+    { id: "trade", title: "친구 거래소", subtitle: `친구와 아이템·${currencyName} 거래를 제안해요`, icon: "🤝", tone: "sky", state: "active", cta: "거래하기" } as ModuleCard,
     { id: "quiz", title: "오늘의 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", state: "active", cta: "풀러가기" } as ModuleCard
-  ], []);
+  ], [currencyName]);
 
   return (
     <>
       <section className="village-grid">
         {cards.map((card) => (
-          <VillageCard key={card.id} card={card} onMove={onMove} />
+          <VillageCard key={card.id} card={card} onMove={onMove} activeModuleCodes={activeModuleCodes} />
         ))}
       </section>
     </>
   );
 }
 
-function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKey) => void }) {
-  const disabled = card.state === "locked" || card.state === "construction";
+function VillageCard({
+  card,
+  onMove,
+  activeModuleCodes
+}: {
+  card: ModuleCard;
+  onMove: (page: PageKey) => void;
+  activeModuleCodes: Set<string>;
+}) {
   const pageMap: Record<string, PageKey> = {
     paystub: "paystub",
     character: "character",
@@ -541,9 +823,11 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
     trade: "trade",
     quiz: "quiz"
   };
+  const page = pageMap[card.id] ?? "village";
+  const disabled = card.state === "locked" || card.state === "construction" || !isPageAvailable(page, activeModuleCodes);
 
   return (
-    <button className={`village-card tone-${card.tone}`} disabled={disabled} onClick={() => onMove(pageMap[card.id] ?? "village")}>
+    <button className={`village-card tone-${card.tone}`} disabled={disabled} onClick={() => onMove(page)}>
       <span className="status-badge">{card.state === "new" ? "NEW" : card.state === "locked" ? "잠김" : card.state === "resultOnly" ? "조회" : "열림"}</span>
       <span className="card-icon">{card.icon}</span>
       <strong>{card.title}</strong>
@@ -553,7 +837,15 @@ function VillageCard({ card, onMove }: { card: ModuleCard; onMove: (page: PageKe
   );
 }
 
-function WalletPage({ walletBalance, transactions }: { walletBalance: number; transactions: WalletTransaction[] }) {
+function WalletPage({
+  currencyName,
+  walletBalance,
+  transactions
+}: {
+  currencyName: string;
+  walletBalance: number;
+  transactions: WalletTransaction[];
+}) {
   const todayIncome = transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
   const todayExpense = transactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
@@ -561,9 +853,9 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
     <section className="two-column">
       <div className="wallet-hero">
         <p>지금 내 지갑</p>
-        <strong>{walletBalance}비빔</strong>
-        <span>오늘 들어온 돈 +{todayIncome}비빔</span>
-        <span>오늘 쓴 돈 -{todayExpense}비빔</span>
+        <strong>{walletBalance}{currencyName}</strong>
+        <span>오늘 들어온 돈 +{todayIncome}{currencyName}</span>
+        <span>오늘 쓴 돈 -{todayExpense}{currencyName}</span>
       </div>
       <div className="panel">
         <p className="eyebrow">내역</p>
@@ -576,8 +868,8 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
                 <span>{tx.memo}</span>
               </div>
               <div className={tx.amount < 0 ? "money negative" : "money positive"}>
-                {tx.amount > 0 ? "+" : ""}{tx.amount}비빔
-                <small>잔액 {tx.after}비빔</small>
+                {tx.amount > 0 ? "+" : ""}{tx.amount}{currencyName}
+                <small>잔액 {tx.after}{currencyName}</small>
               </div>
             </article>
           ))}
@@ -587,7 +879,7 @@ function WalletPage({ walletBalance, transactions }: { walletBalance: number; tr
   );
 }
 
-function PaystubPage() {
+function PaystubPage({ currencyName }: { currencyName: string }) {
   return (
     <section className="paystub-layout">
       <div className="receipt">
@@ -595,23 +887,23 @@ function PaystubPage() {
           <h2>급여 명세서</h2>
           <p>이코빌리지</p>
         </div>
-        <ReceiptRow label="1인 1역 월급" amount="+150비빔" />
-        <ReceiptRow label="퀴즈 정답수당" amount="+25비빔" />
-        <ReceiptRow label="소득세" amount="-17비빔" danger />
+        <ReceiptRow label="1인 1역 월급" amount={`+150${currencyName}`} />
+        <ReceiptRow label="퀴즈 정답수당" amount={`+25${currencyName}`} />
+        <ReceiptRow label="소득세" amount={`-17${currencyName}`} danger />
         <div className="final-pay">
           <span>내 지갑에 들어온 돈</span>
-          <strong>158비빔</strong>
-          <small>175비빔 - 17비빔 = 158비빔</small>
+          <strong>158{currencyName}</strong>
+          <small>175{currencyName} - 17{currencyName} = 158{currencyName}</small>
         </div>
       </div>
       <div className="tax-explain">
         <p className="eyebrow">세금 안내</p>
         <h2>세금은 어디로 가나요?</h2>
-        <p>소득세 17비빔은 우리 반 공동기금으로 모여요. 나중에 함께 투표해서 사용할 곳을 정해요.</p>
+        <p>소득세 17{currencyName}은 우리 반 공동기금으로 모여요. 나중에 함께 투표해서 사용할 곳을 정해요.</p>
         <div className="money-flow">
-          <b>총 받은 돈<br />175비빔</b>
-          <span>-17비빔</span>
-          <b>내 지갑<br />158비빔</b>
+          <b>총 받은 돈<br />175{currencyName}</b>
+          <span>-17{currencyName}</span>
+          <b>내 지갑<br />158{currencyName}</b>
         </div>
         <button className="primary-action">확인했어요</button>
       </div>
@@ -630,43 +922,45 @@ function ReceiptRow({ label, amount, danger }: { label: string; amount: string; 
 
 function ShopPage({
   classroomId,
+  currencyName,
   walletBalance,
-  savedBalance,
-  spendTotal,
   onBuy
 }: {
   classroomId: string;
+  currencyName: string;
   walletBalance: number;
-  savedBalance: number;
-  spendTotal: number;
   onBuy: (item: CharacterStoreItem) => Promise<boolean>;
 }) {
   return (
     <section className="shop-page">
       <CharacterShop
         classroomId={classroomId}
+        currencyName={currencyName}
         walletBalance={walletBalance}
-        savedBalance={savedBalance}
-        spendTotal={spendTotal}
         onBuy={onBuy}
       />
     </section>
   );
 }
 
-function BankPage({ deposits, onSubscribe }: { deposits: DepositAccountView[]; onSubscribe: (amount: number) => void }) {
+function BankPage({ currencyName, products, deposits, onSubscribe }: {
+  currencyName: string;
+  products: FinancialProductView[];
+  deposits: DepositAccountView[];
+  onSubscribe: (product: FinancialProductView) => void;
+}) {
   return (
     <section className="panel">
       <p className="eyebrow">이코 은행</p>
       <h2>예금과 적금 상품</h2>
       <div className="product-grid compact">
-        {financeProducts.map((product) => (
-          <article className="product-card" key={product.id}>
+        {products.filter((product) => product.productType === "DEPOSIT").map((product) => (
+          <article className="product-card" key={product.resourceId}>
             <span>🏦</span>
-            <b>{product.title}</b>
-            <p>{product.amount}비빔부터 · 이자 {product.rate}</p>
-            <small>{product.description}</small>
-            <button onClick={() => onSubscribe(product.amount)}>가입하기</button>
+            <b>{product.label}</b>
+            <p>{product.minimumAmount}{currencyName}부터 · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
+            <small>{product.termUnits}일 만기 · 최대 {product.maximumAmount}{currencyName}</small>
+            <button onClick={() => onSubscribe(product)}>가입하기</button>
           </article>
         ))}
       </div>
@@ -678,7 +972,7 @@ function BankPage({ deposits, onSubscribe }: { deposits: DepositAccountView[]; o
           deposits.map((deposit) => (
             <div className="data-row" key={deposit.resourceId}>
               <b>{deposit.label}</b>
-              <span>{deposit.principalAmount}비빔 · {deposit.status}</span>
+              <span>{deposit.principalAmount}{currencyName} · {deposit.status}</span>
             </div>
           ))
         )}
@@ -687,7 +981,10 @@ function BankPage({ deposits, onSubscribe }: { deposits: DepositAccountView[]; o
   );
 }
 
-function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
+function InvestmentPage({
+  mode,
+  currencyName
+}: Readonly<{ mode: InvestmentMode; currencyName: string }>) {
   const [investmentMessage, setInvestmentMessage] = useState("");
   const isShortTerm = mode === "SHORT_TERM";
 
@@ -713,7 +1010,7 @@ function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
                   <span>{asset.description}</span>
                 </div>
                 <dl>
-                  <div><dt>투자금</dt><dd>{asset.price}비빔</dd></div>
+                  <div><dt>투자금</dt><dd>{asset.price}{currencyName}</dd></div>
                   <div><dt>성격</dt><dd>{asset.expected}</dd></div>
                   <div><dt>결과</dt><dd>{asset.resultDate}</dd></div>
                 </dl>
@@ -726,7 +1023,7 @@ function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
             {shortTermResults.map((asset) => (
               <div className="data-row" key={asset.name}>
                 <b>{asset.name}</b>
-                <span>{asset.invested}비빔 → {asset.returned}비빔 · {asset.change}비빔</span>
+                <span>{asset.invested}{currencyName} → {asset.returned}{currencyName} · {asset.change}{currencyName}</span>
               </div>
             ))}
           </div>
@@ -742,7 +1039,7 @@ function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
             <article className="long-investment-card" key={asset.name}>
               <div>
                 <b>{asset.name}</b>
-                <span>{asset.holdingDays}일째 보유 중 · {asset.invested}비빔 → {asset.current}비빔</span>
+                <span>{asset.holdingDays}일째 보유 중 · {asset.invested}{currencyName} → {asset.current}{currencyName}</span>
               </div>
               <p>{asset.aiNews}</p>
               <small>{asset.hint}</small>
@@ -759,14 +1056,14 @@ function InvestmentPage({ mode }: Readonly<{ mode: InvestmentMode }>) {
   );
 }
 
-function TradePage() {
+function TradePage({ currencyName }: { currencyName: string }) {
   return (
     <section className="two-column">
       <div className="panel">
         <p className="eyebrow">친구 거래소</p>
         <h2>거래 제안 만들기</h2>
         <label className="stack-label">상대 학생<input placeholder="예: 하늘" /></label>
-        <label className="stack-label">보낼 비빔<input placeholder="0" /></label>
+        <label className="stack-label">보낼 {currencyName}<input placeholder="0" /></label>
         <label className="stack-label">거래 메모<input placeholder="무엇을 거래하나요?" /></label>
         <button className="primary-action wide">제안 보내기</button>
       </div>
@@ -776,7 +1073,7 @@ function TradePage() {
         <div className="transaction-row">
           <div>
             <b>민준에게 보낸 제안</b>
-            <span>파란 후드 ↔ 30비빔</span>
+            <span>파란 후드 ↔ 30{currencyName}</span>
           </div>
           <div className="money">대기</div>
         </div>
@@ -801,19 +1098,13 @@ function QuizPage() {
 }
 
 function CharacterPage({
-  classroomId,
-  savedBalance,
-  spendTotal
+  classroomId
 }: {
   classroomId: string;
-  savedBalance: number;
-  spendTotal: number;
 }) {
   return (
     <CharacterWardrobe
       classroomId={classroomId}
-      savedBalance={savedBalance}
-      spendTotal={spendTotal}
     />
   );
 }
@@ -936,13 +1227,15 @@ function ClassModePage() {
 }
 
 function TradeApiPage({
+  currencyName,
   tradeResult,
   onCreateTrade
 }: {
+  currencyName: string;
   tradeResult: TradeCommandResponse | null;
   onCreateTrade: (description: string, amount: number) => void;
 }) {
-  const [description, setDescription] = useState("친구에게 30비빔 보내기");
+  const [description, setDescription] = useState(() => `친구에게 30${currencyName} 보내기`);
   const [amount, setAmount] = useState(30);
 
   return (
@@ -951,7 +1244,7 @@ function TradeApiPage({
         <p className="eyebrow">친구 거래소</p>
         <h2>거래 제안 만들기</h2>
         <label className="stack-label">상대 학생<input placeholder="예: 하늘" /></label>
-        <label className="stack-label">보낼 비빔<input value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></label>
+        <label className="stack-label">보낼 {currencyName}<input value={amount} onChange={(event) => setAmount(Number(event.target.value))} /></label>
         <label className="stack-label">거래 메모<input value={description} onChange={(event) => setDescription(event.target.value)} /></label>
         <button className="primary-action wide" onClick={() => onCreateTrade(description, amount)}>제안 보내기</button>
       </div>

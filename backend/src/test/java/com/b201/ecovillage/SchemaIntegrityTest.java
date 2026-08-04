@@ -106,9 +106,9 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_16 creates all 85 physical tables")
-    void allMigrationsCreateEightyFiveTables() throws SQLException {
-        assertEquals(85, physicalTableCount());
+    @DisplayName("DBT-000: Flyway V1_1~V1_20 creates all 88 physical tables")
+    void allMigrationsCreateEightyEightTables() throws SQLException {
+        assertEquals(88, physicalTableCount());
     }
 
     @Test
@@ -116,8 +116,8 @@ class SchemaIntegrityTest {
     void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
         flyway.clean();
         assertEquals(0, physicalTableCount());
-        assertEquals(16, flyway.migrate().migrationsExecuted);
-        assertEquals(85, physicalTableCount());
+        assertEquals(20, flyway.migrate().migrationsExecuted);
+        assertEquals(88, physicalTableCount());
     }
 
     private static int physicalTableCount() throws SQLException {
@@ -682,9 +682,124 @@ class SchemaIntegrityTest {
         });
     }
 
+    @Test
+    @DisplayName("DBT-021: one profile per student is enforced")
+    void characterProfileIdentityIsProtected() throws SQLException {
+        Seed seed = seed(true);
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO student_character_profiles
+                    (id, classroom_id, classroom_student_id)
+                VALUES (?, ?, ?)
+                """, uuid(), seed.classroomId(), seed.studentId());
+        }
+
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO student_character_profiles
+                        (id, classroom_id, classroom_student_id)
+                    VALUES (?, ?, ?)
+                    """, uuid(), seed.classroomId(), seed.studentId());
+            }
+        });
+    }
+
+    @Test
+    @DisplayName("DBT-022: equipment must reference an available item owned by the profile student")
+    void characterEquipmentOwnershipAndTradeBoundaryAreProtected() throws SQLException {
+        Seed first = seed(true);
+        Seed second = seed(true);
+        UUID firstProfile = insertCharacterProfile(first);
+        UUID secondProfile = insertCharacterProfile(second);
+        UUID character = createCharacter();
+        UUID equippedItem = insertInventoryItem(first, character);
+
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO character_equipment
+                    (id, classroom_id, classroom_student_id, character_profile_id,
+                     inventory_item_id, slot)
+                VALUES (?, ?, ?, ?, ?, 'HAT')
+                """, uuid(), first.classroomId(), first.studentId(), firstProfile, equippedItem);
+        }
+
+        UUID backgroundItem = insertInventoryItem(
+            first,
+            createCharacter("bg_test_" + shortId())
+        );
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO character_equipment
+                    (id, classroom_id, classroom_student_id, character_profile_id,
+                     inventory_item_id, slot)
+                VALUES (?, ?, ?, ?, ?, 'BACKGROUND')
+                """, uuid(), first.classroomId(), first.studentId(),
+                firstProfile, backgroundItem);
+        }
+
+        UUID counterpart = createStudent(
+            first.classroomId(),
+            2,
+            "trade-counterpart-" + shortId()
+        );
+        UUID trade = insertTrade(
+            first.classroomId(),
+            first.studentId(),
+            counterpart
+        );
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    UPDATE inventory_items
+                       SET status = 'LOCKED_TRADE', locked_trade_id = ?
+                     WHERE id = ?
+                    """, trade, equippedItem);
+            }
+        });
+
+        UUID anotherOwnedItem = insertInventoryItem(first, character);
+        assertSqlFailure(() -> {
+            try (Connection connection = connection()) {
+                execute(connection, """
+                    INSERT INTO character_equipment
+                        (id, classroom_id, classroom_student_id, character_profile_id,
+                         inventory_item_id, slot)
+                    VALUES (?, ?, ?, ?, ?, 'HAT')
+                    """, uuid(), second.classroomId(), second.studentId(),
+                    secondProfile, anotherOwnedItem);
+            }
+        });
+    }
+
     private static Connection connection() throws SQLException {
         return DriverManager.getConnection(
             jdbcUrl, databaseUsername, databasePassword);
+    }
+
+    private static UUID insertCharacterProfile(Seed seed) throws SQLException {
+        UUID profile = uuid();
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO student_character_profiles
+                    (id, classroom_id, classroom_student_id)
+                VALUES (?, ?, ?)
+                """, profile, seed.classroomId(), seed.studentId());
+        }
+        return profile;
+    }
+
+    private static UUID insertInventoryItem(Seed seed, UUID characterId)
+        throws SQLException {
+        UUID item = uuid();
+        try (Connection connection = connection()) {
+            execute(connection, """
+                INSERT INTO inventory_items
+                    (id, classroom_id, classroom_student_id, character_catalog_id, status)
+                VALUES (?, ?, ?, ?, 'AVAILABLE')
+                """, item, seed.classroomId(), seed.studentId(), characterId);
+        }
+        return item;
     }
 
     private static Seed seed(boolean withStudent) throws SQLException {
@@ -819,6 +934,10 @@ class SchemaIntegrityTest {
     }
 
     private static UUID createCharacter() throws SQLException {
+        return createCharacter("HAT_TEST_" + shortId());
+    }
+
+    private static UUID createCharacter(String characterCode) throws SQLException {
         UUID character = uuid();
         try (Connection connection = connection()) {
             execute(connection, """
@@ -827,7 +946,7 @@ class SchemaIntegrityTest {
                      rights_status, rights_evidence_key, status)
                 VALUES (?, ?, '테스트 캐릭터', 'Public Domain',
                         'https://example.invalid', 'VERIFIED', 'evidence/key', 'ACTIVE')
-                """, character, "character-" + shortId());
+                """, character, characterCode);
         }
         return character;
     }

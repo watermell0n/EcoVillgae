@@ -21,7 +21,8 @@
         "classroom_students",
         "student_credentials",
         "device_links",
-        "student_sessions"
+        "student_sessions",
+        "ledger_accounts"
       ],
       "request": {
         "mode": "strict",
@@ -50,7 +51,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.nickname",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -68,7 +69,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.device_id",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 request 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -82,7 +83,7 @@
             "required": true,
             "type": "string",
             "target": "projection.access_token",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -91,7 +92,7 @@
             "required": true,
             "type": "string",
             "target": "projection.refresh_token",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "one-time-secret"
           },
@@ -100,7 +101,7 @@
             "required": true,
             "type": "string",
             "target": "projection.expires_at",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -109,7 +110,7 @@
             "required": true,
             "type": "string",
             "target": "projection.classroom_id",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -118,7 +119,25 @@
             "required": true,
             "type": "string",
             "target": "projection.student_id",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "currency_name",
+            "required": true,
+            "type": "string",
+            "target": "classrooms.currency_name",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "wallet_balance",
+            "required": true,
+            "type": "integer",
+            "target": "ledger_accounts.current_balance",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -127,7 +146,7 @@
             "required": true,
             "type": "string",
             "target": "projection.role",
-            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions에서 검증·조합하는 response 필드",
+            "transform": "classrooms, classroom_students, student_credentials, device_links, student_sessions, ledger_accounts에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -1961,7 +1980,7 @@
           {
             "name": "module_code",
             "required": true,
-            "type": "string",
+            "type": "#/components/schemas/ModuleCode",
             "target": "projection.module_code",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
             "nullable": false,
@@ -3576,7 +3595,9 @@
       "path": "/classrooms/{classroom_id}/inventory-items/{resource_id}/commands",
       "implementation_status": "mvp-contract",
       "storage_targets": [
-        "inventory_items"
+        "inventory_items",
+        "student_character_profiles",
+        "character_equipment"
       ],
       "request": {
         "mode": "strict",
@@ -3584,11 +3605,11 @@
         "fields": [
           {
             "name": "expected_state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "service_validation.state_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -3596,7 +3617,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.screen_id",
-            "transform": "inventory_items에서 검증·조합하는 request 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -3605,7 +3626,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.ui_action_id",
-            "transform": "inventory_items에서 검증·조합하는 request 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -3614,7 +3635,7 @@
             "required": false,
             "type": "string",
             "target": "service_input.client_occurred_at",
-            "transform": "inventory_items에서 검증·조합하는 request 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -3623,7 +3644,7 @@
             "required": true,
             "type": "string",
             "target": "service_input.command",
-            "transform": "inventory_items에서 검증·조합하는 request 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -3637,7 +3658,7 @@
             "required": true,
             "type": "string",
             "target": "projection.inventory_item_id",
-            "transform": "inventory_items에서 검증·조합하는 response 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -3646,17 +3667,17 @@
             "required": true,
             "type": "string",
             "target": "projection.status",
-            "transform": "inventory_items에서 검증·조합하는 response 필드",
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
             "name": "state_version",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "projection.state_version",
-            "transform": "inventory_items에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "transform": "inventory_items, student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -9873,7 +9894,9 @@
       "implementation_status": "mvp-contract",
       "storage_targets": [
         "inventory_items",
-        "character_catalog"
+        "character_catalog",
+        "student_character_profiles",
+        "character_equipment"
       ],
       "request": {
         "mode": "none",
@@ -9888,7 +9911,7 @@
             "required": true,
             "type": "array",
             "target": "projection.inventory_items",
-            "transform": "inventory_items, character_catalog에서 검증·조합하는 response 필드",
+            "transform": "inventory_items, character_catalog, student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -11198,6 +11221,89 @@
             "target": "projection.state_version",
             "transform": "service_projection에서 검증·조합하는 response 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-READ-035",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/students/me/character-profile",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "student_character_profiles",
+        "character_equipment"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "profile_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.profile_id",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "classroom_student_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.classroom_student_id",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "equipment_changed_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.equipment_changed_at",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "created_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.created_at",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "updated_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.updated_at",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "equipped_inventory_items",
+            "required": true,
+            "type": "object",
+            "target": "projection.equipped_inventory_items",
+            "transform": "student_character_profiles, character_equipment에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]

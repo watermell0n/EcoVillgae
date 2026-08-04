@@ -12,6 +12,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+/**
+ * Digital-item ownership ledger. The current owner is classroomStudentId; presentation state is
+ * maintained by the character equipment aggregate.
+ */
 @Entity
 @Table(name = "inventory_items")
 public class InventoryItem {
@@ -34,9 +38,6 @@ public class InventoryItem {
 
     @Column(name = "locked_trade_id")
     private UUID lockedTradeId;
-
-    @Column(name = "equipped_at")
-    private Instant equippedAt;
 
     @Column(name = "acquired_at", nullable = false, updatable = false)
     private Instant acquiredAt;
@@ -151,30 +152,6 @@ public class InventoryItem {
         changeStatus(InventoryItemStatus.AVAILABLE, changedAt);
     }
 
-    public void equip(UUID expectedOwnerId, Instant changedAt) {
-        requireOwner(expectedOwnerId);
-        if (status != InventoryItemStatus.AVAILABLE) {
-            throw new TradeOperationException(
-                "INVALID_STATE_TRANSITION",
-                "보유 중인 아이템만 장착할 수 있습니다."
-            );
-        }
-        equippedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
-        changeStatus(InventoryItemStatus.EQUIPPED, changedAt);
-    }
-
-    public void unequip(UUID expectedOwnerId, Instant changedAt) {
-        requireOwner(expectedOwnerId);
-        if (status != InventoryItemStatus.EQUIPPED) {
-            throw new TradeOperationException(
-                "INVALID_STATE_TRANSITION",
-                "장착 중인 아이템만 해제할 수 있습니다."
-            );
-        }
-        equippedAt = null;
-        changeStatus(InventoryItemStatus.AVAILABLE, changedAt);
-    }
-
     private void requireOwner(UUID expectedOwnerId) {
         if (!classroomStudentId.equals(expectedOwnerId)) {
             throw new TradeOperationException(
@@ -210,6 +187,10 @@ public class InventoryItem {
         return sourceOrderItemId;
     }
 
+    public Instant getAcquiredAt() {
+        return acquiredAt;
+    }
+
     public UUID getLockedTradeId() {
         return lockedTradeId;
     }
@@ -222,7 +203,4 @@ public class InventoryItem {
         return stateVersion;
     }
 
-    public Instant getEquippedAt() {
-        return equippedAt;
-    }
 }

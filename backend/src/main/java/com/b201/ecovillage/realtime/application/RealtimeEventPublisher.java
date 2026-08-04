@@ -19,6 +19,13 @@ import com.b201.ecovillage.realtime.repository.RealtimeStreamRepository;
 @Service
 public class RealtimeEventPublisher {
 
+    private static final Set<String> TEACHER_FAN_OUT_STREAMS = Set.of(
+        "ACTIVITY",
+        "QUIZ",
+        "VOTE",
+        "OPERATION"
+    );
+
     private static final Set<String> FORBIDDEN_PUBLIC_KEYS = Set.of(
         "student_id",
         "student_ids",
@@ -65,6 +72,44 @@ public class RealtimeEventPublisher {
             requirePublicSafe(payload);
         }
         Instant now = clock.instant();
+        OutboxEvent event = persist(
+            classroomId,
+            streamType,
+            resourceId,
+            eventType,
+            aggregateType,
+            aggregateId,
+            stateVersion,
+            payload,
+            now
+        );
+        if (TEACHER_FAN_OUT_STREAMS.contains(streamType)) {
+            persist(
+                classroomId,
+                "TEACHER_CONTROL",
+                null,
+                eventType,
+                aggregateType,
+                aggregateId,
+                stateVersion,
+                payload,
+                now
+            );
+        }
+        return event.getEventId();
+    }
+
+    private OutboxEvent persist(
+        UUID classroomId,
+        String streamType,
+        UUID resourceId,
+        String eventType,
+        String aggregateType,
+        UUID aggregateId,
+        long stateVersion,
+        Map<String, Object> payload,
+        Instant now
+    ) {
         RealtimeStream stream = findStream(classroomId, streamType, resourceId);
         if (stream == null) {
             stream = streamRepository.saveAndFlush(
@@ -93,7 +138,7 @@ public class RealtimeEventPublisher {
                 now
             )
         );
-        return event.getEventId();
+        return event;
     }
 
     private RealtimeStream findStream(

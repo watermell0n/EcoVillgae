@@ -174,6 +174,10 @@ public class FinancialProductVersion {
             && "PUBLISHED".equals(status);
     }
 
+    public boolean isPublished() {
+        return "PUBLISHED".equals(status);
+    }
+
     public void supersede(Instant changedAt) {
         if (!"PUBLISHED".equals(status) || retiredAt != null) {
             throw new IllegalStateException("only a published financial product version can be superseded");

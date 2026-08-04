@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.domain.DepositAccount;
 import com.b201.ecovillage.finance.domain.FinancialProduct;
@@ -46,6 +47,7 @@ import com.b201.ecovillage.ledger.domain.PolicySnapshot;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
 import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 import com.b201.ecovillage.ledger.repository.PolicySnapshotRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
 public class DepositSubscriptionService {
@@ -57,6 +59,7 @@ public class DepositSubscriptionService {
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomStudentRepository studentRepository;
+    private final ClassroomModuleRepository moduleRepository;
     private final FinancialProductRepository productRepository;
     private final FinancialProductVersionRepository versionRepository;
     private final DepositAccountRepository accountRepository;
@@ -64,6 +67,7 @@ public class DepositSubscriptionService {
     private final PolicySnapshotRepository snapshotRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final AtomicLedgerTransactionService transactionService;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -71,6 +75,7 @@ public class DepositSubscriptionService {
         ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomStudentRepository studentRepository,
+        ClassroomModuleRepository moduleRepository,
         FinancialProductRepository productRepository,
         FinancialProductVersionRepository versionRepository,
         DepositAccountRepository accountRepository,
@@ -78,12 +83,14 @@ public class DepositSubscriptionService {
         PolicySnapshotRepository snapshotRepository,
         IdempotencyRecordRepository idempotencyRepository,
         AtomicLedgerTransactionService transactionService,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.studentRepository = studentRepository;
+        this.moduleRepository = moduleRepository;
         this.productRepository = productRepository;
         this.versionRepository = versionRepository;
         this.accountRepository = accountRepository;
@@ -91,6 +98,7 @@ public class DepositSubscriptionService {
         this.snapshotRepository = snapshotRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.transactionService = transactionService;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -135,6 +143,17 @@ public class DepositSubscriptionService {
         );
         if (replay != null) {
             return replay;
+        }
+        if (!moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            command.classroomId(),
+            "DEPOSIT",
+            "ACTIVE"
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                "The deposit module is not active."
+            );
         }
 
         FinancialProduct product = productRepository
@@ -235,6 +254,20 @@ public class DepositSubscriptionService {
             List.of(openAccount)
         );
         accountRepository.flush();
+        eventPublisher.publish(
+            command.classroomId(),
+            "STUDENT_PRIVATE",
+            student.getId(),
+            "deposit.account.opened",
+            "DEPOSIT_ACCOUNT",
+            account.getId(),
+            account.getStateVersion(),
+            Map.of(
+                "account_id", account.getId().toString(),
+                "status", account.getStatus().name()
+            ),
+            false
+        );
         return result(account);
     }
 

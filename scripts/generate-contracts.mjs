@@ -719,7 +719,7 @@ const requestFieldOverrides = {
   "API-SHP-002": [
     { name: "product_id" },
     { name: "quantity", schema: { type: "integer", minimum: 1 } },
-    { name: "expected_product_version", schema: { type: "integer", minimum: 0 } },
+    { name: "expected_product_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-ITM-001": [{ name: "command", values: ["EQUIP", "UNEQUIP"] }],
   "API-CNT-001": [
@@ -940,14 +940,19 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
+const requiredExpectedStateVersionApis = new Set(["API-ITM-001", "API-SHP-001"]);
+
 function mutationContextFor(operation) {
   if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
-  if (operation.apiId === "API-SHP-001") {
-    return mutationContextFields.map((field) => field.name === "expected_state_version"
-      ? { ...field, optional: false }
-      : field);
-  }
-  return mutationContextFields;
+  return mutationContextFields.map((field) => {
+    if (
+      field.name === "expected_state_version"
+      && requiredExpectedStateVersionApis.has(operation.apiId)
+    ) {
+      return { ...field, optional: false };
+    }
+    return field;
+  });
 }
 
 function projectionItemSchema(extraProperties = {}, required = []) {
@@ -1114,6 +1119,8 @@ const responseFieldOverrides = {
     { name: "expires_at", schema: { type: "string", format: "date-time" } },
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "currency_name", schema: { type: "string", minLength: 1, maxLength: 10 } },
+    { name: "wallet_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "role", schema: { type: "string", enum: ["STU"] } },
   ],
   "API-AUTH-002": [
@@ -1280,6 +1287,11 @@ const responseFieldOverrides = {
     { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  "API-ITM-001": [
+    { name: "inventory_item_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["AVAILABLE", "EQUIPPED"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
   "API-VOT-002": [
     { name: "receipt_hash", schema: { type: "string" } },
     { name: "cast_at", schema: { type: "string", format: "date-time" } },
@@ -1439,10 +1451,45 @@ const responseFieldOverrides = {
       stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
-    }),
+    }, [
+      "resource_id",
+      "label",
+      "status",
+      "version",
+      "state_version",
+      "unit_price",
+      "vat_rate_bps",
+      "available_quantity",
+      "product_kind",
+      "character_code",
+    ]),
   }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
-  "API-READ-012": [{ name: "inventory_items", schema: projectionItems({ character_code: { type: "string" }, equipped: { type: "boolean" } }) }],
+  "API-READ-012": [{
+    name: "inventory_items",
+    schema: projectionItems(
+      { character_code: { type: "string" }, equipped: { type: "boolean" } },
+      ["resource_id", "label", "status", "version", "state_version", "character_code", "equipped"],
+    ),
+  }],
+  "API-READ-035": [
+    { name: "profile_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_student_id", schema: { type: "string", format: "uuid" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "equipment_changed_at", schema: { type: "string", format: "date-time" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+    { name: "updated_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "equipped_inventory_items",
+      schema: {
+        type: "object",
+        propertyNames: {
+          enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+        },
+        additionalProperties: { type: "string", format: "uuid" },
+      },
+    },
+  ],
   "API-READ-013": [{ name: "trades", schema: projectionItems({ counterpart_nickname: { type: "string" }, direction: { type: "string" } }) }],
   "API-READ-014": [{ name: "financial_products", schema: projectionItems({ product_type: { type: "string" }, interest_rate_bps: { type: "integer" } }) }],
   "API-READ-015": [
@@ -1928,7 +1975,7 @@ const storageByDomain = {
   DSP: ["activity_sessions", "redis.display-session", "realtime_streams", "outbox_events", "audit_events"],
   TXN: ["transaction_groups", "ledger_entries", "ledger_accounts", "policy_snapshots"],
   SHP: ["store_products", "store_product_versions", "store_stocks", "store_orders", "store_order_items"],
-  ITM: ["inventory_items"],
+  ITM: ["inventory_items", "student_character_profiles", "character_equipment"],
   CNT: ["character_catalog", "classroom_characters"],
   TRD: ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "transaction_groups"],
   FIN: ["financial_products", "financial_product_versions", "deposit_accounts", "savings_accounts", "investment_orders", "loans", "credit_profiles", "transaction_groups"],
@@ -1951,7 +1998,8 @@ const storageByReadApi = {
   "API-READ-009": ["transaction_groups", "ledger_entries", "transaction_business_refs"],
   "API-READ-010": ["store_products", "store_product_versions", "store_stocks", "classroom_characters"],
   "API-READ-011": ["store_orders", "store_order_items"],
-  "API-READ-012": ["inventory_items", "character_catalog"],
+  "API-READ-012": ["inventory_items", "character_catalog", "student_character_profiles", "character_equipment"],
+  "API-READ-035": ["student_character_profiles", "character_equipment"],
   "API-READ-013": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions"],
   "API-READ-014": ["financial_products", "financial_product_versions"],
   "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
@@ -1992,6 +2040,7 @@ function storageTargets(operation) {
       "student_credentials",
       "device_links",
       "student_sessions",
+      "ledger_accounts",
     ];
   }
   if (operation.apiId === "API-AUTH-002") return ["classrooms", "classroom_students", "redis.password-reset"];
@@ -2087,6 +2136,7 @@ function storageTargets(operation) {
 const exactFieldTargets = {
   classroom_code: "classrooms.classroom_code",
   currency_name: "classrooms.currency_name",
+  wallet_balance: "ledger_accounts.current_balance",
   student_count: "classrooms.planned_student_count",
   planned_student_count: "classrooms.planned_student_count",
   attendance_number: "classroom_students.roster_number",
@@ -2458,7 +2508,7 @@ function buildOpenApi(operations) {
       version: "0.1.0",
       summary: "학생 앱, 교사용 앱·웹, 학교 관리자와 플랫폼 운영자가 사용하는 REST API",
       description:
-        "HTTP_API_SPEC.md의 109개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
+        "HTTP_API_SPEC.md의 110개 작업을 기계 판독 계약으로 고정한 기준선입니다. 모든 변경은 멱등성 키를 사용하고, 금액·세금·잔액·권한은 서버가 다시 계산합니다.",
       license: { name: "Proprietary", identifier: "LicenseRef-Proprietary" },
     },
     servers: [
@@ -3195,9 +3245,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 109, `HTTP 작업 수가 109가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 109, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 109, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 110, `HTTP 작업 수가 110개가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 110, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 110, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3214,8 +3264,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 109,
-      "OpenAPI 작업 수가 109가 아닙니다.",
+      ) === 110,
+      "OpenAPI 작업 수가 110개가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

@@ -199,9 +199,10 @@ public class StorePurchaseService {
                 "현재 판매 중인 상품이 아닙니다."
             ));
         StoreProductVersion productVersion = productVersionRepository
-            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullAndPublishedAtLessThanEqualOrderByVersionDesc(
                 command.classroomId(),
-                product.getId()
+                product.getId(),
+                now
             )
             .filter(version -> version.isPurchasableAt(now))
             .orElseThrow(() -> operation(

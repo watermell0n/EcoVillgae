@@ -54,6 +54,11 @@ public class TeacherLoginService {
                 "등록된 이코빌리지 교사 계정을 찾을 수 없습니다.",
                 false
             ));
+        return createSession(teacher);
+    }
+
+    @Transactional
+    public TeacherLoginResult createSession(UserAccount teacher) {
         if (
             teacher.getUserType() != UserType.TEACHER
                 || teacher.getStatus() != AccountStatus.ACTIVE

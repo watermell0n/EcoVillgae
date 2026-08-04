@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
@@ -76,6 +77,7 @@ class VoteCommandServiceTest {
             mock(IdempotencyRecordRepository.class);
         AtomicLedgerTransactionService ledgerTransactionService =
             mock(AtomicLedgerTransactionService.class);
+        EffectiveAccessModeService accessModeService = mock(EffectiveAccessModeService.class);
         RealtimeEventPublisher eventPublisher =
             mock(RealtimeEventPublisher.class);
         DisplaySessionService displaySessionService =
@@ -97,6 +99,7 @@ class VoteCommandServiceTest {
             businessRefRepository,
             idempotencyRepository,
             ledgerTransactionService,
+            accessModeService,
             eventPublisher,
             displaySessionService,
             auditTrailService,

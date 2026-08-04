@@ -16,9 +16,11 @@
 
 | 문서 | 역할 |
 | --- | --- |
+| [학생 앱 디자인 문서](design/README.md) | 단일 체형 코드 기반 도트 캐릭터와 학생 화면 구현 기준 |
 | [요구사항 기준선](REQUIREMENTS_BASELINE.md) | 확정 요구사항과 공통 용어 |
 | [추천 코스](COURSE_RECOMMENDATIONS.md) | 학년×규모별 모듈·난이도 조합 |
 | [AI 활용 방향](AI_DIRECTION.md) | AI 기능·안전·승인 경계 |
+| [교육용 대출 MVP 정책·상환 흐름](LOAN_MVP_POLICY.md) | 대출 신청·승인·상환·연체와 원장·후속 구현 기준 |
 | [AI 단계별 개발 계획](ai/IMPLEMENTATION_PLAN.md) | AI 계약·규칙·통합·평가의 실행 순서와 단계별 완료 기준 |
 | [AI 통합 검증 기록](ai/INTEGRATION_VERIFICATION.md) | AI 1~6단계의 자동 검증 결과와 후속 범위 |
 | [향후 모듈과 로드맵](FUTURE_MODULES_AND_ROADMAP.md) | MVP 이후 범위 |

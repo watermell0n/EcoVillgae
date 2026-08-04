@@ -125,10 +125,6 @@ public class OutboxEvent {
         return eventId;
     }
 
-    public Map<String, Object> getPayload() {
-        return Map.copyOf(payload);
-    }
-
     public UUID getClassroomId() {
         return classroomId;
     }
@@ -157,6 +153,10 @@ public class OutboxEvent {
         return stateVersion;
     }
 
+    public Map<String, Object> getPayload() {
+        return Map.copyOf(payload);
+    }
+
     public Instant getOccurredAt() {
         return occurredAt;
     }
@@ -166,6 +166,18 @@ public class OutboxEvent {
      */
     public Instant getPublishedAt() {
         return publishedAt;
+    }
+
+    public void markPublished(Instant instant) {
+        this.publishedAt = Objects.requireNonNull(instant, "instant must not be null");
+        this.publishAttempts++;
+        this.lastError = null;
+    }
+
+    public void markFailed(String error) {
+        this.publishAttempts++;
+        String message = error == null || error.isBlank() ? "UNKNOWN_ERROR" : error.trim();
+        this.lastError = message.substring(0, Math.min(message.length(), 1000));
     }
 
     private static String requiredText(String value, String field) {
