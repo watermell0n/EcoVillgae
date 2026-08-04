@@ -2,6 +2,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 
 import { CHARACTER_RIG } from "../assetProfile";
 import { CATALOG_BY_ID } from "../catalog";
+import { useCrispPixelId } from "../crispPixels";
 import { BASE_SPRITE, layerProfileFor } from "../layerProfile";
 import { SLOT_LABEL } from "../types";
 
@@ -17,6 +18,7 @@ export function ItemSprite({
   withBase = false
 }: Readonly<{ spriteKey: string; scale?: number; withBase?: boolean }>) {
   const profile = layerProfileFor(spriteKey);
+  const crispId = useCrispPixelId();
   const width = logicalWidth * scale;
   const height = logicalHeight * scale;
   const size = { width, height };
@@ -32,7 +34,7 @@ export function ItemSprite({
   }
 
   return (
-    <View style={size}>
+    <View nativeID={crispId} style={size}>
       {profile.backSprite ? (
         <Image source={profile.backSprite} style={[styles.layer, size]} resizeMode="contain" fadeDuration={0} />
       ) : null}

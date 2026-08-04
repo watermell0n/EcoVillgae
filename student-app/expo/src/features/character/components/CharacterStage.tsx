@@ -2,6 +2,7 @@ import { Image, StyleSheet, View, type ImageSourcePropType } from "react-native"
 
 import { CHARACTER_RIG, RIG_LAYER_ORDER, assetProfileFor, type RigSlot } from "../assetProfile";
 import { CATALOG_BY_ID } from "../catalog";
+import { useCrispPixelId } from "../crispPixels";
 import { BASE_SPRITE, layerProfileFor } from "../layerProfile";
 import type { CosmeticDTO, EquippedMap } from "../types";
 
@@ -55,9 +56,10 @@ export function CharacterStage({
   const width = logicalWidth * scale;
   const height = logicalHeight * scale;
   const layers = buildStageLayers(equipped);
+  const crispId = useCrispPixelId();
 
   return (
-    <View style={[styles.stage, { width, height }]}>
+    <View nativeID={crispId} style={[styles.stage, { width, height }]}>
       {layers.map((layer) => (
         <Image
           key={layer.key}
