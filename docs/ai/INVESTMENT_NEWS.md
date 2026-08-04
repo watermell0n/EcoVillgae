@@ -1,152 +1,102 @@
-# 가상 투자 단계별 AI 뉴스
+# 단기·장기 투자 AI 이야기
 
-- 기준일: 2026-07-30
-- 상태: 독립 AI MVP 9단계 구현 완료
+- 기준일: 2026-08-04
 - API: `POST /internal/v1/generations/economic-event`
-- 모드: `template_type=INVESTMENT_NEWS`
+- 템플릿: `template_type=INVESTMENT_NEWS`
 - 프롬프트 버전: `economic-event-v1`
 
-## 1. 무엇을 생성하는가
+## 1. 운영 모드
 
-MVP의 투자 대상은 실제 회사나 주식이 아니라, 서비스가 미리 정한 가상 자산입니다.
-가격 경로도 AI가 아니라 규칙 기반 투자 시뮬레이터가 정합니다. AI는 자산 하나와 목표
-가격 단계 하나를 입력받아 다음 검토용 초안만 만듭니다.
+교사는 투자 모듈을 활성화할 때 `investment_mode`를 하나만 선택합니다.
 
-- 입력 자산명 또는 기호를 포함한 제목과 뉴스 이야기
-- 학생이 생각을 나눌 수 있는 두 개 이상의 선택지와 진행 문구
-- 뉴스가 어떤 입력 범위로 만들어졌는지 알려 주는 교사용 설명
-- 시나리오·자산·가격 단계·자산명·기호를 그대로 보존한 연결 정보
+| 모드 | 학생 행동 | 정산 | AI 이야기 |
+| --- | --- | --- | --- |
+| `SHORT_TERM` | 오늘 투자 또는 건너뛰기 | 다음 날 해당 회차를 반드시 전량 정산 | `investment-news-short-term` 프롬프트가 다음 날 결과 방향과 맞는 가상 기업 단서 이야기를 생성 |
+| `LONG_TERM` | 매일 더 투자·보유·매도 | 서비스 마지막 날 남은 보유분 전량 정산 | `investment-news-long-term` 프롬프트가 다음 단계 방향과 맞는 가상 기업의 하루 소식을 생성 |
 
-연결 정보는 `scenario_version_id`, `asset_id`, `price_step_id`, `asset_name`,
-`asset_symbol`, `current_step_index` 여섯 필드로 고정합니다.
+학생 화면은 교사가 선택한 모드 하나만 보여 줍니다. 모드는 `classroom_modules.config_json`의
+`investment_mode`에 저장하고, 활성 시나리오의 모드와 다르면 뉴스 생성을 거절합니다.
 
-모든 응답은 `REVIEW_REQUIRED`입니다. 승인·저장·학생 공개는 Spring과 교사의 책임이며
-AI 서비스는 뉴스가 이미 승인 또는 공개됐다고 표현하지 않습니다.
+## 2. 가격 경로와 AI 책임
 
-## 2. 단계별 입력 원칙
+가격 결과와 학생용 이야기를 분리합니다.
 
-`current_step_index=N`인 한 요청은 첫 단계부터 N단계까지의
-`public_price_facts`만 가질 수 있습니다. 단계 번호는 빠짐없이 오름차순이어야 하고
-`revealed_at`도 단계 순서대로 증가해야 합니다. N+1 이후 사실을 함께 보내면 공급자를
-호출하기 전에 요청을 거절합니다.
+1. Spring이 현재 공개 단계와 숨은 바로 다음 가격 단계를 읽습니다.
+2. 다음 단계의 정확한 가격 대신 `target_direction=RISE|FALL|FLAT`만 FastAPI의 신뢰 입력으로 전달합니다.
+3. AI는 방향과 자연스럽게 맞는 사업·수요·비용·품질 단서를 이야기로 만듭니다.
+4. 학생용 출력에는 다음 가격, 방향, 수익 보장, 매수·매도 추천을 넣지 않습니다.
+5. 이야기는 현재 공개 단계의 `price_step_id`에 연결하고 결과는 별도의
+   `target_price_step_id`에 연결합니다. 따라서 학생은 결과가 공개되기 전에 단서를 읽을 수 있습니다.
 
-시장 시작 전 초안을 준비할 때도 별도 배치 API를 만들지 않습니다. Spring 작업자가 각
-단계를 목표 단계로 삼아 같은 API를 순서대로 호출합니다.
+가상 기업의 정체성은 제품 데이터가 제공하는 `asset_name`, `asset_symbol`,
+`fictional_company_profile`을 사용합니다. AI는 다른 회사나 실제 상장사를 새로 만들지 않습니다.
 
-```text
-1단계 초안 호출: 1단계 사실만 입력
-2단계 초안 호출: 1~2단계 사실만 입력
-3단계 초안 호출: 1~3단계 사실만 입력
-4단계 초안 호출: 1~4단계 사실만 입력
-```
+## 3. 장기 투자 역사 지수 기준
 
-각 호출은 목표 단계 이후의 가격을 보지 않습니다. 사전 생성된 초안은 학생에게 곧바로
-공개되지 않으며, Spring이 단계별 승인 상태와 공개 시점을 별도로 관리합니다.
+장기 투자는 `scenario_source=HISTORICAL_INDEX`를 우선합니다. 시나리오에는 다음 출처 메타데이터를
+고정합니다.
 
-## 3. 생성 금지와 검증 코드
+- `series_code`
+- `event_name`
+- `source_name`
+- `source_url`
+- `period_start`, `period_end`
 
-| 금지 내용 | 대표 검증 코드 |
+승인된 제품 데이터가 실제 지수 구간을 학급 가격 단위로 정규화해 `investment_price_steps`에
+저장합니다. 가격 흐름은 저장된 지수 경로를 따르고 AI는 매일 그 다음 방향과 사건의 분위기에 맞는
+가상 이야기를 작성합니다. 실제 지수명·실제 회사명·기준 기간은 학생용 문구에 노출하지 않습니다.
+
+초기 기준 출처로 FRED의 S&P 500 일별 종가 설명을 사용할 수 있습니다. 이 자료는 S&P Dow Jones
+Indices의 저작권·재배포 조건이 있으므로, 원시 값을 저장하거나 배포하기 전에 제품이 사용 권한을
+확인해야 합니다. 권한이 확인되지 않거나 데이터가 없으면 `scenario_source=AI_GENERATED`로
+명시적으로 폴백합니다. 폴백 시에도 가격 단계는 먼저 고정하고 AI가 매 호출마다 가격을 바꾸게 하지
+않습니다.
+
+## 4. 내부 계약
+
+`investment_news_context`의 핵심 필드는 다음과 같습니다.
+
+- 현재 연결: `scenario_version_id`, `asset_id`, `price_step_id`, `current_step_index`
+- 숨은 결과 연결: `target_price_step_id`, `target_step_index`, `target_direction`
+- 모드와 정산: `investment_mode`, `scenario_source`, `settlement_rule`
+- 가상 기업: `asset_name`, `asset_symbol`, `fictional_company_profile`
+- 공개 사실: `public_price_facts` — 첫 단계부터 현재 단계까지만 포함
+- 장기 역사 기준: `historical_index_reference` — 역사 지수 모드에서만 필수
+
+`investment_news_binding`은 방향과 정확한 가격을 제외한 연결 필드를 그대로 반환합니다. Spring과
+FastAPI는 하나라도 바뀌면 `INVESTMENT_NEWS_BINDING_MISMATCH` 또는 폴백으로 처리합니다.
+
+모드별 선택지 키도 고정합니다.
+
+- 단기: `INVEST`, `SKIP`
+- 장기: `INVEST_MORE`, `HOLD`, `SELL`
+
+## 5. 안전 검증
+
+| 금지 내용 | 검증 코드 |
 | --- | --- |
-| 실제 회사·기업·업종·매출·재무정보 생성 | `INVESTMENT_COMPANY_GENERATION` |
-| 가격·시세·금액 생성 | `INVESTMENT_PRICE_GENERATION` |
-| 수익률·수익 보장·매수·매도 추천 | `INVESTMENT_TRADING_ADVICE` |
-| 다음 단계·미공개 정보·미래 방향 예측 | `INVESTMENT_FUTURE_INFORMATION` |
-| 입력과 다른 연결 ID·자산명·기호·단계 | `INVESTMENT_NEWS_BINDING_MISMATCH` |
-| 입력 자산명이나 기호가 없는 뉴스 | `INVESTMENT_ASSET_REFERENCE_MISSING` |
-| 승인·공개·게시가 끝났다는 표현 | `APPROVAL_BOUNDARY_VIOLATION` |
+| 입력에 자유 문장으로 미래 결과 주입 | `INVESTMENT_FUTURE_INFORMATION_INPUT` |
+| 입력 프로필 밖의 새 회사 생성 | `INVESTMENT_COMPANY_GENERATION` |
+| 정확한 가격 생성 | `INVESTMENT_PRICE_GENERATION` |
+| 수익 보장·매수·매도 추천 | `INVESTMENT_TRADING_ADVICE` |
+| 다음 가격·상승·하락 직접 노출 | `INVESTMENT_FUTURE_INFORMATION` |
+| 실제 회사·실제 지수명 학생 문구 노출 | `INVESTMENT_REFERENCE_LEAK` |
+| 모드와 다른 선택지 | `INVESTMENT_MODE_CHOICES_MISMATCH` |
+| 입력과 다른 연결 ID·모드·단계 | `INVESTMENT_NEWS_BINDING_MISMATCH` |
+| 이미 승인·공개됐다고 표현 | `APPROVAL_BOUNDARY_VIOLATION` |
 
-자산명이나 교사 요청에 실제 기업 생성 또는 미래정보 요청이 들어와도 외부 공급자를
-호출하기 전에 거절합니다. 입력의 가격 사실은 연결과 맥락 검증에만 사용하며 AI 출력의
-자연어 가격으로 복사하지 않습니다.
+모든 응답은 `REVIEW_REQUIRED`이며 승인과 학생 공개는 Spring과 교사의 책임입니다.
 
-## 4. 32개 평가 세트
+## 6. 평가
 
-[`investment_news_evaluation_v1.json`](../../ai-service/tests/fixtures/investment_news_evaluation_v1.json)은
-합성 가상 자산 4종에 다음 8개 상황을 적용합니다.
+기존 4개 가상 자산 × 8개 상황의 총 32개 평가 세트를 유지하고, 별도 단위 테스트로 다음을
+추가 검증합니다.
 
-1. 현재 단계 한 건 정상 생성
-2. 시장 시작 전 네 단계 초안 생성
-3. 목표 단계 이후 가격 사실 입력 거절
-4. 기업·재무정보 출력 거절
-5. 가격 출력 거절
-6. 미래 단계·가격 방향 출력 거절
-7. 수익 보장·매매 추천 출력 거절
-8. 승인 전 공개 경계 위반 거절
-
-합계는 정상 8개, 공급자 호출 전 거절 4개, 잘못된 출력 거절 20개로 총 32개입니다.
-연결 자산명·기호 변조와 단계 누락·시각 역전 검사도 별도 경계 테스트로 실행합니다.
-
-```bash
-.venv/Scripts/python.exe -m pytest tests/test_investment_news.py -q
-```
-
-## 5. Swagger에서 직접 테스트
-
-Git Bash:
-
-```bash
-export ECOVILLAGE_AI_PROVIDER=FAKE
-.venv/Scripts/python.exe -m uvicorn ecovillage_ai.main:app --reload --app-dir src
-```
-
-PowerShell:
+- 단기 모드가 전용 프롬프트와 `INVEST|SKIP` 선택지를 사용
+- 단기에 역사 지수나 장기 정산 규칙을 넣으면 공급자 호출 전에 거절
+- 현재 단계와 숨은 다음 단계의 ID·번호가 바뀌면 출력 거절
+- 장기 역사 지수의 출처·기간 교차 필드 검증
 
 ```powershell
-$env:ECOVILLAGE_AI_PROVIDER='FAKE'
-.venv\Scripts\python.exe -m uvicorn ecovillage_ai.main:app --reload --app-dir src
+.venv\Scripts\python.exe -m pytest tests/test_investment_news.py -q
 ```
-
-`http://127.0.0.1:8000/docs`에서 `POST /internal/v1/generations/economic-event`를 열고
-Authorize에 `local-development-token`을 입력합니다. `X-Correlation-Id`와
-`X-AI-Run-Id` 헤더는 아래 본문의 같은 UUID를 입력합니다.
-
-```json
-{
-  "ai_run_id": "11111111-1111-4111-8111-111111111111",
-  "request_id": "22222222-2222-4222-8222-222222222222",
-  "correlation_id": "33333333-3333-4333-8333-333333333333",
-  "schema_version": "1.2",
-  "prompt_version": "economic-event-v1",
-  "attempt": 1,
-  "deadline_at": "2099-12-31T23:59:59+09:00",
-  "locale": "ko-KR",
-  "grade": 6,
-  "payload": {
-    "course_scale": "ONE_MONTH",
-    "source_type": "TEACHER_REQUEST",
-    "source_proposal_id": null,
-    "source_evidence_codes": [],
-    "template_type": "INVESTMENT_NEWS",
-    "interest_rate_scope": null,
-    "effect_summary": ["목표 가격 단계와 연결된 가상 자산 소식이다."],
-    "prohibited_effects": ["실제 기업 생성", "가격 생성", "매매 추천"],
-    "teacher_context": "현재 확인 가능한 사실만 쉬운 뉴스로 설명한다.",
-    "investment_news_context": {
-      "scenario_version_id": "44444444-4444-4444-8444-444444444444",
-      "asset_id": "55555555-5555-4555-8555-555555555555",
-      "price_step_id": "66666666-6666-4666-8666-666666666666",
-      "asset_name": "푸른별",
-      "asset_symbol": "BLUE",
-      "current_step_index": 2,
-      "public_price_facts": [
-        {
-          "step_index": 1,
-          "price": 100,
-          "change_rate_bps": 0,
-          "revealed_at": "2026-07-01T09:00:00+09:00"
-        },
-        {
-          "step_index": 2,
-          "price": 105,
-          "change_rate_bps": 500,
-          "revealed_at": "2026-07-08T09:00:00+09:00"
-        }
-      ]
-    }
-  }
-}
-```
-
-성공 응답에서 `review_status=REVIEW_REQUIRED`인지, 제목이나 본문에 `푸른별` 또는
-`BLUE`가 있는지, `investment_news_binding`의 여섯 필드가 입력과 같은지 확인합니다.
-`FAKE` 실행에는 API 키가 필요하지 않습니다.

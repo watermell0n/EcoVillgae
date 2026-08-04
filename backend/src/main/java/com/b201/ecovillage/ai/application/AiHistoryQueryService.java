@@ -86,12 +86,17 @@ public class AiHistoryQueryService {
         );
         int limit = limit(requestedLimit);
         Cursor decoded = decode(cursor);
-        List<AiRun> queried = runRepository.findHistory(
-            classroomId,
-            decoded == null ? null : decoded.requestedAt(),
-            decoded == null ? null : decoded.runId(),
-            PageRequest.of(0, limit + 1)
-        );
+        List<AiRun> queried = decoded == null
+            ? runRepository.findFirstHistoryPage(
+                classroomId,
+                PageRequest.of(0, limit + 1)
+            )
+            : runRepository.findHistoryAfter(
+                classroomId,
+                decoded.requestedAt(),
+                decoded.runId(),
+                PageRequest.of(0, limit + 1)
+            );
         boolean hasMore = queried.size() > limit;
         List<AiRun> runs = hasMore ? queried.subList(0, limit) : queried;
         if (runs.isEmpty()) {
@@ -177,6 +182,7 @@ public class AiHistoryQueryService {
             run.getStatus(),
             run.getRequestedAt(),
             run.getCompletedAt(),
+            run.getAnalysisPeriodFrom(),
             run.getAnalysisPeriodTo(),
             run.getPromptVersion(),
             pendingAsNull(run.getModelProvider()),
@@ -208,22 +214,45 @@ public class AiHistoryQueryService {
         Integer policyVersion
     ) {
         Map<String, Object> values = proposal.getProposedValues();
+        Map<String, Map<String, Object>> allowedByAction = maps(
+            proposal.getAllowedRanges().get("items")
+        ).stream().collect(Collectors.toMap(
+            item -> text(item.get("action_id")),
+            Function.identity(),
+            (first, ignored) -> first,
+            LinkedHashMap::new
+        ));
         List<AiRunHistoryView.ProposedValue> proposedValues = maps(values.get("items"))
             .stream()
-            .map(item -> new AiRunHistoryView.ProposedValue(
-                text(item.get("action_id")),
-                text(item.get("target_type")),
-                uuid(item.get("target_id")),
-                number(item.get("proposed_value")),
-                text(item.get("unit")),
-                text(item.get("label"))
-            ))
+            .map(item -> {
+                Map<String, Object> allowed = allowedByAction.getOrDefault(
+                    text(item.get("action_id")),
+                    Map.of()
+                );
+                return new AiRunHistoryView.ProposedValue(
+                    text(item.get("action_id")),
+                    firstNonBlank(text(item.get("target_type")), text(allowed.get("target_type"))),
+                    firstUuid(item.get("target_id"), allowed.get("target_id")),
+                    firstNumber(item.get("current_value"), allowed.get("current_value")),
+                    number(item.get("proposed_value")),
+                    text(item.get("unit")),
+                    text(item.get("label")),
+                    text(item.get("rationale")),
+                    text(item.get("expected_effect")),
+                    strings(item.get("side_effects")),
+                    strings(item.get("evidence_metric_codes")),
+                    integer(item.get("priority"))
+                );
+            })
             .toList();
         List<AiRunHistoryView.AllowedRange> allowedRanges = maps(
             proposal.getAllowedRanges().get("items")
         ).stream()
             .map(item -> new AiRunHistoryView.AllowedRange(
                 text(item.get("action_id")),
+                text(item.get("target_type")),
+                uuid(item.get("target_id")),
+                number(item.get("current_value")),
                 number(item.get("allowed_min_value")),
                 number(item.get("allowed_max_value"))
             ))
@@ -450,12 +479,27 @@ public class AiHistoryQueryService {
         }
     }
 
+    private static Long firstNumber(Object first, Object second) {
+        Long value = number(first);
+        return value == null ? number(second) : value;
+    }
+
+    private static Integer integer(Object value) {
+        Long number = number(value);
+        return number == null ? null : Math.toIntExact(number);
+    }
+
     private static UUID uuid(Object value) {
         try {
             return value == null ? null : UUID.fromString(String.valueOf(value));
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    private static UUID firstUuid(Object first, Object second) {
+        UUID value = uuid(first);
+        return value == null ? uuid(second) : value;
     }
 
     private static String firstNonBlank(String... values) {

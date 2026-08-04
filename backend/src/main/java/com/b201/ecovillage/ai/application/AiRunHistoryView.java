@@ -14,6 +14,7 @@ public record AiRunHistoryView(
     String status,
     Instant requestedAt,
     Instant completedAt,
+    Instant analysisPeriodFrom,
     Instant dataAsOf,
     String promptVersion,
     String provider,
@@ -59,14 +60,27 @@ public record AiRunHistoryView(
         String actionId,
         String targetType,
         UUID targetId,
+        Long currentValue,
         Long proposedValue,
         String unit,
-        String label
+        String label,
+        String rationale,
+        String expectedEffect,
+        List<String> sideEffects,
+        List<String> evidenceMetricCodes,
+        Integer priority
     ) {
+        public ProposedValue {
+            sideEffects = List.copyOf(sideEffects);
+            evidenceMetricCodes = List.copyOf(evidenceMetricCodes);
+        }
     }
 
     public record AllowedRange(
         String actionId,
+        String targetType,
+        UUID targetId,
+        Long currentValue,
         Long allowedMinValue,
         Long allowedMaxValue
     ) {

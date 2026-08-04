@@ -161,6 +161,13 @@ public class OutboxEvent {
         return occurredAt;
     }
 
+    /**
+     * 소켓 전달이 끝난 시각이다. 아웃박스를 비우는 쪽이 채우기 전까지는 null이다.
+     */
+    public Instant getPublishedAt() {
+        return publishedAt;
+    }
+
     public void markPublished(Instant instant) {
         this.publishedAt = Objects.requireNonNull(instant, "instant must not be null");
         this.publishAttempts++;

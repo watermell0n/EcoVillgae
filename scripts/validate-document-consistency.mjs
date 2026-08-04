@@ -24,7 +24,10 @@ function walkMarkdown(directory = ".") {
   return fs.readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      return excludedDirectories.has(entry.name) ? [] : walkMarkdown(relativePath);
+      const isGeneratedPythonCache = entry.name.startsWith(".pytest_cache");
+      return excludedDirectories.has(entry.name) || isGeneratedPythonCache
+        ? []
+        : walkMarkdown(relativePath);
     }
     return entry.isFile() && entry.name.endsWith(".md") ? [relativePath] : [];
   });

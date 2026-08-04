@@ -45,6 +45,7 @@ import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.quiz.application.QuizQuestionQueryService;
+import com.b201.ecovillage.quiz.application.QuizQuestionView;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:quiz-draft;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -125,10 +126,24 @@ class QuizDraftApiTest {
         mockMvc.perform(draftRequest("MULTIPLE_CHOICE", 2))
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.data.operation_id").isNotEmpty())
-            .andExpect(jsonPath("$.data.status").value("RUNNING"));
+            .andExpect(jsonPath("$.data.status").value("RUNNING"))
+            .andExpect(jsonPath("$.data.ai_run_id").isNotEmpty())
+            .andExpect(jsonPath("$.data.review_status").value("REVIEW_REQUIRED"))
+            .andExpect(jsonPath("$.data.question_ids.length()").value(2));
 
         entityManager.flush();
-        assertEquals(2, quizQuestionQueryService.findAll(OWNER_SUBJECT, classroomId).size());
+        List<QuizQuestionView> questions = quizQuestionQueryService.findAll(
+            OWNER_SUBJECT,
+            classroomId
+        );
+        assertEquals(2, questions.size());
+        assertTrue(questions.stream().allMatch(question -> "REVIEW_REQUIRED".equals(question.status())));
+        assertTrue(questions.stream().allMatch(question -> "AI".equals(question.source())));
+        assertTrue(questions.stream().allMatch(question -> question.aiRunId() != null));
+        assertTrue(questions.stream().allMatch(question -> question.options().size() == 3));
+        assertTrue(questions.stream().allMatch(question -> question.options().stream()
+            .filter(QuizQuestionView.Option::correct)
+            .count() == 1));
         AiRun run = runRepository.findAll().getFirst();
         assertEquals("COMPLETED", run.getStatus());
         assertEquals("FAKE", run.getModelProvider());

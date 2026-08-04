@@ -73,6 +73,40 @@ class AutoMonitorSchedulerTest {
         verify(service, never()).executeSystem(any());
     }
 
+    @Test
+    void oneSessionCourseIsNeverAutomaticallyMonitored() {
+        ClassroomRepository classrooms = mock(ClassroomRepository.class);
+        OperationalAnalysisService service = mock(OperationalAnalysisService.class);
+        AiMonitorProperties properties = new AiMonitorProperties();
+        Classroom classroom = Classroom.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "MONITOR2",
+            "ECO",
+            5,
+            CourseSize.ONE_SESSION,
+            20,
+            LocalDate.parse("2026-07-04"),
+            LocalDate.parse("2026-07-04"),
+            "Asia/Seoul",
+            NOW
+        );
+        when(classrooms.findAll()).thenReturn(List.of(classroom));
+        ClassroomAiSettings aiSettings = mock(ClassroomAiSettings.class);
+        when(aiSettings.enabled(any())).thenReturn(true);
+        AutoMonitorScheduler scheduler = new AutoMonitorScheduler(
+            classrooms,
+            service,
+            aiSettings,
+            properties,
+            Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+
+        scheduler.monitorCompletedSevenDayPeriods();
+
+        verify(service, never()).executeSystem(any());
+    }
+
     private Classroom classroom() {
         return Classroom.create(
             UUID.randomUUID(),

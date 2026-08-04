@@ -134,6 +134,9 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-006",
   "API-AUTH-007",
   "API-AUTH-008",
+  "API-FIN-007",
+  "API-FIN-008",
+  "API-FIN-009",
   "API-MOD-002",
   "API-POL-001",
   "API-QZ-006",
@@ -141,6 +144,7 @@ const mvpSupportApiIds = new Set([
   "API-QZ-009",
   "API-READ-001",
   "API-READ-003",
+  "API-READ-016",
   "API-READ-027",
   "API-READ-028",
   "API-READ-029",
@@ -449,6 +453,20 @@ const requestFieldOverrides = {
       optional: true,
       schema: { type: "integer", minimum: 1, maximum: 480 },
     },
+    {
+      name: "preflight_run_id",
+      optional: true,
+      schema: { type: ["string", "null"], format: "uuid" },
+    },
+    {
+      name: "preflight_warning_acknowledgements",
+      optional: true,
+      schema: {
+        type: "array",
+        items: { type: "string", minLength: 1 },
+        uniqueItems: true,
+      },
+    },
   ],
   "API-CLS-008": [
     { name: "reauthentication_proof", schema: { type: "string", writeOnly: true } },
@@ -541,21 +559,18 @@ const requestFieldOverrides = {
     { name: "description", optional: true },
   ],
   "API-FIN-007": [
-    {
-      name: "assets",
-      schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } },
-    },
-    {
-      name: "price_steps",
-      schema: { type: "array", minItems: 1, items: { type: "object", additionalProperties: true } },
-    },
-    {
-      name: "events",
-      schema: { type: "array", items: { type: "object", additionalProperties: true } },
-    },
-    { name: "limits", schema: { type: "object", additionalProperties: true } },
-    { name: "loss_cap_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
-    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    { name: "investment_mode", values: ["SHORT_TERM", "LONG_TERM"] },
+    { name: "prefer_historical_index", schema: { type: "boolean" } },
+  ],
+  "API-FIN-008": [
+    { name: "command", values: ["START"] },
+    { name: "expected_state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-FIN-009": [
+    { name: "side", values: ["BUY"] },
+    { name: "asset_id" },
+    { name: "quantity", schema: { type: "integer", minimum: 1, maximum: 100 } },
+    { name: "expected_price_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-FIN-010": [
     { name: "max_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
@@ -857,7 +872,9 @@ const requestFieldOverrides = {
     { name: "teacher_context", optional: true, schema: { type: "string", maxLength: 1000 } },
   ],
   "API-AI-005": [
-    { name: "enabled", schema: { type: "boolean", const: false } },
+    // 학급 AI는 양방향 토글입니다. 끄기와 다시 켜기 모두 사유와 정책 버전을 남깁니다.
+    // 학교 단위 API-ADM-004는 권한·우선순위·일괄 이력을 별도로 정해야 해서 끄기 전용을 유지합니다.
+    { name: "enabled", schema: { type: "boolean" } },
     { name: "reason", schema: { type: "string", minLength: 1 } },
   ],
   "API-AI-006": [
@@ -960,6 +977,67 @@ const projectionItems = (extraProperties = {}, required = []) => ({
 });
 
 const responseFieldOverrides = {
+  "API-FIN-007": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "market_status", schema: { type: "string", enum: ["DRAFT", "OPEN"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "step_count", schema: { type: "integer", minimum: 2 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "assets", schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-FIN-008": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "market_status", schema: { type: "string", enum: ["OPEN"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "step_count", schema: { type: "integer", minimum: 2 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "assets", schema: { type: "array", minItems: 4, maxItems: 4, items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-FIN-009": [
+    { name: "order_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["EXECUTED"] } },
+    { name: "quantity", schema: { type: "integer", minimum: 1, maximum: 100 } },
+    { name: "executed_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "price_version", schema: { type: "integer", minimum: 1 } },
+    { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "position_quantity", schema: { type: "integer", minimum: 1 } },
+    { name: "average_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-READ-016": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "scenario_version_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["DRAFT", "OPEN", "PAUSED", "CLOSED"] } },
+    { name: "investment_mode", schema: { type: "string", enum: ["SHORT_TERM", "LONG_TERM"] } },
+    { name: "scenario_source", schema: { type: "string", enum: ["AI_GENERATED", "HISTORICAL_INDEX"] } },
+    { name: "settlement_rule", schema: { type: "string", enum: ["NEXT_DAY_MANDATORY", "COURSE_END_FINAL"] } },
+    { name: "current_step", schema: { type: "integer", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "teacher_view", schema: { type: "boolean" } },
+    { name: "assets", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  "API-QZ-002": [
+    { name: "operation_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "status_url", schema: { type: "string" } },
+    { name: "ai_run_id", schema: { type: "string", format: "uuid" } },
+    { name: "review_status", schema: { type: "string", enum: ["REVIEW_REQUIRED"] } },
+    {
+      name: "question_ids",
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        items: { type: "string", format: "uuid" },
+      },
+    },
+  ],
   "API-SHP-001": [
     { name: "product_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
@@ -1418,7 +1496,47 @@ const responseFieldOverrides = {
     { name: "deposit_accounts", schema: projectionItems({ principal_amount: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
     { name: "savings_accounts", schema: projectionItems({ principal_balance: { type: "integer", format: "int64" }, matures_at: { type: "string", format: "date-time" } }) },
   ],
-  "API-READ-020": [{ name: "questions", schema: projectionItems({ content_type: { type: "string" }, question_type: { type: "string" }, prompt: { type: "string" } }) }],
+  "API-READ-020": [{
+    name: "questions",
+    schema: projectionItems({
+      content_type: { type: "string", enum: ["ECONOMY", "NONSENSE"] },
+      question_type: { type: "string", enum: ["MULTIPLE_CHOICE", "OX"] },
+      prompt: { type: "string" },
+      explanation: { type: ["string", "null"] },
+      source: { type: "string", enum: ["TEACHER", "AI"] },
+      ai_run_id: { type: ["string", "null"], format: "uuid" },
+      options: {
+        type: "array",
+        minItems: 2,
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["option_id", "option_key", "option_text", "correct", "sort_order"],
+          properties: {
+            option_id: { type: "string", format: "uuid" },
+            option_key: { type: "string" },
+            option_text: { type: "string" },
+            correct: { type: "boolean" },
+            sort_order: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    }, [
+      "resource_id",
+      "label",
+      "status",
+      "version",
+      "state_version",
+      "content_type",
+      "question_type",
+      "prompt",
+      "explanation",
+      "source",
+      "ai_run_id",
+      "options",
+    ]),
+  }],
   "API-READ-021": [
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
@@ -1554,6 +1672,7 @@ const responseFieldOverrides = {
             "trigger_type",
             "status",
             "requested_at",
+            "analysis_period_from",
             "prompt_version",
             "fallback_used",
             "validation_codes",
@@ -1603,6 +1722,7 @@ const responseFieldOverrides = {
             },
             requested_at: { type: "string", format: "date-time" },
             completed_at: { type: ["string", "null"], format: "date-time" },
+            analysis_period_from: { type: ["string", "null"], format: "date-time" },
             data_as_of: { type: ["string", "null"], format: "date-time" },
             prompt_version: { type: "string" },
             provider: { type: ["string", "null"] },
@@ -1612,7 +1732,7 @@ const responseFieldOverrides = {
             fallback_code: { type: ["string", "null"] },
             severity: {
               type: ["string", "null"],
-              enum: ["PASS", "WARN", "BLOCK", null],
+              enum: ["PASS", "NORMAL", "OBSERVE", "WARN", "BLOCK", null],
             },
             validation_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
             evidence_codes: { type: "array", items: { type: "string" }, uniqueItems: true },
@@ -1645,7 +1765,7 @@ const responseFieldOverrides = {
                   status: { type: "string" },
                   severity: {
                     type: ["string", "null"],
-                    enum: ["PASS", "WARN", "BLOCK", null],
+                    enum: ["PASS", "NORMAL", "OBSERVE", "WARN", "BLOCK", null],
                   },
                   metric_code: { type: ["string", "null"] },
                   direction: { type: ["string", "null"] },
@@ -1668,20 +1788,32 @@ const responseFieldOverrides = {
                         "action_id",
                         "target_type",
                         "target_id",
+                        "current_value",
                         "proposed_value",
                         "unit",
                         "label",
+                        "side_effects",
+                        "evidence_metric_codes",
                       ],
                       properties: {
                         action_id: { type: ["string", "null"] },
                         target_type: { type: ["string", "null"] },
                         target_id: { type: ["string", "null"], format: "uuid" },
+                        current_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
                         proposed_value: {
                           type: ["integer", "null"],
                           format: "int64",
                         },
                         unit: { type: ["string", "null"] },
                         label: { type: ["string", "null"] },
+                        rationale: { type: ["string", "null"] },
+                        expected_effect: { type: ["string", "null"] },
+                        side_effects: { type: "array", items: { type: "string" } },
+                        evidence_metric_codes: { type: "array", items: { type: "string" } },
+                        priority: { type: ["integer", "null"] },
                       },
                       additionalProperties: false,
                     },
@@ -1693,11 +1825,20 @@ const responseFieldOverrides = {
                       type: "object",
                       required: [
                         "action_id",
+                        "target_type",
+                        "target_id",
+                        "current_value",
                         "allowed_min_value",
                         "allowed_max_value",
                       ],
                       properties: {
                         action_id: { type: ["string", "null"] },
+                        target_type: { type: ["string", "null"] },
+                        target_id: { type: ["string", "null"], format: "uuid" },
+                        current_value: {
+                          type: ["integer", "null"],
+                          format: "int64",
+                        },
                         allowed_min_value: {
                           type: ["integer", "null"],
                           format: "int64",
@@ -1947,6 +2088,7 @@ function storageTargets(operation) {
       "realtime_streams",
       "outbox_events",
       "audit_events",
+      "ai_runs",
     ];
   }
   if (operation.apiId === "API-TRD-004") {
@@ -2291,7 +2433,7 @@ function buildOpenApi(operations) {
         [status]:
           status === "204"
             ? { description: "성공적으로 처리했으며 응답 본문이 없습니다." }
-            : status === "202" && operation.apiId !== "API-AI-002"
+            : status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002"
               ? { $ref: "#/components/responses/Accepted" }
               : contractStatus === "mvp-contract"
                 ? {
@@ -3039,7 +3181,9 @@ function requestFieldsForManifest(operation) {
 function responseFieldsForManifest(operation) {
   const status = successStatus(operation);
   if (status === "204") return [];
-  if (status === "202" && operation.apiId !== "API-AI-002") return acceptedResponseFields;
+  if (status === "202" && !Object.hasOwn(responseFieldOverrides, operation.apiId) && operation.apiId !== "API-AI-002") {
+    return acceptedResponseFields;
+  }
   return responseFields(operation);
 }
 

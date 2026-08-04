@@ -49,6 +49,7 @@ class AccessModeCommandServiceTest {
             mock(IdempotencyRecordRepository.class);
         RealtimeEventPublisher events = mock(RealtimeEventPublisher.class);
         AuditTrailService audits = mock(AuditTrailService.class);
+        ClassroomSetupPrecheckGuard precheckGuard = mock(ClassroomSetupPrecheckGuard.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator ids = new UuidV7Generator(clock, new SecureRandom());
         AccessModeCommandService service = new AccessModeCommandService(
@@ -61,6 +62,7 @@ class AccessModeCommandServiceTest {
             idempotency,
             events,
             audits,
+            precheckGuard,
             ids,
             clock
         );
@@ -95,7 +97,9 @@ class AccessModeCommandServiceTest {
             UUID.randomUUID(),
             0L,
             AccessModeCommandType.OPEN,
-            null
+            null,
+            UUID.randomUUID(),
+            List.of()
         ));
 
         assertEquals(AppAccessMode.AUTONOMOUS, result.mode());
@@ -103,6 +107,7 @@ class AccessModeCommandServiceTest {
         assertEquals("AUTONOMOUS", classroom.getAppModeOverride());
         verify(policies).save(any());
         verify(idempotency).save(any());
+        verify(precheckGuard).verify(any(), any(), any());
     }
 
     @Test
@@ -120,6 +125,7 @@ class AccessModeCommandServiceTest {
             mock(IdempotencyRecordRepository.class);
         RealtimeEventPublisher events = mock(RealtimeEventPublisher.class);
         AuditTrailService audits = mock(AuditTrailService.class);
+        ClassroomSetupPrecheckGuard precheckGuard = mock(ClassroomSetupPrecheckGuard.class);
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator ids = new UuidV7Generator(clock, new SecureRandom());
         AccessModeCommandService service = new AccessModeCommandService(
@@ -132,6 +138,7 @@ class AccessModeCommandServiceTest {
             idempotency,
             events,
             audits,
+            precheckGuard,
             ids,
             clock
         );
@@ -162,7 +169,9 @@ class AccessModeCommandServiceTest {
             UUID.randomUUID(),
             0L,
             AccessModeCommandType.CLOSE,
-            null
+            null,
+            null,
+            List.of()
         ));
 
         assertEquals(AppAccessMode.CLOSED, result.mode());

@@ -51,6 +51,7 @@ public class AccessModeCommandService {
     private final IdempotencyRecordRepository idempotencyRepository;
     private final RealtimeEventPublisher eventPublisher;
     private final AuditTrailService auditTrailService;
+    private final ClassroomSetupPrecheckGuard precheckGuard;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -64,6 +65,7 @@ public class AccessModeCommandService {
         IdempotencyRecordRepository idempotencyRepository,
         RealtimeEventPublisher eventPublisher,
         AuditTrailService auditTrailService,
+        ClassroomSetupPrecheckGuard precheckGuard,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -76,6 +78,7 @@ public class AccessModeCommandService {
         this.idempotencyRepository = idempotencyRepository;
         this.eventPublisher = eventPublisher;
         this.auditTrailService = auditTrailService;
+        this.precheckGuard = precheckGuard;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -143,6 +146,22 @@ public class AccessModeCommandService {
                 ACCESS_POLICY
             )
             .orElse(null);
+        if (requiresInitialPreflight(command)) {
+            boolean hasOpenedBefore = policyRepository
+                .findAllByClassroomIdAndPolicyAreaOrderByVersion(
+                    command.classroomId(),
+                    ACCESS_POLICY
+                )
+                .stream()
+                .anyMatch(AccessModeCommandService::isAutonomousPolicy);
+            if (!hasOpenedBefore) {
+                precheckGuard.verify(
+                    command.classroomId(),
+                    command.preflightRunId(),
+                    command.preflightWarningAcknowledgements()
+                );
+            }
+        }
         int nextVersion = previous == null ? 1 : previous.getVersion() + 1;
         Instant expiresAt = calculateExpiry(command, previous, now);
         AppAccessMode mode = command.command() == AccessModeCommandType.CLOSE
@@ -359,7 +378,17 @@ public class AccessModeCommandService {
         return sha256(
             command.classroomId() + "|" + command.command() + "|"
                 + command.durationMinutes() + "|" + command.expectedStateVersion()
+                + "|" + command.preflightRunId() + "|"
+                + command.preflightWarningAcknowledgements().stream().sorted().toList()
         );
+    }
+
+    private static boolean requiresInitialPreflight(AccessModeCommand command) {
+        return command.command() == AccessModeCommandType.OPEN;
+    }
+
+    private static boolean isAutonomousPolicy(ClassroomPolicyVersion policy) {
+        return "AUTONOMOUS".equals(policy.getPolicyValues().get("mode"));
     }
 
     private static String sha256(String value) {

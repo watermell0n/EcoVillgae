@@ -1,0 +1,280 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { AlertTriangle, Bot, Check, CheckCircle2, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
+import { ApiError, apiRequest } from "../api";
+import type { QuizDraftOperationResponse, QuizQuestion } from "../api";
+
+type QuestionStatusResponse = {
+  quiz_resource_id: string;
+  status: QuizQuestion["status"];
+  state_version: number;
+};
+
+const STATUS_LABEL: Record<QuizQuestion["status"], string> = {
+  DRAFT: "작성 중",
+  REVIEW_REQUIRED: "검토 필요",
+  APPROVED: "승인됨",
+  PUBLISHED: "게시됨",
+  RETIRED: "종료됨"
+};
+
+function quizErrorMessage(error: unknown) {
+  if (!(error instanceof ApiError)) return "AI 퀴즈 초안을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.";
+  if (error.code === "AI_DISABLED") return "현재 이 학급의 AI 기능이 중지되어 있어요.";
+  if (error.code === "AI_DAILY_LIMIT_EXCEEDED" || error.status === 429) return "오늘 사용할 수 있는 AI 퀴즈 생성 횟수를 모두 사용했어요.";
+  if (error.code === "AI_TIMEOUT" || error.status === 503) return "AI가 제한 시간 안에 퀴즈를 만들지 못했어요. 다시 시도해 주세요.";
+  if (error.code === "STATE_VERSION_CONFLICT") return "다른 화면에서 문항 상태가 변경됐어요. 문제은행을 새로고침해 주세요.";
+  if (error.status === 403) return "해당 학급의 교사만 퀴즈 초안을 관리할 수 있어요.";
+  return error.message;
+}
+
+export function QuizDraftWorkspace({
+  classroomId,
+  initialGrade,
+  aiEnabled
+}: Readonly<{
+  classroomId: string;
+  initialGrade: number;
+  aiEnabled: boolean;
+}>) {
+  const [grade, setGrade] = useState(initialGrade);
+  const [topic, setTopic] = useState("합리적인 소비");
+  const [learningObjective, setLearningObjective] = useState("필요와 욕구를 구분하고 계획적인 소비 방법을 설명한다.");
+  const [contentType, setContentType] = useState<"ECONOMY" | "NONSENSE">("ECONOMY");
+  const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "OX">("MULTIPLE_CHOICE");
+  const [questionCount, setQuestionCount] = useState(3);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [generatedIds, setGeneratedIds] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [changingId, setChangingId] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => setGrade(initialGrade), [initialGrade]);
+
+  const loadQuestions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiRequest<{ questions: QuizQuestion[] }>(
+        `/classrooms/${classroomId}/quiz-questions?limit=100`
+      );
+      setQuestions(response.questions);
+      setError("");
+    } catch (caught) {
+      setError(quizErrorMessage(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, [classroomId]);
+
+  useEffect(() => {
+    setGeneratedIds(new Set());
+    setMessage("");
+    setError("");
+    void loadQuestions();
+  }, [classroomId, loadQuestions]);
+
+  const visibleQuestions = useMemo(() => {
+    if (showAll || generatedIds.size === 0) return questions;
+    return questions.filter((question) => generatedIds.has(question.resource_id));
+  }, [generatedIds, questions, showAll]);
+
+  async function generateDrafts(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!aiEnabled || generating) return;
+    if (!topic.trim() || !learningObjective.trim()) {
+      setError("주제와 학습목표를 모두 입력해 주세요.");
+      return;
+    }
+    if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 30) {
+      setError("문항 수는 1개 이상 30개 이하로 입력해 주세요.");
+      return;
+    }
+
+    setGenerating(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiRequest<QuizDraftOperationResponse>(
+        `/classrooms/${classroomId}/ai/quiz-draft-operations`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            grade,
+            topic: topic.trim(),
+            learning_objective: learningObjective.trim(),
+            content_type: contentType,
+            question_type: questionType,
+            question_count: questionCount,
+            screen_id: "SCR-WEB-018",
+            ui_action_id: "UIA-QZ-002",
+            client_occurred_at: new Date().toISOString()
+          })
+        }
+      );
+      setGeneratedIds(new Set(response.question_ids));
+      setShowAll(false);
+      await loadQuestions();
+      setMessage(`${response.question_ids.length}개 문항을 만들었어요. 정답과 해설을 확인한 뒤 승인해 주세요.`);
+    } catch (caught) {
+      setError(quizErrorMessage(caught));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function changeStatus(question: QuizQuestion, command: "APPROVE" | "PUBLISH") {
+    setChangingId(question.resource_id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiRequest<QuestionStatusResponse>(
+        `/classrooms/${classroomId}/quiz-questions/${question.resource_id}/commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: question.state_version,
+            command,
+            reason: command === "APPROVE"
+              ? "AI 초안의 문항·정답·해설을 교사가 검토함"
+              : "승인된 문항을 문제은행에 게시함",
+            screen_id: "SCR-WEB-018",
+            ui_action_id: "UIA-QZ-003",
+            client_occurred_at: new Date().toISOString()
+          })
+        }
+      );
+      setQuestions((current) => current.map((item) => item.resource_id === question.resource_id
+        ? { ...item, status: response.status, state_version: response.state_version }
+        : item));
+      setMessage(command === "APPROVE"
+        ? "문항이 승인됐어요. 게시 전까지 학생에게 보이지 않아요."
+        : "문항이 게시됐어요.");
+    } catch (caught) {
+      setError(quizErrorMessage(caught));
+      if (caught instanceof ApiError && caught.code === "STATE_VERSION_CONFLICT") await loadQuestions();
+    } finally {
+      setChangingId("");
+    }
+  }
+
+  return (
+    <div className="page-flow quiz-draft-workspace">
+      <section className="plain-section">
+        <div className="section-title">
+          <span className="section-kicker">교사용 AI 퀴즈</span>
+          <h2>검토용 문항 생성</h2>
+          <p>AI 문항은 학생에게 바로 공개되지 않으며 교사가 정답과 해설을 검토해야 합니다.</p>
+        </div>
+
+        <form className="quiz-draft-form" onSubmit={(event) => void generateDrafts(event)}>
+          {!aiEnabled ? (
+            <div className="chat-disabled"><AlertTriangle size={18} /> 학급 AI가 중지되어 초안을 생성할 수 없어요.</div>
+          ) : null}
+          <div className="quiz-draft-grid">
+            <label>학년
+              <select value={grade} disabled={!aiEnabled || generating} onChange={(event) => setGrade(Number(event.target.value))}>
+                <option value={4}>초등 4학년</option>
+                <option value={5}>초등 5학년</option>
+                <option value={6}>초등 6학년</option>
+              </select>
+            </label>
+            <label>분류
+              <select value={contentType} disabled={!aiEnabled || generating} onChange={(event) => setContentType(event.target.value as typeof contentType)}>
+                <option value="ECONOMY">경제</option>
+                <option value="NONSENSE">넌센스</option>
+              </select>
+            </label>
+            <label>문항 유형
+              <select value={questionType} disabled={!aiEnabled || generating} onChange={(event) => setQuestionType(event.target.value as typeof questionType)}>
+                <option value="MULTIPLE_CHOICE">객관식</option>
+                <option value="OX">OX</option>
+              </select>
+            </label>
+            <label>문항 수
+              <input type="number" min="1" max="30" value={questionCount} disabled={!aiEnabled || generating} onChange={(event) => setQuestionCount(Number(event.target.value))} />
+            </label>
+            <label className="quiz-wide-field">주제
+              <input value={topic} maxLength={200} disabled={!aiEnabled || generating} onChange={(event) => setTopic(event.target.value)} />
+            </label>
+            <label className="quiz-wide-field">학습목표
+              <textarea rows={3} value={learningObjective} maxLength={500} disabled={!aiEnabled || generating} onChange={(event) => setLearningObjective(event.target.value)} />
+            </label>
+          </div>
+          <div className="quiz-draft-submit">
+            <small>난이도는 학년에 맞춰 자동 조정합니다. 하루 최대 30개까지 생성할 수 있어요.</small>
+            <button type="submit" className="primary-save" disabled={!aiEnabled || generating}>
+              {generating ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}
+              {generating ? "문항을 만드는 중" : "AI 초안 생성"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="plain-section">
+        <div className="section-title">
+          <span className="section-kicker">문제은행</span>
+          <h2>문항 검토</h2>
+          <p>정답 표시와 해설을 확인한 뒤 승인하고, 수업에 사용할 문항만 게시하세요.</p>
+        </div>
+        <div className="quiz-bank">
+          <div className="quiz-bank-toolbar">
+            <div className="recommendation-tabs">
+              <button type="button" className={!showAll ? "active" : ""} onClick={() => setShowAll(false)}>최근 생성</button>
+              <button type="button" className={showAll ? "active" : ""} onClick={() => setShowAll(true)}>전체 문제은행</button>
+            </div>
+            <button type="button" className="ghost-action" disabled={loading} onClick={() => void loadQuestions()}>
+              <RefreshCw size={15} /> 새로고침
+            </button>
+          </div>
+          {message ? <div className="inline-notice" role="status"><Check size={17} /> {message}</div> : null}
+          {error ? <div className="inline-error" role="alert">{error}</div> : null}
+          {loading ? <div className="chat-loading"><LoaderCircle className="spin" size={18} /> 문제은행을 불러오는 중이에요.</div> : null}
+          {!loading && visibleQuestions.length === 0 ? <p className="empty-copy">표시할 문항이 없어요. AI 초안을 먼저 생성해 보세요.</p> : null}
+          <div className="quiz-card-list">
+            {visibleQuestions.map((question, index) => (
+              <article className={`quiz-review-card ${generatedIds.has(question.resource_id) ? "new" : ""}`} key={question.resource_id}>
+                <header>
+                  <div>
+                    <span>문항 {index + 1}</span>
+                    {question.source === "AI" ? <b><Bot size={14} /> AI 초안</b> : <b>교사 작성</b>}
+                  </div>
+                  <span className={`quiz-status ${question.status.toLowerCase()}`}>{STATUS_LABEL[question.status]}</span>
+                </header>
+                <h3>{question.prompt}</h3>
+                <ol className="quiz-choice-list">
+                  {question.options.map((option) => (
+                    <li className={option.correct ? "correct" : ""} key={option.option_id}>
+                      <span>{option.option_key}</span>
+                      <p>{option.option_text}</p>
+                      {option.correct ? <CheckCircle2 size={18} /> : null}
+                    </li>
+                  ))}
+                </ol>
+                <div className="quiz-explanation">
+                  <strong>해설</strong>
+                  <p>{question.explanation || "등록된 해설이 없습니다."}</p>
+                </div>
+                <footer>
+                  <small>
+                    {question.content_type === "ECONOMY" ? "경제" : "넌센스"} · {question.question_type === "OX" ? "OX" : "객관식"} · 버전 {question.version}
+                  </small>
+                  {question.status === "DRAFT" || question.status === "REVIEW_REQUIRED" ? (
+                    <button type="button" disabled={changingId === question.resource_id} onClick={() => void changeStatus(question, "APPROVE")}>검토 후 승인</button>
+                  ) : null}
+                  {question.status === "APPROVED" ? (
+                    <button type="button" disabled={changingId === question.resource_id} onClick={() => void changeStatus(question, "PUBLISH")}>문제은행에 게시</button>
+                  ) : null}
+                </footer>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

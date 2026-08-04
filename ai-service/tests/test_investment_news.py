@@ -46,15 +46,23 @@ def _client(settings: Settings, provider: CountingInvestmentNewsProvider) -> Tes
     return TestClient(create_app(settings=settings, provider=provider))
 
 
-def _request_for_asset(asset: dict[str, Any], target_step: int = 2) -> dict[str, Any]:
+def _request_for_asset(asset: dict[str, Any], current_step: int = 2) -> dict[str, Any]:
     body = investment_news_request()
     context = body["payload"]["investment_news_context"]
     context["scenario_version_id"] = asset["scenario_version_id"]
     context["asset_id"] = asset["asset_id"]
     context["asset_name"] = asset["asset_name"]
     context["asset_symbol"] = asset["asset_symbol"]
-    context["price_step_id"] = asset["steps"][target_step - 1]["price_step_id"]
-    context["current_step_index"] = target_step
+    context["price_step_id"] = asset["steps"][current_step - 1]["price_step_id"]
+    target = asset["steps"][current_step]
+    context["target_price_step_id"] = target["price_step_id"]
+    context["current_step_index"] = current_step
+    context["target_step_index"] = current_step + 1
+    context["target_direction"] = (
+        "RISE"
+        if target["change_rate_bps"] > 0
+        else "FALL" if target["change_rate_bps"] < 0 else "FLAT"
+    )
     context["public_price_facts"] = [
         {
             "step_index": index,
@@ -62,7 +70,7 @@ def _request_for_asset(asset: dict[str, Any], target_step: int = 2) -> dict[str,
             "change_rate_bps": step["change_rate_bps"],
             "revealed_at": f"2026-07-{index:02d}T00:00:00+00:00",
         }
-        for index, step in enumerate(asset["steps"][:target_step], start=1)
+        for index, step in enumerate(asset["steps"][:current_step], start=1)
     ]
     return body
 
@@ -112,18 +120,22 @@ def test_investment_news_evaluation_set(
                 client.post(
                     "/internal/v1/generations/economic-event",
                     headers=headers(),
-                    json=_request_for_asset(asset, target_step),
+                    json=_request_for_asset(asset, current_step),
                 )
-                for target_step in range(1, len(asset["steps"]) + 1)
+                for current_step in range(1, len(asset["steps"]))
             ]
-        assert provider.calls == len(asset["steps"])
-        for target_step, response in enumerate(responses, start=1):
+        assert provider.calls == len(asset["steps"]) - 1
+        for current_step, response in enumerate(responses, start=1):
             assert response.status_code == 200, response.text
             binding = response.json()["output"]["investment_news_binding"]
-            assert binding["price_step_id"] == asset["steps"][target_step - 1][
+            assert binding["price_step_id"] == asset["steps"][current_step - 1][
                 "price_step_id"
             ]
-            assert binding["current_step_index"] == target_step
+            assert binding["target_price_step_id"] == asset["steps"][current_step][
+                "price_step_id"
+            ]
+            assert binding["current_step_index"] == current_step
+            assert binding["target_step_index"] == current_step + 1
         return
 
     body = _request_for_asset(asset)
@@ -167,10 +179,16 @@ def test_investment_news_evaluation_set(
     assert binding["asset_id"] == asset["asset_id"]
     assert binding["asset_name"] == asset["asset_name"]
     assert binding["asset_symbol"] == asset["asset_symbol"]
+    assert binding["investment_mode"] == "LONG_TERM"
+    assert binding["scenario_source"] == "HISTORICAL_INDEX"
+    assert binding["settlement_rule"] == "COURSE_END_FINAL"
     assert asset["asset_name"] in f"{output['title']} {output['narrative']}"
 
 
-@pytest.mark.parametrize("field", ["asset_name", "asset_symbol"])
+@pytest.mark.parametrize(
+    "field",
+    ["asset_name", "asset_symbol", "target_price_step_id", "target_step_index"],
+)
 def test_changed_investment_asset_identity_is_rejected(
     settings: Settings, field: str
 ) -> None:
@@ -178,7 +196,14 @@ def test_changed_investment_asset_identity_is_rejected(
         async def generate(self, command: GenerationCommand) -> ProviderResult:
             result = await super().generate(command)
             output = json.loads(result.content)
-            output["investment_news_binding"][field] += "X"
+            if field == "target_step_index":
+                output["investment_news_binding"][field] += 1
+            elif field == "target_price_step_id":
+                output["investment_news_binding"][field] = (
+                    "00000000-0000-4000-8000-000000000099"
+                )
+            else:
+                output["investment_news_binding"][field] += "X"
             return ProviderResult(content=output, usage=result.usage)
 
     provider = ChangedIdentityProvider()
@@ -207,6 +232,115 @@ def test_price_fact_sequence_is_rejected_before_provider(
     else:
         facts[1]["revealed_at"] = facts[0]["revealed_at"]
     provider = CountingInvestmentNewsProvider()
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/economic-event",
+            headers=headers(),
+            json=body,
+        )
+
+    assert provider.calls == 0
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "AI_INPUT_SCHEMA_INVALID"
+
+
+def test_short_term_story_uses_separate_prompt_and_next_day_choices(
+    settings: Settings,
+) -> None:
+    body = investment_news_request()
+    context = body["payload"]["investment_news_context"]
+    context.update(
+        {
+            "investment_mode": "SHORT_TERM",
+            "scenario_source": "AI_GENERATED",
+            "settlement_rule": "NEXT_DAY_MANDATORY",
+            "historical_index_reference": None,
+        }
+    )
+    provider = CountingInvestmentNewsProvider()
+
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/economic-event",
+            headers=headers(),
+            json=body,
+        )
+
+    assert response.status_code == 200, response.text
+    output = response.json()["output"]
+    assert {choice["choice_key"] for choice in output["choices"]} == {"INVEST", "SKIP"}
+    assert output["investment_news_binding"]["investment_mode"] == "SHORT_TERM"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("settlement_rule", "COURSE_END_FINAL"),
+        ("scenario_source", "HISTORICAL_INDEX"),
+    ],
+)
+def test_short_term_rejects_incompatible_policy_before_provider(
+    settings: Settings,
+    field: str,
+    value: str,
+) -> None:
+    body = investment_news_request()
+    context = body["payload"]["investment_news_context"]
+    context.update(
+        {
+            "investment_mode": "SHORT_TERM",
+            "scenario_source": "AI_GENERATED",
+            "settlement_rule": "NEXT_DAY_MANDATORY",
+            "historical_index_reference": None,
+        }
+    )
+    context[field] = value
+    provider = CountingInvestmentNewsProvider()
+
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/economic-event",
+            headers=headers(),
+            json=body,
+        )
+
+    assert provider.calls == 0
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "AI_INPUT_SCHEMA_INVALID"
+
+
+def test_long_term_ai_generated_fallback_does_not_require_index_reference(
+    settings: Settings,
+) -> None:
+    body = investment_news_request()
+    context = body["payload"]["investment_news_context"]
+    context["scenario_source"] = "AI_GENERATED"
+    context["historical_index_reference"] = None
+    provider = CountingInvestmentNewsProvider()
+
+    with _client(settings, provider) as client:
+        response = client.post(
+            "/internal/v1/generations/economic-event",
+            headers=headers(),
+            json=body,
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["output"]["investment_news_binding"]["scenario_source"] == (
+        "AI_GENERATED"
+    )
+
+
+def test_historical_long_term_requires_valid_source_period_before_provider(
+    settings: Settings,
+) -> None:
+    body = investment_news_request()
+    reference = body["payload"]["investment_news_context"][
+        "historical_index_reference"
+    ]
+    reference["period_start"] = reference["period_end"]
+    provider = CountingInvestmentNewsProvider()
+
     with _client(settings, provider) as client:
         response = client.post(
             "/internal/v1/generations/economic-event",

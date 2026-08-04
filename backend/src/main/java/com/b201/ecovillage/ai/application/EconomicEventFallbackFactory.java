@@ -54,8 +54,35 @@ public class EconomicEventFallbackFactory {
                 "AI 이야기 생성에 실패해 규칙 엔진이 정한 효과만 표시합니다. "
                     + "교사가 내용을 직접 작성하거나 다시 생성해 주세요.",
                 choices,
-                List.of("교사 검토가 필요한 초안입니다.")
+                List.of("교사 검토가 필요한 초안입니다."),
+                // 대체안도 입력받은 단계 연결을 그대로 유지한다.
+                binding(payload.investmentNewsContext()),
+                // 대체안에는 AI 교사용 설명이 없다. INVESTMENT_NEWS는 이 값이 필요하므로 안내 문구를 둔다.
+                payload.investmentNewsContext() == null
+                    ? null
+                    : "AI 설명을 생성하지 못했습니다. 교사가 직접 작성해 주세요."
             )
+        );
+    }
+
+    private static EconomicEventContract.InvestmentNewsBinding binding(
+        EconomicEventContract.InvestmentNewsContext context
+    ) {
+        if (context == null) {
+            return null;
+        }
+        return new EconomicEventContract.InvestmentNewsBinding(
+            context.scenarioVersionId(),
+            context.assetId(),
+            context.priceStepId(),
+            context.targetPriceStepId(),
+            context.assetName(),
+            context.assetSymbol(),
+            context.investmentMode(),
+            context.scenarioSource(),
+            context.settlementRule(),
+            context.currentStepIndex(),
+            context.targetStepIndex()
         );
     }
 

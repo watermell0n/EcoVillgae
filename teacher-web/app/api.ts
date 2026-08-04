@@ -1,7 +1,7 @@
 "use client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8_000);
+const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 20_000);
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<void> | null = null;
@@ -361,6 +361,60 @@ export type SetupPrecheckResponse = {
   checks: SetupCheck[];
 };
 
+export type TeacherChatEvidence = {
+  fact_id: string;
+  label: string;
+  value: string | number;
+  unit: "AMOUNT" | "COUNT" | "RATE_BPS" | "STATUS" | "TEXT";
+};
+
+export type TeacherChatRecommendation = {
+  text: string;
+  side_effects: string[];
+};
+
+export type TeacherChatResponse = {
+  ai_run_id: string;
+  answer: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  data_as_of: string;
+  evidence: TeacherChatEvidence[];
+  recommendations: TeacherChatRecommendation[];
+};
+
+export type QuizDraftOperationResponse = {
+  operation_id: string;
+  status: string;
+  status_url: string;
+  ai_run_id: string;
+  review_status: "REVIEW_REQUIRED";
+  question_ids: string[];
+};
+
+export type QuizQuestion = {
+  resource_id: string;
+  label: string;
+  status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
+  version: number;
+  state_version: number;
+  content_type: "ECONOMY" | "NONSENSE";
+  question_type: "MULTIPLE_CHOICE" | "OX";
+  prompt: string;
+  explanation: string | null;
+  source: "TEACHER" | "AI";
+  ai_run_id: string | null;
+  options: Array<{
+    option_id: string;
+    option_key: string;
+    option_text: string;
+    correct: boolean;
+    sort_order: number;
+  }>;
+};
+
 export type ModuleActivationResponse = {
   module_code: string;
   status: "ACTIVE";
@@ -384,6 +438,112 @@ export type AiProposalCommandResponse = {
     unit: SetupCandidate["unit"];
   }>;
   state_version: number;
+};
+
+export type BalancingMetricCode =
+  | "LIQUID_MONEY_CHANGE_RATE_BPS"
+  | "ISSUANCE_AMOUNT"
+  | "RECOVERY_AMOUNT"
+  | "ISSUANCE_RECOVERY_RATE_BPS"
+  | "WALLET_AVERAGE_CHANGE_RATE_BPS"
+  | "WALLET_MEDIAN_CHANGE_RATE_BPS"
+  | "ASSET_CONCENTRATION_TOP20_BPS"
+  | "CONSUMPTION_RATE_BPS"
+  | "PRODUCT_SELL_THROUGH_RATE_BPS"
+  | "PRODUCT_STOCKOUT_SHARE_BPS"
+  | "FINANCIAL_PARTICIPATION_RATE_BPS"
+  | "PAYMENT_MISS_RATE_BPS"
+  | "INVESTMENT_PARTICIPATION_RATE_BPS"
+  | "INVESTMENT_MEDIAN_RETURN_BPS"
+  | "INVESTMENT_LOSS_PARTICIPANT_RATE_BPS"
+  | "REWARD_ISSUANCE_SHARE_BPS";
+
+export type BalancingMetric = {
+  code: BalancingMetricCode;
+  value: number | null;
+  previous_value: number | null;
+  availability: "AVAILABLE" | "UNAVAILABLE";
+  unavailable_reason: string | null;
+  unit: "AMOUNT" | "COUNT" | "RATE_BPS";
+  state: "NORMAL" | "OBSERVE" | "WARN" | "UNAVAILABLE";
+  direction: "LOW" | "NORMAL" | "HIGH" | "NOT_APPLICABLE";
+  subject_label: string;
+};
+
+export type OperationalAnalysisResponse = {
+  operation_id: string;
+  ai_run_id: string;
+  operation_status: string;
+  run_status: string;
+  analysis_mode: "ON_DEMAND" | "AUTO_MONITOR";
+  analysis_severity: "NORMAL" | "OBSERVE" | "WARN";
+  sample: {
+    active_students: number;
+    related_transactions: number;
+    status: "SUFFICIENT" | "INSUFFICIENT";
+  };
+  insufficient_codes: string[];
+  metrics: BalancingMetric[];
+  proposal_id: string | null;
+  fallback_used: boolean;
+  fallback_code: string | null;
+  summary: string;
+};
+
+export type BalancingProposal = {
+  proposal_id: string;
+  proposal_type: string;
+  source_type: "ON_DEMAND" | "AUTO_MONITOR" | string;
+  status: string;
+  severity: "NORMAL" | "OBSERVE" | "WARN" | null;
+  metric_code: BalancingMetricCode | null;
+  direction: string | null;
+  dedupe_key: string | null;
+  summary: string;
+  proposed_values: Array<{
+    action_id: string;
+    target_type: string;
+    target_id: string;
+    current_value: number | null;
+    proposed_value: number;
+    unit: "AMOUNT" | "COUNT" | "RATE_BPS";
+    label: string;
+    rationale: string | null;
+    expected_effect: string | null;
+    side_effects: string[];
+    evidence_metric_codes: BalancingMetricCode[];
+    priority: number | null;
+  }>;
+  allowed_ranges: Array<{
+    action_id: string;
+    target_type: string;
+    target_id: string;
+    current_value: number;
+    allowed_min_value: number;
+    allowed_max_value: number;
+  }>;
+  created_at: string;
+  expires_at: string;
+  status_changed_at: string;
+  decision_status: string | null;
+  state_version: number;
+};
+
+export type AiRunHistoryItem = {
+  ai_run_id: string;
+  operation_id: string | null;
+  feature_type: "BALANCING" | "TEACHER_CHAT" | "ECONOMIC_EVENT" | "QUIZ_DRAFT";
+  run_type: string;
+  trigger_type: string;
+  status: string;
+  requested_at: string;
+  completed_at: string | null;
+  analysis_period_from: string | null;
+  data_as_of: string | null;
+  fallback_used: boolean;
+  fallback_code: string | null;
+  severity: "PASS" | "BLOCK" | "NORMAL" | "OBSERVE" | "WARN" | null;
+  proposals: BalancingProposal[];
 };
 
 export const MODULE_DEFINITIONS = [

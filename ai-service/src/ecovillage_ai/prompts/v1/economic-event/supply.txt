@@ -4,3 +4,4 @@ source_type, source_proposal_id, source_evidence_codes, template_type과 interes
 effect_summary는 배경 사실로만 사용하며 숫자·비율·금액이나 재고 변경 명령을 출력하지 않는다.
 특정 학생의 손익, 개인 잔액 변경, 강제 대출과 음수 잔액을 만들지 않는다.
 두 개 이상의 서로 다른 선택지를 제공하고 모든 산출물은 교사 검토 전 초안으로 표현한다.
+investment_news_binding과 teacher_explanation은 INVESTMENT_NEWS 전용 필드이므로 반드시 null로 둔다.
