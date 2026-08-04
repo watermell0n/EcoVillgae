@@ -105,8 +105,9 @@ export async function subscribeDeposit(classroomId: string, product: FinancialPr
   const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/deposit-accounts`, {
     method: "POST",
     retryOnNetworkFailure: true,
+    // expected_state_version is omitted on purpose: the server compares it with the
+    // classroom state version, which the student app never receives.
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-014",
       ui_action_id: "UIA-FIN-002",
       client_occurred_at: now(),
@@ -123,8 +124,9 @@ export async function createTrade(classroomId: string, counterpartStudentId: str
   const response = await apiRequest<{ trade_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/trades`, {
     method: "POST",
     retryOnNetworkFailure: true,
+    // expected_state_version is omitted on purpose: the server compares it with the
+    // classroom state version, which the student app never receives.
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-010",
       ui_action_id: "UIA-TRD-001",
       client_occurred_at: now(),
@@ -184,8 +186,9 @@ export async function submitQuizAnswer(classroomId: string, sessionId: string, q
   return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/game-answers`, {
     method: "POST",
     retryOnNetworkFailure: true,
+    // expected_state_version is omitted on purpose: the server compares it with the
+    // quiz session state version, which the student app never receives.
     body: JSON.stringify({
-      expected_state_version: 0,
       screen_id: "SCR-STU-021",
       ui_action_id: "UIA-QZ-005",
       client_occurred_at: now(),
