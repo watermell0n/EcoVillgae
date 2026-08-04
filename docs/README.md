@@ -20,6 +20,7 @@
 | [추천 코스](COURSE_RECOMMENDATIONS.md) | 학년×규모별 모듈·난이도 조합 |
 | [AI 활용 방향](AI_DIRECTION.md) | AI 기능·안전·승인 경계 |
 | [AI 단계별 개발 계획](ai/IMPLEMENTATION_PLAN.md) | AI 계약·규칙·통합·평가의 실행 순서와 단계별 완료 기준 |
+| [AI 통합 검증 기록](ai/INTEGRATION_VERIFICATION.md) | AI 1~6단계의 자동 검증 결과와 후속 범위 |
 | [향후 모듈과 로드맵](FUTURE_MODULES_AND_ROADMAP.md) | MVP 이후 범위 |
 | [기술 스택](TECH_STACK.md) | 앱·웹·서버·인프라 기술 기준 |
 
