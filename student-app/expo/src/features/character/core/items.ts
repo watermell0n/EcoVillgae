@@ -52,7 +52,15 @@ export const CHARACTER_ITEMS: Readonly<Record<string, CharacterItemDefinition>> 
   shoes_sneakers: {
     assets: { main: 'shoes_sneakers', occlusion: 'shoes_sneakers_occlusion' },
   },
-  back_backpack: { assets: { main: 'back_backpack' } },
+  /**
+   * 배포된 스프라이트는 가방 본체가 아니라 **어깨끈만** 그려져 있다. BACK 슬롯의
+   * 기본 위치(BASE보다 뒤)에 놓으면 276px 중 254px(92%)이 몸에 가려 갈색 조각만
+   * 보였다. 어깨끈은 몸 앞으로 지나가는 부위이므로 front에 둔다(규격 §5.1, §9.1).
+   *
+   * 가방 본체를 추가하려면 behind에 별도 파일을 넣는다. 팔이 없는 정면 캐릭터에서는
+   * 어깨끈만으로도 배낭으로 읽히므로 지금은 두지 않는다.
+   */
+  back_backpack: { assets: { front: 'back_backpack' } },
 };
 
 /**

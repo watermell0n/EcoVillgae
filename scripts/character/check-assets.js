@@ -38,10 +38,9 @@ const SYMMETRY_EXCEPTIONS = new Set([
   'hat_safari',
   'neck_scarf', // 꼬리가 한쪽으로 내려온다
   'neck_knit_scarf',
-  'back_backpack', // 어깨끈이 대각선이다
-  'back_briefcase',
+  'back_briefcase', // 몸 한쪽에 매단다
   'back_dinosaur_tail',
-  'hand_baseball_glove', // 몸 한쪽에 매단다
+  'hand_baseball_glove',
   'hand_magic_wand',
   'hand_toy_sword',
 ]);
@@ -71,7 +70,7 @@ function loadCore() {
 }
 
 const core = loadCore();
-const requiredIds = core.requiredAssetIds(true); // 마스크까지 포함해 파일 존재는 확인한다
+const requiredIds = core.requiredAssetIds();
 const assetPaths = core.CHARACTER_ASSET_PATHS;
 const spriteKeyOf = core.SPRITE_KEY_BY_ASSET_ID;
 
@@ -253,9 +252,9 @@ if (pending.length) {
     `\n· 에셋 미배포 ${pending.length}종 (규격 §11 3·4단계 예정)\n  ${pending.join(', ')}`,
   );
 }
-if (!core.OCCLUSION_ENABLED) {
-  console.log('\n· 가림 마스크 렌더링 꺼짐 — 마스크 아트 수정 후 core의 OCCLUSION_ENABLED를 켠다');
-}
+const maskCount = Object.values(core.CHARACTER_ITEMS)
+  .filter((definition) => definition.assets.occlusion).length;
+console.log(`· 가림 마스크를 쓰는 상품 ${maskCount}종`);
 
 const baselineFiles = Object.keys(baseline);
 if (baselineFiles.length) {
