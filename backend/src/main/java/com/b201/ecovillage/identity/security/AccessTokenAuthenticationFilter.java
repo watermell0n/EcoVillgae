@@ -40,6 +40,12 @@ import tools.jackson.databind.ObjectMapper;
 public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final List<String> CREDENTIAL_ENTRYPOINTS = List.of(
+        "/auth/teacher-password-sessions",
+        "/auth/teacher-registrations",
+        "/auth/teacher-sessions",
+        "/auth/student-sessions"
+    );
 
     private final HmacAccessTokenCodec tokenCodec;
     private final TeacherSessionStore teacherSessionStore;
@@ -68,6 +74,11 @@ public class AccessTokenAuthenticationFilter extends OncePerRequestFilter {
         this.objectMapper = objectMapper;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return CREDENTIAL_ENTRYPOINTS.contains(request.getRequestURI());
     }
 
     @Override
