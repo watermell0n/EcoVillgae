@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchFinanceAccounts, fetchFinancialProducts, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
+import { applyLoan, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
 
 type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
@@ -17,6 +17,7 @@ export default function BankScreen() {
   const queryClient = useQueryClient();
   const products = useQuery({ queryKey: ["financial-products", identity?.classroomId], queryFn: () => fetchFinancialProducts(identity!.classroomId), enabled: Boolean(identity) });
   const accounts = useQuery({ queryKey: ["finance", identity?.classroomId], queryFn: () => fetchFinanceAccounts(identity!.classroomId), enabled: Boolean(identity) });
+  const loan = useQuery({ queryKey: ["loan-overview", identity?.classroomId], queryFn: () => fetchLoanOverview(identity!.classroomId), enabled: Boolean(identity && access?.activeCodes.has("LOAN")) });
   const subscribe = useMutation({
     mutationFn: ({ product, amount }: { product: FinancialProduct; amount: number }) => (
       product.productType === "SAVINGS"
@@ -25,6 +26,13 @@ export default function BankScreen() {
     ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance", identity?.classroomId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
+    }
+  });
+  const applyLoanMutation = useMutation({
+    mutationFn: ({ amount, installments }: { amount: number; installments: number }) => applyLoan(identity!.classroomId, amount, installments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loan-overview", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
     }
   });
@@ -38,6 +46,7 @@ export default function BankScreen() {
     ];
   }, [access?.activeCodes]);
   const [selected, setSelected] = useState<BankTab>("ACCOUNT");
+  const [loanAmount, setLoanAmount] = useState("100");
   const activeTab = availableTabs.some((tab) => tab.id === selected) ? selected : availableTabs[0]?.id;
   const activeProducts = products.data?.filter((product) => (
     ["PUBLISHED", "ACTIVE"].includes(product.status)
@@ -46,6 +55,8 @@ export default function BankScreen() {
   const hasAccounts = Boolean(
     accounts.data && (accounts.data.depositAccounts.length > 0 || accounts.data.savingsAccounts.length > 0)
   );
+  const requestedLoanAmount = Number(loanAmount);
+  const canSubmitLoan = Boolean(loan.data?.canApply && Number.isInteger(requestedLoanAmount) && requestedLoanAmount >= loan.data.installmentCount && requestedLoanAmount <= loan.data.availableLimit);
 
   return (
     <Screen title="이코 은행" right={<BackButton />}>
@@ -75,8 +86,19 @@ export default function BankScreen() {
         </View>
       ) : activeTab === "LOAN" ? (
         <PassbookCover title="비빔 생활 통장" subtitle="필요한 만큼 빌리고 계획대로 갚아요" color="#78A8C7">
-          <Text style={styles.passbookNotice}>대출 신청은 선생님이 정한 한도와 상환 계획을 확인한 뒤 열려요.</Text>
-          <Pressable style={styles.passbookButton}><Text style={styles.passbookButtonText}>대출 가능 금액 확인</Text></Pressable>
+          {loan.isPending ? <ActivityIndicator color={colors.green500} /> : loan.data ? <>
+            <View style={styles.loanGrid}>
+              <View style={styles.loanMetric}><Text style={styles.accountDetailLabel}>내 신용점수</Text><Text style={styles.accountDetailValue}>{loan.data.creditScore}점</Text><Text style={styles.loanMetricDetail}>{loan.data.creditLevel}</Text></View>
+              <View style={styles.loanMetric}><Text style={styles.accountDetailLabel}>대출 가능 금액</Text><Text style={styles.accountDetailValue}>{loan.data.availableLimit.toLocaleString("ko-KR")}</Text><Text style={styles.loanMetricDetail}>전체 금리 {(loan.data.interestRateBps / 100).toFixed(2)}%</Text></View>
+            </View>
+            <Text style={styles.passbookNotice}>{loan.data.termUnits / 7}주 동안 {loan.data.installmentCount}회 나누어 상환해요.</Text>
+            {loan.data.pendingApplicationStatus ? <Text style={styles.pendingNotice}>대출 신청이 접수되었어요. 선생님 승인을 기다려요.</Text> : <View style={styles.loanApplyRow}>
+              <TextInput accessibilityLabel="대출 신청 금액" value={loanAmount} onChangeText={setLoanAmount} keyboardType="number-pad" style={styles.loanAmountInput} />
+              <Pressable disabled={!canSubmitLoan || applyLoanMutation.isPending} onPress={() => applyLoanMutation.mutate({ amount: requestedLoanAmount, installments: loan.data.installmentCount })} style={[styles.passbookButton, (!canSubmitLoan || applyLoanMutation.isPending) && styles.disabled]}><Text style={styles.passbookButtonText}>{applyLoanMutation.isPending ? "신청 중" : "대출 신청"}</Text></Pressable>
+            </View>}
+            {!loan.data.canApply && !loan.data.pendingApplicationStatus ? <Text style={styles.pendingNotice}>현재는 대출을 신청할 수 없어요. 신용점수와 기존 대출을 확인해 주세요.</Text> : null}
+            {loan.data.loans.map((item) => <View key={item.loanId} style={styles.loanRow}><Text style={styles.accountDetailLabel}>{item.status === "OVERDUE" ? "연체" : item.status === "REPAID" ? "상환 완료" : "상환 중"}</Text><Text style={styles.loanMetricDetail}>남은 원금 {item.outstandingPrincipal.toLocaleString("ko-KR")} · 이자 {item.outstandingInterest.toLocaleString("ko-KR")}</Text></View>)}
+          </> : <Text style={styles.passbookNotice}>대출 정보를 불러오지 못했어요.</Text>}
         </PassbookCover>
       ) : (
         <View style={styles.productArea}>
@@ -101,6 +123,8 @@ export default function BankScreen() {
       {products.isError ? <Text style={styles.error}>{products.error.message}</Text> : null}
       {accounts.isError ? <Text style={styles.error}>{accounts.error.message}</Text> : null}
       {subscribe.isError ? <Text style={styles.error}>{subscribe.error.message}</Text> : null}
+      {loan.isError ? <Text style={styles.error}>{loan.error.message}</Text> : null}
+      {applyLoanMutation.isError ? <Text style={styles.error}>{applyLoanMutation.error.message}</Text> : null}
     </Screen>
   );
 }
@@ -154,6 +178,13 @@ const styles = StyleSheet.create({
   accountDetailLabel: { color: colors.muted600, fontSize: 13, fontWeight: "800" },
   accountDetailValue: { color: colors.ink900, fontSize: 24, fontWeight: "900" },
   accountSchedule: { gap: 4 },
+  loanGrid: { flexDirection: "row", gap: 12 },
+  loanMetric: { flex: 1, gap: 4, padding: 12, borderWidth: 1, borderColor: "#E8E2D2", borderRadius: 6 },
+  loanMetricDetail: { color: colors.muted600, fontSize: 13, fontWeight: "700" },
+  loanApplyRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  loanAmountInput: { flex: 1, minHeight: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 6, color: colors.ink900, fontSize: 16, fontWeight: "800" },
+  pendingNotice: { color: colors.green500, fontSize: 14, fontWeight: "800" },
+  loanRow: { gap: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#E8E2D2" },
   emptyText: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: colors.lineSoft, color: colors.muted600, fontSize: 15, fontWeight: "700" },
   error: { paddingTop: 12, color: colors.red500, fontWeight: "700" }
 });
