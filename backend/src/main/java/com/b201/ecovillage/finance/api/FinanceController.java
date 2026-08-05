@@ -12,15 +12,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.application.DepositAccountQueryService;
+import com.b201.ecovillage.finance.application.LoanApplicationService;
 import com.b201.ecovillage.finance.application.DepositAccountResult;
 import com.b201.ecovillage.finance.application.DepositSubscriptionCommand;
 import com.b201.ecovillage.finance.application.DepositSubscriptionService;
@@ -30,6 +33,9 @@ import com.b201.ecovillage.finance.application.FinancialProductCommand;
 import com.b201.ecovillage.finance.application.FinancialProductCommandService;
 import com.b201.ecovillage.finance.application.FinancialResourceResult;
 import com.b201.ecovillage.finance.application.FinancialProductQueryService;
+import com.b201.ecovillage.finance.application.SavingsAccountQueryService;
+import com.b201.ecovillage.finance.application.SavingsSubscriptionCommand;
+import com.b201.ecovillage.finance.application.SavingsSubscriptionService;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}")
@@ -39,7 +45,10 @@ public class FinanceController {
     private final DepositSubscriptionService depositService;
     private final DepositTerminationService terminationService;
     private final DepositAccountQueryService queryService;
+    private final SavingsSubscriptionService savingsService;
+    private final SavingsAccountQueryService savingsQueryService;
     private final FinancialProductQueryService productQueryService;
+    private final LoanApplicationService loanApplicationService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -48,7 +57,10 @@ public class FinanceController {
         DepositSubscriptionService depositService,
         DepositTerminationService terminationService,
         DepositAccountQueryService queryService,
+        SavingsSubscriptionService savingsService,
+        SavingsAccountQueryService savingsQueryService,
         FinancialProductQueryService productQueryService,
+        LoanApplicationService loanApplicationService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -56,7 +68,10 @@ public class FinanceController {
         this.depositService = depositService;
         this.terminationService = terminationService;
         this.queryService = queryService;
+        this.savingsService = savingsService;
+        this.savingsQueryService = savingsQueryService;
         this.productQueryService = productQueryService;
+        this.loanApplicationService = loanApplicationService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -84,6 +99,8 @@ public class FinanceController {
                 view.termUnits(),
                 view.interestRateBps(),
                 view.earlyTerminationRateBps(),
+                view.installmentCount(),
+                view.installmentAmount(),
                 view.minimumAmount(),
                 view.maximumAmount()
             ))
@@ -210,6 +227,24 @@ public class FinanceController {
         );
     }
 
+    @PostMapping("/savings-accounts")
+    public ResponseEntity<ApiResponse<FinancialResourceResponse>> subscribeSavings(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody SavingsSubscriptionRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        FinancialResourceResult result = savingsService.subscribe(new SavingsSubscriptionCommand(
+            subject(principal), classroomId, requestId, resolvedCorrelationId, request.expectedStateVersion(),
+            request.productId(), request.installmentAmount(), request.expectedProductVersion()
+        ));
+        return response(HttpStatus.CREATED, new FinancialResourceResponse(
+            result.financialResourceId(), result.status(), result.stateVersion()
+        ), requestId, resolvedCorrelationId);
+    }
+
     @GetMapping("/students/me/deposit-and-savings")
     public ResponseEntity<ApiResponse<DepositAndSavingsResponse>> findMyAccounts(
         @PathVariable UUID classroomId,
@@ -237,11 +272,183 @@ public class FinanceController {
                 view.closedAt()
             ))
             .toList();
+        List<SavingsAccountViewResponse> savings = savingsQueryService
+            .findMine(subject(principal), classroomId)
+            .stream()
+            .map(view -> new SavingsAccountViewResponse(
+                view.resourceId(), view.label(), view.status(), view.installmentCount(),
+                view.paidInstallmentCount(), view.installmentAmount(), view.principalBalance(),
+                view.expectedInterestAmount(), view.openedAt(), view.maturesAt(), view.stateVersion()
+            ))
+            .toList();
         return response(
             HttpStatus.OK,
-            new DepositAndSavingsResponse(deposits, List.of()),
+            new DepositAndSavingsResponse(deposits, savings),
             requestId,
             resolvedCorrelationId
+        );
+    }
+
+    @PostMapping("/loan-application-commands")
+    public ResponseEntity<ApiResponse<LoanApplicationResponse>> applyLoan(
+        @PathVariable UUID classroomId,
+        @Valid @RequestBody LoanApplicationRequest request,
+        Principal principal
+    ) {
+        LoanApplicationService.LoanApplicationView value;
+        if ("APPLY".equalsIgnoreCase(request.command())) {
+            if (request.amount() == null) {
+                throw new ClassroomOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_LOAN_COMMAND",
+                    "신청 금액을 입력해 주세요."
+                );
+            }
+            value = loanApplicationService.apply(
+                subject(principal),
+                classroomId,
+                request.amount(),
+                request.installments()
+            );
+        } else if ("CANCEL".equalsIgnoreCase(request.command())) {
+            if (request.applicationId() == null) {
+                throw new ClassroomOperationException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_LOAN_COMMAND",
+                    "취소할 신청을 선택해 주세요."
+                );
+            }
+            value = loanApplicationService.cancel(
+                subject(principal),
+                classroomId,
+                request.applicationId()
+            );
+        } else {
+            throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_LOAN_COMMAND",
+                "대출 명령은 APPLY 또는 CANCEL이어야 합니다."
+            );
+        }
+        UUID requestId = uuidGenerator.generate();
+        return response(HttpStatus.OK, loan(value), requestId, uuidGenerator.generate());
+    }
+
+    @GetMapping("/students/me/loans-and-credit")
+    public ResponseEntity<ApiResponse<LoanOverviewResponse>> myLoans(
+        @PathVariable UUID classroomId,
+        Principal principal
+    ) {
+        var value = loanApplicationService.mine(subject(principal), classroomId);
+        UUID requestId = uuidGenerator.generate();
+        var loans = value.loans().stream()
+            .map(loan -> new LoanOverviewResponse.LoanResponse(
+                loan.loanId(),
+                loan.principalAmount(),
+                loan.outstandingPrincipal(),
+                loan.outstandingInterest(),
+                loan.status(),
+                loan.maturesAt()
+            ))
+            .toList();
+        return response(
+            HttpStatus.OK,
+            new LoanOverviewResponse(
+                value.creditScore(),
+                value.creditLevel(),
+                value.availableLimit(),
+                value.interestRateBps(),
+                value.termUnits(),
+                value.installmentCount(),
+                value.canApply(),
+                value.pendingApplicationId(),
+                value.pendingApplicationStatus(),
+                loans
+            ),
+            requestId,
+            uuidGenerator.generate()
+        );
+    }
+
+    @GetMapping("/loan-approval-queue")
+    public ResponseEntity<ApiResponse<LoanApprovalQueueResponse>> loanQueue(@PathVariable UUID classroomId, Principal principal) {
+        String subject = subject(principal);
+        UUID requestId = uuidGenerator.generate();
+        return response(
+            HttpStatus.OK,
+            new LoanApprovalQueueResponse(
+                policy(loanApplicationService.policy(subject, classroomId)),
+                loanApplicationService.queue(subject, classroomId).stream()
+                    .map(FinanceController::loan)
+                    .toList()
+            ),
+            requestId,
+            uuidGenerator.generate()
+        );
+    }
+
+    @PutMapping("/loan-policy")
+    public ResponseEntity<ApiResponse<LoanPolicyResponse>> updateLoanPolicy(
+        @PathVariable UUID classroomId,
+        @Valid @RequestBody LoanPolicyRequest request,
+        Principal principal
+    ) {
+        var value = loanApplicationService.updatePolicy(
+            subject(principal),
+            classroomId,
+            request.maximumPrincipal(),
+            request.interestRateBps(),
+            request.termUnits(),
+            request.installmentCount(),
+            request.graceUnits(),
+            request.onTimeCredit(),
+            request.overdueCredit(),
+            request.repaidCredit(),
+            request.expectedPolicyVersion()
+        );
+        UUID requestId = uuidGenerator.generate();
+        return response(HttpStatus.OK, policy(value), requestId, uuidGenerator.generate());
+    }
+
+    @PostMapping("/loan-applications/{applicationId}/teacher-decisions")
+    public ResponseEntity<ApiResponse<LoanApplicationResponse>> decideLoan(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID applicationId,
+        @Valid @RequestBody LoanDecisionRequest request,
+        Principal principal
+    ) {
+        boolean approve = "APPROVE".equalsIgnoreCase(request.decision());
+        if (!approve && !"REJECT".equalsIgnoreCase(request.decision())) {
+            throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_LOAN_DECISION",
+                "승인 또는 거절을 선택해 주세요."
+            );
+        }
+        var value = loanApplicationService.decide(
+            subject(principal),
+            classroomId,
+            applicationId,
+            approve,
+            request.approvedAmount(),
+            request.reason()
+        );
+        UUID requestId = uuidGenerator.generate();
+        return response(HttpStatus.OK, loan(value), requestId, uuidGenerator.generate());
+    }
+
+    private static LoanApplicationResponse loan(LoanApplicationService.LoanApplicationView value) {
+        return new LoanApplicationResponse(
+            value.applicationId(), value.studentId(), value.studentNickname(), value.requestedAmount(),
+            value.approvedAmount(), value.creditScore(), value.creditLevel(), value.status(), value.createdAt()
+        );
+    }
+
+    private static LoanPolicyResponse policy(LoanApplicationService.LoanPolicyView value) {
+        return new LoanPolicyResponse(
+            value.version(), value.maximumPrincipal(), value.interestRateBps(), value.termUnits(),
+            value.installmentCount(), value.graceUnits(), value.onTimeCredit(), value.overdueCredit(),
+            value.repaidCredit()
         );
     }
 

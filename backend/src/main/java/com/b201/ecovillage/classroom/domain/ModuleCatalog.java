@@ -36,8 +36,11 @@ public final class ModuleCatalog {
         module("DEPOSIT", "정기예금", true, List.of(), true, "DEPOSIT_RATE", false),
         module("SAVINGS", "정기적금", true, List.of(), false, null, false),
         module("CREDIT", "신용 기초", false, List.of(), false, null, false),
-        module("LOAN", "대출·상환", true, List.of("DEPOSIT"), true,
+        module("LOAN", "대출·상환", true, List.of("DEPOSIT", "CREDIT"), true,
             "LOAN_RATE", false),
+        module("REAL_ESTATE", "교실 부동산", true, List.of(), false, null, false),
+        module("HOUSING_SUBSCRIPTION", "청약 통장", true, List.of("REAL_ESTATE"), false,
+            null, false),
         module("INVESTMENT", "가상 투자", true, List.of(), false, null, false),
         module("RISK_MANAGEMENT", "투자 위험관리", false, List.of(), false, null, false),
         module("MARKET_PRICE", "가격 변화", true, List.of(), false, null, false),
@@ -54,7 +57,8 @@ public final class ModuleCatalog {
     private static final Map<String, String> LEGACY_ALIASES = Map.of(
         "INCOME", "ROLE_SALARY",
         "SALARY", "ROLE_SALARY",
-        "TAX", "INCOME_TAX"
+        "TAX", "INCOME_TAX",
+        "QUIZ", "QUIZ_GAME"
     );
     private static final Set<String> CODES = Set.copyOf(BY_CODE.keySet());
 

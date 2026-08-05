@@ -27,6 +27,7 @@ import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.UserAccount;
@@ -108,6 +109,12 @@ public class ClassroomCreationService {
             command.timeZone(),
             now
         );
+        classroom.updateDisplaySettings(
+            command.displayName(),
+            command.classNumber(),
+            command.description(),
+            now
+        );
         classroomRepository.save(classroom);
         classroomTeacherRepository.save(
             ClassroomTeacher.assign(
@@ -156,6 +163,9 @@ public class ClassroomCreationService {
     }
 
     private ValidatedCreation validate(CreateClassroomCommand command) {
+        if (command.displayName() != null && command.displayName().isBlank()) {
+            throw validation("display_name은 빈 값일 수 없습니다.");
+        }
         if (command.grade() < 4 || command.grade() > 6) {
             throw validation("grade는 4~6만 허용합니다.");
         }
@@ -190,6 +200,13 @@ public class ClassroomCreationService {
             );
         }
         List<String> moduleCodes = normalizeModuleCodes(command.moduleCodes());
+        if (moduleCodes.contains("SAVINGS") && command.courseSize() != CourseSize.SEMESTER) {
+            throw new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE",
+                "정기적금 모듈은 한 학기 운영에서만 사용할 수 있습니다."
+            );
+        }
         if (command.autonomousSchedules() == null) {
             return new ValidatedCreation(currencyName, moduleCodes);
         }
@@ -216,13 +233,22 @@ public class ClassroomCreationService {
         if (values == null || values.isEmpty()) {
             return List.of();
         }
-        List<String> normalized = values.stream()
+        List<String> requested = values.stream()
             .map(value -> value == null ? "" : value.trim().toUpperCase(Locale.ROOT))
             .toList();
         if (
-            normalized.stream().anyMatch(value -> !MODULE_CODE.matcher(value).matches())
-                || new HashSet<>(normalized).size() != normalized.size()
+            requested.stream().anyMatch(value -> !MODULE_CODE.matcher(value).matches())
         ) {
+            throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
+        }
+        List<String> normalized = requested.stream()
+            .map(code -> ModuleCatalog.find(code).orElseThrow(() -> new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "UNSUPPORTED_MODULE_CODE",
+                "지원하지 않는 모듈 코드입니다: " + code
+            )).code())
+            .toList();
+        if (new HashSet<>(normalized).size() != normalized.size()) {
             throw validation("모듈 코드는 형식에 맞고 중복되지 않아야 합니다.");
         }
         return normalized;
@@ -245,7 +271,12 @@ public class ClassroomCreationService {
         List<String> codes = schedule.moduleCodes() == null
             ? List.of()
             : schedule.moduleCodes().stream()
-                .map(value -> value.toUpperCase(Locale.ROOT))
+                .map(value -> value == null ? "" : value.trim().toUpperCase(Locale.ROOT))
+                .map(code -> ModuleCatalog.find(code).orElseThrow(() -> new ClassroomOperationException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "UNSUPPORTED_MODULE_CODE",
+                    "지원하지 않는 모듈 코드입니다: " + code
+                )).code())
                 .toList();
         if (new HashSet<>(codes).size() != codes.size() || !selectedModuleCodes.containsAll(codes)) {
             throw new ClassroomOperationException(

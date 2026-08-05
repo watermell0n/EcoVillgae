@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import com.b201.ecovillage.identity.domain.CourseSize;
 
@@ -26,6 +27,9 @@ public record CourseConfigurationRequest(
     ) String difficultyProfile,
     @NotNull @Min(0) Integer expectedPolicyVersion,
     String classroomCode,
-    String currencyName
+    String currencyName,
+    @Size(max = 120) String displayName,
+    @Min(1) @Max(99) Integer classNumber,
+    @Size(max = 500) String description
 ) {
 }

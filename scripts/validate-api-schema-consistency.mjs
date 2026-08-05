@@ -40,16 +40,16 @@ function requireCondition(condition, message) {
   if (!condition) errors.push(message);
 }
 
-requireCondition(operations.length === 110, `expected 110 operations, found ${operations.length}`);
-requireCondition(new Set(apiIds).size === 110, "api-field-mapping has duplicate API IDs");
-requireCondition(mvp.length === 83, `expected 83 MVP/support contracts, found ${mvp.length}`);
-requireCondition(planned.length === 27, `expected 27 planned contracts, found ${planned.length}`);
+requireCondition(operations.length === 132, `expected 132 operations, found ${operations.length}`);
+requireCondition(new Set(apiIds).size === 132, "api-field-mapping has duplicate API IDs");
+requireCondition(mvp.length === 111, `expected 111 MVP/support contracts, found ${mvp.length}`);
+requireCondition(planned.length === 21, `expected 21 planned contracts, found ${planned.length}`);
 
 const openapiStatusCount = [...openapi.matchAll(/^\s+x-implementation-status:/gm)].length;
 const openapiStrictCount = [
   ...openapi.matchAll(/^\s+x-schema-closure: "strict"$/gm),
 ].length;
-requireCondition(openapiStatusCount === 110, `OpenAPI status markers: ${openapiStatusCount}`);
+requireCondition(openapiStatusCount === 132, `OpenAPI status markers: ${openapiStatusCount}`);
 requireCondition(openapiStrictCount === mvp.length, `OpenAPI strict markers: ${openapiStrictCount}`);
 
 for (const operation of mvp) {

@@ -145,7 +145,15 @@ class ClassroomCreationApiTest {
         )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.classroom_code").isString())
+            .andExpect(jsonPath("$.data.display_name").value("5학년 2반"))
+            .andExpect(jsonPath("$.data.class_number").value(2))
+            .andExpect(jsonPath("$.data.description").value("우리 반 경제생활"))
             .andExpect(jsonPath("$.data.currency_name").value("에코"))
+            .andExpect(jsonPath("$.data.grade").value(5))
+            .andExpect(jsonPath("$.data.course_size").value("ONE_WEEK"))
+            .andExpect(jsonPath("$.data.student_count").value(24))
+            .andExpect(jsonPath("$.data.starts_on").value("2026-08-01"))
+            .andExpect(jsonPath("$.data.ends_on").value("2026-08-31"))
             .andExpect(jsonPath("$.data.module_codes.length()").value(2))
             .andExpect(jsonPath("$.data.autonomous_schedules.length()").value(1))
             .andExpect(jsonPath("$.data.policy_versions.length()").value(0));
@@ -182,6 +190,35 @@ class ClassroomCreationApiTest {
             "SELECT count(*) FROM ledger_accounts",
             Long.class
         ));
+    }
+
+    @Test
+    void rejectsSavingsOutsideASemesterCourse() throws Exception {
+        String body = """
+            {
+              "school_id": "%s",
+              "currency_name": "ECO",
+              "grade": 5,
+              "course_size": "ONE_MONTH",
+              "starts_on": "2026-08-01",
+              "ends_on": "2026-08-31",
+              "student_count": 24,
+              "timezone": "Asia/Seoul",
+              "module_codes": ["SAVINGS"]
+            }
+            """.formatted(schoolId);
+
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE"));
+
+        assertEquals(0, classroomRepository.count());
     }
 
     @Test
@@ -340,6 +377,9 @@ class ClassroomCreationApiTest {
         return """
             {
               "school_id": "%s",
+              "display_name": "5학년 2반",
+              "class_number": 2,
+              "description": "우리 반 경제생활",
               "currency_name": "%s",
               "grade": 5,
               "course_size": "%s",

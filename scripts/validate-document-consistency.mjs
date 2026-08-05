@@ -76,14 +76,14 @@ const definitionSources = [
   },
   {
     name: "상태 머신",
-    expected: 19,
+    expected: 23,
     files: ["docs/STATE_MACHINES.md"],
     pattern: /^\| (SM-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(SM-[A-Z]+-\d{3})(?!\d)/g,
   },
   {
     name: "권한 규칙",
-    expected: 58,
+    expected: 62,
     files: ["docs/PERMISSION_MATRIX.md"],
     pattern: /^\| (PM-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(PM-[A-Z]+-\d{3})(?!\d)/g,
@@ -104,7 +104,7 @@ const definitionSources = [
   },
   {
     name: "HTTP API",
-    expected: 118,
+    expected: 140,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
@@ -139,7 +139,7 @@ const definitionSources = [
   },
   {
     name: "검사 제약",
-    expected: 41,
+    expected: 42,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (CK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(CK-\d{3})(?!\d)/g,

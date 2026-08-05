@@ -53,6 +53,8 @@ export type FinancialProduct = {
   version: number;
   productType: string;
   interestRateBps: number;
+  installmentCount?: number;
+  installmentAmount?: number;
 };
 
 // 서버(FinancialProduct)의 상태값은 DRAFT / PUBLISHED / STOPPED 입니다.
@@ -62,11 +64,11 @@ export const SUBSCRIBABLE_PRODUCT_STATUS = "PUBLISHED";
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
     { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
-    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500 }
+    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
   ];
 
   const response = await apiRequest<{
-    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number }>;
+    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number; installment_count?: number | null; installment_amount?: number | null }>;
   }>(`/classrooms/${classroomId}/financial-products`);
   return response.financial_products.flatMap((product) => product.resource_id ? [{
     resourceId: product.resource_id,
@@ -74,7 +76,9 @@ export async function fetchFinancialProducts(classroomId: string): Promise<Finan
     status: product.status ?? "DISABLED",
     version: product.version ?? 0,
     productType: product.product_type ?? "UNKNOWN",
-    interestRateBps: product.interest_rate_bps ?? 0
+    interestRateBps: product.interest_rate_bps ?? 0,
+    installmentCount: product.installment_count ?? undefined,
+    installmentAmount: product.installment_amount ?? undefined
   }] : []);
 }
 
@@ -87,10 +91,22 @@ export type DepositAccount = {
   maturesAt: string;
 };
 
+export type SavingsAccount = {
+  resourceId: string;
+  label: string;
+  status: string;
+  installmentCount: number;
+  paidInstallmentCount: number;
+  installmentAmount: number;
+  principalBalance: number;
+  maturesAt: string;
+};
+
 export async function fetchFinanceAccounts(classroomId: string) {
-  if (useMocks) return { depositAccounts: [] as DepositAccount[] };
+  if (useMocks) return { depositAccounts: [] as DepositAccount[], savingsAccounts: [] as SavingsAccount[] };
   const response = await apiRequest<{
     deposit_accounts: Array<{ resource_id?: string; label?: string; status?: string; state_version?: number; principal_amount?: number; matures_at?: string }>;
+    savings_accounts: Array<{ resource_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; matures_at?: string }>;
   }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
   return {
     depositAccounts: response.deposit_accounts.flatMap((account) => account.resource_id ? [{
@@ -99,6 +115,16 @@ export async function fetchFinanceAccounts(classroomId: string) {
       status: account.status ?? "UNKNOWN",
       stateVersion: account.state_version ?? 0,
       principalAmount: account.principal_amount ?? 0,
+      maturesAt: account.matures_at ?? ""
+    }] : []),
+    savingsAccounts: response.savings_accounts.flatMap((account) => account.resource_id ? [{
+      resourceId: account.resource_id,
+      label: account.label ?? "적금",
+      status: account.status ?? "UNKNOWN",
+      installmentCount: account.installment_count ?? 0,
+      paidInstallmentCount: account.paid_installment_count ?? 0,
+      installmentAmount: account.installment_amount ?? 0,
+      principalBalance: account.principal_balance ?? 0,
       maturesAt: account.matures_at ?? ""
     }] : [])
   };
@@ -109,9 +135,8 @@ export async function subscribeDeposit(classroomId: string, product: FinancialPr
   const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/deposit-accounts`, {
     method: "POST",
     retryOnNetworkFailure: true,
-    // expected_state_version is omitted on purpose: the server compares it with the
-    // classroom state version, which the student app never receives.
     body: JSON.stringify({
+      expected_state_version: 0,
       screen_id: "SCR-STU-014",
       ui_action_id: "UIA-FIN-002",
       client_occurred_at: now(),
@@ -123,14 +148,68 @@ export async function subscribeDeposit(classroomId: string, product: FinancialPr
   return { financialResourceId: response.financial_resource_id, status: response.status, stateVersion: response.state_version };
 }
 
+export async function subscribeSavings(classroomId: string, product: FinancialProduct, installmentAmount: number) {
+  if (useMocks) return { financialResourceId: randomUUID(), status: "ACTIVE", stateVersion: 1 };
+  const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/savings-accounts`, {
+    method: "POST",
+    retryOnNetworkFailure: true,
+    body: JSON.stringify({
+      expected_state_version: 0,
+      screen_id: "SCR-STU-014",
+      ui_action_id: "UIA-FIN-004",
+      client_occurred_at: now(),
+      product_id: product.resourceId,
+      installment_amount: installmentAmount,
+      expected_product_version: product.version
+    })
+  });
+  return { financialResourceId: response.financial_resource_id, status: response.status, stateVersion: response.state_version };
+}
+
+export type LoanOverview = {
+  creditScore: number;
+  creditLevel: string;
+  availableLimit: number;
+  interestRateBps: number;
+  termUnits: number;
+  installmentCount: number;
+  canApply: boolean;
+  pendingApplicationId: string | null;
+  pendingApplicationStatus: string | null;
+  loans: Array<{ loanId: string; principalAmount: number; outstandingPrincipal: number; outstandingInterest: number; status: string; maturesAt: string }>;
+};
+
+export async function fetchLoanOverview(classroomId: string): Promise<LoanOverview> {
+  if (useMocks) return { creditScore: 600, creditLevel: "NORMAL", availableLimit: 240, interestRateBps: 700, termUnits: 28, installmentCount: 4, canApply: true, pendingApplicationId: null, pendingApplicationStatus: null, loans: [] };
+  const response = await apiRequest<{
+    credit_score: number; credit_level: string; available_limit: number; interest_rate_bps: number;
+    term_units: number; installment_count: number; can_apply: boolean;
+    pending_application_id: string | null; pending_application_status: string | null;
+    loans: Array<{ loan_id: string; principal_amount: number; outstanding_principal: number; outstanding_interest: number; status: string; matures_at: string }>;
+  }>(`/classrooms/${classroomId}/students/me/loans-and-credit`);
+  return {
+    creditScore: response.credit_score, creditLevel: response.credit_level, availableLimit: response.available_limit,
+    interestRateBps: response.interest_rate_bps, termUnits: response.term_units, installmentCount: response.installment_count,
+    canApply: response.can_apply, pendingApplicationId: response.pending_application_id, pendingApplicationStatus: response.pending_application_status,
+    loans: response.loans.map((loan) => ({ loanId: loan.loan_id, principalAmount: loan.principal_amount, outstandingPrincipal: loan.outstanding_principal, outstandingInterest: loan.outstanding_interest, status: loan.status, maturesAt: loan.matures_at }))
+  };
+}
+
+export async function applyLoan(classroomId: string, amount: number, installments: number) {
+  if (useMocks) return { applicationId: randomUUID(), status: "PENDING" };
+  const response = await apiRequest<{ application_id: string; status: string }>(`/classrooms/${classroomId}/loan-application-commands`, {
+    method: "POST", retryOnNetworkFailure: true, body: JSON.stringify({ command: "APPLY", amount, installments })
+  });
+  return { applicationId: response.application_id, status: response.status };
+}
+
 export async function createTrade(classroomId: string, counterpartStudentId: string, description: string, amount: number) {
   if (useMocks) return { tradeId: randomUUID(), status: "PENDING_COUNTERPART", stateVersion: 1 };
   const response = await apiRequest<{ trade_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/trades`, {
     method: "POST",
     retryOnNetworkFailure: true,
-    // expected_state_version is omitted on purpose: the server compares it with the
-    // classroom state version, which the student app never receives.
     body: JSON.stringify({
+      expected_state_version: 0,
       screen_id: "SCR-STU-010",
       ui_action_id: "UIA-TRD-001",
       client_occurred_at: now(),
@@ -158,11 +237,14 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
     quizSessionId,
     mode: "GAME",
     status: "OPEN",
-    questions: [{ resourceId: "mock-question", prompt: "소득세는 어디로 모이나요?", options: [
-      { optionId: "mock-wallet", label: "내 지갑" },
-      { optionId: "mock-public-fund", label: "우리 반 공동기금" },
-      { optionId: "mock-shop", label: "상점 주인" }
-    ] }]
+    questions: [
+      { resourceId: "mock-question-1", prompt: "내가 일해서 받는 돈을 무엇이라고 할까요?", options: [{ optionId: "q1-1", label: "세금" }, { optionId: "q1-2", label: "월급" }, { optionId: "q1-3", label: "이자" }, { optionId: "q1-4", label: "투자" }] },
+      { resourceId: "mock-question-2", prompt: "국가나 지역을 위해 내는 돈은 무엇일까요?", options: [{ optionId: "q2-1", label: "월급" }, { optionId: "q2-2", label: "이자" }, { optionId: "q2-3", label: "세금" }, { optionId: "q2-4", label: "저축" }] },
+      { resourceId: "mock-question-3", prompt: "매달 조금씩 돈을 모으는 금융 상품은 무엇일까요?", options: [{ optionId: "q3-1", label: "적금" }, { optionId: "q3-2", label: "대출" }, { optionId: "q3-3", label: "세금" }, { optionId: "q3-4", label: "소비" }] },
+      { resourceId: "mock-question-4", prompt: "돈을 빌린 뒤 함께 갚아야 하는 것은 무엇일까요?", options: [{ optionId: "q4-1", label: "이자" }, { optionId: "q4-2", label: "월급" }, { optionId: "q4-3", label: "재고" }, { optionId: "q4-4", label: "예금" }] },
+      { resourceId: "mock-question-5", prompt: "상품을 사기 전 가장 먼저 확인할 것은 무엇일까요?", options: [{ optionId: "q5-1", label: "가격과 내 잔액" }, { optionId: "q5-2", label: "친구 이름" }, { optionId: "q5-3", label: "화면 색깔" }, { optionId: "q5-4", label: "광고 문구" }] },
+      { resourceId: "mock-question-6", prompt: "투자에는 어떤 가능성이 함께 있을까요?", options: [{ optionId: "q6-1", label: "수익과 손실" }, { optionId: "q6-2", label: "항상 수익" }, { optionId: "q6-3", label: "항상 손실" }, { optionId: "q6-4", label: "변화 없음" }] }
+    ]
   };
   const response = await apiRequest<{
     quiz_session_id: string;
@@ -187,9 +269,8 @@ export async function submitQuizAnswer(classroomId: string, sessionId: string, q
   return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/game-answers`, {
     method: "POST",
     retryOnNetworkFailure: true,
-    // expected_state_version is omitted on purpose: the server compares it with the
-    // quiz session state version, which the student app never receives.
     body: JSON.stringify({
+      expected_state_version: 0,
       screen_id: "SCR-STU-021",
       ui_action_id: "UIA-QZ-005",
       client_occurred_at: now(),
@@ -212,7 +293,7 @@ export type Vote = {
 };
 
 export async function fetchVote(classroomId: string, voteId: string): Promise<Vote> {
-  if (useMocks) return { voteId, title: "공동기금 사용처 투표", description: "우리 반 공동기금을 어디에 쓸지 골라요.", status: "OPEN", stateVersion: 1, publicFundBalance: 340, hasVoted: false, options: [{ optionId: "mock-snack", label: "학급 간식", description: "다 같이 먹을 간식을 사요.", budgetAmount: 180 }] };
+  if (useMocks) return { voteId, title: "공동기금 사용처 투표", description: "우리 반 공동기금을 어디에 쓸지 골라요.", status: "OPEN", stateVersion: 1, publicFundBalance: 340, hasVoted: false, options: [{ optionId: "mock-snack", label: "간식 타임", description: "다 같이 먹을 간식을 준비해요.", budgetAmount: 180 }, { optionId: "mock-movie", label: "영화 보기", description: "우리 반이 함께 볼 영화를 골라요.", budgetAmount: 300 }] };
   const response = await apiRequest<{
     vote_id: string;
     title: string;
@@ -253,7 +334,14 @@ export async function fetchGuidedActivity(classroomId: string, activityId: strin
 export type InventoryItem = { resourceId: string; label: string; status: string; stateVersion: number; characterCode: string; equipped: boolean };
 
 export async function fetchInventory(classroomId: string): Promise<InventoryItem[]> {
-  if (useMocks) return [{ resourceId: "mock-cap", label: "탐험가 모자", status: "AVAILABLE", stateVersion: 1, characterCode: "HEAD_EXPLORER_CAP", equipped: false }];
+  if (useMocks) return [
+    { resourceId: "mock-cap", label: "빨간 캡", status: "AVAILABLE", stateVersion: 1, characterCode: "hat_red_cap", equipped: true },
+    { resourceId: "mock-hoodie", label: "노란 후드", status: "AVAILABLE", stateVersion: 1, characterCode: "top_yellow_hoodie", equipped: true },
+    { resourceId: "mock-overalls", label: "멜빵 바지", status: "AVAILABLE", stateVersion: 1, characterCode: "bottom_overalls", equipped: true },
+    { resourceId: "mock-sneakers", label: "운동화", status: "AVAILABLE", stateVersion: 1, characterCode: "shoes_sneakers", equipped: false },
+    { resourceId: "mock-backpack", label: "노란 배낭", status: "AVAILABLE", stateVersion: 1, characterCode: "back_backpack", equipped: false },
+    { resourceId: "mock-sunglasses", label: "선글라스", status: "AVAILABLE", stateVersion: 1, characterCode: "face_sunglasses", equipped: false }
+  ];
   const response = await apiRequest<{ inventory_items: Array<{ resource_id?: string; label?: string; status?: string; state_version?: number; character_code?: string; equipped?: boolean }> }>(`/classrooms/${classroomId}/students/me/inventory`);
   return response.inventory_items.flatMap((item) => item.resource_id ? [{
     resourceId: item.resource_id,
@@ -265,26 +353,17 @@ export async function fetchInventory(classroomId: string): Promise<InventoryItem
   }] : []);
 }
 
-export async function commandInventoryItem(
-  classroomId: string,
-  item: InventoryItem,
-  command: "EQUIP" | "UNEQUIP"
-) {
-  if (useMocks) return { equipped: command === "EQUIP" };
-  const response = await apiRequest<{ equipped?: boolean }>(
-    `/classrooms/${classroomId}/inventory-items/${item.resourceId}/commands`,
-    {
-      method: "POST",
-      retryOnNetworkFailure: true,
-      body: JSON.stringify({
-        // 서버가 인벤토리 항목의 state_version과 대조하므로 조회한 값을 그대로 보낸다.
-        expected_state_version: item.stateVersion,
-        screen_id: "SCR-STU-008",
-        ui_action_id: command === "EQUIP" ? "UIA-CHR-001" : "UIA-CHR-002",
-        client_occurred_at: now(),
-        command
-      })
-    }
-  );
-  return { equipped: response.equipped ?? command === "EQUIP" };
+export async function setInventoryEquipped(classroomId: string, item: InventoryItem, equipped: boolean) {
+  if (useMocks) return;
+
+  await apiRequest(`/classrooms/${classroomId}/inventory-items/${item.resourceId}/commands`, {
+    method: "POST",
+    body: JSON.stringify({
+      command: equipped ? "EQUIP" : "UNEQUIP",
+      expected_state_version: item.stateVersion,
+      screen_id: "SCR-STU-008",
+      ui_action_id: "UIA-ITM-001",
+      client_occurred_at: new Date().toISOString()
+    })
+  });
 }

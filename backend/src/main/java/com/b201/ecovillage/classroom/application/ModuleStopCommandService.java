@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.classroom.domain.ModuleStateTransition;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ModuleStateTransitionRepository;
@@ -286,7 +287,13 @@ public class ModuleStopCommandService {
                 "Module code and a stop reason are required."
             );
         }
-        return command.moduleCode().trim().toUpperCase(Locale.ROOT);
+        return ModuleCatalog.find(command.moduleCode())
+            .map(ModuleCatalog.Definition::code)
+            .orElseThrow(() -> operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "UNSUPPORTED_MODULE_CODE",
+                "The selected module is not supported."
+            ));
     }
 
     @SuppressWarnings("unchecked")

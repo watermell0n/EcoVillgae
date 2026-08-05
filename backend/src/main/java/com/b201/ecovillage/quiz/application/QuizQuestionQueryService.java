@@ -57,6 +57,7 @@ public class QuizQuestionQueryService {
             .orElseThrow();
         return new QuizQuestionView(
             question.getId(),
+            version.getId(),
             question.getTitle(),
             question.getStatus().name(),
             version.getVersion(),

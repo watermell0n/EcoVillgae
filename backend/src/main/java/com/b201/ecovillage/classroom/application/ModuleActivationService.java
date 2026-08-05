@@ -34,6 +34,7 @@ import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
@@ -133,6 +134,13 @@ public class ModuleActivationService {
                 HttpStatus.CONFLICT,
                 "CLASS_NOT_ACTIVE",
                 "Modules can be activated only in an active classroom."
+            );
+        }
+        if ("SAVINGS".equals(moduleCode) && classroom.getCourseSize() != CourseSize.SEMESTER) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE",
+                "정기적금 모듈은 한 학기 운영에서만 활성화할 수 있습니다."
             );
         }
         ClassroomModule module = moduleRepository

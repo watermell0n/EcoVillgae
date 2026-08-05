@@ -2,7 +2,7 @@ import { apiRequest } from "./client";
 
 export type StudentLoginPayload = {
   classroomCode: string;
-  attendanceNumber: number;
+  attendanceNumber?: number;
   nickname: string;
   password: string;
   deviceId: string;
@@ -39,7 +39,7 @@ export async function createStudentSession(payload: StudentLoginPayload): Promis
       classroomId: "mock-classroom",
       currencyName: import.meta.env.VITE_MOCK_CURRENCY_NAME ?? "비빔",
       walletBalance: 158,
-      studentId: `mock-student-${payload.attendanceNumber}`,
+      studentId: `mock-student-${payload.attendanceNumber ?? payload.nickname}`,
       role: "STU" as const
     });
   }
@@ -48,7 +48,7 @@ export async function createStudentSession(payload: StudentLoginPayload): Promis
     method: "POST",
     body: JSON.stringify({
       classroom_code: payload.classroomCode,
-      attendance_number: payload.attendanceNumber,
+      ...(payload.attendanceNumber == null ? {} : { attendance_number: payload.attendanceNumber }),
       nickname: payload.nickname,
       password: payload.password,
       device_id: payload.deviceId

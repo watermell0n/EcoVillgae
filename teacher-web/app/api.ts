@@ -1,6 +1,6 @@
 "use client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/backend-api";
 const REQUEST_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 20_000);
 
 let accessToken: string | null = null;
@@ -301,7 +301,7 @@ export async function getClassroomServerState(classroomId: string): Promise<Clas
   ]);
   const labels = ["학급 설정", "모듈·정책", "학생·급여"];
   const failures = results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []);
-  if (failures.length === results.length) {
+  if (results[0].status === "rejected") {
     const rejected = results[0] as PromiseRejectedResult;
     throw rejected.reason;
   }
@@ -396,6 +396,7 @@ export type QuizDraftOperationResponse = {
 
 export type QuizQuestion = {
   resource_id: string;
+  version_id: string;
   label: string;
   status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
   version: number;
@@ -597,7 +598,7 @@ export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
 
 export const MODULE_PREREQUISITES: Partial<Record<ModuleCode, ModuleCode[]>> = {
   INCOME_TAX: ["ROLE_SALARY"],
-  LOAN: ["DEPOSIT"]
+  LOAN: ["DEPOSIT", "CREDIT"]
 };
 
 export function periodToCourseSize(period: string): CourseSize {
@@ -608,6 +609,13 @@ export function periodToCourseSize(period: string): CourseSize {
 }
 
 export type CandidateUnit = SetupCandidate["unit"];
+
+export function courseSizeToPeriod(courseSize: CourseSize): string {
+  if (courseSize === "ONE_SESSION") return "1회 체험";
+  if (courseSize === "ONE_MONTH") return "1달 운영";
+  if (courseSize === "SEMESTER") return "1학기 운영";
+  return "1주 프로젝트";
+}
 
 export function valueForDisplay(value: number, unit: CandidateUnit) {
   return unit === "RATE_BPS" ? `${(value / 100).toFixed(2)}%` : value.toLocaleString("ko-KR");

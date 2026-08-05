@@ -44,7 +44,7 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
       refreshToken: "mock-refresh-token",
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       classroomId: `mock-classroom-${input.classroomCode}`,
-      studentId: `mock-student-${input.attendanceNumber}`,
+      studentId: `mock-student-${input.nickname}`,
       nickname: input.nickname,
       role: "STU"
     };
@@ -57,7 +57,6 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
     retryOnNetworkFailure: true,
     body: JSON.stringify({
       classroom_code: input.classroomCode,
-      attendance_number: input.attendanceNumber,
       nickname: input.nickname,
       password: input.password,
       device_id: input.deviceId

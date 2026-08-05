@@ -9,6 +9,6 @@ public record TeacherRegistrationRequest(
     @NotBlank @Pattern(regexp = "^[A-Za-z0-9-]{3,40}$") String schoolCode,
     @NotBlank @Size(max = 120) String displayName,
     @NotBlank @Email @Size(max = 254) String email,
-    @NotBlank @Size(min = 10, max = 72) String password
+    @NotBlank @Size(min = 4, max = 72) String password
 ) {
 }

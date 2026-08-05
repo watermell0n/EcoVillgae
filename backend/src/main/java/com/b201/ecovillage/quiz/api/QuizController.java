@@ -449,6 +449,7 @@ public class QuizController {
             .stream()
             .map(view -> new QuizQuestionResponse(
                 view.resourceId(),
+                view.versionId(),
                 view.label(),
                 view.status(),
                 view.version(),

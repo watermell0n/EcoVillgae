@@ -23,6 +23,7 @@ import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.identity.application.ClassroomNotActiveException;
 import com.b201.ecovillage.identity.application.InvalidCredentialsException;
 import com.b201.ecovillage.identity.application.InvalidLoginRequestException;
+import com.b201.ecovillage.identity.application.StudentRegistrationException;
 import com.b201.ecovillage.identity.application.LoginRateLimitedException;
 import com.b201.ecovillage.identity.application.TeacherAuthenticationException;
 import com.b201.ecovillage.identity.application.TeacherRegistrationException;
@@ -75,6 +76,21 @@ public class ApiExceptionHandler {
     @ExceptionHandler(TeacherRegistrationException.class)
     ResponseEntity<ApiErrorResponse> handleTeacherRegistration(
         TeacherRegistrationException exception,
+        HttpServletRequest request
+    ) {
+        return response(
+            exception.getStatus(),
+            exception.getCode(),
+            exception.getMessage(),
+            false,
+            List.of(),
+            request
+        );
+    }
+
+    @ExceptionHandler(StudentRegistrationException.class)
+    ResponseEntity<ApiErrorResponse> handleStudentRegistration(
+        StudentRegistrationException exception,
         HttpServletRequest request
     ) {
         return response(

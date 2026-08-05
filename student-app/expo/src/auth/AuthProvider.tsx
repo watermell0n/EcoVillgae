@@ -14,7 +14,6 @@ import type { StudentIdentity } from "./types";
 
 type LoginValues = {
   classroomCode: string;
-  attendanceNumber: number;
   nickname: string;
   password: string;
 };

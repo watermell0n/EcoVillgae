@@ -1,6 +1,6 @@
 # API·스키마 필드 정합성 검토
 
-- 기준일: 2026-07-30
+- 기준일: 2026-08-05
 - 대상: `contracts/openapi.yaml`, `contracts/api-field-mapping.json`, HTTP·데이터 모델·물리 스키마, Flyway `V1_1`~`V1_11`
 - 관련 이슈: `S15P11B201-160`
 - 판정: **PASS — MVP와 필수 지원 API의 DTO·저장 경계를 확정하고 후속 API를 명시적으로 분리함**
@@ -11,8 +11,8 @@
 
 | 분류 | 수 | 계약 수준 |
 | --- | ---: | --- |
-| `mvp-contract` | 79 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
-| `planned` | 31 | 소유권 이전, 학교 지급 기기, 플랫폼 설정·자격증명 등 후속 작업. 경로·권한·추적성은 유지하되 구현 스프린트에서 DTO 확정 |
+| `mvp-contract` | 89 | RTM의 `MVP` 요구사항과 로그인·세션·현재 사용자·비동기 상태 조회, 적금·대출·신용 등 필수 지원 작업. 요청·응답 최상위 DTO와 저장·조회 경계를 확정 |
+| `planned` | 21 | 소유권 이전, 학교 지급 기기, 플랫폼 설정·자격증명 등 후속 작업. 경로·권한·추적성은 유지하되 구현 스프린트에서 DTO 확정 |
 
 이 분류는 OpenAPI 각 operation의 `x-implementation-status`, `x-schema-closure`,
 `x-storage-targets`에 기록됩니다. 기계 판독 기준은
@@ -66,7 +66,7 @@ DBT-019는 양의 예상 학생 수, 역할 코드 유일성, 일정-모듈 학�
 
 ## 5. 후속 범위로 남긴 항목
 
-다음 31개 `planned` 작업은 누락이 아니라 의도적으로 구현 범위 밖에 둔 계약입니다.
+다음 21개 `planned` 작업은 누락이 아니라 의도적으로 구현 범위 밖에 둔 계약입니다.
 
 AI 구현 착수 전 계약 보완에서 밸런싱 적용 `API-AI-003`과 실행·제안 조회
 `API-READ-027`을 MVP strict 계약으로 승격했습니다. 경제 이벤트는 비동기 초안 생성
@@ -87,9 +87,9 @@ AI 구현 착수 전 계약 보완에서 밸런싱 적용 `API-AI-003`과 실행
 `scripts/validate-api-schema-consistency.mjs`는 다음을 검사합니다.
 
 - 작업 110개가 중복 없이 매핑됨
-- MVP·지원 작업 79개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
-- 후속 작업 31개는 `planned`로 명시됨
+- MVP·지원 작업 89개는 요청이 명시적이며 요청·응답이 strict 또는 본문 없음
+- 후속 작업 21개는 `planned`로 명시됨
 - 모든 MVP 작업에 PostgreSQL·View·Redis·외부 저장 경계가 존재함
 - V1_11의 4개 저장 보강과 임시 인증정보 키·TTL 규칙이 존재함
 
-현재 결과는 `110 operations, 79 strict MVP/support contracts, 31 planned contracts`로 PASS입니다.
+현재 결과는 `110 operations, 89 strict MVP/support contracts, 21 planned contracts`로 PASS입니다.
