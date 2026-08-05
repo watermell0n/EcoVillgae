@@ -60,6 +60,9 @@ type StudentRow = {
   role: string;
   salary: string;
   status: string;
+  // 학급 학생의 resource_id입니다. 퀴즈 세션 참여자 지정에 이 값이 필요합니다.
+  // 화면에서 새로 추가한 학생은 저장하기 전까지 값이 없습니다.
+  resourceId?: string;
 };
 
 type ModuleRow = {
@@ -519,7 +522,7 @@ export default function TeacherConsole() {
         }>;
       };
       const rosterState = (serverState.rosterAndSalaries ?? {}) as {
-        students?: Array<{ attendance_number?: number; nickname?: string; role_code?: string | null; status?: string; state_version?: number }>;
+        students?: Array<{ resource_id?: string; attendance_number?: number; nickname?: string; role_code?: string | null; status?: string; state_version?: number }>;
         salary_roles?: Array<{ role_code?: string; label?: string; gross_amount?: number; state_version?: number }>;
       };
       setSettings((current) => ({
@@ -568,7 +571,8 @@ export default function TeacherConsole() {
             nickname: student.nickname ?? "",
             role: salaryRole?.label ?? student.role_code ?? "",
             salary: String(salaryRole?.gross_amount ?? 0),
-            status: student.status ?? "정상"
+            status: student.status ?? "정상",
+            resourceId: student.resource_id
           };
         }));
       }
@@ -750,6 +754,7 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
               aiEnabled={aiSettings.enabled}
+              students={students}
             />
           )}
           {view === "control" && (

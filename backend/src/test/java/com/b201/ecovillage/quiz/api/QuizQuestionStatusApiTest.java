@@ -1,6 +1,7 @@
 package com.b201.ecovillage.quiz.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -28,10 +29,12 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
+import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 
@@ -60,13 +63,16 @@ class QuizQuestionStatusApiTest {
     @Autowired private UserAccountRepository userRepository;
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private ClassroomTeacherRepository teacherRepository;
+    @Autowired private ClassroomStudentRepository studentRepository;
 
     private UUID classroomId;
+    private UUID studentId;
     private Principal owner;
 
     @BeforeEach
     void setUp() {
         classroomId = UUID.randomUUID();
+        studentId = UUID.randomUUID();
         UUID teacherId = UUID.randomUUID();
         owner = () -> "quiz-question-owner-" + classroomId;
 
@@ -86,6 +92,13 @@ class QuizQuestionStatusApiTest {
             classroomId,
             teacherId,
             ClassroomTeacherRole.OWNER,
+            CREATED_AT
+        ));
+        studentRepository.save(ClassroomStudent.enroll(
+            studentId,
+            classroomId,
+            1,
+            "student",
             CREATED_AT
         ));
     }
@@ -167,6 +180,142 @@ class QuizQuestionStatusApiTest {
             .andExpect(jsonPath("$.data.questions[0].status").value("PUBLISHED"))
             .andExpect(jsonPath("$.data.questions[0].state_version")
                 .value(published.path("data").path("state_version").asLong()));
+    }
+
+    /**
+     * 교사 화면은 문제은행 조회 응답의 question_version_id로 퀴즈 세션을 시작한다.
+     * 이 값이 빠지면 승인·게시한 문항을 수업에 쓸 방법이 없다.
+     */
+    @Test
+    void startsAGameQuizSessionWithThePublishedQuestionVersionFromTheQuestionBank()
+        throws Exception {
+        UUID questionId = createQuestion();
+        JsonNode approved = statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "APPROVE",
+            questionStateVersion(questionId)
+        );
+        statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "PUBLISH",
+            approved.path("data").path("state_version").asLong()
+        );
+
+        MvcResult listed = mockMvc.perform(
+                get("/classrooms/{classroomId}/quiz-questions", classroomId)
+                    .principal(owner)
+            )
+            .andExpect(status().isOk())
+            .andReturn();
+        JsonNode question = objectMapper
+            .readTree(listed.getResponse().getContentAsByteArray())
+            .path("data")
+            .path("questions")
+            .path(0);
+        String questionVersionId = question.path("question_version_id").asText();
+        assertNotEquals("", questionVersionId, "question_version_id must be exposed");
+        assertEquals("PUBLISHED", question.path("status").asText());
+
+        UUID sessionId = UUID.randomUUID();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "START");
+        body.putArray("question_version_ids").add(questionVersionId);
+        body.putArray("participant_ids").add(studentId.toString());
+        body.put("mode", "GAME");
+        body.put("content_type", "ECONOMY");
+        body.putObject("reward_policy_public").put("reward_per_person", 50);
+        body.put("leaderboard_public", true);
+
+        UUID startKey = UUID.randomUUID();
+        MvcResult started = mockMvc.perform(post(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/commands",
+                classroomId,
+                sessionId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", startKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.quiz_resource_id").value(sessionId.toString()))
+            .andExpect(jsonPath("$.data.status").value("OPEN"))
+            .andReturn();
+
+        // 같은 키로 다시 보내면 같은 결과를 돌려주고 세션이 하나만 남아야 한다.
+        JsonNode first = objectMapper.readTree(
+            started.getResponse().getContentAsByteArray()
+        );
+        MvcResult replayed = mockMvc.perform(post(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/commands",
+                classroomId,
+                sessionId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", startKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andReturn();
+        assertEquals(
+            first.path("data"),
+            objectMapper.readTree(replayed.getResponse().getContentAsByteArray()).path("data")
+        );
+        assertEquals(
+            1,
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM quiz_sessions WHERE classroom_id = ?",
+                Integer.class,
+                classroomId
+            )
+        );
+        assertEquals(
+            1,
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM quiz_session_questions WHERE quiz_session_id = ?",
+                Integer.class,
+                sessionId
+            )
+        );
+    }
+
+    @Test
+    void refusesToStartASessionWithAQuestionThatIsNotPublished() throws Exception {
+        UUID questionId = createQuestion();
+        MvcResult listed = mockMvc.perform(
+                get("/classrooms/{classroomId}/quiz-questions", classroomId)
+                    .principal(owner)
+            )
+            .andExpect(status().isOk())
+            .andReturn();
+        String questionVersionId = objectMapper
+            .readTree(listed.getResponse().getContentAsByteArray())
+            .path("data").path("questions").path(0)
+            .path("question_version_id").asText();
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "START");
+        body.putArray("question_version_ids").add(questionVersionId);
+        body.putArray("participant_ids").add(studentId.toString());
+        body.put("mode", "GAME");
+        body.put("content_type", "ECONOMY");
+        body.putObject("reward_policy_public").put("reward_per_person", 50);
+        body.put("leaderboard_public", true);
+
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/commands",
+                classroomId,
+                UUID.randomUUID()
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_PUBLISHED"));
     }
 
     private UUID createQuestion() throws Exception {

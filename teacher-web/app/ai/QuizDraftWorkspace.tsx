@@ -2,14 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertTriangle, Bot, Check, CheckCircle2, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, Check, CheckCircle2, LoaderCircle, Play, RefreshCw, Sparkles } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
-import type { QuizDraftOperationResponse, QuizQuestion } from "../api";
+import type { QuizDraftOperationResponse, QuizQuestion, QuizSessionCommandResponse } from "../api";
 
 type QuestionStatusResponse = {
   quiz_resource_id: string;
   status: QuizQuestion["status"];
   state_version: number;
+};
+
+type QuizStudent = {
+  resourceId?: string;
+  attendance: string;
+  nickname: string;
 };
 
 const STATUS_LABEL: Record<QuizQuestion["status"], string> = {
@@ -30,14 +36,28 @@ function quizErrorMessage(error: unknown) {
   return error.message;
 }
 
+function sessionErrorMessage(error: unknown) {
+  if (!(error instanceof ApiError)) return "퀴즈를 시작하지 못했어요. 서버 연결을 확인해 주세요.";
+  if (error.code === "QUESTION_NOT_PUBLISHED") return "게시되지 않았거나 분류가 다른 문항이 포함됐어요. 문제은행을 새로고침해 주세요.";
+  if (error.code === "PARTICIPANT_NOT_FOUND") return "학생 명단이 바뀌었어요. 새로고침한 뒤 다시 시작해 주세요.";
+  if (error.code === "QUIZ_SESSION_ALREADY_EXISTS") return "이미 시작된 퀴즈예요. 잠시 후 다시 시도해 주세요.";
+  if (error.code === "AMBIGUOUS_ANSWER") return "정답이 하나가 아닌 문항이 있어요. 문항을 수정한 뒤 다시 시작해 주세요.";
+  if (error.code === "PUBLIC_DATA_ONLY") return "평가형 퀴즈는 순위를 공개할 수 없어요.";
+  if (error.code === "CLASS_NOT_ACTIVE") return "학급이 활성 상태일 때만 퀴즈를 시작할 수 있어요.";
+  if (error.status === 403) return "퀴즈 시작은 담당 교사만 실행할 수 있어요.";
+  return error.message;
+}
+
 export function QuizDraftWorkspace({
   classroomId,
   initialGrade,
-  aiEnabled
+  aiEnabled,
+  students
 }: Readonly<{
   classroomId: string;
   initialGrade: number;
   aiEnabled: boolean;
+  students: readonly QuizStudent[];
 }>) {
   const [grade, setGrade] = useState(initialGrade);
   const [topic, setTopic] = useState("합리적인 소비");
@@ -53,6 +73,14 @@ export function QuizDraftWorkspace({
   const [changingId, setChangingId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [selectedVersionIds, setSelectedVersionIds] = useState<string[]>([]);
+  const [sessionMode, setSessionMode] = useState<"GAME" | "TEST">("GAME");
+  const [rewardPerPerson, setRewardPerPerson] = useState("0");
+  const [leaderboardPublic, setLeaderboardPublic] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [startedSession, setStartedSession] = useState<{ id: string; mode: string } | null>(null);
+  const [sessionError, setSessionError] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
 
   useEffect(() => setGrade(initialGrade), [initialGrade]);
 
@@ -77,6 +105,10 @@ export function QuizDraftWorkspace({
     setGeneratedIds(new Set());
     setMessage("");
     setError("");
+    setSelectedVersionIds([]);
+    setStartedSession(null);
+    setSessionError("");
+    setSessionMessage("");
     void loadQuestions();
   }, [classroomId, loadQuestions]);
 
@@ -84,6 +116,97 @@ export function QuizDraftWorkspace({
     if (showAll || generatedIds.size === 0) return questions;
     return questions.filter((question) => generatedIds.has(question.resource_id));
   }, [generatedIds, questions, showAll]);
+
+  // 세션 시작에 쓸 수 있는 문항은 게시된 것만입니다. 서버도 같은 조건을 검사합니다.
+  const publishedQuestions = useMemo(
+    () => questions.filter((question) => question.status === "PUBLISHED"),
+    [questions]
+  );
+
+  // 목록이 새로 오면 이제 게시 상태가 아닌 문항의 선택은 버립니다.
+  useEffect(() => {
+    setSelectedVersionIds((current) => current.filter((versionId) => (
+      publishedQuestions.some((question) => question.question_version_id === versionId)
+    )));
+  }, [publishedQuestions]);
+
+  const selectedQuestions = useMemo(
+    () => publishedQuestions.filter(
+      (question) => selectedVersionIds.includes(question.question_version_id)
+    ),
+    [publishedQuestions, selectedVersionIds]
+  );
+
+  // 한 세션의 문항은 분류(경제/넌센스)가 모두 같아야 합니다. 서버가 다르면 거절합니다.
+  const selectedContentTypes = useMemo(
+    () => [...new Set(selectedQuestions.map((question) => question.content_type))],
+    [selectedQuestions]
+  );
+  const mixedContentTypes = selectedContentTypes.length > 1;
+  const participantIds = useMemo(
+    () => students.flatMap((student) => student.resourceId ? [student.resourceId] : []),
+    [students]
+  );
+  const rewardValue = Number(rewardPerPerson);
+  const invalidReward = sessionMode === "GAME"
+    && (!Number.isInteger(rewardValue) || rewardValue < 0);
+  const canStart = !starting
+    && selectedQuestions.length > 0
+    && !mixedContentTypes
+    && participantIds.length > 0
+    && !invalidReward;
+
+  function toggleQuestion(versionId: string) {
+    setSessionError("");
+    setSessionMessage("");
+    setSelectedVersionIds((current) => current.includes(versionId)
+      ? current.filter((item) => item !== versionId)
+      : [...current, versionId]);
+  }
+
+  async function startSession() {
+    if (!canStart) return;
+    setStarting(true);
+    setSessionError("");
+    setSessionMessage("");
+    const sessionId = crypto.randomUUID();
+    try {
+      const response = await apiRequest<QuizSessionCommandResponse>(
+        `/classrooms/${classroomId}/quiz-sessions/${sessionId}/commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: 0,
+            screen_id: "SCR-WEB-018",
+            ui_action_id: "UIA-QZ-004",
+            client_occurred_at: new Date().toISOString(),
+            command: "START",
+            question_version_ids: selectedVersionIds,
+            participant_ids: participantIds,
+            mode: sessionMode,
+            content_type: selectedContentTypes[0],
+            // 평가형 퀴즈에는 금전 보상과 순위 공개가 없습니다.
+            reward_policy_public: sessionMode === "GAME"
+              ? { reward_per_person: rewardValue }
+              : {},
+            leaderboard_public: sessionMode === "GAME" && leaderboardPublic
+          })
+        }
+      );
+      setStartedSession({ id: response.quiz_resource_id, mode: sessionMode });
+      setSelectedVersionIds([]);
+      setSessionMessage(
+        `${selectedQuestions.length}개 문항으로 ${sessionMode === "GAME" ? "게임형" : "평가형"} 퀴즈를 시작했어요. 학생 화면에 문제가 열렸습니다.`
+      );
+    } catch (caught) {
+      setSessionError(sessionErrorMessage(caught));
+      if (caught instanceof ApiError && caught.code === "QUESTION_NOT_PUBLISHED") {
+        await loadQuestions(true);
+      }
+    } finally {
+      setStarting(false);
+    }
+  }
 
   async function generateDrafts(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -276,6 +399,124 @@ export function QuizDraftWorkspace({
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="plain-section">
+        <div className="section-title">
+          <span className="section-kicker">수업 진행</span>
+          <h2>퀴즈 시작</h2>
+          <p>게시된 문항 중 이번 수업에 쓸 문항을 고르면 학생 화면에 문제가 열립니다.</p>
+        </div>
+
+        {publishedQuestions.length === 0 ? (
+          <p className="empty-copy">
+            게시된 문항이 없어요. 위에서 문항을 승인하고 &quot;문제은행에 게시&quot;까지 하면 여기에 나타납니다.
+          </p>
+        ) : (
+          <div className="quiz-start">
+            <div className="quiz-start-picker">
+              <div className="quiz-start-picker-head">
+                <strong>문항 선택</strong>
+                <span>{selectedQuestions.length} / {publishedQuestions.length}개 선택</span>
+              </div>
+              <ul>
+                {publishedQuestions.map((question) => {
+                  const checked = selectedVersionIds.includes(question.question_version_id);
+                  return (
+                    <li key={question.question_version_id}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={starting}
+                          onChange={() => toggleQuestion(question.question_version_id)}
+                        />
+                        <span className="quiz-start-prompt">{question.prompt}</span>
+                        <small>{question.content_type === "ECONOMY" ? "경제" : "넌센스"} · {question.question_type === "OX" ? "OX" : "객관식"}</small>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="quiz-start-form">
+              <label>운영 방식
+                <select value={sessionMode} disabled={starting} onChange={(event) => {
+                  setSessionMode(event.target.value as "GAME" | "TEST");
+                  setSessionError("");
+                  setSessionMessage("");
+                }}>
+                  <option value="GAME">게임형 · 점수와 보상이 있어요</option>
+                  <option value="TEST">평가형 · 결과를 공개하지 않아요</option>
+                </select>
+              </label>
+              {sessionMode === "GAME" ? (
+                <>
+                  <label>1인 참여 보상
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={rewardPerPerson}
+                      disabled={starting}
+                      onChange={(event) => setRewardPerPerson(event.target.value)}
+                    />
+                    {invalidReward ? <em className="quiz-start-invalid">0 이상의 정수로 입력해 주세요.</em> : null}
+                  </label>
+                  <label className="quiz-start-toggle">
+                    <input
+                      type="checkbox"
+                      checked={leaderboardPublic}
+                      disabled={starting}
+                      onChange={(event) => setLeaderboardPublic(event.target.checked)}
+                    />
+                    순위를 학생에게 공개
+                  </label>
+                </>
+              ) : (
+                <p className="section-description">평가형 퀴즈는 보상과 순위 공개가 없습니다.</p>
+              )}
+              <dl className="quiz-start-summary">
+                <div><dt>참여 학생</dt><dd>{participantIds.length}명</dd></div>
+                <div>
+                  <dt>문항 분류</dt>
+                  <dd>{selectedContentTypes.length === 0
+                    ? "-"
+                    : mixedContentTypes
+                      ? "섞여 있음"
+                      : selectedContentTypes[0] === "ECONOMY" ? "경제" : "넌센스"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {mixedContentTypes ? (
+              <div className="inline-error" role="alert">
+                한 퀴즈에는 같은 분류의 문항만 넣을 수 있어요. 경제와 넌센스 중 하나만 골라 주세요.
+              </div>
+            ) : null}
+            {participantIds.length === 0 ? (
+              <div className="inline-notice">
+                <AlertTriangle size={17} /> 참여할 학생이 없어요. 학생·급여 화면에서 명단을 저장한 뒤 다시 시도해 주세요.
+              </div>
+            ) : null}
+            {sessionMessage ? <div className="inline-notice" role="status"><Check size={17} /> {sessionMessage}</div> : null}
+            {sessionError ? <div className="inline-error" role="alert">{sessionError}</div> : null}
+            {startedSession ? (
+              <dl className="quiz-start-summary">
+                <div>
+                  <dt>방금 시작한 퀴즈 세션 ID</dt>
+                  <dd className="quiz-session-id">{startedSession.id}</dd>
+                </div>
+              </dl>
+            ) : null}
+
+            <button type="button" className="wide-action" disabled={!canStart} onClick={() => void startSession()}>
+              {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
+              {starting ? "퀴즈를 여는 중" : "학생 화면에 퀴즈 열기"}
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

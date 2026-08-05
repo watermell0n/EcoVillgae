@@ -399,6 +399,8 @@ export type QuizQuestion = {
   label: string;
   status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
   version: number;
+  // 퀴즈 세션 시작은 문항이 아니라 문항 버전 id로 문항을 지정합니다.
+  question_version_id: string;
   state_version: number;
   content_type: "ECONOMY" | "NONSENSE";
   question_type: "MULTIPLE_CHOICE" | "OX";
@@ -413,6 +415,12 @@ export type QuizQuestion = {
     correct: boolean;
     sort_order: number;
   }>;
+};
+
+export type QuizSessionCommandResponse = {
+  quiz_resource_id: string;
+  status: string;
+  state_version: number;
 };
 
 export type ModuleActivationResponse = {
