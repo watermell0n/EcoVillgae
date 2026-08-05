@@ -259,8 +259,10 @@ export async function purchaseStoreItem(
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({
-      screen_id: "SCR-STU-SHOP",
-      ui_action_id: "BUY_PRODUCT",
+      // 계약(API-SHP-002)이 요구하는 형식은 `^SCR-[A-Z]+-\d{3}$` / `^UIA-[A-Z]+-\d{3}$`다.
+      // "SCR-STU-SHOP"·"BUY_PRODUCT"는 형식을 벗어나 스키마 검증에서 걸린다.
+      screen_id: "SCR-STU-007",
+      ui_action_id: "UIA-SHP-002",
       client_occurred_at: now(),
       product_id: productId,
       quantity,
