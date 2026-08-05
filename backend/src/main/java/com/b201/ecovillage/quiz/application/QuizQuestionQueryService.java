@@ -61,6 +61,7 @@ public class QuizQuestionQueryService {
             question.getTitle(),
             question.getStatus().name(),
             version.getVersion(),
+            version.getId(),
             question.getStateVersion(),
             version.getContentType(),
             version.getQuestionType(),

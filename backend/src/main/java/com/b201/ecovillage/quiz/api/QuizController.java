@@ -453,6 +453,7 @@ public class QuizController {
                 view.label(),
                 view.status(),
                 view.version(),
+                view.questionVersionId(),
                 view.stateVersion(),
                 view.contentType(),
                 view.questionType(),

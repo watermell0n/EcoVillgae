@@ -56,4 +56,23 @@ public class SavingsInstallment {
         return new SavingsInstallment(id, classroomId, accountId, number, amount, dueAt, retryableUntil,
             "SCHEDULED", null, null, createdAt);
     }
+
+    public UUID getId() { return id; }
+    public UUID getSavingsAccountId() { return savingsAccountId; }
+    public long getScheduledAmount() { return scheduledAmount; }
+    public Instant getDueAt() { return dueAt; }
+    public Instant getRetryableUntil() { return retryableUntil; }
+    public String getStatus() { return status; }
+
+    public void pay(UUID groupId, Instant paidAt) {
+        if (!"SCHEDULED".equals(status)) throw new IllegalStateException("only scheduled installment can be paid");
+        transactionGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
+        this.paidAt = Objects.requireNonNull(paidAt, "paidAt must not be null");
+        status = "PAID"; statusChangedAt = paidAt; updatedAt = paidAt;
+    }
+
+    public void miss(Instant changedAt) {
+        if (!"SCHEDULED".equals(status)) throw new IllegalStateException("only scheduled installment can be missed");
+        status = "MISSED"; statusChangedAt = changedAt; updatedAt = changedAt;
+    }
 }

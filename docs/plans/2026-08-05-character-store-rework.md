@@ -37,7 +37,7 @@ const readyItems = useMemo(() => items.filter(hasReadyAsset), [items]);
 
 ### 2-2. 상품 데이터 — 설명과 노출 순서
 
-`V1_22__character_store_descriptions_and_order.sql`이 64종의 `description`과
+`V1_24__character_store_descriptions_and_order.sql`이 64종의 `description`과
 `sort_order`를 채운다. 프론트에 공통 문구를 하드코딩하지 않는다.
 
 `sort_order`는 상점 '추천' 첫 화면에 기본 코디 한 벌(모자·상의·하의·신발·배경·등장식)이

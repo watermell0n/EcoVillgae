@@ -193,6 +193,35 @@ class ClassroomCreationApiTest {
     }
 
     @Test
+    void rejectsSavingsOutsideASemesterCourse() throws Exception {
+        String body = """
+            {
+              "school_id": "%s",
+              "currency_name": "ECO",
+              "grade": 5,
+              "course_size": "ONE_MONTH",
+              "starts_on": "2026-08-01",
+              "ends_on": "2026-08-31",
+              "student_count": 24,
+              "timezone": "Asia/Seoul",
+              "module_codes": ["SAVINGS"]
+            }
+            """.formatted(schoolId);
+
+        mockMvc.perform(
+            post("/classrooms")
+                .principal(principal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+        )
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE"));
+
+        assertEquals(0, classroomRepository.count());
+    }
+
+    @Test
     void canonicalizesLegacyModuleAliasesBeforePersistenceAndOutput() throws Exception {
         String body = """
             {

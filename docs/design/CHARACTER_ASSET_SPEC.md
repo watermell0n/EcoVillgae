@@ -936,7 +936,7 @@ Expo에서 슬롯 전체가 작동하지 않던 12종을 배포했다.
        assetMap.ts       require 삭제
 모의   characterApi.ts mockOwned / expo store·student api
 도구   lib/palette.js 램프, render-audit.js basic 코디
-DB     V1_23__retire_bottom_overalls.sql
+DB     V1_25__retire_bottom_overalls.sql
 ```
 
 슬롯 자체는 남긴다. `top_spacesuit`·`top_wizard_robe`·`top_fantasy_armor`·`top_dinosaur`가

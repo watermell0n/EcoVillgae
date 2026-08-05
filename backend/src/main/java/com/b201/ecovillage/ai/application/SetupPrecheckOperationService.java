@@ -308,8 +308,9 @@ public class SetupPrecheckOperationService {
 
     private RuleEngineRequest ruleRequest(Classroom classroom, SetupPrecheckInput input) {
         Set<String> activeModules = moduleRepository
-            .findAllByClassroomIdAndStatusOrderByModuleCode(classroom.getId(), "ACTIVE")
+            .findAllByClassroomIdOrderByModuleCode(classroom.getId())
             .stream()
+            .filter(module -> Set.of("ACTIVE", "PENDING_CONFIGURATION").contains(module.getStatus()))
             .map(ClassroomModule::getModuleCode)
             .collect(Collectors.toSet());
         RuleEngineRequest.Builder builder = RuleEngineRequest.builder(

@@ -20,6 +20,7 @@ import com.b201.ecovillage.ruleengine.domain.ProductKind;
 import com.b201.ecovillage.ruleengine.domain.QuizCategory;
 import com.b201.ecovillage.ruleengine.domain.QuizMode;
 import com.b201.ecovillage.ruleengine.domain.RuleCandidate;
+import com.b201.ecovillage.ruleengine.domain.RuleCheck;
 import com.b201.ecovillage.ruleengine.domain.RuleContextType;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineRequest;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineResult;
@@ -604,6 +605,125 @@ class RuleEngineServiceTest {
         assertEquals(recommendedMax, candidate.recommendedMaxValue());
         assertEquals(allowedMin, candidate.allowedMinValue());
         assertEquals(allowedMax, candidate.allowedMaxValue());
+    }
+
+    // --- 예금 기준금리: 운영 기간에 따라 달라지고 학년은 쓰지 않는다 ---
+
+    @ParameterizedTest
+    @CsvSource({
+        // 운영 일수, 제안값, 추천 하한, 추천 상한
+        "1, 500, 400, 600",
+        "7, 500, 400, 600",
+        "8, 300, 200, 400",
+        "30, 300, 200, 400",
+        "31, 300, 200, 400",
+        "32, 200, 100, 300",
+        "90, 200, 100, 300",
+        "91, 150, 100, 250",
+        "180, 150, 100, 250"
+    })
+    void depositRateFollowsTheOperationPeriod(
+        int operationDays,
+        long proposed,
+        long recommendedMin,
+        long recommendedMax
+    ) {
+        RuleEngineResult result = depositResult(5, operationDays);
+
+        assertCandidate(
+            result,
+            RuleTargetType.DEPOSIT_RATE,
+            proposed,
+            recommendedMin,
+            recommendedMax,
+            100L,
+            600L
+        );
+        assertEquals(RuleSeverity.PASS, result.overallSeverity());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"4", "5", "6"})
+    void depositRateIgnoresTheGrade(int grade) {
+        assertEquals(500L, onlyCandidate(depositResult(grade, 5)).proposedValue());
+        assertEquals(300L, onlyCandidate(depositResult(grade, 20)).proposedValue());
+        assertEquals(200L, onlyCandidate(depositResult(grade, 60)).proposedValue());
+        assertEquals(150L, onlyCandidate(depositResult(grade, 120)).proposedValue());
+    }
+
+    @Test
+    void depositRateExplainsItsBasisToTheTeacher() {
+        RuleEngineResult result = depositResult(5, 31);
+
+        assertReason(result, "DEPOSIT_RATE_BASIS");
+        RuleCheck basis = result.checks().stream()
+            .filter(check -> check.reasonCode().equals("DEPOSIT_RATE_BASIS"))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(RuleSeverity.PASS, basis.severity());
+        assertEquals("운영 기간 31일을 기준으로 3.00%를 추천했습니다.", basis.message());
+        assertEquals(List.of("deposit-rate"), basis.subjectActionIds());
+    }
+
+    @Test
+    void depositRateFallsBackToTheMonthlyBaseWhenThePeriodIsUnknown() {
+        RuleEngineResult result = service.evaluate(
+            RuleEngineRequest.builder(RuleContextType.MODULE_ACTIVATION, 5, null, null)
+                .moduleActivation(module("DEPOSIT", null, null))
+                .build()
+        );
+
+        assertEquals(300L, onlyCandidate(result).proposedValue());
+        // 기간이 없으면 공통 검증이 이미 차단하므로 예금 규칙이 따로 막지는 않는다.
+        assertEquals(RuleSeverity.BLOCK, result.overallSeverity());
+        assertReason(result, "REQUIRED_VALUE_MISSING");
+    }
+
+    /**
+     * 대출 허용 구간은 예금 금리에서 파생되므로, 예금이 만들 수 있는 모든 값에서
+     * 대출 활성화가 BLOCK되지 않아야 한다.
+     */
+    @ParameterizedTest
+    @CsvSource({"100", "150", "200", "300", "500", "600"})
+    void everyDepositRateKeepsLoanActivationUnblocked(int depositRateBps) {
+        RuleEngineResult loan = service.evaluate(
+            base(RuleContextType.MODULE_ACTIVATION)
+                .activeModules(Set.of("DEPOSIT"))
+                .moduleActivation(module("LOAN", null, depositRateBps))
+                .build()
+        );
+
+        assertEquals(RuleSeverity.PASS, loan.overallSeverity());
+        RuleCandidate candidate = onlyCandidate(loan);
+        assertEquals(depositRateBps + 200L, candidate.allowedMinValue());
+        assertTrue(
+            candidate.proposedValue() >= candidate.allowedMinValue()
+                && candidate.proposedValue() <= candidate.allowedMaxValue(),
+            () -> "loan proposal out of allowed range for deposit " + depositRateBps
+        );
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1", "7", "8", "31", "32", "90", "91", "180"})
+    void depositProposalStaysInsideTheRangeLoanRulesExpect(int operationDays) {
+        RuleCandidate candidate = onlyCandidate(depositResult(5, operationDays));
+
+        assertTrue(candidate.proposedValue() >= 100L, "deposit proposal below loan floor");
+        assertTrue(candidate.proposedValue() <= 600L, "deposit proposal above loan ceiling");
+        assertEquals(0L, candidate.proposedValue() % 50L, "deposit proposal must round to 50 bps");
+    }
+
+    private RuleEngineResult depositResult(int grade, int operationDays) {
+        return service.evaluate(
+            RuleEngineRequest.builder(
+                    RuleContextType.MODULE_ACTIVATION,
+                    grade,
+                    START,
+                    START.plusDays(operationDays - 1L)
+                )
+                .moduleActivation(module("DEPOSIT", null, null))
+                .build()
+        );
     }
 
     private static void assertReason(RuleEngineResult result, String reasonCode) {

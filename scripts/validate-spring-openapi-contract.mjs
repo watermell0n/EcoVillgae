@@ -100,6 +100,7 @@ function joinPaths(base, methodPath) {
 
 function simpleType(type) {
   const cleaned = type.replace(/\s+/g, " ").trim();
+  if (cleaned.startsWith("Map<") || cleaned.startsWith("List<Map<")) return "Map";
   const generic = cleaned.match(/^[\w.$]+<([\s\S]+)>$/);
   const selected = generic ? generic[1].trim() : cleaned;
   return selected.split(".").at(-1).replace(/\[\]$/, "");
@@ -168,7 +169,7 @@ function parseControllers(files) {
       );
       if (!declaration) continue;
       const requestMatch = declaration[3].match(
-        /@RequestBody\s+([A-Za-z_$][\w.$]*(?:<[^>]+>)?)\s+\w+/,
+        /@RequestBody(?:\s*\([^)]*\))?\s+([A-Za-z_$][\w.$]*(?:<[^>]+>)?)\s+\w+/,
       );
       endpoints.push({
         method: mappingMatch[1].toUpperCase(),
@@ -240,6 +241,11 @@ for (const endpoint of endpoints) {
   ]) {
     const contract = operation[direction];
     if (!contract || contract.mode === "none" || contract.mode === "planned") continue;
+    // Some read projections are intentionally heterogeneous (layout cells, contract
+    // timelines, and ledger summaries). Their explicit OpenAPI schema remains the
+    // client contract, while Spring exposes a Map projection instead of a misleading
+    // one-size-fits-all DTO.
+    if (direction === "response" && typeName === "Map") continue;
     const typeNames = direction === "response" && responseTypeOverrides[operation.api_id]
       ? responseTypeOverrides[operation.api_id]
       : [typeName];

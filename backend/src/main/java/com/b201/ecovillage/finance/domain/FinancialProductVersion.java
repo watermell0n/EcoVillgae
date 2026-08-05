@@ -122,6 +122,9 @@ public class FinancialProductVersion {
         ) {
             throw new IllegalArgumentException("savings installment terms are invalid");
         }
+        if (productType == FinancialProductType.SAVINGS && termUnits != installmentCount * 7) {
+            throw new IllegalArgumentException("savings installments must be scheduled weekly");
+        }
         this.installmentCount = installmentCount;
         this.installmentAmount = installmentAmount;
         this.minimumAmount = minimumAmount;

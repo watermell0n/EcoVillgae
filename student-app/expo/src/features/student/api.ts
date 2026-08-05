@@ -57,10 +57,14 @@ export type FinancialProduct = {
   installmentAmount?: number;
 };
 
+// 서버(FinancialProduct)의 상태값은 DRAFT / PUBLISHED / STOPPED 입니다.
+// 학생이 가입할 수 있는 상품은 PUBLISHED 하나뿐이므로 목 데이터도 같은 값을 씁니다.
+export const SUBSCRIBABLE_PRODUCT_STATUS = "PUBLISHED";
+
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
-    { resourceId: "mock-deposit-product", label: "3일 예금", status: "ACTIVE", version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
-    { resourceId: "mock-savings-product", label: "매일 적금", status: "ACTIVE", version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
+    { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
+    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
   ];
 
   const response = await apiRequest<{
@@ -162,6 +166,43 @@ export async function subscribeSavings(classroomId: string, product: FinancialPr
     })
   });
   return { financialResourceId: response.financial_resource_id, status: response.status, stateVersion: response.state_version };
+}
+
+export type LoanOverview = {
+  creditScore: number;
+  creditLevel: string;
+  availableLimit: number;
+  interestRateBps: number;
+  termUnits: number;
+  installmentCount: number;
+  canApply: boolean;
+  pendingApplicationId: string | null;
+  pendingApplicationStatus: string | null;
+  loans: Array<{ loanId: string; principalAmount: number; outstandingPrincipal: number; outstandingInterest: number; status: string; maturesAt: string }>;
+};
+
+export async function fetchLoanOverview(classroomId: string): Promise<LoanOverview> {
+  if (useMocks) return { creditScore: 600, creditLevel: "NORMAL", availableLimit: 240, interestRateBps: 700, termUnits: 28, installmentCount: 4, canApply: true, pendingApplicationId: null, pendingApplicationStatus: null, loans: [] };
+  const response = await apiRequest<{
+    credit_score: number; credit_level: string; available_limit: number; interest_rate_bps: number;
+    term_units: number; installment_count: number; can_apply: boolean;
+    pending_application_id: string | null; pending_application_status: string | null;
+    loans: Array<{ loan_id: string; principal_amount: number; outstanding_principal: number; outstanding_interest: number; status: string; matures_at: string }>;
+  }>(`/classrooms/${classroomId}/students/me/loans-and-credit`);
+  return {
+    creditScore: response.credit_score, creditLevel: response.credit_level, availableLimit: response.available_limit,
+    interestRateBps: response.interest_rate_bps, termUnits: response.term_units, installmentCount: response.installment_count,
+    canApply: response.can_apply, pendingApplicationId: response.pending_application_id, pendingApplicationStatus: response.pending_application_status,
+    loans: response.loans.map((loan) => ({ loanId: loan.loan_id, principalAmount: loan.principal_amount, outstandingPrincipal: loan.outstanding_principal, outstandingInterest: loan.outstanding_interest, status: loan.status, maturesAt: loan.matures_at }))
+  };
+}
+
+export async function applyLoan(classroomId: string, amount: number, installments: number) {
+  if (useMocks) return { applicationId: randomUUID(), status: "PENDING" };
+  const response = await apiRequest<{ application_id: string; status: string }>(`/classrooms/${classroomId}/loan-application-commands`, {
+    method: "POST", retryOnNetworkFailure: true, body: JSON.stringify({ command: "APPLY", amount, installments })
+  });
+  return { applicationId: response.application_id, status: response.status };
 }
 
 export async function createTrade(classroomId: string, counterpartStudentId: string, description: string, amount: number) {

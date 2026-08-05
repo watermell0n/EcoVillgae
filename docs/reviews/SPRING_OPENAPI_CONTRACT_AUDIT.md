@@ -16,16 +16,17 @@
 
 | 항목 | 수 |
 | --- | ---: |
-| OpenAPI 작업 | 109 |
-| Spring 엔드포인트 | 60 |
-| OpenAPI와 연결된 Spring 엔드포인트 | 60 |
-| 기준선에 기록한 차이 | 0 |
+| OpenAPI 작업 | 132 |
+| Spring 엔드포인트 | 98 |
+| OpenAPI와 연결된 Spring 엔드포인트 | 96 |
+| 기준선에 기록한 차이 | 2 |
 
 ## 현재 차이
 
 | 종류 | API/경로 | 상세 |
 | --- | --- | --- |
-| 없음 | - | - |
+| SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-password-sessions | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherPasswordSessionController.java#create |
+| SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-registrations | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherRegistrationController.java#create |
 
 ## 담당 작업 연결
 
