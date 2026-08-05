@@ -10,6 +10,7 @@ import {
   fetchDepositAndSavings,
   fetchFinancialProducts,
   fetchActiveModuleCodes,
+  fetchActiveQuizSessionId,
   fetchGuidedActivity,
   fetchInvestmentModuleState,
   fetchQuizQuestions,
@@ -218,7 +219,10 @@ function App() {
       try {
         // Module availability must recover independently. A stopped module can make one of
         // its feature queries fail, but that must not keep the old menu state on screen.
-        const moduleCodes = await fetchActiveModuleCodes(activeClassroomId);
+        const [moduleCodes, moduleQuizSessionId] = await Promise.all([
+          fetchActiveModuleCodes(activeClassroomId),
+          fetchActiveQuizSessionId(activeClassroomId)
+        ]);
         if (ignore) {
           return;
         }
@@ -236,12 +240,11 @@ function App() {
           fetchDepositAndSavings(activeClassroomId),
           fetchFinancialProducts(activeClassroomId),
           fetchQuizQuestions(activeClassroomId),
-          fetchQuizSession(
-            activeClassroomId,
-            activeRealtimeActivityForClass?.activityType === "QUIZ"
-              ? activeRealtimeActivityForClass.activityId
-              : undefined
-          ),
+          activeRealtimeActivityForClass?.activityType === "QUIZ"
+            ? fetchQuizSession(activeClassroomId, activeRealtimeActivityForClass.activityId)
+            : moduleQuizSessionId
+              ? fetchQuizSession(activeClassroomId, moduleQuizSessionId)
+              : Promise.resolve(null),
           fetchVote(
             activeClassroomId,
             activeRealtimeActivityForClass?.activityType === "VOTE"

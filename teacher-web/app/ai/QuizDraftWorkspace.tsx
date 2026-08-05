@@ -189,16 +189,18 @@ export function QuizDraftWorkspace({
   // 서버가 알려 주는 진행 중 세션을 우선 쓰고, 아직 반영 전이면 방금 시작한 세션을 씁니다.
   const openSessionId = activeQuizSessionId || startedSession?.id || "";
   const rewardValue = Number(rewardPerPerson);
+  const hasOpenSession = Boolean(openSessionId);
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
   const canStart = !starting
+    && !hasOpenSession
     && selectedQuestions.length > 0
     && !mixedContentTypes
     && participantIds.length > 0
     && !invalidReward;
 
   function toggleQuestion(versionId: string) {
-    if (openedVersionIds.includes(versionId)) return;
+    if (hasOpenSession || openedVersionIds.includes(versionId)) return;
     setSessionError("");
     setSessionMessage("");
     setSelectedVersionIds((current) => current.includes(versionId)
@@ -488,7 +490,7 @@ export function QuizDraftWorkspace({
                         <input
                           type="checkbox"
                           checked={checked}
-                          disabled={starting || alreadyOpened}
+                          disabled={starting || alreadyOpened || hasOpenSession}
                           onChange={() => toggleQuestion(question.question_version_id)}
                         />
                         <span className="quiz-start-prompt">{question.prompt}</span>
@@ -506,7 +508,7 @@ export function QuizDraftWorkspace({
 
             <div className="quiz-start-form">
               <label>운영 방식
-                <select value={sessionMode} disabled={starting} onChange={(event) => {
+                <select value={sessionMode} disabled={starting || hasOpenSession} onChange={(event) => {
                   setSessionMode(event.target.value as "GAME" | "TEST");
                   setSessionError("");
                   setSessionMessage("");
@@ -523,7 +525,7 @@ export function QuizDraftWorkspace({
                       min="0"
                       step="1"
                       value={rewardPerPerson}
-                      disabled={starting}
+                      disabled={starting || hasOpenSession}
                       onChange={(event) => setRewardPerPerson(event.target.value)}
                     />
                     {invalidReward ? <em className="quiz-start-invalid">0 이상의 정수로 입력해 주세요.</em> : null}
@@ -532,7 +534,7 @@ export function QuizDraftWorkspace({
                     <input
                       type="checkbox"
                       checked={leaderboardPublic}
-                      disabled={starting}
+                      disabled={starting || hasOpenSession}
                       onChange={(event) => setLeaderboardPublic(event.target.checked)}
                     />
                     순위를 학생에게 공개
@@ -564,24 +566,9 @@ export function QuizDraftWorkspace({
                 <AlertTriangle size={17} /> 참여할 학생이 없어요. 학생·급여 화면에서 명단을 저장한 뒤 다시 시도해 주세요.
               </div>
             ) : null}
-            {openSessionId ? (
-              <dl className="quiz-start-summary quiz-start-live">
-                <div>
-                  <dt>학생 화면에 열려 있는 퀴즈</dt>
-                  <dd>{startedSession
-                    ? `${startedSession.mode === "GAME" ? "게임형" : "평가형"} · 진행 중`
-                    : "진행 중"}</dd>
-                </div>
-                <div>
-                  <dt>퀴즈 세션 ID</dt>
-                  <dd className="quiz-session-id">{openSessionId}</dd>
-                </div>
-              </dl>
-            ) : null}
-
             <button type="button" className="wide-action" disabled={!canStart} onClick={() => void startSession()}>
               {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-              {starting ? "퀴즈를 여는 중" : "학생 화면에 퀴즈 열기"}
+              {starting ? "퀴즈를 여는 중" : hasOpenSession ? "진행 중인 퀴즈가 있어요" : "학생 화면에 퀴즈 열기"}
             </button>
             {sessionMessage || sessionError ? (
               <div className="quiz-start-feedback" aria-live="polite">

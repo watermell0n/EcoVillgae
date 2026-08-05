@@ -161,6 +161,7 @@ export type InvestmentModuleState = {
 type RawClassroomModule = {
   module_code: string;
   status: string;
+  config?: Record<string, unknown>;
 };
 
 export async function fetchActiveModuleCodes(classroomId: string) {
@@ -178,6 +179,23 @@ export async function fetchActiveModuleCodes(classroomId: string) {
       .filter((module) => module.status === "ACTIVE")
       .map((module) => module.module_code)
   );
+}
+
+/** 학생 화면은 활성 퀴즈 모듈에 기록된 실제 세션 ID를 사용합니다. */
+export async function fetchActiveQuizSessionId(classroomId: string) {
+  if (MOCK_FEATURES) return ids.quizSession;
+
+  const response = await apiRequest<{ modules: RawClassroomModule[] }>(
+    `/classrooms/${classroomId}/modules-and-policies`
+  );
+  for (const code of ["QUIZ_GAME", "QUIZ_TEST"]) {
+    const module = response.modules.find((candidate) => (
+      candidate.module_code === code && candidate.status === "ACTIVE"
+    ));
+    const sessionId = module?.config?.active_quiz_session_id;
+    if (typeof sessionId === "string" && sessionId.trim()) return sessionId;
+  }
+  return undefined;
 }
 
 
@@ -459,7 +477,7 @@ export async function fetchQuizQuestions(classroomId: string) {
   return apiRequest<{ questions: QuizQuestion[] }>(`/classrooms/${classroomId}/quiz-questions`);
 }
 
-export async function fetchQuizSession(classroomId: string, sessionId = ids.quizSession) {
+export async function fetchQuizSession(classroomId: string, sessionId: string) {
   if (MOCK_FEATURES) {
     return {
       quizSessionId: sessionId,
