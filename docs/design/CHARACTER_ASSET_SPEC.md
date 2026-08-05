@@ -72,14 +72,22 @@ aspect-ratio 미고정      찌그러진다
 | --- | --- |
 | 보관함 썸네일 | 128×128 지정인데 100px 열에 갇혀 **99×128** (가로 ×1.547) |
 | 미리보기 스테이지 | 1024px 폭에서 256×256이 **237.2×256** (가로 ×3.706) |
+| 상점 카드 | 1440px에서 6열을 강행해 카드가 107px, `overflow: hidden`이 128px 캔버스를 **잘라냄** |
+
+세 번째는 배율이 아니라 **잘림**이라 §1.2 스니펫에 걸리지 않는다. 카드 폭과 캔버스 폭을
+따로 검사해야 한다.
 
 규칙:
 
 - **캔버스에 `max-width`·`max-height`를 걸지 않는다.** 크기는 `characterDisplaySize()`가
   정한 값만 쓴다
 - **컨테이너를 캔버스에 맞춘다.** 반대로 하지 않는다. 썸네일 열은 `128px`,
-  상품 카드 최소 폭은 `192px`(배율 3), 스테이지 패널은 `360px`(배율 5 + 여백)
-- 그 폭을 확보할 수 없는 화면에서는 **레이아웃을 1열로 쌓는다.** 캔버스를 줄이지 않는다
+  상점 카드 최소 폭은 `128px`(배율 2), 상세 카드 열은 `192px`(배율 3),
+  스테이지 패널은 `320px`(배율 4 + 여백)
+- 그 폭을 확보할 수 없는 화면에서는 **레이아웃을 1열로 쌓거나 열 수를 줄인다.**
+  캔버스를 줄이지 않는다. 열 수는 화면 폭이 아니라 **그리드가 실제로 받은 폭**에서
+  계산한다 — 사이드바·좌측 패널·패딩이 폭을 먹기 때문에 화면 폭으로는 알 수 없다
+  (`CharacterStore.tsx`의 `useGridLayout`)
 
 검증은 브라우저에서 아래를 실행해 `깨짐: 0`을 확인한다.
 
@@ -306,6 +314,11 @@ export const CHARACTER_PALETTE = {
 - 한 상품의 색은 **주색 3단 + 잉크 + 포인트 최대 2색**, 총 6색 이내
 - 하이라이트가 필요하면 base보다 밝은 1색 추가 (`top_yellow_hoodie`의 `#fff3c2`/`#ffdc73`)
 - 팔레트에 없는 색을 쓰려면 이 문서의 표에 먼저 등록한다
+
+3·4단계에서 추가한 54종의 램프는 `scripts/character/lib/palette.js`의 `ITEM_RAMPS`가
+정본이다. 배열 순서가 `[base, mid, dark, ...포인트]`이며 생성 스크립트가 그 순서로 꺼내
+쓴다. 배경 5종은 풍경이라 3단 램프 규칙 대신 장면 색을 순서대로 나열하고, 팔레트 검사는
+경고만 낸다(§10.3).
 
 ### 4.3 정리해야 하는 잔여 픽셀
 
@@ -762,34 +775,58 @@ bottom_overalls    shoes_sneakers       back_backpack
 
 확인: BASE 좌표 일치 / 마스크 정상 / 웹·Expo 동일 / 정수 배율 선명도 / `x=55` 초과 픽셀 정리(§3.2-3)
 
-### 3단계 · 죽은 슬롯 복구 (최우선)
+### 3단계 · 죽은 슬롯 복구 — **완료 (2026-08-05)**
 
-Expo에서 슬롯 전체가 작동하지 않는 12종이다.
-
-```text
-HAND 3종        hand_baseball_glove, hand_magic_wand, hand_toy_sword
-EFFECT 2종      effect_swim_tube, effect_fluffy_cloud
-BACKGROUND 5종  bg_spring, bg_summer_sea, bg_autumn, bg_winter, bg_space
-NECK 2종        neck_scarf, neck_knit_scarf
-```
-
-### 4단계 · 나머지 42종
+Expo에서 슬롯 전체가 작동하지 않던 12종을 배포했다.
 
 ```text
-HAT 17 → TOP 15 → SHOES 5 → BACK 3 → FACE 2
+✅ HAND 3종        hand_baseball_glove, hand_magic_wand, hand_toy_sword
+✅ EFFECT 2종      effect_swim_tube, effect_fluffy_cloud (앞·뒤 분리)
+✅ BACKGROUND 5종  bg_spring, bg_summer_sea, bg_autumn, bg_winter, bg_space
+✅ NECK 2종        neck_scarf, neck_knit_scarf
 ```
 
-### 5단계 · 조합 테스트
+### 4단계 · 나머지 42종 — **완료 (2026-08-05)**
 
 ```text
-BASIC / 여름 / 겨울 / 야구 / 우주 / 경찰 / 파일럿 / 마법사 / 기사 / 공룡
+✅ HAT 17 → TOP 15 → SHOES 5 → BACK 3 → FACE 2
 ```
+
+카탈로그 64종 전부 `CHARACTER_ITEMS`에 등록되어 `PENDING_ASSET_KEYS`가 비었다.
+`check-assets.js`가 68개 파일(BASE 1 + 상품 67)을 검사해 통과한다.
+
+#### 제작 방식: 코드 생성
+
+54종을 손으로 그리지 않고 `scripts/character/generate-items.js`가 만든다. PNG를 직접
+고치지 않고 **스크립트를 고쳐 다시 생성**한다. 이 선택의 이유:
+
+- 대칭이 작화 규칙으로 보장된다. `lib/draw.js`의 `sym`은 `left + right === 63`을
+  강제하고(§2.1) `pair`는 미러 쌍을 함께 찍는다. 알파와 잉크 대칭이 구조적으로 깨질 수 없다
+- 외곽선을 손으로 그리지 않는다. `outline()`이 알파 경계에서 파생하므로 실루엣이
+  대칭이면 잉크도 대칭이다(§2.2가 강제하는 두 채널이 한 번에 해결된다)
+- 팔레트가 한 곳이다. `lib/palette.js`의 `ITEM_RAMPS`에 없는 색을 쓰면 검사에 걸린다
+- 좌표를 §3.1 실루엣·§3.4 앵커에서 직접 참조한다. `bodySpan(y)`이 BASE 실루엣 정본이며
+  의상은 여기서 파생한다
+
+48×56 절차적 렌더러(`docs/legacy/pixel-renderer-48x56`)는 형태·색 참고에만 썼고 좌표를
+그대로 옮기지 않았다. 이제 형태의 정본은 생성 스크립트다.
+
+### 5단계 · 조합 테스트 — **완료 (2026-08-05)**
+
+`render-audit.js`가 대표 조합 8종을 합성해 `artifacts/character-audit/`에 남긴다.
+
+```text
+✅ BASIC / 여름 / 겨울 / 야구 / 우주 / 마법사 / 기사 / 공룡
+```
+
+시트에서 확인한 것: 배경이 캐릭터 뒤, 튜브·구름이 앞뒤로 갈려 캐릭터가 그 안에 서고,
+전신 의상 착용 시 하의가 렌더에서 빠지고, 투구·헬멧·후드 착용 시 얼굴 장식이 빠진다.
 
 ---
 
 ## 12. 검수 체크리스트
 
-배포된 10종 기준 상태다. 3·4단계에서 상품을 추가하면 해당 항목을 다시 확인한다.
+카탈로그 **64종 전체 배포** 기준 상태다 (2026-08-05).
 
 ### 규격
 - [x] BASE·상품 전부 64×64
@@ -800,31 +837,33 @@ BASIC / 여름 / 겨울 / 야구 / 우주 / 경찰 / 파일럿 / 마법사 / 기
 
 ### 대칭
 - [x] BASE 알파·잉크·얼굴 요소 위반 0쌍
-- [x] 정면 대칭 상품 위반 0쌍 (기준선 318건 → 0건)
+- [x] 정면 대칭 상품 위반 0쌍 (기준선 318건 → 0건, 신규 54종은 0건으로 시작)
 - [x] 비대칭 상품은 예외 목록에 등록
 - [x] 음영은 광원 방향 유지 (대칭 강제 안 함)
 
 ### 렌더 — 2026-08-05 실제 앱에서 확인
-- [x] 웹·Expo에서 **10종** 동일하게 표시 · 나머지 54종은 3·4단계
-- [x] 웹: 1440 / 1180 / 1024 / 768 / 375px 전 구간 정수 배율, 가로 스크롤 없음
+- [x] 웹·Expo에서 **64종** 동일하게 표시 (`PENDING_ASSET_KEYS` 비었음)
+- [x] 웹: 1920 / 1440 / 1024 / 800 / 640 / 375 / 360px 전 구간 정수 배율, 가로 스크롤 없음
 - [x] Expo: 스테이지 ×5, 썸네일 ×1, 전 레이어 `offset 0,0` · `image-rendering: pixelated`
 - [x] **레이어 순서가 두 플랫폼에서 동일** — Expo 스테이지가
       `base → bottom_overalls → top_yellow_hoodie → hat_red_cap` 순으로 그린다.
       `core/composition.ts`의 BASE_BODY(3) → BOTTOM(5) → TOP(6) → HAT(9)와 일치한다
-- [x] 6슬롯 동시 착용 시 반투명 0px, 색 24종 전부 등록 팔레트
-- [x] 에셋 누락 시 개발 환경 경고 (`describeMissingAssets`) — 웹에서 4종 확인
+- [x] 6슬롯 동시 착용 시 반투명 0px, 색 전부 등록 팔레트
+- [x] 에셋 누락 시 개발 환경 경고 (`describeMissingAssets`)
+- [x] 이미지 해석 실패 시 폴백 + 경고 (`reportMissingCharacterAsset`) — 조용히 건너뛰지 않는다
 - [x] 에셋 누락 시 CI 실패 (`check-assets.js`)
 - [ ] 마스크 적용 후 몸 외곽선과 의상 외곽선이 겹치지 않음 — 현재 마스크를 쓰는 상품 없음 (§6.0)
 
 ### 개별 결함
 - [x] 배낭이 배낭 형태로 보임 (§9.1 해결)
-- [ ] 공룡 꼬리가 몸 밖으로 6px 이상 노출 — 에셋 미배포
-- [ ] 요정 날개가 흰 몸·투명 배경에서 식별됨 — 에셋 미배포
-- [ ] 샌들이 신발로 인식됨 — 에셋 미배포
-- [ ] 구름이 흰 배경에서 보임 — 에셋 미배포
-- [ ] 목도리가 `COLLAR(y26)` 주변에 있고 캔버스를 벗어나지 않음 — 에셋 미배포
+- [x] 공룡 꼬리가 몸 밖으로 8px 노출 (`x55..62`, §9.2)
+- [x] 요정 날개가 흰 몸·투명 배경에서 식별됨 — 잉크 외곽선 + 3단 램프, 몸통 좌우 10px 노출 (§9.3)
+- [x] 샌들이 신발로 인식됨 — 밑창 4행 + 발등 스트랩 (§9.4)
+- [x] 구름이 흰 배경에서 보임 — 앞뒤 분리, `FLOOR` 주변 배치, 외곽선 (§9.5)
+- [x] 목도리가 `COLLAR(y26)` 주변에 있고 캔버스를 벗어나지 않음 — 띠 `y24..29`, 꼬리 `x44..50` (§9.6)
 - [x] TOP 착용 시 윤곽 끊김 없음
-- [ ] 투구 착용 시 고글 미돌출 — 에셋 미배포
+- [x] 투구 착용 시 고글 미돌출 — `hat_knight`·`hat_space_helmet`·`hat_dinosaur`에
+      `hidesSlots: ['FACE']` 적용 (§9.8)
 
 ### 구조
 - [x] 웹·Expo가 동일 카탈로그·팔레트 참조 (단일 사본)
@@ -890,9 +929,16 @@ BASIC / 여름 / 겨울 / 야구 / 우주 / 경찰 / 파일럿 / 마법사 / 기
 ### 13.1 남은 정리 대상
 
 ```text
-docs/legacy/pixel-renderer-48x56/     §11 4단계 완료 후 삭제
-core/items.ts PLANNED_COMPATIBILITY   상품이 CHARACTER_ITEMS로 올라오면 합쳐서 제거
+✅ core/items.ts PLANNED_COMPATIBILITY   64종이 CHARACTER_ITEMS로 올라와 각 항목에 합침
+docs/legacy/pixel-renderer-48x56/       삭제 조건 충족 — 별도 커밋에서 제거
 ```
+
+`PLANNED_COMPATIBILITY`는 제거했다. `hidesSlots`·`coversSlots`가 상품 정의 안으로 들어가
+`itemDefinitionFor`·`conflictsFor`가 두 곳을 합치지 않는다.
+
+48×56 렌더러는 §11 4단계가 끝나 삭제 조건을 만족한다. 형태의 정본이
+`scripts/character/generate-items.js`로 옮겨졌으므로 참고 가치가 남아 있지 않다.
+다만 이 커밋 범위(상점 개편)와 무관한 삭제라 분리한다.
 
 `scripts/character/known-issues.json`은 비었지만(`{}`) 남겨 둔다. 비어 있는 상태가
 "어떤 위반도 허용하지 않음"이라는 뜻이고, 검사기가 매 실행마다 읽어 판정에 쓴다.
