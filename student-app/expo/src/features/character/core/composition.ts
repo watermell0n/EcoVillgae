@@ -15,6 +15,8 @@ import { SLOT_Z_ORDER, type EquippedMap, type Slot } from './types';
 export interface CharacterLayer {
   /** React 리스트 key. 안정적이어야 한다. */
   key: string;
+  /** 이 레이어가 속한 상품. 에셋 누락을 알릴 때 상품 이름으로 쓴다. */
+  spriteKey: string;
   assetId: string;
   /**
    * 이 레이어 직전에 적용할 가림 마스크.
@@ -46,7 +48,13 @@ export function planCharacterLayers(equipped: EquippedMap): CharacterComposition
   const covered = coveredSlots(equipped);
   const missingSpriteKeys: string[] = [];
   const entries: Array<CharacterLayer & { sort: [number, number, number] }> = [
-    { key: 'base', assetId: 'base_default', z: BASE_BODY_Z, sort: [BASE_BODY_Z, -1, 0] },
+    {
+      key: 'base',
+      spriteKey: 'base_default',
+      assetId: 'base_default',
+      z: BASE_BODY_Z,
+      sort: [BASE_BODY_Z, -1, 0],
+    },
   ];
 
   for (const [slot, cosmeticId] of Object.entries(equipped) as Array<[Slot, string | null]>) {
@@ -75,6 +83,7 @@ export function planCharacterLayers(equipped: EquippedMap): CharacterComposition
       if (useOcclusion) attachedOcclusion = true;
       entries.push({
         key: `${item.spriteKey}:${part}`,
+        spriteKey: item.spriteKey,
         assetId,
         occlusionAssetId: useOcclusion ? occlusion : undefined,
         z,
@@ -107,5 +116,30 @@ export function describeMissingAssets(missingSpriteKeys: string[]): string | nul
   return (
     `[character] 64x64 에셋이 없어 ${missingSpriteKeys.length}종을 건너뛴다: `
     + `${missingSpriteKeys.join(', ')} (현재 배포 ${total}종)`
+  );
+}
+
+/**
+ * 카탈로그에는 등록됐지만 플랫폼이 실제 이미지를 해석하지 못한 레이어를 알린다.
+ *
+ * `describeMissingAssets`가 잡는 것은 "core에 정의가 없는 상품"이다. 정의는 있는데
+ * 파일이 없거나(웹 404) Metro require가 빠진 경우(Expo)는 여기서 걸린다. 두 경로 모두
+ * 조용히 넘어가면 사용자는 상품을 착용해도 아무 변화가 없는 것처럼 보인다
+ * (가이드라인 §4.3).
+ *
+ * 화면 하나에 같은 레이어가 수십 번 그려지므로 식별자별로 한 번만 알린다.
+ */
+const reportedAssets = new Set<string>();
+
+export function reportMissingCharacterAsset(assetId: string): boolean {
+  if (reportedAssets.has(assetId)) return false;
+  reportedAssets.add(assetId);
+  return true;
+}
+
+export function describeUnresolvedAsset(assetId: string, spriteKey: string): string {
+  return (
+    `[CharacterRenderer] Missing asset: ${assetId} (상품 ${spriteKey})`
+    + ' — 웹은 student-app/public/character/, Expo는 assetMap.ts require를 확인한다'
   );
 }
