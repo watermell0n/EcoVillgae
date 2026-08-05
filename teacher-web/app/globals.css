@@ -2180,6 +2180,35 @@ button:disabled {
   background: #f1f9f3;
 }
 
+/* 퀴즈 시작 결과는 문항 선택 목록과 분리해, 작고 명확하게 안내합니다. */
+.quiz-start-feedback {
+  display: grid;
+  gap: 8px;
+}
+
+.quiz-start-success,
+.quiz-start-failure {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quiz-start-success {
+  border: 1px solid #a8d8b2;
+  color: #23683a;
+  background: #f0faf2;
+}
+
+.quiz-start-failure {
+  border: 1px solid #f1b9b5;
+  color: #9f2922;
+  background: #fff7f6;
+}
+
 .quiz-bank-toolbar .recommendation-tabs {
   margin: 0;
 }

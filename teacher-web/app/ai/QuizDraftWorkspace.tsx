@@ -124,6 +124,23 @@ export function QuizDraftWorkspace({
     void loadQuestions();
   }, [classroomId, loadQuestions]);
 
+  // 이미 진행 중인 세션도 다시 읽어, 페이지를 나갔다 와도 같은 문항을
+  // 또 선택해 새 퀴즈를 열지 않도록 합니다.
+  useEffect(() => {
+    if (!activeQuizSessionId) return;
+    void apiRequest<{
+      questions: Array<{ quiz_question_version_id?: string }>;
+    }>(`/classrooms/${classroomId}/quiz-sessions/${activeQuizSessionId}`)
+      .then((session) => {
+        setOpenedVersionIds(session.questions.flatMap((question) => (
+          question.quiz_question_version_id ? [question.quiz_question_version_id] : []
+        )));
+      })
+      .catch(() => {
+        // 세션 정보를 바로 읽지 못해도 새 시작 요청의 서버 검증은 유지합니다.
+      });
+  }, [activeQuizSessionId, classroomId]);
+
   const approvedQuestions = useMemo(
     () => questions.filter((question) => question.status === "APPROVED"),
     [questions]
@@ -201,7 +218,6 @@ export function QuizDraftWorkspace({
         {
           method: "POST",
           body: JSON.stringify({
-            expected_state_version: 0,
             screen_id: "SCR-WEB-018",
             ui_action_id: "UIA-QZ-004",
             client_occurred_at: new Date().toISOString(),
@@ -548,8 +564,6 @@ export function QuizDraftWorkspace({
                 <AlertTriangle size={17} /> 참여할 학생이 없어요. 학생·급여 화면에서 명단을 저장한 뒤 다시 시도해 주세요.
               </div>
             ) : null}
-            {sessionMessage ? <div className="inline-notice" role="status"><Check size={17} /> {sessionMessage}</div> : null}
-            {sessionError ? <div className="inline-error" role="alert">{sessionError}</div> : null}
             {openSessionId ? (
               <dl className="quiz-start-summary quiz-start-live">
                 <div>
@@ -569,6 +583,12 @@ export function QuizDraftWorkspace({
               {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
               {starting ? "퀴즈를 여는 중" : "학생 화면에 퀴즈 열기"}
             </button>
+            {sessionMessage || sessionError ? (
+              <div className="quiz-start-feedback" aria-live="polite">
+                {sessionMessage ? <div className="quiz-start-success"><CheckCircle2 size={16} /> {sessionMessage}</div> : null}
+                {sessionError ? <div className="quiz-start-failure" role="alert">{sessionError}</div> : null}
+              </div>
+            ) : null}
           </div>
         )}
       </section>

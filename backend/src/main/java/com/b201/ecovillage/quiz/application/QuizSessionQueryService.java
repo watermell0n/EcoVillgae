@@ -91,6 +91,7 @@ public class QuizSessionQueryService {
             .stream()
             .map(question -> new QuizSessionQuestionView(
                 question.getId(),
+                question.getQuizQuestionVersionId(),
                 "Question " + question.getSequenceNumber(),
                 "AVAILABLE",
                 1,

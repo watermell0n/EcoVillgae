@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record QuizSessionQuestionView(
     UUID resourceId,
+    UUID quizQuestionVersionId,
     String label,
     String status,
     int version,
