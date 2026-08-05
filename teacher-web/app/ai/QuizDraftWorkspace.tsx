@@ -18,6 +18,9 @@ type QuizStudent = {
   nickname: string;
 };
 
+// 문제은행 목록에서 무엇을 보여 줄지 고르는 탭입니다.
+type BankFilter = "recent" | "approved" | "all";
+
 const STATUS_LABEL: Record<QuizQuestion["status"], string> = {
   DRAFT: "작성 중",
   REVIEW_REQUIRED: "검토 필요",
@@ -67,7 +70,7 @@ export function QuizDraftWorkspace({
   const [questionCount, setQuestionCount] = useState(3);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [generatedIds, setGeneratedIds] = useState<Set<string>>(new Set());
-  const [showAll, setShowAll] = useState(false);
+  const [bankFilter, setBankFilter] = useState<BankFilter>("recent");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [changingId, setChangingId] = useState("");
@@ -103,6 +106,7 @@ export function QuizDraftWorkspace({
 
   useEffect(() => {
     setGeneratedIds(new Set());
+    setBankFilter("recent");
     setMessage("");
     setError("");
     setSelectedVersionIds([]);
@@ -112,10 +116,20 @@ export function QuizDraftWorkspace({
     void loadQuestions();
   }, [classroomId, loadQuestions]);
 
+  const approvedQuestions = useMemo(
+    () => questions.filter((question) => question.status === "APPROVED"),
+    [questions]
+  );
+
   const visibleQuestions = useMemo(() => {
-    if (showAll || generatedIds.size === 0) return questions;
+    if (bankFilter === "approved") return approvedQuestions;
+    if (bankFilter === "all" || generatedIds.size === 0) return questions;
     return questions.filter((question) => generatedIds.has(question.resource_id));
-  }, [generatedIds, questions, showAll]);
+  }, [approvedQuestions, bankFilter, generatedIds, questions]);
+
+  const emptyBankCopy = bankFilter === "approved"
+    ? "승인한 문항이 없어요. 문항을 검토한 뒤 '검토 후 승인'을 누르면 여기로 옵니다."
+    : "표시할 문항이 없어요. AI 초안을 먼저 생성해 보세요.";
 
   // 세션 시작에 쓸 수 있는 문항은 게시된 것만입니다. 서버도 같은 조건을 검사합니다.
   const publishedQuestions = useMemo(
@@ -242,7 +256,7 @@ export function QuizDraftWorkspace({
         }
       );
       setGeneratedIds(new Set(response.question_ids));
-      setShowAll(false);
+      setBankFilter("recent");
       await loadQuestions();
       setMessage(`${response.question_ids.length}개 문항을 만들었어요. 정답과 해설을 확인한 뒤 승인해 주세요.`);
     } catch (caught) {
@@ -262,7 +276,10 @@ export function QuizDraftWorkspace({
         {
           method: "POST",
           body: JSON.stringify({
-            expected_state_version: question.state_version,
+            // expected_state_version은 일부러 보내지 않습니다.
+            // 상태 전이 규칙(검토 필요 -> 승인 -> 게시)이 이미 잘못된 전이를 막고,
+            // 값을 보내면 화면이 조금 낡았다는 이유로 승인이 거절돼 교사가 원인을
+            // 알 수 없는 충돌 안내만 보게 됩니다.
             command,
             reason: command === "APPROVE"
               ? "AI 초안의 문항·정답·해설을 교사가 검토함"
@@ -276,12 +293,19 @@ export function QuizDraftWorkspace({
       setQuestions((current) => current.map((item) => item.resource_id === question.resource_id
         ? { ...item, status: response.status, state_version: response.state_version }
         : item));
-      setMessage(command === "APPROVE"
-        ? "문항이 승인됐어요. 게시 전까지 학생에게 보이지 않아요."
-        : "문항이 게시됐어요.");
+      if (command === "APPROVE") {
+        setMessage("문항을 승인했어요. '승인된 문제' 탭에서 문제은행에 게시할 수 있어요.");
+      } else {
+        // 게시한 문항을 아래 '퀴즈 시작'에 바로 담아 둡니다.
+        // 게시만으로는 학생에게 보이지 않고, 퀴즈를 시작해야 학생 화면에 열립니다.
+        setSelectedVersionIds((current) => current.includes(question.question_version_id)
+          ? current
+          : [...current, question.question_version_id]);
+        setMessage("문항을 게시했어요. 아래 '퀴즈 시작'에 담아 두었으니 학생 화면에 열어 주세요.");
+      }
     } catch (caught) {
       setError(quizErrorMessage(caught));
-      if (caught instanceof ApiError && caught.code === "STATE_VERSION_CONFLICT") await loadQuestions(true);
+      await loadQuestions(true);
     } finally {
       setChangingId("");
     }
@@ -349,8 +373,11 @@ export function QuizDraftWorkspace({
         <div className="quiz-bank">
           <div className="quiz-bank-toolbar">
             <div className="recommendation-tabs">
-              <button type="button" className={!showAll ? "active" : ""} onClick={() => setShowAll(false)}>최근 생성</button>
-              <button type="button" className={showAll ? "active" : ""} onClick={() => setShowAll(true)}>전체 문제은행</button>
+              <button type="button" className={bankFilter === "recent" ? "active" : ""} onClick={() => setBankFilter("recent")}>최근 생성</button>
+              <button type="button" className={bankFilter === "approved" ? "active" : ""} onClick={() => setBankFilter("approved")}>
+                승인된 문제{approvedQuestions.length > 0 ? ` ${approvedQuestions.length}` : ""}
+              </button>
+              <button type="button" className={bankFilter === "all" ? "active" : ""} onClick={() => setBankFilter("all")}>전체 문제은행</button>
             </div>
             <button type="button" className="ghost-action" disabled={loading} onClick={() => void loadQuestions()}>
               <RefreshCw size={15} /> 새로고침
@@ -359,7 +386,7 @@ export function QuizDraftWorkspace({
           {message ? <div className="inline-notice" role="status"><Check size={17} /> {message}</div> : null}
           {error ? <div className="inline-error" role="alert">{error}</div> : null}
           {loading ? <div className="chat-loading"><LoaderCircle className="spin" size={18} /> 문제은행을 불러오는 중이에요.</div> : null}
-          {!loading && visibleQuestions.length === 0 ? <p className="empty-copy">표시할 문항이 없어요. AI 초안을 먼저 생성해 보세요.</p> : null}
+          {!loading && visibleQuestions.length === 0 ? <p className="empty-copy">{emptyBankCopy}</p> : null}
           <div className="quiz-card-list">
             {visibleQuestions.map((question, index) => (
               <article className={`quiz-review-card ${generatedIds.has(question.resource_id) ? "new" : ""}`} key={question.resource_id}>
