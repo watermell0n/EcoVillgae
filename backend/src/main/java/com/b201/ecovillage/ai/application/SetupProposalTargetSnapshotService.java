@@ -346,6 +346,7 @@ class SetupProposalTargetSnapshotService {
             case "ROLE_SALARY", "SALARY" -> "SALARY";
             case "INCOME_TAX" -> "INCOME_TAX_RATE";
             case "DEPOSIT" -> "DEPOSIT_RATE";
+            case "SAVINGS" -> "SAVINGS_RATE";
             case "LOAN" -> "LOAN_RATE";
             default -> null;
         };
@@ -359,6 +360,7 @@ class SetupProposalTargetSnapshotService {
             case "ROLE_SALARY", "SALARY" -> RuleTargetType.ROLE_SALARY;
             case "INCOME_TAX" -> RuleTargetType.INCOME_TAX_RATE;
             case "DEPOSIT" -> RuleTargetType.DEPOSIT_RATE;
+            case "SAVINGS" -> RuleTargetType.SAVINGS_RATE;
             case "LOAN" -> RuleTargetType.LOAN_RATE;
             default -> null;
         };

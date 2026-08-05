@@ -1737,6 +1737,8 @@ const responseFieldOverrides = {
       explanation: { type: ["string", "null"] },
       source: { type: "string", enum: ["TEACHER", "AI"] },
       ai_run_id: { type: ["string", "null"], format: "uuid" },
+      // 이 학급에서 퀴즈로 한 번이라도 열린 문항인지. 교사 화면이 재사용을 막는 데 쓴다.
+      already_used_in_session: { type: "boolean" },
       options: {
         type: "array",
         minItems: 2,
@@ -1766,6 +1768,7 @@ const responseFieldOverrides = {
       "explanation",
       "source",
       "ai_run_id",
+      "already_used_in_session",
       "options",
     ]),
   }],

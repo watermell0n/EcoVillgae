@@ -30,6 +30,7 @@ import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.classroom.application.RatePolicySynchronizer;
 import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
@@ -46,6 +47,7 @@ public class FinancialProductCommandService {
     private final FinancialProductVersionRepository versionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final RealtimeEventPublisher eventPublisher;
+    private final RatePolicySynchronizer ratePolicySynchronizer;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -57,6 +59,7 @@ public class FinancialProductCommandService {
         FinancialProductVersionRepository versionRepository,
         IdempotencyRecordRepository idempotencyRepository,
         RealtimeEventPublisher eventPublisher,
+        RatePolicySynchronizer ratePolicySynchronizer,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -67,6 +70,7 @@ public class FinancialProductCommandService {
         this.versionRepository = versionRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.eventPublisher = eventPublisher;
+        this.ratePolicySynchronizer = ratePolicySynchronizer;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -136,6 +140,15 @@ public class FinancialProductCommandService {
             case STOP -> stop(command, now);
         };
         productRepository.flush();
+        // 운영 관리에서 저장한 이율을 AI 설정의 적용값과 같게 유지합니다.
+        ratePolicySynchronizer.sync(
+            command.classroomId(),
+            command.productType() == com.b201.ecovillage.finance.domain.FinancialProductType.SAVINGS
+                ? "SAVINGS_RATE"
+                : "DEPOSIT_RATE",
+            command.interestRateBps(),
+            now
+        );
         FinancialResourceResult result = result(product);
         idempotencyRepository.save(
             IdempotencyRecord.completed(

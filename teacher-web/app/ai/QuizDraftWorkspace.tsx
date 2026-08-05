@@ -167,10 +167,12 @@ export function QuizDraftWorkspace({
     [questions]
   );
 
-  // 목록이 새로 오면 이제 게시 상태가 아닌 문항의 선택은 버립니다.
+  // 목록이 새로 오면 게시 상태가 아니거나 이미 진행한 문항의 선택은 버립니다.
   useEffect(() => {
     setSelectedVersionIds((current) => current.filter((versionId) => (
-      publishedQuestions.some((question) => question.question_version_id === versionId)
+      publishedQuestions.some((question) => (
+        question.question_version_id === versionId && !question.already_used_in_session
+      ))
     )));
   }, [publishedQuestions]);
 
@@ -196,18 +198,20 @@ export function QuizDraftWorkspace({
   const rewardValue = Number(rewardPerPerson);
   const hasOpenSession = Boolean(openSessionId);
   // 이미 학생에게 열어 본 문항과 아직 쓰지 않은 문항을 나눠 보여 줍니다.
-  // 진행 중인 퀴즈가 있어도 새 문항으로는 새 퀴즈를 열 수 있어야 합니다.
+  // 사용 여부는 서버(already_used_in_session)가 기준이라 새로고침해도 그대로 유지됩니다.
+  // 방금 연 퀴즈는 목록을 다시 읽기 전이라 openedVersionIds로 함께 봅니다.
+  const isUsed = useCallback(
+    (question: QuizQuestion) => question.already_used_in_session
+      || openedVersionIds.includes(question.question_version_id),
+    [openedVersionIds]
+  );
   const reusableQuestions = useMemo(
-    () => publishedQuestions.filter(
-      (question) => !openedVersionIds.includes(question.question_version_id)
-    ),
-    [publishedQuestions, openedVersionIds]
+    () => publishedQuestions.filter((question) => !isUsed(question)),
+    [publishedQuestions, isUsed]
   );
   const usedQuestions = useMemo(
-    () => publishedQuestions.filter(
-      (question) => openedVersionIds.includes(question.question_version_id)
-    ),
-    [publishedQuestions, openedVersionIds]
+    () => publishedQuestions.filter((question) => isUsed(question)),
+    [publishedQuestions, isUsed]
   );
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
@@ -218,7 +222,7 @@ export function QuizDraftWorkspace({
     && !invalidReward;
 
   function toggleQuestion(versionId: string) {
-    if (openedVersionIds.includes(versionId)) return;
+    if (!reusableQuestions.some((question) => question.question_version_id === versionId)) return;
     setSessionError("");
     setSessionMessage("");
     setSelectedVersionIds((current) => current.includes(versionId)

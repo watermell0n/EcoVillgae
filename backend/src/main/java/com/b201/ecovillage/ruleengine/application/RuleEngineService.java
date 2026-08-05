@@ -37,6 +37,12 @@ public class RuleEngineService {
     // 대출 금리 규칙(evaluateLoan)이 예금 금리를 이 범위로 전제하므로 함께 바꿔야 한다.
     private static final long DEPOSIT_ALLOWED_MIN_BPS = 100L;
     private static final long DEPOSIT_ALLOWED_MAX_BPS = 600L;
+    // 적금은 주 1회 납입이라 평균 예치 기간이 짧다. 예금 기준금리보다 이만큼 높게 추천한다.
+    private static final long SAVINGS_DEPOSIT_SPREAD_BPS = 150L;
+    private static final long SAVINGS_ALLOWED_MIN_BPS = 100L;
+    private static final long SAVINGS_ALLOWED_MAX_BPS = 800L;
+    // 이 인원을 넘으면 같은 이율에도 학급 전체 순발행이 커지므로 상한을 한 단계 낮춘다.
+    private static final int LARGE_CLASS_STUDENT_COUNT = 25;
     private static final BigDecimal REWARD_WARN_SHARE = new BigDecimal("0.25");
     private static final BigDecimal REWARD_MAX_SHARE = new BigDecimal("0.30");
     private static final BigDecimal MIN_RECOVERY_RATIO = new BigDecimal("0.50");
@@ -286,6 +292,7 @@ public class RuleEngineService {
             case "ROLE_SALARY", "SALARY" -> evaluateSalary(request, activation, evaluation);
             case "INCOME_TAX" -> evaluateIncomeTax(request, activation, evaluation);
             case "DEPOSIT" -> evaluateDeposit(schedule, activation, evaluation);
+            case "SAVINGS" -> evaluateSavings(request, schedule, activation, evaluation);
             case "LOAN" -> evaluateLoan(request, activation, evaluation);
             default -> {
                 // Modules without an initial numeric policy intentionally return no candidate.
@@ -495,6 +502,54 @@ public class RuleEngineService {
             return 200L;
         }
         return 150L;
+    }
+
+    /**
+     * 적금은 주 1회씩 나눠 넣고 만기에 한 번 이자를 받는다. 같은 만기라면 예금보다 평균 예치
+     * 기간이 짧아 학생이 체감하는 이자가 작으므로, 예금 기준금리보다 한 단계 높게 추천한다.
+     *
+     * <p>발행 규모도 함께 본다. 학생 수가 많을수록 같은 이율이라도 학급 전체 순발행이 커지므로
+     * 상한을 낮춘다. 예금과 마찬가지로 대출 금리 규칙(예금 대비 최소 200 bps 상향)과 충돌하지
+     * 않도록 허용 구간을 예금 상한 위로 넓히지 않는다.
+     */
+    private void evaluateSavings(
+        RuleEngineRequest request,
+        PaymentSchedule schedule,
+        RuleEngineRequest.ModuleActivation activation,
+        Evaluation evaluation
+    ) {
+        Integer operationDays = schedule == null ? null : schedule.operationDays();
+        long base = depositBaseRate(operationDays) + SAVINGS_DEPOSIT_SPREAD_BPS;
+        long allowedMax = request.activeStudentCount() > LARGE_CLASS_STUDENT_COUNT
+            ? SAVINGS_ALLOWED_MAX_BPS - 100L
+            : SAVINGS_ALLOWED_MAX_BPS;
+        long proposed = clamp(roundRate50(base), SAVINGS_ALLOWED_MIN_BPS, allowedMax);
+        RuleCandidate candidate = new RuleCandidate(
+            "savings-rate",
+            RuleTargetType.SAVINGS_RATE,
+            activation.targetId(),
+            proposed,
+            Math.max(SAVINGS_ALLOWED_MIN_BPS, proposed - 100L),
+            Math.min(allowedMax, proposed + 100L),
+            SAVINGS_ALLOWED_MIN_BPS,
+            allowedMax,
+            RuleValueUnit.BPS,
+            List.of("SAVINGS_INSTALLMENT_BASED", "DEPOSIT_OPERATION_PERIOD"),
+            "적금 기준금리"
+        );
+        evaluation.addCandidate(candidate, activation.confirmedValue());
+        evaluation.addCheck(
+            "savings-rate-basis",
+            RuleSeverity.PASS,
+            "SAVINGS_RATE_BASIS",
+            List.of(candidate.actionId()),
+            (operationDays == null
+                ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 "
+                : "운영 기간 " + operationDays + "일과 학생 " + request.activeStudentCount()
+                    + "명을 기준으로 ")
+                + percentText(proposed) + "를 추천했습니다. 주 1회 납입이라 예금보다 "
+                + percentText(SAVINGS_DEPOSIT_SPREAD_BPS) + " 높게 잡았습니다."
+        );
     }
 
     private static String percentText(long bps) {

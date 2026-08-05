@@ -409,6 +409,8 @@ export type QuizQuestion = {
   explanation: string | null;
   source: "TEACHER" | "AI";
   ai_run_id: string | null;
+  // 이 학급에서 퀴즈로 한 번이라도 열린 문항입니다. 새로고침해도 서버 기준으로 유지됩니다.
+  already_used_in_session: boolean;
   options: Array<{
     option_id: string;
     option_key: string;

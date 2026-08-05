@@ -605,10 +605,18 @@ button:disabled {
 
 .brand-button {
   width: 100%;
+  padding: 0;
   border: 0;
+  /* 버튼 기본 배경을 지워 로고만 보이게 합니다. 배경이 남으면 회색 사각형처럼 보입니다. */
+  background: none;
+  box-shadow: none;
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.brand-button:hover {
+  background: none;
 }
 
 .brand > span {

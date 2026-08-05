@@ -196,7 +196,8 @@ public class ModuleActivationService {
             : initialValues;
         if (
             policyArea != null
-                && Set.of("INCOME_TAX_RATE", "DEPOSIT_RATE", "LOAN_RATE").contains(policyArea)
+                && Set.of("INCOME_TAX_RATE", "DEPOSIT_RATE", "SAVINGS_RATE", "LOAN_RATE")
+                    .contains(policyArea)
                 && rateValue(effectiveValues) == null
         ) {
             throw operation(
@@ -703,6 +704,10 @@ public class ModuleActivationService {
             );
             case "DEPOSIT" -> Map.of(
                 "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 150L : 300L
+            );
+            // 적금은 주 1회 납입이라 평균 예치 기간이 짧아 예금보다 조금 높게 시작한다.
+            case "SAVINGS" -> Map.of(
+                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 300L : 450L
             );
             case "LOAN" -> Map.of("rate_bps", 900L);
             default -> Map.of();

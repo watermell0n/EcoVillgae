@@ -22,7 +22,7 @@ export type AiPolicyVersionRow = {
 };
 
 // 값이 bps(베이시스 포인트)인 정책 영역입니다. 100 bps = 1%.
-const RATE_POLICY_AREAS = ["INCOME_TAX_RATE", "DEPOSIT_RATE", "LOAN_RATE"];
+const RATE_POLICY_AREAS = ["INCOME_TAX_RATE", "DEPOSIT_RATE", "SAVINGS_RATE", "LOAN_RATE"];
 
 export function isRatePolicyArea(policyArea: string | null) {
   return policyArea !== null && RATE_POLICY_AREAS.includes(policyArea);
@@ -57,17 +57,23 @@ export function appliedPolicyValues(
     }];
   }
 
+  // 급여는 역할이 여러 개일 수 있지만 모듈 카드에는 한 줄만 둡니다. 역할별 금액은 학생·급여
+  // 화면에서 관리하며, 여기서는 지금 적용된 급여 수준만 알려 줍니다.
   if (policyArea === "SALARY" && Array.isArray(values.roles)) {
-    return values.roles.flatMap((role) => {
+    const amounts = values.roles.flatMap((role) => {
       if (typeof role !== "object" || role === null) return [];
-      const entry = role as Record<string, unknown>;
-      const amount = entry.gross_amount;
-      if (typeof amount !== "number") return [];
-      const name = typeof entry.name === "string" && entry.name
-        ? entry.name
-        : String(entry.role_code ?? "역할");
-      return [{ label: `${name} 1회 급여`, text: amount.toLocaleString("ko-KR") }];
+      const amount = (role as Record<string, unknown>).gross_amount;
+      return typeof amount === "number" ? [amount] : [];
     });
+    if (amounts.length === 0) return [];
+    const lowest = Math.min(...amounts);
+    const highest = Math.max(...amounts);
+    return [{
+      label: amounts.length === 1 ? "적용된 1회 급여" : `적용된 1회 급여 (역할 ${amounts.length}개)`,
+      text: lowest === highest
+        ? lowest.toLocaleString("ko-KR")
+        : `${lowest.toLocaleString("ko-KR")} ~ ${highest.toLocaleString("ko-KR")}`
+    }];
   }
 
   return [];
@@ -91,6 +97,8 @@ export function modulePolicyArea(moduleCode: string | undefined) {
       return "INCOME_TAX_RATE";
     case "DEPOSIT":
       return "DEPOSIT_RATE";
+    case "SAVINGS":
+      return "SAVINGS_RATE";
     case "LOAN":
       return "LOAN_RATE";
     default:

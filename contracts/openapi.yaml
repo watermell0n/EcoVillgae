@@ -14233,6 +14233,8 @@ paths:
                                 - "string"
                                 - "null"
                               format: "uuid"
+                            already_used_in_session:
+                              type: "boolean"
                             options:
                               type: "array"
                               minItems: 2
@@ -14271,6 +14273,7 @@ paths:
                             - "explanation"
                             - "source"
                             - "ai_run_id"
+                            - "already_used_in_session"
                             - "options"
                           additionalProperties: false
                     additionalProperties: false

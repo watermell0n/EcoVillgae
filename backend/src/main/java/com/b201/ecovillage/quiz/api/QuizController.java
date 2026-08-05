@@ -467,6 +467,7 @@ public class QuizController {
                 view.explanation(),
                 view.source(),
                 view.aiRunId(),
+                view.alreadyUsedInSession(),
                 view.options().stream()
                     .map(option -> new QuizQuestionResponse.OptionResponse(
                         option.optionId(),

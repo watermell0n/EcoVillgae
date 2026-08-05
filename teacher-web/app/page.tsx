@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bot,
   ChevronLeft,
@@ -42,6 +42,7 @@ import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
 import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
 import type { AiModuleRow, AiPolicyVersionRow } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
 
@@ -74,6 +75,18 @@ type StudentRow = {
 const CONSOLE_STATE_KEY = "ecovillage.teacher.console";
 
 type StoredConsoleState = { classroomId: string; view: ViewKey };
+
+// 브라우저 뒤로가기가 사이트를 벗어나지 않게, 화면 이동을 히스토리 항목으로도 남깁니다.
+// 교사 웹은 한 경로에서 상태로만 화면을 바꾸므로 주소의 해시로 현재 위치를 표시합니다.
+type NavState = { stage: TeacherStage; classroomId: string; view: ViewKey };
+
+function navHash(state: NavState) {
+  if (state.stage === "console" && state.classroomId) {
+    return `#/classrooms/${state.classroomId}/${state.view}`;
+  }
+  if (state.stage === "create") return "#/classrooms/new";
+  return "#/classrooms";
+}
 
 function readStoredConsoleState(): StoredConsoleState | null {
   if (typeof window === "undefined") return null;
@@ -615,6 +628,42 @@ export default function TeacherConsole() {
     writeStoredConsoleState({ classroomId: activeClassroomId, view });
   }, [stage, activeClassroomId, view]);
 
+  // 뒤로가기로 되돌아온 변경은 다시 히스토리에 쌓지 않습니다.
+  const restoringHistory = useRef(false);
+
+  useEffect(() => {
+    function applyHistoryState(event: PopStateEvent) {
+      const state = event.state as NavState | null;
+      restoringHistory.current = true;
+      if (!state || state.stage === "classrooms" || !state.classroomId) {
+        writeStoredConsoleState(null);
+        setView("overview");
+        setStage("classrooms");
+        return;
+      }
+      if (state.stage === "console") {
+        setView(state.view);
+        void openClassroom(state.classroomId);
+        return;
+      }
+      setStage(state.stage);
+    }
+    window.addEventListener("popstate", applyHistoryState);
+    return () => window.removeEventListener("popstate", applyHistoryState);
+  }, []);
+
+  useEffect(() => {
+    if (stage === "login") return;
+    if (restoringHistory.current) {
+      restoringHistory.current = false;
+      return;
+    }
+    const next: NavState = { stage, classroomId: activeClassroomId, view };
+    const hash = navHash(next);
+    if (window.location.hash === hash) window.history.replaceState(next, "", hash);
+    else window.history.pushState(next, "", hash);
+  }, [stage, activeClassroomId, view]);
+
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
@@ -1131,6 +1180,9 @@ export default function TeacherConsole() {
               // 모듈 활성화 때 확정한 기준금리를 새 상품·정책의 시작값으로 씁니다.
               depositRateBps={ratePolicyBps(policyVersions, "DEPOSIT_RATE")}
               loanRateBps={ratePolicyBps(policyVersions, "LOAN_RATE")}
+              modules={modules}
+              aiEnabled={aiSettings.enabled}
+              canManage={teacherRoles.includes("OWN")}
               addLog={addLog}
             />
           )}
@@ -2715,7 +2767,8 @@ function Roster({
       presence: "UNKNOWN"
     });
     setIsAdding(false);
-    addLog(`${studentToAdd.nickname} 학생을 추가했어요.`);
+    // 추가도 삭제와 같이 "명단 저장"을 눌러야 서버에 반영됩니다.
+    addLog(`${studentToAdd.nickname} 학생을 목록에 넣었어요. 아래 “명단 저장”을 눌러야 반영됩니다.`, "warning");
   }
 
   function removeStudent(index: number) {
@@ -3450,6 +3503,9 @@ function FinanceAdmin({
   savingsAvailable,
   depositRateBps,
   loanRateBps,
+  modules,
+  aiEnabled,
+  canManage,
   addLog
 }: Readonly<{
   classroomId: string;
@@ -3459,6 +3515,9 @@ function FinanceAdmin({
   savingsAvailable: boolean;
   depositRateBps?: number;
   loanRateBps?: number;
+  modules: readonly AiModuleRow[];
+  aiEnabled: boolean;
+  canManage: boolean;
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
   const [activeTab, setActiveTab] = useState<"DEPOSIT" | "SAVINGS" | "LOAN" | "INVESTMENT">("DEPOSIT");
@@ -3470,17 +3529,6 @@ function FinanceAdmin({
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
   const [loanSaving, setLoanSaving] = useState(false);
   const [loanDecisionId, setLoanDecisionId] = useState<string | null>(null);
-  const [investment, setInvestment] = useState({
-    shortName: "단기 투자",
-    shortReturnRate: "8",
-    shortRisk: "보통",
-    longName: "장기 투자",
-    longVolatility: "보통",
-    longPeriod: "5",
-    shortScenario: "",
-    longScenario: ""
-  });
-
   useEffect(() => {
     if (!savingsAvailable && activeTab === "SAVINGS") setActiveTab("DEPOSIT");
   }, [activeTab, savingsAvailable]);
@@ -3727,31 +3775,14 @@ function FinanceAdmin({
       </PlainSection>
 
       {activeTab === "INVESTMENT" ? (
-        <PlainSection title="투자 운영안" description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다.">
-          <div className="investment-mode-grid">
-            <section>
-              <div className="investment-heading"><span>단기 투자</span><small>다음 날 결과 확정</small></div>
-              <div className="investment-settings">
-                <label>상품 이름<input value={investment.shortName} onChange={(event) => setInvestment((current) => ({ ...current, shortName: event.target.value }))} /></label>
-                <label>결과 수익률(%)<input inputMode="decimal" value={investment.shortReturnRate} onChange={(event) => setInvestment((current) => ({ ...current, shortReturnRate: event.target.value }))} /></label>
-                <label>위험도<select value={investment.shortRisk} onChange={(event) => setInvestment((current) => ({ ...current, shortRisk: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
-              </div>
-              <button type="button" onClick={() => setInvestment((current) => ({ ...current, shortScenario: `${current.shortRisk} 위험도인 ${current.shortName}: 내일 ${current.shortReturnRate}% 결과가 확정되는 투자 시나리오` }))}>AI 시나리오 생성</button>
-              {investment.shortScenario ? <p className="ai-scenario">{investment.shortScenario}</p> : null}
-            </section>
-            <section>
-              <div className="investment-heading"><span>장기 투자</span><small>매일 시장 소식 제공</small></div>
-              <div className="investment-settings">
-                <label>상품 이름<input value={investment.longName} onChange={(event) => setInvestment((current) => ({ ...current, longName: event.target.value }))} /></label>
-                <label>변동성<select value={investment.longVolatility} onChange={(event) => setInvestment((current) => ({ ...current, longVolatility: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
-                <label>운영 기간(일)<input inputMode="numeric" value={investment.longPeriod} onChange={(event) => setInvestment((current) => ({ ...current, longPeriod: event.target.value }))} /></label>
-              </div>
-              <button type="button" onClick={() => setInvestment((current) => ({ ...current, longScenario: `${current.longPeriod}일 동안 ${current.longVolatility} 변동성으로 매일 새로운 시장 소식을 제공하는 ${current.longName}` }))}>AI 상품 생성</button>
-              {investment.longScenario ? <p className="ai-scenario">{investment.longScenario}</p> : null}
-            </section>
-          </div>
-          <button type="button" className="primary-save" onClick={() => addLog("투자 운영안을 저장했어요. 투자 상품 API가 연결되면 학생 화면에도 공개됩니다.", "warning")}>투자 운영안 저장</button>
-        </PlainSection>
+        // 실제 투자 시나리오는 서버가 만들고 교사가 승인·공개합니다. 아래 패널이 그 흐름을
+        // 담당하며, 위의 이름·수익률 입력칸은 화면에만 남는 메모라서 함께 두지 않습니다.
+        <InvestmentScenarioPanel
+          classroomId={classroomId}
+          modules={modules}
+          aiEnabled={aiEnabled}
+          canManage={canManage}
+        />
       ) : activeTab === "LOAN" ? (
         <div className="page-flow">
           <PlainSection title="대출 정책" description="저장한 값은 이후의 새 신청부터 적용됩니다. 기간은 주 단위이며 회차별 자동 상환됩니다.">

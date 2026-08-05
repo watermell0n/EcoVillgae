@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
+import com.b201.ecovillage.classroom.application.RatePolicySynchronizer;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.domain.LoanPolicyVersion;
@@ -41,10 +42,10 @@ import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 @Service
 public class LoanApplicationService {
     private final ClassroomAuthorizationService authorization; private final ClassroomModuleRepository modules;
-    private final LoanPolicyVersionRepository policies; private final ClassroomPolicyVersionRepository classroomPolicies; private final UserAccountRepository users; private final LedgerAccountRepository ledger;
+    private final LoanPolicyVersionRepository policies; private final ClassroomPolicyVersionRepository classroomPolicies; private final RatePolicySynchronizer rateSynchronizer; private final UserAccountRepository users; private final LedgerAccountRepository ledger;
     private final AtomicLedgerTransactionService transactions; private final JdbcTemplate jdbc; private final UuidV7Generator uuids; private final Clock clock; private final RealtimeEventPublisher events;
-    public LoanApplicationService(ClassroomAuthorizationService authorization, ClassroomModuleRepository modules, LoanPolicyVersionRepository policies, ClassroomPolicyVersionRepository classroomPolicies, UserAccountRepository users, LedgerAccountRepository ledger, AtomicLedgerTransactionService transactions, JdbcTemplate jdbc, UuidV7Generator uuids, Clock clock, RealtimeEventPublisher events) {
-        this.authorization=authorization; this.modules=modules; this.policies=policies; this.classroomPolicies=classroomPolicies; this.users=users; this.ledger=ledger; this.transactions=transactions; this.jdbc=jdbc; this.uuids=uuids; this.clock=clock; this.events=events;
+    public LoanApplicationService(ClassroomAuthorizationService authorization, ClassroomModuleRepository modules, LoanPolicyVersionRepository policies, ClassroomPolicyVersionRepository classroomPolicies, RatePolicySynchronizer rateSynchronizer, UserAccountRepository users, LedgerAccountRepository ledger, AtomicLedgerTransactionService transactions, JdbcTemplate jdbc, UuidV7Generator uuids, Clock clock, RealtimeEventPublisher events) {
+        this.authorization=authorization; this.modules=modules; this.policies=policies; this.classroomPolicies=classroomPolicies; this.rateSynchronizer=rateSynchronizer; this.users=users; this.ledger=ledger; this.transactions=transactions; this.jdbc=jdbc; this.uuids=uuids; this.clock=clock; this.events=events;
     }
 
     @Transactional
@@ -60,7 +61,7 @@ public class LoanApplicationService {
         Integer active = jdbc.queryForObject("select count(*) from loan_applications a left join loans l on l.loan_application_id=a.id where a.classroom_id=? and a.classroom_student_id=? and (a.status='APPLIED' or l.status in ('ACTIVE','OVERDUE'))", Integer.class, classroomId, studentId);
         if (active != null && active > 0) throw error(HttpStatus.CONFLICT,"ACTIVE_LOAN_APPLICATION_EXISTS","처리 중인 대출 신청이 있습니다.");
         UUID id=uuids.generate(); Instant now=clock.instant();
-        jdbc.update("insert into loan_applications(id,classroom_id,classroom_student_id,loan_policy_version_id,requested_amount,credit_level_snapshot,credit_score_snapshot,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,'APPLIED',?,?,?)", id,classroomId,studentId,policy.getId(),amount,credit.level(),credit.score(),now,now,now);
+        jdbc.update("insert into loan_applications(id,classroom_id,classroom_student_id,loan_policy_version_id,requested_amount,credit_level_snapshot,credit_score_snapshot,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,'APPLIED',?,?,?)", id,classroomId,studentId,policy.getId(),amount,credit.level(),credit.score(),ts(now),ts(now),ts(now));
         LoanApplicationView result=new LoanApplicationView(id, studentId, studentNickname, amount, null, credit.score(), credit.level(), "APPLIED", now); publishApplication(classroomId,result,0); return result;
     }
 
@@ -70,7 +71,7 @@ public class LoanApplicationService {
         LoanApplicationView row=jdbc.query("select a.id,a.classroom_student_id,s.nickname,a.requested_amount,a.approved_amount,a.credit_score_snapshot,a.credit_level_snapshot,a.status,a.created_at from loan_applications a join classroom_students s on s.id=a.classroom_student_id where a.classroom_id=? and a.id=? and a.classroom_student_id=? for update",rs->{if(!rs.next())return null;return application(rs);},classroomId,applicationId,studentId);
         if(row==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","대출 신청을 찾을 수 없습니다.");
         if(!"APPLIED".equals(row.status()))throw error(HttpStatus.CONFLICT,"INVALID_STATE_TRANSITION","승인 대기 중인 신청만 취소할 수 있습니다.");
-        jdbc.update("update loan_applications set status='CANCELED',state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",now,now,applicationId);
+        jdbc.update("update loan_applications set status='CANCELED',state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",ts(now),ts(now),applicationId);
         LoanApplicationView result=new LoanApplicationView(row.applicationId(),row.studentId(),row.studentNickname(),row.requestedAmount(),null,row.creditScore(),row.creditLevel(),"CANCELED",row.createdAt()); publishApplication(classroomId,result,1); return result;
     }
 
@@ -95,7 +96,7 @@ public class LoanApplicationService {
         UUID teacherId=users.findByExternalSubject(subject).orElseThrow().getId(); Instant now=clock.instant();
         LoanRow row=jdbc.query("select a.classroom_student_id,a.loan_policy_version_id,a.requested_amount,a.credit_score_snapshot,a.credit_level_snapshot,a.status,s.nickname,a.created_at from loan_applications a join classroom_students s on s.id=a.classroom_student_id where a.classroom_id=? and a.id=? for update", rs->{if(!rs.next())return null;return new LoanRow(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getLong(3),rs.getInt(4),rs.getString(5),rs.getString(6),rs.getString(7),rs.getTimestamp(8).toInstant());},classroomId,applicationId);
         if(row==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","대출 신청을 찾을 수 없습니다."); if(!"APPLIED".equals(row.status()))throw error(HttpStatus.CONFLICT,"INVALID_STATE_TRANSITION","이미 처리된 신청입니다.");
-        if(!approve){jdbc.update("update loan_applications set status='REJECTED',decision_reason=?,decided_by_user_id=?,decided_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",reason,teacherId,now,now,now,applicationId);LoanApplicationView result=new LoanApplicationView(applicationId,row.studentId(),row.nickname(),row.requested(),null,row.score(),row.level(),"REJECTED",row.createdAt());publishApplication(classroomId,result,1);return result;}
+        if(!approve){jdbc.update("update loan_applications set status='REJECTED',decision_reason=?,decided_by_user_id=?,decided_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",reason,teacherId,ts(now),ts(now),ts(now),applicationId);LoanApplicationView result=new LoanApplicationView(applicationId,row.studentId(),row.nickname(),row.requested(),null,row.score(),row.level(),"REJECTED",row.createdAt());publishApplication(classroomId,result,1);return result;}
         if (!modules.existsByClassroomIdAndModuleCodeAndStatus(classroomId, "LOAN", "ACTIVE")) throw error(HttpStatus.CONFLICT,"MODULE_NOT_ACTIVE","대출 모듈이 활성화되지 않았습니다.");
         LoanPolicyVersion policy=policies.findById(row.policyId()).orElseThrow(); long amount=approvedAmount==null?row.requested():approvedAmount;
         Credit latest=credit(classroomId,row.studentId());
@@ -113,9 +114,9 @@ public class LoanApplicationService {
         LedgerAccount receivable=ledger.findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(classroomId,"LOAN_RECEIVABLE",LedgerAccountType.LOAN_RECEIVABLE,LedgerAccountStatus.ACTIVE).orElseGet(()->ledger.save(LedgerAccount.systemAccount(uuids.generate(),classroomId,"LOAN_RECEIVABLE",LedgerAccountType.LOAN_RECEIVABLE,now)));
         UUID group=uuids.generate(),loanId=uuids.generate(); LoanRepaymentPlan plan=LoanRepaymentPlan.create(amount,policy.getInterestRateBps(),policy.getTermUnits(),policy.getInstallmentCount(),now); long interest=plan.totalInterest(); Instant maturity=plan.maturesAt();
         transactions.execute(group,LedgerTransactionCommand.original(classroomId,"LOAN_DISBURSEMENT",LedgerActorType.TEACHER,teacherId,null,"/classrooms/{classroom_id}/loan-applications/{resource_id}/teacher-decisions",applicationId.toString(),applicationId.toString(),uuids.generate().toString(),"Approve educational loan",List.of(new LedgerTransactionPosting(receivable.getId(),-amount),new LedgerTransactionPosting(wallet.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){
-            jdbc.update("update loan_applications set approved_amount=?,status='APPROVED',decision_reason=?,decided_by_user_id=?,decided_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",amount,reason,teacherId,now,now,now,applicationId);
-            jdbc.update("insert into loans(id,classroom_id,loan_application_id,principal_amount,applied_interest_rate_bps,credit_level_at_approval,outstanding_principal,outstanding_interest,disbursement_transaction_group_id,started_at,matures_at,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,'ACTIVE',?,?,?)",loanId,classroomId,applicationId,amount,policy.getInterestRateBps(),row.level(),amount,interest,group,now,maturity,now,now,now);
-            for(LoanRepaymentPlan.Installment installment:plan.installments()){Instant due=installment.dueAt();jdbc.update("insert into loan_installments(id,classroom_id,loan_id,installment_number,scheduled_principal,scheduled_interest,due_at,grace_until,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?, 'SCHEDULED',?,?,?)",uuids.generate(),classroomId,loanId,installment.number(),installment.principal(),installment.interest(),due,due.plus(Duration.ofDays(policy.getGraceUnits())),now,now,now);}
+            jdbc.update("update loan_applications set approved_amount=?,status='APPROVED',decision_reason=?,decided_by_user_id=?,decided_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?",amount,reason,teacherId,ts(now),ts(now),ts(now),applicationId);
+            jdbc.update("insert into loans(id,classroom_id,loan_application_id,principal_amount,applied_interest_rate_bps,credit_level_at_approval,outstanding_principal,outstanding_interest,disbursement_transaction_group_id,started_at,matures_at,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,'ACTIVE',?,?,?)",loanId,classroomId,applicationId,amount,policy.getInterestRateBps(),row.level(),amount,interest,group,ts(now),ts(maturity),ts(now),ts(now),ts(now));
+            for(LoanRepaymentPlan.Installment installment:plan.installments()){Instant due=installment.dueAt();jdbc.update("insert into loan_installments(id,classroom_id,loan_id,installment_number,scheduled_principal,scheduled_interest,due_at,grace_until,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?, 'SCHEDULED',?,?,?)",uuids.generate(),classroomId,loanId,installment.number(),installment.principal(),installment.interest(),ts(due),ts(due.plus(Duration.ofDays(policy.getGraceUnits()))),ts(now),ts(now),ts(now));}
         }}));
     }
 
@@ -127,7 +128,11 @@ public class LoanApplicationService {
         authorization.authorize(subject,classroomId,ClassroomPermission.MANAGE_LOANS,null);
         if(maximumPrincipal<1||interestRateBps<0||interestRateBps>2_000||termUnits<7||termUnits>84||termUnits%7!=0||installmentCount<1||installmentCount>12||termUnits<installmentCount||graceUnits<0||graceUnits>7||onTimeCredit<0||onTimeCredit>100||overdueCredit>0||overdueCredit< -100||repaidCredit<0||repaidCredit>100)throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_LOAN_POLICY","대출 한도, 금리, 주 단위 기간, 회차, 유예 및 신용점수를 다시 확인해 주세요.");
         LoanPolicyVersion active=currentPolicy(classroomId); LoanPolicyVersion locked=policies.findForUpdate(classroomId,active.getId()).orElseThrow(); if(expectedPolicyVersion!=null&&expectedPolicyVersion!=locked.getVersion())throw error(HttpStatus.CONFLICT,"POLICY_VERSION_CONFLICT","다른 화면에서 대출 정책이 변경되었습니다. 새로고침 후 다시 저장해 주세요."); Instant now=clock.instant(); int nextVersion=locked.getVersion()+1; locked.supersede(now); policies.save(locked);
-        LoanPolicyVersion created=LoanPolicyVersion.activate(uuids.generate(),classroomId,nextVersion,maximumPrincipal,interestRateBps,termUnits,installmentCount,graceUnits,Map.of("on_time",onTimeCredit,"overdue",overdueCredit,"repaid",repaidCredit),now); return view(policies.save(created));
+        LoanPolicyVersion created=LoanPolicyVersion.activate(uuids.generate(),classroomId,nextVersion,maximumPrincipal,interestRateBps,termUnits,installmentCount,graceUnits,Map.of("on_time",onTimeCredit,"overdue",overdueCredit,"repaid",repaidCredit),now);
+        LoanPolicyView saved=view(policies.save(created));
+        // 운영 관리에서 저장한 금리를 AI 설정의 적용값과 같게 유지한다.
+        rateSynchronizer.sync(classroomId,"LOAN_RATE",interestRateBps,now);
+        return saved;
     }
 
     private LoanPolicyVersion currentPolicy(UUID classroomId){return policies.findTopByClassroomIdAndStatusOrderByVersionDesc(classroomId,"ACTIVE").orElseGet(()->policies.save(LoanPolicyVersion.activate(uuids.generate(),classroomId,1,300,initialInterestRateBps(classroomId),28,4,3,Map.of("on_time",10,"overdue",-30,"repaid",20),clock.instant())));}
@@ -147,10 +152,16 @@ public class LoanApplicationService {
     }
     private static LoanPolicyView view(LoanPolicyVersion policy){Map<String,Object> rules=policy.getCreditAdjustments();return new LoanPolicyView(policy.getVersion(),policy.getMaximumPrincipal(),policy.getInterestRateBps(),policy.getTermUnits(),policy.getInstallmentCount(),policy.getGraceUnits(),number(rules.get("on_time"),10),number(rules.get("overdue"),-30),number(rules.get("repaid"),20));}
     private static int number(Object value,int fallback){return value instanceof Number number?number.intValue():fallback;}
-    private Credit credit(UUID c,UUID s){return jdbc.query("select score,level from credit_profiles where classroom_id=? and classroom_student_id=?",rs->{if(rs.next())return new Credit(rs.getInt(1),rs.getString(2));Instant n=clock.instant();jdbc.update("insert into credit_profiles(classroom_student_id,classroom_id,level,score,evaluated_at,created_at,updated_at) values(?,?,'NORMAL',600,?,?,?)",s,c,n,n,n);return new Credit(600,"NORMAL");},c,s);}
+    private Credit credit(UUID c,UUID s){return jdbc.query("select score,level from credit_profiles where classroom_id=? and classroom_student_id=?",rs->{if(rs.next())return new Credit(rs.getInt(1),rs.getString(2));Instant n=clock.instant();jdbc.update("insert into credit_profiles(classroom_student_id,classroom_id,level,score,evaluated_at,created_at,updated_at) values(?,?,'NORMAL',600,?,?,?)",s,c,ts(n),ts(n),ts(n));return new Credit(600,"NORMAL");},c,s);}
     private static LoanApplicationView application(ResultSet rs)throws SQLException{return new LoanApplicationView(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getString(3),rs.getLong(4),(Long)rs.getObject(5),rs.getInt(6),rs.getString(7),rs.getString(8),rs.getTimestamp(9).toInstant());}
     private void publishApplication(UUID classroomId,LoanApplicationView value,long stateVersion){Map<String,Object> payload=Map.of("application_id",value.applicationId().toString(),"status",value.status());events.publish(classroomId,"STUDENT_PRIVATE",value.studentId(),"loan.application.status_changed","LOAN_APPLICATION",value.applicationId(),stateVersion,payload,false);events.publish(classroomId,"TEACHER_CONTROL",null,"loan.application.status_changed","LOAN_APPLICATION",value.applicationId(),stateVersion,payload,false);}
     private static UUID student(String s){try{return UUID.fromString(s);}catch(Exception e){throw error(HttpStatus.UNAUTHORIZED,"AUTH_REQUIRED","학생 로그인이 필요합니다.");}}
+    /**
+     * JdbcTemplate으로 Instant를 그대로 넘기면 PostgreSQL 드라이버가 타입을 정할 수 없어
+     * "Can't infer the SQL type to use for an instance of java.time.Instant"로 실패한다.
+     * timestamptz 열에는 Timestamp로 바꿔서 넘긴다.
+     */
+    private static java.sql.Timestamp ts(Instant value){return value==null?null:java.sql.Timestamp.from(value);}
     private static ClassroomOperationException error(HttpStatus s,String c,String m){return new ClassroomOperationException(s,c,m);}
     private record Credit(int score,String level){} private record Pending(UUID id,String status){} private record LoanRow(UUID studentId,UUID policyId,long requested,int score,String level,String status,String nickname,Instant createdAt){}
     public record LoanApplicationView(UUID applicationId,UUID studentId,String studentNickname,long requestedAmount,Long approvedAmount,int creditScore,String creditLevel,String status,Instant createdAt){}

@@ -10,6 +10,17 @@ import { useClassroom } from "@/features/classroom/ClassroomProvider";
 import { fetchQuizSession, submitQuizAnswer } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
+/** 이미 답한 문항을 다시 고르면 서버가 막습니다. 학생이 이해할 수 있는 말로 바꿔 줍니다. */
+function answerErrorMessage(error: Error) {
+  if (error.message.includes("already has an answer")) {
+    return "이 문제는 이미 답을 냈어요. 다음 문제로 넘어가요.";
+  }
+  if (error.message.includes("not accepting answers")) {
+    return "선생님이 퀴즈를 마감했어요.";
+  }
+  return error.message;
+}
+
 export default function QuizScreen() {
   const { identity } = useAuth();
   const { access } = useClassroom();
@@ -26,17 +37,37 @@ export default function QuizScreen() {
   const questions = session.data?.questions ?? [];
   const question = questions[questionIndex];
   const answer = useMutation({
-    mutationFn: (optionId: string) => submitQuizAnswer(identity!.classroomId, session.data!.quizSessionId, question!.resourceId, optionId),
+    // 제출 경로는 퀴즈 운영 방식(게임형·평가형)에 따라 달라집니다.
+    mutationFn: (optionId: string) => submitQuizAnswer(
+      identity!.classroomId,
+      session.data!.quizSessionId,
+      question!.resourceId,
+      optionId,
+      session.data!.mode
+    ),
     onSuccess: () => setAnswered(true)
   });
 
   useEffect(() => { setQuestionIndex(0); setStarted(false); setSelectedOptionId(null); setAnswered(false); }, [quizSessionId]);
 
   const moveQuestion = (nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= questions.length) return;
     setQuestionIndex(nextIndex);
     setSelectedOptionId(null);
     setAnswered(false);
     answer.reset();
+  };
+
+  // 마지막 문항에서는 다 푼 화면으로 넘어갑니다. 그 전에는 다음 문항으로 이동합니다.
+  const finishOrAdvance = () => {
+    if (questionIndex === questions.length - 1) {
+      setQuestionIndex(questions.length);
+      setSelectedOptionId(null);
+      setAnswered(false);
+      answer.reset();
+      return;
+    }
+    moveQuestion(questionIndex + 1);
   };
 
   return (
@@ -65,10 +96,11 @@ export default function QuizScreen() {
             <View style={styles.options}>
               {question.options.map((option, index) => <Pressable disabled={!option.optionId || answer.isPending || answered} key={`${option.optionId ?? option.label}-${index}`} onPress={() => { if (option.optionId) { setSelectedOptionId(option.optionId); answer.mutate(option.optionId); } }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, (!option.optionId || answer.isPending || answered) && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>)}
             </View>
-            {answer.isError ? <Text style={styles.error}>{answer.error.message}</Text> : null}
+            {answer.isError ? <Text style={styles.error}>{answerErrorMessage(answer.error)}</Text> : null}
             <View style={styles.quizActions}>
-              <Pressable disabled={questionIndex === 0 || answer.isPending} onPress={() => moveQuestion(questionIndex - 1)} style={[styles.secondaryButton, questionIndex === 0 && styles.buttonDisabled]}><Text style={styles.secondaryButtonText}>이전 문제</Text></Pressable>
-              <Pressable disabled={!answered || answer.isPending} onPress={() => moveQuestion(questionIndex + 1)} style={[styles.nextButton, (!answered || answer.isPending) && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
+              {/* 답을 고르지 않아도 넘어갈 수 있습니다. 건너뛴 문항은 이전 문제로 돌아와 풀 수 있습니다. */}
+              <Pressable disabled={questionIndex === 0 || answer.isPending} onPress={() => moveQuestion(questionIndex - 1)} style={[styles.secondaryButton, (questionIndex === 0 || answer.isPending) && styles.buttonDisabled]}><Text style={styles.secondaryButtonText}>이전 문제</Text></Pressable>
+              <Pressable disabled={answer.isPending} onPress={() => finishOrAdvance()} style={[styles.nextButton, answer.isPending && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
             </View>
           </View>
         </View>

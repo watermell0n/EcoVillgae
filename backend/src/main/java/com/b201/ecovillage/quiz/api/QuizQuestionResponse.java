@@ -21,6 +21,8 @@ public record QuizQuestionResponse(
     String explanation,
     String source,
     UUID aiRunId,
+    /** 이 학급에서 퀴즈로 한 번이라도 열린 문항인지입니다. */
+    boolean alreadyUsedInSession,
     List<OptionResponse> options
 ) {
     public QuizQuestionResponse {

@@ -414,6 +414,13 @@ public class QuizSessionCommandService {
         }
         quizModule.trackActiveQuizSession(command.sessionId(), now);
         moduleRepository.save(quizModule);
+        // 학생 앱은 활성 모듈 중 먼저 찾은 세션 하나만 읽습니다. 게임형과 평가형이 각각 세션을
+        // 들고 있으면 새로 연 퀴즈 대신 예전 퀴즈가 계속 보이므로, 다른 쪽 표시는 지웁니다.
+        clearActiveQuizSession(
+            command.classroomId(),
+            command.mode() == QuizMode.GAME ? QuizMode.TEST : QuizMode.GAME,
+            now
+        );
         return session;
     }
 

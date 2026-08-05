@@ -34,7 +34,7 @@ public final class ModuleCatalog {
         module("PUBLIC_FUND", "공동기금", true, List.of(), false, null, false),
         module("PUBLIC_BUDGET", "공공예산·투표", true, List.of(), false, null, false),
         module("DEPOSIT", "정기예금", true, List.of(), true, "DEPOSIT_RATE", false),
-        module("SAVINGS", "정기적금", true, List.of(), false, null, false),
+        module("SAVINGS", "정기적금", true, List.of(), true, "SAVINGS_RATE", false),
         module("CREDIT", "신용 기초", false, List.of(), false, null, false),
         module("LOAN", "대출·상환", true, List.of("DEPOSIT", "CREDIT"), true,
             "LOAN_RATE", false),

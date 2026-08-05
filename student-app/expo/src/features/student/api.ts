@@ -281,8 +281,33 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
   };
 }
 
-export async function submitQuizAnswer(classroomId: string, sessionId: string, questionId: string, optionId: string) {
+/**
+ * 답 제출 경로는 퀴즈 운영 방식에 따라 다릅니다. 게임형은 문항마다 바로 제출하고, 평가형은
+ * 답안지를 모아 저장합니다. 방식과 다른 경로로 보내면 서버가 INVALID_QUIZ_MODE로 거절합니다.
+ */
+export async function submitQuizAnswer(
+  classroomId: string,
+  sessionId: string,
+  questionId: string,
+  optionId: string,
+  mode: QuizSession["mode"] = "GAME"
+) {
   if (useMocks) return { submitted: true };
+  if (mode === "TEST") {
+    return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/test-answer-sheet`, {
+      method: "PUT",
+      retryOnNetworkFailure: true,
+      body: JSON.stringify({
+        screen_id: "SCR-STU-021",
+        ui_action_id: "UIA-QZ-005",
+        client_occurred_at: now(),
+        answers: [{ question_id: questionId, option_id: optionId }],
+        answer_sheet_version: 0,
+        // 평가형은 마지막에 한 번 제출합니다. 문항을 고를 때마다 임시 저장만 합니다.
+        submit: false
+      })
+    });
+  }
   return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/game-answers`, {
     method: "POST",
     retryOnNetworkFailure: true,
