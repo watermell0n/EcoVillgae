@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useState } from "react";
 
+import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
 import { Screen } from "@/components/Screen";
 import { ItemSprite } from "@/features/character/components/ItemSprite";
@@ -15,8 +16,27 @@ const KIND_LABEL: Record<string, string> = {
   PHYSICAL: "실제 상품"
 };
 
+/** 구매 실패 사유를 초등학생이 읽을 수 있는 말로 바꾼다. 서버 원문은 그대로 쓰기 어렵다. */
+const PURCHASE_ERROR_MESSAGE: Record<string, string> = {
+  INSUFFICIENT_BALANCE: "가진 돈이 모자라요.",
+  ALREADY_OWNED: "이미 가지고 있는 아이템이에요.",
+  OUT_OF_STOCK: "이 상품은 다 팔렸어요.",
+  PRODUCT_NOT_AVAILABLE: "지금은 살 수 없는 상품이에요.",
+  PRODUCT_VERSION_CONFLICT: "상품 정보가 바뀌었어요. 잠시 뒤 다시 사 주세요.",
+  CLASS_NOT_ACTIVE: "지금은 상점을 이용할 수 없어요."
+};
+
 function isWearable(product: StoreProduct) {
   return Boolean(product.characterCode) && product.productKind !== "PHYSICAL";
+}
+
+/**
+ * 이코 상점은 시스템이 제공하는 캐릭터 아이템을, 교실 상점은 교사가 등록한 상품을 판다.
+ * 교사 웹은 상품을 PHYSICAL로만 만들므로(UIA-STORE-PRODUCT-CREATE) PHYSICAL만 교실 상점으로 보낸다.
+ * 캐릭터는 서버가 CHARACTER로 내려주고 목 데이터만 DIGITAL이라 둘 다 이코 상점에 둔다.
+ */
+function shopAreaOf(product: StoreProduct) {
+  return product.productKind === "PHYSICAL" ? "classroom" : "eco";
 }
 
 export default function ShopScreen() {
@@ -35,8 +55,19 @@ export default function ShopScreen() {
       showMessage("구매 요청 완료", `${order.totalAmount} ${currencyName} 구매가 접수됐어요.`);
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["store-catalog", identity?.classroomId] });
+      // 캐릭터를 사면 보유 아이템이 늘어난다. staleTime이 30초라 무효화하지 않으면
+      // 방금 산 아이템이 "내 캐릭터"의 보유 목록에 바로 뜨지 않는다.
+      queryClient.invalidateQueries({ queryKey: ["character-inventory", identity?.classroomId] });
+    },
+    onError: (error) => {
+      const code = error instanceof ApiError ? error.code : "";
+      showMessage("구매하지 못했어요", PURCHASE_ERROR_MESSAGE[code] ?? "잠시 후 다시 시도해 주세요.");
+      // 품절·버전 충돌은 목록이 낡아서 생기므로 최신 목록을 다시 받는다.
+      queryClient.invalidateQueries({ queryKey: ["store-catalog", identity?.classroomId] });
     }
   });
+
+  const visibleProducts = (catalog.data ?? []).filter((product) => shopAreaOf(product) === shopType);
 
   const confirmPurchase = (product: StoreProduct) => {
     const message = `${product.label}을(를) ${product.unitPrice} ${currencyName}에 구매할까요?`;
@@ -60,9 +91,15 @@ export default function ShopScreen() {
           <Text style={styles.error}>상품을 불러오지 못했어요.</Text>
           <Pressable onPress={() => catalog.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 시도</Text></Pressable>
         </View>
+      ) : visibleProducts.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.helper}>
+            {shopType === "eco" ? "지금은 살 수 있는 캐릭터 아이템이 없어요." : "선생님이 등록한 상품이 아직 없어요."}
+          </Text>
+        </View>
       ) : (
         <View style={styles.grid}>
-          {catalog.data?.filter((product) => shopType === "eco" ? product.productKind === "DIGITAL" : product.productKind !== "DIGITAL").map((product) => (
+          {visibleProducts.map((product) => (
             <View key={product.resourceId} style={styles.product}>
               <View style={styles.productArt}>
                 {isWearable(product)
