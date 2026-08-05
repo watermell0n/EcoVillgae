@@ -590,7 +590,7 @@ export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
 
 export const MODULE_PREREQUISITES: Partial<Record<ModuleCode, ModuleCode[]>> = {
   INCOME_TAX: ["ROLE_SALARY"],
-  LOAN: ["DEPOSIT"]
+  LOAN: ["DEPOSIT", "CREDIT"]
 };
 
 export function periodToCourseSize(period: string): CourseSize {

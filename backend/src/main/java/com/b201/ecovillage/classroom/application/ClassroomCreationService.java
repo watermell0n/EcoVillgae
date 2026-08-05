@@ -26,6 +26,7 @@ import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.UserAccount;
@@ -189,6 +190,13 @@ public class ClassroomCreationService {
             );
         }
         List<String> moduleCodes = normalizeModuleCodes(command.moduleCodes());
+        if (moduleCodes.contains("SAVINGS") && command.courseSize() != CourseSize.SEMESTER) {
+            throw new ClassroomOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE",
+                "정기적금 모듈은 한 학기 운영에서만 사용할 수 있습니다."
+            );
+        }
         if (command.autonomousSchedules() == null) {
             return new ValidatedCreation(currencyName, moduleCodes);
         }

@@ -75,6 +75,8 @@ public enum ClassroomPermission {
         "PM-FIN-002",
         Set.of(ClassroomActorRole.STU)
     ),
+    REQUEST_LOAN("PM-FIN-008", Set.of(ClassroomActorRole.STU)),
+    MANAGE_LOANS("PM-FIN-009", Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)),
     MANAGE_INVESTMENT_SCENARIO(
         "PM-FIN-001",
         Set.of(ClassroomActorRole.OWN)

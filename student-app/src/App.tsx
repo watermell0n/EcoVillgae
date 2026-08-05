@@ -9,6 +9,8 @@ import {
   calculateStoreTotal,
   createTrade,
   fetchDepositAndSavings,
+  fetchLoanOverview,
+  applyLoan,
   fetchFinancialProducts,
   fetchActiveModuleCodes,
   fetchGuidedActivity,
@@ -18,13 +20,17 @@ import {
   fetchVote,
   purchaseStoreItem,
   subscribeDeposit,
+  subscribeSavings,
   submitGameAnswer,
   type DepositAccountView,
+  type CreditProfileView,
+  type LoanOverviewView,
   type FinancialProductView,
   type GuidedActivity,
   type InvestmentMode,
   type QuizQuestion,
   type QuizSession,
+  type SavingsAccountView,
   type TradeCommandResponse,
   type VoteView
 } from "./api/studentFeatures";
@@ -65,6 +71,12 @@ type ActiveRealtimeActivity = {
 };
 
 const ACTIVE_REALTIME_ACTIVITY_KEY = "ecovillage.student.realtime.active-activity";
+const CREDIT_LEVEL_LABELS: Record<string, string> = {
+  GOOD: "우수",
+  NORMAL: "보통",
+  CAUTION: "주의",
+  RESTRICTED: "제한"
+};
 
 const DEFAULT_ACTIVE_MODULE_CODES = new Set([
   "STORE", "DEPOSIT", "SAVINGS", "LOAN", "INVESTMENT", "TRADE", "QUIZ", "ROLE_SALARY"
@@ -187,6 +199,9 @@ function App() {
     }))
   );
   const [deposits, setDeposits] = useState<DepositAccountView[]>([]);
+  const [savings, setSavings] = useState<SavingsAccountView[]>([]);
+  const [creditProfile, setCreditProfile] = useState<CreditProfileView>({ score: 600, level: "NORMAL" });
+  const [loanOverview, setLoanOverview] = useState<LoanOverviewView | null>(null);
   const [financialProducts, setFinancialProducts] = useState<FinancialProductView[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
@@ -232,7 +247,7 @@ function App() {
           sessionData,
           voteData,
           activityData,
-          investmentState
+          investmentState, loanData
         ] = await Promise.all([
           fetchDepositAndSavings(activeClassroomId),
           fetchFinancialProducts(activeClassroomId),
@@ -253,7 +268,7 @@ function App() {
             activeClassroomId,
             activeRealtimeActivityForClass?.activityId
           ),
-          fetchInvestmentModuleState(activeClassroomId)
+          fetchInvestmentModuleState(activeClassroomId), fetchLoanOverview(activeClassroomId)
         ]);
 
         if (ignore) {
@@ -261,12 +276,15 @@ function App() {
         }
 
         setDeposits(accountData.depositAccounts);
+        setSavings(accountData.savingsAccounts);
         setFinancialProducts(productData);
         setQuizQuestions(questionData.questions);
         setQuizSession(sessionData);
         setVote(voteData);
         setGuidedActivity(activityData);
         setInvestmentMode(investmentState.investmentMode);
+        setCreditProfile({ score: loanData.creditScore, level: loanData.creditLevel });
+        setLoanOverview(loanData);
       } catch (error) {
         if (!ignore) {
           setActionMessage(error instanceof Error ? error.message : "학생 데이터를 불러오지 못했어요.");
@@ -530,18 +548,38 @@ function App() {
               currencyName={currencyName}
               products={financialProducts}
               deposits={deposits}
-              onSubscribe={async (product) => {
-                const amount = product.minimumAmount;
-                const result = await subscribeDeposit(
-                  activeClassroomId,
-                  product.resourceId,
-                  amount,
-                  product.version
-                );
-                const latest = await fetchDepositAndSavings(activeClassroomId);
-                setDeposits(latest.depositAccounts);
-                setWalletBalance((balance) => balance - amount);
-                setActionMessage(`예금 가입 완료: ${result.status}`);
+              savings={savings}
+              loanOverview={loanOverview}
+              onSubscribeDeposit={async (product) => {
+                try {
+                  const amount = product.minimumAmount;
+                  const result = await subscribeDeposit(activeClassroomId, product.resourceId, amount, product.version);
+                  const latest = await fetchDepositAndSavings(activeClassroomId);
+                  setDeposits(latest.depositAccounts);
+                  setSavings(latest.savingsAccounts);
+                  setWalletBalance((balance) => balance - amount);
+                  setActionMessage(`예금 가입 완료: ${result.status}`);
+                } catch (error) {
+                  setActionMessage(`예금 가입에 실패했어요. ${error instanceof Error ? error.message : ""}`);
+                }
+              }}
+              onSubscribeSavings={async (product) => {
+                const amount = product.installmentAmount;
+                if (!amount) return setActionMessage("적금 납입 금액을 확인해 주세요.");
+                try {
+                  const result = await subscribeSavings(activeClassroomId, product.resourceId, amount, product.version);
+                  const latest = await fetchDepositAndSavings(activeClassroomId);
+                  setDeposits(latest.depositAccounts);
+                  setSavings(latest.savingsAccounts);
+                  setWalletBalance((balance) => balance - amount);
+                  setActionMessage(`적금 가입 완료: ${result.status}`);
+                } catch (error) {
+                  setActionMessage(`적금 가입에 실패했어요. ${error instanceof Error ? error.message : ""}`);
+                }
+              }}
+              onApplyLoan={async (amount) => {
+                try { const application = await applyLoan(activeClassroomId, amount, loanOverview?.installmentCount ?? 4); setLoanOverview((current) => current ? { ...current, canApply: false, pendingApplicationId: application.application_id, pendingApplicationStatus: application.status } : current); setActionMessage("대출 신청을 보냈어요. 선생님 승인을 기다려 주세요."); }
+                catch(error){setActionMessage(`대출 신청에 실패했어요. ${error instanceof Error?error.message:""}`);}
               }}
             />
           )}
@@ -578,6 +616,7 @@ function App() {
             <ProfileSettingsPage
               nickname={nickname}
               currentPassword={profilePassword}
+              creditProfile={creditProfile}
               onSave={(nextNickname, nextPassword) => {
                 setNickname(nextNickname);
                 setProfilePassword(nextPassword);
@@ -965,16 +1004,21 @@ function ShopPage({
   );
 }
 
-function BankPage({ currencyName, products, deposits, onSubscribe }: {
+function BankPage({ currencyName, products, deposits, savings, loanOverview, onSubscribeDeposit, onSubscribeSavings, onApplyLoan }: {
   currencyName: string;
   products: FinancialProductView[];
   deposits: DepositAccountView[];
-  onSubscribe: (product: FinancialProductView) => void;
+  savings: SavingsAccountView[];
+  loanOverview: LoanOverviewView | null;
+  onSubscribeDeposit: (product: FinancialProductView) => void;
+  onSubscribeSavings: (product: FinancialProductView) => void;
+  onApplyLoan: (amount:number) => void;
 }) {
+  const [loanAmount,setLoanAmount]=useState(100);
   return (
     <section className="panel">
       <p className="eyebrow">이코 은행</p>
-      <h2>예금과 적금 상품</h2>
+      <h2>예금·적금·대출</h2>
       <div className="product-grid compact">
         {products.filter((product) => product.productType === "DEPOSIT").map((product) => (
           <article className="product-card" key={product.resourceId}>
@@ -982,10 +1026,33 @@ function BankPage({ currencyName, products, deposits, onSubscribe }: {
             <b>{product.label}</b>
             <p>{product.minimumAmount}{currencyName}부터 · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
             <small>{product.termUnits}일 만기 · 최대 {product.maximumAmount}{currencyName}</small>
-            <button onClick={() => onSubscribe(product)}>가입하기</button>
+            <button onClick={() => onSubscribeDeposit(product)}>가입하기</button>
+          </article>
+        ))}
+        {products.filter((product) => product.productType === "SAVINGS").map((product) => (
+          <article className="product-card" key={product.resourceId}>
+            <span>🐖</span>
+            <b>{product.label}</b>
+            <p>매회 {product.installmentAmount ?? 0}{currencyName} · 이자 {(product.interestRateBps / 100).toFixed(2)}%</p>
+            <small>{product.termUnits / 7}주 만기 · 주 1회 · 총 {product.installmentCount ?? 0}회 납입</small>
+            <button onClick={() => onSubscribeSavings(product)}>가입하기</button>
           </article>
         ))}
       </div>
+      <div className="mini-section">
+        <h3>내 적금</h3>
+        {savings.length === 0 ? (
+          <p>아직 가입한 적금이 없어요.</p>
+        ) : (
+          savings.map((account) => (
+            <div className="data-row" key={account.resourceId}>
+              <b>{account.label}</b>
+              <span>{account.paidInstallmentCount}/{account.installmentCount}회 · {account.principalBalance}{currencyName} · 매주 자동 납입 · 만기 {new Date(account.maturesAt).toLocaleDateString("ko-KR")}</span>
+            </div>
+          ))
+        )}
+      </div>
+      {loanOverview ? <div className="mini-section"><h3>대출과 신용</h3><p>신용 {loanOverview.creditScore}점 · 한도 {loanOverview.availableLimit}{currencyName} · 전체 기간 금리 {(loanOverview.interestRateBps/100).toFixed(2)}% · {loanOverview.termUnits/7}주 {loanOverview.installmentCount}회 상환</p>{loanOverview.pendingApplicationStatus ? <p className="status-copy">대출 승인 대기 중이에요. 선생님이 승인하면 지갑으로 지급됩니다.</p> : null}<div className="new-quiz-line"><input type="number" min={loanOverview.installmentCount} max={loanOverview.availableLimit} value={loanAmount} disabled={!loanOverview.canApply} onChange={event=>setLoanAmount(Number(event.target.value))}/><button disabled={!loanOverview.canApply || loanAmount < loanOverview.installmentCount || loanAmount > loanOverview.availableLimit} onClick={()=>onApplyLoan(loanAmount)}>{loanOverview.canApply ? "대출 신청" : "신청 불가"}</button></div>{loanOverview.loans.map(loan=><div className="data-row" key={loan.loanId}><b>{loan.status === "OVERDUE" ? "연체" : loan.status === "REPAID" ? "상환 완료" : "상환 중"}</b><span>남은 원금 {loan.outstandingPrincipal}{currencyName} · 이자 {loan.outstandingInterest}{currencyName} · 만기 {new Date(loan.maturesAt).toLocaleDateString("ko-KR")}</span></div>)}</div>:null}
       <div className="mini-section">
         <h3>내 예금</h3>
         {deposits.length === 0 ? (
@@ -994,7 +1061,7 @@ function BankPage({ currencyName, products, deposits, onSubscribe }: {
           deposits.map((deposit) => (
             <div className="data-row" key={deposit.resourceId}>
               <b>{deposit.label}</b>
-              <span>{deposit.principalAmount}{currencyName} · {deposit.status}</span>
+              <span>{deposit.principalAmount}{currencyName} · {deposit.status === "MATURED" ? "만기 완료" : deposit.status === "ACTIVE" ? "예치 중" : deposit.status}</span>
             </div>
           ))
         )}
@@ -1134,10 +1201,12 @@ function CharacterPage({
 function ProfileSettingsPage({
   nickname,
   currentPassword,
+  creditProfile,
   onSave
 }: {
   nickname: string;
   currentPassword: string;
+  creditProfile: CreditProfileView;
   onSave: (nickname: string, password: string) => void;
 }) {
   const [step, setStep] = useState<"check" | "edit">("check");
@@ -1186,6 +1255,11 @@ function ProfileSettingsPage({
 
   return (
     <section className="profile-settings">
+      <div className="panel">
+        <p className="eyebrow">내 신용</p>
+        <h2>{creditProfile.score}점 · {CREDIT_LEVEL_LABELS[creditProfile.level] ?? creditProfile.level}</h2>
+        <p>상환 약속을 지키면 신용점수가 올라가고, 연체하면 내려가요.</p>
+      </div>
       {step === "check" ? (
         <form className="profile-form" onSubmit={verifyPassword}>
           <p className="eyebrow">프로필 확인</p>
