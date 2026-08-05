@@ -142,10 +142,14 @@ public class ClassroomCreationService {
 
     private ClassroomModule createRequestedModule(UUID classroomId, String code, Instant now) {
         ModuleCatalog.Definition definition = ModuleCatalog.require(code);
-        ClassroomModule module = definition.initialPolicyRequired()
+        // Investment has no rate policy, but the teacher must choose its operating mode
+        // before students can use it. Treat that choice exactly like an initial policy.
+        boolean requiresInitialConfiguration = definition.initialPolicyRequired()
+            || "INVESTMENT".equals(definition.code());
+        ClassroomModule module = requiresInitialConfiguration
             ? ClassroomModule.pendingConfiguration(uuidGenerator.generate(), classroomId, code, now)
             : ClassroomModule.disabled(uuidGenerator.generate(), classroomId, code, now);
-        if (!definition.initialPolicyRequired() && definition.prerequisites().isEmpty()) {
+        if (!requiresInitialConfiguration && definition.prerequisites().isEmpty()) {
             module.activate(Map.of("activation_source", "CLASSROOM_CREATION"), now);
         }
         return module;

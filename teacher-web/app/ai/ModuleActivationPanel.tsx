@@ -308,10 +308,6 @@ export function ModuleActivationPanel({
                       <dd>{applied.text}</dd>
                     </div>
                   ))}
-                  <div>
-                    <dt>정책 버전</dt>
-                    <dd>v{policyVersionOf(policyVersions, modulePolicyArea(code))}</dd>
-                  </div>
                 </dl>
               ) : null}
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
