@@ -69,6 +69,25 @@ type StudentRow = {
   lastSeenAt?: string;
 };
 
+function withPlannedStudentRows(students: StudentRow[], plannedStudentCount: number): StudentRow[] {
+  const occupiedNumbers = new Set(
+    students.map((student) => Number(student.attendance)).filter((number) => Number.isInteger(number) && number > 0)
+  );
+  const rows = [...students];
+  for (let rosterNumber = 1; rosterNumber <= plannedStudentCount; rosterNumber++) {
+    if (occupiedNumbers.has(rosterNumber)) continue;
+    rows.push({
+      attendance: String(rosterNumber),
+      nickname: `학생 ${rosterNumber}`,
+      role: "",
+      salary: "0",
+      status: "정상",
+      presence: "UNKNOWN"
+    });
+  }
+  return rows.sort((left, right) => Number(left.attendance) - Number(right.attendance));
+}
+
 type PublishedQuizQuestion = {
   version_id: string;
   status: string;
@@ -326,6 +345,7 @@ const moduleDependencies: Record<string, string[]> = {
   적금: [],
   신용: [],
   대출: ["예금", "신용"],
+  청약: ["부동산"],
   "단기 투자": ["지갑", "세금"],
   "장기 투자": ["지갑", "세금"],
   "공공 예산/투표": ["지갑", "세금"],
@@ -737,7 +757,7 @@ export default function TeacherConsole() {
       );
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
-        setStudents(rosterState.students.map((student) => {
+        const loadedStudents = rosterState.students.map((student) => {
           const salaryRole = student.role_code ? salaryByRole.get(student.role_code) : undefined;
           return {
             resourceId: student.resource_id,
@@ -750,7 +770,8 @@ export default function TeacherConsole() {
             currentScreen: student.current_screen ?? "",
             lastSeenAt: student.last_seen_at
           };
-        }));
+        });
+        setStudents(withPlannedStudentRows(loadedStudents, configuration.student_count ?? loadedStudents.length));
       } else {
         setStudents([]);
       }
@@ -812,6 +833,8 @@ export default function TeacherConsole() {
         setModules={setModules}
         runAction={runAction}
         schoolId={schoolId}
+        setSchoolId={setSchoolId}
+        addLog={addLog}
         onCancel={() => {
           setCreateStep("basic");
           setStage("classrooms");
@@ -1201,6 +1224,8 @@ function CreateClassroomFlow({
   setModules,
   runAction,
   schoolId,
+  setSchoolId,
+  addLog,
   onCancel,
   onSaveDraft,
   onLogout,
@@ -1220,6 +1245,8 @@ function CreateClassroomFlow({
     onMockSuccess: (result: unknown) => void
   ) => Promise<void>;
   schoolId: string;
+  setSchoolId: React.Dispatch<React.SetStateAction<string>>;
+  addLog: (message: string, tone?: LogTone) => void;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
@@ -1354,8 +1381,18 @@ function CreateClassroomFlow({
 
   async function createClassroom() {
     const studentCount = Number(settings.studentCount);
-    if (!schoolId) {
-      setCreationError("소속 학교 정보를 확인하지 못했어요. 다시 로그인해 주세요.");
+    let resolvedSchoolId = schoolId;
+    if (!resolvedSchoolId) {
+      try {
+        resolvedSchoolId = (await getTeacherBootstrap()).schools[0]?.school_id ?? "";
+        if (resolvedSchoolId) setSchoolId(resolvedSchoolId);
+      } catch (error) {
+        setCreationError(`소속 학교 정보를 다시 불러오지 못했어요. ${error instanceof Error ? error.message : ""}`);
+        return;
+      }
+    }
+    if (!resolvedSchoolId) {
+      setCreationError("등록한 학교 코드에 연결된 교사 계정인지 확인해 주세요.");
       return;
     }
     if (!Number.isInteger(studentCount) || studentCount < 1) {
@@ -1378,8 +1415,7 @@ function CreateClassroomFlow({
           screen_id: "SCR-WEB-003",
           ui_action_id: "UIA-CLS-001",
           client_occurred_at: new Date().toISOString(),
-          school_id: schoolId,
-          // develop이 추가한 학급 표시 정보다.
+          school_id: resolvedSchoolId,
           display_name: settings.className,
           class_number: Number(settings.classNumber),
           description: settings.description,
@@ -1548,9 +1584,9 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" disabled={!schoolId} onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
             </div>
-            {!schoolId ? <p className="inline-error">소속 학교 정보를 불러오지 못했습니다. 다시 로그인해 주세요.</p> : null}
+            {!schoolId ? <p className="inline-error">소속 학교 정보를 다시 확인한 뒤 개설을 시도합니다.</p> : null}
           </section>
         </div>
       ) : null}
@@ -2017,6 +2053,8 @@ function Setup({
   coursePolicyVersion: number;
   onReload: () => Promise<void>;
 }>) {
+  const [isBulkActivating, setIsBulkActivating] = useState(false);
+
   function updateSettings(field: keyof ClassSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
   }
@@ -2034,16 +2072,16 @@ function Setup({
       : `/classrooms/${classroomId}/modules/${existing.code}/stop-commands`;
     const body = activating
       ? {
-        expected_state_version: stateVersion,
+        expected_state_version: existing.stateVersion ?? stateVersion,
         screen_id: "SCR-WEB-003",
         ui_action_id: "UIA-MOD-001",
         client_occurred_at: new Date().toISOString(),
         confirm_prerequisites: true,
-        initial_policy_values: existing.code === "DEPOSIT" ? { rate_bps: 500 } : {},
+        initial_policy_values: {},
         recommendation_action_ids: []
       }
       : {
-        expected_state_version: stateVersion,
+        expected_state_version: existing.stateVersion ?? stateVersion,
         screen_id: "SCR-WEB-003",
         ui_action_id: "UIA-MOD-002",
         client_occurred_at: new Date().toISOString(),
@@ -2056,6 +2094,84 @@ function Setup({
       { method: "POST", body: JSON.stringify(body) },
       () => { void onReload(); }
     );
+  }
+
+  async function activateAllModules() {
+    const modulesByCode = new Map(
+      modules
+        .filter((module) => module.code)
+        .map((module) => [module.code!, module])
+    );
+    const prerequisites: Record<string, string[]> = {
+      INCOME_TAX: ["ROLE_SALARY"],
+      LOAN: ["DEPOSIT", "CREDIT"],
+      HOUSING_SUBSCRIPTION: ["REAL_ESTATE"]
+    };
+    const orderedCodes: string[] = [];
+    const visited = new Set<string>();
+    const visit = (code: string) => {
+      if (visited.has(code) || !modulesByCode.has(code)) return;
+      visited.add(code);
+      (prerequisites[code] ?? []).forEach(visit);
+      orderedCodes.push(code);
+    };
+    modulesByCode.forEach((_, code) => visit(code));
+
+    setIsBulkActivating(true);
+    try {
+      let activatedCount = 0;
+      const skippedNames: string[] = [];
+      const failedNames: string[] = [];
+      for (const code of orderedCodes) {
+        const module = modulesByCode.get(code);
+        if (!module || module.status === "열림") continue;
+        if (code === "SAVINGS" && courseSizeFor(settings.period) !== "SEMESTER") {
+          skippedNames.push(module.name);
+          continue;
+        }
+        try {
+          await apiRequest<{ state_version: number }>(
+            `/classrooms/${classroomId}/modules/${code}/activation-commands`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                expected_state_version: module.stateVersion ?? stateVersion,
+                screen_id: "SCR-WEB-003",
+                ui_action_id: "UIA-MOD-ALL-001",
+                client_occurred_at: new Date().toISOString(),
+                confirm_prerequisites: true,
+                initial_policy_values: code === "INVESTMENT"
+                  ? { investment_mode: "LONG_TERM" }
+                  : {},
+                recommendation_action_ids: []
+              })
+            }
+          );
+          activatedCount += 1;
+        } catch {
+          failedNames.push(module.name);
+        }
+      }
+      await onReload();
+      const details = [
+        skippedNames.length > 0 ? `${skippedNames.join(", ")}: 한 학기 수업에서만 사용 가능` : "",
+        failedNames.length > 0 ? `${failedNames.join(", ")}: 개별 설정 확인 필요` : ""
+      ].filter(Boolean).join(" / ");
+      addLog(
+        `${activatedCount}개 모듈을 기본 설정으로 활성화했어요.${details ? ` ${details}` : ""}`,
+        failedNames.length > 0 ? "error" : undefined
+      );
+    } catch (error) {
+      await onReload();
+      addLog(
+        error instanceof ApiError
+          ? error.message
+          : "모듈 일괄 활성화 중 오류가 발생했어요.",
+        "error"
+      );
+    } finally {
+      setIsBulkActivating(false);
+    }
   }
 
   function saveCourseConfiguration() {
@@ -2158,6 +2274,19 @@ function Setup({
         </div>
       </PlainSection>
       <PlainSection title="사용 기능">
+        <div className="class-create-panel">
+          <div>
+            <span>선택한 모듈</span>
+            <strong>{modules.filter((module) => module.code).length}개</strong>
+          </div>
+          <button
+            type="button"
+            disabled={isBulkActivating}
+            onClick={() => void activateAllModules()}
+          >
+            {isBulkActivating ? "활성화 중..." : "모든 모듈 기본값으로 켜기"}
+          </button>
+        </div>
         <div className="module-toggle-list">
           {selectableModuleNames.map((moduleName) => {
             const module = modules.find((item) => item.name === moduleName);
@@ -2316,7 +2445,7 @@ function Roster({
     expected_policy_version: salaryPolicyVersion,
     expected_state_version: stateVersion,
     students: students.map((student) => ({
-      student_id: null,
+      student_id: student.resourceId ?? null,
       attendance_number: Number(student.attendance),
       nickname: student.nickname,
       role_code: hasSalaryModule ? roleCodeByName.get(student.role) : null

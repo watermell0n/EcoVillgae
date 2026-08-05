@@ -596,9 +596,10 @@ export const STUDENT_ACCESS_MODULE_NAMES: string[] = [
   "평가형 퀴즈"
 ];
 
-export const MODULE_PREREQUISITES: Partial<Record<ModuleCode, ModuleCode[]>> = {
+export const MODULE_PREREQUISITES: Record<string, string[]> = {
   INCOME_TAX: ["ROLE_SALARY"],
-  LOAN: ["DEPOSIT", "CREDIT"]
+  LOAN: ["DEPOSIT", "CREDIT"],
+  HOUSING_SUBSCRIPTION: ["REAL_ESTATE"]
 };
 
 export function periodToCourseSize(period: string): CourseSize {
