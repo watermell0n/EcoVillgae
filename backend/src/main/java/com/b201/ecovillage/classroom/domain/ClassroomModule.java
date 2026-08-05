@@ -22,6 +22,13 @@ public class ClassroomModule {
     // 학생 앱(features/classroom/api.ts)이 진행 중인 퀴즈를 찾을 때 읽는 키입니다.
     public static final String ACTIVE_QUIZ_SESSION_KEY = "active_quiz_session_id";
 
+    /**
+     * 교사가 이 모듈을 학생에게 잠갔는지 나타냅니다. 모듈은 계속 ACTIVE이므로 설정과
+     * 데이터는 그대로 남고, 학생 화면에서만 회색으로 바뀌어 들어갈 수 없습니다.
+     * 학급에서 모듈을 아예 걷어내는 것은 stop-commands(STOPPING)입니다.
+     */
+    public static final String STUDENT_ACCESS_SUSPENDED_KEY = "student_access_suspended";
+
     @Id
     @Column(nullable = false, updatable = false)
     private UUID id;
@@ -95,9 +102,19 @@ public class ClassroomModule {
         return module;
     }
 
+    /**
+     * STOPPING도 다시 켤 수 있게 둔다. 정리 대기 상태에서 되돌릴 방법이 없으면 교사가
+     * 실수로 중지한 모듈을 그 학급에서 영구히 못 쓰게 된다.
+     */
+    public static boolean isActivatable(String status) {
+        return "DISABLED".equals(status)
+            || "PENDING_CONFIGURATION".equals(status)
+            || "STOPPING".equals(status);
+    }
+
     public void activate(Map<String, Object> config, Instant changedAt) {
-        if (!"DISABLED".equals(status) && !"PENDING_CONFIGURATION".equals(status)) {
-            throw new IllegalStateException("Only a disabled or pending module can be activated");
+        if (!isActivatable(status)) {
+            throw new IllegalStateException("Only a disabled, pending, or stopping module can be activated");
         }
         this.config = Map.copyOf(Objects.requireNonNull(config, "config must not be null"));
         this.enabledAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
@@ -129,6 +146,25 @@ public class ClassroomModule {
         Map<String, Object> next = new LinkedHashMap<>(config);
         next.remove(ACTIVE_QUIZ_SESSION_KEY);
         replaceConfig(next, changedAt);
+    }
+
+    /**
+     * 학생 이용만 잠그거나 다시 엽니다. 상태는 ACTIVE로 유지하므로 예금 계좌·퀴즈 세션처럼
+     * 이미 만들어진 데이터를 정리하지 않고 되돌릴 수 있습니다.
+     */
+    public void changeStudentAccess(boolean suspended, Instant changedAt) {
+        requireActiveForConfigChange();
+        Map<String, Object> next = new LinkedHashMap<>(config);
+        if (suspended) {
+            next.put(STUDENT_ACCESS_SUSPENDED_KEY, true);
+        } else {
+            next.remove(STUDENT_ACCESS_SUSPENDED_KEY);
+        }
+        replaceConfig(next, changedAt);
+    }
+
+    public boolean isStudentAccessSuspended() {
+        return Boolean.TRUE.equals(config.get(STUDENT_ACCESS_SUSPENDED_KEY));
     }
 
     private void requireActiveForConfigChange() {

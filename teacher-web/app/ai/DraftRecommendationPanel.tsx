@@ -94,6 +94,7 @@ export function DraftRecommendationPanel({
   quizSessionId = "",
   activeStudentCount,
   effectiveTaxBps,
+  currencyName = "",
   onReload,
   onStateVersionChange,
   onProductPriceApplied
@@ -102,6 +103,8 @@ export function DraftRecommendationPanel({
   classroomId: string;
   products?: readonly ProductDraft[];
   policyVersions: readonly AiPolicyVersionRow[];
+  /** 학급이 정한 화폐 이름입니다. 금액 뒤에 붙여 보여 줍니다. */
+  currencyName?: string;
   quizSessionId?: string;
   activeStudentCount: number;
   effectiveTaxBps: number;
@@ -327,7 +330,7 @@ export function DraftRecommendationPanel({
         <div className="recommendation-form">
           {serverProducts.length ? <>
             <label>등록 상품<select value={productId} onChange={(event) => { setProductId(event.target.value); resetProposal(); }}>
-              {serverProducts.map((product) => <option value={product.resourceId} key={product.resourceId}>{product.name} · 현재 {product.price}비빔</option>)}
+              {serverProducts.map((product) => <option value={product.resourceId} key={product.resourceId}>{product.name} · 현재 {product.price}{currencyName}</option>)}
             </select></label>
             <label>예상 구매 학생 수<input type="number" min="1" value={expectedDemand} onChange={(event) => setExpectedDemand(event.target.value)} /></label>
             <label>학생 1인당 예상 구매 횟수<input type="number" min="0.1" step="0.1" value={purchaseFrequency} onChange={(event) => setPurchaseFrequency(event.target.value)} /></label>

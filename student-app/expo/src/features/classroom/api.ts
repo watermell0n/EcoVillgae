@@ -34,6 +34,8 @@ type ModulesAndPoliciesResponse = {
 export type ClassroomAccess = {
   modules: ClassroomModule[];
   activeCodes: Set<string>;
+  // 선생님이 학생 이용만 잠근 모듈입니다. 메뉴는 보이지만 들어갈 수 없습니다.
+  suspendedCodes: Set<string>;
   resources: {
     quizSessionId?: string;
     voteId?: string;
@@ -105,6 +107,11 @@ function createAccess(
   return {
     modules: activeModules,
     activeCodes: new Set(activeModules.map((module) => module.code)),
+    suspendedCodes: new Set(
+      activeModules
+        .filter((module) => module.config.student_access_suspended === true)
+        .map((module) => module.code)
+    ),
     resources: {
       quizSessionId: firstConfiguredId(activeModules, ["active_quiz_session_id", "quiz_session_id"]),
       voteId: firstConfiguredId(activeModules, ["active_vote_id", "vote_id"]),
@@ -122,6 +129,7 @@ function createAccess(
 
 export async function fetchClassroomAccess(classroomId: string): Promise<ClassroomAccess> {
   if (useMocks) return createAccess(mockModules);
+  // 서버가 학생에게 보내 주는 config에는 active_quiz_session_id와 student_access_suspended가 함께 담깁니다.
 
   const response = await apiRequest<ModulesAndPoliciesResponse>(`/classrooms/${classroomId}/modules-and-policies`);
   return createAccess(response.modules.map((module) => ({
@@ -155,6 +163,16 @@ export type ModuleGroup = keyof typeof moduleGroups;
 
 export function hasModule(access: ClassroomAccess | undefined, group: ModuleGroup) {
   return moduleGroups[group].some((code) => access?.activeCodes.has(code));
+}
+
+/**
+ * 선생님이 이 기능의 학생 이용을 잠갔는지입니다. 메뉴에는 남기고 회색으로 보여 주며,
+ * 그룹 안의 모듈이 모두 잠겼을 때만 잠금으로 봅니다(예: 게임형·평가형 퀴즈 중 하나만 열려 있으면 사용 가능).
+ */
+export function isModuleSuspended(access: ClassroomAccess | undefined, group: ModuleGroup) {
+  if (!hasModule(access, group)) return false;
+  const openCodes = moduleGroups[group].filter((code) => access?.activeCodes.has(code));
+  return openCodes.every((code) => access?.suspendedCodes.has(code));
 }
 
 // 선생님 수업은 모듈 카탈로그 항목이 아니라 교사가 시작한 지도 활동입니다.

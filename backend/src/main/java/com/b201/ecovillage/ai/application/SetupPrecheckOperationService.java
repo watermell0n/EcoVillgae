@@ -33,7 +33,9 @@ import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.ai.repository.AsyncOperationRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -62,6 +64,7 @@ public class SetupPrecheckOperationService {
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassroomModuleRepository moduleRepository;
+    private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final RuleEngineService ruleEngineService;
     private final SetupProposalTargetSnapshotService targetSnapshotService;
     private final SetupPrecheckContractMapper contractMapper;
@@ -84,6 +87,7 @@ public class SetupPrecheckOperationService {
         UserAccountRepository userRepository,
         ClassroomRepository classroomRepository,
         ClassroomModuleRepository moduleRepository,
+        ClassroomPolicyVersionRepository policyVersionRepository,
         RuleEngineService ruleEngineService,
         SetupProposalTargetSnapshotService targetSnapshotService,
         SetupPrecheckContractMapper contractMapper,
@@ -105,6 +109,7 @@ public class SetupPrecheckOperationService {
         this.userRepository = userRepository;
         this.classroomRepository = classroomRepository;
         this.moduleRepository = moduleRepository;
+        this.policyVersionRepository = policyVersionRepository;
         this.ruleEngineService = ruleEngineService;
         this.targetSnapshotService = targetSnapshotService;
         this.contractMapper = contractMapper;
@@ -353,7 +358,11 @@ public class SetupPrecheckOperationService {
                 module.getModuleCode(),
                 module.getId(),
                 value.confirmedValue(),
-                value.currentDepositRateBps()
+                // 대출 금리 추천은 현재 예금 기준금리를 전제로 한다. 화면이 그 값을 알 수 없으므로
+                // 요청에 없으면 확정된 DEPOSIT_RATE 정책에서 직접 읽는다.
+                value.currentDepositRateBps() == null
+                    ? currentDepositRateBps(classroom.getId(), module.getModuleCode())
+                    : value.currentDepositRateBps()
             ));
         }
         if (input.salaryPolicy() != null) {
@@ -397,6 +406,23 @@ public class SetupPrecheckOperationService {
             ));
         }
         return builder.build();
+    }
+
+    /**
+     * 확정된 예금 기준금리(bps)입니다. LOAN 외의 모듈에는 필요하지 않으며, 예금 정책이 아직
+     * 없으면 null을 돌려주어 규칙 엔진이 "예금 기준금리가 필요합니다"로 안내하게 둡니다.
+     */
+    private Integer currentDepositRateBps(UUID classroomId, String moduleCode) {
+        if (!"LOAN".equals(moduleCode)) {
+            return null;
+        }
+        return policyVersionRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "DEPOSIT_RATE")
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(values -> values.get("rate_bps"))
+            .filter(Number.class::isInstance)
+            .map(rate -> ((Number) rate).intValue())
+            .orElse(null);
     }
 
     RuleEngineResult revalidate(UUID classroomId, SetupPrecheckInput input) {

@@ -39,7 +39,7 @@ const cards: HomeCard[] = [
 
 export default function VillageScreen() {
   const { width } = useWindowDimensions();
-  const { enabled, error, hasCachedData, isLoading, isOffline, refetch } = useClassroom();
+  const { enabled, suspended, error, hasCachedData, isLoading, isOffline, refetch } = useClassroom();
   const columns = width >= 1050 ? 3 : width >= 640 ? 2 : 1;
   // 선생님 수업은 모듈 스위치가 아니라 수업 진행에 딸린 화면이라 늘 보여 줍니다.
   const visibleCards = cards.filter((card) => card.id === "class" || enabled(card.id));
@@ -64,23 +64,34 @@ export default function VillageScreen() {
         <>
         {isOffline ? <View style={styles.offlineBanner}><Text style={styles.offlineText}>오프라인 상태예요. 마지막으로 확인한 메뉴를 보여주고 있어요.</Text><Pressable onPress={() => refetch()}><Text style={styles.offlineAction}>다시 연결</Text></Pressable></View> : null}
         <View style={styles.grid}>
-          {visibleCards.map((card) => (
-            <Pressable
-              accessibilityRole="button"
-              key={card.id}
-              onPress={() => router.push(card.route)}
-              style={({ pressed }) => [
-                styles.module,
-                { width: columns === 3 ? "31.6%" : columns === 2 ? "48.5%" : "100%", borderColor: toneColors[card.tone] },
-                pressed && styles.pressed
-              ]}
-            >
-              <Text style={styles.moduleIcon}>{card.icon}</Text>
-              <Text style={styles.moduleTitle}>{card.title}</Text>
-              <Text style={styles.moduleSubtitle}>{card.subtitle}</Text>
-              <Text style={[styles.moduleCta, { backgroundColor: toneColors[card.tone] }]}>들어가기</Text>
-            </Pressable>
-          ))}
+          {visibleCards.map((card) => {
+            // 선생님이 잠근 기능은 자리를 지키되 회색으로 바뀌고 눌리지 않습니다.
+            const isLocked = card.id !== "class" && suspended(card.id);
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isLocked }}
+                key={card.id}
+                disabled={isLocked}
+                onPress={() => router.push(card.route)}
+                style={({ pressed }) => [
+                  styles.module,
+                  { width: columns === 3 ? "31.6%" : columns === 2 ? "48.5%" : "100%", borderColor: toneColors[card.tone] },
+                  isLocked && styles.moduleLocked,
+                  pressed && !isLocked && styles.pressed
+                ]}
+              >
+                <Text style={[styles.moduleIcon, isLocked && styles.lockedContent]}>{card.icon}</Text>
+                <Text style={[styles.moduleTitle, isLocked && styles.lockedTitle]}>{card.title}</Text>
+                <Text style={[styles.moduleSubtitle, isLocked && styles.lockedContent]}>
+                  {isLocked ? "지금은 선생님이 잠가 두었어요" : card.subtitle}
+                </Text>
+                <Text style={[styles.moduleCta, isLocked ? styles.lockedCta : { backgroundColor: toneColors[card.tone] }]}>
+                  {isLocked ? "잠김" : "들어가기"}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
         </>
       )}
@@ -115,6 +126,10 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   pressed: { opacity: 0.8 },
+  moduleLocked: { borderColor: "#CBD2DC", backgroundColor: "#EEF1F5" },
+  lockedTitle: { color: "#6B7482" },
+  lockedContent: { color: "#8B939F" },
+  lockedCta: { backgroundColor: "#B6BEC9" },
   moduleIcon: { marginBottom: 14, fontSize: 42 },
   moduleTitle: { color: colors.ink900, fontSize: 21, fontWeight: "900", textAlign: "center" },
   moduleSubtitle: { minHeight: 44, marginTop: 10, marginBottom: 14, color: colors.muted600, fontSize: 14, lineHeight: 21, fontWeight: "700", textAlign: "center" },

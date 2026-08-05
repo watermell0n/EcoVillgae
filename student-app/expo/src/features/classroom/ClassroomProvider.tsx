@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
-import { fetchClassroomAccess, hasModule, type ClassroomAccess, type ModuleGroup } from "./api";
+import { fetchClassroomAccess, hasModule, isModuleSuspended, type ClassroomAccess, type ModuleGroup } from "./api";
 import { colors } from "@/theme/tokens";
 
 type ClassroomContextValue = {
@@ -16,6 +16,8 @@ type ClassroomContextValue = {
   isOffline: boolean;
   hasCachedData: boolean;
   enabled(group: ModuleGroup): boolean;
+  // 선생님이 학생 이용만 잠근 기능입니다. 메뉴는 보이지만 들어갈 수 없습니다.
+  suspended(group: ModuleGroup): boolean;
   refetch(): Promise<unknown>;
 };
 
@@ -58,13 +60,15 @@ export function ClassroomProvider({ children }: PropsWithChildren) {
     isOffline: query.error instanceof ApiError && query.error.kind === "offline",
     hasCachedData: Boolean(query.data && query.error),
     enabled: (group) => hasModule(query.data, group),
+    suspended: (group) => isModuleSuspended(query.data, group),
     refetch: query.refetch
   }), [identity, query.data, query.error, query.isPending, query.refetch]);
 
   useEffect(() => {
     const group = routeGroups[pathname];
     if (!group || query.isPending || !query.data) return;
-    if (!hasModule(query.data, group)) router.replace("/(tabs)");
+    // 잠긴 기능은 화면을 열어 두지 않고 마을 광장으로 돌려보냅니다.
+    if (!hasModule(query.data, group) || isModuleSuspended(query.data, group)) router.replace("/(tabs)");
   }, [pathname, query.data, query.isPending]);
 
   const locked = Boolean(identity && query.data?.mode === "CLOSED");

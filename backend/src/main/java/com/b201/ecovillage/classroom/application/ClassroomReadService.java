@@ -28,10 +28,19 @@ import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 public class ClassroomReadService {
 
     private static final String PRIVATE_POLICY_AREA = "AI_SETTINGS";
+    // 학생 앱이 이 키들을 읽어 진행 중인 활동을 찾고 잠긴 모듈을 회색으로 표시한다.
+    // 여기에 없는 키는 학생 응답에서 지워지므로, 새로 추가한 config 키는 반드시 함께 등록한다.
     private static final List<String> PUBLIC_MODULE_CONFIG_KEYS = List.of(
         "policy_area",
         "policy_version",
-        "investment_mode"
+        "investment_mode",
+        ClassroomModule.ACTIVE_QUIZ_SESSION_KEY,
+        "quiz_session_id",
+        "active_vote_id",
+        "vote_id",
+        "active_guided_activity_id",
+        "guided_activity_id",
+        ClassroomModule.STUDENT_ACCESS_SUSPENDED_KEY
     );
 
     private final ClassroomAuthorizationService authorizationService;

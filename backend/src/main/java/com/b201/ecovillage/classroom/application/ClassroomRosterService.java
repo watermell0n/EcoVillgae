@@ -107,10 +107,7 @@ public class ClassroomRosterService {
         }
 
         boolean salaryModuleActive = salaryModuleActive(command.classroomId());
-        List<ValidatedStudent> students = validateStudents(
-            command.students(),
-            salaryModuleActive
-        );
+        List<ValidatedStudent> students = validateStudents(command.students());
         if (!salaryModuleActive) {
             rejectSalaryFieldsWithoutModule(command, students);
             Instant now = clock.instant();
@@ -285,11 +282,15 @@ public class ClassroomRosterService {
         studentRepository.saveAll(changed);
     }
 
+    /**
+     * 비어 있으면 지금 저장된 역할을 그대로 둡니다. 급여 역할은 급여 모듈을 활성화할 때 이미
+     * 만들어지므로, 명단만 바꾸는 저장이 역할 목록을 다시 보내지 않아도 실패하지 않아야 합니다.
+     */
     private static List<ValidatedSalaryRole> validateSalaryRoles(
         List<SalaryRoleCommand> commands
     ) {
         if (commands == null || commands.isEmpty()) {
-            throw validation("salary_roles는 하나 이상이어야 합니다.");
+            return List.of();
         }
         List<ValidatedSalaryRole> validated = new ArrayList<>();
         Set<String> codes = new HashSet<>();
@@ -324,9 +325,12 @@ public class ClassroomRosterService {
         return validated;
     }
 
+    /**
+     * 역할은 급여 모듈이 켜져 있어도 선택 사항입니다. 교사 화면의 "직업 (선택)"과 같은 규칙이며,
+     * 역할이 없는 학생은 급여 지급 대상에서 빠질 뿐 명단 저장은 막지 않습니다.
+     */
     private static List<ValidatedStudent> validateStudents(
-        List<StudentRosterCommand> commands,
-        boolean roleRequired
+        List<StudentRosterCommand> commands
     ) {
         if (commands == null || commands.isEmpty()) {
             throw validation("students는 하나 이상이어야 합니다.");
@@ -340,14 +344,14 @@ public class ClassroomRosterService {
             String roleCode = command.roleCode() == null
                 ? ""
                 : command.roleCode().trim().toUpperCase(Locale.ROOT);
-            if (
-                command.attendanceNumber() <= 0
-                    || nickname.isEmpty()
-                    || nickname.length() > 40
-                    || (roleRequired && !ROLE_CODE.matcher(roleCode).matches())
-                    || (!roleCode.isEmpty() && !ROLE_CODE.matcher(roleCode).matches())
-            ) {
-                throw validation("학생 번호·닉네임·역할을 확인해 주세요.");
+            if (command.attendanceNumber() <= 0) {
+                throw validation("학생 번호는 1 이상이어야 합니다.");
+            }
+            if (nickname.isEmpty() || nickname.length() > 40) {
+                throw validation("학생 이름은 1~40자로 입력해 주세요.");
+            }
+            if (!roleCode.isEmpty() && !ROLE_CODE.matcher(roleCode).matches()) {
+                throw validation("역할 코드는 영문 대문자·숫자·밑줄 1~40자여야 합니다.");
             }
             if (!attendanceNumbers.add(command.attendanceNumber())) {
                 throw duplicateAttendanceNumber();
@@ -388,7 +392,8 @@ public class ClassroomRosterService {
     ) {
         boolean hasRoles = command.salaryRoles() != null && !command.salaryRoles().isEmpty();
         boolean hasAssignments = students.stream().anyMatch(student -> student.roleCode() != null);
-        if (hasRoles || hasAssignments || command.expectedPolicyVersion() != null) {
+        // expected_policy_version만 실려 온 것은 급여 설정이 아니므로 막지 않는다.
+        if (hasRoles || hasAssignments) {
             throw new ClassroomOperationException(
                 HttpStatus.CONFLICT,
                 "MODULE_NOT_ACTIVE",
@@ -401,7 +406,9 @@ public class ClassroomRosterService {
         List<ValidatedStudent> students,
         Set<String> roleCodes
     ) {
-        if (students.stream().anyMatch(student -> !roleCodes.contains(student.roleCode()))) {
+        if (students.stream()
+            .filter(student -> student.roleCode() != null)
+            .anyMatch(student -> !roleCodes.contains(student.roleCode()))) {
             throw new ClassroomOperationException(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "SALARY_ROLE_NOT_FOUND",

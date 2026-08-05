@@ -227,6 +227,7 @@
 | UIA-CLS-008 | SCR-WEB-026 종료 시작 | OWN | `ACTIVE → CLOSING`, 영향 확인·재인증 | PM-CLS-006 / SM-CLS-001 |
 | UIA-MOD-001 | SCR-WEB-005 모듈 추가 | OWN | 조건부 선행 모듈·학년 정책 통과, 추천 초기 정책 확인 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 / SM-MOD-001·SM-AIR-001 |
 | UIA-MOD-002 | SCR-WEB-005 모듈 중지 | OWN | `ACTIVE → STOPPING`, LIVE 활동 없음 | PM-MOD-001 / SM-MOD-001 |
+| UIA-MOD-003 | SCR-WEB-005 학생 이용 잠금·열기 | OWN | 모듈은 `ACTIVE` 유지, 학생 화면에서만 회색으로 잠기고 되돌릴 수 있음 | PM-MOD-001 / SM-MOD-001 |
 | UIA-POL-001 | SCR-WEB-009 경제정책 저장 | OWN | 최신 정책 버전, 이후 거래·신규 상품부터 적용 | PM-POL-001 |
 | UIA-POL-002 | SCR-WEB-010 세금·기금 사용처 저장 | OWN | 기본 항목 유지 가능, 예산 규칙 검증 | PM-POL-002 |
 | UIA-ACT-001 | SCR-TCH-004 지도 활동 시작 | OWN·COT | `READY → LIVE`, 대상·공개 범위 스냅샷 | PM-ACT-001 / SM-ACT-001 |

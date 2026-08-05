@@ -59,9 +59,9 @@ assertSame("WebSocket 채널 ID", sourceChannelIds, contractChannelIds);
 assertSame("이벤트 ID", sourceEventIds, contractEventIds);
 assertSame("event_type", sourceEventTypes, contractEventTypes);
 
-if (sourceApiIds.length !== 133) throw new Error(`API 수가 133개가 아닙니다: ${sourceApiIds.length}`);
-if (operationIds.length !== 133)
-  throw new Error(`operationId 수가 133개가 아닙니다: ${operationIds.length}`);
+if (sourceApiIds.length !== 134) throw new Error(`API 수가 134개가 아닙니다: ${sourceApiIds.length}`);
+if (operationIds.length !== 134)
+  throw new Error(`operationId 수가 134개가 아닙니다: ${operationIds.length}`);
 if (sourceChannelIds.length !== 10)
   throw new Error(`채널 수가 10이 아닙니다: ${sourceChannelIds.length}`);
 if (sourceEventIds.length !== 48)

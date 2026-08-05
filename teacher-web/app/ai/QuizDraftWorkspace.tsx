@@ -47,6 +47,11 @@ function sessionErrorMessage(error: unknown) {
   if (error.code === "AMBIGUOUS_ANSWER") return "정답이 하나가 아닌 문항이 있어요. 문항을 수정한 뒤 다시 시작해 주세요.";
   if (error.code === "PUBLIC_DATA_ONLY") return "평가형 퀴즈는 순위를 공개할 수 없어요.";
   if (error.code === "CLASS_NOT_ACTIVE") return "학급이 활성 상태일 때만 퀴즈를 시작할 수 있어요.";
+  if (error.code === "MODULE_NOT_ACTIVE") {
+    return error.message.includes("QUIZ_TEST")
+      ? "평가형 퀴즈 기능이 아직 켜져 있지 않아요. ‘학급 설정 → 사용 기능’에서 ‘평가형 퀴즈’를 켜면 평가형으로 열 수 있어요."
+      : "게임형 퀴즈 기능이 아직 켜져 있지 않아요. ‘학급 설정 → 사용 기능’에서 ‘퀴즈’를 켜 주세요.";
+  }
   if (error.status === 403) return "퀴즈 시작은 담당 교사만 실행할 수 있어요.";
   return error.message;
 }

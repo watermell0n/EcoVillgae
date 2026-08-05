@@ -150,11 +150,11 @@ public class ModuleActivationService {
                 "RESOURCE_NOT_FOUND",
                 "The selected module could not be found in this classroom."
             ));
-        if (!Set.of("DISABLED", "PENDING_CONFIGURATION").contains(module.getStatus())) {
+        if (!ClassroomModule.isActivatable(module.getStatus())) {
             throw operation(
                 HttpStatus.CONFLICT,
                 "INVALID_STATE_TRANSITION",
-                "Only a disabled or pending module can be activated."
+                "이미 사용 중인 모듈입니다. 학생 이용만 잠그려면 학급 설정에서 잠금을 사용해 주세요."
             );
         }
         if (command.expectedStateVersion() != module.getStateVersion()) {

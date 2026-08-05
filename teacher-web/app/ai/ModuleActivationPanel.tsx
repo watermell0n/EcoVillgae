@@ -41,12 +41,19 @@ const MODULE_LABELS: Record<string, string> = {
   INVESTMENT: "투자",
   LOAN: "대출",
   PUBLIC_FUND: "공공 예산/투표",
-  QUIZ_GAME: "퀴즈",
-  QUIZ_TEST: "퀴즈",
+  QUIZ_GAME: "퀴즈(게임형)",
+  QUIZ_TEST: "퀴즈(평가형)",
   ROLE_SALARY: "월급",
   SAVINGS: "적금",
   STORE: "상점",
   TRADE: "개인 거래"
+};
+
+// 금리·세율 정책이 없는 모듈은 여기서 보여 줄 확정값이 없습니다. 대신 어디서 정하는지 알려 줍니다.
+const MODULE_VALUE_HINTS: Record<string, string> = {
+  SAVINGS: "적금 이자율과 납입액은 “운영 관리 → 적금”에서 상품마다 정합니다.",
+  INVESTMENT: "투자 수익률은 “운영 관리 → 투자”에서 시나리오로 정합니다.",
+  STORE: "상품 가격은 “상점 상품”에서 정하고, AI 가격 추천도 그 화면에서 받습니다."
 };
 
 function moduleLabel(module: AiModuleRow) {
@@ -332,6 +339,12 @@ export function ModuleActivationPanel({
                     </div>
                   ))}
                 </dl>
+              ) : null}
+              {appliedValues.length === 0 && MODULE_VALUE_HINTS[code] ? (
+                <p className="section-description">{MODULE_VALUE_HINTS[code]}</p>
+              ) : null}
+              {appliedValues.length === 0 && isActive && needsPolicy ? (
+                <p className="section-description">아직 확정한 값이 없어요. 기본값으로 운영 중입니다.</p>
               ) : null}
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")}</p> : null}
               {code === "INVESTMENT" && !isActive ? (

@@ -2515,6 +2515,128 @@ paths:
               required:
                 - "reason"
               additionalProperties: false
+  "/classrooms/{classroom_id}/modules/{module_code}/student-access-commands":
+    post:
+      operationId: "apiMod003"
+      x-api-id: "API-MOD-003"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classroom_modules"
+        - "state_transitions"
+      x-ui-action-ids:
+        - "UIA-MOD-003"
+      x-roles:
+        - "OWN"
+      x-permission-ids:
+        - "PM-MOD-001"
+      x-state-machine-ids:
+        - "SM-MOD-001"
+      x-rtm-ids:
+        - "CLS-002"
+      tags:
+        - "Modules"
+      summary: "command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지)"
+      description: "사람이 검토하는 원문 기준: `API-MOD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/ModuleCodePath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "module_id"
+                      - "module_code"
+                      - "status"
+                      - "student_access_suspended"
+                      - "state_version"
+                      - "replayed"
+                    properties:
+                      module_id:
+                        type: "string"
+                        format: "uuid"
+                      module_code:
+                        type: "string"
+                      status:
+                        type: "string"
+                        enum:
+                          - "ACTIVE"
+                      student_access_suspended:
+                        type: "boolean"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      replayed:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-MOD-003 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                expected_state_version:
+                  type: "integer"
+                  format: "int64"
+                  minimum: 0
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                command:
+                  type: "string"
+                  enum:
+                    - "SUSPEND"
+                    - "RESUME"
+                reason:
+                  type: "string"
+                  maxLength: 500
+              required:
+                - "command"
+              additionalProperties: false
   "/classrooms/{classroom_id}/economic-policy":
     put:
       operationId: "apiPol001"

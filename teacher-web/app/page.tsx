@@ -61,6 +61,8 @@ type StudentRow = {
   attendance: string;
   nickname: string;
   role: string;
+  // 서버가 준 급여 역할 코드입니다. 저장할 때 새 코드를 만들지 않고 이 코드를 그대로 돌려보냅니다.
+  roleCode?: string;
   salary: string;
   status: string;
   presence?: "ONLINE" | "AWAY" | "OFFLINE" | "UNKNOWN";
@@ -68,7 +70,40 @@ type StudentRow = {
   lastSeenAt?: string;
 };
 
-function withPlannedStudentRows(students: StudentRow[], plannedStudentCount: number): StudentRow[] {
+// 새로고침해도 열어 둔 교실과 탭을 그대로 유지합니다. 탭마다 따로 기억하도록 sessionStorage를 씁니다.
+const CONSOLE_STATE_KEY = "ecovillage.teacher.console";
+
+type StoredConsoleState = { classroomId: string; view: ViewKey };
+
+function readStoredConsoleState(): StoredConsoleState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(CONSOLE_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredConsoleState>;
+    if (typeof parsed.classroomId !== "string" || !parsed.classroomId) return null;
+    const view = views.some((item) => item.key === parsed.view) ? parsed.view as ViewKey : "overview";
+    return { classroomId: parsed.classroomId, view };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredConsoleState(state: StoredConsoleState | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (state) window.sessionStorage.setItem(CONSOLE_STATE_KEY, JSON.stringify(state));
+    else window.sessionStorage.removeItem(CONSOLE_STATE_KEY);
+  } catch {
+    // 저장 공간을 쓸 수 없으면 화면 복원만 포기하고 나머지 동작은 그대로 진행합니다.
+  }
+}
+
+function withPlannedStudentRows(
+  students: StudentRow[],
+  plannedStudentCount: number,
+  fallbackRole?: { role_code?: string; label?: string; gross_amount?: number }
+): StudentRow[] {
   const occupiedNumbers = new Set(
     students.map((student) => Number(student.attendance)).filter((number) => Number.isInteger(number) && number > 0)
   );
@@ -78,8 +113,9 @@ function withPlannedStudentRows(students: StudentRow[], plannedStudentCount: num
     rows.push({
       attendance: String(rosterNumber),
       nickname: `학생 ${rosterNumber}`,
-      role: "",
-      salary: "0",
+      role: fallbackRole?.label ?? "",
+      roleCode: fallbackRole?.role_code ?? "",
+      salary: String(fallbackRole?.gross_amount ?? 0),
       status: "정상",
       presence: "UNKNOWN"
     });
@@ -129,15 +165,18 @@ async function openPublishedQuizForStudents({
       `/classrooms/${classroomId}/quiz-sessions/${crypto.randomUUID()}/commands`,
       {
         method: "POST",
+        // 서버는 snake_case로 받습니다. camelCase로 보내면 알 수 없는 필드로 거절됩니다.
         body: JSON.stringify({
-          expectedStateVersion: stateVersion,
+          screen_id: "SCR-WEB-018",
+          ui_action_id: "UIA-QZ-004",
+          client_occurred_at: new Date().toISOString(),
           command: "START",
-          questionVersionIds,
-          participantIds,
+          question_version_ids: questionVersionIds,
+          participant_ids: participantIds,
           mode: "GAME",
-          contentType: "ECONOMY",
-          rewardPolicyPublic: {},
-          leaderboardPublic: true
+          content_type: "ECONOMY",
+          reward_policy_public: { reward_per_person: 0 },
+          leaderboard_public: true
         })
       },
       () => addLog(`${participantIds.length}명에게 퀴즈를 열었어요.`)
@@ -157,6 +196,8 @@ type ModuleRow = {
   code?: string;
   stateVersion?: number;
   version?: number;
+  // 모듈은 켜져 있지만 교사가 학생 이용만 잠근 상태입니다.
+  studentAccessSuspended?: boolean;
   config?: Record<string, unknown>;
 };
 
@@ -169,8 +210,22 @@ type ProductRow = {
   resourceId?: string;
   version?: number;
   stateVersion?: number;
+  // 서버의 상품 상태입니다. PUBLISHED만 학생 상점에 보입니다.
+  status?: string;
   kind?: "PHYSICAL" | "DIGITAL";
   vatRateBps?: number;
+};
+
+type StoreCatalogProduct = {
+  resource_id: string;
+  label: string;
+  status: string;
+  version: number;
+  state_version: number;
+  unit_price: number;
+  vat_rate_bps: number;
+  stock_quantity: number;
+  product_kind: string;
 };
 
 type AiSettingsSnapshot = {
@@ -263,15 +318,14 @@ const initialStudents: StudentRow[] = studentSeed.map(([nickname, role, salary, 
   lastSeenAt: index < 20 ? new Date(Date.now() - index * 45_000).toISOString() : undefined
 }));
 
-const initialProducts: ProductRow[] = [
-  { name: "연필 교환권", price: "30", stock: "12", imageName: "", imageSrc: "" },
-  { name: "간식 우선권", price: "50", stock: "4", imageName: "", imageSrc: "" }
-];
+// 상품 목록은 교실을 열 때 서버에서 받아옵니다. 시작값은 빈 목록입니다.
+const initialProducts: ProductRow[] = [];
 
 const initialApprovals: ApprovalRow[] = [
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30비빔", status: "교사 승인 대기", sample: true },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000비빔", status: "권리 상품 확인", sample: true },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340비빔", status: "결과 정산 대기", sample: true }
+  // 금액에는 화폐 이름을 붙이지 않습니다. 화면에서 학급 화폐명을 뒤에 붙여 보여 줍니다.
+  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30", status: "교사 승인 대기", sample: true },
+  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000", status: "권리 상품 확인", sample: true },
+  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340", status: "결과 정산 대기", sample: true }
 ];
 
 const courseTemplates = [
@@ -324,10 +378,10 @@ const initialSettings: ClassSettings = {
 
 const initialLessonMaterials: LessonMaterial[] = [];
 
-const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
+const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 const creditLevelLabels: Record<string, string> = { GOOD: "우수", NORMAL: "보통", CAUTION: "주의", RESTRICTED: "제한" };
 const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
-const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"];
+const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 
 const moduleDependencies: Record<string, string[]> = {
   월급: ["지갑"],
@@ -343,7 +397,8 @@ const moduleDependencies: Record<string, string[]> = {
   "단기 투자": ["지갑", "세금"],
   "장기 투자": ["지갑", "세금"],
   "공공 예산/투표": ["지갑", "세금"],
-  퀴즈: []
+  퀴즈: [],
+  "평가형 퀴즈": []
 };
 
 const moduleDescriptions: Record<string, string> = {
@@ -360,13 +415,14 @@ const moduleDescriptions: Record<string, string> = {
   "단기 투자": "오늘 투자하고 다음 날 확정되는 투자 활동입니다.",
   "장기 투자": "매일 공개되는 소식을 보고 보유 또는 회수를 결정합니다.",
   "공공 예산/투표": "공동기금 사용처를 정하고 익명 투표를 진행합니다.",
-  퀴즈: "경제 퀴즈와 게임형/평가형 수업 활동을 진행합니다."
+  퀴즈: "점수와 순위가 있는 게임형 퀴즈를 진행합니다.",
+  "평가형 퀴즈": "결과를 공개하지 않는 평가형 퀴즈를 진행합니다. 평가형으로 퀴즈를 열려면 이 기능이 필요합니다."
 };
 
 const periodModuleRecommendations: Record<string, string[]> = {
   "1회 체험": ["퀴즈"],
   "1주 프로젝트": ["월급", "세금", "상점", "예금", "퀴즈"],
-  "1달 운영": ["월급", "세금", "상점", "캐릭터", "예금", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈"],
+  "1달 운영": ["월급", "세금", "상점", "캐릭터", "예금", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"],
   "1학기 운영": selectableModuleNames
 };
 
@@ -398,7 +454,8 @@ const moduleCodeByName: Record<string, string> = {
   대출: "LOAN",
   투자: "INVESTMENT",
   "공공 예산/투표": "PUBLIC_FUND",
-  퀴즈: "QUIZ_GAME"
+  퀴즈: "QUIZ_GAME",
+  "평가형 퀴즈": "QUIZ_TEST"
 };
 
 moduleCodeByName["부동산"] = "REAL_ESTATE";
@@ -486,6 +543,15 @@ export default function TeacherConsole() {
           : await restoreTeacherSession();
         if (cancelled) return;
         enterClassrooms(bootstrap);
+        // 새로고침 전에 보고 있던 교실과 탭이 아직 내 교실 목록에 있으면 그 화면으로 되돌립니다.
+        const stored = readStoredConsoleState();
+        const reopened = stored
+          ? bootstrap.classrooms.find((classroom) => classroom.resource_id === stored.classroomId)
+          : undefined;
+        if (stored && reopened) {
+          setView(stored.view);
+          await openClassroom(reopened.resource_id, reopened);
+        }
       } catch (error) {
         if (cancelled) return;
         if (hasOidcCallback() || (error instanceof ApiError && error.status !== 401)) {
@@ -535,6 +601,11 @@ export default function TeacherConsole() {
     };
   }, [stage, activeClassroomId]);
 
+  useEffect(() => {
+    if (stage !== "console" || !activeClassroomId) return;
+    writeStoredConsoleState({ classroomId: activeClassroomId, view });
+  }, [stage, activeClassroomId, view]);
+
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
@@ -575,6 +646,25 @@ export default function TeacherConsole() {
     enterClassrooms(await getTeacherBootstrap());
   }
 
+  // expected_state_version이 실려 있으면 서버의 최신 값으로 바꿔 같은 요청을 다시 만듭니다.
+  // 값을 되돌려 받을 수 없으면 null을 주어 재시도를 포기합니다.
+  async function withFreshStateVersion(classroomId: string, init: RequestInit) {
+    if (typeof init.body !== "string") return null;
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(init.body) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+    if (!("expected_state_version" in body)) return null;
+    const configuration = await apiRequest<{ state_version?: number }>(
+      `/classrooms/${classroomId}/configuration`
+    );
+    if (typeof configuration.state_version !== "number") return null;
+    if (configuration.state_version === body.expected_state_version) return null;
+    return { ...init, body: JSON.stringify({ ...body, expected_state_version: configuration.state_version }) };
+  }
+
   async function runAction(
     label: string,
     path: string,
@@ -586,6 +676,22 @@ export default function TeacherConsole() {
       onSuccess(result);
       addLog(`${label}: 백엔드 처리 완료`);
     } catch (error) {
+      const isStateConflict = error instanceof ApiError && error.code === "STATE_VERSION_CONFLICT";
+      // 다른 화면이나 실시간 갱신 때문에 학급 버전만 낡은 경우가 흔합니다. 교사가 같은 버튼을
+      // 두 번 누르지 않도록, 최신 버전으로 한 번만 자동 재시도합니다.
+      if (isStateConflict && activeClassroomId) {
+        try {
+          const retryInit = await withFreshStateVersion(activeClassroomId, init);
+          if (retryInit) {
+            const result = await apiRequest(path, retryInit);
+            onSuccess(result);
+            addLog(`${label}: 백엔드 처리 완료`);
+            return;
+          }
+        } catch {
+          // 재시도도 실패하면 아래의 공통 안내를 그대로 보여 줍니다.
+        }
+      }
       const code = error instanceof ApiError ? ` (${error.code})` : "";
       const isConflict = error instanceof ApiError && ["STATE_VERSION_CONFLICT", "POLICY_VERSION_CONFLICT"].includes(error.code);
       if (isConflict && activeClassroomId) {
@@ -602,6 +708,7 @@ export default function TeacherConsole() {
     } catch {
       // The local session must still be cleared when the server is unavailable.
     }
+    writeStoredConsoleState(null);
     setStage("login");
     setView("overview");
     setCreateStep("basic");
@@ -609,9 +716,33 @@ export default function TeacherConsole() {
     setHasClassroom(false);
   }
 
-  async function openClassroom(resourceId: string) {
+  // 상점 상품은 서버가 정본입니다. 화면에만 담아 두면 새로고침할 때 등록한 상품이 사라집니다.
+  async function loadStoreProducts(resourceId: string) {
+    try {
+      const catalog = await apiRequest<{ products?: StoreCatalogProduct[] }>(
+        `/classrooms/${resourceId}/store/catalog`
+      );
+      setProducts((catalog.products ?? []).map((product) => ({
+        name: product.label,
+        price: String(product.unit_price),
+        stock: String(product.stock_quantity),
+        imageName: "",
+        imageSrc: "",
+        resourceId: product.resource_id,
+        version: product.version,
+        stateVersion: product.state_version,
+        status: product.status,
+        kind: product.product_kind === "DIGITAL" ? "DIGITAL" : "PHYSICAL",
+        vatRateBps: product.vat_rate_bps
+      })));
+    } catch (error) {
+      addLog(`상점 상품 목록을 불러오지 못했어요. ${error instanceof Error ? error.message : ""}`, "warning");
+    }
+  }
+
+  async function openClassroom(resourceId: string, knownClassroom?: BootstrapClassroom) {
     setActiveClassroomId(resourceId);
-    const classroom = classrooms.find((item) => item.resource_id === resourceId);
+    const classroom = knownClassroom ?? classrooms.find((item) => item.resource_id === resourceId);
     setActiveStateVersion(classroom?.state_version ?? 0);
     setClassroomStateVersion(classroom?.state_version ?? 0);
     try {
@@ -701,18 +832,22 @@ export default function TeacherConsole() {
                   ?? module.label
                   ?? module.module_code
                   ?? "이름 없는 모듈"];
+          const studentAccessSuspended = module.config?.student_access_suspended === true;
           return names.map((name) => ({
             name,
             // 설정만 남은 모듈은 학생에게 닫혀 있지만 교사에게는 구분해서 보여준다.
             status: module.status === "ACTIVE"
               ? "열림"
               : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
-            studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
+            studentState: module.status !== "ACTIVE"
+              ? "학생 이용 중지"
+              : studentAccessSuspended ? "학생 이용 잠금" : "학생 이용 가능",
             teacherTodo: "",
             resourceId: module.resource_id,
             code: module.module_code,
             stateVersion: module.state_version,
             version: module.version,
+            studentAccessSuspended,
             config: module.config
           }));
         }));
@@ -751,13 +886,18 @@ export default function TeacherConsole() {
       );
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
+        // 급여 모듈을 켜면 기본 역할이 함께 만들어지지만 학생 배정은 비어 있습니다. 아직 역할이 없는
+        // 학생에게는 첫 역할을 미리 채워 두어, 적용한 월급이 0으로 보이지 않게 합니다.
+        // 실제 저장은 교사가 "명단 저장"을 눌렀을 때만 일어납니다.
+        const fallbackRole = rosterState.salary_roles?.[0];
         const loadedStudents = rosterState.students.map((student) => {
-          const salaryRole = student.role_code ? salaryByRole.get(student.role_code) : undefined;
+          const salaryRole = (student.role_code ? salaryByRole.get(student.role_code) : undefined) ?? fallbackRole;
           return {
             resourceId: student.resource_id,
             attendance: String(student.attendance_number ?? ""),
             nickname: student.nickname ?? "",
             role: salaryRole?.label ?? student.role_code ?? "",
+            roleCode: student.role_code ?? salaryRole?.role_code ?? "",
             salary: String(salaryRole?.gross_amount ?? 0),
             status: student.status ?? "정상",
             presence: student.presence_status ?? "UNKNOWN",
@@ -765,10 +905,15 @@ export default function TeacherConsole() {
             lastSeenAt: student.last_seen_at
           };
         });
-        setStudents(withPlannedStudentRows(loadedStudents, configuration.student_count ?? loadedStudents.length));
+        setStudents(withPlannedStudentRows(
+          loadedStudents,
+          configuration.student_count ?? loadedStudents.length,
+          fallbackRole
+        ));
       } else {
         setStudents([]);
       }
+      await loadStoreProducts(resourceId);
       if (serverState.failures.length) {
         addLog(`${serverState.failures.join(", ")} 정보는 불러오지 못했어요. 나머지 정보만 표시합니다.`, "warning");
       }
@@ -780,6 +925,7 @@ export default function TeacherConsole() {
   }
 
   function leaveClassroom() {
+    writeStoredConsoleState(null);
     setStage("classrooms");
     setView("overview");
   }
@@ -925,6 +1071,7 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               stateVersion={classroomStateVersion}
               coursePolicyVersion={coursePolicyVersion}
+              economicPolicy={policyVersions.find((policy) => policy.policy_area === "ECONOMIC")}
               onReload={() => openClassroom(activeClassroomId)}
             />
           )}
@@ -949,8 +1096,8 @@ export default function TeacherConsole() {
               setProducts={setProducts}
               addLog={addLog}
               classroomId={activeClassroomId}
-              stateVersion={activeStateVersion}
-              policyVersion={Number(modules.find((module) => module.code === "STORE")?.config?.policy_version ?? 0)}
+              stateVersion={classroomStateVersion}
+              policyVersion={Number(policyVersions.find((policy) => policy.policy_area === "STORE")?.version ?? 0)}
               policyVersions={policyVersions}
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
@@ -965,6 +1112,9 @@ export default function TeacherConsole() {
               realtimeRevision={realtimeRevision}
               currencyName={settings.currency}
               savingsAvailable
+              // 모듈 활성화 때 확정한 기준금리를 새 상품·정책의 시작값으로 씁니다.
+              depositRateBps={ratePolicyBps(policyVersions, "DEPOSIT_RATE")}
+              loanRateBps={ratePolicyBps(policyVersions, "LOAN_RATE")}
               addLog={addLog}
             />
           )}
@@ -1016,7 +1166,8 @@ export default function TeacherConsole() {
               initialPolicyVersion={aiSettings.version}
               canManage={teacherRoles.includes("OWN")}
               modules={modules}
-              policyVersions={[]}
+              // 적용된 정책값(월급·소득세·예금·대출)을 모듈 카드에 그대로 보여 주려면 실제 목록이 필요합니다.
+              policyVersions={policyVersions}
               startDate={settings.startDate}
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
@@ -1733,17 +1884,17 @@ function CoursePlanning({
       `/classrooms/${classroomId}/quiz-question-commands`,
       {
         method: "POST",
+        // 서버는 snake_case로 받습니다.
         body: JSON.stringify({
-          expectedStateVersion: 0,
           command: "CREATE",
-          contentType: "ECONOMY",
-          questionType: "MULTIPLE_CHOICE",
+          content_type: "ECONOMY",
+          question_type: "MULTIPLE_CHOICE",
           prompt: selectedQuizLesson.question,
           options: selectedQuizLesson.options.map((option, index) => ({
-            optionKey: String.fromCharCode(65 + index),
-            optionText: option,
-            isCorrect: index === selectedQuizLesson.answer,
-            sortOrder: index + 1
+            option_key: String.fromCharCode(65 + index),
+            option_text: option,
+            is_correct: index === selectedQuizLesson.answer,
+            sort_order: index + 1
           })),
           explanation: selectedQuizLesson.concept
         })
@@ -2041,6 +2192,7 @@ function Setup({
   classroomId,
   stateVersion,
   coursePolicyVersion,
+  economicPolicy,
   onReload
 }: Readonly<{
   settings: ClassSettings;
@@ -2051,6 +2203,7 @@ function Setup({
   classroomId: string;
   stateVersion: number;
   coursePolicyVersion: number;
+  economicPolicy?: AiPolicyVersionRow;
   onReload: () => Promise<void>;
 }>) {
   const [isBulkActivating, setIsBulkActivating] = useState(false);
@@ -2059,6 +2212,8 @@ function Setup({
     setSettings((current) => ({ ...current, [field]: value }));
   }
 
+  // 사용/잠금은 모듈을 학급에서 걷어내지 않습니다. 학생 화면에서만 회색으로 바뀌어 들어갈 수 없고,
+  // 다시 누르면 그대로 열립니다. 아직 켜지 않은 모듈은 활성화부터 진행합니다.
   function toggleModule(moduleName: string) {
     const existing = modules.find((item) => item.name === moduleName);
     if (!existing?.code) {
@@ -2066,32 +2221,42 @@ function Setup({
       return;
     }
 
-    const activating = existing.status !== "열림";
-    const path = activating
-      ? `/classrooms/${classroomId}/modules/${existing.code}/activation-commands`
-      : `/classrooms/${classroomId}/modules/${existing.code}/stop-commands`;
-    const body = activating
-      ? {
-        expected_state_version: existing.stateVersion ?? stateVersion,
-        screen_id: "SCR-WEB-003",
-        ui_action_id: "UIA-MOD-001",
-        client_occurred_at: new Date().toISOString(),
-        confirm_prerequisites: true,
-        initial_policy_values: {},
-        recommendation_action_ids: []
-      }
-      : {
-        expected_state_version: existing.stateVersion ?? stateVersion,
-        screen_id: "SCR-WEB-003",
-        ui_action_id: "UIA-MOD-002",
-        client_occurred_at: new Date().toISOString(),
-        reason: "교사 설정에서 비활성화"
-      };
+    if (existing.status !== "열림") {
+      void runAction(
+        `${moduleName} 기능 활성화`,
+        `/classrooms/${classroomId}/modules/${existing.code}/activation-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: existing.stateVersion ?? 0,
+            screen_id: "SCR-WEB-003",
+            ui_action_id: "UIA-MOD-001",
+            client_occurred_at: new Date().toISOString(),
+            confirm_prerequisites: true,
+            initial_policy_values: existing.code === "INVESTMENT" ? { investment_mode: "LONG_TERM" } : {},
+            recommendation_action_ids: []
+          })
+        },
+        () => { void onReload(); }
+      );
+      return;
+    }
 
+    const suspending = !existing.studentAccessSuspended;
     void runAction(
-      `${moduleName} 기능 ${activating ? "활성화" : "비활성화"}`,
-      path,
-      { method: "POST", body: JSON.stringify(body) },
+      `${moduleName} 학생 이용 ${suspending ? "잠금" : "열기"}`,
+      `/classrooms/${classroomId}/modules/${existing.code}/student-access-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: existing.stateVersion ?? 0,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-MOD-003",
+          client_occurred_at: new Date().toISOString(),
+          command: suspending ? "SUSPEND" : "RESUME",
+          reason: suspending ? "교사 설정에서 학생 이용 잠금" : "교사 설정에서 학생 이용 다시 열기"
+        })
+      },
       () => { void onReload(); }
     );
   }
@@ -2120,21 +2285,21 @@ function Setup({
     setIsBulkActivating(true);
     try {
       let activatedCount = 0;
-      let nextStateVersion = stateVersion;
       const skippedNames: string[] = [];
       const failedNames: string[] = [];
       for (const code of orderedCodes) {
         const module = modulesByCode.get(code);
         if (!module || module.status === "열림") continue;
         try {
-          const response = await apiRequest<{ state_version: number }>(
+          await apiRequest<{ state_version: number }>(
             `/classrooms/${classroomId}/modules/${code}/activation-commands`,
             {
               method: "POST",
               body: JSON.stringify({
-                expected_state_version: nextStateVersion,
+                // 활성화는 학급이 아니라 모듈의 state_version과 맞춰야 합니다.
+                expected_state_version: module.stateVersion ?? 0,
                 screen_id: "SCR-WEB-003",
-                ui_action_id: "UIA-MOD-ALL-001",
+                ui_action_id: "UIA-MOD-001",
                 client_occurred_at: new Date().toISOString(),
                 confirm_prerequisites: true,
                 initial_policy_values: code === "INVESTMENT"
@@ -2144,15 +2309,18 @@ function Setup({
               })
             }
           );
-          nextStateVersion = response.state_version;
           activatedCount += 1;
-        } catch {
-          failedNames.push(module.name);
+        } catch (error) {
+          if (error instanceof ApiError && error.code === "MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE") {
+            skippedNames.push(module.name);
+          } else {
+            failedNames.push(module.name);
+          }
         }
       }
       await onReload();
       const details = [
-        skippedNames.length > 0 ? `${skippedNames.join(", ")}: 한 학기 수업에서만 사용 가능` : "",
+        skippedNames.length > 0 ? `${skippedNames.join(", ")}: 한 학기 운영에서만 사용 가능` : "",
         failedNames.length > 0 ? `${failedNames.join(", ")}: 개별 설정 확인 필요` : ""
       ].filter(Boolean).join(" / ");
       addLog(
@@ -2172,9 +2340,62 @@ function Setup({
     }
   }
 
+  // 소득세는 학급 정보가 아니라 경제 정책(ECONOMIC)에 저장됩니다. 학급 설정 저장만으로는
+  // 남지 않으므로 같은 버튼에서 경제 정책도 함께 갱신합니다.
+  function saveIncomeTax() {
+    const incomeTaxRateBps = Math.round(Number(settings.incomeTax) * 100);
+    if (!Number.isInteger(incomeTaxRateBps) || incomeTaxRateBps < 0 || incomeTaxRateBps > 10_000) {
+      addLog("소득세는 0~100% 사이의 숫자로 입력해 주세요.", "warning");
+      return Promise.resolve();
+    }
+    const current = (economicPolicy?.values ?? {}) as Record<string, unknown>;
+    const number = (key: string, fallback = 0) => {
+      const value = current[key];
+      return typeof value === "number" ? value : fallback;
+    };
+    const record = (key: string) => {
+      const value = current[key];
+      return value && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
+    };
+    return runAction(
+      "소득세 저장",
+      `/classrooms/${classroomId}/economic-policy`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          expected_state_version: stateVersion,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-CLS-003",
+          client_occurred_at: new Date().toISOString(),
+          // 소득세만 바꾸고 나머지 값은 지금 저장된 값을 그대로 되돌려 보냅니다.
+          price_adjustment_bps: number("price_adjustment_bps"),
+          inflation_rate_bps: number("inflation_rate_bps"),
+          income_tax_rate_bps: incomeTaxRateBps,
+          vat_rate_bps: number("vat_rate_bps"),
+          trade_tax_rate_bps: number("trade_tax_rate_bps"),
+          deposit_rate_bps: number("deposit_rate_bps"),
+          loan_rate_bps: number("loan_rate_bps"),
+          stock_policy: record("stock_policy"),
+          reward_policy: record("reward_policy"),
+          limits: record("limits"),
+          expected_policy_version: economicPolicy?.version ?? 0
+        })
+      },
+      () => { void onReload(); }
+    );
+  }
+
+  // 두 요청 모두 학급 state_version을 쓰므로 순서대로 보냅니다.
+  async function saveClassSettings() {
+    await saveCourseConfiguration();
+    await saveIncomeTax();
+  }
+
   function saveCourseConfiguration() {
     const grade = Number(settings.grade);
-    void runAction(
+    return runAction(
       "학급 설정 저장",
       `/classrooms/${classroomId}/course-configuration`,
       {
@@ -2216,7 +2437,7 @@ function Setup({
           </div>
           <button
             type="button"
-            onClick={saveCourseConfiguration}
+            onClick={() => void saveClassSettings()}
           >
             학급 설정 저장
           </button>
@@ -2268,6 +2489,7 @@ function Setup({
               <input value={settings.incomeTax} onChange={(event) => updateSettings("incomeTax", event.target.value)} />
               <span>%</span>
             </div>
+            <small>월급에서 공동기금으로 걷는 비율입니다. 위의 “학급 설정 저장”을 누르면 함께 저장됩니다.</small>
           </label>
         </div>
       </PlainSection>
@@ -2285,20 +2507,28 @@ function Setup({
             {isBulkActivating ? "활성화 중..." : "모든 모듈 기본값으로 켜기"}
           </button>
         </div>
+        <p className="helper-text">
+          사용 중인 모듈을 누르면 학생 화면에서만 잠깁니다(회색). 설정과 기록은 그대로 남고 다시 누르면 열립니다.
+          투자는 “AI 설정 → 선택 모듈 활성화”에서 단기·장기 운영 방식을 고른 뒤 사용으로 바뀝니다.
+        </p>
         <div className="module-toggle-list">
           {selectableModuleNames.map((moduleName) => {
             const module = modules.find((item) => item.name === moduleName);
             const isOpen = module?.status === "열림";
+            const isSuspended = Boolean(isOpen && module?.studentAccessSuspended);
+            const label = !module?.code
+              ? "생성 안 됨"
+              : isSuspended ? "잠금" : isOpen ? "사용" : module.status === "설정 대기" ? "설정 대기" : "미사용";
 
             return (
               <button
                 type="button"
                 key={moduleName}
-                className={isOpen ? "enabled" : ""}
+                className={isSuspended ? "suspended" : isOpen ? "enabled" : ""}
                 onClick={() => toggleModule(moduleName)}
               >
                 <span>{moduleName}</span>
-                <b>{isOpen ? "사용" : "미사용"}</b>
+                <b>{label}</b>
               </button>
             );
           })}
@@ -2309,11 +2539,36 @@ function Setup({
           label="운영 기간 저장"
           value={`${settings.period} · ${settings.startDate} ~ ${settings.endDate}`}
           action="저장"
-          onClick={saveCourseConfiguration}
+          onClick={() => void saveCourseConfiguration()}
         />
       </PlainSection>
     </div>
   );
+}
+
+// 새로 만드는 급여 역할 코드입니다. 이름이 같으면 저장할 때마다 같은 코드가 나와야
+// 학생-역할 연결이 유지되므로, 순번이 아니라 이름에서 값을 만듭니다.
+function salaryRoleCodeFor(roleName: string) {
+  let hash = 0;
+  for (const character of roleName) {
+    hash = (hash * 31 + (character.codePointAt(0) ?? 0)) % 1_000_000;
+  }
+  return `ROLE_${hash}`;
+}
+
+type SalaryRoleDraft = { name: string; salary: string; roleCode: string };
+
+// 이름이 달라도 코드가 겹치면 서버에서 한 역할이 다른 역할의 이름으로 바뀌므로 뒤에 번호를 붙입니다.
+function withUniqueRoleCodes(roles: SalaryRoleDraft[]): SalaryRoleDraft[] {
+  const used = new Set<string>();
+  return roles.map((role) => {
+    let code = role.roleCode;
+    for (let suffix = 2; used.has(code); suffix++) {
+      code = `${role.roleCode}_${suffix}`;
+    }
+    used.add(code);
+    return { ...role, roleCode: code };
+  });
 }
 
 function Roster({
@@ -2356,7 +2611,12 @@ function Roster({
   });
 
   function updateDraft(field: keyof StudentRow, value: string) {
-    setDraftStudent((current) => current ? { ...current, [field]: value } : current);
+    setDraftStudent((current) => {
+      if (!current) return current;
+      // 직업 이름을 바꾸면 서버에서 받은 역할 코드는 더 이상 맞지 않으므로 새 코드로 다시 만듭니다.
+      if (field === "role") return { ...current, role: value, roleCode: "" };
+      return { ...current, [field]: value };
+    });
   }
 
   function updateNewStudent(field: keyof StudentRow, value: string) {
@@ -2433,31 +2693,41 @@ function Roster({
     cancelEdit();
   }
 
-  const salaryRoleDefinitions = Array.from(
-    new Map(students.map((student) => [student.role, { name: student.role, salary: student.salary }])).values()
-  );
-  const roleCodeByName = new Map(
-    salaryRoleDefinitions.map((role, index) => [role.name, `ROLE_${index + 1}`])
-  );
+  // 직업은 선택 입력입니다. 이름이 비어 있는 역할은 보내지 않고, 그 학생은 역할 없이 저장합니다.
+  const incomeTaxRateBps = Math.max(Math.round(Number(settings.incomeTax || 0) * 100), 0);
+  const salaryRoleDefinitions = withUniqueRoleCodes(hasSalaryModule
+    ? Array.from(new Map(students
+        .filter((student) => student.role.trim())
+        .map((student) => [student.role.trim(), {
+          name: student.role.trim(),
+          salary: student.salary,
+          // 서버에서 받은 역할 코드가 있으면 그 코드를 유지해야 학생-역할 연결이 끊기지 않습니다.
+          roleCode: student.roleCode?.trim() || salaryRoleCodeFor(student.role.trim())
+        }])).values())
+    : []);
+  const roleCodeByName = new Map(salaryRoleDefinitions.map((role) => [role.name, role.roleCode]));
   const rosterBody = {
-    expected_policy_version: salaryPolicyVersion,
+    // 급여 모듈이 꺼져 있으면 급여 정책 버전을 보내지 않습니다.
+    ...(hasSalaryModule ? { expected_policy_version: salaryPolicyVersion } : {}),
     expected_state_version: stateVersion,
     students: students.map((student) => ({
       student_id: student.resourceId ?? null,
       attendance_number: Number(student.attendance),
-      nickname: student.nickname,
-      role_code: hasSalaryModule ? roleCodeByName.get(student.role) : null
+      nickname: student.nickname.trim(),
+      role_code: (hasSalaryModule && roleCodeByName.get(student.role.trim())) || null
     })),
-    salary_roles: hasSalaryModule ? salaryRoleDefinitions.map((role, index) => ({
-      role_code: `ROLE_${index + 1}`,
+    salary_roles: salaryRoleDefinitions.map((role, index) => ({
+      role_code: role.roleCode,
       name: role.name,
-      gross_amount: Number(role.salary),
-      deductions: Math.floor(Number(role.salary) * 0.1),
+      gross_amount: Math.max(Number(role.salary) || 0, 0),
+      // 서버는 공제를 항목별 묶음으로 받습니다. tax_rate_bps로 넣으면 월급 지급 때 소득세가 빠집니다.
+      deductions: { tax_rate_bps: incomeTaxRateBps },
       sort_order: index + 1
-    })) : []
+    }))
   };
-  const grossTotal = students.reduce((sum, student) => sum + Number(student.salary), 0);
-  const taxTotal = Math.floor(grossTotal * (Number(settings.incomeTax) / 100));
+  const payableStudents = students.filter((student) => student.resourceId && student.role.trim());
+  const grossTotal = payableStudents.reduce((sum, student) => sum + (Number(student.salary) || 0), 0);
+  const taxTotal = Math.floor(grossTotal * (incomeTaxRateBps / 10_000));
   const netTotal = grossTotal - taxTotal;
   const statusOptions = useMemo(
     () => Array.from(new Set(students.map((student) => student.status))),
@@ -2629,8 +2899,8 @@ function Roster({
                         <>
                           <td>{student.attendance}</td>
                           <td>{student.nickname}</td>
-                          {hasSalaryModule ? <td>{student.role}</td> : null}
-                          {hasSalaryModule ? <td>{student.salary}비빔</td> : null}
+                          {hasSalaryModule ? <td>{student.role || "-"}</td> : null}
+                          {hasSalaryModule ? <td>{student.salary}{settings.currency}</td> : null}
                           <td>{student.status}</td>
                           <td>
                             {deletingIndex === index ? (
@@ -2695,26 +2965,40 @@ function Roster({
         />
         {hasSalaryModule ? <ActionLine
           label="급여 지급"
-          value={`${students.length}명에게 ${netTotal}${settings.currency}`}
+          value={`직업이 있는 ${payableStudents.length}명에게 ${netTotal}${settings.currency}`}
           action="지급"
-          onClick={() => runAction(
-            "급여 지급",
-            `/classrooms/${classroomId}/payouts`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                payoutType: "SALARY",
-                studentIds: [],
-                periodKey: "DAY-1",
-                amount: grossTotal,
-                policyVersion: 0,
-                reason: "정기 급여 지급",
-                expectedStateVersion: 0,
-                clientOccurredAt: new Date().toISOString()
-              })
-            },
-            () => addLog("급여 지급을 처리했어요.")
-          )}
+          onClick={() => {
+            if (payableStudents.length === 0) {
+              addLog("직업이 배정된 학생이 없어요. 명단에서 직업을 넣고 저장한 뒤 지급해 주세요.", "warning");
+              return;
+            }
+            void runAction(
+              "급여 지급",
+              `/classrooms/${classroomId}/payouts`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  // 서버는 snake_case로 받습니다. 지급 대상은 직업이 배정된 학생만 넣습니다.
+                  payout_type: "SALARY",
+                  student_ids: payableStudents.map((student) => student.resourceId),
+                  period_key: `DAY-${new Date().toISOString().slice(0, 10)}`,
+                  // 0은 "서버가 계산한 역할별 합계를 그대로 쓰라"는 뜻입니다. 화면 값이 저장 전이어도
+                  // 금액이 다르다는 충돌로 막히지 않습니다.
+                  amount: 0,
+                  policy_version: salaryPolicyVersion,
+                  reason: "정기 급여 지급",
+                  expected_state_version: stateVersion,
+                  screen_id: "SCR-WEB-003",
+                  ui_action_id: "UIA-PAY-001",
+                  client_occurred_at: new Date().toISOString()
+                })
+              },
+              () => {
+                addLog("급여 지급을 처리했어요.");
+                void onReload();
+              }
+            );
+          }}
         /> : null}
       </PlainSection>
     </div>
@@ -2789,7 +3073,8 @@ function ShopAdmin({
       }>(`/classrooms/${classroomId}/store/product-commands`, {
         method: "POST",
         body: JSON.stringify({
-          expected_state_version: stateVersion,
+          // 상점 명령은 학급 state_version과 맞아야 하므로 보내기 직전에 서버 값을 읽습니다.
+          expected_state_version: await currentClassroomStateVersion(),
           expected_policy_version: policyVersion,
           screen_id: "SCR-TCH-STORE",
           ui_action_id: "UIA-STORE-PRODUCT-CREATE",
@@ -2807,25 +3092,15 @@ function ShopAdmin({
           expected_product_version: null
         })
       });
-      setProducts((items) => [{
-        name: name.trim(),
-        price: String(numericPrice),
-        stock: String(numericStock),
-        imageName: preview ? fileName : "",
-        imageSrc: preview,
-        resourceId: response.product_id,
-        stateVersion: response.state_version,
-        version: response.version,
-        kind: "PHYSICAL",
-        vatRateBps: 0
-      }, ...items]);
       onStateVersionChange(response.state_version);
       setName("");
       setPrice("");
       setStock("");
       setPreview("");
       setFileName("선택된 사진 없음");
-      addLog("상품을 서버에 등록했어요.");
+      // 서버 목록을 다시 읽어 화면과 서버를 맞춥니다. 새로고침해도 등록한 상품이 남습니다.
+      await onReload();
+      addLog("상품을 등록했어요. 학생에게 보이려면 “학생에게 공개”를 눌러 주세요.");
     } catch (error) {
       addLog(`상품을 등록하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     } finally {
@@ -2842,25 +3117,137 @@ function ShopAdmin({
     setDraftProduct((current) => current ? { ...current, [field]: value } : current);
   }
 
-  function saveProduct(index: number) {
-    if (!draftProduct) return;
-    setProducts((items) => items.map((item, itemIndex) => itemIndex === index ? draftProduct : item));
-    setEditingIndex(null);
-    setDraftProduct(null);
-    addLog("상품 정보를 수정했어요.");
+  // 상품 변경은 모두 서버에 보냅니다. 학생에게 공개된 상품은 값을 바꿀 수 없으므로
+  // 공개 중지 -> 수정 -> 다시 공개 순서로 처리한 뒤 목록을 다시 읽습니다.
+  async function sendProductCommand(
+    product: ProductRow,
+    command: "UPDATE" | "PUBLISH" | "UNPUBLISH",
+    overrides: { price?: number; stock?: number; name?: string } = {}
+  ) {
+    const stateVersionForRequest = await currentClassroomStateVersion();
+    const response = await apiRequest<{ product_id: string; status: string; state_version: number; version: number }>(
+      `/classrooms/${classroomId}/store/product-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: stateVersionForRequest,
+          expected_policy_version: policyVersion,
+          screen_id: "SCR-TCH-STORE",
+          ui_action_id: "UIA-STORE-PRODUCT-UPDATE",
+          client_occurred_at: new Date().toISOString(),
+          command,
+          product_id: product.resourceId,
+          name: (overrides.name ?? product.name).trim(),
+          description: "",
+          product_kind: product.kind ?? "PHYSICAL",
+          unit_price: overrides.price ?? Number(product.price),
+          vat_rate_bps: product.vatRateBps ?? 0,
+          stock_quantity: overrides.stock ?? Number(product.stock),
+          character_source_id: null,
+          expected_product_version: product.version ?? 1
+        })
+      }
+    );
+    return response;
   }
 
-  function removeProduct(index: number) {
-    setProducts((items) => items.filter((_, itemIndex) => itemIndex !== index));
-    addLog("상품을 내렸어요.");
+  // 상점 명령은 학급 state_version과 맞아야 합니다. 화면 값은 다른 탭의 변경으로 쉽게 낡으므로
+  // 보내기 직전에 서버에서 다시 읽습니다.
+  async function currentClassroomStateVersion() {
+    try {
+      const configuration = await apiRequest<{ state_version?: number }>(
+        `/classrooms/${classroomId}/configuration`
+      );
+      return typeof configuration.state_version === "number" ? configuration.state_version : stateVersion;
+    } catch {
+      return stateVersion;
+    }
   }
 
-  function applyInflation() {
+  async function saveProduct(index: number) {
+    const draft = draftProduct;
+    if (!draft) return;
+    const price = Number(draft.price);
+    const stock = Number(draft.stock);
+    if (!draft.name.trim() || !Number.isInteger(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      addLog("상품명, 가격, 재고를 올바르게 입력해 주세요.", "warning");
+      return;
+    }
+    if (!draft.resourceId) {
+      addLog("서버에 등록되지 않은 상품이에요. 목록을 새로고침한 뒤 다시 시도해 주세요.", "warning");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const wasPublished = draft.status === "PUBLISHED";
+      let current: ProductRow = draft;
+      if (wasPublished) {
+        const unpublished = await sendProductCommand(current, "UNPUBLISH");
+        current = { ...current, version: unpublished.version, status: unpublished.status };
+      }
+      const updated = await sendProductCommand(current, "UPDATE", { price, stock, name: draft.name });
+      current = { ...current, version: updated.version, status: updated.status };
+      if (wasPublished) await sendProductCommand(current, "PUBLISH");
+      setEditingIndex(null);
+      setDraftProduct(null);
+      await onReload();
+      addLog("상품 정보를 저장했어요.");
+    } catch (error) {
+      addLog(`상품을 수정하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function togglePublished(product: ProductRow) {
+    if (!product.resourceId) return;
+    setSubmitting(true);
+    try {
+      await sendProductCommand(product, product.status === "PUBLISHED" ? "UNPUBLISH" : "PUBLISH");
+      await onReload();
+      addLog(product.status === "PUBLISHED" ? "상품을 학생 상점에서 내렸어요." : "상품을 학생 상점에 올렸어요.");
+    } catch (error) {
+      addLog(`상품 공개 상태를 바꾸지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function applyInflation() {
     const rate = Number(inflationRate);
     if (!Number.isFinite(rate) || rate <= 0) return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
+    const targets = products.filter((product) => product.resourceId);
+    if (targets.length === 0) return addLog("가격을 올릴 상품이 없어요.", "warning");
     if (!window.confirm(`모든 상품 가격을 ${rate}% 올릴까요?`)) return;
-    setProducts((items) => items.map((item) => ({ ...item, price: String(Math.round(Number(item.price) * (1 + rate / 100))) })));
-    addLog(`상점 상품 가격을 ${rate}% 인상했어요.`);
+    setSubmitting(true);
+    const failed: string[] = [];
+    try {
+      for (const product of targets) {
+        const nextPrice = Math.round(Number(product.price) * (1 + rate / 100));
+        try {
+          const wasPublished = product.status === "PUBLISHED";
+          let current = product;
+          if (wasPublished) {
+            const unpublished = await sendProductCommand(current, "UNPUBLISH");
+            current = { ...current, version: unpublished.version, status: unpublished.status };
+          }
+          const updated = await sendProductCommand(current, "UPDATE", { price: nextPrice });
+          current = { ...current, version: updated.version, status: updated.status };
+          if (wasPublished) await sendProductCommand(current, "PUBLISH");
+        } catch {
+          failed.push(product.name);
+        }
+      }
+      await onReload();
+      addLog(
+        failed.length === 0
+          ? `상점 상품 가격을 ${rate}% 인상했어요.`
+          : `${failed.join(", ")} 상품은 가격을 올리지 못했어요. 나머지는 ${rate}% 인상했어요.`,
+        failed.length === 0 ? "success" : "error"
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -2888,6 +3275,7 @@ function ShopAdmin({
             classroomId={classroomId}
             products={products}
             policyVersions={policyVersions}
+            currencyName={currencyName}
             activeStudentCount={activeStudentCount}
             effectiveTaxBps={effectiveTaxBps}
             onReload={onReload}
@@ -2900,16 +3288,20 @@ function ShopAdmin({
       </PlainSection>
       <PlainSection title="상품 관리">
         <div className="inflation-control">
-          <div><b>인플레이션 적용</b><span>모든 상품 가격을 같은 비율로 올려요.</span></div>
+          <div><b>인플레이션 적용</b><span>모든 상품 가격을 같은 비율로 올려 서버에 저장해요.</span></div>
           <label>인상률 <input inputMode="decimal" value={inflationRate} onChange={(event) => setInflationRate(event.target.value)} />%</label>
-          <button type="button" onClick={applyInflation}>적용하기</button>
+          <button type="button" disabled={submitting} onClick={() => void applyInflation()}>
+            {submitting ? "적용하는 중" : "적용하기"}
+          </button>
         </div>
         <div className="product-list">
+          {products.length === 0 ? <p className="empty-copy">등록한 상품이 없어요. 위에서 상품을 올려 주세요.</p> : null}
           {products.map((product, index) => {
             const activeDraft = editingIndex === index ? draftProduct : null;
+            const isPublished = product.status === "PUBLISHED";
 
             return (
-              <div className="product-row" key={`${product.name}-${index}`}>
+              <div className="product-row" key={product.resourceId ?? `${product.name}-${index}`}>
                 <div className="product-thumb">
                   {product.imageSrc ? <img src={product.imageSrc} alt={product.name} /> : <span>사진 없음</span>}
                 </div>
@@ -2919,7 +3311,7 @@ function ShopAdmin({
                     <input value={activeDraft.price} onChange={(event) => updateDraft("price", event.target.value)} />
                     <input value={activeDraft.stock} onChange={(event) => updateDraft("stock", event.target.value)} />
                     <div className="row-actions">
-                      <button type="button" onClick={() => saveProduct(index)}>저장</button>
+                      <button type="button" disabled={submitting} onClick={() => void saveProduct(index)}>저장</button>
                       <button className="ghost" type="button" onClick={() => setEditingIndex(null)}>취소</button>
                     </div>
                   </>
@@ -2927,11 +3319,15 @@ function ShopAdmin({
                   <>
                     <div>
                       <b>{product.name}</b>
-                      <span>{product.price}{currencyName} · 재고 {product.stock}</span>
+                      <span>
+                        {product.price}{currencyName} · 재고 {product.stock} · {isPublished ? "학생 공개 중" : "학생 비공개"}
+                      </span>
                     </div>
                     <div className="row-actions product-actions">
-                      <button type="button" onClick={() => startEdit(index)}>수정</button>
-                      <button className="ghost" type="button" onClick={() => removeProduct(index)}>내리기</button>
+                      <button type="button" disabled={submitting} onClick={() => startEdit(index)}>수정</button>
+                      <button className="ghost" type="button" disabled={submitting} onClick={() => void togglePublished(product)}>
+                        {isPublished ? "내리기" : "학생에게 공개"}
+                      </button>
                     </div>
                   </>
                 )}
@@ -2943,6 +3339,12 @@ function ShopAdmin({
       {/* 가격 추천은 상품을 등록·관리하는 이 자리에서 바로 받습니다. */}
     </div>
   );
+}
+
+// 확정된 금리 정책의 rate_bps입니다. 아직 확정되지 않았으면 undefined입니다.
+function ratePolicyBps(policyVersions: readonly AiPolicyVersionRow[], policyArea: string) {
+  const rate = policyVersions.find((policy) => policy.policy_area === policyArea)?.values?.rate_bps;
+  return typeof rate === "number" ? rate : undefined;
 }
 
 type FinancialProductDraft = {
@@ -2983,10 +3385,17 @@ type LoanApplicationRow = {
   status: string;
 };
 
-const defaultFinancialProducts: FinancialProductDraft[] = [
-  { productType: "DEPOSIT", name: "1주 예금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "7", interestRate: "10", earlyTerminationRate: "1", installmentCount: "", installmentAmount: "", minimumAmount: "30", maximumAmount: "300" },
-  { productType: "SAVINGS", name: "4주 적금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "4", interestRate: "15", earlyTerminationRate: "2", installmentCount: "4", installmentAmount: "20", minimumAmount: "20", maximumAmount: "80" }
-];
+// 아직 상품을 만들지 않았을 때 보여 주는 초안입니다. 이자율은 모듈 활성화 때 확정한
+// 기준금리를 그대로 씁니다. 고정값을 쓰면 적용한 금리와 화면의 금리가 달라집니다.
+function defaultFinancialProducts(
+  depositRateBps: number | undefined
+): FinancialProductDraft[] {
+  const depositRate = String((depositRateBps ?? 1_000) / 100);
+  return [
+    { productType: "DEPOSIT", name: "1주 예금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "7", interestRate: depositRate, earlyTerminationRate: "1", installmentCount: "", installmentAmount: "", minimumAmount: "30", maximumAmount: "300" },
+    { productType: "SAVINGS", name: "4주 적금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "4", interestRate: depositRate, earlyTerminationRate: "2", installmentCount: "4", installmentAmount: "20", minimumAmount: "20", maximumAmount: "80" }
+  ];
+}
 
 function FinanceAdmin({
   classroomId,
@@ -2994,6 +3403,8 @@ function FinanceAdmin({
   realtimeRevision,
   currencyName,
   savingsAvailable,
+  depositRateBps,
+  loanRateBps,
   addLog
 }: Readonly<{
   classroomId: string;
@@ -3001,12 +3412,14 @@ function FinanceAdmin({
   realtimeRevision: number;
   currencyName: string;
   savingsAvailable: boolean;
+  depositRateBps?: number;
+  loanRateBps?: number;
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
   const [activeTab, setActiveTab] = useState<"DEPOSIT" | "SAVINGS" | "LOAN" | "INVESTMENT">("DEPOSIT");
-  const [products, setProducts] = useState<FinancialProductDraft[]>(defaultFinancialProducts);
+  const [products, setProducts] = useState<FinancialProductDraft[]>(() => defaultFinancialProducts(depositRateBps));
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [loanPolicy, setLoanPolicy] = useState<LoanPolicyDraft>({ version: 0, maximumPrincipal: "300", interestRate: "7", termWeeks: "4", installmentCount: "4", graceDays: "3", onTimeCredit: "10", overdueCredit: "-30", repaidCredit: "20" });
+  const [loanPolicy, setLoanPolicy] = useState<LoanPolicyDraft>({ version: 0, maximumPrincipal: "300", interestRate: String((loanRateBps ?? 700) / 100), termWeeks: "4", installmentCount: "4", graceDays: "3", onTimeCredit: "10", overdueCredit: "-30", repaidCredit: "20" });
   const [loanApplications, setLoanApplications] = useState<LoanApplicationRow[]>([]);
   const [loanAmounts, setLoanAmounts] = useState<Record<string, string>>({});
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
@@ -3026,6 +3439,14 @@ function FinanceAdmin({
   useEffect(() => {
     if (!savingsAvailable && activeTab === "SAVINGS") setActiveTab("DEPOSIT");
   }, [activeTab, savingsAvailable]);
+
+  // 확정된 기준금리를 나중에 받아도 아직 서버에 없는 초안 상품에는 그 값을 반영합니다.
+  useEffect(() => {
+    if (depositRateBps === undefined) return;
+    setProducts((items) => items.map((item) => item.resourceId
+      ? item
+      : { ...item, interestRate: String(depositRateBps / 100) }));
+  }, [depositRateBps]);
 
   useEffect(() => {
     if (!classroomId) return;
@@ -3120,7 +3541,7 @@ function FinanceAdmin({
       version: 0,
       stateVersion,
       termUnits: type === "DEPOSIT" ? "7" : "4",
-      interestRate: "10",
+      interestRate: String((depositRateBps ?? 1_000) / 100),
       earlyTerminationRate: "1",
       installmentCount: type === "SAVINGS" ? "4" : "",
       installmentAmount: type === "SAVINGS" ? "20" : "",

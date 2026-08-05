@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.domain.LoanPolicyVersion;
 import com.b201.ecovillage.finance.domain.LoanCreditPolicy;
@@ -39,10 +41,10 @@ import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 @Service
 public class LoanApplicationService {
     private final ClassroomAuthorizationService authorization; private final ClassroomModuleRepository modules;
-    private final LoanPolicyVersionRepository policies; private final UserAccountRepository users; private final LedgerAccountRepository ledger;
+    private final LoanPolicyVersionRepository policies; private final ClassroomPolicyVersionRepository classroomPolicies; private final UserAccountRepository users; private final LedgerAccountRepository ledger;
     private final AtomicLedgerTransactionService transactions; private final JdbcTemplate jdbc; private final UuidV7Generator uuids; private final Clock clock; private final RealtimeEventPublisher events;
-    public LoanApplicationService(ClassroomAuthorizationService authorization, ClassroomModuleRepository modules, LoanPolicyVersionRepository policies, UserAccountRepository users, LedgerAccountRepository ledger, AtomicLedgerTransactionService transactions, JdbcTemplate jdbc, UuidV7Generator uuids, Clock clock, RealtimeEventPublisher events) {
-        this.authorization=authorization; this.modules=modules; this.policies=policies; this.users=users; this.ledger=ledger; this.transactions=transactions; this.jdbc=jdbc; this.uuids=uuids; this.clock=clock; this.events=events;
+    public LoanApplicationService(ClassroomAuthorizationService authorization, ClassroomModuleRepository modules, LoanPolicyVersionRepository policies, ClassroomPolicyVersionRepository classroomPolicies, UserAccountRepository users, LedgerAccountRepository ledger, AtomicLedgerTransactionService transactions, JdbcTemplate jdbc, UuidV7Generator uuids, Clock clock, RealtimeEventPublisher events) {
+        this.authorization=authorization; this.modules=modules; this.policies=policies; this.classroomPolicies=classroomPolicies; this.users=users; this.ledger=ledger; this.transactions=transactions; this.jdbc=jdbc; this.uuids=uuids; this.clock=clock; this.events=events;
     }
 
     @Transactional
@@ -128,7 +130,21 @@ public class LoanApplicationService {
         LoanPolicyVersion created=LoanPolicyVersion.activate(uuids.generate(),classroomId,nextVersion,maximumPrincipal,interestRateBps,termUnits,installmentCount,graceUnits,Map.of("on_time",onTimeCredit,"overdue",overdueCredit,"repaid",repaidCredit),now); return view(policies.save(created));
     }
 
-    private LoanPolicyVersion currentPolicy(UUID classroomId){return policies.findTopByClassroomIdAndStatusOrderByVersionDesc(classroomId,"ACTIVE").orElseGet(()->policies.save(LoanPolicyVersion.activate(uuids.generate(),classroomId,1,300,700,28,4,3,Map.of("on_time",10,"overdue",-30,"repaid",20),clock.instant())));}
+    private LoanPolicyVersion currentPolicy(UUID classroomId){return policies.findTopByClassroomIdAndStatusOrderByVersionDesc(classroomId,"ACTIVE").orElseGet(()->policies.save(LoanPolicyVersion.activate(uuids.generate(),classroomId,1,300,initialInterestRateBps(classroomId),28,4,3,Map.of("on_time",10,"overdue",-30,"repaid",20),clock.instant())));}
+
+    /**
+     * 첫 대출 정책의 금리는 대출 모듈을 활성화할 때 교사가 확정한 LOAN_RATE 정책을 그대로 쓴다.
+     * 이 값을 무시하고 고정값을 쓰면 교사가 AI 추천으로 적용한 금리와 운영 관리 화면의 금리가 달라진다.
+     */
+    private int initialInterestRateBps(UUID classroomId){
+        return classroomPolicies.findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId,"LOAN_RATE")
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(values->values.get("rate_bps"))
+            .filter(Number.class::isInstance)
+            .map(rate->((Number)rate).intValue())
+            .filter(rate->rate>=0&&rate<=2_000)
+            .orElse(700);
+    }
     private static LoanPolicyView view(LoanPolicyVersion policy){Map<String,Object> rules=policy.getCreditAdjustments();return new LoanPolicyView(policy.getVersion(),policy.getMaximumPrincipal(),policy.getInterestRateBps(),policy.getTermUnits(),policy.getInstallmentCount(),policy.getGraceUnits(),number(rules.get("on_time"),10),number(rules.get("overdue"),-30),number(rules.get("repaid"),20));}
     private static int number(Object value,int fallback){return value instanceof Number number?number.intValue():fallback;}
     private Credit credit(UUID c,UUID s){return jdbc.query("select score,level from credit_profiles where classroom_id=? and classroom_student_id=?",rs->{if(rs.next())return new Credit(rs.getInt(1),rs.getString(2));Instant n=clock.instant();jdbc.update("insert into credit_profiles(classroom_student_id,classroom_id,level,score,evaluated_at,created_at,updated_at) values(?,?,'NORMAL',600,?,?,?)",s,c,n,n,n);return new Credit(600,"NORMAL");},c,s);}

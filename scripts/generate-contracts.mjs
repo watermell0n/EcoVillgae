@@ -164,6 +164,7 @@ const mvpSupportApiIds = new Set([
   "API-EST-021",
   "API-EST-022",
   "API-MOD-002",
+  "API-MOD-003",
   "API-POL-001",
   "API-QZ-006",
   "API-QZ-008",
@@ -527,6 +528,14 @@ const requestFieldOverrides = {
   ],
   "API-MOD-002": [
     { name: "reason", schema: { type: "string", minLength: 1, maxLength: 500 } },
+  ],
+  "API-MOD-003": [
+    { name: "command", values: ["SUSPEND", "RESUME"] },
+    {
+      name: "reason",
+      optional: true,
+      schema: { type: "string", maxLength: 500 },
+    },
   ],
   "API-POL-001": [
     { name: "price_adjustment_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
@@ -1405,6 +1414,14 @@ const responseFieldOverrides = {
       name: "cleanup_blockers",
       schema: { type: "array", items: { type: "string" }, uniqueItems: true },
     },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-MOD-003": [
+    { name: "module_id", schema: { type: "string", format: "uuid" } },
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "student_access_suspended", schema: { type: "boolean" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "replayed", schema: { type: "boolean" } },
   ],
   "API-POL-001": [
@@ -3468,9 +3485,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 133, `HTTP 작업 수가 133개가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 133, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 133, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 134, `HTTP 작업 수가 134개가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 134, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 134, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3487,8 +3504,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 133,
-      "OpenAPI 작업 수가 133개가 아닙니다.",
+      ) === 134,
+      "OpenAPI 작업 수가 134개가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

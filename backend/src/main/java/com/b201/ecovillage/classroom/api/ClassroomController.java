@@ -36,6 +36,9 @@ import com.b201.ecovillage.classroom.application.ModuleActivationService;
 import com.b201.ecovillage.classroom.application.ModuleStopCommand;
 import com.b201.ecovillage.classroom.application.ModuleStopCommandService;
 import com.b201.ecovillage.classroom.application.ModuleStopResult;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessCommand;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessCommandService;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessResult;
 import com.b201.ecovillage.classroom.application.ModulesAndPoliciesView;
 import com.b201.ecovillage.classroom.application.RosterAndSalariesView;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
@@ -63,6 +66,7 @@ public class ClassroomController {
     private final ModuleActivationService moduleActivationService;
     private final CourseConfigurationCommandService courseConfigurationCommandService;
     private final ModuleStopCommandService moduleStopCommandService;
+    private final ModuleStudentAccessCommandService moduleStudentAccessCommandService;
     private final EconomicPolicyCommandService economicPolicyCommandService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -76,6 +80,7 @@ public class ClassroomController {
         ModuleActivationService moduleActivationService,
         CourseConfigurationCommandService courseConfigurationCommandService,
         ModuleStopCommandService moduleStopCommandService,
+        ModuleStudentAccessCommandService moduleStudentAccessCommandService,
         EconomicPolicyCommandService economicPolicyCommandService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -88,6 +93,7 @@ public class ClassroomController {
         this.moduleActivationService = moduleActivationService;
         this.courseConfigurationCommandService = courseConfigurationCommandService;
         this.moduleStopCommandService = moduleStopCommandService;
+        this.moduleStudentAccessCommandService = moduleStudentAccessCommandService;
         this.economicPolicyCommandService = economicPolicyCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
@@ -167,6 +173,47 @@ public class ClassroomController {
                 result.stateVersion(),
                 result.cleanupRequired(),
                 result.cleanupBlockers(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    /**
+     * 학생 이용만 잠그거나 다시 엽니다. 모듈은 계속 ACTIVE이므로 설정·데이터가 남고
+     * 학생 화면에서는 회색으로 표시됩니다. 모듈을 학급에서 걷어낼 때만 stop-commands를 씁니다.
+     */
+    @PostMapping("/{classroomId}/modules/{moduleCode}/student-access-commands")
+    public ApiResponse<ModuleStudentAccessResponse> changeModuleStudentAccess(
+        @PathVariable UUID classroomId,
+        @PathVariable String moduleCode,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ModuleStudentAccessRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        ModuleStudentAccessResult result = moduleStudentAccessCommandService.execute(
+            new ModuleStudentAccessCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                moduleCode,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.command(),
+                request.reason()
+            )
+        );
+        return new ApiResponse<>(
+            new ModuleStudentAccessResponse(
+                result.moduleId(),
+                result.moduleCode(),
+                result.status(),
+                result.studentAccessSuspended(),
+                result.stateVersion(),
                 result.replayed()
             ),
             meta(requestId, resolvedCorrelationId)

@@ -1120,6 +1120,13 @@ button:disabled {
   background: #f2fbf4;
 }
 
+/* 학생 이용만 잠근 모듈입니다. 모듈은 켜져 있으므로 미사용(흰색)과 구분해 회색으로 보여 줍니다. */
+.module-toggle-list button.suspended {
+  border-color: #cbd2dc;
+  color: #6b7482;
+  background: #eef1f5;
+}
+
 .module-toggle-list span,
 .module-toggle-list b {
   display: block;
@@ -3595,6 +3602,12 @@ select:focus-visible {
   border-color: #aeb8ff;
   color: #3249d8;
   background: #f3f5ff;
+}
+
+.module-toggle-list button.suspended {
+  border-color: #cbd2dc;
+  color: #6b7482;
+  background: #eef1f5;
 }
 
 .module-info-button {
