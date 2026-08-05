@@ -31,23 +31,92 @@ export interface CharacterItemDefinition {
 }
 
 /**
- * 64×64 에셋이 배포된 상품.
+ * 64×64 에셋이 배포된 상품. 카탈로그 64종 전체가 여기에 있어야 한다.
  *
- * 규격 §11 3·4단계에서 나머지 상품을 여기에 추가한다. 항목을 추가하면
- * `PENDING_ASSET_KEYS`가 자동으로 줄어들고 상점 노출도 함께 열린다.
+ * 여기 없는 상품은 `PENDING_ASSET_KEYS`로 모여 개발 환경 경고와 CI 검사에 걸리고,
+ * 상점에서는 구매·착용이 막힌다(가이드라인 §12.3 임시 안전장치).
+ *
+ * 에셋은 `node scripts/character/generate-items.js`가 만든다. 좌표를 고칠 때는
+ * PNG를 직접 손대지 말고 그 스크립트를 고친 뒤 다시 생성한다.
  */
 export const CHARACTER_ITEMS: Readonly<Record<string, CharacterItemDefinition>> = {
+  // ── 모자 19종 ──────────────────────────────────────────────
   hat_red_cap: { assets: { main: 'hat_red_cap' } },
   hat_teal_beanie: { assets: { main: 'hat_teal_beanie' } },
+  hat_straw: { assets: { main: 'hat_straw' } },
+  hat_beach: { assets: { main: 'hat_beach' } },
+  hat_pom_beanie: { assets: { main: 'hat_pom_beanie' } },
+  hat_baseball_blue: { assets: { main: 'hat_baseball_blue' } },
+  hat_baseball_red: { assets: { main: 'hat_baseball_red' } },
+  hat_baseball_navy: { assets: { main: 'hat_baseball_navy' } },
+  hat_baseball_green: { assets: { main: 'hat_baseball_green' } },
+  hat_baseball_yellow: { assets: { main: 'hat_baseball_yellow' } },
+  hat_chef: { assets: { main: 'hat_chef' } },
+  hat_safari: { assets: { main: 'hat_safari' } },
+  hat_safety_police: { assets: { main: 'hat_safety_police' } },
+  hat_pilot: { assets: { main: 'hat_pilot' } },
+  hat_crown: { assets: { main: 'hat_crown' } },
+  hat_wizard: { assets: { main: 'hat_wizard' } },
+  /**
+   * 얼굴을 감싸는 모자 3종은 `hidesSlots: ['FACE']`로 얼굴 장식을 렌더에서 뺀다.
+   * 규격 §9.8 — 투구 위로 고글이 돌출하던 문제의 근본 처리다. 소유·착용 상태는 유지한다.
+   *
+   * 우주 헬멧과 공룡 후드는 바이저·얼굴 창을 투명하게 파냈다. BASE의 눈·볼이 그대로
+   * 보이므로 캐릭터가 사라지지 않는다. 기사 투구는 바이저가 닫힌 디자인이다.
+   */
+  hat_space_helmet: { assets: { main: 'hat_space_helmet' }, hidesSlots: ['FACE'] },
+  hat_knight: { assets: { main: 'hat_knight' }, hidesSlots: ['FACE'] },
+  hat_dinosaur: { assets: { main: 'hat_dinosaur' }, hidesSlots: ['FACE'] },
+
+  // ── 얼굴 4종 ───────────────────────────────────────────────
   face_sunglasses: { assets: { main: 'face_sunglasses' } },
   face_headphones: {
     assets: { behind: 'face_headphones_back', front: 'face_headphones_front' },
   },
+  face_goggles: { assets: { main: 'face_goggles' } },
+  face_ski_goggles: { assets: { main: 'face_ski_goggles' } },
+
+  // ── 목 장식 2종 ────────────────────────────────────────────
+  neck_scarf: { assets: { main: 'neck_scarf' } },
+  neck_knit_scarf: { assets: { main: 'neck_knit_scarf' } },
+
+  // ── 상의 18종 ──────────────────────────────────────────────
   top_blue_tshirt: { assets: { main: 'top_blue_tshirt' } },
   top_yellow_hoodie: { assets: { main: 'top_yellow_hoodie' } },
   top_green_vest: { assets: { main: 'top_green_vest' } },
+  top_swimsuit: { assets: { main: 'top_swimsuit' } },
+  top_padding: { assets: { main: 'top_padding' } },
+  top_soccer: { assets: { main: 'top_soccer' } },
+  top_baseball_pinstripe: { assets: { main: 'top_baseball_pinstripe' } },
+  top_baseball_red: { assets: { main: 'top_baseball_red' } },
+  top_baseball_blue: { assets: { main: 'top_baseball_blue' } },
+  top_baseball_navy: { assets: { main: 'top_baseball_navy' } },
+  top_baseball_gray: { assets: { main: 'top_baseball_gray' } },
+  top_safety_police: { assets: { main: 'top_safety_police' } },
+  top_legal_professional: { assets: { main: 'top_legal_professional' } },
+  top_pilot: { assets: { main: 'top_pilot' } },
+  // 전신 의상은 하의를 시각적으로 덮는다(규격 §8). 소유·착용은 유지하고 렌더만 생략한다.
+  top_spacesuit: { assets: { main: 'top_spacesuit' }, coversSlots: ['BOTTOM'] },
+  top_wizard_robe: { assets: { main: 'top_wizard_robe' }, coversSlots: ['BOTTOM'] },
+  top_fantasy_armor: { assets: { main: 'top_fantasy_armor' }, coversSlots: ['BOTTOM'] },
+  top_dinosaur: {
+    assets: { main: 'top_dinosaur' },
+    coversSlots: ['BOTTOM'],
+    hidesSlots: ['NECK'],
+  },
+
+  // ── 하의 1종 ───────────────────────────────────────────────
   bottom_overalls: { assets: { main: 'bottom_overalls' } },
+
+  // ── 신발 6종 ───────────────────────────────────────────────
   shoes_sneakers: { assets: { main: 'shoes_sneakers' } },
+  shoes_red_boots: { assets: { main: 'shoes_red_boots' } },
+  shoes_sandals: { assets: { main: 'shoes_sandals' } },
+  shoes_aqua: { assets: { main: 'shoes_aqua' } },
+  shoes_snow_boots: { assets: { main: 'shoes_snow_boots' } },
+  shoes_space_boots: { assets: { main: 'shoes_space_boots' } },
+
+  // ── 등 장식 4종 ────────────────────────────────────────────
   /**
    * 배포된 스프라이트는 가방 본체가 아니라 **어깨끈만** 그려져 있다. BACK 슬롯의
    * 기본 위치(BASE보다 뒤)에 놓으면 276px 중 254px(92%)이 몸에 가려 갈색 조각만
@@ -57,24 +126,32 @@ export const CHARACTER_ITEMS: Readonly<Record<string, CharacterItemDefinition>> 
    * 어깨끈만으로도 배낭으로 읽히므로 지금은 두지 않는다.
    */
   back_backpack: { assets: { front: 'back_backpack' } },
-};
+  /** 서류 가방은 몸 옆에 드는 물건이라 front다. behind에 두면 몸에 다 가린다. */
+  back_briefcase: { assets: { front: 'back_briefcase' } },
+  /** 날개·꼬리는 몸 뒤에서 좌우로 뻗는다(규격 §9.2, §9.3). */
+  back_fairy_wings: { assets: { behind: 'back_fairy_wings' } },
+  back_dinosaur_tail: { assets: { behind: 'back_dinosaur_tail' } },
 
-/**
- * 에셋 제작이 예정된 상품의 호환성 규칙.
- *
- * 에셋보다 먼저 확정해 둔다. 상품이 `CHARACTER_ITEMS`로 올라올 때 이 값을 합쳐서
- * 쓰므로, 규칙을 나중에 다시 찾아 넣는 일이 없다. 규격 §8 참조.
- */
-export const PLANNED_COMPATIBILITY: Readonly<
-  Record<string, Pick<CharacterItemDefinition, 'coversSlots' | 'hidesSlots'>>
-> = {
-  hat_space_helmet: { hidesSlots: ['FACE'] },
-  hat_knight: { hidesSlots: ['FACE'] },
-  hat_dinosaur: { hidesSlots: ['FACE'] },
-  top_wizard_robe: { coversSlots: ['BOTTOM'] },
-  top_spacesuit: { coversSlots: ['BOTTOM'] },
-  top_fantasy_armor: { coversSlots: ['BOTTOM'] },
-  top_dinosaur: { coversSlots: ['BOTTOM'], hidesSlots: ['NECK'] },
+  // ── 손 소품 3종 ────────────────────────────────────────────
+  hand_baseball_glove: { assets: { front: 'hand_baseball_glove' } },
+  hand_magic_wand: { assets: { front: 'hand_magic_wand' } },
+  hand_toy_sword: { assets: { front: 'hand_toy_sword' } },
+
+  // ── 효과 2종 ───────────────────────────────────────────────
+  // 캐릭터가 링·구름 안에 서 있어야 하므로 앞뒤로 나눈다(규격 §5.1).
+  effect_swim_tube: {
+    assets: { behind: 'effect_swim_tube_behind', front: 'effect_swim_tube_front' },
+  },
+  effect_fluffy_cloud: {
+    assets: { behind: 'effect_fluffy_cloud_behind', front: 'effect_fluffy_cloud_front' },
+  },
+
+  // ── 배경 5종 ───────────────────────────────────────────────
+  bg_spring: { assets: { main: 'bg_spring' } },
+  bg_summer_sea: { assets: { main: 'bg_summer_sea' } },
+  bg_autumn: { assets: { main: 'bg_autumn' } },
+  bg_winter: { assets: { main: 'bg_winter' } },
+  bg_space: { assets: { main: 'bg_space' } },
 };
 
 /** 카탈로그에는 있지만 아직 64×64 에셋이 없는 상품. */
@@ -127,11 +204,7 @@ export function requiredAssetIds(): string[] {
 
 export function itemDefinitionFor(spriteKey: string | null | undefined) {
   if (!spriteKey) return null;
-  const definition = CHARACTER_ITEMS[spriteKey];
-  if (!definition) return null;
-  const planned = PLANNED_COMPATIBILITY[spriteKey];
-  if (!planned) return definition;
-  return { ...planned, ...definition };
+  return CHARACTER_ITEMS[spriteKey] ?? null;
 }
 
 export function hasCharacterAsset(spriteKey: string | null | undefined): boolean {
@@ -155,29 +228,23 @@ export function coveredSlots(equipped: EquippedMap): Set<Slot> {
 /**
  * 같은 슬롯은 교체하고 다른 슬롯은 유지한다.
  * 전신 의상과 하의처럼 실제로 겹칠 수 없는 조합만 명시적으로 충돌시킨다.
- *
- * `coversSlots`는 에셋 유무와 무관하게 판정해야 한다. 에셋이 아직 없는 전신 의상도
- * 하의와 충돌하는 것은 사실이므로 `PLANNED_COMPATIBILITY`까지 함께 본다.
  */
 export function conflictsFor(
   item: { slot: Slot; spriteKey: string },
   equipped: EquippedMap,
 ): Slot[] {
   const conflicts = new Set<Slot>();
-  const rules = { ...PLANNED_COMPATIBILITY[item.spriteKey], ...CHARACTER_ITEMS[item.spriteKey] };
 
-  for (const slot of rules.coversSlots ?? []) conflicts.add(slot);
+  for (const slot of CHARACTER_ITEMS[item.spriteKey]?.coversSlots ?? []) conflicts.add(slot);
 
   // 반대 방향: 이미 착용한 상품이 이 상품의 슬롯을 덮는다면 그 상품을 벗겨야 한다.
   for (const [slot, cosmeticId] of Object.entries(equipped) as Array<[Slot, string | null]>) {
     if (!cosmeticId || slot === item.slot) continue;
     const worn = CATALOG_BY_ID[cosmeticId];
     if (!worn) continue;
-    const wornRules = {
-      ...PLANNED_COMPATIBILITY[worn.spriteKey],
-      ...CHARACTER_ITEMS[worn.spriteKey],
-    };
-    if ((wornRules.coversSlots ?? []).includes(item.slot)) conflicts.add(slot);
+    if ((CHARACTER_ITEMS[worn.spriteKey]?.coversSlots ?? []).includes(item.slot)) {
+      conflicts.add(slot);
+    }
   }
 
   conflicts.delete(item.slot);
