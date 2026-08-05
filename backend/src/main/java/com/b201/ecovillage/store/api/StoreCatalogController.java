@@ -57,7 +57,9 @@ public class StoreCatalogController {
                     view.vatRateBps(),
                     view.stockQuantity(),
                     view.productKind(),
-                    view.characterCode()
+                    view.characterCode(),
+                    view.description(),
+                    view.sortOrder()
                 ))
                 .toList()
         );

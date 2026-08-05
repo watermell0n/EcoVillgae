@@ -244,6 +244,7 @@
 | UIA-SHP-003 | SCR-TCH-010 실제 상품 준비 | OWN·COT | `PAID → READY_FOR_PICKUP` | PM-SHP-003 / SM-SHP-001 |
 | UIA-SHP-004 | SCR-TCH-010 실제 상품 수령 확인 | OWN·COT | `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 / SM-SHP-001 |
 | UIA-ITM-001 | SCR-STU-008 캐릭터 장착·해제 | STU | 본인 `AVAILABLE ↔ EQUIPPED`, 잠금 아이템 제외 | PM-ITM-001 / SM-ITM-001 |
+| UIA-ITM-002 | SCR-STU-007 캐릭터 착용 일괄 저장 | STU | 상점 드래프트를 확정, 프로필 `state_version` 일치 시 전체 슬롯 원자적 저장 | PM-ITM-001 / SM-ITM-001 |
 | UIA-CNT-001 | SCR-OPS-003 원작 검토·전역 게시 | POP | 출처·배포 지역·권리 상태·검토일 완비 | PM-CNT-001 |
 | UIA-CNT-002 | SCR-WEB-011 승인 캐릭터 선택 | OWN | POP 게시 원작만 학급 상품에 연결 | PM-CNT-001 |
 | UIA-TRD-001 | SCR-STU-010 거래 제안 등록 | STU | `DRAFT → AWAITING_COUNTERPART`, 아이템 잠금 | PM-TRD-001 / SM-TRD-001·SM-ITM-001 |

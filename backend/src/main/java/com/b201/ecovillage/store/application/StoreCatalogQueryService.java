@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.b201.ecovillage.character.domain.CharacterCatalog;
+import com.b201.ecovillage.character.domain.ClassroomCharacter;
 import com.b201.ecovillage.character.repository.CharacterCatalogRepository;
 import com.b201.ecovillage.character.repository.ClassroomCharacterRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
@@ -66,32 +68,38 @@ public class StoreCatalogQueryService {
                 )
                 .stream()
                 .filter(version -> teacher || version.isPurchasable())
-                .map(version -> new StoreCatalogView(
-                    product.getId(),
-                    product.getName(),
-                    product.getStatus().name(),
-                    version.getVersion(),
-                    product.getStateVersion(),
-                    version.getUnitPrice(),
-                    version.getVatRateBps(),
-                    stockRepository
-                        .findByClassroomIdAndStoreProductId(classroomId, product.getId())
-                        .map(stock -> stock.getAvailableQuantity())
-                        .orElse(0),
-                    product.getProductKind().name(),
-                    product.getProductKind() == StoreProductKind.CHARACTER
-                        ? classroomCharacterRepository
-                            .findByClassroomIdAndStoreProductId(
-                                classroomId,
-                                product.getId()
-                            )
-                            .flatMap(classroomCharacter -> characterCatalogRepository.findById(
-                                classroomCharacter.getCharacterCatalogId()
-                            ))
-                            .map(character -> character.getCharacterCode())
-                            .orElse(null)
-                        : null
-                )))
+                .map(version -> {
+                    // 캐릭터 상품은 교실 캐릭터 행을 한 번만 읽는다. characterCode와
+                    // sortOrder가 같은 행에서 나오므로 조회를 두 번 하지 않는다.
+                    ClassroomCharacter classroomCharacter =
+                        product.getProductKind() == StoreProductKind.CHARACTER
+                            ? classroomCharacterRepository
+                                .findByClassroomIdAndStoreProductId(classroomId, product.getId())
+                                .orElse(null)
+                            : null;
+                    return new StoreCatalogView(
+                        product.getId(),
+                        product.getName(),
+                        product.getStatus().name(),
+                        version.getVersion(),
+                        product.getStateVersion(),
+                        version.getUnitPrice(),
+                        version.getVatRateBps(),
+                        stockRepository
+                            .findByClassroomIdAndStoreProductId(classroomId, product.getId())
+                            .map(stock -> stock.getAvailableQuantity())
+                            .orElse(0),
+                        product.getProductKind().name(),
+                        classroomCharacter == null
+                            ? null
+                            : characterCatalogRepository
+                                .findById(classroomCharacter.getCharacterCatalogId())
+                                .map(CharacterCatalog::getCharacterCode)
+                                .orElse(null),
+                        product.getDescription(),
+                        classroomCharacter == null ? null : classroomCharacter.getSortOrder()
+                    );
+                }))
             .toList();
     }
 

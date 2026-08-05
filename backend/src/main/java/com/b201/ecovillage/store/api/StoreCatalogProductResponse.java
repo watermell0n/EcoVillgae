@@ -12,6 +12,8 @@ public record StoreCatalogProductResponse(
     int vatRateBps,
     int stockQuantity,
     String productKind,
-    String characterCode
+    String characterCode,
+    String description,
+    Integer sortOrder
 ) {
 }

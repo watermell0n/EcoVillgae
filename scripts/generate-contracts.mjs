@@ -722,6 +722,16 @@ const requestFieldOverrides = {
     { name: "expected_product_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-ITM-001": [{ name: "command", values: ["EQUIP", "UNEQUIP"] }],
+  "API-ITM-002": [{
+    name: "equipment",
+    schema: {
+      type: "object",
+      propertyNames: {
+        enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+      },
+      additionalProperties: { type: ["string", "null"], format: "uuid" },
+    },
+  }],
   "API-CNT-001": [
     { name: "command", values: ["APPROVE", "REJECT", "PUBLISH", "UNPUBLISH"] },
     { name: "source_title" },
@@ -940,7 +950,11 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
-const requiredExpectedStateVersionApis = new Set(["API-ITM-001", "API-SHP-001"]);
+const requiredExpectedStateVersionApis = new Set([
+  "API-ITM-001",
+  "API-ITM-002",
+  "API-SHP-001",
+]);
 
 function mutationContextFor(operation) {
   if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
@@ -1292,6 +1306,25 @@ const responseFieldOverrides = {
     { name: "status", schema: { type: "string", enum: ["AVAILABLE", "EQUIPPED"] } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
+  // 일괄 저장 결과는 최신 프로필 전체다. API-READ-035와 같은 모양을 돌려준다.
+  "API-ITM-002": [
+    { name: "profile_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_student_id", schema: { type: "string", format: "uuid" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "equipment_changed_at", schema: { type: "string", format: "date-time" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+    { name: "updated_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "equipped_inventory_items",
+      schema: {
+        type: "object",
+        propertyNames: {
+          enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+        },
+        additionalProperties: { type: "string", format: "uuid" },
+      },
+    },
+  ],
   "API-VOT-002": [
     { name: "receipt_hash", schema: { type: "string" } },
     { name: "cast_at", schema: { type: "string", format: "date-time" } },
@@ -1451,6 +1484,8 @@ const responseFieldOverrides = {
       stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
+      description: { type: ["string", "null"] },
+      sort_order: { type: ["integer", "null"] },
     }, [
       "resource_id",
       "label",
@@ -1462,6 +1497,8 @@ const responseFieldOverrides = {
       "available_quantity",
       "product_kind",
       "character_code",
+      "description",
+      "sort_order",
     ]),
   }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
@@ -3245,9 +3282,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 110, `HTTP 작업 수가 110개가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 110, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 110, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 111, `HTTP 작업 수가 111개가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 111, "API ID 수가 111개가 아니거나 중복되었습니다."],
+    [new Set(routeKeys).size === 111, "HTTP 메서드·경로 수가 111개가 아니거나 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3264,8 +3301,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 110,
-      "OpenAPI 작업 수가 110개가 아닙니다.",
+      ) === 111,
+      "OpenAPI 작업 수가 111개가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

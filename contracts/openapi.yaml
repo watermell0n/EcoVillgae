@@ -10524,6 +10524,14 @@ paths:
                               type:
                                 - "string"
                                 - "null"
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            sort_order:
+                              type:
+                                - "integer"
+                                - "null"
                           required:
                             - "resource_id"
                             - "label"
@@ -10535,6 +10543,8 @@ paths:
                             - "available_quantity"
                             - "product_kind"
                             - "character_code"
+                            - "description"
+                            - "sort_order"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -12897,6 +12907,153 @@ paths:
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
         - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "profile_id"
+                      - "classroom_student_id"
+                      - "state_version"
+                      - "equipment_changed_at"
+                      - "created_at"
+                      - "updated_at"
+                      - "equipped_inventory_items"
+                    properties:
+                      profile_id:
+                        type: "string"
+                        format: "uuid"
+                      classroom_student_id:
+                        type: "string"
+                        format: "uuid"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      equipment_changed_at:
+                        type: "string"
+                        format: "date-time"
+                      created_at:
+                        type: "string"
+                        format: "date-time"
+                      updated_at:
+                        type: "string"
+                        format: "date-time"
+                      equipped_inventory_items:
+                        type: "object"
+                        propertyNames:
+                          enum:
+                            - "BACKGROUND"
+                            - "EFFECT"
+                            - "BACK"
+                            - "BOTTOM"
+                            - "SHOES"
+                            - "TOP"
+                            - "NECK"
+                            - "FACE"
+                            - "HAND"
+                            - "HAT"
+                        additionalProperties:
+                          type: "string"
+                          format: "uuid"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/students/me/character-profile/equipment":
+    put:
+      operationId: "apiItm002"
+      x-api-id: "API-ITM-002"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "student_character_profiles"
+        - "character_equipment"
+        - "inventory_items"
+      x-roles:
+        - "STU"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-008"
+        - "ECO-007"
+      tags:
+        - "Commands"
+      summary: "슬롯별 장착 inventory_item_id 전체 → 한 트랜잭션에서 character_equipment 일괄 교체, 최신 프로필과 state_version 반환"
+      description: "사람이 검토하는 원문 기준: `API-ITM-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 상점의 저장 버튼이 여러 슬롯을 한 번에 확정한다. equipment는 전체 상태이며 값이 없는 슬롯은 해제한다. expected_state_version이 서버와 다르면 409."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "expected_state_version"
+                - "equipment"
+              properties:
+                expected_state_version:
+                  type: "integer"
+                  format: "int64"
+                  minimum: 0
+                equipment:
+                  type: "object"
+                  propertyNames:
+                    enum:
+                      - "BACKGROUND"
+                      - "EFFECT"
+                      - "BACK"
+                      - "BOTTOM"
+                      - "SHOES"
+                      - "TOP"
+                      - "NECK"
+                      - "FACE"
+                      - "HAND"
+                      - "HAT"
+                  additionalProperties:
+                    type:
+                      - "string"
+                      - "null"
+                    format: "uuid"
+                screen_id:
+                  type: "string"
+                ui_action_id:
+                  type: "string"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+              additionalProperties: false
       responses:
         200:
           description: "MVP 작업별 명시적 성공 응답"
