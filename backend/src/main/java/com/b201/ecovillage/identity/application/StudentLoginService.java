@@ -268,6 +268,16 @@ public class StudentLoginService {
             return new StudentAccess(student, credential, true);
         }
 
+        Optional<StudentAccess> placeholder = claimUnassignedPlaceholder(
+            lockedClassroom,
+            nickname,
+            command.password(),
+            now
+        );
+        if (placeholder.isPresent()) {
+            return placeholder.get();
+        }
+
         List<ClassroomStudent> activeStudents = classroomStudentRepository
             .findAllByClassroomIdAndStatusOrderByRosterNumber(
                 lockedClassroom.getId(),
@@ -306,6 +316,42 @@ public class StudentLoginService {
         classroomStudentRepository.flush();
         studentCredentialRepository.flush();
         return new StudentAccess(student, credential, true);
+    }
+
+    private Optional<StudentAccess> claimUnassignedPlaceholder(
+        Classroom classroom,
+        String nickname,
+        String password,
+        Instant now
+    ) {
+        return classroomStudentRepository
+            .findAllByClassroomIdAndStatusOrderByRosterNumber(
+                classroom.getId(),
+                ClassroomStudentStatus.ACTIVE
+            )
+            .stream()
+            .filter(candidate -> candidate.getNickname().equals(initialStudentNickname(candidate.getRosterNumber())))
+            .filter(candidate -> studentCredentialRepository
+                .findByClassroomIdAndClassroomStudentId(classroom.getId(), candidate.getId())
+                .isEmpty()
+            )
+            .findFirst()
+            .map(candidate -> {
+                candidate.changeNickname(nickname, now);
+                StudentCredential credential = studentCredentialRepository.save(
+                    StudentCredential.issue(
+                        candidate.getId(),
+                        classroom.getId(),
+                        passwordEncoder.encode(password),
+                        now
+                    )
+                );
+                return new StudentAccess(candidate, credential, true);
+            });
+    }
+
+    private static String initialStudentNickname(int rosterNumber) {
+        return "학생 " + rosterNumber;
     }
 
     private static int resolveRosterNumber(

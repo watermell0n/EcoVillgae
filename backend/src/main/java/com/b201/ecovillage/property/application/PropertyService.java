@@ -1,5 +1,6 @@
 package com.b201.ecovillage.property.application;
 
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -366,8 +367,9 @@ public class PropertyService {
     @Transactional
     public void collectDueRentAndSubscriptions() {
         Instant now=clock.instant();
-        for (DueRent due : jdbc.query("select p.id,p.classroom_id,p.property_contract_id,c.occupant_student_id,c.landlord_kind,c.landlord_student_id,p.amount,c.payment_cycle_days,c.ends_at,p.due_at from property_contract_payments p join property_contracts c on c.id=p.property_contract_id where p.status in ('SCHEDULED','MISSED') and p.due_at<=? and c.status in ('ACTIVE','OVERDUE') for update of p skip locked",(rs,n)->new DueRent(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),rs.getObject(4,UUID.class),rs.getString(5),rs.getObject(6,UUID.class),rs.getLong(7),rs.getInt(8),rs.getTimestamp(9).toInstant(),rs.getTimestamp(10).toInstant()),now)) settleRent(due,now);
-        for (SubscriptionAccount account : jdbc.query("select classroom_student_id,classroom_id,total_deposit_amount,deposit_count,last_deposited_at,auto_deposit_amount,auto_deposit_cycle_days,next_auto_deposit_at,status,state_version from subscription_accounts where status='ACTIVE' and next_auto_deposit_at<=? for update skip locked",(rs,n)->subscriptionAccount(rs),now)) { try { collectSubscription(account,account.autoAmount(),"AUTO","subscription-auto-"+account.studentId()+"-"+account.nextAutoAt().toEpochMilli(),now); } catch (RuntimeException ignored) { jdbc.update("update subscription_accounts set next_auto_deposit_at=?,updated_at=? where classroom_student_id=?",now.plus(account.autoCycleDays(),ChronoUnit.DAYS),now,account.studentId()); } }
+        Timestamp nowTimestamp=Timestamp.from(now);
+        for (DueRent due : jdbc.query("select p.id,p.classroom_id,p.property_contract_id,c.occupant_student_id,c.landlord_kind,c.landlord_student_id,p.amount,c.payment_cycle_days,c.ends_at,p.due_at from property_contract_payments p join property_contracts c on c.id=p.property_contract_id where p.status in ('SCHEDULED','MISSED') and p.due_at<=? and c.status in ('ACTIVE','OVERDUE') for update of p skip locked",(rs,n)->new DueRent(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),rs.getObject(4,UUID.class),rs.getString(5),rs.getObject(6,UUID.class),rs.getLong(7),rs.getInt(8),rs.getTimestamp(9).toInstant(),rs.getTimestamp(10).toInstant()),nowTimestamp)) settleRent(due,now);
+        for (SubscriptionAccount account : jdbc.query("select classroom_student_id,classroom_id,total_deposit_amount,deposit_count,last_deposited_at,auto_deposit_amount,auto_deposit_cycle_days,next_auto_deposit_at,status,state_version from subscription_accounts where status='ACTIVE' and next_auto_deposit_at<=? for update skip locked",(rs,n)->subscriptionAccount(rs),nowTimestamp)) { try { collectSubscription(account,account.autoAmount(),"AUTO","subscription-auto-"+account.studentId()+"-"+account.nextAutoAt().toEpochMilli(),now); } catch (RuntimeException ignored) { jdbc.update("update subscription_accounts set next_auto_deposit_at=?,updated_at=? where classroom_student_id=?",Timestamp.from(now.plus(account.autoCycleDays(),ChronoUnit.DAYS)),nowTimestamp,account.studentId()); } }
     }
 
     private void settleRent(DueRent due, Instant now) {

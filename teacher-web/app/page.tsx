@@ -69,6 +69,25 @@ type StudentRow = {
   lastSeenAt?: string;
 };
 
+function withPlannedStudentRows(students: StudentRow[], plannedStudentCount: number): StudentRow[] {
+  const occupiedNumbers = new Set(
+    students.map((student) => Number(student.attendance)).filter((number) => Number.isInteger(number) && number > 0)
+  );
+  const rows = [...students];
+  for (let rosterNumber = 1; rosterNumber <= plannedStudentCount; rosterNumber++) {
+    if (occupiedNumbers.has(rosterNumber)) continue;
+    rows.push({
+      attendance: String(rosterNumber),
+      nickname: `학생 ${rosterNumber}`,
+      role: "",
+      salary: "0",
+      status: "정상",
+      presence: "UNKNOWN"
+    });
+  }
+  return rows.sort((left, right) => Number(left.attendance) - Number(right.attendance));
+}
+
 type PublishedQuizQuestion = {
   version_id: string;
   status: string;
@@ -737,7 +756,7 @@ export default function TeacherConsole() {
       );
       if (rosterState.students) {
         const salaryByRole = new Map(rosterState.salary_roles?.map((role) => [role.role_code, role]) ?? []);
-        setStudents(rosterState.students.map((student) => {
+        const loadedStudents = rosterState.students.map((student) => {
           const salaryRole = student.role_code ? salaryByRole.get(student.role_code) : undefined;
           return {
             resourceId: student.resource_id,
@@ -750,7 +769,8 @@ export default function TeacherConsole() {
             currentScreen: student.current_screen ?? "",
             lastSeenAt: student.last_seen_at
           };
-        }));
+        });
+        setStudents(withPlannedStudentRows(loadedStudents, configuration.student_count ?? loadedStudents.length));
       } else {
         setStudents([]);
       }
@@ -812,6 +832,8 @@ export default function TeacherConsole() {
         setModules={setModules}
         runAction={runAction}
         schoolId={schoolId}
+        setSchoolId={setSchoolId}
+        addLog={addLog}
         onCancel={() => {
           setCreateStep("basic");
           setStage("classrooms");
@@ -1201,6 +1223,8 @@ function CreateClassroomFlow({
   setModules,
   runAction,
   schoolId,
+  setSchoolId,
+  addLog,
   onCancel,
   onSaveDraft,
   onLogout,
@@ -1220,6 +1244,8 @@ function CreateClassroomFlow({
     onMockSuccess: (result: unknown) => void
   ) => Promise<void>;
   schoolId: string;
+  setSchoolId: React.Dispatch<React.SetStateAction<string>>;
+  addLog: (message: string, tone?: LogTone) => void;
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
@@ -1354,8 +1380,18 @@ function CreateClassroomFlow({
 
   async function createClassroom() {
     const studentCount = Number(settings.studentCount);
-    if (!schoolId) {
-      setCreationError("소속 학교 정보를 확인하지 못했어요. 다시 로그인해 주세요.");
+    let resolvedSchoolId = schoolId;
+    if (!resolvedSchoolId) {
+      try {
+        resolvedSchoolId = (await getTeacherBootstrap()).schools[0]?.school_id ?? "";
+        if (resolvedSchoolId) setSchoolId(resolvedSchoolId);
+      } catch (error) {
+        setCreationError(`소속 학교 정보를 다시 불러오지 못했어요. ${error instanceof Error ? error.message : ""}`);
+        return;
+      }
+    }
+    if (!resolvedSchoolId) {
+      setCreationError("등록한 학교 코드에 연결된 교사 계정인지 확인해 주세요.");
       return;
     }
     if (!Number.isInteger(studentCount) || studentCount < 1) {
@@ -1378,8 +1414,7 @@ function CreateClassroomFlow({
           screen_id: "SCR-WEB-003",
           ui_action_id: "UIA-CLS-001",
           client_occurred_at: new Date().toISOString(),
-          school_id: schoolId,
-          // develop이 추가한 학급 표시 정보다.
+          school_id: resolvedSchoolId,
           display_name: settings.className,
           class_number: Number(settings.classNumber),
           description: settings.description,
@@ -1548,9 +1583,9 @@ function CreateClassroomFlow({
             <CreationSummary settings={settings} modules={modules} />
             <div className="wizard-actions">
               <button type="button" onClick={() => setShowConfirmation(false)}>다시 확인</button>
-              <button type="button" className="primary" disabled={!schoolId} onClick={createClassroom}>확정하고 개설하기</button>
+              <button type="button" className="primary" onClick={createClassroom}>확정하고 개설하기</button>
             </div>
-            {!schoolId ? <p className="inline-error">소속 학교 정보를 불러오지 못했습니다. 다시 로그인해 주세요.</p> : null}
+            {!schoolId ? <p className="inline-error">소속 학교 정보를 다시 확인한 뒤 개설을 시도합니다.</p> : null}
           </section>
         </div>
       ) : null}
@@ -2316,7 +2351,7 @@ function Roster({
     expected_policy_version: salaryPolicyVersion,
     expected_state_version: stateVersion,
     students: students.map((student) => ({
-      student_id: null,
+      student_id: student.resourceId ?? null,
       attendance_number: Number(student.attendance),
       nickname: student.nickname,
       role_code: hasSalaryModule ? roleCodeByName.get(student.role) : null

@@ -27,12 +27,14 @@ import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.domain.Classroom;
+import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
+import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 
 @Service
@@ -55,6 +57,7 @@ public class ClassroomCreationService {
 
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
+    private final ClassroomStudentRepository classroomStudentRepository;
     private final ClassroomTeacherRepository classroomTeacherRepository;
     private final ClassroomModuleRepository classroomModuleRepository;
     private final AutonomousScheduleRepository scheduleRepository;
@@ -66,6 +69,7 @@ public class ClassroomCreationService {
     public ClassroomCreationService(
         ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
+        ClassroomStudentRepository classroomStudentRepository,
         ClassroomTeacherRepository classroomTeacherRepository,
         ClassroomModuleRepository classroomModuleRepository,
         AutonomousScheduleRepository scheduleRepository,
@@ -76,6 +80,7 @@ public class ClassroomCreationService {
     ) {
         this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
+        this.classroomStudentRepository = classroomStudentRepository;
         this.classroomTeacherRepository = classroomTeacherRepository;
         this.classroomModuleRepository = classroomModuleRepository;
         this.scheduleRepository = scheduleRepository;
@@ -125,6 +130,7 @@ public class ClassroomCreationService {
                 now
             )
         );
+        classroomStudentRepository.saveAll(initialStudents(classroomId, command.studentCount(), now));
         List<ClassroomModule> modules = validated.moduleCodes().stream()
             .map(code -> createRequestedModule(classroomId, code, now))
             .toList();
@@ -160,6 +166,24 @@ public class ClassroomCreationService {
             module.activate(Map.of("activation_source", "CLASSROOM_CREATION"), now);
         }
         return module;
+    }
+
+    private List<ClassroomStudent> initialStudents(UUID classroomId, int studentCount, Instant now) {
+        List<ClassroomStudent> students = new ArrayList<>();
+        for (int rosterNumber = 1; rosterNumber <= studentCount; rosterNumber++) {
+            students.add(ClassroomStudent.enroll(
+                uuidGenerator.generate(),
+                classroomId,
+                rosterNumber,
+                initialStudentNickname(rosterNumber),
+                now
+            ));
+        }
+        return students;
+    }
+
+    private static String initialStudentNickname(int rosterNumber) {
+        return "학생 " + rosterNumber;
     }
 
     private ValidatedCreation validate(CreateClassroomCommand command) {
