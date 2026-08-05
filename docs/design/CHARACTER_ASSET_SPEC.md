@@ -465,7 +465,7 @@ Expo Skia는 `BlendMode.DstOut` 또는 `Mask`로 같은 결과를 만든다.
 `node scripts/character/sync-assets.js`로 Expo에 복제한다.
 
 ```text
-student-app/public/character/          ← 정본. Vite가 URL로 서빙한다
+student-app/public/character/          ← 정본. 앱 빌드 산출물이 아닌 에셋 원본 보관소다
   base/
     base_default.png
 
@@ -488,13 +488,13 @@ student-app/public/character/          ← 정본. Vite가 URL로 서빙한다
 student-app/expo/assets/character/     ← 복제본. 직접 수정하지 않는다
 ```
 
-같은 파일을 한 곳에서 참조할 수 없는 이유: 웹은 `public/`을 URL로 서빙하고 Expo(Metro)는
-정적 `require()`로 번들에 담는다. 대신 복제본이 **어긋날 수 없게** 만든다 —
-`sync-assets.js --check`와 `check-assets.js`가 두 사본의 바이트 일치를 검사한다.
+정본과 Expo 번들 사본을 분리하는 이유: Expo(Metro)는 정적 `require()`로만 에셋을 번들에
+담고 프로젝트 루트 밖의 파일을 기본 설정으로 읽지 못한다. 대신 복제본이 **어긋날 수 없게**
+만든다 — `sync-assets.js --check`와 `check-assets.js`가 두 사본의 바이트 일치를 검사한다.
 
-> 모노레포로 재배치할 때 정본을 `assets/characters/`로 옮기고 두 앱이 빌드 시점에
-> 가져가는 구조로 바꾼다. 지금 그렇게 하려면 Metro `watchFolders` 설정과 Vite
-> `publicDir` 변경이 필요해 위험이 크다.
+> 모노레포로 재배치할 때 정본을 `assets/characters/`로 옮기고 앱이 빌드 시점에
+> 가져가는 구조로 바꾼다. 지금 그렇게 하려면 Metro `watchFolders` 설정이 필요해
+> 위험이 크다.
 
 ### 7.1 명명 규칙
 

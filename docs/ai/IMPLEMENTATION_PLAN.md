@@ -457,7 +457,7 @@ Spring `RuleEngineService`와 불변 입력·출력 모델을 추가했습니다
 5. [x] OpenAPI와 실제 Spring Controller/DTO의 method·path·최상위 필드 차이 검출을 CI에
    추가하고 현재 차이 0건 기준선을 고정합니다.
 6. [ ] Expo·교사 웹에 OpenAPI 생성 타입 또는 단일 응답 mapper를 적용해 임시 프론트 DTO를
-   제거합니다. 학생 신규 구현 대상은 Vite가 아니라 Expo입니다.
+   제거합니다. 학생 신규 구현 대상은 `student-app/expo/`입니다.
 7. [x] `ONE_SESSION`을 퀴즈·게임 기본 추천 라벨로만 사용하고, 교사가 다른 모듈을 선택할
    때 Spring·교사 화면·FastAPI가 코스 라벨만으로 차단하지 않도록 정합화했습니다
    (`S15P11B201-281`).

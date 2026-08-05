@@ -140,6 +140,6 @@ export function reportMissingCharacterAsset(assetId: string): boolean {
 export function describeUnresolvedAsset(assetId: string, spriteKey: string): string {
   return (
     `[CharacterRenderer] Missing asset: ${assetId} (상품 ${spriteKey})`
-    + ' — 웹은 student-app/public/character/, Expo는 assetMap.ts require를 확인한다'
+    + ' — 정본 student-app/public/character/ 와 assetMap.ts require를 확인한다'
   );
 }

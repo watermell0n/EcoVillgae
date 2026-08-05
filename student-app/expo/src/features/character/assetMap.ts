@@ -5,7 +5,7 @@
  * 그래서 여기만 손으로 나열하고, 누락은 CI가 잡는다
  * (`node scripts/character/check-assets.js`가 core의 requiredAssetIds()와 대조한다).
  *
- * 에셋 파일은 웹 `student-app/public/character/`가 정본이며
+ * 에셋 파일은 `student-app/public/character/`가 정본이며
  * `node scripts/character/sync-assets.js`로 이 앱의 `assets/character/`에 복제된다.
  * 직접 수정하지 않는다.
  */

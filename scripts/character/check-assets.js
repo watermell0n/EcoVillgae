@@ -51,21 +51,33 @@ const fail = (msg) => errors.push(msg);
 const warn = (msg) => warnings.push(msg);
 
 // ---------------------------------------------------------------- core 읽기
+/**
+ * core는 TypeScript ESM이고 상대 import에 확장자가 없어 Node가 그대로 읽지 못한다.
+ * Expo 앱의 `typescript`로 CommonJS로 트랜스파일한 뒤 require한다.
+ */
 function loadCore() {
-  const esbuild = path.join(ROOT, 'student-app/node_modules/esbuild/bin/esbuild');
-  if (!fs.existsSync(esbuild)) {
+  const tsc = path.join(ROOT, 'student-app/expo/node_modules/typescript/bin/tsc');
+  if (!fs.existsSync(tsc)) {
     throw new Error(
-      'esbuild를 찾을 수 없다. student-app에서 의존성을 설치한 뒤 다시 실행한다.',
+      'typescript를 찾을 수 없다. student-app/expo에서 `npm ci`를 실행한 뒤 다시 실행한다.',
     );
   }
-  const out = path.join(require('os').tmpdir(), `character-core-${process.pid}.cjs`);
-  execFileSync('node', [
-    esbuild, CORE, '--bundle', '--format=cjs', '--platform=node', '--outfile=' + out,
-  ], { stdio: ['ignore', 'ignore', 'inherit'] });
+  const coreDir = path.dirname(CORE);
+  const out = fs.mkdtempSync(path.join(require('os').tmpdir(), 'character-core-'));
   try {
-    return require(out);
+    execFileSync('node', [
+      tsc, CORE,
+      '--outDir', out,
+      '--rootDir', coreDir,
+      '--module', 'commonjs',
+      '--target', 'ES2020',
+      '--esModuleInterop',
+      '--skipLibCheck',
+      // tsc는 진단을 stdout으로 내보낸다. 삼키면 실패 원인이 보이지 않는다.
+    ], { stdio: ['ignore', 'inherit', 'inherit'] });
+    return require(path.join(out, 'index.js'));
   } finally {
-    fs.rmSync(out, { force: true });
+    fs.rmSync(out, { force: true, recursive: true });
   }
 }
 

@@ -1,6 +1,6 @@
 # 이코빌리지 학생 Expo 앱
 
-Galaxy Tab에서 사용하는 React Native + Expo + TypeScript 학생 앱입니다. 상위 `student-app/`의 Vite 코드는 이전 참고용 프로토타입이며, 신규 학생 기능은 이 프로젝트에 구현합니다.
+Galaxy Tab에서 사용하는 React Native + Expo + TypeScript 학생 앱입니다. 학생 앱 코드는 이 프로젝트 하나이며, 모든 신규 학생 기능은 여기에 구현합니다.
 
 ## 실행
 

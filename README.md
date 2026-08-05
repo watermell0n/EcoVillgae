@@ -206,7 +206,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 ## 10. 저장소 구조
 
 ```text
-student-app/          React Native·Expo 태블릿 앱 목표 영역(현재 Vite UI는 이전용 프로토타입)
+student-app/          React Native·Expo 태블릿 앱(앱 본체는 student-app/expo/)
 teacher-web/          Next.js 교사 관리 웹·교실 공용 화면
 backend/              Spring Boot 핵심 API·Flyway·DB 테스트
 ai-service/           FastAPI AI 서비스

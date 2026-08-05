@@ -173,4 +173,5 @@ event acknowledgement, heartbeat messages, and automatic connection expiry.
 Local `bootRun` uses the in-process event bus by default. Docker Compose sets
 `REALTIME_REDIS_ENABLED=true`, so multiple backend instances exchange committed
 outbox events through Redis Pub/Sub. Configure browser origins with
-`WEB_ALLOWED_ORIGINS`; the local default includes ports `3000` and `5173`.
+`WEB_ALLOWED_ORIGINS`; the local default includes ports `3000` (teacher web) and
+`8081` (student Expo web).

@@ -342,7 +342,7 @@ ${rows}
 
 Spring JSON은 \`snake_case\`입니다. TypeScript에서 camelCase를 쓰려면 생성기가 이름을 바꾸지 않는 한
 응답 경계의 단일 mapper에서만 변환합니다. 수동 interface를 선언하고 Spring JSON을 그대로
-camelCase 객체로 간주해서는 안 됩니다. 현재 Vite 학생 앱은 이전 참고용이며 이 기준선의 최종 소비자는 Expo 앱입니다.
+camelCase 객체로 간주해서는 안 됩니다. 이 기준선의 소비자는 Expo 학생 앱과 Next.js 교사 웹입니다.
 
 ## 실행
 

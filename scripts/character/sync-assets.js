@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * 캐릭터 에셋을 웹(정본)에서 Expo로 복제한다.
+ * 캐릭터 에셋을 정본에서 Expo 번들로 복제한다.
  *
- * 웹은 Vite `public/`을 URL로 서빙하고 Expo는 Metro `require()`로 번들에 담기 때문에
- * 같은 파일을 한 곳에서 참조할 수 없다. 파일을 복제하되 **어긋날 수 없게** 만든다.
+ * 정본은 `student-app/public/character/`이고 Expo는 Metro `require()`로 번들에 담기
+ * 때문에 같은 파일을 한 곳에서 참조할 수 없다. 파일을 복제하되 **어긋날 수 없게** 만든다.
  *
  *   node scripts/character/sync-assets.js           복제
  *   node scripts/character/sync-assets.js --check    차이만 보고, 쓰지 않음 (CI용)
  *
- * 에셋을 추가·수정할 때는 반드시 웹 쪽(SOURCE)을 고치고 이 스크립트를 실행한다.
+ * 에셋을 추가·수정할 때는 반드시 정본 쪽(SOURCE)을 고치고 이 스크립트를 실행한다.
  */
 const fs = require('fs');
 const path = require('path');

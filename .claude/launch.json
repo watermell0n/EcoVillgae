@@ -8,12 +8,6 @@
       "port": 3000
     },
     {
-      "name": "student-app",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "student-app", "run", "dev"],
-      "port": 5173
-    },
-    {
       "name": "student-expo",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "student-app/expo", "run", "web"],

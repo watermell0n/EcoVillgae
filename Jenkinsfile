@@ -94,16 +94,15 @@ pipeline {
         stage('Student App') {
             when {
                 expression {
-                    return fileExists('student-app/package.json')
+                    return fileExists('student-app/expo/package.json')
                 }
             }
             steps {
-                dir('student-app') {
-                    sh 'corepack enable'
-                    sh 'pnpm install --frozen-lockfile'
-                    sh 'pnpm typecheck'
-                    sh 'pnpm build'
-                    sh 'test -f dist/index.html'
+                dir('student-app/expo') {
+                    sh 'npm ci'
+                    sh 'npm run typecheck'
+                    sh 'npx expo export --platform web --output-dir .expo-export-check'
+                    sh 'test -f .expo-export-check/index.html'
                 }
             }
         }
