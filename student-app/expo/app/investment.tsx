@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
@@ -72,6 +73,8 @@ function ShortInvestment() {
 }
 
 function LongInvestment() {
+  const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
   const stocks = [
     { name: "독수리테크", change: "+12.4%", news: "AI 신제품 반응이 좋아요.", points: "▁▂▃▅▆█" },
     { name: "거북이상사", change: "+3.1%", news: "생활용품 판매가 안정적이에요.", points: "▂▂▃▃▄▅" },
@@ -93,8 +96,8 @@ function LongInvestment() {
       </View>
       <View style={styles.holdingSection}>
         <Text style={styles.sectionTitle}>내 주식 보유 현황</Text>
-        <View style={styles.holdingRow}><View><Text style={styles.company}>독수리테크</Text><Text style={styles.stockNews}>보유 수량 3주 · 평균단가 50비빔</Text></View><View style={styles.holdingRight}><Text style={styles.holdingValue}>168비빔</Text><Text style={styles.stockChange}>+18비빔</Text></View></View>
-        <View style={styles.holdingRow}><View><Text style={styles.company}>거북이상사</Text><Text style={styles.stockNews}>보유 수량 2주 · 평균단가 40비빔</Text></View><View style={styles.holdingRight}><Text style={styles.holdingValue}>83비빔</Text><Text style={styles.stockChange}>+3비빔</Text></View></View>
+        <View style={styles.holdingRow}><View><Text style={styles.company}>독수리테크</Text><Text style={styles.stockNews}>보유 수량 3주 · 평균단가 50 {currencyName}</Text></View><View style={styles.holdingRight}><Text style={styles.holdingValue}>168 {currencyName}</Text><Text style={styles.stockChange}>+18 {currencyName}</Text></View></View>
+        <View style={styles.holdingRow}><View><Text style={styles.company}>거북이상사</Text><Text style={styles.stockNews}>보유 수량 2주 · 평균단가 40 {currencyName}</Text></View><View style={styles.holdingRight}><Text style={styles.holdingValue}>83 {currencyName}</Text><Text style={styles.stockChange}>+3 {currencyName}</Text></View></View>
       </View>
       <View style={styles.decisionRow}>
         <Pressable style={styles.outlineButton}><Text style={styles.outlineText}>계속 보유</Text></Pressable>

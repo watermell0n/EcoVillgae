@@ -21,6 +21,7 @@ function isWearable(product: StoreProduct) {
 
 export default function ShopScreen() {
   const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
   const queryClient = useQueryClient();
   const [shopType, setShopType] = useState<"classroom" | "eco">("classroom");
   const catalog = useQuery({
@@ -31,14 +32,14 @@ export default function ShopScreen() {
   const purchase = useMutation({
     mutationFn: (product: StoreProduct) => purchaseStoreProduct(identity!.classroomId, product),
     onSuccess: (order) => {
-      showMessage("구매 요청 완료", `${order.totalAmount} 비빔 구매가 접수됐어요.`);
+      showMessage("구매 요청 완료", `${order.totalAmount} ${currencyName} 구매가 접수됐어요.`);
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["store-catalog", identity?.classroomId] });
     }
   });
 
   const confirmPurchase = (product: StoreProduct) => {
-    const message = `${product.label}을(를) ${product.unitPrice} 비빔에 구매할까요?`;
+    const message = `${product.label}을(를) ${product.unitPrice} ${currencyName}에 구매할까요?`;
     if (Platform.OS === "web") {
       if (globalThis.confirm(message)) purchase.mutate(product);
       return;
@@ -70,7 +71,7 @@ export default function ShopScreen() {
               </View>
               <Text style={styles.productTitle}>{product.label}</Text>
               <Text style={styles.productKind}>{KIND_LABEL[product.productKind] ?? "교실 상품"}</Text>
-              <Text style={styles.price}>{product.unitPrice} 비빔</Text>
+              <Text style={styles.price}>{product.unitPrice} {currencyName}</Text>
               <Pressable accessibilityRole="button" disabled={purchase.isPending} onPress={() => confirmPurchase(product)} style={[styles.buy, purchase.isPending && styles.buyDisabled]}>
                 <Text style={styles.buyText}>{purchase.isPending ? "처리 중" : "구매하기"}</Text>
               </Pressable>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -13,11 +13,13 @@ type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
 
 export default function BankScreen() {
   const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
   const { access } = useClassroom();
   const queryClient = useQueryClient();
   const products = useQuery({ queryKey: ["financial-products", identity?.classroomId], queryFn: () => fetchFinancialProducts(identity!.classroomId), enabled: Boolean(identity) });
   const accounts = useQuery({ queryKey: ["finance", identity?.classroomId], queryFn: () => fetchFinanceAccounts(identity!.classroomId), enabled: Boolean(identity) });
   const loan = useQuery({ queryKey: ["loan-overview", identity?.classroomId], queryFn: () => fetchLoanOverview(identity!.classroomId), enabled: Boolean(identity && access?.activeCodes.has("LOAN")) });
+
   const subscribe = useMutation({
     mutationFn: ({ product, amount }: { product: FinancialProduct; amount: number }) => (
       product.productType === "SAVINGS"
@@ -48,6 +50,14 @@ export default function BankScreen() {
   const [selected, setSelected] = useState<BankTab>("ACCOUNT");
   const [selectedProduct, setSelectedProduct] = useState<FinancialProduct | null>(null);
   const [loanAmount, setLoanAmount] = useState("100");
+
+  // 교사가 상품을 수정·중지한 뒤 목록이 갱신되면 열어 둔 상세 정보도 같은 데이터로 맞춥니다.
+  useEffect(() => {
+    if (!selectedProduct || !products.data) return;
+    const latest = products.data.find((product) => product.resourceId === selectedProduct.resourceId);
+    setSelectedProduct(latest ?? null);
+  }, [products.data, selectedProduct?.resourceId]);
+
   const activeTab = availableTabs.some((tab) => tab.id === selected) ? selected : availableTabs[0]?.id;
   const activeProducts = products.data?.filter((product) => (
     ["PUBLISHED", "ACTIVE"].includes(product.status)
@@ -79,17 +89,17 @@ export default function BankScreen() {
       </View>
       {activeTab === "ACCOUNT" ? (
         <View style={styles.accountsSection}>
-          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : !hasAccounts ? <Text style={styles.emptyText}>아직 가입한 통장이 없어요.</Text> : accounts.data?.depositAccounts.map((account, index) => (
+          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : !hasAccounts ? <Text style={styles.emptyText}>아직 만든 예금·적금 통장이 없어요. 위의 예금 또는 적금 탭에서 원하는 상품을 선택해 주세요.</Text> : accounts.data?.depositAccounts.map((account, index) => (
             <PassbookCover key={account.resourceId} title={account.label} subtitle={account.label.includes("적금") ? "납입 내역을 확인해요" : "만기까지 안전하게 보관해요"} color={account.label.includes("적금") ? "#D89A57" : "#6FAE83"}>
-              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>{account.label.includes("적금") ? "지금까지 납입한 금액" : "만기 예상 금액"}</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")}비빔</Text></View>
+              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>{account.label.includes("적금") ? "지금까지 납입한 금액" : "만기 예상 금액"}</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
               <View style={styles.accountSchedule}><Text>{account.label.includes("적금") ? "1회차 납입 완료" : "만기일"}</Text><Text>{account.label.includes("적금") ? "다음 납입을 기다리고 있어요" : account.maturesAt || "만기일을 확인 중이에요"}</Text></View>
               <Text style={styles.passbookNumber}>통장 {String(index + 1).padStart(2, "0")}</Text>
             </PassbookCover>
           ))}
           {accounts.data?.savingsAccounts.map((account, index) => (
             <PassbookCover key={account.resourceId} title={account.label} subtitle={`${account.paidInstallmentCount}/${account.installmentCount}회 납입 완료`} color="#D89A57">
-              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>지금까지 납입한 금액</Text><Text style={styles.accountDetailValue}>{account.principalBalance.toLocaleString("ko-KR")}비빔</Text></View>
-              <View style={styles.accountSchedule}><Text>다음 회차 납입 금액</Text><Text>{account.installmentAmount.toLocaleString("ko-KR")}비빔</Text></View>
+              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>지금까지 납입한 금액</Text><Text style={styles.accountDetailValue}>{account.principalBalance.toLocaleString("ko-KR")} {currencyName}</Text></View>
+              <View style={styles.accountSchedule}><Text>다음 회차 납입 금액</Text><Text>{account.installmentAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
               <Text style={styles.passbookNumber}>적금 통장 {String(index + 1).padStart(2, "0")}</Text>
             </PassbookCover>
           ))}
@@ -138,16 +148,16 @@ export default function BankScreen() {
                 <Metric label="이율" value={`연 ${(selectedProduct.interestRateBps / 100).toFixed(1)}%`} />
                 <Metric label="가입 기간" value={productTermLabel(selectedProduct)} />
                 <Metric label="예상 만기일" value={expectedMaturity(selectedProduct)} />
-                <Metric label="가입 최소 금액" value={`${selectedProduct.minimumAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} />
-                <Metric label="가입 최대 금액" value={`${selectedProduct.maximumAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} />
-                {selectedProduct.productType === "SAVINGS" ? <Metric label="회차별 납입액" value={`${selectedProduct.installmentAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} /> : null}
+                <Metric label="최소 금액" value={`${selectedProduct.minimumAmount ?? "확인 중"} ${currencyName}`} />
+                <Metric label="최대 금액" value={`${selectedProduct.maximumAmount ?? "확인 중"} ${currencyName}`} />
+                {selectedProduct.productType === "SAVINGS" ? <Metric label="회차별 납입액" value={`${selectedProduct.installmentAmount ?? "확인 중"} ${currencyName}`} /> : null}
               </View>
               <Pressable
                 disabled={subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)}
                 onPress={() => subscribe.mutate({ product: selectedProduct, amount: selectedProduct.productType === "SAVINGS" ? selectedProduct.installmentAmount! : selectedProduct.minimumAmount ?? 100 })}
                 style={[styles.passbookButton, (subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)) && styles.disabled]}
               >
-                <Text style={styles.passbookButtonText}>{subscribe.isPending ? "가입 처리 중" : "이 상품 가입하기"}</Text>
+                <Text style={styles.passbookButtonText}>{subscribe.isPending ? "처리 중" : selectedProduct.productType === "SAVINGS" ? "이 적금 시작하기" : "이 예금에 돈 맡기기"}</Text>
               </Pressable>
             </View>
           ) : null}

@@ -1,5 +1,6 @@
 package com.b201.ecovillage.classroom.application;
 
+import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,8 @@ import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
+import com.b201.ecovillage.realtime.application.StudentPresenceService;
+import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
 
 @Service
 public class ClassroomReadService {
@@ -48,19 +51,25 @@ public class ClassroomReadService {
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomModuleRepository moduleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
+    private final StudentPresenceService presenceService;
+    private final Clock clock;
 
     public ClassroomReadService(
         ClassroomAuthorizationService authorizationService,
         ClassroomStudentRepository studentRepository,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomModuleRepository moduleRepository,
-        ClassroomPolicyVersionRepository policyVersionRepository
+        ClassroomPolicyVersionRepository policyVersionRepository,
+        StudentPresenceService presenceService,
+        Clock clock
     ) {
         this.authorizationService = authorizationService;
         this.studentRepository = studentRepository;
         this.salaryRoleRepository = salaryRoleRepository;
         this.moduleRepository = moduleRepository;
         this.policyVersionRepository = policyVersionRepository;
+        this.presenceService = presenceService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -93,7 +102,11 @@ public class ClassroomReadService {
                 ClassroomStudentStatus.ACTIVE
             )
             .stream()
-            .map(student -> toStudentView(student, salaryRolesById))
+            .map(student -> toStudentView(
+                student,
+                salaryRolesById,
+                presenceService.get(classroomId, student.getId(), clock.instant())
+            ))
             .toList();
         List<RosterAndSalariesView.SalaryRoleView> roles = salaryRoles
             .stream()
@@ -150,7 +163,8 @@ public class ClassroomReadService {
 
     private static RosterAndSalariesView.StudentView toStudentView(
         ClassroomStudent student,
-        Map<UUID, SalaryRole> salaryRolesById
+        Map<UUID, SalaryRole> salaryRolesById,
+        StudentPresenceSnapshot presence
     ) {
         SalaryRole role = student.getSalaryRoleId() == null
             ? null
@@ -163,7 +177,10 @@ public class ClassroomReadService {
             student.getStateVersion(),
             student.getRosterNumber(),
             student.getNickname(),
-            role == null ? null : role.getRoleCode()
+            role == null ? null : role.getRoleCode(),
+            presence.status(),
+            presence.currentScreen(),
+            presence.lastSeenAt()
         );
     }
 

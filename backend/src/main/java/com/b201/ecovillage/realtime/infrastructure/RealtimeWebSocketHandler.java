@@ -20,6 +20,8 @@ import com.b201.ecovillage.realtime.application.RealtimeResourceAuthorizationSer
 import com.b201.ecovillage.realtime.application.RealtimeSubscriptionQueryService;
 import com.b201.ecovillage.realtime.application.RealtimeSubscriptionSnapshot;
 import com.b201.ecovillage.realtime.application.RealtimeTicket;
+import com.b201.ecovillage.realtime.application.StudentPresenceService;
+import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
 import com.b201.ecovillage.realtime.config.RealtimeProperties;
 
 import tools.jackson.databind.JsonNode;
@@ -31,6 +33,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
     private final RealtimeEventBroadcaster broadcaster;
     private final RealtimeSubscriptionQueryService queryService;
     private final RealtimeResourceAuthorizationService resourceAuthorizationService;
+    private final StudentPresenceService presenceService;
     private final RealtimeProperties properties;
     private final UuidV7Generator uuidGenerator;
     private final ObjectMapper objectMapper;
@@ -40,6 +43,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         RealtimeEventBroadcaster broadcaster,
         RealtimeSubscriptionQueryService queryService,
         RealtimeResourceAuthorizationService resourceAuthorizationService,
+        StudentPresenceService presenceService,
         RealtimeProperties properties,
         UuidV7Generator uuidGenerator,
         ObjectMapper objectMapper,
@@ -48,6 +52,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         this.broadcaster = broadcaster;
         this.queryService = queryService;
         this.resourceAuthorizationService = resourceAuthorizationService;
+        this.presenceService = presenceService;
         this.properties = properties;
         this.uuidGenerator = uuidGenerator;
         this.objectMapper = objectMapper;
@@ -72,6 +77,14 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
             expiresAt
         );
         broadcaster.register(connection);
+        if ("STU".equals(ticket.role())) {
+            broadcaster.broadcastPresence(presenceService.connect(
+                ticket.classroomId(),
+                ticket.actorId(),
+                session.getId(),
+                clock.instant()
+            ));
+        }
         synchronized (connection) {
             connection.send(objectMapper, Map.of(
                 "type", "connection.ready",
@@ -109,6 +122,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
                 case "subscription.subscribe" -> subscribe(connection, request);
                 case "subscription.unsubscribe" -> unsubscribe(connection, request);
                 case "connection.ping" -> pong(connection, request);
+                case "presence.update" -> updatePresence(connection, request);
                 case "event.ack" -> acknowledge(connection, request);
                 default -> throw new RealtimeProtocolException(
                     "UNSUPPORTED_MESSAGE_TYPE",
@@ -127,7 +141,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         WebSocketSession session,
         CloseStatus status
     ) {
-        broadcaster.remove(session.getId());
+        disconnectPresence(broadcaster.remove(session.getId()));
     }
 
     @Override
@@ -135,7 +149,7 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         WebSocketSession session,
         Throwable exception
     ) throws Exception {
-        broadcaster.remove(session.getId());
+        disconnectPresence(broadcaster.remove(session.getId()));
         if (session.isOpen()) {
             session.close(CloseStatus.SERVER_ERROR);
         }
@@ -229,6 +243,15 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void pong(RealtimeConnection connection, JsonNode request) throws IOException {
+        RealtimeTicket ticket = connection.ticket();
+        if ("STU".equals(ticket.role())) {
+            presenceService.touch(
+                ticket.classroomId(),
+                ticket.actorId(),
+                connection.sessionId(),
+                clock.instant()
+            );
+        }
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("type", "connection.pong");
         response.put("server_time", clock.instant());
@@ -239,6 +262,36 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
         synchronized (connection) {
             connection.send(objectMapper, response);
         }
+    }
+
+    private void updatePresence(RealtimeConnection connection, JsonNode request) {
+        RealtimeTicket ticket = connection.ticket();
+        if (!"STU".equals(ticket.role())) {
+            throw new RealtimeProtocolException(
+                "PRESENCE_STUDENT_ONLY",
+                "Only student connections can update presence"
+            );
+        }
+        StudentPresenceSnapshot snapshot = presenceService.update(
+            ticket.classroomId(),
+            ticket.actorId(),
+            connection.sessionId(),
+            requiredText(request, "status"),
+            optionalText(request, "current_screen"),
+            clock.instant()
+        );
+        broadcaster.broadcastPresence(snapshot);
+    }
+
+    private void disconnectPresence(RealtimeConnection connection) {
+        if (connection == null || !"STU".equals(connection.ticket().role())) return;
+        RealtimeTicket ticket = connection.ticket();
+        broadcaster.broadcastPresence(presenceService.disconnect(
+            ticket.classroomId(),
+            ticket.actorId(),
+            connection.sessionId(),
+            clock.instant()
+        ));
     }
 
     private UUID authorizedResource(
@@ -301,6 +354,11 @@ public class RealtimeWebSocketHandler extends TextWebSocketHandler {
             throw new RealtimeProtocolException("INVALID_MESSAGE", field + " is required");
         }
         return value.asText();
+    }
+
+    private static String optionalText(JsonNode request, String field) {
+        JsonNode value = request.get(field);
+        return value == null || value.isNull() ? null : value.asText();
     }
 
     private static UUID requiredUuid(JsonNode request, String field) {

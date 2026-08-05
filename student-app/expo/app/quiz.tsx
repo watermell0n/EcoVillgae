@@ -23,6 +23,7 @@ function answerErrorMessage(error: Error) {
 
 export default function QuizScreen() {
   const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
   const { access } = useClassroom();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [started, setStarted] = useState(false);
@@ -91,7 +92,7 @@ export default function QuizScreen() {
             {questions.map((item, index) => <View key={item.resourceId} style={[styles.progressDot, index === questionIndex && styles.progressDotActive, index < questionIndex && styles.progressDotDone]}><Text style={[styles.progressNumber, index === questionIndex && styles.progressNumberActive]}>{index + 1}</Text></View>)}
           </View>
           <View style={styles.quizCard}>
-            <View style={styles.quizMeta}><Text style={styles.count}>{questionIndex + 1} / {questions.length}</Text><Text style={styles.reward}>정답수당 +10비빔</Text></View>
+            <View style={styles.quizMeta}><Text style={styles.count}>{questionIndex + 1} / {questions.length}</Text><Text style={styles.reward}>정답수당 +10 {currencyName}</Text></View>
             <Text style={styles.question}>{question.prompt}</Text>
             <View style={styles.options}>
               {question.options.map((option, index) => <Pressable disabled={!option.optionId || answer.isPending || answered} key={`${option.optionId ?? option.label}-${index}`} onPress={() => { if (option.optionId) { setSelectedOptionId(option.optionId); answer.mutate(option.optionId); } }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, (!option.optionId || answer.isPending || answered) && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>)}

@@ -29,7 +29,7 @@ const cards: HomeCard[] = [
   { id: "bank", title: "이코 은행", subtitle: "예금과 적금 상품을 살펴봐요", icon: "🏦", tone: "purple", route: "/bank" },
   { id: "shop", title: "이코 상점", subtitle: "열린 상품을 고르고 구매해요", icon: "🏪", tone: "orange", route: "/(tabs)/shop" },
   { id: "investment", title: "투자 광장", subtitle: "시장 가격과 내 손익을 확인해요", icon: "📈", tone: "red", route: "/investment" },
-  { id: "trade", title: "친구 거래소", subtitle: "친구와 비빔 거래를 제안해요", icon: "🤝", tone: "sky", route: "/trade" },
+  { id: "trade", title: "친구 거래소", subtitle: "친구와 거래를 제안해요", icon: "🤝", tone: "sky", route: "/trade" },
   { id: "meeting", title: "마을 회의", subtitle: "공동기금 사용처에 투표해요", icon: "🗳️", tone: "yellow", route: "/meeting" },
   { id: "quiz", title: "경제생활 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", route: "/quiz" },
   { id: "realEstate", title: "부동산", subtitle: "교실 자리를 빌리거나 사요", icon: "🏘️", tone: "orange", route: "/real-estate" },

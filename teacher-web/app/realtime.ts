@@ -18,11 +18,21 @@ export type RealtimeDomainEvent = {
   payload: Record<string, unknown>;
 };
 
+export type StudentPresenceChange = {
+  type: "presence.changed";
+  classroom_id: string;
+  student_id: string;
+  status: "ONLINE" | "AWAY" | "OFFLINE" | "UNKNOWN";
+  current_screen: string | null;
+  last_seen_at: string | null;
+};
+
 type RealtimeMessage = Record<string, unknown> & { type: string };
 
 type RealtimeClientOptions = {
   subscriptions: RealtimeSubscriptionRequest[];
   onEvent: (event: RealtimeDomainEvent) => void;
+  onPresenceChange?: (presence: StudentPresenceChange) => void;
   onRecoveryRequired?: () => void;
   onError?: (error: Error) => void;
 };
@@ -111,6 +121,10 @@ export class TeacherRealtimeClient {
     }
     if (message.type === "domain.event") {
       this.handleEvent(message as RealtimeDomainEvent);
+      return;
+    }
+    if (message.type === "presence.changed") {
+      this.options.onPresenceChange?.(message as StudentPresenceChange);
       return;
     }
     if (message.type === "recovery.required") {

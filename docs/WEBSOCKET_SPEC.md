@@ -87,8 +87,11 @@ WebSocket으로 허용하는 클라이언트 메시지는 연결 관리뿐입니
 | `subscription.unsubscribe` | 채널 구독 해제 | `request_id, subscription_id` |
 | `connection.ping` | 연결 확인 | `client_time` |
 | `event.ack` | 마지막 적용 위치 진단 | `subscription_id, sequence` |
+| `presence.update` | 학생 접속·화면 상태 전달 | `status=ONLINE\|AWAY, current_screen?` |
 
 답안 제출, 투표, 거래, 투자 주문과 교사 제어 명령을 WebSocket 메시지로 받지 않습니다. 해당 작업은 [HTTP API 명세](HTTP_API_SPEC.md)를 사용합니다.
+
+교사 연결에는 저장형 도메인 이벤트와 별도로 `presence.changed` 메시지를 전달합니다. 이 메시지는 학생 ID, `ONLINE/AWAY/OFFLINE/UNKNOWN`, 현재 화면과 마지막 확인 시각을 포함하며, 교사가 처음 학급을 열거나 연결을 복구할 때는 `GET /classrooms/{C}/roster-and-salaries`의 스냅샷을 기준으로 다시 맞춥니다.
 
 구독 요청:
 

@@ -1658,7 +1658,14 @@ const responseFieldOverrides = {
     { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
   ],
   "API-READ-004": [
-    { name: "students", schema: projectionItems({ attendance_number: { type: "integer", minimum: 1 }, nickname: { type: "string" }, role_code: { type: ["string", "null"] } }) },
+    { name: "students", schema: projectionItems({
+      attendance_number: { type: "integer", minimum: 1 },
+      nickname: { type: "string" },
+      role_code: { type: ["string", "null"] },
+      presence_status: { type: "string", enum: ["ONLINE", "AWAY", "OFFLINE", "UNKNOWN"] },
+      current_screen: { type: ["string", "null"], maxLength: 120 },
+      last_seen_at: { type: ["string", "null"], format: "date-time" },
+    }) },
     { name: "salary_roles", schema: projectionItems({ role_code: { type: "string" }, gross_amount: { type: "integer", format: "int64", minimum: 0 } }) },
   ],
   "API-READ-006": [
@@ -3187,6 +3194,39 @@ function controlMessages() {
         additionalProperties: false,
       },
     },
+    PresenceUpdate: {
+      name: "presence.update",
+      title: "학생 접속·화면 상태 갱신",
+      contentType: "application/json",
+      payload: {
+        type: "object",
+        required: ["type", "status"],
+        properties: {
+          type: { const: "presence.update" },
+          status: { type: "string", enum: ["ONLINE", "AWAY"] },
+          current_screen: { type: ["string", "null"], maxLength: 120 },
+        },
+        additionalProperties: false,
+      },
+    },
+    PresenceChanged: {
+      name: "presence.changed",
+      title: "교사용 학생 접속 상태 변경",
+      contentType: "application/json",
+      payload: {
+        type: "object",
+        required: ["type", "classroom_id", "student_id", "status"],
+        properties: {
+          type: { const: "presence.changed" },
+          classroom_id: { type: "string", format: "uuid" },
+          student_id: { type: "string", format: "uuid" },
+          status: { type: "string", enum: ["ONLINE", "AWAY", "OFFLINE", "UNKNOWN"] },
+          current_screen: { type: ["string", "null"], maxLength: 120 },
+          last_seen_at: { type: ["string", "null"], format: "date-time" },
+        },
+        additionalProperties: false,
+      },
+    },
     EventAck: {
       name: "event.ack",
       title: "마지막 적용 sequence 진단",
@@ -3233,6 +3273,14 @@ function buildAsyncApi(channels, events) {
     for (const controlName of controlNames) {
       messages[controlName] = { $ref: `#/components/messages/${controlName}` };
     }
+    const receivesPresence = channel.channelId === "WS-ECO-001";
+    const sendsPresence = channel.channelId === "WS-TCH-001";
+    if (receivesPresence) {
+      messages.PresenceUpdate = { $ref: "#/components/messages/PresenceUpdate" };
+    }
+    if (sendsPresence) {
+      messages.PresenceChanged = { $ref: "#/components/messages/PresenceChanged" };
+    }
 
     channelObjects[channelKey] = {
       address: "/ws/v1",
@@ -3252,17 +3300,23 @@ function buildAsyncApi(channels, events) {
       action: "send",
       channel: { $ref: `#/channels/${channelKey}` },
       summary: `${channel.channelId}에서 커밋된 서버 이벤트 전송`,
-      messages: channelEvents.map((event) => ({
-        $ref: `#/channels/${channelKey}/messages/${pascalFromId(event.eventId)}`,
-      })),
+      messages: [
+        ...channelEvents.map((event) => ({
+          $ref: `#/channels/${channelKey}/messages/${pascalFromId(event.eventId)}`,
+        })),
+        ...(sendsPresence ? [{ $ref: `#/channels/${channelKey}/messages/PresenceChanged` }] : []),
+      ],
     };
     operations[`receive${pascalFromId(channel.channelId)}Control`] = {
       action: "receive",
       channel: { $ref: `#/channels/${channelKey}` },
       summary: `${channel.channelId} 구독·해제·진단 제어 메시지 수신`,
-      messages: controlNames.map((name) => ({
-        $ref: `#/channels/${channelKey}/messages/${name}`,
-      })),
+      messages: [
+        ...controlNames.map((name) => ({
+          $ref: `#/channels/${channelKey}/messages/${name}`,
+        })),
+        ...(receivesPresence ? [{ $ref: `#/channels/${channelKey}/messages/PresenceUpdate` }] : []),
+      ],
     };
   }
 

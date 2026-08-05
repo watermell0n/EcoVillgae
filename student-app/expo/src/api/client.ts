@@ -50,6 +50,16 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8
 const DEFAULT_TIMEOUT_MS = 12_000;
 let refreshInFlight: Promise<StudentRefreshResponse> | null = null;
 
+export function getRealtimeWebSocketUrl() {
+  const configured = process.env.EXPO_PUBLIC_WEBSOCKET_URL;
+  const url = new URL(configured ?? API_BASE_URL);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  if (!configured || url.pathname === "/" || url.pathname === "") {
+    url.pathname = "/ws/v1";
+  }
+  return url.toString();
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

@@ -1,5 +1,6 @@
 package com.b201.ecovillage.classroom.application;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,7 +16,10 @@ public record RosterAndSalariesView(
         long stateVersion,
         int attendanceNumber,
         String nickname,
-        String roleCode
+        String roleCode,
+        String presenceStatus,
+        String currentScreen,
+        Instant lastSeenAt
     ) {
     }
 

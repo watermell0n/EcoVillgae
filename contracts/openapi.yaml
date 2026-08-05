@@ -1603,8 +1603,8 @@ paths:
         - "ECO-004"
       tags:
         - "Queries"
-      summary: "학생 번호, 닉네임, 역할, 급여, COT는 제한된 수정 권한"
-      description: "사람이 검토하는 원문 기준: `API-READ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 급여, COT는 제한된 수정 권한."
+      summary: "학생 번호, 닉네임, 역할, 급여와 접속 상태(ONLINE/AWAY/OFFLINE/UNKNOWN), 현재 화면, 마지막 확인 시각. COT는 제한된 수정 권한"
+      description: "사람이 검토하는 원문 기준: `API-READ-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학생 번호, 닉네임, 역할, 급여와 접속 상태(ONLINE/AWAY/OFFLINE/UNKNOWN), 현재 화면, 마지막 확인 시각. COT는 제한된 수정 권한."
       security:
         - bearerAuth: []
       parameters:
@@ -1655,6 +1655,23 @@ paths:
                               type:
                                 - "string"
                                 - "null"
+                            presence_status:
+                              type: "string"
+                              enum:
+                                - "ONLINE"
+                                - "AWAY"
+                                - "OFFLINE"
+                                - "UNKNOWN"
+                            current_screen:
+                              type:
+                                - "string"
+                                - "null"
+                              maxLength: 120
+                            last_seen_at:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
                           additionalProperties: false
                       salary_roles:
                         type: "array"

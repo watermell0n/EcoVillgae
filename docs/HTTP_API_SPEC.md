@@ -249,7 +249,7 @@
 | API-READ-001 | `GET /auth/bootstrap` | 인증 사용자 | 세션, 역할별 학급, 유효 시작 화면 | SCR-STU-003·SCR-TCH-002·SCR-WEB-002 / SYS-001·AUTH-002 |
 | API-READ-002 | `GET /classrooms/{C}` | STU·OWN·COT·SAD | 역할별 학급 상태·기간·코스·화폐 단위명 요약, 허용 역할에는 학급 코드 포함 | SCR-STU-003·SCR-WEB-003·SCR-ADM-001 / AUTH-007·CLS-001·CLS-010·CRS-001 |
 | API-READ-003 | `GET /classrooms/{C}/configuration` | OWN·COT | 읽기 전용 학급 코드·화폐 단위명, 코스·난이도·기간·자율시간·설정 버전 | SCR-WEB-004·SCR-WEB-008 / AUTH-007·CLS-010·CRS-003·CRS-004·CRS-005 |
-| API-READ-004 | `GET /classrooms/{C}/roster-and-salaries` | OWN·COT | 학생 번호·닉네임·역할·급여, COT는 제한된 수정 권한 | SCR-WEB-006 / ECO-004 |
+| API-READ-004 | `GET /classrooms/{C}/roster-and-salaries` | OWN·COT | 학생 번호·닉네임·역할·급여와 접속 상태(`ONLINE/AWAY/OFFLINE/UNKNOWN`), 현재 화면, 마지막 확인 시각. COT는 제한된 수정 권한 | SCR-WEB-006 / ECO-004 |
 | API-READ-005 | `GET /classrooms/{C}/co-teachers` | OWN·COT | 담당 교사·소유권 이전 상태 | SCR-WEB-007 / AUTH-002 |
 | API-READ-006 | `GET /classrooms/{C}/modules-and-policies` | STU·OWN·COT | 활성 모듈, 공개 정책, 교사용 전체 정책 버전 | SCR-STU-003·SCR-WEB-005·SCR-WEB-009 / CLS-002·CRS-006·FIN-011 |
 | API-READ-007 | `GET /classrooms/{C}/students/me/wallet` | STU | 본인 잔액·최근 거래·정책 기준 | SCR-STU-004 / ECO-001·ECO-003 |

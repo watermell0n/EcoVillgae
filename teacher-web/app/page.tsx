@@ -606,10 +606,22 @@ export default function TeacherConsole() {
         if (event.event_type === "classroom.app_mode.changed") {
           setMode(event.payload.mode === "GUIDED" ? "선생님 수업" : "자율 활동");
         }
-        if (event.event_type.startsWith("loan.")) {
+        if (event.event_type.startsWith("loan.") || event.event_type === "finance.product.changed") {
           setRealtimeRevision((revision) => revision + 1);
         }
         refreshClassroom();
+      },
+      onPresenceChange: (presence) => {
+        setStudents((current) => current.map((student) => (
+          student.resourceId === presence.student_id
+            ? {
+                ...student,
+                presence: presence.status,
+                currentScreen: presence.current_screen ?? "",
+                lastSeenAt: presence.last_seen_at ?? undefined
+              }
+            : student
+        )));
       },
       onRecoveryRequired: () => {
         setRealtimeRevision((revision) => revision + 1);
@@ -1179,6 +1191,7 @@ export default function TeacherConsole() {
               savingsAvailable
               // 모듈 활성화 때 확정한 기준금리를 새 상품·정책의 시작값으로 씁니다.
               depositRateBps={ratePolicyBps(policyVersions, "DEPOSIT_RATE")}
+              savingsRateBps={ratePolicyBps(policyVersions, "SAVINGS_RATE")}
               loanRateBps={ratePolicyBps(policyVersions, "LOAN_RATE")}
               modules={modules}
               aiEnabled={aiSettings.enabled}
@@ -3486,12 +3499,14 @@ type LoanApplicationRow = {
 // 아직 상품을 만들지 않았을 때 보여 주는 초안입니다. 이자율은 모듈 활성화 때 확정한
 // 기준금리를 그대로 씁니다. 고정값을 쓰면 적용한 금리와 화면의 금리가 달라집니다.
 function defaultFinancialProducts(
-  depositRateBps: number | undefined
+  depositRateBps: number | undefined,
+  savingsRateBps: number | undefined
 ): FinancialProductDraft[] {
   const depositRate = String((depositRateBps ?? 1_000) / 100);
+  const savingsRate = String((savingsRateBps ?? depositRateBps ?? 1_000) / 100);
   return [
     { productType: "DEPOSIT", name: "1주 예금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "7", interestRate: depositRate, earlyTerminationRate: "1", installmentCount: "", installmentAmount: "", minimumAmount: "30", maximumAmount: "300" },
-    { productType: "SAVINGS", name: "4주 적금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "4", interestRate: depositRate, earlyTerminationRate: "2", installmentCount: "4", installmentAmount: "20", minimumAmount: "20", maximumAmount: "80" }
+    { productType: "SAVINGS", name: "4주 적금", status: "DRAFT", version: 0, stateVersion: 0, termUnits: "4", interestRate: savingsRate, earlyTerminationRate: "2", installmentCount: "4", installmentAmount: "20", minimumAmount: "20", maximumAmount: "80" }
   ];
 }
 
@@ -3502,6 +3517,7 @@ function FinanceAdmin({
   currencyName,
   savingsAvailable,
   depositRateBps,
+  savingsRateBps,
   loanRateBps,
   modules,
   aiEnabled,
@@ -3514,6 +3530,7 @@ function FinanceAdmin({
   currencyName: string;
   savingsAvailable: boolean;
   depositRateBps?: number;
+  savingsRateBps?: number;
   loanRateBps?: number;
   modules: readonly AiModuleRow[];
   aiEnabled: boolean;
@@ -3521,7 +3538,7 @@ function FinanceAdmin({
   addLog: (message: string, tone?: LogTone) => void;
 }>) {
   const [activeTab, setActiveTab] = useState<"DEPOSIT" | "SAVINGS" | "LOAN" | "INVESTMENT">("DEPOSIT");
-  const [products, setProducts] = useState<FinancialProductDraft[]>(() => defaultFinancialProducts(depositRateBps));
+  const [products, setProducts] = useState<FinancialProductDraft[]>(() => defaultFinancialProducts(depositRateBps, savingsRateBps));
   const [savingId, setSavingId] = useState<string | null>(null);
   const [loanPolicy, setLoanPolicy] = useState<LoanPolicyDraft>({ version: 0, maximumPrincipal: "300", interestRate: String((loanRateBps ?? 700) / 100), termWeeks: "4", installmentCount: "4", graceDays: "3", onTimeCredit: "10", overdueCredit: "-30", repaidCredit: "20" });
   const [loanApplications, setLoanApplications] = useState<LoanApplicationRow[]>([]);
@@ -3529,17 +3546,31 @@ function FinanceAdmin({
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
   const [loanSaving, setLoanSaving] = useState(false);
   const [loanDecisionId, setLoanDecisionId] = useState<string | null>(null);
+  const [investment, setInvestment] = useState({
+    shortName: "단기 투자",
+    shortReturnRate: "8",
+    shortRisk: "보통",
+    longName: "장기 투자",
+    longVolatility: "보통",
+    longPeriod: "5"
+  });
   useEffect(() => {
     if (!savingsAvailable && activeTab === "SAVINGS") setActiveTab("DEPOSIT");
   }, [activeTab, savingsAvailable]);
 
-  // 확정된 기준금리를 나중에 받아도 아직 서버에 없는 초안 상품에는 그 값을 반영합니다.
+  // 확정된 기준금리를 나중에 받아도 아직 서버에 없는 초안 상품에는 모듈별 값을 반영합니다.
   useEffect(() => {
-    if (depositRateBps === undefined) return;
-    setProducts((items) => items.map((item) => item.resourceId
-      ? item
-      : { ...item, interestRate: String(depositRateBps / 100) }));
-  }, [depositRateBps]);
+    setProducts((items) => items.map((item) => {
+      if (item.resourceId) return item;
+      const rate = item.productType === "SAVINGS" ? savingsRateBps : depositRateBps;
+      return rate === undefined ? item : { ...item, interestRate: String(rate / 100) };
+    }));
+  }, [depositRateBps, savingsRateBps]);
+
+  // 다른 교실에서 보던 상품이나 저장 전 초안이 섞이지 않도록 교실이 바뀌면 기본안을 초기화합니다.
+  useEffect(() => {
+    setProducts(defaultFinancialProducts(depositRateBps, savingsRateBps));
+  }, [classroomId]);
 
   useEffect(() => {
     if (!classroomId) return;
@@ -3560,8 +3591,8 @@ function FinanceAdmin({
       maximum_amount: number;
     }> }>(`/classrooms/${classroomId}/financial-products`)
       .then((response) => {
-        if (cancelled || response.financial_products.length === 0) return;
-        setProducts(response.financial_products.map((product) => ({
+        if (cancelled) return;
+        const loadedProducts = response.financial_products.map((product) => ({
           resourceId: product.resource_id,
           version: product.version,
           stateVersion: product.state_version,
@@ -3575,11 +3606,20 @@ function FinanceAdmin({
           installmentAmount: product.installment_amount ? String(product.installment_amount) : "",
           minimumAmount: String(product.minimum_amount),
           maximumAmount: String(product.maximum_amount)
-        })));
+        }));
+        const defaults = defaultFinancialProducts(depositRateBps, savingsRateBps);
+        // 서버에 한 종류만 저장돼 있어도 다른 종류의 기본 상품 초안은 계속 보여 줍니다.
+        // 기존 구현은 응답이 하나라도 있으면 전체 배열을 교체해 적금 기본 상품을 숨겼습니다.
+        setProducts((["DEPOSIT", "SAVINGS"] as const).flatMap((productType) => {
+          const saved = loadedProducts.filter((product) => product.productType === productType);
+          return saved.length > 0
+            ? saved
+            : defaults.filter((product) => product.productType === productType);
+        }));
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [classroomId]);
+  }, [classroomId, realtimeRevision, depositRateBps, savingsRateBps]);
 
   useEffect(() => {
     if (!classroomId) return;
@@ -3634,7 +3674,7 @@ function FinanceAdmin({
       version: 0,
       stateVersion,
       termUnits: type === "DEPOSIT" ? "7" : "4",
-      interestRate: String((depositRateBps ?? 1_000) / 100),
+      interestRate: String(((type === "SAVINGS" ? savingsRateBps : depositRateBps) ?? 1_000) / 100),
       earlyTerminationRate: "1",
       installmentCount: type === "SAVINGS" ? "4" : "",
       installmentAmount: type === "SAVINGS" ? "20" : "",
@@ -3775,14 +3815,38 @@ function FinanceAdmin({
       </PlainSection>
 
       {activeTab === "INVESTMENT" ? (
-        // 실제 투자 시나리오는 서버가 만들고 교사가 승인·공개합니다. 아래 패널이 그 흐름을
-        // 담당하며, 위의 이름·수익률 입력칸은 화면에만 남는 메모라서 함께 두지 않습니다.
-        <InvestmentScenarioPanel
-          classroomId={classroomId}
-          modules={modules}
-          aiEnabled={aiEnabled}
-          canManage={canManage}
-        />
+        <div className="page-flow">
+          <PlainSection title="투자 운영안" description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다.">
+            <div className="investment-mode-grid">
+              <section>
+                <div className="investment-heading"><span>단기 투자</span><small>다음 날 결과 확정</small></div>
+                <div className="investment-settings">
+                  <label>상품 이름<input value={investment.shortName} onChange={(event) => setInvestment((current) => ({ ...current, shortName: event.target.value }))} /></label>
+                  <label>결과 수익률(%)<input inputMode="decimal" value={investment.shortReturnRate} onChange={(event) => setInvestment((current) => ({ ...current, shortReturnRate: event.target.value }))} /></label>
+                  <label>위험도<select value={investment.shortRisk} onChange={(event) => setInvestment((current) => ({ ...current, shortRisk: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
+                </div>
+                <button type="button" disabled title="AI 연동은 다음 작업에서 연결합니다.">AI 시나리오 생성 (준비 중)</button>
+              </section>
+              <section>
+                <div className="investment-heading"><span>장기 투자</span><small>매일 시장 소식 제공</small></div>
+                <div className="investment-settings">
+                  <label>상품 이름<input value={investment.longName} onChange={(event) => setInvestment((current) => ({ ...current, longName: event.target.value }))} /></label>
+                  <label>변동성<select value={investment.longVolatility} onChange={(event) => setInvestment((current) => ({ ...current, longVolatility: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
+                  <label>운영 기간(일)<input inputMode="numeric" value={investment.longPeriod} onChange={(event) => setInvestment((current) => ({ ...current, longPeriod: event.target.value }))} /></label>
+                </div>
+                <button type="button" disabled title="AI 연동은 다음 작업에서 연결합니다.">AI 상품 생성 (준비 중)</button>
+              </section>
+            </div>
+            <p className="helper-text">투자 운영 UI만 먼저 복구한 상태입니다. AI 생성과 저장 기능은 다음 작업에서 연결합니다.</p>
+            <button type="button" className="primary-save" disabled>투자 운영안 저장 (준비 중)</button>
+          </PlainSection>
+          <InvestmentScenarioPanel
+            classroomId={classroomId}
+            modules={modules}
+            aiEnabled={aiEnabled}
+            canManage={canManage}
+          />
+        </div>
       ) : activeTab === "LOAN" ? (
         <div className="page-flow">
           <PlainSection title="대출 정책" description="저장한 값은 이후의 새 신청부터 적용됩니다. 기간은 주 단위이며 회차별 자동 상환됩니다.">

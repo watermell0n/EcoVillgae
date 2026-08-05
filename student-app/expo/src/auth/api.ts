@@ -82,6 +82,29 @@ async function fetchCurrentStudent() {
   return apiRequest<MeResponse>("/auth/me");
 }
 
+export async function hydrateStudentIdentity(storedIdentity: StudentIdentity): Promise<StudentIdentity> {
+  const [bootstrap, me] = await Promise.all([fetchStudentBootstrap(), fetchCurrentStudent()]);
+  if (!bootstrap.roles.includes("STU") || me.role !== "STU") {
+    throw new Error("학생 계정 정보를 확인할 수 없습니다.");
+  }
+
+  const selected = bootstrap.classrooms.find((classroom) => classroom.resource_id === storedIdentity.classroomId)
+    ?? bootstrap.classrooms[0];
+  if (!selected?.resource_id) {
+    throw new Error("학급 정보를 확인할 수 없습니다.");
+  }
+
+  return {
+    ...storedIdentity,
+    classroomId: selected.resource_id,
+    classroomLabel: selected.label,
+    currencyName: selected.currency_name,
+    startScreen: bootstrap.start_screen,
+    nickname: me.display_name || storedIdentity.nickname,
+    studentId: me.user_id || storedIdentity.studentId
+  };
+}
+
 export async function restoreStudentIdentity(): Promise<StudentIdentity | null> {
   const [storedIdentity, refreshToken] = await Promise.all([
     getStoredIdentity(),
@@ -95,22 +118,7 @@ export async function restoreStudentIdentity(): Promise<StudentIdentity | null> 
   }
 
   await refreshStudentTokens();
-  const [bootstrap, me] = await Promise.all([fetchStudentBootstrap(), fetchCurrentStudent()]);
-  if (!bootstrap.roles.includes("STU") || me.role !== "STU") return null;
-
-  const selected = bootstrap.classrooms.find((classroom) => classroom.resource_id === storedIdentity.classroomId)
-    ?? bootstrap.classrooms[0];
-  if (!selected?.resource_id) return null;
-
-  return {
-    ...storedIdentity,
-    classroomId: selected.resource_id,
-    classroomLabel: selected.label,
-    currencyName: selected.currency_name,
-    startScreen: bootstrap.start_screen,
-    nickname: me.display_name || storedIdentity.nickname,
-    studentId: me.user_id || storedIdentity.studentId
-  };
+  return hydrateStudentIdentity(storedIdentity);
 }
 
 export async function logoutStudent() {
