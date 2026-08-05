@@ -46,6 +46,7 @@ export default function BankScreen() {
     ];
   }, [access?.activeCodes]);
   const [selected, setSelected] = useState<BankTab>("ACCOUNT");
+  const [selectedProduct, setSelectedProduct] = useState<FinancialProduct | null>(null);
   const [loanAmount, setLoanAmount] = useState("100");
   const activeTab = availableTabs.some((tab) => tab.id === selected) ? selected : availableTabs[0]?.id;
   const activeProducts = products.data?.filter((product) => (
@@ -57,6 +58,15 @@ export default function BankScreen() {
   );
   const requestedLoanAmount = Number(loanAmount);
   const canSubmitLoan = Boolean(loan.data?.canApply && Number.isInteger(requestedLoanAmount) && requestedLoanAmount >= loan.data.installmentCount && requestedLoanAmount <= loan.data.availableLimit);
+  const productTermLabel = (product: FinancialProduct) => product.productType === "SAVINGS"
+    ? `${product.termUnits ?? product.installmentCount ?? "-"}주`
+    : `${product.termUnits ?? "-"}일`;
+  const expectedMaturity = (product: FinancialProduct) => {
+    if (!product.termUnits) return "상품 조건 확인 중";
+    const date = new Date();
+    date.setDate(date.getDate() + (product.productType === "SAVINGS" ? product.termUnits * 7 : product.termUnits));
+    return date.toLocaleDateString("ko-KR");
+  };
 
   return (
     <Screen title="이코 은행" right={<BackButton />}>
@@ -85,7 +95,8 @@ export default function BankScreen() {
           ))}
         </View>
       ) : activeTab === "LOAN" ? (
-        <PassbookCover title="비빔 생활 통장" subtitle="필요한 만큼 빌리고 계획대로 갚아요" color="#78A8C7">
+        <PassbookCover title="생활 대출" subtitle="가입한 대출의 상환 일정과 이자를 확인해요" color="#78A8C7" numberLabel="대출 상품">
+          <Text style={styles.loanProductBadge}>대출 상품</Text>
           {loan.isPending ? <ActivityIndicator color={colors.green500} /> : loan.data ? <>
             <View style={styles.loanGrid}>
               <View style={styles.loanMetric}><Text style={styles.accountDetailLabel}>내 신용점수</Text><Text style={styles.accountDetailValue}>{loan.data.creditScore}점</Text><Text style={styles.loanMetricDetail}>{loan.data.creditLevel}</Text></View>
@@ -97,7 +108,7 @@ export default function BankScreen() {
               <Pressable disabled={!canSubmitLoan || applyLoanMutation.isPending} onPress={() => applyLoanMutation.mutate({ amount: requestedLoanAmount, installments: loan.data.installmentCount })} style={[styles.passbookButton, (!canSubmitLoan || applyLoanMutation.isPending) && styles.disabled]}><Text style={styles.passbookButtonText}>{applyLoanMutation.isPending ? "신청 중" : "대출 신청"}</Text></Pressable>
             </View>}
             {!loan.data.canApply && !loan.data.pendingApplicationStatus ? <Text style={styles.pendingNotice}>현재는 대출을 신청할 수 없어요. 신용점수와 기존 대출을 확인해 주세요.</Text> : null}
-            {loan.data.loans.map((item) => <View key={item.loanId} style={styles.loanRow}><Text style={styles.accountDetailLabel}>{item.status === "OVERDUE" ? "연체" : item.status === "REPAID" ? "상환 완료" : "상환 중"}</Text><Text style={styles.loanMetricDetail}>남은 원금 {item.outstandingPrincipal.toLocaleString("ko-KR")} · 이자 {item.outstandingInterest.toLocaleString("ko-KR")}</Text></View>)}
+            {loan.data.loans.map((item) => <View key={item.loanId} style={styles.loanRow}><Text style={styles.accountDetailLabel}>{item.status === "OVERDUE" ? "연체" : item.status === "REPAID" ? "상환 완료" : "상환 중"}</Text><Text style={styles.loanMetricDetail}>가입 금액 {item.principalAmount.toLocaleString("ko-KR")} · 남은 원금 {item.outstandingPrincipal.toLocaleString("ko-KR")}</Text><Text style={styles.loanMetricDetail}>예상 이자 {item.outstandingInterest.toLocaleString("ko-KR")} · 만기 {item.maturesAt || "확인 중"}</Text></View>)}
           </> : <Text style={styles.passbookNotice}>대출 정보를 불러오지 못했어요.</Text>}
         </PassbookCover>
       ) : (
@@ -110,14 +121,36 @@ export default function BankScreen() {
                   <Text style={styles.productRate}>연 {(product.interestRateBps / 100).toFixed(1)}%</Text>
                 </View>
                 <Pressable
-                  disabled={subscribe.isPending || (product.productType === "SAVINGS" && !product.installmentAmount)}
-                  onPress={() => subscribe.mutate({ product, amount: product.productType === "SAVINGS" ? product.installmentAmount! : 100 })}
-                  style={[styles.passbookButton, (subscribe.isPending || (product.productType === "SAVINGS" && !product.installmentAmount)) && styles.disabled]}
+                  onPress={() => setSelectedProduct(product)}
+                  style={styles.passbookButton}
                 >
-                  <Text style={styles.passbookButtonText}>가입하기</Text>
+                  <Text style={styles.passbookButtonText}>정보 확인하기</Text>
                 </Pressable>
               </View>
             ))}
+          {selectedProduct && selectedProduct.productType === activeTab ? (
+            <View style={styles.productDetail}>
+              <View style={styles.productDetailHeading}>
+                <View><Text style={styles.productDetailTitle}>{selectedProduct.label}</Text><Text style={styles.productRate}>연 {(selectedProduct.interestRateBps / 100).toFixed(1)}%</Text></View>
+                <Pressable onPress={() => setSelectedProduct(null)}><Text style={styles.detailClose}>닫기</Text></Pressable>
+              </View>
+              <View style={styles.productDetailGrid}>
+                <Metric label="이율" value={`연 ${(selectedProduct.interestRateBps / 100).toFixed(1)}%`} />
+                <Metric label="가입 기간" value={productTermLabel(selectedProduct)} />
+                <Metric label="예상 만기일" value={expectedMaturity(selectedProduct)} />
+                <Metric label="가입 최소 금액" value={`${selectedProduct.minimumAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} />
+                <Metric label="가입 최대 금액" value={`${selectedProduct.maximumAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} />
+                {selectedProduct.productType === "SAVINGS" ? <Metric label="회차별 납입액" value={`${selectedProduct.installmentAmount ?? "확인 중"} ${identity?.currencyName ?? "비빔"}`} /> : null}
+              </View>
+              <Pressable
+                disabled={subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)}
+                onPress={() => subscribe.mutate({ product: selectedProduct, amount: selectedProduct.productType === "SAVINGS" ? selectedProduct.installmentAmount! : selectedProduct.minimumAmount ?? 100 })}
+                style={[styles.passbookButton, (subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)) && styles.disabled]}
+              >
+                <Text style={styles.passbookButtonText}>{subscribe.isPending ? "가입 처리 중" : "이 상품 가입하기"}</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       )}
       {products.isError ? <Text style={styles.error}>{products.error.message}</Text> : null}
@@ -129,13 +162,17 @@ export default function BankScreen() {
   );
 }
 
-function PassbookCover({ title, subtitle, color, children }: { title: string; subtitle: string; color: string; children: ReactNode }) {
+function Metric({ label, value }: { label: string; value: string }) {
+  return <View style={styles.productMetric}><Text style={styles.productMetricLabel}>{label}</Text><Text style={styles.productMetricValue}>{value}</Text></View>;
+}
+
+function PassbookCover({ title, subtitle, color, children, numberLabel = "통장 01" }: { title: string; subtitle: string; color: string; children: ReactNode; numberLabel?: string }) {
   return (
     <View style={[styles.passbook, { backgroundColor: color }]}>
       <View style={styles.passbookSpine} />
       <View style={styles.passbookTop}>
         <Text style={styles.passbookLogo}>이코은행</Text>
-        <Text style={styles.passbookNumber}>통장 01</Text>
+        <Text style={styles.passbookNumber}>{numberLabel}</Text>
       </View>
       <Text style={styles.passbookTitle}>{title}</Text>
       <Text style={styles.passbookSubtitle}>{subtitle}</Text>
@@ -167,6 +204,14 @@ const styles = StyleSheet.create({
   productRate: { color: colors.green500, fontSize: 15, fontWeight: "900" },
   passbookButton: { minHeight: 42, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, borderRadius: 6, backgroundColor: colors.ink900 },
   passbookButtonText: { color: colors.white, fontSize: 14, fontWeight: "900" },
+  productDetail: { gap: 16, marginTop: 18, padding: 18, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 12, backgroundColor: colors.white },
+  productDetailHeading: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 },
+  productDetailTitle: { color: colors.ink900, fontSize: 20, fontWeight: "900" },
+  detailClose: { color: colors.muted600, fontSize: 14, fontWeight: "800" },
+  productDetailGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  productMetric: { width: "48%", gap: 4, padding: 11, borderRadius: 8, backgroundColor: colors.sky100 },
+  productMetricLabel: { color: colors.muted600, fontSize: 12, fontWeight: "800" },
+  productMetricValue: { color: colors.ink900, fontSize: 14, fontWeight: "900" },
   disabled: { opacity: 0.45 },
   accountsSection: { width: "100%", maxWidth: 900, gap: 18, paddingTop: 6 },
   sectionTitle: { paddingBottom: 12, color: colors.ink900, fontSize: 21, fontWeight: "900" },
@@ -185,6 +230,7 @@ const styles = StyleSheet.create({
   loanAmountInput: { flex: 1, minHeight: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 6, color: colors.ink900, fontSize: 16, fontWeight: "800" },
   pendingNotice: { color: colors.green500, fontSize: 14, fontWeight: "800" },
   loanRow: { gap: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#E8E2D2" },
+  loanProductBadge: { alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "#E5F0F6", color: "#35647C", fontSize: 12, fontWeight: "900" },
   emptyText: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: colors.lineSoft, color: colors.muted600, fontSize: 15, fontWeight: "700" },
   error: { paddingTop: 12, color: colors.red500, fontWeight: "700" }
 });

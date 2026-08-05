@@ -53,6 +53,9 @@ export type FinancialProduct = {
   version: number;
   productType: string;
   interestRateBps: number;
+  termUnits?: number;
+  minimumAmount?: number;
+  maximumAmount?: number;
   installmentCount?: number;
   installmentAmount?: number;
 };
@@ -63,12 +66,12 @@ export const SUBSCRIBABLE_PRODUCT_STATUS = "PUBLISHED";
 
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
-    { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
-    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
+    { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000, termUnits: 3, minimumAmount: 30, maximumAmount: 300 },
+    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500, termUnits: 5, minimumAmount: 20, maximumAmount: 100, installmentCount: 5, installmentAmount: 20 }
   ];
 
   const response = await apiRequest<{
-    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number; installment_count?: number | null; installment_amount?: number | null }>;
+    financial_products: Array<{ resource_id?: string; label?: string; status?: string; version?: number; product_type?: string; interest_rate_bps?: number; term_units?: number; minimum_amount?: number; maximum_amount?: number; installment_count?: number | null; installment_amount?: number | null }>;
   }>(`/classrooms/${classroomId}/financial-products`);
   return response.financial_products.flatMap((product) => product.resource_id ? [{
     resourceId: product.resource_id,
@@ -77,6 +80,9 @@ export async function fetchFinancialProducts(classroomId: string): Promise<Finan
     version: product.version ?? 0,
     productType: product.product_type ?? "UNKNOWN",
     interestRateBps: product.interest_rate_bps ?? 0,
+    termUnits: product.term_units ?? undefined,
+    minimumAmount: product.minimum_amount ?? undefined,
+    maximumAmount: product.maximum_amount ?? undefined,
     installmentCount: product.installment_count ?? undefined,
     installmentAmount: product.installment_amount ?? undefined
   }] : []);

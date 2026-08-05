@@ -33,6 +33,26 @@ import { PlainSection } from "../ui";
 // 서버에서 내려온 모듈 상태 표기입니다. page.tsx가 ACTIVE를 "열림"으로 매핑합니다.
 const ACTIVE_STATUS = "열림";
 
+const MODULE_LABELS: Record<string, string> = {
+  CHARACTER: "캐릭터",
+  CREDIT: "신용",
+  DEPOSIT: "예금",
+  INCOME_TAX: "세금",
+  INVESTMENT: "투자",
+  LOAN: "대출",
+  PUBLIC_FUND: "공공 예산/투표",
+  QUIZ_GAME: "퀴즈",
+  QUIZ_TEST: "퀴즈",
+  ROLE_SALARY: "월급",
+  SAVINGS: "적금",
+  STORE: "상점",
+  TRADE: "개인 거래"
+};
+
+function moduleLabel(module: AiModuleRow) {
+  return MODULE_LABELS[module.code ?? ""] ?? module.name;
+}
+
 export function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrecheckResponse }>) {
   return (
     <section className={`ai-precheck-summary ${result.overall_severity.toLowerCase()}`}>
@@ -74,7 +94,9 @@ export function ModuleActivationPanel({
   const [message, setMessage] = useState("");
 
   // 서버에 등록된 모듈만 활성화할 수 있습니다. 개설 전 화면에는 code가 없습니다.
-  const serverModules = modules.filter((module) => module.code);
+  const serverModules = modules
+    .filter((module) => module.code)
+    .sort((left, right) => Number(missingPrerequisites(left).length > 0) - Number(missingPrerequisites(right).length > 0));
 
   function missingPrerequisites(module: AiModuleRow) {
     const code = module.code;
@@ -130,7 +152,7 @@ export function ModuleActivationPanel({
     const code = module.code!;
     const prerequisites = missingPrerequisites(module);
     if (prerequisites.length > 0) {
-      setMessage(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`);
+      setMessage(`선행 모듈(${prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")})을 먼저 활성화해 주세요.`);
       return;
     }
     if (!module.resourceId) {
@@ -191,7 +213,7 @@ export function ModuleActivationPanel({
       ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
     const prerequisites = missingPrerequisites(module);
     if (prerequisites.length > 0) {
-      setMessage(`선행 모듈(${prerequisites.join(", ")})을 먼저 활성화해 주세요.`);
+      setMessage(`선행 모듈(${prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")})을 먼저 활성화해 주세요.`);
       return;
     }
     setBusyCode(code);
@@ -215,7 +237,7 @@ export function ModuleActivationPanel({
         }
       );
       await afterApplied(code, response.state_version);
-      setMessage(`${module.name} 모듈을 활성화했어요.`);
+      setMessage(`${moduleLabel(module)} 모듈을 활성화했어요.`);
     } catch (error) {
       handleFailure(error, "모듈을 활성화하지 못했어요.");
     } finally {
@@ -296,7 +318,7 @@ export function ModuleActivationPanel({
           return (
             <article className="module-activation-card" key={code}>
               <header>
-                <div><strong>{module.name}</strong><small>{code}</small></div>
+                <div><strong>{moduleLabel(module)}</strong></div>
                 <b className={`module-status ${isActive ? "active" : ""}`}>
                   {isActive ? <Check size={14} /> : null}{module.status}
                 </b>
@@ -311,7 +333,7 @@ export function ModuleActivationPanel({
                   ))}
                 </dl>
               ) : null}
-              {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
+              {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")}</p> : null}
               {code === "INVESTMENT" && !isActive ? (
                 <label className="investment-mode-selector">
                   투자 운영 방식

@@ -603,6 +603,14 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
+.brand-button {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .brand > span {
   font-size: 28px;
 }
@@ -1680,6 +1688,12 @@ button:disabled {
   color: #ffffff;
   background: var(--orange);
   font-weight: 950;
+}
+
+.shop-price-review {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
 }
 
 .product-list {
@@ -3221,8 +3235,10 @@ button:disabled {
 }
 
 .financial-product-editor {
-  padding: 20px 0 0;
-  border-top: 1px solid var(--line);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
 }
 
 .financial-product-heading,
@@ -3251,9 +3267,28 @@ button:disabled {
 .financial-fields,
 .investment-settings {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 12px;
 }
+
+.embedded-quiz-workspace {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.embedded-quiz-heading {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.embedded-quiz-heading span { color: var(--ink); font-size: 22px; font-weight: 950; }
+.embedded-quiz-heading p { margin: 0; color: var(--muted); font-weight: 700; }
 
 .financial-fields label,
 .investment-settings label {
