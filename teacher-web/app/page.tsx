@@ -482,6 +482,11 @@ const moduleCodeByName: Record<string, string> = {
 
 moduleCodeByName["부동산"] = "REAL_ESTATE";
 moduleCodeByName["청약"] = "HOUSING_SUBSCRIPTION";
+// 콘솔은 서버의 INVESTMENT 한 모듈을 "단기 투자"·"장기 투자" 두 줄로 펼쳐 보여 준다(setModules).
+// 교실 생성은 반대로 이름을 코드로 되돌리므로 두 이름이 여기 없으면 코드가 undefined가 되어
+// 걸러지고, 투자를 골라도 모듈이 만들어지지 않는다. 운영 방식은 활성화 때 investment_mode로 정한다.
+moduleCodeByName["단기 투자"] = "INVESTMENT";
+moduleCodeByName["장기 투자"] = "INVESTMENT";
 
 const moduleNameByCode = new Map(
   Object.entries(moduleCodeByName).map(([name, code]) => [code, name])
@@ -1635,10 +1640,14 @@ function CreateClassroomFlow({
       return;
     }
     const supportedCodes = new Set<string>(MODULE_DEFINITIONS.map((module) => module.code));
-    const moduleCodes = modules
-      .filter((module) => module.status === "열림")
-      .map((module) => moduleCodeByName[module.name])
-      .filter((code): code is string => code !== undefined && supportedCodes.has(code));
+    // 단기·장기 투자는 같은 INVESTMENT 코드로 모이므로 중복을 지운다.
+    // 서버는 모듈 코드가 겹치면 교실 생성 전체를 422로 거절한다(normalizeModuleCodes).
+    const moduleCodes = [...new Set(
+      modules
+        .filter((module) => module.status === "열림")
+        .map((module) => moduleCodeByName[module.name])
+        .filter((code): code is string => code !== undefined && supportedCodes.has(code))
+    )];
 
     setSubmitting(true);
     setCreationError("");
