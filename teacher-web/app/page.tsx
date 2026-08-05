@@ -345,6 +345,7 @@ const moduleDependencies: Record<string, string[]> = {
   적금: [],
   신용: [],
   대출: ["예금", "신용"],
+  청약: ["부동산"],
   "단기 투자": ["지갑", "세금"],
   "장기 투자": ["지갑", "세금"],
   "공공 예산/투표": ["지갑", "세금"],
@@ -2052,6 +2053,8 @@ function Setup({
   coursePolicyVersion: number;
   onReload: () => Promise<void>;
 }>) {
+  const [isBulkActivating, setIsBulkActivating] = useState(false);
+
   function updateSettings(field: keyof ClassSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
   }
@@ -2069,16 +2072,16 @@ function Setup({
       : `/classrooms/${classroomId}/modules/${existing.code}/stop-commands`;
     const body = activating
       ? {
-        expected_state_version: stateVersion,
+        expected_state_version: existing.stateVersion ?? stateVersion,
         screen_id: "SCR-WEB-003",
         ui_action_id: "UIA-MOD-001",
         client_occurred_at: new Date().toISOString(),
         confirm_prerequisites: true,
-        initial_policy_values: existing.code === "DEPOSIT" ? { rate_bps: 500 } : {},
+        initial_policy_values: {},
         recommendation_action_ids: []
       }
       : {
-        expected_state_version: stateVersion,
+        expected_state_version: existing.stateVersion ?? stateVersion,
         screen_id: "SCR-WEB-003",
         ui_action_id: "UIA-MOD-002",
         client_occurred_at: new Date().toISOString(),
@@ -2091,6 +2094,84 @@ function Setup({
       { method: "POST", body: JSON.stringify(body) },
       () => { void onReload(); }
     );
+  }
+
+  async function activateAllModules() {
+    const modulesByCode = new Map(
+      modules
+        .filter((module) => module.code)
+        .map((module) => [module.code!, module])
+    );
+    const prerequisites: Record<string, string[]> = {
+      INCOME_TAX: ["ROLE_SALARY"],
+      LOAN: ["DEPOSIT", "CREDIT"],
+      HOUSING_SUBSCRIPTION: ["REAL_ESTATE"]
+    };
+    const orderedCodes: string[] = [];
+    const visited = new Set<string>();
+    const visit = (code: string) => {
+      if (visited.has(code) || !modulesByCode.has(code)) return;
+      visited.add(code);
+      (prerequisites[code] ?? []).forEach(visit);
+      orderedCodes.push(code);
+    };
+    modulesByCode.forEach((_, code) => visit(code));
+
+    setIsBulkActivating(true);
+    try {
+      let activatedCount = 0;
+      const skippedNames: string[] = [];
+      const failedNames: string[] = [];
+      for (const code of orderedCodes) {
+        const module = modulesByCode.get(code);
+        if (!module || module.status === "열림") continue;
+        if (code === "SAVINGS" && courseSizeFor(settings.period) !== "SEMESTER") {
+          skippedNames.push(module.name);
+          continue;
+        }
+        try {
+          await apiRequest<{ state_version: number }>(
+            `/classrooms/${classroomId}/modules/${code}/activation-commands`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                expected_state_version: module.stateVersion ?? stateVersion,
+                screen_id: "SCR-WEB-003",
+                ui_action_id: "UIA-MOD-ALL-001",
+                client_occurred_at: new Date().toISOString(),
+                confirm_prerequisites: true,
+                initial_policy_values: code === "INVESTMENT"
+                  ? { investment_mode: "LONG_TERM" }
+                  : {},
+                recommendation_action_ids: []
+              })
+            }
+          );
+          activatedCount += 1;
+        } catch {
+          failedNames.push(module.name);
+        }
+      }
+      await onReload();
+      const details = [
+        skippedNames.length > 0 ? `${skippedNames.join(", ")}: 한 학기 수업에서만 사용 가능` : "",
+        failedNames.length > 0 ? `${failedNames.join(", ")}: 개별 설정 확인 필요` : ""
+      ].filter(Boolean).join(" / ");
+      addLog(
+        `${activatedCount}개 모듈을 기본 설정으로 활성화했어요.${details ? ` ${details}` : ""}`,
+        failedNames.length > 0 ? "error" : undefined
+      );
+    } catch (error) {
+      await onReload();
+      addLog(
+        error instanceof ApiError
+          ? error.message
+          : "모듈 일괄 활성화 중 오류가 발생했어요.",
+        "error"
+      );
+    } finally {
+      setIsBulkActivating(false);
+    }
   }
 
   function saveCourseConfiguration() {
@@ -2193,6 +2274,19 @@ function Setup({
         </div>
       </PlainSection>
       <PlainSection title="사용 기능">
+        <div className="class-create-panel">
+          <div>
+            <span>선택한 모듈</span>
+            <strong>{modules.filter((module) => module.code).length}개</strong>
+          </div>
+          <button
+            type="button"
+            disabled={isBulkActivating}
+            onClick={() => void activateAllModules()}
+          >
+            {isBulkActivating ? "활성화 중..." : "모든 모듈 기본값으로 켜기"}
+          </button>
+        </div>
         <div className="module-toggle-list">
           {selectableModuleNames.map((moduleName) => {
             const module = modules.find((item) => item.name === moduleName);

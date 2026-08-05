@@ -176,6 +176,9 @@ public class ModuleActivationService {
                 )
                 .orElse(null);
         Map<String, Object> initialValues = copyValues(command.initialPolicyValues());
+        if (definition.initialPolicyRequired() && currentPolicy == null && initialValues.isEmpty()) {
+            initialValues = defaultInitialPolicy(classroom, moduleCode);
+        }
         String investmentMode = investmentMode(moduleCode, initialValues);
         if (
             definition.initialPolicyRequired()
@@ -667,6 +670,43 @@ public class ModuleActivationService {
 
     private static Map<String, Object> copyValues(Map<String, Object> values) {
         return values == null ? new LinkedHashMap<>() : new LinkedHashMap<>(values);
+    }
+
+    /**
+     * Provides conservative, valid starting values when a teacher turns on a module from the
+     * classroom settings screen. Teachers can replace these values later through the policy UI.
+     */
+    private static Map<String, Object> defaultInitialPolicy(Classroom classroom, String moduleCode) {
+        return switch (moduleCode) {
+            case "ROLE_SALARY" -> Map.of(
+                "roles", List.of(Map.of(
+                    "role_code", "DEFAULT_ROLE",
+                    "name", "기본 역할",
+                    "gross_amount", 1_000L,
+                    "weight", 1L,
+                    "assigned_student_count", classroom.getPlannedStudentCount(),
+                    "deductions", Map.of(),
+                    "sort_order", 1
+                )),
+                "pay_interval_days", 7,
+                "first_pay_on", classroom.getActualStartsOn() == null
+                    ? LocalDate.now().toString()
+                    : classroom.getActualStartsOn().toString(),
+                "default_role_salary", 1_000L
+            );
+            case "INCOME_TAX" -> Map.of(
+                "rate_bps", switch (classroom.getGrade()) {
+                    case 4 -> 300L;
+                    case 5 -> 500L;
+                    default -> 1_000L;
+                }
+            );
+            case "DEPOSIT" -> Map.of(
+                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 150L : 300L
+            );
+            case "LOAN" -> Map.of("rate_bps", 900L);
+            default -> Map.of();
+        };
     }
 
     private static List<Map<String, Object>> roleMaps(Map<String, Object> values) {

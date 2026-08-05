@@ -19,7 +19,6 @@ import {
   valueToInputText,
   type AiProposalCommandResponse,
   type ModuleActivationResponse,
-  type ModuleCode,
   type SetupPrecheckResponse
 } from "../api";
 import {
@@ -78,7 +77,9 @@ export function ModuleActivationPanel({
   const serverModules = modules.filter((module) => module.code);
 
   function missingPrerequisites(module: AiModuleRow) {
-    const prerequisites = MODULE_PREREQUISITES[module.code as ModuleCode] ?? [];
+    const code = module.code;
+    if (!code) return [];
+    const prerequisites = MODULE_PREREQUISITES[code] ?? [];
     return prerequisites.filter((requiredCode) => (
       !modules.some((candidate) => candidate.code === requiredCode && candidate.status === ACTIVE_STATUS)
     ));
@@ -338,9 +339,14 @@ export function ModuleActivationPanel({
                 </p>
               ) : null}
               {!isActive && needsPolicy ? (
-                <button type="button" disabled={blocked} onClick={() => void requestPrecheck(module)}>
-                  {busy ? "점검하는 중" : result ? "추천 다시 확인" : "AI 추천 확인"}
-                </button>
+                <>
+                  <button type="button" disabled={blocked} onClick={() => void requestPrecheck(module)}>
+                    {busy ? "점검하는 중" : result ? "추천 다시 확인" : "AI 추천 확인"}
+                  </button>
+                  <button type="button" disabled={blocked} onClick={() => void activateWithoutPolicy(module)}>
+                    {busy ? "활성화하는 중" : "기본값으로 바로 활성화"}
+                  </button>
+                </>
               ) : null}
               {!isActive && !needsPolicy ? (
                 <button type="button" disabled={blocked} onClick={() => void activateWithoutPolicy(module)}>
