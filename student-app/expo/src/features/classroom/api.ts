@@ -57,8 +57,11 @@ const mockModules: ClassroomModule[] = [
   { resourceId: "mock-investment", label: "투자", status: "ACTIVE", version: 1, stateVersion: 1, code: "INVESTMENT", config: {} },
   { resourceId: "mock-trade", label: "개인 거래", status: "ACTIVE", version: 1, stateVersion: 1, code: "TRADE", config: {} },
   { resourceId: "mock-quiz", label: "퀴즈", status: "ACTIVE", version: 1, stateVersion: 1, code: "QUIZ_GAME", config: { active_quiz_session_id: "mock-quiz-session" } },
-  { resourceId: "mock-vote", label: "공공 예산", status: "ACTIVE", version: 1, stateVersion: 1, code: "BUDGET", config: { active_vote_id: "mock-vote" } },
-  { resourceId: "mock-paystub", label: "월급명세서", status: "ACTIVE", version: 1, stateVersion: 1, code: "PAYSLIP", config: {} }
+  { resourceId: "mock-vote", label: "공공예산·투표", status: "ACTIVE", version: 1, stateVersion: 1, code: "PUBLIC_BUDGET", config: { active_vote_id: "mock-vote" } },
+  { resourceId: "mock-paystub", label: "월급명세서", status: "ACTIVE", version: 1, stateVersion: 1, code: "PAYSLIP", config: {} },
+  { resourceId: "mock-real-estate", label: "교실 부동산", status: "ACTIVE", version: 1, stateVersion: 1, code: "REAL_ESTATE", config: {} },
+  { resourceId: "mock-housing-subscription", label: "청약 통장", status: "ACTIVE", version: 1, stateVersion: 1, code: "HOUSING_SUBSCRIPTION", config: {} },
+  { resourceId: "mock-credit", label: "신용 기초", status: "ACTIVE", version: 1, stateVersion: 1, code: "CREDIT", config: {} }
 ];
 
 function firstConfiguredId(modules: ClassroomModule[], keys: string[]) {
@@ -132,6 +135,7 @@ export async function fetchClassroomAccess(classroomId: string): Promise<Classro
   })), response.policy_versions);
 }
 
+// 코드는 backend ModuleCatalog의 정본 코드와 레거시 별칭을 함께 담습니다.
 export const moduleGroups = {
   wallet: ["WALLET"],
   shop: ["STORE", "PHYSICAL_STORE"],
@@ -139,13 +143,21 @@ export const moduleGroups = {
   bank: ["DEPOSIT", "SAVINGS", "LOAN"],
   investment: ["INVESTMENT", "SHORT_INVESTMENT", "LONG_INVESTMENT", "INVESTMENT_SHORT_TERM", "INVESTMENT_LONG_TERM"],
   trade: ["TRADE"],
-  quiz: ["QUIZ_GAME", "QUIZ_TEST"],
-  meeting: ["BUDGET", "VOTE"],
-  paystub: ["PAYSLIP", "INCOME"]
+  quiz: ["QUIZ_GAME", "QUIZ_TEST", "QUIZ"],
+  meeting: ["PUBLIC_BUDGET", "PUBLIC_FUND", "BUDGET"],
+  paystub: ["PAYSLIP", "INCOME"],
+  realEstate: ["REAL_ESTATE", "HOUSING_SUBSCRIPTION"],
+  subscription: ["HOUSING_SUBSCRIPTION"],
+  credit: ["CREDIT"]
 } as const;
 
 export type ModuleGroup = keyof typeof moduleGroups;
 
 export function hasModule(access: ClassroomAccess | undefined, group: ModuleGroup) {
   return moduleGroups[group].some((code) => access?.activeCodes.has(code));
+}
+
+// 선생님 수업은 모듈 카탈로그 항목이 아니라 교사가 시작한 지도 활동입니다.
+export function hasGuidedClass(access: ClassroomAccess | undefined) {
+  return Boolean(access?.resources.guidedActivityId);
 }

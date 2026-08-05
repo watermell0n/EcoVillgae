@@ -21,6 +21,8 @@ type ClassroomContextValue = {
 
 const ClassroomContext = createContext<ClassroomContextValue | null>(null);
 
+// `/classroom`(선생님 수업)과 `/materials`는 모듈 스위치가 아닌 수업 진행에 딸린 화면이라
+// 모듈 가드를 두지 않습니다.
 const routeGroups: Record<string, ModuleGroup> = {
   "/wallet": "wallet",
   "/shop": "shop",
@@ -28,7 +30,9 @@ const routeGroups: Record<string, ModuleGroup> = {
   "/investment": "investment",
   "/trade": "trade",
   "/quiz": "quiz",
-  "/classroom": "meeting",
+  "/meeting": "meeting",
+  "/real-estate": "realEstate",
+  "/credit": "credit",
   "/character": "character",
   "/paystub": "paystub"
 };

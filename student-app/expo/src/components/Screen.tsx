@@ -12,9 +12,10 @@ import { fetchWallet } from "@/features/student/api";
 import { colors, spacing } from "@/theme/tokens";
 
 type ScreenProps = PropsWithChildren<{ title: string; subtitle?: string; right?: ReactNode; scroll?: boolean }>;
-type MenuPath = "/" | "/shop" | "/bank" | "/investment" | "/trade" | "/quiz" | "/classroom";
+type MenuPath = "/" | "/shop" | "/bank" | "/investment" | "/trade" | "/quiz" | "/real-estate" | "/meeting" | "/classroom";
+// group이 없는 항목은 모듈 스위치와 무관하게 늘 보입니다.
 const menuItems: Array<{ label: string; icon: string; path: MenuPath; group?: ModuleGroup }> = [
-  { label: "마을 광장", icon: "⌂", path: "/" }, { label: "이코 상점", icon: "▣", path: "/shop", group: "shop" }, { label: "이코 은행", icon: "▤", path: "/bank", group: "bank" }, { label: "투자 광장", icon: "↗", path: "/investment", group: "investment" }, { label: "거래소", icon: "↔", path: "/trade", group: "trade" }, { label: "퀴즈", icon: "?", path: "/quiz", group: "quiz" }, { label: "선생님 수업", icon: "▥", path: "/classroom", group: "meeting" }
+  { label: "마을 광장", icon: "⌂", path: "/" }, { label: "이코 상점", icon: "▣", path: "/shop", group: "shop" }, { label: "이코 은행", icon: "▤", path: "/bank", group: "bank" }, { label: "투자 광장", icon: "↗", path: "/investment", group: "investment" }, { label: "거래소", icon: "↔", path: "/trade", group: "trade" }, { label: "퀴즈", icon: "?", path: "/quiz", group: "quiz" }, { label: "부동산", icon: "▦", path: "/real-estate", group: "realEstate" }, { label: "마을 회의", icon: "◍", path: "/meeting", group: "meeting" }, { label: "선생님 수업", icon: "▥", path: "/classroom" }
 ];
 
 export function Screen({ children, title, subtitle, right, scroll = true }: ScreenProps) {
