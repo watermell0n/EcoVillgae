@@ -156,6 +156,35 @@
 | API-FIN-012 · UIA-FIN-012 | `POST /classrooms/{C}/loan-applications/{R}/teacher-decisions` | OWN·COT | `decision=APPROVE\|REJECT, reason` → 승인 시 원금·계좌 원자 생성 | PM-FIN-006 · SM-LON-001·SM-TXN-001 | `CREDIT_CHANGED`, `ACTIVE_LOAN_LIMIT`, `POLICY_VERSION_CONFLICT` | FIN-008·FIN-010 |
 | API-FIN-013 · UIA-FIN-013 | `POST /classrooms/{C}/loans/{R}/repayment-commands` | STU | `command=RETRY_DUE_PAYMENT\|PREPAY_ALL` → 상환 원장·상태·신용 재계산 | PM-FIN-007 · SM-LON-001·SM-CRD-001·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `GRACE_WINDOW_EXPIRED`, `INVALID_STATE_TRANSITION` | FIN-009·FIN-010 |
 
+### 6.1 부동산·청약 API
+
+학생 전용의 `students/me` 경로는 한 학생이 여러 학급에 속할 수 있으므로 `classroom_id`를 query 또는 요청 본문으로 받는다. 교사 초기 소유 자리의 수익은 교사 개인 지갑이 아닌 학급 `PROPERTY_REVENUE` 원장 계정에 귀속한다.
+
+| API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
+| --- | --- | --- | --- | --- | --- | --- |
+| API-EST-001 | `GET /classrooms/{C}/property-layout` | STU·OWN·COT | 실제 활성·비활성 자리표와 계약 가능 조건 → 행·열·자리 목록 | PM-EST-002 · SM-EST-001 | `MODULE_NOT_ACTIVE`, `RESOURCE_NOT_FOUND` | — |
+| API-EST-002 | `PUT /classrooms/{C}/property-layout` | OWN·COT | `rows, columns` → A1부터 자동 생성한 자리표 | PM-EST-001 · SM-EST-001 | `INVALID_LAYOUT`, `ACTIVE_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-003 | `POST /classrooms/{C}/properties` | OWN·COT | 별칭·좌표·공개·계약 유형·가격·주기 → 교사 보유 자리 | PM-EST-001 · SM-EST-001 | `INVALID_PROPERTY`, `MODULE_NOT_ACTIVE` | — |
+| API-EST-004 | `PUT /properties/{R}` | OWN·COT | 자리 조건·가격·공개 상태 → 최신 자리 버전 | PM-EST-001 · SM-EST-001 | `ACTIVE_PROPERTY_CONTRACT_EXISTS`, `INVALID_PROPERTY` | — |
+| API-EST-005 | `DELETE /properties/{R}` | OWN·COT | 자리 비활성화 → `INACTIVE` | PM-EST-001 · SM-EST-001 | `ACTIVE_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-006 | `GET /classrooms/{C}/properties/available` | STU·OWN·COT | 학생에게 공개된 활성 자리·월세·전세·매매·청약 조건 | PM-EST-002 · SM-EST-001 | `MODULE_NOT_ACTIVE` | — |
+| API-EST-007 | `GET /students/me/properties?classroom_id={C}` | STU | 본인 소유·임대 중 자리와 다음 납부일 | PM-EST-003 · SM-EST-001 | `RESOURCE_NOT_OWNED` | — |
+| API-EST-008 | `POST /properties/{R}/contracts` | STU | `contract_type=RENT\|JEONSE\|SALE, subscription_application_id?` → `PENDING` 계약 | PM-EST-003 · SM-EST-002 | `PROPERTY_NOT_AVAILABLE`, `SUBSCRIPTION_WINNER_REQUIRED` | — |
+| API-EST-009 | `POST /contracts/{R}/approve` | OWN·COT | 승인 사유 → 보증금·매매 원장과 계약 확정 | PM-EST-001 · SM-EST-002·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `INVALID_CONTRACT_STATE` | — |
+| API-EST-010 | `POST /contracts/{R}/reject` | OWN·COT | 거절 사유 → `REJECTED` | PM-EST-001 · SM-EST-002 | `INVALID_CONTRACT_STATE` | — |
+| API-EST-011 | `POST /contracts/{R}/terminate` | 계약 STU·OWN·COT | 계약 종료 → 보증금 반환·자리 상태 복원 | PM-EST-003 · SM-EST-002·SM-TXN-001 | `RESOURCE_NOT_OWNED`, `INVALID_CONTRACT_STATE` | — |
+| API-EST-012 | `POST /students/me/properties/{R}/lease-listings` | 소유 STU | 월세/전세 조건·공개 여부 → 임대 매물 | PM-EST-003 · SM-EST-001 | `PROPERTY_OWNER_REQUIRED`, `ACTIVE_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-013 | `PUT /lease-listings/{R}` | 소유 STU | 매물 조건 수정 | PM-EST-003 · SM-EST-001 | `PROPERTY_OWNER_REQUIRED`, `INVALID_LEASE_LISTING` | — |
+| API-EST-014 | `DELETE /lease-listings/{R}` | 소유 STU | 매물 종료 → 학생 소유 자리 | PM-EST-003 · SM-EST-001 | `ACTIVE_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-015 | `POST /classrooms/{C}/subscription-offers` | OWN·COT | 모집 기간·분양가·공급 수·통장 조건·자리 목록 → `OPEN` 청약 | PM-EST-004 · SM-SUB-001 | `INVALID_SUBSCRIPTION_OFFER`, `PROPERTY_NOT_AVAILABLE` | — |
+| API-EST-016 | `POST /subscription-offers/{R}/apply` | STU | 청약통장 조건 검증 → `APPLIED` | PM-EST-003 · SM-SUB-001 | `SUBSCRIPTION_REQUIREMENT_NOT_MET`, `SUBSCRIPTION_ALREADY_APPLIED` | — |
+| API-EST-017 | `POST /subscription-offers/{R}/draw` | OWN·COT | 모집 종료 청약 추첨 → `WON\|LOST`, 당첨 자리 배정 | PM-EST-004 · SM-SUB-001 | `SUBSCRIPTION_DRAW_NOT_READY` | — |
+| API-EST-018 | `GET /students/me/subscription-applications?classroom_id={C}` | STU | 본인 청약 신청·당첨·배정 자리 현황 | PM-EST-003 · SM-SUB-001 | `RESOURCE_NOT_OWNED` | — |
+| API-EST-019 | `POST /students/me/subscription-account` | STU | `classroom_id, auto_deposit_amount?, auto_deposit_cycle_days?` → 청약통장 개설 | PM-EST-003 · SM-SUB-002 | `SUBSCRIPTION_ACCOUNT_EXISTS`, `INVALID_SUBSCRIPTION_AUTO_DEPOSIT` | — |
+| API-EST-020 | `POST /students/me/subscription-account/deposits` | STU | `classroom_id, amount` → 통장 납입·지갑 원장 | PM-EST-003 · SM-SUB-002·SM-TXN-001 | `SUBSCRIPTION_ACCOUNT_NOT_FOUND`, `INSUFFICIENT_BALANCE` | — |
+| API-EST-021 | `GET /students/me/subscription-account?classroom_id={C}` | STU | 누적 납입액·횟수·최근 납입·자동 납입·이력 | PM-EST-003 · SM-SUB-002 | `SUBSCRIPTION_ACCOUNT_NOT_FOUND` | — |
+| API-EST-022 | `PUT /classrooms/{C}/subscription-auto-deposit-policy` | OWN·COT | `enabled, amount?, cycle_days?` → 학급 청약통장 자동 납입 정책을 설정하고 활성 통장에 반영 | PM-EST-004 · SM-SUB-002 | `INVALID_SUBSCRIPTION_AUTO_DEPOSIT`, `MODULE_NOT_ACTIVE` | — |
+
 ## 7. 퀴즈·투표 API
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |

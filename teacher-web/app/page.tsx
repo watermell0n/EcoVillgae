@@ -377,6 +377,9 @@ const moduleCodeByName: Record<string, string> = {
   퀴즈: "QUIZ_GAME"
 };
 
+moduleCodeByName["부동산"] = "REAL_ESTATE";
+moduleCodeByName["청약"] = "HOUSING_SUBSCRIPTION";
+
 const moduleNameByCode = new Map(
   Object.entries(moduleCodeByName).map(([name, code]) => [code, name])
 );

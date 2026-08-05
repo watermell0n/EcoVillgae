@@ -77,6 +77,10 @@ public enum ClassroomPermission {
     ),
     REQUEST_LOAN("PM-FIN-008", Set.of(ClassroomActorRole.STU)),
     MANAGE_LOANS("PM-FIN-009", Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)),
+    MANAGE_PROPERTIES("PM-EST-001", Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)),
+    READ_PROPERTIES("PM-EST-002", Set.of(ClassroomActorRole.STU, ClassroomActorRole.OWN, ClassroomActorRole.COT)),
+    USE_PROPERTIES("PM-EST-003", Set.of(ClassroomActorRole.STU)),
+    MANAGE_SUBSCRIPTION_OFFERS("PM-EST-004", Set.of(ClassroomActorRole.OWN, ClassroomActorRole.COT)),
     MANAGE_INVESTMENT_SCENARIO(
         "PM-FIN-001",
         Set.of(ClassroomActorRole.OWN)

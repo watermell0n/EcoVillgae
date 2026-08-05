@@ -6363,6 +6363,2308 @@
       }
     },
     {
+      "api_id": "API-EST-001",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/property-layout",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-002",
+      "method": "PUT",
+      "path": "/classrooms/{classroom_id}/property-layout",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "rows",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.rows",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "columns",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.columns",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-003",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/properties",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "coordinate",
+            "required": false,
+            "type": "string",
+            "target": "service_input.coordinate",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "display_name",
+            "required": false,
+            "type": "string",
+            "target": "service_input.display_name",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "row_index",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.row_index",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "column_index",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.column_index",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "type": "string",
+            "target": "service_input.tier",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "is_public",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.is_public",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "active",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.active",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_rent",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_jeonse",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_jeonse",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_sale",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_sale",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_subscription",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_subscription",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "sale_price",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.sale_price",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "deposit_amount",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.deposit_amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "monthly_rent",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.monthly_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "payment_cycle_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.payment_cycle_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "contract_term_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.contract_term_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-004",
+      "method": "PUT",
+      "path": "/properties/{resource_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "display_name",
+            "required": false,
+            "type": "string",
+            "target": "service_input.display_name",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "type": "string",
+            "target": "service_input.tier",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "is_public",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.is_public",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "active",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.active",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_rent",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_jeonse",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_jeonse",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_sale",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_sale",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "allows_subscription",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.allows_subscription",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "sale_price",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.sale_price",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "deposit_amount",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.deposit_amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "monthly_rent",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.monthly_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "payment_cycle_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.payment_cycle_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "contract_term_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.contract_term_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-005",
+      "method": "DELETE",
+      "path": "/properties/{resource_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "none",
+        "fields": []
+      }
+    },
+    {
+      "api_id": "API-EST-006",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/properties/available",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-007",
+      "method": "GET",
+      "path": "/students/me/properties",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-008",
+      "method": "POST",
+      "path": "/properties/{resource_id}/contracts",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "contract_type",
+            "required": true,
+            "type": "string",
+            "target": "service_input.contract_type",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "subscription_application_id",
+            "required": false,
+            "type": "string|null",
+            "target": "service_input.subscription_application_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-009",
+      "method": "POST",
+      "path": "/contracts/{resource_id}/approve",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "reason",
+            "required": false,
+            "type": "string",
+            "target": "service_input.reason",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-010",
+      "method": "POST",
+      "path": "/contracts/{resource_id}/reject",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "reason",
+            "required": false,
+            "type": "string",
+            "target": "service_input.reason",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-011",
+      "method": "POST",
+      "path": "/contracts/{resource_id}/terminate",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-012",
+      "method": "POST",
+      "path": "/students/me/properties/{resource_id}/lease-listings",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "lease_type",
+            "required": true,
+            "type": "string",
+            "target": "service_input.lease_type",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "deposit_amount",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.deposit_amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "monthly_rent",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.monthly_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "payment_cycle_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.payment_cycle_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "contract_term_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.contract_term_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "is_public",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.is_public",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-013",
+      "method": "PUT",
+      "path": "/lease-listings/{resource_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "lease_type",
+            "required": true,
+            "type": "string",
+            "target": "service_input.lease_type",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "deposit_amount",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.deposit_amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "monthly_rent",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.monthly_rent",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "payment_cycle_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.payment_cycle_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "contract_term_days",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.contract_term_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "is_public",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.is_public",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-014",
+      "method": "DELETE",
+      "path": "/lease-listings/{resource_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "none",
+        "fields": []
+      }
+    },
+    {
+      "api_id": "API-EST-015",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/subscription-offers",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "title",
+            "required": true,
+            "type": "string",
+            "target": "service_input.title",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "opens_at",
+            "required": true,
+            "type": "string",
+            "target": "service_input.opens_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "closes_at",
+            "required": true,
+            "type": "string",
+            "target": "service_input.closes_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "sale_price",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.sale_price",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "supply_quantity",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.supply_quantity",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "minimum_deposit_count",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.minimum_deposit_count",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "minimum_balance",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.minimum_balance",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "property_ids",
+            "required": true,
+            "type": "array",
+            "target": "service_input.property_ids",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-016",
+      "method": "POST",
+      "path": "/subscription-offers/{resource_id}/apply",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-017",
+      "method": "POST",
+      "path": "/subscription-offers/{resource_id}/draw",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-018",
+      "method": "GET",
+      "path": "/students/me/subscription-applications",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-019",
+      "method": "POST",
+      "path": "/students/me/subscription-account",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "classroom_id",
+            "required": true,
+            "type": "string",
+            "target": "service_input.classroom_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-020",
+      "method": "POST",
+      "path": "/students/me/subscription-account/deposits",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "classroom_id",
+            "required": true,
+            "type": "string",
+            "target": "service_input.classroom_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "amount",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-021",
+      "method": "GET",
+      "path": "/students/me/subscription-account",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-EST-022",
+      "method": "PUT",
+      "path": "/classrooms/{classroom_id}/subscription-auto-deposit-policy",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "property_layouts",
+        "properties",
+        "property_contracts",
+        "property_contract_payments",
+        "property_lease_listings",
+        "subscription_offers",
+        "subscription_accounts",
+        "subscription_auto_deposit_policies",
+        "subscription_applications",
+        "ledger_accounts",
+        "ledger_entries",
+        "transaction_groups"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "enabled",
+            "required": true,
+            "type": "boolean",
+            "target": "service_input.enabled",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "amount",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.amount",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "cycle_days",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.cycle_days",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "property_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.property_id",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": false,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "property_layouts, properties, property_contracts, property_contract_payments, property_lease_listings, subscription_offers, subscription_accounts, subscription_auto_deposit_policies, subscription_applications, ledger_accounts, ledger_entries, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-QZ-001",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/quiz-question-commands",
