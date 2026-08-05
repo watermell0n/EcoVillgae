@@ -278,31 +278,56 @@ export function CharacterShop({
   }, [classroomId, reloadToken]);
 
   /**
-   * 상점은 활성 상품 전체를 노출한다.
+   * **판매 목록**. 서버가 준 상태로만 거른다.
    *
    * 이전에는 "64×64 에셋이 등록된 상품"만 통과시키는 필터가 있어서 10종만 보였고,
    * 목록·미리보기·착용·카테고리·상세가 모두 그 배열에서 파생돼 실제 사용 가능한 상품이
-   * 10종으로 묶여 있었다. 렌더 통일이 끝났으므로 필터를 없앤다(가이드라인 §5.1).
+   * 10종으로 묶여 있었다. 렌더 통일이 끝났으므로 그 필터는 없앴다(가이드라인 §5.1).
+   *
+   * 이 배열은 **그리드·카테고리·페이지네이션에만** 쓴다. 착용 상태를 여기서 파생하면
+   * 판매 종료된 상품을 입고 있는 학생의 착용이 조용히 사라진다 — 위와 같은 사고다.
    */
-  const visibleItems = useMemo(
+  const sellableItems = useMemo(
     () => items.filter(isPurchasableStatus).sort(compareStoreItems),
     [items],
   );
   const categoryItems = useMemo(
-    () => visibleItems.filter((item) => matchesCategory(item, category)),
-    [category, visibleItems],
+    () => sellableItems.filter((item) => matchesCategory(item, category)),
+    [category, sellableItems],
   );
   const totalPages = Math.max(1, Math.ceil(categoryItems.length / itemsPerPage));
   const pageItems = categoryItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-  const equipped = useMemo(() => equippedMap(visibleItems), [visibleItems]);
+  /**
+   * 판매 상품이 없는 분류는 탭을 만들지 않는다. 지금 하의·목도리·손·효과가 0종이고,
+   * 누를 때마다 "판매 중인 상품이 없어요"만 나오는 탭은 없는 것과 같다.
+   * '추천'은 전체 보기라 항상 남긴다.
+   */
+  const shownCategories = useMemo(
+    () => CATEGORIES.filter(
+      ({ value }) => value === 'ALL'
+        || sellableItems.some((item) => matchesCategory(item, value)),
+    ),
+    [sellableItems],
+  );
+
+  // 탭이 사라지면 그 분류에 머물러 있을 수 없다. 전체 보기로 돌린다.
+  useEffect(() => {
+    if (!shownCategories.some(({ value }) => value === category)) setCategory('ALL');
+  }, [category, shownCategories]);
+
+  /**
+   * 착용·보유는 판매 여부와 무관하다. 이미 산 상품은 판매가 끝나도 계속 입는다.
+   * 그래서 아래 둘은 거르지 않은 `items`에서 파생한다.
+   */
+  const equipped = useMemo(() => equippedMap(items), [items]);
   const previewEquipped = useMemo<EquippedMap>(
     () => ({ ...equipped, ...previewOverrides }),
     [equipped, previewOverrides],
   );
   const itemById = useMemo(
-    () => new Map(visibleItems.map((item) => [item.id, item])),
-    [visibleItems],
+    () => new Map(items.map((item) => [item.id, item])),
+    [items],
   );
   const selected = selectedId ? itemById.get(selectedId) ?? null : null;
   const draftSlots = useMemo(
@@ -377,7 +402,9 @@ export function CharacterShop({
         classroomId,
         profileVersion,
         previewEquipped,
-        visibleItems,
+        // 판매 종료된 보유 상품도 저장 대상이다. sellableItems를 넘기면
+        // "보유하지 않은 아이템" 오류가 난다.
+        items,
       );
       setProfileVersion(profile.state_version);
       await loadStore();
@@ -467,7 +494,7 @@ export function CharacterShop({
 
         <div className="character-catalog-panel">
           <div className="character-theme-tabs" aria-label="캐릭터 상품 분류">
-            {CATEGORIES.map(({ value, icon, label }) => (
+            {shownCategories.map(({ value, icon, label }) => (
               <button
                 aria-pressed={category === value}
                 className={category === value ? 'active' : ''}

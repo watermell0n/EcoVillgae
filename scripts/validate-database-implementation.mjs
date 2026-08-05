@@ -50,6 +50,7 @@ const expectedMigrations = [
   "V1_21__classroom_display_settings.sql",
   "V1_22__character_store_descriptions_and_order.sql",
   "V1_23__retire_bottom_overalls.sql",
+  "V1_24__sell_only_basic_and_background_characters.sql",
 ];
 
 function unique(values) {

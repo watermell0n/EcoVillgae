@@ -3,6 +3,7 @@ import {
   CATALOG,
   CATALOG_BY_ID,
   EMPTY_EQUIPPED,
+  OFF_SALE_SPRITE_KEYS,
   conflictsFor,
   type CosmeticDTO,
   type EquippedMap,
@@ -94,6 +95,13 @@ export type CharacterProfile = {
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES === "true";
 
+/**
+ * 모의 보유 목록.
+ *
+ * `hat_straw`·`top_swimsuit`·`shoes_sandals`는 판매 종료 상품인데 일부러 남긴다.
+ * "판매는 끝났지만 이미 산 상품"이 상점 미리보기·착용 스트립·일괄 저장에서 제대로
+ * 다뤄지는지 개발 중에 눈으로 확인할 수 있어야 한다.
+ */
 const mockOwned = new Set([
   "hat_red_cap",
   "top_blue_tshirt",
@@ -131,7 +139,8 @@ function mockItems(): CharacterStoreItem[] {
     inventoryStateVersion: mockOwned.has(item.id) ? 0 : null,
     description: `${item.name}을(를) 캐릭터에 착용해 볼 수 있어요.`,
     sortOrder: item.displayOrder,
-    productStatus: 'PUBLISHED'
+    // 서버 상태를 흉내낸다. 전부 PUBLISHED로 두면 개발 중 상점과 실제 상점이 달라진다.
+    productStatus: OFF_SALE_SPRITE_KEYS.has(item.spriteKey) ? 'UNPUBLISHED' : 'PUBLISHED'
   }));
 }
 

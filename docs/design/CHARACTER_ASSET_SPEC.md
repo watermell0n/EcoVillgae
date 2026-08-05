@@ -951,7 +951,59 @@ DB는 지우지 않고 상태만 내린다. 이미 구매한 학생의 `inventor
 §4 팔레트 표와 §7 디렉터리 목록에서 함께 지웠다. §9·§12의 실측 기록은 당시 측정값이라
 남긴다.
 
-### 13.2 남은 정리 대상
+### 13.2 판매 범위 — 기본 9종 + 배경 5종
+
+상점에서 파는 것은 14종이다. 코드로 생성한 49종은 판매하지 않는다(`V1_24`).
+
+```text
+모자   hat_red_cap, hat_teal_beanie
+얼굴   face_sunglasses, face_headphones
+상의   top_blue_tshirt, top_yellow_hoodie, top_green_vest
+신발   shoes_sneakers
+등     back_backpack
+배경   bg_spring, bg_summer_sea, bg_autumn, bg_winter, bg_space
+```
+
+**카탈로그 정의와 에셋은 지우지 않는다.** 이미 구매한 학생의 캐릭터가 계속 렌더되어야
+한다. 정의가 사라지면 착용 중인 상품이 조용히 안 그려진다. `CHARACTER_ITEMS`는 63종을
+유지하고 `check-assets.js`도 63종을 검사한다.
+
+판매 여부를 끄는 지점이 네 군데다. 학생 노출과 구매를 막는 코드 경로가 다르다.
+
+| 대상 | 값 | 막는 것 |
+| --- | --- | --- |
+| `store_products.status` | `UNPUBLISHED` | 학생 카탈로그 목록. 조회가 `PUBLISHED`만 읽는다 |
+| `store_product_versions.purchasable` | `false` | 구매. 구매 경로는 `product.status`를 보지 않고 버전의 `isPurchasableAt`만 본다 |
+| `character_catalog.status` | `RETIRED` | 새 교실 시드(V1_23이 넣은 status 조건) |
+| `classroom_characters.status` | `RETIRED` | 교사가 상품을 다시 붙이는 것(`isApproved`) |
+
+`RETIRED`를 `store_products`에 쓰면 안 된다 — `StoreProductStatus` 열거형이
+`DRAFT`/`PUBLISHED`/`UNPUBLISHED` 셋뿐이라 JPA 매핑이 깨진다.
+
+#### 판매 목록과 착용 상태를 섞지 않는다
+
+`CharacterStore`가 `visibleItems` 하나에서 그리드·미리보기·스트립·저장을 모두 파생하고
+있었다. 판매 종료 상품을 입고 있는 학생에게 세 가지가 깨진다.
+
+```text
+미리보기   equippedMap(visibleItems)      → 입고 있는 상품이 빠져 안 그려진다
+스트립     itemById(visibleItems)         → 이름을 못 찾아 칸이 빈다
+일괄 저장  saveCharacterEquipment(…, visibleItems) → "보유하지 않은 아이템" 오류
+```
+
+`sellableItems`(그리드·카테고리·페이지네이션)와 `items`(착용·보유·저장)를 나눴다. 착용은
+판매 여부와 무관하다 — 산 것은 판매가 끝나도 계속 입는다. 이것은 §13.1의 "필터 하나에서
+전부 파생" 사고와 같은 유형이고, 필터 조건만 달랐다.
+
+판매 상품이 0종인 분류는 탭을 만들지 않는다. 지금 하의·목도리·손·효과가 그렇다.
+슬롯 키와 착용 스트립의 칸은 남는다 — 전신 의상이 `BOTTOM`을 덮고, 이미 보유한 학생이
+착용 중일 수 있다.
+
+`OFF_SALE_SPRITE_KEYS`(`core/catalog.ts`)는 **모의 모드가 서버 응답을 흉내내기 위한
+목록**이다. 노출 판정은 서버가 준 `productStatus`로만 한다. 모의 데이터가 전부
+`PUBLISHED`면 개발 중 상점과 실제 상점이 달라진다.
+
+### 13.3 남은 정리 대상
 
 ```text
 ✅ core/items.ts PLANNED_COMPATIBILITY   64종이 CHARACTER_ITEMS로 올라와 각 항목에 합침

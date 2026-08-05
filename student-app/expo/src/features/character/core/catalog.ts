@@ -121,3 +121,34 @@ export const CATALOG: CosmeticDTO[] = build();
 export const CATALOG_BY_ID: Record<string, CosmeticDTO> = Object.fromEntries(
   CATALOG.map((cosmetic) => [cosmetic.id, cosmetic]),
 );
+
+/**
+ * 판매하지 않는 상품. 기본 9종 + 배경 5종만 판다(`V1_24`).
+ *
+ * **노출 판정에 이 목록을 쓰지 않는다.** 정본은 서버가 주는 `productStatus`이고,
+ * 화면은 그것만 본다(`isPurchasableStatus`). 여기 목록은 **모의 모드가 서버 응답을
+ * 흉내내기 위한 것**이다. 모의 데이터가 전부 `PUBLISHED`면 개발 중에 보이는 상점과
+ * 실제 상점이 달라진다.
+ *
+ * 카탈로그에서 빼지 않고 목록으로 두는 이유: 이미 구매한 학생의 캐릭터가 계속
+ * 렌더되어야 한다. 정의와 에셋이 사라지면 착용 중인 상품이 조용히 안 그려진다.
+ */
+export const OFF_SALE_SPRITE_KEYS: ReadonlySet<string> = new Set([
+  'hat_straw', 'hat_beach', 'hat_pom_beanie',
+  'hat_baseball_blue', 'hat_baseball_red', 'hat_baseball_navy',
+  'hat_baseball_green', 'hat_baseball_yellow',
+  'hat_chef', 'hat_safari', 'hat_space_helmet', 'hat_safety_police',
+  'hat_pilot', 'hat_crown', 'hat_wizard', 'hat_knight', 'hat_dinosaur',
+  'face_goggles', 'face_ski_goggles',
+  'neck_scarf', 'neck_knit_scarf',
+  'top_swimsuit', 'top_padding', 'top_soccer',
+  'top_baseball_pinstripe', 'top_baseball_red', 'top_baseball_blue',
+  'top_baseball_navy', 'top_baseball_gray',
+  'top_spacesuit', 'top_safety_police', 'top_legal_professional',
+  'top_pilot', 'top_wizard_robe', 'top_fantasy_armor', 'top_dinosaur',
+  'shoes_red_boots', 'shoes_sandals', 'shoes_aqua',
+  'shoes_snow_boots', 'shoes_space_boots',
+  'back_briefcase', 'back_fairy_wings', 'back_dinosaur_tail',
+  'hand_baseball_glove', 'hand_magic_wand', 'hand_toy_sword',
+  'effect_swim_tube', 'effect_fluffy_cloud',
+]);
