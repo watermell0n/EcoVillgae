@@ -55,12 +55,17 @@ export function QuizDraftWorkspace({
   classroomId,
   initialGrade,
   aiEnabled,
-  students
+  students,
+  activeQuizSessionId,
+  onReload
 }: Readonly<{
   classroomId: string;
   initialGrade: number;
   aiEnabled: boolean;
   students: readonly QuizStudent[];
+  // 진행 중인 퀴즈 세션 id입니다. 활성 퀴즈 모듈 config에서 옵니다.
+  activeQuizSessionId?: string;
+  onReload?: () => Promise<void>;
 }>) {
   const [grade, setGrade] = useState(initialGrade);
   const [topic, setTopic] = useState("합리적인 소비");
@@ -82,6 +87,8 @@ export function QuizDraftWorkspace({
   const [leaderboardPublic, setLeaderboardPublic] = useState(true);
   const [starting, setStarting] = useState(false);
   const [startedSession, setStartedSession] = useState<{ id: string; mode: string } | null>(null);
+  // 이미 학생 화면에 열어 준 문항입니다. 같은 문항으로 두 번 열지 않도록 잠급니다.
+  const [openedVersionIds, setOpenedVersionIds] = useState<string[]>([]);
   const [sessionError, setSessionError] = useState("");
   const [sessionMessage, setSessionMessage] = useState("");
 
@@ -110,6 +117,7 @@ export function QuizDraftWorkspace({
     setMessage("");
     setError("");
     setSelectedVersionIds([]);
+    setOpenedVersionIds([]);
     setStartedSession(null);
     setSessionError("");
     setSessionMessage("");
@@ -161,6 +169,8 @@ export function QuizDraftWorkspace({
     () => students.flatMap((student) => student.resourceId ? [student.resourceId] : []),
     [students]
   );
+  // 서버가 알려 주는 진행 중 세션을 우선 쓰고, 아직 반영 전이면 방금 시작한 세션을 씁니다.
+  const openSessionId = activeQuizSessionId || startedSession?.id || "";
   const rewardValue = Number(rewardPerPerson);
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
@@ -171,6 +181,7 @@ export function QuizDraftWorkspace({
     && !invalidReward;
 
   function toggleQuestion(versionId: string) {
+    if (openedVersionIds.includes(versionId)) return;
     setSessionError("");
     setSessionMessage("");
     setSelectedVersionIds((current) => current.includes(versionId)
@@ -207,11 +218,16 @@ export function QuizDraftWorkspace({
           })
         }
       );
+      const openedCount = selectedQuestions.length;
       setStartedSession({ id: response.quiz_resource_id, mode: sessionMode });
+      // 같은 문항으로 다시 열지 못하게 잠급니다.
+      setOpenedVersionIds((current) => [...new Set([...current, ...selectedVersionIds])]);
       setSelectedVersionIds([]);
       setSessionMessage(
-        `${selectedQuestions.length}개 문항으로 ${sessionMode === "GAME" ? "게임형" : "평가형"} 퀴즈를 시작했어요. 학생 화면에 문제가 열렸습니다.`
+        `${openedCount}개 문항으로 ${sessionMode === "GAME" ? "게임형" : "평가형"} 퀴즈를 열었어요. 학생 화면에서 바로 풀 수 있습니다.`
       );
+      // 학급 상태를 다시 읽어 진행 중인 퀴즈 세션 정보를 최신으로 맞춥니다.
+      if (onReload) await onReload();
     } catch (caught) {
       setSessionError(sessionErrorMessage(caught));
       if (caught instanceof ApiError && caught.code === "QUESTION_NOT_PUBLISHED") {
@@ -449,17 +465,22 @@ export function QuizDraftWorkspace({
               <ul>
                 {publishedQuestions.map((question) => {
                   const checked = selectedVersionIds.includes(question.question_version_id);
+                  const alreadyOpened = openedVersionIds.includes(question.question_version_id);
                   return (
                     <li key={question.question_version_id}>
-                      <label>
+                      <label className={alreadyOpened ? "quiz-start-opened" : ""}>
                         <input
                           type="checkbox"
                           checked={checked}
-                          disabled={starting}
+                          disabled={starting || alreadyOpened}
                           onChange={() => toggleQuestion(question.question_version_id)}
                         />
                         <span className="quiz-start-prompt">{question.prompt}</span>
-                        <small>{question.content_type === "ECONOMY" ? "경제" : "넌센스"} · {question.question_type === "OX" ? "OX" : "객관식"}</small>
+                        <small>
+                          {alreadyOpened
+                            ? "이미 열었어요"
+                            : `${question.content_type === "ECONOMY" ? "경제" : "넌센스"} · ${question.question_type === "OX" ? "OX" : "객관식"}`}
+                        </small>
                       </label>
                     </li>
                   );
@@ -529,11 +550,17 @@ export function QuizDraftWorkspace({
             ) : null}
             {sessionMessage ? <div className="inline-notice" role="status"><Check size={17} /> {sessionMessage}</div> : null}
             {sessionError ? <div className="inline-error" role="alert">{sessionError}</div> : null}
-            {startedSession ? (
-              <dl className="quiz-start-summary">
+            {openSessionId ? (
+              <dl className="quiz-start-summary quiz-start-live">
                 <div>
-                  <dt>방금 시작한 퀴즈 세션 ID</dt>
-                  <dd className="quiz-session-id">{startedSession.id}</dd>
+                  <dt>학생 화면에 열려 있는 퀴즈</dt>
+                  <dd>{startedSession
+                    ? `${startedSession.mode === "GAME" ? "게임형" : "평가형"} · 진행 중`
+                    : "진행 중"}</dd>
+                </div>
+                <div>
+                  <dt>퀴즈 세션 ID</dt>
+                  <dd className="quiz-session-id">{openSessionId}</dd>
                 </div>
               </dl>
             ) : null}

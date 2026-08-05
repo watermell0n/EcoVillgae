@@ -2160,6 +2160,26 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* 이미 학생 화면에 열어 준 문항입니다. 다시 고를 수 없습니다. */
+.quiz-start-picker label.quiz-start-opened {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.quiz-start-picker label.quiz-start-opened:hover {
+  background: transparent;
+}
+
+.quiz-start-picker label.quiz-start-opened .quiz-start-prompt {
+  text-decoration: line-through;
+}
+
+/* 진행 중인 퀴즈가 있다는 표시입니다. */
+.quiz-start-live {
+  border-color: #9bc7a6;
+  background: #f1f9f3;
+}
+
 .quiz-bank-toolbar .recommendation-tabs {
   margin: 0;
 }

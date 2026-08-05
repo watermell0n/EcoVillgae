@@ -428,6 +428,13 @@ export default function TeacherConsole() {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
 
+  // 진행 중인 퀴즈 세션 id입니다. 학생 앱도 같은 위치(활성 퀴즈 모듈 config)를 읽습니다.
+  const activeQuizSessionId = ["QUIZ_GAME", "QUIZ_TEST"].flatMap((code) => {
+    const config = modules.find((module) => module.code === code && module.status === "열림")?.config;
+    const value = config?.active_quiz_session_id ?? config?.quiz_session_id;
+    return typeof value === "string" && value.trim() ? [value] : [];
+  })[0];
+
   function enterClassrooms(bootstrap: Awaited<ReturnType<typeof getTeacherBootstrap>>) {
     setClassrooms(bootstrap.classrooms);
     setSchoolId(bootstrap.schools[0]?.school_id ?? "");
@@ -755,6 +762,8 @@ export default function TeacherConsole() {
               initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
               aiEnabled={aiSettings.enabled}
               students={students}
+              activeQuizSessionId={activeQuizSessionId}
+              onReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "control" && (
@@ -801,8 +810,7 @@ export default function TeacherConsole() {
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
               quizSessionId={String(
-                modules.find((module) => module.code === "QUIZ_GAME")?.config?.active_quiz_session_id
-                ?? modules.find((module) => module.code === "QUIZ_GAME")?.config?.quiz_session_id
+                activeQuizSessionId
                 ?? ""
               )}
               onStateVersionChange={setActiveStateVersion}

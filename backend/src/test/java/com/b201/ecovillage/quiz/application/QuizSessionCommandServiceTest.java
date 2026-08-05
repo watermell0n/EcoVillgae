@@ -21,6 +21,8 @@ import jakarta.persistence.EntityManager;
 
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
+import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
@@ -70,6 +72,7 @@ class QuizSessionCommandServiceTest {
         QuizOptionRepository optionRepository = mock(QuizOptionRepository.class);
         IdempotencyRecordRepository idempotencyRepository =
             mock(IdempotencyRecordRepository.class);
+        ClassroomModuleRepository moduleRepository = mock(ClassroomModuleRepository.class);
         EffectiveAccessModeService accessModeService = mock(EffectiveAccessModeService.class);
         RealtimeEventPublisher eventPublisher = mock(RealtimeEventPublisher.class);
         EntityManager entityManager = mock(EntityManager.class);
@@ -88,6 +91,7 @@ class QuizSessionCommandServiceTest {
             versionRepository,
             optionRepository,
             idempotencyRepository,
+            moduleRepository,
             accessModeService,
             eventPublisher,
             uuidGenerator,
@@ -175,6 +179,17 @@ class QuizSessionCommandServiceTest {
             )
         ).thenReturn(Optional.empty());
         when(sessionRepository.existsById(sessionId)).thenReturn(false);
+        // 학생 앱이 세션을 찾으려면 퀴즈 모듈이 활성이어야 하고, 세션 id가 config에 기록된다.
+        ClassroomModule quizModule = ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "QUIZ_GAME",
+            NOW.minusSeconds(60)
+        );
+        quizModule.activate(java.util.Map.of(), NOW.minusSeconds(30));
+        when(
+            moduleRepository.findForUpdateByClassroomIdAndModuleCode(classroomId, "QUIZ_GAME")
+        ).thenReturn(Optional.of(quizModule));
         when(versionRepository.findAllByClassroomIdAndIdIn(classroomId, List.of(versionId)))
             .thenReturn(List.of(version));
         when(
@@ -199,5 +214,11 @@ class QuizSessionCommandServiceTest {
         verify(activityRepository).save(any());
         verify(participantRepository).saveAll(any());
         verify(sessionQuestionRepository).save(any());
+        // 학생 앱이 읽는 키에 세션 id가 기록되어야 한다.
+        assertEquals(
+            sessionId.toString(),
+            quizModule.getConfig().get("active_quiz_session_id")
+        );
+        verify(moduleRepository).save(quizModule);
     }
 }

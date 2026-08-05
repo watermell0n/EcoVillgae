@@ -1,6 +1,7 @@
 package com.b201.ecovillage.classroom.domain;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -17,6 +18,9 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(name = "classroom_modules")
 public class ClassroomModule {
+
+    // 학생 앱(features/classroom/api.ts)이 진행 중인 퀴즈를 찾을 때 읽는 키입니다.
+    public static final String ACTIVE_QUIZ_SESSION_KEY = "active_quiz_session_id";
 
     @Id
     @Column(nullable = false, updatable = false)
@@ -92,6 +96,41 @@ public class ClassroomModule {
         this.status = "ACTIVE";
         this.statusChangedAt = changedAt;
         this.updatedAt = changedAt;
+    }
+
+    /**
+     * 학생 앱과 교사 화면은 활성 모듈 config의 active_quiz_session_id로 진행 중인 퀴즈를 찾는다.
+     * 세션 행만 만들고 이 값을 갱신하지 않으면 학생은 퀴즈가 열린 사실을 알 수 없다.
+     */
+    public void trackActiveQuizSession(UUID quizSessionId, Instant changedAt) {
+        requireActiveForConfigChange();
+        Map<String, Object> next = new LinkedHashMap<>(config);
+        next.put(
+            ACTIVE_QUIZ_SESSION_KEY,
+            Objects.requireNonNull(quizSessionId, "quizSessionId must not be null").toString()
+        );
+        replaceConfig(next, changedAt);
+    }
+
+    public void clearActiveQuizSession(Instant changedAt) {
+        requireActiveForConfigChange();
+        if (!config.containsKey(ACTIVE_QUIZ_SESSION_KEY)) {
+            return;
+        }
+        Map<String, Object> next = new LinkedHashMap<>(config);
+        next.remove(ACTIVE_QUIZ_SESSION_KEY);
+        replaceConfig(next, changedAt);
+    }
+
+    private void requireActiveForConfigChange() {
+        if (!"ACTIVE".equals(status)) {
+            throw new IllegalStateException("Only an active module can change its config");
+        }
+    }
+
+    private void replaceConfig(Map<String, Object> next, Instant changedAt) {
+        this.config = Map.copyOf(next);
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
     public void disable(Instant changedAt) {

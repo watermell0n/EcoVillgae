@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.security.Principal;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,8 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
+import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
@@ -64,6 +67,7 @@ class QuizQuestionStatusApiTest {
     @Autowired private ClassroomRepository classroomRepository;
     @Autowired private ClassroomTeacherRepository teacherRepository;
     @Autowired private ClassroomStudentRepository studentRepository;
+    @Autowired private ClassroomModuleRepository moduleRepository;
 
     private UUID classroomId;
     private UUID studentId;
@@ -101,6 +105,15 @@ class QuizQuestionStatusApiTest {
             "student",
             CREATED_AT
         ));
+        // 퀴즈 세션은 해당 퀴즈 모듈이 활성이어야 열 수 있다.
+        ClassroomModule quizModule = ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "QUIZ_GAME",
+            CREATED_AT
+        );
+        quizModule.activate(Map.of(), CREATED_AT);
+        moduleRepository.save(quizModule);
     }
 
     @Test
@@ -281,6 +294,83 @@ class QuizQuestionStatusApiTest {
         );
     }
 
+    /**
+     * 학생 앱은 활성 퀴즈 모듈 config의 active_quiz_session_id로 진행 중인 퀴즈를 찾는다.
+     * 세션 행만 만들고 이 값을 쓰지 않으면 학생 화면에는 아무것도 열리지 않는다.
+     */
+    @Test
+    void publishesTheOpenSessionIdToTheQuizModuleSoStudentsCanFindIt() throws Exception {
+        UUID sessionId = startSessionWithOnePublishedQuestion();
+
+        assertEquals(
+            sessionId.toString(),
+            moduleConfigValue("QUIZ_GAME", "active_quiz_session_id"),
+            "학생 앱이 읽는 active_quiz_session_id가 비어 있으면 퀴즈가 보이지 않는다"
+        );
+
+        // 제출을 마감하면 학생 화면에서 내려가야 한다.
+        long stateVersion = jdbcTemplate.queryForObject(
+            "SELECT state_version FROM quiz_sessions WHERE activity_session_id = ?",
+            Long.class,
+            sessionId
+        );
+        ObjectNode close = objectMapper.createObjectNode();
+        close.put("expected_state_version", stateVersion);
+        close.put("command", "CLOSE_SUBMISSIONS");
+        close.putArray("question_version_ids");
+        close.putArray("participant_ids");
+        close.put("mode", "GAME");
+        close.put("content_type", "ECONOMY");
+        close.putObject("reward_policy_public");
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/commands",
+                classroomId,
+                sessionId
+            )
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(close.toString()))
+            .andExpect(status().isOk());
+
+        assertEquals(
+            null,
+            moduleConfigValue("QUIZ_GAME", "active_quiz_session_id"),
+            "제출을 마감했으면 활성 세션 표시가 지워져야 한다"
+        );
+    }
+
+    @Test
+    void refusesToOpenAQuizWhileTheQuizModuleIsNotActive() throws Exception {
+        ClassroomModule quizModule = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "QUIZ_GAME")
+            .orElseThrow();
+        quizModule.disable(CREATED_AT.plusSeconds(1));
+        moduleRepository.save(quizModule);
+
+        UUID questionId = createQuestion();
+        JsonNode approved = statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "APPROVE",
+            questionStateVersion(questionId)
+        );
+        statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "PUBLISH",
+            approved.path("data").path("state_version").asLong()
+        );
+
+        mockMvc.perform(startRequest(
+                UUID.randomUUID(),
+                publishedQuestionVersionId(),
+                UUID.randomUUID()
+            ))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("MODULE_NOT_ACTIVE"));
+    }
+
     @Test
     void refusesToStartASessionWithAQuestionThatIsNotPublished() throws Exception {
         UUID questionId = createQuestion();
@@ -316,6 +406,72 @@ class QuizQuestionStatusApiTest {
                 .content(body.toString()))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_PUBLISHED"));
+    }
+
+    private UUID startSessionWithOnePublishedQuestion() throws Exception {
+        UUID questionId = createQuestion();
+        JsonNode approved = statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "APPROVE",
+            questionStateVersion(questionId)
+        );
+        statusCommand(
+            questionId,
+            UUID.randomUUID(),
+            "PUBLISH",
+            approved.path("data").path("state_version").asLong()
+        );
+        UUID sessionId = UUID.randomUUID();
+        mockMvc.perform(startRequest(
+                sessionId,
+                publishedQuestionVersionId(),
+                UUID.randomUUID()
+            ))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("OPEN"));
+        return sessionId;
+    }
+
+    private String publishedQuestionVersionId() throws Exception {
+        MvcResult listed = mockMvc.perform(
+                get("/classrooms/{classroomId}/quiz-questions", classroomId).principal(owner)
+            )
+            .andExpect(status().isOk())
+            .andReturn();
+        return objectMapper.readTree(listed.getResponse().getContentAsByteArray())
+            .path("data").path("questions").path(0)
+            .path("question_version_id").asText();
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
+        startRequest(UUID sessionId, String questionVersionId, UUID idempotencyKey) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "START");
+        body.putArray("question_version_ids").add(questionVersionId);
+        body.putArray("participant_ids").add(studentId.toString());
+        body.put("mode", "GAME");
+        body.put("content_type", "ECONOMY");
+        body.putObject("reward_policy_public").put("reward_per_person", 50);
+        body.put("leaderboard_public", true);
+        return post(
+            "/classrooms/{classroomId}/quiz-sessions/{sessionId}/commands",
+            classroomId,
+            sessionId
+        )
+            .principal(owner)
+            .header("Idempotency-Key", idempotencyKey)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body.toString());
+    }
+
+    private String moduleConfigValue(String moduleCode, String key) {
+        return moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, moduleCode)
+            .map(module -> module.getConfig().get(key))
+            .map(String::valueOf)
+            .orElse(null);
     }
 
     private UUID createQuestion() throws Exception {
