@@ -105,4 +105,24 @@ public class SavingsAccount {
     public Instant getClosedAt() { return closedAt; }
     public SavingsAccountStatus getStatus() { return status; }
     public long getStateVersion() { return stateVersion; }
+
+    public void recordInstallment(Instant paidAt) {
+        if (status != SavingsAccountStatus.ACTIVE || paidInstallmentCount >= installmentCount) throw new IllegalStateException("savings account cannot accept another installment");
+        paidInstallmentCount++;
+        principalBalance = Math.addExact(principalBalance, installmentAmount);
+        updatedAt = Objects.requireNonNull(paidAt, "paidAt must not be null");
+    }
+
+    public boolean isFullyPaid() { return paidInstallmentCount == installmentCount; }
+
+    public long maturityAmount() { return Math.addExact(principalBalance, isFullyPaid() ? expectedInterestAmount : 0); }
+
+    public void mature(UUID groupId, Instant closedAt) {
+        if (status != SavingsAccountStatus.ACTIVE || closedAt.isBefore(maturesAt)) throw new IllegalStateException("savings account has not reached maturity");
+        closingTransactionGroupId = Objects.requireNonNull(groupId, "groupId must not be null");
+        this.closedAt = Objects.requireNonNull(closedAt, "closedAt must not be null");
+        status = SavingsAccountStatus.MATURED;
+        statusChangedAt = closedAt;
+        updatedAt = closedAt;
+    }
 }

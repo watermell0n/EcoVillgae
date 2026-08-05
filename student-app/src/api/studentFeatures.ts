@@ -41,13 +41,29 @@ export type FinancialProductView = {
   termUnits: number;
   interestRateBps: number;
   earlyTerminationRateBps: number;
+  installmentCount: number | null;
+  installmentAmount: number | null;
   minimumAmount: number;
   maximumAmount: number;
 };
 
 export type DepositAndSavingsResponse = {
   depositAccounts: DepositAccountView[];
-  savingsAccounts: unknown[];
+  savingsAccounts: SavingsAccountView[];
+};
+
+export type SavingsAccountView = {
+  resourceId: string;
+  label: string;
+  status: string;
+  installmentCount: number;
+  paidInstallmentCount: number;
+  installmentAmount: number;
+  principalBalance: number;
+  expectedInterestAmount: number;
+  openedAt: string;
+  maturesAt: string;
+  stateVersion: number;
 };
 
 export type FinancialResourceResponse = {
@@ -55,6 +71,12 @@ export type FinancialResourceResponse = {
   status: string;
   stateVersion: number;
 };
+
+export type CreditProfileView = { score: number; level: string };
+
+export type LoanOverviewView = { creditScore:number; creditLevel:string; availableLimit:number; interestRateBps:number; termUnits:number; installmentCount:number; canApply:boolean; pendingApplicationId:string|null; pendingApplicationStatus:string|null; loans:Array<{loanId:string;principalAmount:number;outstandingPrincipal:number;outstandingInterest:number;status:string;maturesAt:string}> };
+export async function fetchLoanOverview(classroomId:string):Promise<LoanOverviewView>{if(MOCK_FEATURES)return{creditScore:600,creditLevel:"NORMAL",availableLimit:240,interestRateBps:700,termUnits:28,installmentCount:4,canApply:true,pendingApplicationId:null,pendingApplicationStatus:null,loans:[]};const value=await apiRequest<{credit_score:number;credit_level:string;available_limit:number;interest_rate_bps:number;term_units:number;installment_count:number;can_apply:boolean;pending_application_id:string|null;pending_application_status:string|null;loans:Array<{loan_id:string;principal_amount:number;outstanding_principal:number;outstanding_interest:number;status:string;matures_at:string}>}>(`/classrooms/${classroomId}/students/me/loans-and-credit`);return{creditScore:value.credit_score,creditLevel:value.credit_level,availableLimit:value.available_limit,interestRateBps:value.interest_rate_bps,termUnits:value.term_units,installmentCount:value.installment_count,canApply:value.can_apply,pendingApplicationId:value.pending_application_id,pendingApplicationStatus:value.pending_application_status,loans:value.loans.map(item=>({loanId:item.loan_id,principalAmount:item.principal_amount,outstandingPrincipal:item.outstanding_principal,outstandingInterest:item.outstanding_interest,status:item.status,maturesAt:item.matures_at}))};}
+export async function applyLoan(classroomId:string,amount:number,installments:number){return apiRequest<{application_id:string;status:string}>(`/classrooms/${classroomId}/loan-application-commands`,{method:"POST",body:JSON.stringify({command:"APPLY",amount,installments})});}
 
 type RawFinancialProductView = {
   resource_id: string;
@@ -66,8 +88,24 @@ type RawFinancialProductView = {
   term_units: number;
   interest_rate_bps: number;
   early_termination_rate_bps: number;
+  installment_count: number | null;
+  installment_amount: number | null;
   minimum_amount: number;
   maximum_amount: number;
+};
+
+type RawSavingsAccountView = {
+  resource_id: string;
+  label: string;
+  status: string;
+  installment_count: number;
+  paid_installment_count: number;
+  installment_amount: number;
+  principal_balance: number;
+  expected_interest_amount: number;
+  opened_at: string;
+  matures_at: string;
+  state_version: number;
 };
 
 type RawDepositAccountView = {
@@ -280,16 +318,33 @@ export async function fetchFinancialProducts(classroomId: string) {
     return [
       {
         resourceId: ids.depositProduct,
-        label: "3-day deposit",
+        label: "1주 예금",
         status: "PUBLISHED",
         version: 1,
         stateVersion: 1,
         productType: "DEPOSIT",
-        termUnits: 3,
+        termUnits: 7,
         interestRateBps: 1_000,
         earlyTerminationRateBps: 0,
+        installmentCount: null,
+        installmentAmount: null,
         minimumAmount: 100,
         maximumAmount: 1_000
+      },
+      {
+        resourceId: "mock-savings-product",
+        label: "4주 적금",
+        status: "PUBLISHED",
+        version: 1,
+        stateVersion: 1,
+        productType: "SAVINGS",
+        termUnits: 28,
+        interestRateBps: 1_500,
+        earlyTerminationRateBps: 0,
+        installmentCount: 4,
+        installmentAmount: 20,
+        minimumAmount: 20,
+        maximumAmount: 80
       }
     ] satisfies FinancialProductView[];
   }
@@ -307,6 +362,8 @@ export async function fetchFinancialProducts(classroomId: string) {
     termUnits: product.term_units,
     interestRateBps: product.interest_rate_bps,
     earlyTerminationRateBps: product.early_termination_rate_bps,
+    installmentCount: product.installment_count,
+    installmentAmount: product.installment_amount,
     minimumAmount: product.minimum_amount,
     maximumAmount: product.maximum_amount
   }));
@@ -348,6 +405,42 @@ export async function subscribeDeposit(
   } satisfies FinancialResourceResponse;
 }
 
+export async function subscribeSavings(
+  classroomId: string,
+  productId: string,
+  installmentAmount: number,
+  expectedProductVersion: number
+) {
+  if (MOCK_FEATURES) {
+    return {
+      financialResourceId: createUuid(),
+      status: "ACTIVE",
+      stateVersion: 1
+    } satisfies FinancialResourceResponse;
+  }
+
+  const response = await apiRequest<{
+    financial_resource_id: string;
+    status: string;
+    state_version: number;
+  }>(`/classrooms/${classroomId}/savings-accounts`, {
+    method: "POST",
+    body: JSON.stringify({
+      screen_id: "SCR-STU-014",
+      ui_action_id: "UIA-FIN-004",
+      client_occurred_at: now(),
+      product_id: productId,
+      installment_amount: installmentAmount,
+      expected_product_version: expectedProductVersion
+    })
+  });
+  return {
+    financialResourceId: response.financial_resource_id,
+    status: response.status,
+    stateVersion: response.state_version
+  } satisfies FinancialResourceResponse;
+}
+
 export async function fetchDepositAndSavings(classroomId: string) {
   if (MOCK_FEATURES) {
     return {
@@ -372,7 +465,7 @@ export async function fetchDepositAndSavings(classroomId: string) {
 
   const response = await apiRequest<{
     deposit_accounts: RawDepositAccountView[];
-    savings_accounts: unknown[];
+    savings_accounts: RawSavingsAccountView[];
   }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
   return {
     depositAccounts: response.deposit_accounts.map((account) => ({
@@ -388,7 +481,19 @@ export async function fetchDepositAndSavings(classroomId: string) {
       maturesAt: account.matures_at,
       closedAt: account.closed_at
     })),
-    savingsAccounts: response.savings_accounts
+    savingsAccounts: response.savings_accounts.map((account) => ({
+      resourceId: account.resource_id,
+      label: account.label,
+      status: account.status,
+      installmentCount: account.installment_count,
+      paidInstallmentCount: account.paid_installment_count,
+      installmentAmount: account.installment_amount,
+      principalBalance: account.principal_balance,
+      expectedInterestAmount: account.expected_interest_amount,
+      openedAt: account.opened_at,
+      maturesAt: account.matures_at,
+      stateVersion: account.state_version
+    }))
   } satisfies DepositAndSavingsResponse;
 }
 

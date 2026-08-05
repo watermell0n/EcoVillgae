@@ -151,7 +151,7 @@ public class SavingsSubscriptionService {
     private List<SavingsInstallment> schedule(SavingsAccount account, UUID classroomId, long amount, int count, Instant now, Instant maturesAt, UUID groupId) {
         List<SavingsInstallment> result = new ArrayList<>();
         result.add(SavingsInstallment.paid(uuidGenerator.generate(), classroomId, account.getId(), amount, now, groupId));
-        long spacingSeconds = Math.max(86_400L, Duration.between(now, maturesAt).getSeconds() / (count - 1L));
+        long spacingSeconds = Math.max(86_400L, Duration.between(now, maturesAt).getSeconds() / count);
         for (int number = 2; number <= count; number += 1) {
             Instant dueAt = now.plusSeconds(spacingSeconds * (number - 1L));
             result.add(SavingsInstallment.scheduled(uuidGenerator.generate(), classroomId, account.getId(), number, amount,

@@ -39,11 +39,11 @@
           },
           {
             "name": "attendance_number",
-            "required": false,
+            "required": true,
             "type": "integer",
             "target": "classroom_students.roster_number",
-            "transform": "선택값이 없으면 학급 정원 범위의 빈 출석번호를 자동 할당",
-            "nullable": true,
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
             "visibility": "role-scoped"
           },
           {
@@ -842,27 +842,27 @@
           {
             "name": "display_name",
             "required": false,
-            "type": "string",
-            "target": "classrooms.display_name",
-            "transform": "Persist the teacher-facing classroom name",
+            "type": "string|null",
+            "target": "service_input.display_name",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
           {
             "name": "class_number",
             "required": false,
-            "type": "integer",
-            "target": "classrooms.class_number",
-            "transform": "Persist the optional class number",
+            "type": "integer|null",
+            "target": "service_input.class_number",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
           {
             "name": "description",
             "required": false,
-            "type": "string",
-            "target": "classrooms.description",
-            "transform": "Persist the optional classroom description",
+            "type": "string|null",
+            "target": "service_input.description",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -1064,6 +1064,33 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "display_name",
+            "required": false,
+            "type": "string|null",
+            "target": "service_input.display_name",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "class_number",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.class_number",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "description",
+            "required": false,
+            "type": "string|null",
+            "target": "service_input.description",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "grade",
             "required": true,
             "type": "integer",
@@ -1141,33 +1168,6 @@
             "type": "string",
             "target": "classrooms.currency_name",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "display_name",
-            "required": false,
-            "type": "string",
-            "target": "classrooms.display_name",
-            "transform": "Update the teacher-facing classroom name",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "class_number",
-            "required": false,
-            "type": "integer",
-            "target": "classrooms.class_number",
-            "transform": "Update the optional class number",
-            "nullable": true,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "description",
-            "required": false,
-            "type": "string",
-            "target": "classrooms.description",
-            "transform": "Update the optional classroom description",
             "nullable": true,
             "visibility": "role-scoped"
           }
@@ -2034,7 +2034,7 @@
           {
             "name": "module_code",
             "required": true,
-            "type": "#/components/schemas/ModuleCode",
+            "type": "string",
             "target": "projection.module_code",
             "transform": "classroom_modules, state_transitions에서 검증·조합하는 response 필드",
             "nullable": false,
@@ -4945,8 +4945,8 @@
             "name": "expected_product_version",
             "required": true,
             "type": "integer",
-            "target": "service_validation.product_version",
-            "transform": "Rejects stale savings product terms before the first installment is posted",
+            "target": "service_input.expected_product_version",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           }
@@ -5691,7 +5691,7 @@
       "api_id": "API-FIN-010",
       "method": "PUT",
       "path": "/classrooms/{classroom_id}/loan-policy",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "financial_products",
         "financial_product_versions",
@@ -5703,7 +5703,7 @@
         "transaction_groups"
       ],
       "request": {
-        "mode": "planned",
+        "mode": "strict",
         "schema_source": "explicit",
         "fields": [
           {
@@ -5743,89 +5743,170 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "max_amount",
+            "name": "maximum_principal",
             "required": true,
             "type": "integer",
-            "target": "service_input.max_amount",
+            "target": "service_input.maximum_principal",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "base_rate_bps",
+            "name": "interest_rate_bps",
             "required": true,
             "type": "integer",
-            "target": "service_input.base_rate_bps",
+            "target": "service_input.interest_rate_bps",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "installment_options",
-            "required": true,
-            "type": "array",
-            "target": "service_input.installment_options",
-            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "grace_period_days",
+            "name": "term_units",
             "required": true,
             "type": "integer",
-            "target": "service_input.grace_period_days",
+            "target": "service_input.term_units",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "credit_adjustment_rules",
+            "name": "installment_count",
             "required": true,
-            "type": "object",
-            "target": "service_input.credit_adjustment_rules",
+            "type": "integer",
+            "target": "service_input.installment_count",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "grace_units",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.grace_units",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "on_time_credit",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.on_time_credit",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "overdue_credit",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.overdue_credit",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "repaid_credit",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.repaid_credit",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
             "name": "expected_policy_version",
-            "required": true,
+            "required": false,
             "type": "integer",
             "target": "service_validation.policy_version",
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "financial_resource_id",
+            "name": "version",
             "required": true,
-            "type": "string",
-            "target": "projection.financial_resource_id",
-            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "status",
-            "required": true,
-            "type": "string",
-            "target": "projection.status",
-            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "state_version",
-            "required": false,
             "type": "integer",
-            "target": "projection.state_version",
+            "target": "projection.version",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "maximum_principal",
+            "required": true,
+            "type": "integer",
+            "target": "projection.maximum_principal",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "interest_rate_bps",
+            "required": true,
+            "type": "integer",
+            "target": "projection.interest_rate_bps",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "term_units",
+            "required": true,
+            "type": "integer",
+            "target": "projection.term_units",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "installment_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.installment_count",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "grace_units",
+            "required": true,
+            "type": "integer",
+            "target": "projection.grace_units",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "on_time_credit",
+            "required": true,
+            "type": "integer",
+            "target": "projection.on_time_credit",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "overdue_credit",
+            "required": true,
+            "type": "integer",
+            "target": "projection.overdue_credit",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "repaid_credit",
+            "required": true,
+            "type": "integer",
+            "target": "projection.repaid_credit",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -5835,7 +5916,7 @@
       "api_id": "API-FIN-011",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/loan-application-commands",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "financial_products",
         "financial_product_versions",
@@ -5847,8 +5928,8 @@
         "transaction_groups"
       ],
       "request": {
-        "mode": "planned",
-        "schema_source": "inferred-planned",
+        "mode": "strict",
+        "schema_source": "explicit",
         "fields": [
           {
             "name": "expected_state_version",
@@ -5898,7 +5979,7 @@
           {
             "name": "application_id",
             "required": false,
-            "type": "string",
+            "type": "string|null",
             "target": "service_input.application_id",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": true,
@@ -5907,7 +5988,7 @@
           {
             "name": "amount",
             "required": false,
-            "type": "integer",
+            "type": "integer|null",
             "target": "service_input.amount",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": true,
@@ -5916,7 +5997,7 @@
           {
             "name": "installments",
             "required": false,
-            "type": "integer",
+            "type": "integer|null",
             "target": "service_input.installments",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": true,
@@ -5925,13 +6006,67 @@
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "financial_resource_id",
+            "name": "application_id",
             "required": true,
             "type": "string",
-            "target": "projection.financial_resource_id",
+            "target": "projection.application_id",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "student_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.student_id",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "student_nickname",
+            "required": true,
+            "type": "string",
+            "target": "projection.student_nickname",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "requested_amount",
+            "required": true,
+            "type": "integer",
+            "target": "projection.requested_amount",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "approved_amount",
+            "required": false,
+            "type": "integer|null",
+            "target": "projection.approved_amount",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "credit_score",
+            "required": true,
+            "type": "integer",
+            "target": "projection.credit_score",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "credit_level",
+            "required": true,
+            "type": "string",
+            "target": "projection.credit_level",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
@@ -5946,12 +6081,12 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "state_version",
-            "required": false,
-            "type": "integer",
-            "target": "projection.state_version",
+            "name": "created_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.created_at",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -5961,7 +6096,7 @@
       "api_id": "API-FIN-012",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/loan-applications/{resource_id}/teacher-decisions",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "financial_products",
         "financial_product_versions",
@@ -5973,8 +6108,8 @@
         "transaction_groups"
       ],
       "request": {
-        "mode": "planned",
-        "schema_source": "inferred-planned",
+        "mode": "strict",
+        "schema_source": "explicit",
         "fields": [
           {
             "name": "expected_state_version",
@@ -6022,24 +6157,87 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "approved_amount",
+            "required": false,
+            "type": "integer|null",
+            "target": "service_input.approved_amount",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "reason",
-            "required": true,
-            "type": "string",
+            "required": false,
+            "type": "string|null",
             "target": "service_input.reason",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
-            "nullable": false,
+            "nullable": true,
             "visibility": "role-scoped"
           }
         ]
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "financial_resource_id",
+            "name": "application_id",
             "required": true,
             "type": "string",
-            "target": "projection.financial_resource_id",
+            "target": "projection.application_id",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "student_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.student_id",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "student_nickname",
+            "required": true,
+            "type": "string",
+            "target": "projection.student_nickname",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "requested_amount",
+            "required": true,
+            "type": "integer",
+            "target": "projection.requested_amount",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "approved_amount",
+            "required": false,
+            "type": "integer|null",
+            "target": "projection.approved_amount",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "credit_score",
+            "required": true,
+            "type": "integer",
+            "target": "projection.credit_score",
+            "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "credit_level",
+            "required": true,
+            "type": "string",
+            "target": "projection.credit_level",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
@@ -6054,12 +6252,12 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "state_version",
-            "required": false,
-            "type": "integer",
-            "target": "projection.state_version",
+            "name": "created_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.created_at",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 response 필드",
-            "nullable": true,
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -9571,19 +9769,19 @@
           },
           {
             "name": "display_name",
-            "required": true,
-            "type": "string",
-            "target": "classrooms.display_name",
-            "transform": "Restore the saved teacher-facing classroom name",
-            "nullable": false,
+            "required": false,
+            "type": "string|null",
+            "target": "projection.display_name",
+            "transform": "classrooms, classroom_modules, autonomous_schedules, autonomous_schedule_modules, classroom_policy_versions에서 검증·조합하는 response 필드",
+            "nullable": true,
             "visibility": "role-scoped"
           },
           {
             "name": "class_number",
             "required": false,
             "type": "integer|null",
-            "target": "classrooms.class_number",
-            "transform": "Restore the saved optional class number",
+            "target": "projection.class_number",
+            "transform": "classrooms, classroom_modules, autonomous_schedules, autonomous_schedule_modules, classroom_policy_versions에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -9591,8 +9789,8 @@
             "name": "description",
             "required": false,
             "type": "string|null",
-            "target": "classrooms.description",
-            "transform": "Restore the saved optional classroom description",
+            "target": "projection.description",
+            "transform": "classrooms, classroom_modules, autonomous_schedules, autonomous_schedule_modules, classroom_policy_versions에서 검증·조합하는 response 필드",
             "nullable": true,
             "visibility": "role-scoped"
           },
@@ -9628,7 +9826,7 @@
             "required": true,
             "type": "integer",
             "target": "classrooms.planned_student_count",
-            "transform": "저장된 학급 정원을 설정 화면에 복원",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
             "nullable": false,
             "visibility": "role-scoped"
           },
@@ -10275,7 +10473,7 @@
       "api_id": "API-READ-018",
       "method": "GET",
       "path": "/classrooms/{classroom_id}/students/me/loans-and-credit",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "service_projection"
       ],
@@ -10285,33 +10483,96 @@
         "fields": []
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "resource_id",
+            "name": "credit_score",
             "required": true,
-            "type": "string",
-            "target": "projection.resource_id",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "status",
-            "required": true,
-            "type": "string",
-            "target": "projection.status",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
-            "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "state_version",
-            "required": false,
             "type": "integer",
-            "target": "projection.state_version",
+            "target": "projection.credit_score",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "credit_level",
+            "required": true,
+            "type": "string",
+            "target": "projection.credit_level",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "available_limit",
+            "required": true,
+            "type": "integer",
+            "target": "projection.available_limit",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "interest_rate_bps",
+            "required": true,
+            "type": "integer",
+            "target": "projection.interest_rate_bps",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "term_units",
+            "required": true,
+            "type": "integer",
+            "target": "projection.term_units",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "installment_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.installment_count",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "can_apply",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.can_apply",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "pending_application_id",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.pending_application_id",
             "transform": "service_projection에서 검증·조합하는 response 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "pending_application_status",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.pending_application_status",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "loans",
+            "required": true,
+            "type": "array",
+            "target": "projection.loans",
+            "transform": "service_projection에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -10321,7 +10582,7 @@
       "api_id": "API-READ-019",
       "method": "GET",
       "path": "/classrooms/{classroom_id}/loan-approval-queue",
-      "implementation_status": "planned",
+      "implementation_status": "mvp-contract",
       "storage_targets": [
         "service_projection"
       ],
@@ -10331,33 +10592,24 @@
         "fields": []
       },
       "response": {
-        "mode": "planned",
+        "mode": "strict",
         "fields": [
           {
-            "name": "resource_id",
+            "name": "policy",
             "required": true,
-            "type": "string",
-            "target": "projection.resource_id",
+            "type": "object",
+            "target": "projection.policy",
             "transform": "service_projection에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"
           },
           {
-            "name": "status",
+            "name": "applications",
             "required": true,
-            "type": "string",
-            "target": "projection.status",
+            "type": "array",
+            "target": "projection.applications",
             "transform": "service_projection에서 검증·조합하는 response 필드",
             "nullable": false,
-            "visibility": "role-scoped"
-          },
-          {
-            "name": "state_version",
-            "required": false,
-            "type": "integer",
-            "target": "projection.state_version",
-            "transform": "service_projection에서 검증·조합하는 response 필드",
-            "nullable": true,
             "visibility": "role-scoped"
           }
         ]

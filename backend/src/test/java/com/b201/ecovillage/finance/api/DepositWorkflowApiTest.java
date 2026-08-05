@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.security.Principal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
@@ -83,11 +85,20 @@ class DepositWorkflowApiTest {
         owner = () -> "deposit-owner-" + classroomId;
         student = () -> studentId.toString();
 
-        classroomRepository.save(Classroom.active(
+        Classroom classroom = Classroom.active(
             classroomId,
             randomClassroomCode(),
             CREATED_AT
-        ));
+        );
+        classroom.updateCourseConfiguration(
+            4,
+            CourseSize.SEMESTER,
+            LocalDate.of(2026, 8, 3),
+            LocalDate.of(2027, 2, 2),
+            null,
+            CREATED_AT
+        );
+        classroomRepository.save(classroom);
         studentRepository.save(ClassroomStudent.enroll(
             studentId,
             classroomId,
@@ -306,7 +317,7 @@ class DepositWorkflowApiTest {
         body.put("command", "CREATE");
         body.put("product_type", "SAVINGS");
         body.put("name", "Daily savings");
-        body.put("term_units", 5);
+        body.put("term_units", 35);
         body.put("interest_rate_bps", 500);
         body.put("early_termination_rate_bps", 100);
         body.put("installment_count", 5);

@@ -327,7 +327,7 @@ HTTP 성공 응답과 WebSocket 성공 이벤트가 서로 다른 상태를 가�
 - 세션 지원 API: 4개
 - 조회 API: 34개
 - 기계 판독 계약: [OpenAPI 3.1](../contracts/openapi.yaml) 109개 작업
-- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 78개 strict·후속 31개 planned
+- 필드 정합성: [API·스키마 필드 정합성 검토](reviews/API_SCHEMA_FIELD_AUDIT.md) 기준을 확장하여 MVP·지원 89개 strict·후속 21개 planned
 - 아직 남은 항목: 서비스·E2E 인수 테스트 ID
 
 ## 15. 다음 작업
