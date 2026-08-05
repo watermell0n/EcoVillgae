@@ -48,6 +48,8 @@ const expectedMigrations = [
   "V1_19__canonical_module_catalog.sql",
   "V1_20__investment_modes_and_historical_reference.sql",
   "V1_21__classroom_display_settings.sql",
+  "V1_22__property_and_subscription.sql",
+  "V1_23__pending_module_configuration.sql",
 ];
 
 function unique(values) {
@@ -112,8 +114,8 @@ for (const table of difference(implementedTables, documentedTables)) {
 for (const table of duplicates(implementedTables)) {
   errors.push(`table is created more than once: ${table}`);
 }
-if (implementedTables.length !== 88) {
-  errors.push(`expected 88 tables, found ${implementedTables.length}`);
+if (implementedTables.length !== 99) {
+  errors.push(`expected 99 tables, found ${implementedTables.length}`);
 }
 
 const documentedIndexes = [

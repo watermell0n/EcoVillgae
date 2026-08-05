@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -124,16 +125,10 @@ public class ClassroomCreationService {
                 now
             )
         );
-        classroomModuleRepository.saveAll(
-            validated.moduleCodes().stream()
-                .map(code -> ClassroomModule.disabled(
-                    uuidGenerator.generate(),
-                    classroomId,
-                    code,
-                    now
-                ))
-                .toList()
-        );
+        List<ClassroomModule> modules = validated.moduleCodes().stream()
+            .map(code -> createRequestedModule(classroomId, code, now))
+            .toList();
+        classroomModuleRepository.saveAll(modules);
         saveSchedules(
             classroomId,
             command.timeZone(),
@@ -150,6 +145,21 @@ public class ClassroomCreationService {
             classroom.getStatus().name(),
             classroom.getStateVersion()
         );
+    }
+
+    private ClassroomModule createRequestedModule(UUID classroomId, String code, Instant now) {
+        ModuleCatalog.Definition definition = ModuleCatalog.require(code);
+        // Investment has no rate policy, but the teacher must choose its operating mode
+        // before students can use it. Treat that choice exactly like an initial policy.
+        boolean requiresInitialConfiguration = definition.initialPolicyRequired()
+            || "INVESTMENT".equals(definition.code());
+        ClassroomModule module = requiresInitialConfiguration
+            ? ClassroomModule.pendingConfiguration(uuidGenerator.generate(), classroomId, code, now)
+            : ClassroomModule.disabled(uuidGenerator.generate(), classroomId, code, now);
+        if (!requiresInitialConfiguration && definition.prerequisites().isEmpty()) {
+            module.activate(Map.of("activation_source", "CLASSROOM_CREATION"), now);
+        }
+        return module;
     }
 
     private ValidatedCreation validate(CreateClassroomCommand command) {

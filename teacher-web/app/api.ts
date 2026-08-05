@@ -400,6 +400,8 @@ export type QuizQuestion = {
   label: string;
   status: "DRAFT" | "REVIEW_REQUIRED" | "APPROVED" | "PUBLISHED" | "RETIRED";
   version: number;
+  // 퀴즈 세션 시작은 문항이 아니라 문항 버전 id로 문항을 지정합니다.
+  question_version_id: string;
   state_version: number;
   content_type: "ECONOMY" | "NONSENSE";
   question_type: "MULTIPLE_CHOICE" | "OX";
@@ -414,6 +416,12 @@ export type QuizQuestion = {
     correct: boolean;
     sort_order: number;
   }>;
+};
+
+export type QuizSessionCommandResponse = {
+  quiz_resource_id: string;
+  status: string;
+  state_version: number;
 };
 
 export type ModuleActivationResponse = {
@@ -600,6 +608,8 @@ export function periodToCourseSize(period: string): CourseSize {
   return "ONE_WEEK";
 }
 
+export type CandidateUnit = SetupCandidate["unit"];
+
 export function courseSizeToPeriod(courseSize: CourseSize): string {
   if (courseSize === "ONE_SESSION") return "1회 체험";
   if (courseSize === "ONE_MONTH") return "1달 운영";
@@ -607,6 +617,34 @@ export function courseSizeToPeriod(courseSize: CourseSize): string {
   return "1주 프로젝트";
 }
 
-export function valueForDisplay(value: number, unit: SetupCandidate["unit"]) {
+export function valueForDisplay(value: number, unit: CandidateUnit) {
   return unit === "RATE_BPS" ? `${(value / 100).toFixed(2)}%` : value.toLocaleString("ko-KR");
+}
+
+// 서버는 금리·세율을 정수 bps로 주고받습니다(100 bps = 1%).
+// 교사에게는 %로 보여주고 입력받되, 전송 직전에 다시 bps로 바꿉니다.
+export function valueToInputText(value: number, unit: CandidateUnit) {
+  return unit === "RATE_BPS" ? String(value / 100) : String(value);
+}
+
+// 입력칸의 글자를 서버가 받는 정수 값으로 바꿉니다. 보낼 수 없는 입력은 null입니다.
+export function inputTextToValue(text: string, unit: CandidateUnit): number | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  if (unit !== "RATE_BPS") return Number.isInteger(parsed) ? parsed : null;
+  const bps = Math.round(parsed * 100);
+  // 0.01%(1 bps)보다 잘게 입력하면 화면의 값과 실제 적용값이 달라지므로 거절합니다.
+  return Math.abs(parsed * 100 - bps) < 1e-6 ? bps : null;
+}
+
+export function unitSuffix(unit: CandidateUnit) {
+  return unit === "RATE_BPS" ? "%" : "";
+}
+
+// %로 입력받는 칸 아래에 실제 전송값을 함께 알려 줍니다.
+export function unitHint(value: number | null, unit: CandidateUnit) {
+  if (unit !== "RATE_BPS" || value === null) return "";
+  return `서버에 저장되는 값 ${value.toLocaleString("ko-KR")} bps`;
 }

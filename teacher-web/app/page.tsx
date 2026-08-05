@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Landmark,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   MonitorPlay,
   School,
@@ -31,14 +32,21 @@ import {
   getTeacherBootstrap,
   hasTeacherAccessToken,
   logoutTeacher,
+  MODULE_DEFINITIONS,
+  periodToCourseSize,
   registerTeacher,
-  restoreTeacherSession
+  restoreTeacherSession,
+  SetupPrecheckResponse
 } from "./api";
 import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
+import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
+import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
+import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import type { AiModuleRow, AiPolicyVersionRow } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
 
-type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "control" | "approvals" | "ai";
+type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "quiz" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "complete";
 type LogTone = "success" | "warning" | "error";
@@ -194,6 +202,7 @@ const views = [
   { key: "roster" as const, label: "학생·급여", icon: Users },
   { key: "shop" as const, label: "상점 상품", icon: ShoppingBag },
   { key: "finance" as const, label: "운영 관리", icon: Landmark },
+  { key: "quiz" as const, label: "퀴즈 문제은행", icon: ListChecks },
   { key: "control" as const, label: "수업 준비", icon: MonitorPlay },
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
@@ -432,6 +441,8 @@ export default function TeacherConsole() {
   const [classroomStateVersion, setClassroomStateVersion] = useState(0);
   const [coursePolicyVersion, setCoursePolicyVersion] = useState(0);
   const [salaryPolicyVersion, setSalaryPolicyVersion] = useState(0);
+  // 상점 상품 AI 가격 추천이 expected_policy_version으로 되돌려 보낼 정책 버전 목록입니다.
+  const [policyVersions, setPolicyVersions] = useState<AiPolicyVersionRow[]>([]);
   const [realtimeRevision, setRealtimeRevision] = useState(0);
   const [teacherRoles, setTeacherRoles] = useState<string[]>([]);
   const [authBusy, setAuthBusy] = useState(true);
@@ -513,6 +524,13 @@ export default function TeacherConsole() {
   function addLog(message: string, tone: LogTone = "success") {
     setLogs((items) => [{ id: crypto.randomUUID(), tone, message }, ...items].slice(0, 6));
   }
+
+  // 진행 중인 퀴즈 세션 id입니다. 학생 앱도 같은 위치(활성 퀴즈 모듈 config)를 읽습니다.
+  const activeQuizSessionId = ["QUIZ_GAME", "QUIZ_TEST"].flatMap((code) => {
+    const config = modules.find((module) => module.code === code && module.status === "열림")?.config;
+    const value = config?.active_quiz_session_id ?? config?.quiz_session_id;
+    return typeof value === "string" && value.trim() ? [value] : [];
+  })[0];
 
   function enterClassrooms(bootstrap: Awaited<ReturnType<typeof getTeacherBootstrap>>) {
     setClassrooms(bootstrap.classrooms);
@@ -671,7 +689,10 @@ export default function TeacherConsole() {
                   ?? "이름 없는 모듈"];
           return names.map((name) => ({
             name,
-            status: module.status === "ACTIVE" ? "열림" : "닫힘",
+            // 설정만 남은 모듈은 학생에게 닫혀 있지만 교사에게는 구분해서 보여준다.
+            status: module.status === "ACTIVE"
+              ? "열림"
+              : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
             studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
             teacherTodo: "",
             resourceId: module.resource_id,
@@ -684,6 +705,7 @@ export default function TeacherConsole() {
       } else {
         setModules([]);
       }
+      setPolicyVersions(modulesState.policy_versions ?? []);
       const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
       const nextAiSettings: AiSettingsSnapshot = {
         enabled: aiPolicy?.values?.enabled !== false,
@@ -913,6 +935,10 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               stateVersion={activeStateVersion}
               policyVersion={Number(modules.find((module) => module.code === "STORE")?.config?.policy_version ?? 0)}
+              policyVersions={policyVersions}
+              activeStudentCount={students.length}
+              effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
+              onReload={() => openClassroom(activeClassroomId)}
               onStateVersionChange={setActiveStateVersion}
             />
           )}
@@ -924,6 +950,16 @@ export default function TeacherConsole() {
               currencyName={settings.currency}
               savingsAvailable={settings.period === "1학기 운영"}
               addLog={addLog}
+            />
+          )}
+          {view === "quiz" && (
+            <QuizDraftWorkspace
+              classroomId={activeClassroomId}
+              initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
+              aiEnabled={aiSettings.enabled}
+              students={students}
+              activeQuizSessionId={activeQuizSessionId}
+              onReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "control" && (
@@ -953,23 +989,18 @@ export default function TeacherConsole() {
               initialReason={aiSettings.reason}
               initialPolicyVersion={aiSettings.version}
               canManage={teacherRoles.includes("OWN")}
-              products={products}
               modules={modules}
               policyVersions={[]}
               startDate={settings.startDate}
               activeStudentCount={students.length}
               effectiveTaxBps={Math.round(Number(settings.incomeTax || 0) * 100)}
               quizSessionId={String(
-                modules.find((module) => module.code === "QUIZ_GAME")?.config?.active_quiz_session_id
-                ?? modules.find((module) => module.code === "QUIZ_GAME")?.config?.quiz_session_id
+                activeQuizSessionId
                 ?? ""
               )}
               onStateVersionChange={setActiveStateVersion}
               onSettingsChanged={setAiSettings}
               onReload={() => openClassroom(activeClassroomId)}
-              onProductPriceApplied={(productId, nextPrice) => setProducts((items) => items.map((item) => (
-                item.resourceId === productId ? { ...item, price: String(nextPrice) } : item
-              )))}
             />
           )}
         </div>
@@ -1192,11 +1223,17 @@ function CreateClassroomFlow({
   onCancel: () => void;
   onSaveDraft: () => void;
   onLogout: () => void;
-  onCreated: (classroom: CreateClassroomResponse) => void;
+  onCreated: (classroom: CreateClassroomResponse, precheck?: SetupPrecheckResponse) => void;
   onDone: (view: ViewKey) => void;
 }>) {
   const [focusedModule, setFocusedModule] = useState("단기 투자");
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [creationError, setCreationError] = useState("");
+  const [createdClassroom, setCreatedClassroom] = useState<CreateClassroomResponse | null>(null);
+  const [setupPrecheck, setSetupPrecheck] = useState<SetupPrecheckResponse | null>(null);
+  const [activationModules, setActivationModules] = useState<AiModuleRow[]>([]);
+  const [activationPolicyVersions, setActivationPolicyVersions] = useState<AiPolicyVersionRow[]>([]);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => new Set(
     selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status === "열림"))
   ));
@@ -1268,40 +1305,132 @@ function CreateClassroomFlow({
     }));
   }
 
-  function createClassroom() {
+  async function requestClassroomSetupPrecheck(classroomId: string) {
+    return apiRequest<SetupPrecheckResponse>(
+      `/classrooms/${classroomId}/ai/balancing-analysis-operations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          analysis_mode: "SETUP_PRECHECK",
+          trigger_context: {
+            context_type: "CLASSROOM_SETUP",
+            active_student_count: Math.max(Number(settings.studentCount) || 1, 1),
+            system_amount_cap: 1_000_000,
+            non_reward_issuance: 0,
+            existing_reward_issuance: 0,
+            expected_recovery: 0,
+            other_periodic_issuance_per_student: 0,
+            effective_tax_bps: Math.max(Math.round(Number(settings.incomeTax || 0) * 100), 0)
+          },
+          metric_scopes: []
+        })
+      }
+    );
+  }
+
+  async function loadActivationState(classroomId: string) {
+    const serverState = await getClassroomServerState(classroomId);
+    const modulesAndPolicies = (serverState.modulesAndPolicies ?? {}) as {
+      modules?: Array<{
+        resource_id?: string;
+        label?: string;
+        module_code?: string;
+        status?: string;
+        state_version?: number;
+        config?: Record<string, unknown>;
+      }>;
+      policy_versions?: AiPolicyVersionRow[];
+    };
+    setActivationModules((modulesAndPolicies.modules ?? []).map((module) => ({
+      name: module.label ?? module.module_code ?? "이름 없는 모듈",
+      status: module.status === "ACTIVE" ? "열림" : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
+      code: module.module_code,
+      resourceId: module.resource_id,
+      stateVersion: module.state_version,
+      config: module.config
+    })));
+    setActivationPolicyVersions(modulesAndPolicies.policy_versions ?? []);
+  }
+
+  async function createClassroom() {
+    const studentCount = Number(settings.studentCount);
     if (!schoolId) {
+      setCreationError("소속 학교 정보를 확인하지 못했어요. 다시 로그인해 주세요.");
       return;
     }
-    runAction(
-      "경제교실 개설",
-      "/classrooms",
-      {
+    if (!Number.isInteger(studentCount) || studentCount < 1) {
+      setCreationError("예상 학생 수는 1명 이상으로 입력해 주세요.");
+      return;
+    }
+    const supportedCodes = new Set<string>(MODULE_DEFINITIONS.map((module) => module.code));
+    const moduleCodes = modules
+      .filter((module) => module.status === "열림")
+      .map((module) => moduleCodeByName[module.name])
+      .filter((code): code is string => code !== undefined && supportedCodes.has(code));
+
+    setSubmitting(true);
+    setCreationError("");
+    try {
+      const classroom = await apiRequest<CreateClassroomResponse>("/classrooms", {
         method: "POST",
         body: JSON.stringify({
           expected_state_version: 0,
           screen_id: "SCR-WEB-003",
-          ui_action_id: "UIA-WEB-003",
+          ui_action_id: "UIA-CLS-001",
           client_occurred_at: new Date().toISOString(),
           school_id: schoolId,
+          // develop이 추가한 학급 표시 정보다.
           display_name: settings.className,
           class_number: Number(settings.classNumber),
           description: settings.description,
-          grade: Number(settings.grade),
           currency_name: settings.currency,
-          course_size: courseSizeFor(settings.period),
+          grade: Number(settings.grade),
+          course_size: periodToCourseSize(settings.period),
           starts_on: settings.startDate,
           ends_on: settings.endDate,
-          student_count: Math.max(1, Number(settings.studentCount) || 1),
+          student_count: studentCount,
           timezone: "Asia/Seoul",
-          module_codes: selectedModuleCodes(selectedModules)
+          salary_policy: null,
+          module_codes: moduleCodes,
+          autonomous_schedules: []
         })
-      },
-      (result) => {
-        onCreated(result as CreateClassroomResponse);
-        setShowConfirmation(false);
-        setStep("complete");
+      });
+      setCreatedClassroom(classroom);
+      setSettings((current) => ({ ...current, classCode: classroom.classroom_code }));
+      setShowConfirmation(false);
+      setStep("complete");
+      onCreated(classroom);
+      try {
+        const [precheck] = await Promise.all([
+          requestClassroomSetupPrecheck(classroom.classroom_id),
+          loadActivationState(classroom.classroom_id)
+        ]);
+        setSetupPrecheck(precheck);
+        onCreated(classroom, precheck);
+      } catch (error) {
+        setCreationError(`교실은 만들어졌지만 시작 전 점검을 완료하지 못했어요. ${error instanceof Error ? error.message : ""}`);
       }
-    );
+    } catch (error) {
+      const code = error instanceof ApiError ? ` (${error.code})` : "";
+      setCreationError(`경제교실을 개설하지 못했어요${code}. ${error instanceof Error ? error.message : ""}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function retryClassroomSetupPrecheck() {
+    if (!createdClassroom) return;
+    setSubmitting(true);
+    setCreationError("");
+    try {
+      const precheck = await requestClassroomSetupPrecheck(createdClassroom.classroom_id);
+      setSetupPrecheck(precheck);
+      onCreated(createdClassroom, precheck);
+    } catch (error) {
+      setCreationError(`시작 전 점검을 완료하지 못했어요. ${error instanceof Error ? error.message : ""}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -1431,6 +1560,29 @@ function CreateClassroomFlow({
           <span>완료</span>
           <h1>경제교실이 열렸어요</h1>
           <p>입장 코드 {settings.classCode}로 학생들이 접속할 수 있어요.</p>
+          {setupPrecheck ? <SetupPrecheckSummary result={setupPrecheck} /> : null}
+          {!setupPrecheck ? (
+            <div className="inline-notice" role="alert">
+              <span>{creationError || "학생 이용을 열기 전에 시작 전 점검이 필요해요."}</span>
+              <button type="button" disabled={submitting || !createdClassroom} onClick={() => void retryClassroomSetupPrecheck()}>
+                {submitting ? "점검 중" : "다시 점검"}
+              </button>
+            </div>
+          ) : null}
+          {createdClassroom && activationModules.length > 0 ? (
+            <ModuleActivationPanel
+              classroomId={createdClassroom.classroom_id}
+              modules={activationModules}
+              policyVersions={activationPolicyVersions}
+              activeStudentCount={Math.max(Number(settings.studentCount) || 1, 1)}
+              startDate={settings.startDate}
+              canManage
+              onReload={() => loadActivationState(createdClassroom.classroom_id)}
+              onStateVersionChange={(stateVersion) => {
+                setCreatedClassroom((current) => current ? { ...current, state_version: stateVersion } : current);
+              }}
+            />
+          ) : null}
           <div className="next-task-list">
             <button type="button" onClick={() => onDone("roster")}>학생 명단 등록하기</button>
             <button type="button" onClick={() => onDone("control")}>수업 준비하기</button>
@@ -2052,7 +2204,7 @@ function Roster({
   settings: ClassSettings;
   students: StudentRow[];
   setStudents: React.Dispatch<React.SetStateAction<StudentRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: (label: string, path: string, init: RequestInit, onSuccess: (result: unknown) => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
   hasSalaryModule: boolean;
@@ -2450,6 +2602,10 @@ function ShopAdmin({
   classroomId,
   stateVersion,
   policyVersion,
+  policyVersions,
+  activeStudentCount,
+  effectiveTaxBps,
+  onReload,
   onStateVersionChange
 }: Readonly<{
   currencyName: string;
@@ -2459,6 +2615,10 @@ function ShopAdmin({
   classroomId: string;
   stateVersion: number;
   policyVersion: number;
+  policyVersions: readonly AiPolicyVersionRow[];
+  activeStudentCount: number;
+  effectiveTaxBps: number;
+  onReload: () => Promise<void>;
   onStateVersionChange: (version: number) => void;
 }>) {
   const [preview, setPreview] = useState("");
@@ -2644,6 +2804,20 @@ function ShopAdmin({
           })}
         </div>
       </PlainSection>
+      {/* 가격 추천은 상품을 등록·관리하는 이 자리에서 바로 받습니다. */}
+      <DraftRecommendationPanel
+        kind="product"
+        classroomId={classroomId}
+        products={products}
+        policyVersions={policyVersions}
+        activeStudentCount={activeStudentCount}
+        effectiveTaxBps={effectiveTaxBps}
+        onReload={onReload}
+        onStateVersionChange={onStateVersionChange}
+        onProductPriceApplied={(productId, nextPrice) => setProducts((items) => items.map((item) => (
+          item.resourceId === productId ? { ...item, price: String(nextPrice) } : item
+        )))}
+      />
     </div>
   );
 }

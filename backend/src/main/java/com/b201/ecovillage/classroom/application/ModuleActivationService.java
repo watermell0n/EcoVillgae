@@ -150,11 +150,11 @@ public class ModuleActivationService {
                 "RESOURCE_NOT_FOUND",
                 "The selected module could not be found in this classroom."
             ));
-        if (!"DISABLED".equals(module.getStatus())) {
+        if (!Set.of("DISABLED", "PENDING_CONFIGURATION").contains(module.getStatus())) {
             throw operation(
                 HttpStatus.CONFLICT,
                 "INVALID_STATE_TRANSITION",
-                "Only a disabled module can be activated."
+                "Only a disabled or pending module can be activated."
             );
         }
         if (command.expectedStateVersion() != module.getStateVersion()) {

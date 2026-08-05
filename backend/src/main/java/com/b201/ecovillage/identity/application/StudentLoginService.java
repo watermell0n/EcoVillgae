@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -62,7 +63,7 @@ public class StudentLoginService {
         DeviceLinkRepository deviceLinkRepository,
         StudentSessionRepository studentSessionRepository,
         LedgerAccountRepository ledgerAccountRepository,
-        PasswordEncoder passwordEncoder,
+        @Qualifier("studentPasswordEncoder") PasswordEncoder passwordEncoder,
         StudentTokenIssuer tokenIssuer,
         IdentitySecretHasher secretHasher,
         StudentLoginRateLimiter rateLimiter,

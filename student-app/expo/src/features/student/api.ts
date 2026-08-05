@@ -57,10 +57,14 @@ export type FinancialProduct = {
   installmentAmount?: number;
 };
 
+// 서버(FinancialProduct)의 상태값은 DRAFT / PUBLISHED / STOPPED 입니다.
+// 학생이 가입할 수 있는 상품은 PUBLISHED 하나뿐이므로 목 데이터도 같은 값을 씁니다.
+export const SUBSCRIBABLE_PRODUCT_STATUS = "PUBLISHED";
+
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
-    { resourceId: "mock-deposit-product", label: "3일 예금", status: "ACTIVE", version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
-    { resourceId: "mock-savings-product", label: "매일 적금", status: "ACTIVE", version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
+    { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000 },
+    { resourceId: "mock-savings-product", label: "매일 적금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "SAVINGS", interestRateBps: 1500, installmentCount: 5, installmentAmount: 20 }
   ];
 
   const response = await apiRequest<{

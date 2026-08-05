@@ -11,14 +11,19 @@ import { AlertTriangle, Check } from "lucide-react";
 import {
   ApiError,
   apiRequest,
+  inputTextToValue,
   MODULE_PREREQUISITES,
+  unitHint,
+  unitSuffix,
   valueForDisplay,
+  valueToInputText,
   type AiProposalCommandResponse,
   type ModuleActivationResponse,
   type ModuleCode,
   type SetupPrecheckResponse
 } from "../api";
 import {
+  appliedPolicyValues,
   modulePolicyArea,
   policyVersionOf,
   type AiModuleRow,
@@ -79,10 +84,20 @@ export function ModuleActivationPanel({
     ));
   }
 
+  // 입력칸의 글자는 금리·세율이면 %입니다. 허용 구간 검사는 서버와 같은 bps로 환산해서 합니다.
+  function candidateValue(
+    candidate: SetupPrecheckResponse["candidates"][number],
+    values: Record<string, string>
+  ) {
+    return inputTextToValue(values[candidate.action_id] ?? "", candidate.unit);
+  }
+
   function invalidCandidates(result: SetupPrecheckResponse, values: Record<string, string>) {
     return result.candidates.some((candidate) => {
-      const value = Number(values[candidate.action_id]);
-      return !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
+      const value = candidateValue(candidate, values);
+      return value === null
+        || value < candidate.allowed_min_value
+        || value > candidate.allowed_max_value;
     });
   }
 
@@ -156,7 +171,10 @@ export function ModuleActivationPanel({
       setPrechecks((current) => ({ ...current, [code]: response }));
       setEditedValues((current) => ({
         ...current,
-        [code]: Object.fromEntries(response.candidates.map((candidate) => [candidate.action_id, String(candidate.proposed_value)]))
+        [code]: Object.fromEntries(response.candidates.map((candidate) => [
+          candidate.action_id,
+          valueToInputText(candidate.proposed_value, candidate.unit)
+        ]))
       }));
       setMessage(response.proposal_id ? "추천값을 확인한 뒤 활성화해 주세요." : "적용 가능한 제안이 생성되지 않았어요.");
     } catch (error) {
@@ -223,7 +241,8 @@ export function ModuleActivationPanel({
             command: "APPLY",
             edited_values: result.candidates.map((candidate) => ({
               action_id: candidate.action_id,
-              proposed_value: Number(values[candidate.action_id])
+              // 화면은 %, 서버는 정수 bps입니다. invalidCandidates가 null을 미리 걸러 냅니다.
+              proposed_value: candidateValue(candidate, values)
             })),
             reason: "교사가 추천값과 허용 구간을 검토하고 초기 정책을 확정함",
             // 서버는 제안 생성 시점의 정책 영역 버전과 일치해야 적용합니다. null은 항상 거절됩니다.
@@ -232,7 +251,16 @@ export function ModuleActivationPanel({
         }
       );
       await afterApplied(code, response.state_version);
-      setMessage(`${module.name} 초기 정책을 확정하고 활성화했어요.`);
+      // 어떤 값이 확정됐는지 서버 응답(applied_values)을 그대로 읽어 보여줍니다.
+      const applied = response.applied_values
+        .map((value) => {
+          const candidate = result.candidates.find((item) => item.action_id === value.action_id);
+          return `${candidate?.label ?? value.action_id} ${valueForDisplay(value.proposed_value, value.unit)}`;
+        })
+        .join(" · ");
+      setMessage(applied
+        ? `${module.name} 초기 정책을 확정하고 활성화했어요. (${applied})`
+        : `${module.name} 초기 정책을 확정하고 활성화했어요.`);
     } catch (error) {
       handleFailure(error, "추천값을 적용하지 못했어요.");
     } finally {
@@ -263,6 +291,7 @@ export function ModuleActivationPanel({
           const blocked = !canManage || busy || prerequisites.length > 0;
           const investmentMode = investmentModes[code]
             ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
+          const appliedValues = appliedPolicyValues(policyVersions, code);
           return (
             <article className="module-activation-card" key={code}>
               <header>
@@ -271,6 +300,16 @@ export function ModuleActivationPanel({
                   {isActive ? <Check size={14} /> : null}{module.status}
                 </b>
               </header>
+              {appliedValues.length > 0 ? (
+                <dl className="module-applied-values">
+                  {appliedValues.map((applied) => (
+                    <div key={applied.label}>
+                      <dt>{applied.label}</dt>
+                      <dd>{applied.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.join(", ")}</p> : null}
               {code === "INVESTMENT" && !isActive ? (
                 <label className="investment-mode-selector">
@@ -312,25 +351,40 @@ export function ModuleActivationPanel({
                 <div className="module-recommendation">
                   <SetupPrecheckSummary result={result} />
                   {result.candidates.map((candidate) => {
-                    const value = Number(values[candidate.action_id]);
-                    const outsideRecommended = Number.isFinite(value) && (value < candidate.recommended_min_value || value > candidate.recommended_max_value);
-                    const outsideAllowed = !Number.isInteger(value) || value < candidate.allowed_min_value || value > candidate.allowed_max_value;
+                    const value = candidateValue(candidate, values);
+                    const outsideRecommended = value !== null
+                      && (value < candidate.recommended_min_value || value > candidate.recommended_max_value);
+                    const outsideAllowed = value === null
+                      || value < candidate.allowed_min_value
+                      || value > candidate.allowed_max_value;
+                    const suffix = unitSuffix(candidate.unit);
+                    const hint = unitHint(value, candidate.unit);
                     return (
                       <label className={outsideAllowed ? "value-blocked" : outsideRecommended ? "value-warning" : ""} key={candidate.action_id}>
-                        {candidate.label}
-                        <input
-                          type="number"
-                          step="1"
-                          value={values[candidate.action_id] ?? ""}
-                          onChange={(event) => setEditedValues((current) => ({
-                            ...current,
-                            [code]: { ...(current[code] ?? {}), [candidate.action_id]: event.target.value }
-                          }))}
-                        />
+                        {candidate.label}{suffix ? ` (${suffix})` : ""}
+                        <span className={suffix ? "value-input with-unit" : "value-input"}>
+                          <input
+                            type="number"
+                            step={candidate.unit === "RATE_BPS" ? "0.5" : "1"}
+                            value={values[candidate.action_id] ?? ""}
+                            onChange={(event) => setEditedValues((current) => ({
+                              ...current,
+                              [code]: { ...(current[code] ?? {}), [candidate.action_id]: event.target.value }
+                            }))}
+                          />
+                          {suffix ? <b aria-hidden="true">{suffix}</b> : null}
+                        </span>
                         <small>
                           추천 {valueForDisplay(candidate.recommended_min_value, candidate.unit)} ~ {valueForDisplay(candidate.recommended_max_value, candidate.unit)} · 허용 {valueForDisplay(candidate.allowed_min_value, candidate.unit)} ~ {valueForDisplay(candidate.allowed_max_value, candidate.unit)}
                         </small>
-                        {outsideAllowed ? <em>허용 구간 밖이라 적용할 수 없습니다.</em> : outsideRecommended ? <em>추천 구간 밖입니다. 검토 후 적용할 수 있습니다.</em> : null}
+                        {hint ? <small>{hint}</small> : null}
+                        {outsideAllowed ? (
+                          <em>{value === null
+                            ? (candidate.unit === "RATE_BPS"
+                              ? "0.01% 단위의 숫자로 입력해 주세요."
+                              : "정수로 입력해 주세요.")
+                            : "허용 구간 밖이라 적용할 수 없습니다."}</em>
+                        ) : outsideRecommended ? <em>추천 구간 밖입니다. 검토 후 적용할 수 있습니다.</em> : null}
                       </label>
                     );
                   })}
