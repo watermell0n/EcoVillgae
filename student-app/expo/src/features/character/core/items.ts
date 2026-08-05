@@ -105,8 +105,8 @@ export const CHARACTER_ITEMS: Readonly<Record<string, CharacterItemDefinition>> 
     hidesSlots: ['NECK'],
   },
 
-  // ── 하의 1종 ───────────────────────────────────────────────
-  bottom_overalls: { assets: { main: 'bottom_overalls' } },
+  // ── 하의 0종 ───────────────────────────────────────────────
+  // 하의 단품 상품은 없다. 위 전신 의상의 coversSlots가 이 슬롯을 참조한다.
 
   // ── 신발 6종 ───────────────────────────────────────────────
   shoes_sneakers: { assets: { main: 'shoes_sneakers' } },

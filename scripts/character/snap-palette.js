@@ -23,7 +23,7 @@ const DRY = argv.includes('--dry');
 const targets = argv.filter((a) => !a.startsWith('--'));
 
 if (!targets.length) {
-  console.error('대상 파일을 지정한다. 예: items/bottom/bottom_overalls.png');
+  console.error('대상 파일을 지정한다. 예: items/top/top_blue_tshirt.png');
   process.exit(1);
 }
 

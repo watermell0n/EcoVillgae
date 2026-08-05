@@ -26,7 +26,6 @@ const ITEM_RAMPS = {
   top_blue_tshirt: ['#5f80b0', '#466696', '#30466d', '#8ba4c8'],
   top_yellow_hoodie: ['#f4c348', '#d69b2f', '#a96f22', '#fff3c2', '#ffdc73'],
   top_green_vest: ['#709a3f', '#527532', '#38522b'],
-  bottom_overalls: ['#5672a0', '#3d5680', '#293d61'],
   shoes_sneakers: ['#e6e9e9', '#b7c0c5', '#a33f39', '#d85a50', '#f08b7d'],
   back_backpack: ['#965d31', '#704125', '#51301e'],
 

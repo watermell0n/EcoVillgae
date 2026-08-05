@@ -66,9 +66,6 @@ const SOURCES: Readonly<Record<string, ImageSourcePropType>> = {
   top_fantasy_armor: require('../../../assets/character/items/top/top_fantasy_armor.png'),
   top_dinosaur: require('../../../assets/character/items/top/top_dinosaur.png'),
 
-  // 하의 1종
-  bottom_overalls: require('../../../assets/character/items/bottom/bottom_overalls.png'),
-
   // 신발 6종
   shoes_sneakers: require('../../../assets/character/items/shoes/shoes_sneakers.png'),
   shoes_red_boots: require('../../../assets/character/items/shoes/shoes_red_boots.png'),

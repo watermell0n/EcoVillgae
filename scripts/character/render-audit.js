@@ -67,7 +67,7 @@ const { CATALOG, EMPTY_EQUIPPED, CHARACTER_ITEMS } = core;
 
 /** 대표 조합. 에셋이 없는 상품은 core가 알아서 건너뛴다. */
 const FULL_SETS = {
-  basic: { HAT: 'hat_red_cap', FACE: 'face_sunglasses', TOP: 'top_blue_tshirt', BOTTOM: 'bottom_overalls', SHOES: 'shoes_sneakers', BACK: 'back_backpack' },
+  basic: { HAT: 'hat_red_cap', FACE: 'face_sunglasses', TOP: 'top_blue_tshirt', SHOES: 'shoes_sneakers', BACK: 'back_backpack' },
   summer: { HAT: 'hat_straw', FACE: 'face_goggles', TOP: 'top_swimsuit', SHOES: 'shoes_sandals', EFFECT: 'effect_swim_tube', BACKGROUND: 'bg_summer_sea' },
   winter: { HAT: 'hat_pom_beanie', NECK: 'neck_knit_scarf', TOP: 'top_padding', SHOES: 'shoes_snow_boots', BACKGROUND: 'bg_winter' },
   baseball: { HAT: 'hat_baseball_blue', TOP: 'top_baseball_blue', SHOES: 'shoes_sneakers', HAND: 'hand_baseball_glove' },

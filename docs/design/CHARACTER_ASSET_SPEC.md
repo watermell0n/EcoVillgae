@@ -302,7 +302,6 @@ export const CHARACTER_PALETTE = {
 | `top_blue_tshirt` | `#5f80b0` | `#466696` | `#30466d` (+ 어깨 하이라이트 `#8ba4c8`) |
 | `top_yellow_hoodie` | `#f4c348` | `#d69b2f` | `#a96f22` |
 | `top_green_vest` | `#709a3f` | `#527532` | `#38522b` |
-| `bottom_overalls` | `#5672a0` | `#3d5680` | `#293d61` |
 | `back_backpack` | `#965d31` | `#704125` | `#51301e` |
 | `face_headphones` | `#aeb7bd` | `#77818a` | `#4b535e` |
 | `face_sunglasses` | `#4b535e`(반사) | `#262b31`(프레임) | `#151b20`(렌즈) |
@@ -475,7 +474,6 @@ student-app/public/character/          ← 정본. Vite가 URL로 서빙한다
     face/       face_sunglasses.png, face_headphones_back.png, face_headphones_front.png …
     neck/       neck_scarf.png …
     top/        top_blue_tshirt.png …
-    bottom/     bottom_overalls.png …
     shoes/      shoes_sneakers.png …
     back/       back_backpack_behind.png, back_backpack_front.png …
     hand/       hand_baseball_glove.png …
@@ -926,7 +924,34 @@ Expo에서 슬롯 전체가 작동하지 않던 12종을 배포했다.
 
 미사용 설정을 남겨두면 실제 동작을 잘못 이해하게 된다. 제거하거나 실제로 연결한다.
 
-### 13.1 남은 정리 대상
+### 13.1 판매 종료 — 멜빵바지
+
+`bottom_overalls`를 카탈로그에서 뺐다. 하의 단품의 유일한 상품이었으므로 **하의 슬롯은
+판매 상품 0종**이 된다.
+
+```text
+에셋   items/bottom/bottom_overalls.png            웹·Expo 양쪽 삭제
+코어   core/catalog.ts   BOTTOM: []                슬롯 키는 남긴다
+       core/items.ts     bottom_overalls 항목 삭제
+       assetMap.ts       require 삭제
+모의   characterApi.ts mockOwned / expo store·student api
+도구   lib/palette.js 램프, render-audit.js basic 코디
+DB     V1_23__retire_bottom_overalls.sql
+```
+
+슬롯 자체는 남긴다. `top_spacesuit`·`top_wizard_robe`·`top_fantasy_armor`·`top_dinosaur`가
+`coversSlots: ['BOTTOM']`로 이 슬롯을 참조하고, 레이어 밴드·`EMPTY_EQUIPPED`·슬롯 이름표도
+그대로 쓴다. 하의를 다시 넣을 때 되돌릴 곳은 위 여섯 줄이다.
+
+DB는 지우지 않고 상태만 내린다. 이미 구매한 학생의 `inventory_items`·
+`character_equipment` 행을 남겨야 하고, FK가 `ON DELETE RESTRICT`라 삭제도 막힌다.
+`store_products`는 `UNPUBLISHED`를 쓴다 — `StoreProductStatus` 열거형에 `RETIRED`가 없어
+넣으면 JPA 매핑이 깨진다.
+
+§4 팔레트 표와 §7 디렉터리 목록에서 함께 지웠다. §9·§12의 실측 기록은 당시 측정값이라
+남긴다.
+
+### 13.2 남은 정리 대상
 
 ```text
 ✅ core/items.ts PLANNED_COMPATIBILITY   64종이 CHARACTER_ITEMS로 올라와 각 항목에 합침

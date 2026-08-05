@@ -60,9 +60,9 @@ const SEEDS: Partial<Record<Slot, Seed[]>> = {
     ['판타지 갑옷', 'top_fantasy_armor', 55, 'FANTASY'],
     ['공룡 옷', 'top_dinosaur', 55, 'FANTASY'],
   ],
-  BOTTOM: [
-    ['멜빵바지', 'bottom_overalls', 45, 'BASIC'],
-  ],
+  // 하의 단품은 판매하지 않는다. 슬롯 자체는 남는다 — 우주복·마법사 로브·판타지 갑옷·
+  // 공룡 옷이 coversSlots: ['BOTTOM']로 이 슬롯을 덮기 때문이다.
+  BOTTOM: [],
   SHOES: [
     ['운동화', 'shoes_sneakers', 30, 'BASIC'],
     ['빨간 장화', 'shoes_red_boots', 35, 'SEASONAL'],

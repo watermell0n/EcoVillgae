@@ -97,7 +97,6 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK_STUDENT_FEATURES === "true";
 const mockOwned = new Set([
   "hat_red_cap",
   "top_blue_tshirt",
-  "bottom_overalls",
   "shoes_sneakers",
   "back_backpack",
   "hat_straw",

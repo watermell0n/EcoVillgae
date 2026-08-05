@@ -300,7 +300,6 @@ export async function fetchInventory(classroomId: string): Promise<InventoryItem
   if (useMocks) return [
     { resourceId: "mock-cap", label: "빨간 캡", status: "AVAILABLE", stateVersion: 1, characterCode: "hat_red_cap", equipped: true },
     { resourceId: "mock-hoodie", label: "노란 후드", status: "AVAILABLE", stateVersion: 1, characterCode: "top_yellow_hoodie", equipped: true },
-    { resourceId: "mock-overalls", label: "멜빵 바지", status: "AVAILABLE", stateVersion: 1, characterCode: "bottom_overalls", equipped: true },
     { resourceId: "mock-sneakers", label: "운동화", status: "AVAILABLE", stateVersion: 1, characterCode: "shoes_sneakers", equipped: false },
     { resourceId: "mock-backpack", label: "노란 배낭", status: "AVAILABLE", stateVersion: 1, characterCode: "back_backpack", equipped: false },
     { resourceId: "mock-sunglasses", label: "선글라스", status: "AVAILABLE", stateVersion: 1, characterCode: "face_sunglasses", equipped: false }
