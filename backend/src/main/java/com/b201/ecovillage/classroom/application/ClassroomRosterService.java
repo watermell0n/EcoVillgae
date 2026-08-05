@@ -111,7 +111,7 @@ public class ClassroomRosterService {
         if (!salaryModuleActive) {
             rejectSalaryFieldsWithoutModule(command, students);
             Instant now = clock.instant();
-            upsertStudents(command.classroomId(), students, Map.of(), now);
+            upsertStudents(command.classroomId(), students, Map.of(), now, command.replaceRoster());
             classroom.touch(now);
             try {
                 studentRepository.flush();
@@ -159,7 +159,11 @@ public class ClassroomRosterService {
             now
         );
         validateRoleReferences(students, rolesByCode.keySet());
-        upsertStudents(command.classroomId(), students, rolesByCode, now);
+        upsertStudents(command.classroomId(), students, rolesByCode, now, command.replaceRoster());
+        if (command.replaceRoster()) {
+            // 학생 배정을 먼저 바꾼 뒤에 내려야 아직 쓰이는 역할을 실수로 내리지 않습니다.
+            deactivateSalaryRolesMissingFrom(salaryRoles, rolesByCode, now);
+        }
 
         currentPolicy.supersede(now);
         policyVersionRepository.flush();
@@ -233,11 +237,16 @@ public class ClassroomRosterService {
         return existing;
     }
 
+    /**
+     * replaceRoster가 true면 요청에 없는 기존 학생을 화면에서 지운 학생으로 보고 함께 종료합니다.
+     * 종료는 상태 변경이라 지갑·거래 기록은 남습니다. false면 보낸 학생만 추가·수정합니다.
+     */
     private void upsertStudents(
         UUID classroomId,
         List<ValidatedStudent> commands,
         Map<String, SalaryRole> rolesByCode,
-        Instant now
+        Instant now,
+        boolean replaceRoster
     ) {
         List<ClassroomStudent> active = studentRepository
             .findAllByClassroomIdAndStatusOrderByRosterNumber(
@@ -247,6 +256,9 @@ public class ClassroomRosterService {
         Map<UUID, ClassroomStudent> byId = active.stream()
             .collect(Collectors.toMap(ClassroomStudent::getId, Function.identity()));
         validateAgainstExisting(commands, active);
+        if (replaceRoster) {
+            retireStudentsMissingFrom(commands, active, now);
+        }
 
         List<ClassroomStudent> changed = new ArrayList<>();
         for (ValidatedStudent command : commands) {
@@ -415,6 +427,54 @@ public class ClassroomRosterService {
                 "학생이 참조한 급여 역할을 찾을 수 없습니다."
             );
         }
+    }
+
+    private void retireStudentsMissingFrom(
+        List<ValidatedStudent> commands,
+        List<ClassroomStudent> active,
+        Instant now
+    ) {
+        Set<UUID> keptIds = commands.stream()
+            .map(ValidatedStudent::studentId)
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toSet());
+        List<ClassroomStudent> retired = active.stream()
+            .filter(student -> !keptIds.contains(student.getId()))
+            .toList();
+        if (retired.isEmpty()) {
+            return;
+        }
+        retired.forEach(student -> student.retire(now));
+        studentRepository.saveAll(retired);
+        studentRepository.flush();
+    }
+
+    /**
+     * 요청에 없는 역할은 화면에서 지운 역할이므로 비활성으로 내립니다. 비활성 역할은 명단·급여
+     * 조회에서 빠지고 새 급여 정책에도 담기지 않습니다. 역할 목록을 아예 보내지 않은 요청은
+     * "명단만 저장"이라는 뜻이므로 아무 역할도 내리지 않습니다.
+     */
+    private void deactivateSalaryRolesMissingFrom(
+        List<ValidatedSalaryRole> commands,
+        Map<String, SalaryRole> rolesByCode,
+        Instant now
+    ) {
+        if (commands.isEmpty()) {
+            return;
+        }
+        Set<String> keptCodes = commands.stream()
+            .map(ValidatedSalaryRole::roleCode)
+            .collect(Collectors.toSet());
+        List<SalaryRole> removed = rolesByCode.values().stream()
+            .filter(role -> !keptCodes.contains(role.getRoleCode()))
+            .filter(role -> "ACTIVE".equals(role.getStatus()))
+            .toList();
+        if (removed.isEmpty()) {
+            return;
+        }
+        removed.forEach(role -> role.deactivate(now));
+        salaryRoleRepository.saveAll(removed);
+        removed.forEach(role -> rolesByCode.remove(role.getRoleCode()));
     }
 
     private static void validateAgainstExisting(

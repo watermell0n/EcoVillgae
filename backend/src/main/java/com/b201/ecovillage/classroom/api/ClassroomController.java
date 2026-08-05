@@ -373,7 +373,8 @@ public class ClassroomController {
                 students,
                 salaryRoles,
                 request.expectedPolicyVersion(),
-                request.expectedStateVersion()
+                request.expectedStateVersion(),
+                Boolean.TRUE.equals(request.replaceRoster())
             )
         );
         RosterAndSalariesResponse data = new RosterAndSalariesResponse(

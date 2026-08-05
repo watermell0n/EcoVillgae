@@ -1578,6 +1578,9 @@ paths:
                 expected_policy_version:
                   type: "integer"
                   minimum: 0
+                replace_roster:
+                  type: "boolean"
+                  default: false
               required:
                 - "students"
                 - "expected_policy_version"
@@ -14378,7 +14381,18 @@ paths:
                             options:
                               type: "array"
                               items:
-                                type: "string"
+                                type: "object"
+                                properties:
+                                  option_id:
+                                    type: "string"
+                                    format: "uuid"
+                                  option_key:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                  option_text:
+                                    type: "string"
+                                additionalProperties: false
                           additionalProperties: false
                     additionalProperties: false
                   meta:

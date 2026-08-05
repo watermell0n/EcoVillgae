@@ -9,6 +9,8 @@ public record UpdateRosterCommand(
     List<StudentRosterCommand> students,
     List<SalaryRoleCommand> salaryRoles,
     Long expectedPolicyVersion,
-    Long expectedStateVersion
+    Long expectedStateVersion,
+    /** true면 요청에 없는 학생과 급여 역할을 내립니다. 자세한 규칙은 RosterAndSalariesRequest에 있습니다. */
+    boolean replaceRoster
 ) {
 }

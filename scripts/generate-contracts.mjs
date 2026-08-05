@@ -453,6 +453,9 @@ const requestFieldOverrides = {
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    // true면 요청을 명단 전체로 보고, 빠진 학생과 급여 역할을 내린다.
+    // 생략하면 보낸 학생만 추가·수정하는 기존 개별 등록 동작을 유지한다.
+    { name: "replace_roster", optional: true, schema: { type: "boolean", default: false } },
   ],
   "API-CLS-006": [
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
@@ -1770,7 +1773,25 @@ const responseFieldOverrides = {
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
     { name: "status", schema: { type: "string" } },
-    { name: "questions", schema: projectionItems({ prompt: { type: "string" }, options: { type: "array", items: { type: "string" } } }) },
+    // 학생 앱은 답 제출에 option_id가 필요하므로 보기를 객체로 내려준다.
+    {
+      name: "questions",
+      schema: projectionItems({
+        prompt: { type: "string" },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              option_id: { type: "string", format: "uuid" },
+              option_key: { type: ["string", "null"] },
+              option_text: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+      }),
+    },
   ],
   "API-READ-022": [
     { name: "result_version", schema: { type: "integer", minimum: 1 } },

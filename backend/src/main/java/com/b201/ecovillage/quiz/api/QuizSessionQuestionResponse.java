@@ -10,6 +10,13 @@ public record QuizSessionQuestionResponse(
     int version,
     long stateVersion,
     String prompt,
-    List<String> options
+    List<Option> options
 ) {
+    /** 학생 앱이 답 제출에 쓰는 option_id를 함께 내려줍니다. */
+    public record Option(
+        UUID optionId,
+        String optionKey,
+        String optionText
+    ) {
+    }
 }

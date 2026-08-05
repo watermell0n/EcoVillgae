@@ -11,6 +11,16 @@ public record QuizSessionQuestionView(
     int version,
     long stateVersion,
     String prompt,
-    List<String> options
+    List<Option> options
 ) {
+    /**
+     * 학생 앱은 답을 제출할 때 option_id를 그대로 되돌려 보내야 합니다. 보기 글만 내려주면
+     * 제출할 값이 없어 학생 화면에서 선택지를 누를 수 없습니다.
+     */
+    public record Option(
+        UUID optionId,
+        String optionKey,
+        String optionText
+    ) {
+    }
 }

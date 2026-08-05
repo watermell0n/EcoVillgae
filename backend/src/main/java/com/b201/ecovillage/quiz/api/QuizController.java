@@ -330,7 +330,13 @@ public class QuizController {
                         question.version(),
                         question.stateVersion(),
                         question.prompt(),
-                        question.options()
+                        question.options().stream()
+                            .map(option -> new QuizSessionQuestionResponse.Option(
+                                option.optionId(),
+                                option.optionKey(),
+                                option.optionText()
+                            ))
+                            .toList()
                     ))
                     .toList()
             ),

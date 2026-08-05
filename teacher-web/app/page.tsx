@@ -99,11 +99,20 @@ function writeStoredConsoleState(state: StoredConsoleState | null) {
   }
 }
 
+/**
+ * 명단이 아직 비어 있는 교실에만 예상 인원만큼 빈 줄을 채웁니다.
+ *
+ * 서버에 저장된 학생이 하나라도 있으면 채우지 않습니다. 채우면 교사가 지운 번호가 다음
+ * 새로고침에 빈 줄로 되살아나 삭제가 안 된 것처럼 보입니다.
+ */
 function withPlannedStudentRows(
   students: StudentRow[],
   plannedStudentCount: number,
   fallbackRole?: { role_code?: string; label?: string; gross_amount?: number }
 ): StudentRow[] {
+  if (students.length > 0) {
+    return [...students].sort((left, right) => Number(left.attendance) - Number(right.attendance));
+  }
   const occupiedNumbers = new Set(
     students.map((student) => Number(student.attendance)).filter((number) => Number.isInteger(number) && number > 0)
   );
@@ -795,7 +804,14 @@ export default function TeacherConsole() {
       const economicPolicy = modulesState.policy_versions?.find(
         (policy) => policy.policy_area === "ECONOMIC"
       );
-      const storedIncomeTaxBps = economicPolicy?.values?.income_tax_rate_bps;
+      // 소득세율은 소득세 모듈의 확정 정책(INCOME_TAX_RATE)이 먼저입니다. AI 추천으로 적용한
+      // 값이 여기 들어오고, 경제 정책은 학급 설정에서 저장할 때 같은 값으로 맞춰집니다.
+      const incomeTaxPolicyBps = modulesState.policy_versions?.find(
+        (policy) => policy.policy_area === "INCOME_TAX_RATE"
+      )?.values?.rate_bps;
+      const storedIncomeTaxBps = typeof incomeTaxPolicyBps === "number"
+        ? incomeTaxPolicyBps
+        : economicPolicy?.values?.income_tax_rate_bps;
       setSettings((current) => ({
         ...current,
         className: configuration.display_name ?? current.className,
@@ -2289,7 +2305,31 @@ function Setup({
       const failedNames: string[] = [];
       for (const code of orderedCodes) {
         const module = modulesByCode.get(code);
-        if (!module || module.status === "열림") continue;
+        if (!module) continue;
+        // 잠긴 모듈은 이미 켜져 있으므로 활성화가 아니라 학생 이용을 다시 여는 것이 맞습니다.
+        if (module.status === "열림") {
+          if (!module.studentAccessSuspended) continue;
+          try {
+            await apiRequest(
+              `/classrooms/${classroomId}/modules/${code}/student-access-commands`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  expected_state_version: module.stateVersion ?? 0,
+                  screen_id: "SCR-WEB-003",
+                  ui_action_id: "UIA-MOD-003",
+                  client_occurred_at: new Date().toISOString(),
+                  command: "RESUME",
+                  reason: "모든 모듈 기본값으로 켜기"
+                })
+              }
+            );
+            activatedCount += 1;
+          } catch {
+            failedNames.push(module.name);
+          }
+          continue;
+        }
         try {
           await apiRequest<{ state_version: number }>(
             `/classrooms/${classroomId}/modules/${code}/activation-commands`,
@@ -2324,7 +2364,9 @@ function Setup({
         failedNames.length > 0 ? `${failedNames.join(", ")}: 개별 설정 확인 필요` : ""
       ].filter(Boolean).join(" / ");
       addLog(
-        `${activatedCount}개 모듈을 기본 설정으로 활성화했어요.${details ? ` ${details}` : ""}`,
+        activatedCount === 0 && failedNames.length === 0 && skippedNames.length === 0
+          ? "이미 모든 모듈이 학생에게 열려 있어요."
+          : `${activatedCount}개 모듈을 켰어요(잠금 해제 포함).${details ? ` ${details}` : ""}`,
         failedNames.length > 0 ? "error" : undefined
       );
     } catch (error) {
@@ -2681,7 +2723,8 @@ function Roster({
     setStudents((items) => items.filter((_, itemIndex) => itemIndex !== index));
     setDeletingIndex(null);
     cancelEdit();
-    addLog(`${target.nickname} 학생을 명단에서 삭제했어요.`);
+    // 삭제는 "명단 저장"을 눌러야 서버에 반영됩니다. 저장 전에 창을 닫으면 되돌아옵니다.
+    addLog(`${target.nickname} 학생을 목록에서 뺐어요. 아래 “명단 저장”을 눌러야 반영됩니다.`, "warning");
   }
 
   function closeManager() {
@@ -2710,6 +2753,8 @@ function Roster({
     // 급여 모듈이 꺼져 있으면 급여 정책 버전을 보내지 않습니다.
     ...(hasSalaryModule ? { expected_policy_version: salaryPolicyVersion } : {}),
     expected_state_version: stateVersion,
+    // 이 화면은 명단 전체를 보냅니다. 목록에서 뺀 학생과 역할이 서버에서도 내려가야 합니다.
+    replace_roster: true,
     students: students.map((student) => ({
       student_id: student.resourceId ?? null,
       attendance_number: Number(student.attendance),

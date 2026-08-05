@@ -1136,6 +1136,20 @@ button:disabled {
   color: var(--ink);
 }
 
+/* 투자 운영 방식 안내입니다. 섹션 설명보다 크게 보여 교사가 놓치지 않게 합니다. */
+.module-activation-notice {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #dfe4ec;
+  border-left: 4px solid #6f86ff;
+  border-radius: 8px;
+  background: #f6f8ff;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
 .module-activation-list,
 .module-recommendation {
   display: grid;
@@ -2153,18 +2167,33 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-/* 이미 학생 화면에 열어 준 문항입니다. 다시 고를 수 없습니다. */
-.quiz-start-picker label.quiz-start-opened {
-  cursor: not-allowed;
-  opacity: 0.55;
+/* 이미 학생 화면에 열어 준 문항입니다. 접어 두고 다시 고를 수 없게 합니다. */
+.quiz-used-questions {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f8fa;
 }
 
-.quiz-start-picker label.quiz-start-opened:hover {
-  background: transparent;
+.quiz-used-questions summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
 }
 
-.quiz-start-picker label.quiz-start-opened .quiz-start-prompt {
-  text-decoration: line-through;
+.quiz-used-questions ul {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.quiz-used-questions li {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* 진행 중인 퀴즈가 있다는 표시입니다. */

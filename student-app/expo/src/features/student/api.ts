@@ -259,7 +259,13 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
     quiz_session_id: string;
     mode: string;
     status: string;
-    questions: Array<{ resource_id?: string; prompt?: string; options?: Array<string | { option_id?: string; label?: string }> }>;
+    questions: Array<{
+      resource_id?: string;
+      prompt?: string;
+      // 서버는 보기마다 option_id와 option_text를 내려줍니다. option_id가 없으면 답을 제출할 수
+      // 없으므로 선택지를 누를 수 없습니다. 예전 계약(문자열 배열)도 함께 받아 둡니다.
+      options?: Array<string | { option_id?: string; option_key?: string; option_text?: string; label?: string }>;
+    }>;
   }>(`/classrooms/${classroomId}/quiz-sessions/${quizSessionId}`);
   return {
     quizSessionId: response.quiz_session_id,
@@ -268,7 +274,9 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
     questions: response.questions.flatMap((question) => question.resource_id ? [{
       resourceId: question.resource_id,
       prompt: question.prompt ?? "문제",
-      options: (question.options ?? []).map((option) => typeof option === "string" ? { label: option } : { optionId: option.option_id, label: option.label ?? "선택지" })
+      options: (question.options ?? []).map((option) => typeof option === "string"
+        ? { label: option }
+        : { optionId: option.option_id, label: option.option_text ?? option.label ?? "선택지" })
     }] : [])
   };
 }

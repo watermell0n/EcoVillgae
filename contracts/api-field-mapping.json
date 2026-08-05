@@ -1295,6 +1295,15 @@
             "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
             "nullable": false,
             "visibility": "role-scoped"
+          },
+          {
+            "name": "replace_roster",
+            "required": false,
+            "type": "boolean",
+            "target": "service_input.replace_roster",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
           }
         ]
       },

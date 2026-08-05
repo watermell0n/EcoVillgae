@@ -301,8 +301,13 @@ export function ModuleActivationPanel({
   return (
     <PlainSection
       title="선택 모듈 활성화"
-      description="개설 때 선택한 모듈만 표시합니다. 투자 모듈은 단기 또는 장기 운영 방식을 고른 뒤 활성화합니다."
+      description="개설 때 선택한 모듈만 표시합니다."
     >
+      {/* 투자 모듈은 운영 방식을 고르지 않으면 계속 "설정 대기"로 남아 교사가 놓치기 쉬우므로
+          설명 아래에 한 줄로 크게 안내합니다. */}
+      <p className="module-activation-notice">
+        투자 모듈은 단기 또는 장기 운영 방식을 고른 뒤 활성화합니다.
+      </p>
       {!canManage ? (
         <div className="inline-notice"><AlertTriangle size={17} /> 모듈 활성화는 학급 소유 교사만 실행할 수 있어요.</div>
       ) : null}

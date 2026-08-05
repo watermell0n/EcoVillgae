@@ -98,7 +98,7 @@ public class QuizSessionQueryService {
                 0,
                 question.getPromptSnapshot(),
                 question.getOptionsSnapshot().stream()
-                    .map(option -> String.valueOf(option.get("option_text")))
+                    .map(QuizSessionQueryService::option)
                     .toList()
             ))
             .toList();
@@ -107,6 +107,19 @@ public class QuizSessionQueryService {
             session.getMode(),
             session.getStatus().name(),
             questions
+        );
+    }
+
+    /**
+     * 세션을 열 때 저장한 보기 스냅샷(option_id·option_key·option_text)을 그대로 읽습니다.
+     * 정답 키(correct_option_key)는 스냅샷의 다른 열에 있으므로 여기서 노출되지 않습니다.
+     */
+    private static QuizSessionQuestionView.Option option(java.util.Map<String, Object> snapshot) {
+        Object optionId = snapshot.get("option_id");
+        return new QuizSessionQuestionView.Option(
+            optionId == null ? null : UUID.fromString(String.valueOf(optionId)),
+            snapshot.get("option_key") == null ? null : String.valueOf(snapshot.get("option_key")),
+            String.valueOf(snapshot.get("option_text"))
         );
     }
 

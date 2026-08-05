@@ -195,17 +195,30 @@ export function QuizDraftWorkspace({
   const openSessionId = activeQuizSessionId || startedSession?.id || "";
   const rewardValue = Number(rewardPerPerson);
   const hasOpenSession = Boolean(openSessionId);
+  // 이미 학생에게 열어 본 문항과 아직 쓰지 않은 문항을 나눠 보여 줍니다.
+  // 진행 중인 퀴즈가 있어도 새 문항으로는 새 퀴즈를 열 수 있어야 합니다.
+  const reusableQuestions = useMemo(
+    () => publishedQuestions.filter(
+      (question) => !openedVersionIds.includes(question.question_version_id)
+    ),
+    [publishedQuestions, openedVersionIds]
+  );
+  const usedQuestions = useMemo(
+    () => publishedQuestions.filter(
+      (question) => openedVersionIds.includes(question.question_version_id)
+    ),
+    [publishedQuestions, openedVersionIds]
+  );
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
   const canStart = !starting
-    && !hasOpenSession
     && selectedQuestions.length > 0
     && !mixedContentTypes
     && participantIds.length > 0
     && !invalidReward;
 
   function toggleQuestion(versionId: string) {
-    if (hasOpenSession || openedVersionIds.includes(versionId)) return;
+    if (openedVersionIds.includes(versionId)) return;
     setSessionError("");
     setSessionMessage("");
     setSelectedVersionIds((current) => current.includes(versionId)
@@ -215,6 +228,11 @@ export function QuizDraftWorkspace({
 
   async function startSession() {
     if (!canStart) return;
+    // 진행 중인 퀴즈가 있으면 새 퀴즈가 그 자리를 대신합니다. 학생 화면은 활성 모듈에
+    // 기록된 세션 하나만 읽으므로, 교사가 모르고 바꾸지 않도록 먼저 확인받습니다.
+    if (hasOpenSession && !window.confirm("진행 중인 퀴즈를 새 퀴즈로 바꿀까요? 학생 화면에는 새 문항이 열립니다.")) {
+      return;
+    }
     setStarting(true);
     setSessionError("");
     setSessionMessage("");
@@ -482,38 +500,54 @@ export function QuizDraftWorkspace({
           <div className="quiz-start">
             <div className="quiz-start-picker">
               <div className="quiz-start-picker-head">
-                <strong>문항 선택</strong>
-                <span>{selectedQuestions.length} / {publishedQuestions.length}개 선택</span>
+                <strong>이번에 쓸 문항</strong>
+                <span>{selectedQuestions.length} / {reusableQuestions.length}개 선택</span>
               </div>
-              <ul>
-                {publishedQuestions.map((question) => {
-                  const checked = selectedVersionIds.includes(question.question_version_id);
-                  const alreadyOpened = openedVersionIds.includes(question.question_version_id);
-                  return (
+              {reusableQuestions.length === 0 ? (
+                <p className="empty-copy">
+                  아직 쓰지 않은 문항이 없어요. 위에서 새 문항을 만들어 게시하면 여기에 나타납니다.
+                </p>
+              ) : (
+                <ul>
+                  {reusableQuestions.map((question) => (
                     <li key={question.question_version_id}>
-                      <label className={alreadyOpened ? "quiz-start-opened" : ""}>
+                      <label>
                         <input
                           type="checkbox"
-                          checked={checked}
-                          disabled={starting || alreadyOpened || hasOpenSession}
+                          checked={selectedVersionIds.includes(question.question_version_id)}
+                          disabled={starting}
                           onChange={() => toggleQuestion(question.question_version_id)}
                         />
                         <span className="quiz-start-prompt">{question.prompt}</span>
                         <small>
-                          {alreadyOpened
-                            ? "이미 열었어요"
-                            : `${question.content_type === "ECONOMY" ? "경제" : "넌센스"} · ${question.question_type === "OX" ? "OX" : "객관식"}`}
+                          {question.content_type === "ECONOMY" ? "경제" : "넌센스"} · {question.question_type === "OX" ? "OX" : "객관식"}
                         </small>
                       </label>
                     </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                </ul>
+              )}
+
+              {usedQuestions.length > 0 ? (
+                <details className="quiz-used-questions">
+                  <summary>이미 진행한 문항 {usedQuestions.length}개</summary>
+                  <p className="section-description">
+                    학생에게 한 번 열었던 문항입니다. 같은 문항으로 다시 열 수 없고, 문제은행에는 그대로 남습니다.
+                  </p>
+                  <ul>
+                    {usedQuestions.map((question) => (
+                      <li key={question.question_version_id}>
+                        <span className="quiz-start-prompt">{question.prompt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
             </div>
 
             <div className="quiz-start-form">
               <label>운영 방식
-                <select value={sessionMode} disabled={starting || hasOpenSession} onChange={(event) => {
+                <select value={sessionMode} disabled={starting} onChange={(event) => {
                   setSessionMode(event.target.value as "GAME" | "TEST");
                   setSessionError("");
                   setSessionMessage("");
@@ -530,7 +564,7 @@ export function QuizDraftWorkspace({
                       min="0"
                       step="1"
                       value={rewardPerPerson}
-                      disabled={starting || hasOpenSession}
+                      disabled={starting}
                       onChange={(event) => setRewardPerPerson(event.target.value)}
                     />
                     {invalidReward ? <em className="quiz-start-invalid">0 이상의 정수로 입력해 주세요.</em> : null}
@@ -539,7 +573,7 @@ export function QuizDraftWorkspace({
                     <input
                       type="checkbox"
                       checked={leaderboardPublic}
-                      disabled={starting || hasOpenSession}
+                      disabled={starting}
                       onChange={(event) => setLeaderboardPublic(event.target.checked)}
                     />
                     순위를 학생에게 공개
@@ -571,9 +605,14 @@ export function QuizDraftWorkspace({
                 <AlertTriangle size={17} /> 참여할 학생이 없어요. 학생·급여 화면에서 명단을 저장한 뒤 다시 시도해 주세요.
               </div>
             ) : null}
+            {hasOpenSession ? (
+              <div className="inline-notice">
+                <AlertTriangle size={17} /> 진행 중인 퀴즈가 있어요. 새 문항으로 열면 학생 화면이 새 퀴즈로 바뀝니다.
+              </div>
+            ) : null}
             <button type="button" className="wide-action" disabled={!canStart} onClick={() => void startSession()}>
               {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-              {starting ? "퀴즈를 여는 중" : hasOpenSession ? "진행 중인 퀴즈가 있어요" : "학생 화면에 퀴즈 열기"}
+              {starting ? "퀴즈를 여는 중" : hasOpenSession ? "새 퀴즈로 바꿔 열기" : "학생 화면에 퀴즈 열기"}
             </button>
             {sessionMessage || sessionError ? (
               <div className="quiz-start-feedback" aria-live="polite">

@@ -28,6 +28,7 @@ import com.b201.ecovillage.ledger.repository.PolicySnapshotRepository;
 public class EconomicPolicyCommandService {
 
     static final String POLICY_AREA = "ECONOMIC";
+    private static final String INCOME_TAX_POLICY_AREA = "INCOME_TAX_RATE";
     private static final String ROUTE =
         "/classrooms/{classroom_id}/economic-policy";
 
@@ -148,6 +149,7 @@ public class EconomicPolicyCommandService {
             now
         );
         policyRepository.save(policy);
+        syncIncomeTaxRatePolicy(command.classroomId(), command.incomeTaxRateBps(), now);
         String snapshotHash = mutationSupport.hash(values);
         if (snapshotRepository.findByClassroomIdAndSnapshotHash(
             command.classroomId(),
@@ -211,6 +213,45 @@ public class EconomicPolicyCommandService {
             )
         );
         return result;
+    }
+
+    /**
+     * 소득세율은 두 곳에 있습니다. 경제 정책(ECONOMIC.income_tax_rate_bps)과 소득세 모듈의
+     * 초기 정책(INCOME_TAX_RATE.rate_bps)입니다. 한쪽만 바꾸면 학급 설정 화면과 AI가 확정한
+     * 값이 달라지므로, 경제 정책을 저장할 때 모듈 정책도 같은 값으로 맞춥니다.
+     *
+     * <p>소득세 모듈을 아직 활성화하지 않았다면 모듈 정책을 만들지 않습니다. 모듈 활성화 흐름이
+     * 초기 정책 확정을 담당하며, 여기서 미리 만들면 그 검증을 건너뛰게 됩니다.
+     */
+    private void syncIncomeTaxRatePolicy(
+        java.util.UUID classroomId,
+        int incomeTaxRateBps,
+        Instant now
+    ) {
+        ClassroomPolicyVersion current = policyRepository
+            .findForUpdateByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
+                classroomId,
+                INCOME_TAX_POLICY_AREA
+            )
+            .orElse(null);
+        if (current == null) {
+            return;
+        }
+        Object rate = current.getPolicyValues().get("rate_bps");
+        if (rate instanceof Number number && number.intValue() == incomeTaxRateBps) {
+            return;
+        }
+        current.supersede(now);
+        policyRepository.flush();
+        policyRepository.save(ClassroomPolicyVersion.policy(
+            uuidGenerator.generate(),
+            classroomId,
+            INCOME_TAX_POLICY_AREA,
+            current.getVersion() + 1,
+            Map.of("rate_bps", incomeTaxRateBps),
+            "TEACHER",
+            now
+        ));
     }
 
     private static Map<String, Object> validate(EconomicPolicyCommand command) {
