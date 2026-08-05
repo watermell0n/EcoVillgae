@@ -86,9 +86,18 @@ public class ClassroomModule {
         return new ClassroomModule(id, classroomId, moduleCode, createdAt);
     }
 
+    /** A teacher selected this module at classroom creation, but policy input is still required. */
+    public static ClassroomModule pendingConfiguration(
+        UUID id, UUID classroomId, String moduleCode, Instant createdAt
+    ) {
+        ClassroomModule module = new ClassroomModule(id, classroomId, moduleCode, createdAt);
+        module.status = "PENDING_CONFIGURATION";
+        return module;
+    }
+
     public void activate(Map<String, Object> config, Instant changedAt) {
-        if (!"DISABLED".equals(status)) {
-            throw new IllegalStateException("Only a disabled module can be activated");
+        if (!"DISABLED".equals(status) && !"PENDING_CONFIGURATION".equals(status)) {
+            throw new IllegalStateException("Only a disabled or pending module can be activated");
         }
         this.config = Map.copyOf(Objects.requireNonNull(config, "config must not be null"));
         this.enabledAt = Objects.requireNonNull(changedAt, "changedAt must not be null");

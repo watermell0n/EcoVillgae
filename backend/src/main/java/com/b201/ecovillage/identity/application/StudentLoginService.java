@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +58,7 @@ public class StudentLoginService {
         DeviceLinkRepository deviceLinkRepository,
         StudentSessionRepository studentSessionRepository,
         LedgerAccountRepository ledgerAccountRepository,
-        PasswordEncoder passwordEncoder,
+        @Qualifier("studentPasswordEncoder") PasswordEncoder passwordEncoder,
         StudentTokenIssuer tokenIssuer,
         IdentitySecretHasher secretHasher,
         StudentLoginRateLimiter rateLimiter,
@@ -94,8 +95,10 @@ public class StudentLoginService {
         ClassroomStudent student = classroomStudentRepository
             .findForLogin(classroom.getId(), command.attendanceNumber())
             .filter(candidate -> candidate.getStatus() == ClassroomStudentStatus.ACTIVE)
-            .filter(candidate -> nicknameMatches(candidate, command.nickname()))
             .orElseThrow(InvalidCredentialsException::new);
+        if (!nicknameMatches(student, command.nickname())) {
+            throw new InvalidCredentialsException();
+        }
         StudentCredential credential = studentCredentialRepository
             .findByClassroomIdAndClassroomStudentId(classroom.getId(), student.getId())
             .orElseThrow(InvalidCredentialsException::new);

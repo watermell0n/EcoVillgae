@@ -40,7 +40,8 @@ import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
 import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
-import { SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
+import type { AiModuleRow, AiPolicyVersionRow } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
 
 type ViewKey = "overview" | "plan" | "setup" | "roster" | "shop" | "quiz" | "control" | "approvals" | "ai";
@@ -540,7 +541,7 @@ export default function TeacherConsole() {
       if (modulesState.modules?.length) {
         setModules(modulesState.modules.map((module) => ({
           name: module.label ?? module.module_code ?? "이름 없는 모듈",
-          status: module.status === "ACTIVE" ? "열림" : "닫힘",
+          status: module.status === "ACTIVE" ? "열림" : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
           studentState: module.status === "ACTIVE" ? "학생 이용 가능" : "학생 이용 중지",
           teacherTodo: "",
           resourceId: module.resource_id,
@@ -670,7 +671,7 @@ export default function TeacherConsole() {
           setHasClassroom(true);
           setHasDraft(false);
           setView(nextView);
-          setStage("console");
+          void openClassroom(activeClassroomId);
         }}
       />
     );
@@ -737,6 +738,8 @@ export default function TeacherConsole() {
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
+              stateVersion={activeStateVersion}
+              onStateVersionChange={setActiveStateVersion}
               hasSalaryModule={modules.some((module) => module.name === "월급" && module.status === "열림")}
             />
           )}
@@ -1016,6 +1019,8 @@ function CreateClassroomFlow({
   const [creationError, setCreationError] = useState("");
   const [createdClassroom, setCreatedClassroom] = useState<CreateClassroomResponse | null>(null);
   const [setupPrecheck, setSetupPrecheck] = useState<SetupPrecheckResponse | null>(null);
+  const [activationModules, setActivationModules] = useState<AiModuleRow[]>([]);
+  const [activationPolicyVersions, setActivationPolicyVersions] = useState<AiPolicyVersionRow[]>([]);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(() => new Set(
     selectableModuleNames.filter((moduleName) => modules.some((module) => module.name === moduleName && module.status === "열림"))
   ));
@@ -1110,6 +1115,30 @@ function CreateClassroomFlow({
     );
   }
 
+  async function loadActivationState(classroomId: string) {
+    const serverState = await getClassroomServerState(classroomId);
+    const modulesAndPolicies = (serverState.modulesAndPolicies ?? {}) as {
+      modules?: Array<{
+        resource_id?: string;
+        label?: string;
+        module_code?: string;
+        status?: string;
+        state_version?: number;
+        config?: Record<string, unknown>;
+      }>;
+      policy_versions?: AiPolicyVersionRow[];
+    };
+    setActivationModules((modulesAndPolicies.modules ?? []).map((module) => ({
+      name: module.label ?? module.module_code ?? "이름 없는 모듈",
+      status: module.status === "ACTIVE" ? "열림" : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
+      code: module.module_code,
+      resourceId: module.resource_id,
+      stateVersion: module.state_version,
+      config: module.config
+    })));
+    setActivationPolicyVersions(modulesAndPolicies.policy_versions ?? []);
+  }
+
   async function createClassroom() {
     const studentCount = Number(settings.studentCount);
     if (!schoolId) {
@@ -1155,7 +1184,10 @@ function CreateClassroomFlow({
       setStep("complete");
       onCreated(classroom);
       try {
-        const precheck = await requestClassroomSetupPrecheck(classroom.classroom_id);
+        const [precheck] = await Promise.all([
+          requestClassroomSetupPrecheck(classroom.classroom_id),
+          loadActivationState(classroom.classroom_id)
+        ]);
         setSetupPrecheck(precheck);
         onCreated(classroom, precheck);
       } catch (error) {
@@ -1320,6 +1352,20 @@ function CreateClassroomFlow({
                 {submitting ? "점검 중" : "다시 점검"}
               </button>
             </div>
+          ) : null}
+          {createdClassroom && activationModules.length > 0 ? (
+            <ModuleActivationPanel
+              classroomId={createdClassroom.classroom_id}
+              modules={activationModules}
+              policyVersions={activationPolicyVersions}
+              activeStudentCount={Math.max(Number(settings.studentCount) || 1, 1)}
+              startDate={settings.startDate}
+              canManage
+              onReload={() => loadActivationState(createdClassroom.classroom_id)}
+              onStateVersionChange={(stateVersion) => {
+                setCreatedClassroom((current) => current ? { ...current, state_version: stateVersion } : current);
+              }}
+            />
           ) : null}
           <div className="next-task-list">
             <button type="button" onClick={() => onDone("roster")}>학생 명단 등록하기</button>
@@ -1733,14 +1779,18 @@ function Roster({
   runAction,
   addLog,
   classroomId,
+  stateVersion,
+  onStateVersionChange,
   hasSalaryModule
 }: Readonly<{
   settings: ClassSettings;
   students: StudentRow[];
   setStudents: React.Dispatch<React.SetStateAction<StudentRow[]>>;
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
+  runAction: (label: string, path: string, init: RequestInit, onSuccess: (result: unknown) => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
+  stateVersion: number;
+  onStateVersionChange: (value: number) => void;
   hasSalaryModule: boolean;
 }>) {
   const [isManaging, setIsManaging] = useState(false);
@@ -1843,7 +1893,7 @@ function Roster({
   );
   const rosterBody = {
     expected_policy_version: 0,
-    expected_state_version: 0,
+    expected_state_version: stateVersion,
     students: students.map((student) => ({
       student_id: null,
       attendance_number: Number(student.attendance),
@@ -2055,7 +2105,11 @@ function Roster({
             hasSalaryModule ? "명단·급여 저장" : "명단 저장",
             `/classrooms/${classroomId}/roster-and-salaries`,
             { method: "PUT", body: JSON.stringify(rosterBody) },
-            () => addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.")
+            (result) => {
+              const nextStateVersion = (result as { state_version?: number }).state_version;
+              if (typeof nextStateVersion === "number") onStateVersionChange(nextStateVersion);
+              addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
+            }
           )}
         />
         {hasSalaryModule ? <ActionLine

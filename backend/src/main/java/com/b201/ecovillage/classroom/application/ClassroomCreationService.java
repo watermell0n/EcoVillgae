@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.b201.ecovillage.classroom.domain.AutonomousSchedule;
 import com.b201.ecovillage.classroom.domain.AutonomousScheduleModule;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleModuleRepository;
 import com.b201.ecovillage.classroom.repository.AutonomousScheduleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
@@ -116,16 +118,10 @@ public class ClassroomCreationService {
                 now
             )
         );
-        classroomModuleRepository.saveAll(
-            validated.moduleCodes().stream()
-                .map(code -> ClassroomModule.disabled(
-                    uuidGenerator.generate(),
-                    classroomId,
-                    code,
-                    now
-                ))
-                .toList()
-        );
+        List<ClassroomModule> modules = validated.moduleCodes().stream()
+            .map(code -> createRequestedModule(classroomId, code, now))
+            .toList();
+        classroomModuleRepository.saveAll(modules);
         saveSchedules(
             classroomId,
             command.timeZone(),
@@ -142,6 +138,17 @@ public class ClassroomCreationService {
             classroom.getStatus().name(),
             classroom.getStateVersion()
         );
+    }
+
+    private ClassroomModule createRequestedModule(UUID classroomId, String code, Instant now) {
+        ModuleCatalog.Definition definition = ModuleCatalog.require(code);
+        ClassroomModule module = definition.initialPolicyRequired()
+            ? ClassroomModule.pendingConfiguration(uuidGenerator.generate(), classroomId, code, now)
+            : ClassroomModule.disabled(uuidGenerator.generate(), classroomId, code, now);
+        if (!definition.initialPolicyRequired() && definition.prerequisites().isEmpty()) {
+            module.activate(Map.of("activation_source", "CLASSROOM_CREATION"), now);
+        }
+        return module;
     }
 
     private ValidatedCreation validate(CreateClassroomCommand command) {
