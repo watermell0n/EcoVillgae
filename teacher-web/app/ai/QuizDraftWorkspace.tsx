@@ -873,12 +873,6 @@ export function QuizDraftWorkspace({
               {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
               {starting ? "퀴즈를 여는 중" : hasOpenSession ? "새 퀴즈로 바꿔 열기" : "학생 화면에 퀴즈 열기"}
             </button>
-            {sessionMessage || sessionError ? (
-              <div className="quiz-start-feedback" aria-live="polite">
-                {sessionMessage ? <div className="quiz-start-success"><CheckCircle2 size={16} /> {sessionMessage}</div> : null}
-                {sessionError ? <div className="quiz-start-failure" role="alert">{sessionError}</div> : null}
-              </div>
-            ) : null}
           </div>
         )}
       </section>
@@ -889,6 +883,14 @@ export function QuizDraftWorkspace({
           <h2>생성된 퀴즈</h2>
           <p>학생 화면에 연 퀴즈를 퀴즈별로 나눠서 봅니다. 여기에 쓴 문항은 다시 열 수 없어요.</p>
         </div>
+
+        {/* 퀴즈를 열거나 마감·공개한 결과 알림은 진행 상태를 다루는 이 구역에서 보여 줍니다. */}
+        {sessionMessage || sessionError ? (
+          <div className="quiz-start-feedback" aria-live="polite">
+            {sessionMessage ? <div className="quiz-start-success"><CheckCircle2 size={16} /> {sessionMessage}</div> : null}
+            {sessionError ? <div className="quiz-start-failure" role="alert">{sessionError}</div> : null}
+          </div>
+        ) : null}
 
         {openedQuizzes.length === 0 && unrecordedUsedQuestions.length === 0 ? (
           <p className="empty-copy">
