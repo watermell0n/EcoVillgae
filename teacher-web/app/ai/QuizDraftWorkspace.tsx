@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { AlertTriangle, Bot, Check, CheckCircle2, LoaderCircle, Play, RefreshCw, Sparkles } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
-import type { QuizDraftOperationResponse, QuizQuestion, QuizSessionCommandResponse } from "../api";
+import type {
+  NonsenseImportResponse,
+  QuizDraftOperationResponse,
+  QuizQuestion,
+  QuizSessionCommandResponse
+} from "../api";
 
 type QuestionStatusResponse = {
   quiz_resource_id: string;
@@ -78,6 +83,9 @@ export function QuizDraftWorkspace({
   const [contentType, setContentType] = useState<"ECONOMY" | "NONSENSE">("ECONOMY");
   const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "OX">("MULTIPLE_CHOICE");
   const [questionCount, setQuestionCount] = useState(3);
+  // 넌센스는 문제은행에서 가져오므로 AI 설정과 무관하고 주제·학습목표도 받지 않는다.
+  const isNonsense = contentType === "NONSENSE";
+  const submitBlocked = !isNonsense && !aiEnabled;
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [generatedIds, setGeneratedIds] = useState<Set<string>>(new Set());
   const [bankFilter, setBankFilter] = useState<BankFilter>("recent");
@@ -285,13 +293,18 @@ export function QuizDraftWorkspace({
 
   async function generateDrafts(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!aiEnabled || generating) return;
-    if (!topic.trim() || !learningObjective.trim()) {
-      setError("주제와 학습목표를 모두 입력해 주세요.");
-      return;
-    }
+    if (submitBlocked || generating) return;
     if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 30) {
       setError("문항 수는 1개 이상 30개 이하로 입력해 주세요.");
+      return;
+    }
+    // 넌센스는 사람이 검토한 문제은행에서 가져오므로 AI를 부르지 않는다.
+    if (isNonsense) {
+      await importNonsense();
+      return;
+    }
+    if (!topic.trim() || !learningObjective.trim()) {
+      setError("주제와 학습목표를 모두 입력해 주세요.");
       return;
     }
 
@@ -320,6 +333,38 @@ export function QuizDraftWorkspace({
       setBankFilter("recent");
       await loadQuestions();
       setMessage(`${response.question_ids.length}개 문항을 만들었어요. 정답과 해설을 확인한 뒤 승인해 주세요.`);
+    } catch (caught) {
+      setError(quizErrorMessage(caught));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function importNonsense() {
+    setGenerating(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiRequest<NonsenseImportResponse>(
+        `/classrooms/${classroomId}/nonsense-question-imports`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            grade,
+            question_count: questionCount,
+            screen_id: "SCR-WEB-018",
+            ui_action_id: "UIA-QZ-004",
+            client_occurred_at: new Date().toISOString()
+          })
+        }
+      );
+      setGeneratedIds(new Set(response.question_ids));
+      setBankFilter("recent");
+      await loadQuestions();
+      const remaining = response.remaining_count > 0
+        ? `이 학년에서 더 가져올 수 있는 문제는 ${response.remaining_count}개예요.`
+        : "이 학년의 넌센스 문제를 모두 가져왔어요.";
+      setMessage(`넌센스 ${response.question_ids.length}개를 가져왔어요. ${remaining}`);
     } catch (caught) {
       setError(quizErrorMessage(caught));
     } finally {
@@ -376,50 +421,73 @@ export function QuizDraftWorkspace({
     <div className="page-flow quiz-draft-workspace">
       <section className="plain-section">
         <div className="section-title">
-          <span className="section-kicker">교사용 AI 퀴즈</span>
+          <span className="section-kicker">{isNonsense ? "넌센스 문제은행" : "교사용 AI 퀴즈"}</span>
           <h2>검토용 문항 생성</h2>
-          <p>AI 문항은 학생에게 바로 공개되지 않으며 교사가 정답과 해설을 검토해야 합니다.</p>
+          <p>
+            {isNonsense
+              ? "넌센스는 미리 검토한 문제은행에서 가져옵니다. 학생에게 바로 공개되지 않으니 확인한 뒤 승인해 주세요."
+              : "AI 문항은 학생에게 바로 공개되지 않으며 교사가 정답과 해설을 검토해야 합니다."}
+          </p>
         </div>
 
         <form className="quiz-draft-form" onSubmit={(event) => void generateDrafts(event)}>
-          {!aiEnabled ? (
+          {submitBlocked ? (
             <div className="chat-disabled"><AlertTriangle size={18} /> 학급 AI가 중지되어 초안을 생성할 수 없어요.</div>
           ) : null}
           <div className="quiz-draft-grid">
             <label>학년
-              <select value={grade} disabled={!aiEnabled || generating} onChange={(event) => setGrade(Number(event.target.value))}>
+              <select value={grade} disabled={submitBlocked || generating} onChange={(event) => setGrade(Number(event.target.value))}>
                 <option value={4}>초등 4학년</option>
                 <option value={5}>초등 5학년</option>
                 <option value={6}>초등 6학년</option>
               </select>
             </label>
             <label>분류
-              <select value={contentType} disabled={!aiEnabled || generating} onChange={(event) => setContentType(event.target.value as typeof contentType)}>
+              <select
+                value={contentType}
+                disabled={generating}
+                onChange={(event) => {
+                  const next = event.target.value as typeof contentType;
+                  setContentType(next);
+                  // 넌센스는 객관식만 만든다. OX로는 말장난이 성립하지 않는다.
+                  if (next === "NONSENSE") setQuestionType("MULTIPLE_CHOICE");
+                }}
+              >
                 <option value="ECONOMY">경제</option>
                 <option value="NONSENSE">넌센스</option>
               </select>
             </label>
             <label>문항 유형
-              <select value={questionType} disabled={!aiEnabled || generating} onChange={(event) => setQuestionType(event.target.value as typeof questionType)}>
+              <select value={questionType} disabled={isNonsense || submitBlocked || generating} onChange={(event) => setQuestionType(event.target.value as typeof questionType)}>
                 <option value="MULTIPLE_CHOICE">객관식</option>
-                <option value="OX">OX</option>
+                {isNonsense ? null : <option value="OX">OX</option>}
               </select>
             </label>
             <label>문항 수
-              <input type="number" min="1" max="30" value={questionCount} disabled={!aiEnabled || generating} onChange={(event) => setQuestionCount(Number(event.target.value))} />
+              <input type="number" min="1" max="30" value={questionCount} disabled={submitBlocked || generating} onChange={(event) => setQuestionCount(Number(event.target.value))} />
             </label>
-            <label className="quiz-wide-field">주제
-              <input value={topic} maxLength={200} disabled={!aiEnabled || generating} onChange={(event) => setTopic(event.target.value)} />
-            </label>
-            <label className="quiz-wide-field">학습목표
-              <textarea rows={3} value={learningObjective} maxLength={500} disabled={!aiEnabled || generating} onChange={(event) => setLearningObjective(event.target.value)} />
-            </label>
+            {isNonsense ? null : (
+              <>
+                <label className="quiz-wide-field">주제
+                  <input value={topic} maxLength={200} disabled={submitBlocked || generating} onChange={(event) => setTopic(event.target.value)} />
+                </label>
+                <label className="quiz-wide-field">학습목표
+                  <textarea rows={3} value={learningObjective} maxLength={500} disabled={submitBlocked || generating} onChange={(event) => setLearningObjective(event.target.value)} />
+                </label>
+              </>
+            )}
           </div>
           <div className="quiz-draft-submit">
-            <small>난이도는 학년에 맞춰 자동 조정합니다. 하루 최대 30개까지 생성할 수 있어요.</small>
-            <button type="submit" className="primary-save" disabled={!aiEnabled || generating}>
+            <small>
+              {isNonsense
+                ? "검토를 마친 넌센스 문제를 무작위로 가져옵니다. 이미 가져간 문제는 다시 나오지 않아요."
+                : "난이도는 학년에 맞춰 자동 조정합니다. 하루 최대 30개까지 생성할 수 있어요."}
+            </small>
+            <button type="submit" className="primary-save" disabled={submitBlocked || generating}>
               {generating ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}
-              {generating ? "문항을 만드는 중" : "AI 초안 생성"}
+              {generating
+                ? (isNonsense ? "문제를 가져오는 중" : "문항을 만드는 중")
+                : (isNonsense ? "넌센스 문제 가져오기" : "AI 초안 생성")}
             </button>
           </div>
         </form>

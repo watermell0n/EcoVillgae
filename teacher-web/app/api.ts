@@ -394,6 +394,12 @@ export type QuizDraftOperationResponse = {
   question_ids: string[];
 };
 
+export type NonsenseImportResponse = {
+  question_ids: string[];
+  remaining_count: number;
+  bank_version: string;
+};
+
 export type QuizQuestion = {
   resource_id: string;
   version_id: string;
