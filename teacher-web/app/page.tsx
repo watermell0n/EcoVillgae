@@ -290,14 +290,6 @@ type ClassSettings = {
   studentCount: string;
 };
 
-type LessonMaterial = {
-  id: string;
-  title: string;
-  stage: string;
-  minutes: string;
-  status: string;
-};
-
 const views = [
   { key: "overview" as const, label: "운영 현황", icon: LayoutDashboard },
   { key: "setup" as const, label: "학급 설정", icon: Settings },
@@ -419,8 +411,6 @@ const initialSettings: ClassSettings = {
   incomeTax: "10",
   studentCount: "25"
 };
-
-const initialLessonMaterials: LessonMaterial[] = [];
 
 const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 const creditLevelLabels: Record<string, string> = { GOOD: "우수", NORMAL: "보통", CAUTION: "주의", RESTRICTED: "제한" };
@@ -1114,7 +1104,9 @@ export default function TeacherConsole() {
         onCreated={(classroom) => {
           const created: BootstrapClassroom = {
             resource_id: classroom.classroom_id,
-            label: classroom.classroom_code,
+            // 생성 응답에는 교실 이름이 없다. 입장 코드를 이름 자리에 넣으면 목록 카드가
+            // 코드로 보이므로, 방금 입력한 교실 이름을 그대로 쓴다.
+            label: settings.className || classroom.classroom_code,
             status: classroom.status,
             state_version: classroom.state_version,
             classroom_code: classroom.classroom_code,
@@ -1277,14 +1269,16 @@ export default function TeacherConsole() {
           )}
           {view === "control" && (
             <Control
-              runAction={runAction}
-              addLog={addLog}
-              classroomId={activeClassroomId}
-              stateVersion={classroomStateVersion}
-              students={students}
-              activeGuidedActivityId={modules
-                .map((module) => module.config?.active_guided_activity_id)
-                .find((value): value is string => typeof value === "string")}
+              lessonPanel={
+                <LessonSequencePanel
+                  classroomId={activeClassroomId}
+                  activeGuidedActivityId={modules
+                    .map((module) => module.config?.active_guided_activity_id)
+                    .find((value): value is string => typeof value === "string")}
+                  canManage={teacherRoles.includes("OWN")}
+                  onNotice={addLog}
+                />
+              }
               quizWorkspace={
                 <>
                   <EconomyQuizDifficultyPanel
@@ -1825,7 +1819,7 @@ function CreateClassroomFlow({
               <label>학년<input value={settings.grade} onChange={(event) => updateSettings("grade", event.target.value)} /></label>
               <label>반<input value={settings.classNumber} onChange={(event) => updateSettings("classNumber", event.target.value)} /></label>
               <label>학생 수<input type="number" min="1" value={settings.studentCount} onChange={(event) => updateSettings("studentCount", event.target.value)} /></label>
-              <label className="wide-field">수업 대상 설명<input value={settings.description} onChange={(event) => updateSettings("description", event.target.value)} /></label>
+              {/* 수업 대상 설명은 개설 단계에서 받지 않습니다. 개설 뒤 "학급 설정"에서 고칠 수 있습니다. */}
               <label>화폐명<input value={settings.currency} onChange={(event) => updateSettings("currency", event.target.value)} /></label>
             </div>
             <div className="wizard-actions">
@@ -4189,269 +4183,94 @@ function FinanceAdmin({
   );
 }
 
+// 수업 자료는 개념 카테고리로 묶어 둡니다. 카테고리를 고르고 "수업 자료 보기"를 누른 뒤에만
+// 그 카테고리의 자료가 아래에 펼쳐집니다. 교사가 내용을 확인하고 "학생에게 공개"를 눌러야
+// 학생 화면에서 볼 수 있습니다.
+const lessonCategories: string[] = [...new Set(lessonQuizCatalog.map((lesson) => lesson.module))];
+
 function Control({
-  runAction,
-  addLog,
-  classroomId,
-  stateVersion,
-  students,
-  activeGuidedActivityId,
+  lessonPanel,
   quizWorkspace
 }: Readonly<{
-  runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
-  addLog: (message: string, tone?: LogTone) => void;
-  classroomId: string;
-  stateVersion: number;
-  students: StudentRow[];
-  activeGuidedActivityId?: string;
+  // 회차 자료를 순서대로 넘기는 수업 패널입니다. 학급 정보와 로그가 필요해
+  // quizWorkspace와 같이 호출 쪽에서 만들어 넘깁니다.
+  lessonPanel: ReactNode;
   quizWorkspace: ReactNode;
 }>) {
-  const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
-  const [draftLesson, setDraftLesson] = useState<LessonMaterial | null>(null);
-  const [selectedLessonTitle, setSelectedLessonTitle] = useState<string>(lessonQuizCatalog[0]?.title ?? "");
-  const [newQuizTitle, setNewQuizTitle] = useState("");
-  const [imageTitle, setImageTitle] = useState("경제 개념 수업");
-  const [imageDataUrl, setImageDataUrl] = useState("");
-  const [imageFileName, setImageFileName] = useState("");
-  const [activeImageLesson, setActiveImageLesson] = useState<{ activityId: string; stateVersion: number } | null>(null);
-  const [imageLessonBusy, setImageLessonBusy] = useState(false);
+  const [category, setCategory] = useState(lessonCategories[0]);
+  // "수업 자료 보기"로 펼쳐 둔 카테고리입니다. 누르기 전에는 자료를 보여 주지 않습니다.
+  const [openedCategory, setOpenedCategory] = useState("");
+  const [sharedLessonIds, setSharedLessonIds] = useState<string[]>([]);
+  const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    if (!activeGuidedActivityId) {
-      setActiveImageLesson(null);
-      return;
-    }
-    void apiRequest<{ activity_id: string; state_version: number; activity_type?: string }>(
-      `/classrooms/${classroomId}/guided-activities/${activeGuidedActivityId}`
-    ).then((activity) => {
-      if (activity.activity_type === "ECONOMIC_CONCEPT_IMAGE") {
-        setActiveImageLesson({ activityId: activity.activity_id, stateVersion: activity.state_version });
-      }
-    }).catch(() => undefined);
-  }, [activeGuidedActivityId, classroomId]);
+  const openedMaterials = useMemo(
+    () => lessonQuizCatalog.filter((lesson) => lesson.module === openedCategory),
+    [openedCategory]
+  );
 
-  function selectLessonImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      addLog("이미지 파일만 선택해 주세요.", "warning");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      addLog("수업 이미지는 5MB 이하로 선택해 주세요.", "warning");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImageDataUrl(String(reader.result ?? ""));
-      setImageFileName(file.name);
-      if (imageTitle === "경제 개념 수업") setImageTitle(file.name.replace(/\.[^.]+$/, ""));
-    };
-    reader.readAsDataURL(file);
+  function showMaterials() {
+    setOpenedCategory(category);
+    setNotice("");
   }
 
-  async function startImageLesson() {
-    if (!imageDataUrl || !imageTitle.trim()) {
-      addLog("수업 제목과 이미지를 준비해 주세요.", "warning");
-      return;
-    }
-    setImageLessonBusy(true);
-    try {
-      const result = await apiRequest<{ activity_id: string; state_version: number }>(
-        `/classrooms/${classroomId}/guided-activities/image-lessons`,
-        {
-          method: "POST",
-          body: JSON.stringify({ title: imageTitle.trim(), image_url: imageDataUrl })
-        }
-      );
-      setActiveImageLesson({ activityId: result.activity_id, stateVersion: result.state_version });
-      addLog("수업 이미지를 학생 화면에 띄우고 화면을 고정했어요.");
-    } catch (error) {
-      addLog(`이미지 수업을 시작하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
-    } finally {
-      setImageLessonBusy(false);
-    }
-  }
-
-  async function finishImageLesson() {
-    if (!activeImageLesson) return;
-    setImageLessonBusy(true);
-    try {
-      await apiRequest(
-        `/classrooms/${classroomId}/guided-activities/${activeImageLesson.activityId}/finish-commands`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            expected_state_version: activeImageLesson.stateVersion,
-            command: "END",
-            reason: "교사가 이미지 수업을 종료함"
-          })
-        }
-      );
-      setActiveImageLesson(null);
-      addLog("이미지 수업을 종료하고 학생 화면 고정을 풀었어요.");
-    } catch (error) {
-      addLog(`이미지 수업을 종료하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
-    } finally {
-      setImageLessonBusy(false);
-    }
-  }
-
-  function startLessonEdit(material: LessonMaterial) {
-    setEditingLessonId(material.id);
-    setDraftLesson(material);
-  }
-
-  function updateLessonDraft(field: keyof LessonMaterial, value: string) {
-    setDraftLesson((current) => current ? { ...current, [field]: value } : current);
-  }
-
-  function selectLessonTemplate(title: string) {
-    const selected = lessonQuizCatalog.find((lesson) => lesson.title === title);
-    if (!selected) return;
-    setDraftLesson((current) => current ? {
-      ...current,
-      title: selected.title,
-      minutes: selected.minutes.replace("분", ""),
-      status: "준비 완료"
-    } : current);
-  }
-
-  function saveLesson() {
-    if (!draftLesson) return;
-    setLessonMaterials((items) => items.map((item) => item.id === draftLesson.id ? draftLesson : item));
-    setEditingLessonId(null);
-    setDraftLesson(null);
-    addLog("수업 자료를 수정했어요.");
-  }
-
-  function addLesson() {
-    const source = lessonQuizCatalog.find((lesson) => lesson.title === selectedLessonTitle) ?? lessonQuizCatalog[0];
-    if (!source) return;
-    setLessonMaterials((items) => [...items, {
-      id: crypto.randomUUID(),
-      stage: `${items.length + 1}회차`,
-      title: source.title,
-      minutes: source.minutes.replace("분", ""),
-      status: "준비 중"
-    }]);
-  }
-
-  function removeLesson(id: string) {
-    setLessonMaterials((items) => items.filter((item) => item.id !== id));
-    addLog("차시를 수업 준비에서 뺐어요.");
-  }
-
-  function openQuizForStudents() {
-    void openPublishedQuizForStudents({
-      classroomId,
-      stateVersion,
-      students,
-      runAction,
-      addLog
+  function toggleShare(lessonId: string, title: string) {
+    setSharedLessonIds((current) => {
+      const shared = current.includes(lessonId);
+      setNotice(shared
+        ? `"${title}" 자료 공개를 내렸어요.`
+        : `"${title}" 자료를 학생에게 공개했어요.`);
+      return shared ? current.filter((item) => item !== lessonId) : [...current, lessonId];
     });
-  }
-
-  function createQuiz() {
-    if (!newQuizTitle.trim()) return addLog("퀴즈 제목을 입력해 주세요.", "warning");
-    addLog(`${newQuizTitle} 퀴즈 초안을 만들었어요.`);
-    setNewQuizTitle("");
   }
 
   return (
     <div className="page-flow">
-      <LessonSequencePanel
-        classroomId={classroomId}
-        activeGuidedActivityId={activeGuidedActivityId}
-        canManage
-        onNotice={addLog}
-      />
-      <PlainSection title="경제 개념 이미지 수업" description="준비한 이미지 한 장을 학생 전체 화면에 동시에 띄우고, 수업이 끝날 때까지 화면을 고정합니다.">
-        <div className="image-lesson-panel">
-          <div className="image-lesson-form">
-            <label>수업 제목<input maxLength={120} value={imageTitle} onChange={(event) => setImageTitle(event.target.value)} /></label>
-            <label className="image-file-picker">
-              수업 이미지
-              <input type="file" accept="image/*" onChange={selectLessonImage} />
-              <span>{imageFileName || "PNG, JPG 등 5MB 이하"}</span>
-            </label>
-            <div className="row-actions">
-              <button type="button" disabled={imageLessonBusy || !imageDataUrl || Boolean(activeImageLesson)} onClick={() => void startImageLesson()}>
-                {imageLessonBusy ? "처리 중" : "학생 화면에 띄우기"}
-              </button>
-              <button type="button" className="danger-text" disabled={imageLessonBusy || !activeImageLesson} onClick={() => void finishImageLesson()}>
-                수업 종료·고정 해제
-              </button>
-            </div>
-            {activeImageLesson ? <strong className="image-lesson-live">● 현재 학생 화면에 표시 중</strong> : null}
-          </div>
-          <div className="image-lesson-preview">
-            {imageDataUrl ? <img src={imageDataUrl} alt={`${imageTitle} 미리보기`} /> : <span>선택한 이미지가 여기에 표시됩니다.</span>}
-          </div>
-        </div>
-      </PlainSection>
-      <PlainSection title="수업 준비" description="회차별 수업 자료를 정리하고, 같은 자리에서 퀴즈를 만들고 수정해요.">
-        <div className="lesson-list">
-          {lessonMaterials.map((material) => {
-            const activeDraft = editingLessonId === material.id ? draftLesson : null;
-            const template = lessonQuizCatalog.find((lesson) => lesson.title === material.title);
-
-            return (
-              <div className="lesson-row" key={material.id}>
-                {activeDraft ? (
-                  <>
-                    <select value={activeDraft.stage} onChange={(event) => updateLessonDraft("stage", event.target.value)}>
-                      {Array.from({ length: Math.max(lessonMaterials.length, 6) }, (_, index) => `${index + 1}회차`).map((stage) => (
-                        <option key={stage} value={stage}>{stage}</option>
-                      ))}
-                    </select>
-                    <select value={activeDraft.title} onChange={(event) => selectLessonTemplate(event.target.value)}>
-                      {lessonQuizCatalog.map((lesson) => (
-                        <option key={lesson.id} value={lesson.title}>{lesson.title}</option>
-                      ))}
-                    </select>
-                    <span>{activeDraft.minutes}분</span>
-                    <select value={activeDraft.status} onChange={(event) => updateLessonDraft("status", event.target.value)}>
-                      <option>준비 완료</option>
-                      <option>수정 필요</option>
-                    </select>
-                    <div className="row-actions">
-                      <button type="button" onClick={saveLesson}>저장</button>
-                      <button className="ghost" type="button" onClick={() => setEditingLessonId(null)}>취소</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span>{material.stage}</span>
-                    <b>{material.title}</b>
-                    <span>{material.minutes}분</span>
-                    <span>{material.status}</span>
-                    <div className="row-actions">
-                      <button type="button" onClick={() => startLessonEdit(material)}>수정</button>
-                      <button type="button" className="ghost" disabled title="학생 자료 화면 연동은 아직 준비 중이에요.">자료 띄우기</button>
-                      <button type="button" className="ghost" onClick={openQuizForStudents}>퀴즈 열기</button>
-                      <button type="button" className="danger-text" onClick={() => removeLesson(material.id)}>삭제</button>
-                    </div>
-                  </>
-                )}
-                {!activeDraft && template ? <div className="lesson-template-preview"><b>{template.module}</b><span>{template.concept}</span><em>퀴즈: {template.question}</em></div> : null}
-              </div>
-            );
-          })}
-        </div>
+      {lessonPanel}
+      <PlainSection
+        title="경제 개념 수업"
+        description="카테고리를 고르고 수업 자료를 확인한 뒤, 학생에게 보여 줄 자료만 공개해요."
+      >
         <div className="new-quiz-line">
-          <select value={selectedLessonTitle} onChange={(event) => setSelectedLessonTitle(event.target.value)} aria-label="추가할 수업 자료 선택">
-            {lessonQuizCatalog.map((lesson) => <option key={lesson.id} value={lesson.title}>{lesson.title}</option>)}
+          <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="수업 자료 카테고리 선택">
+            {lessonCategories.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <button type="button" className="add-financial-product" onClick={addLesson}>수업 자료 추가</button>
+          <button type="button" className="add-financial-product" onClick={showMaterials}>수업 자료 보기</button>
         </div>
-      </PlainSection>
-      <PlainSection title="새 퀴즈 만들기">
-        <div className="new-quiz-line">
-          <input value={newQuizTitle} onChange={(event) => setNewQuizTitle(event.target.value)} placeholder="예: 2차시 예금 개념 확인" />
-          <button type="button" onClick={createQuiz}>퀴즈 초안 만들기</button>
-        </div>
+        {notice ? <div className="inline-notice" role="status">{notice}</div> : null}
+        {!openedCategory ? (
+          <p className="empty-copy">
+            카테고리를 고르고 &quot;수업 자료 보기&quot;를 누르면 해당 카테고리의 수업 자료가 여기에 나타납니다.
+          </p>
+        ) : openedMaterials.length === 0 ? (
+          <p className="empty-copy">{openedCategory} 카테고리에 등록된 수업 자료가 아직 없어요.</p>
+        ) : (
+          <div className="lesson-list">
+            {openedMaterials.map((material) => {
+              const shared = sharedLessonIds.includes(material.id);
+              return (
+                <div className="lesson-row" key={material.id}>
+                  <span>{material.module}</span>
+                  <b>{material.title}</b>
+                  <span>{material.minutes}</span>
+                  <span>{shared ? "공개 중" : "비공개"}</span>
+                  <div className="row-actions">
+                    <button
+                      type="button"
+                      className={shared ? "ghost" : ""}
+                      onClick={() => toggleShare(material.id, material.title)}
+                    >
+                      {shared ? "공개 내리기" : "학생에게 공개"}
+                    </button>
+                  </div>
+                  <div className="lesson-template-preview">
+                    <b>{material.module}</b>
+                    <span>{material.concept}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </PlainSection>
       <section className="embedded-quiz-workspace">
         <div className="embedded-quiz-heading"><span>퀴즈 문제은행</span><p>수업 자료와 연결할 퀴즈를 만들고, 수정한 뒤 학생에게 공개할 수 있어요.</p></div>

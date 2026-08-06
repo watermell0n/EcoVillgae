@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarClock, Check, Lock, LockOpen, LineChart, Play, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Lock, LockOpen, LineChart, Pencil, Play, RefreshCw, Sparkles } from "lucide-react";
 
 import {
   ApiError,
@@ -145,6 +145,43 @@ function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "투자 시나리오를 처리하지 못했습니다.";
 }
 
+type AssetTextDraft = { assetId: string; name: string; profile: string };
+
+/**
+ * 기업 이름과 소개 문장을 고치는 자리입니다. 가격과 변동 범위는 여기서 바꾸지 않으므로
+ * 시나리오를 다시 만들지 않고도 어려운 낱말만 학생 눈높이로 바꿀 수 있습니다.
+ */
+function AssetTextEditor({
+  draft,
+  busy,
+  onChange,
+  onCancel,
+  onSave
+}: Readonly<{
+  draft: AssetTextDraft;
+  busy: boolean;
+  onChange: (next: AssetTextDraft) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}>) {
+  return (
+    <div className="investment-asset-editor">
+      <label>
+        기업 이름
+        <input maxLength={100} value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />
+      </label>
+      <label>
+        기업 소개
+        <textarea rows={3} maxLength={1000} value={draft.profile} onChange={(event) => onChange({ ...draft, profile: event.target.value })} />
+      </label>
+      <div className="row-actions">
+        <button type="button" disabled={busy} onClick={onSave}>{busy ? "저장하는 중" : "수정 저장"}</button>
+        <button type="button" className="ghost-action" disabled={busy} onClick={onCancel}>취소</button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * 한 가지 투자 방식(단기 또는 장기)의 AI 시나리오를 만들고 검토하는 자리입니다.
  *
@@ -185,6 +222,10 @@ export function InvestmentScenarioPanel({
   // 시나리오 생성에 그대로 실어 보냅니다. 추천을 받지 않으면 서버 기본값으로 만듭니다.
   const [conditions, setConditions] = useState<SetupPrecheckResponse | null>(null);
   const [conditionValues, setConditionValues] = useState<Record<string, string>>({});
+  // AI가 지은 기업 이름·소개와 이야기에는 초등학생이 읽기 어려운 낱말이 섞입니다.
+  // 시나리오를 다시 만들면 가격 흐름까지 바뀌므로, 글만 고칠 수 있게 편집 상태를 따로 둡니다.
+  const [assetEdit, setAssetEdit] = useState<{ assetId: string; name: string; profile: string } | null>(null);
+  const [newsEdit, setNewsEdit] = useState<{ eventId: string; title: string; content: string; version: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!moduleActive || !modeEnabled) {
@@ -352,6 +393,61 @@ export function InvestmentScenarioPanel({
       setMessage(regenerate
         ? `초안을 거절하고 ${source} 새 시나리오를 만들었습니다.`
         : `${source} ${MODE_LABELS[mode]} 시나리오를 만들었습니다. 가격 흐름을 확인한 뒤 승인해 주세요.`);
+    } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  /** 기업 이름과 소개 문장만 고칩니다. 기호와 가격 흐름은 서버에서 그대로 둡니다. */
+  async function saveAssetText() {
+    if (!assetEdit) return;
+    if (!assetEdit.name.trim() || !assetEdit.profile.trim()) {
+      setMessage("기업 이름과 소개를 모두 입력해 주세요.");
+      return;
+    }
+    setBusy(assetEdit.assetId);
+    setMessage("");
+    try {
+      await apiRequest(`/classrooms/${classroomId}/investment-market/assets/${assetEdit.assetId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: assetEdit.name.trim(),
+          company_profile: assetEdit.profile.trim()
+        })
+      });
+      setAssetEdit(null);
+      await load();
+      setMessage("기업 이름과 소개를 고쳤습니다.");
+    } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  /** 승인 전 이야기 초안의 제목과 본문을 고쳐 씁니다. */
+  async function saveNewsText() {
+    if (!newsEdit) return;
+    if (!newsEdit.title.trim() || !newsEdit.content.trim()) {
+      setMessage("제목과 이야기를 모두 입력해 주세요.");
+      return;
+    }
+    setBusy(newsEdit.eventId);
+    setMessage("");
+    try {
+      await apiRequest(`/classrooms/${classroomId}/ai/economic-events/${newsEdit.eventId}/text`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: newsEdit.title.trim(),
+          content: newsEdit.content.trim(),
+          expected_event_version: newsEdit.version
+        })
+      });
+      setNewsEdit(null);
+      await load();
+      setMessage("이야기를 고쳤습니다. 내용을 확인한 뒤 승인해 주세요.");
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
@@ -658,7 +754,27 @@ export function InvestmentScenarioPanel({
             {plannedPath.map((asset) => (
               <article key={asset.asset_id}>
                 <header><strong>{asset.name}</strong><small>{asset.symbol}</small></header>
-                <p>{asset.company_profile}</p>
+                {assetEdit?.assetId === asset.asset_id ? (
+                  <AssetTextEditor
+                    draft={assetEdit}
+                    busy={busy === asset.asset_id}
+                    onChange={setAssetEdit}
+                    onCancel={() => setAssetEdit(null)}
+                    onSave={() => void saveAssetText()}
+                  />
+                ) : (
+                  <>
+                    <p>{asset.company_profile}</p>
+                    <button
+                      type="button"
+                      className="ghost-action"
+                      disabled={!canManage || Boolean(busy)}
+                      onClick={() => setAssetEdit({ assetId: asset.asset_id, name: asset.name, profile: asset.company_profile })}
+                    >
+                      <Pencil size={15} /> 이름·소개 수정
+                    </button>
+                  </>
+                )}
                 <p><b>하루 변동 범위 {returnBandText(asset)}</b></p>
                 <ol>
                   {asset.planned_price_history.map((point) => (
@@ -727,12 +843,61 @@ export function InvestmentScenarioPanel({
                   <div><strong>{asset.name}</strong><small>{asset.symbol}</small></div>
                   <b>{asset.current_price?.toLocaleString("ko-KR")} {currencyName}</b>
                 </header>
-                <p>{asset.company_profile}</p>
+                {assetEdit?.assetId === asset.asset_id ? (
+                  <AssetTextEditor
+                    draft={assetEdit}
+                    busy={busy === asset.asset_id}
+                    onChange={setAssetEdit}
+                    onCancel={() => setAssetEdit(null)}
+                    onSave={() => void saveAssetText()}
+                  />
+                ) : (
+                  <>
+                    <p>{asset.company_profile}</p>
+                    <button
+                      type="button"
+                      className="ghost-action"
+                      disabled={!canManage || Boolean(busy)}
+                      onClick={() => setAssetEdit({ assetId: asset.asset_id, name: asset.name, profile: asset.company_profile })}
+                    >
+                      <Pencil size={15} /> 이름·소개 수정
+                    </button>
+                  </>
+                )}
                 <p><b>하루 변동 범위 {returnBandText(asset)}</b></p>
                 {asset.news.length === 0 ? <small>아직 이야기 초안이 없습니다.</small> : asset.news.map((news) => {
                   // AI가 실패해 규칙 엔진 안내문만 들어온 초안입니다. 승인해도 학생에게 보여 줄
                   // 이야기가 없으므로 다시 생성부터 권합니다.
                   const aiFailed = news.content.includes("AI 이야기 생성에 실패");
+                  if (newsEdit?.eventId === news.event_id) {
+                    return (
+                      <div className="investment-news-review" key={news.event_id}>
+                        <label>
+                          이야기 제목
+                          <input
+                            maxLength={160}
+                            value={newsEdit.title}
+                            onChange={(event) => setNewsEdit({ ...newsEdit, title: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          이야기 내용
+                          <textarea
+                            rows={5}
+                            maxLength={2000}
+                            value={newsEdit.content}
+                            onChange={(event) => setNewsEdit({ ...newsEdit, content: event.target.value })}
+                          />
+                        </label>
+                        <div>
+                          <button type="button" disabled={busy === news.event_id} onClick={() => void saveNewsText()}>
+                            <Check size={15} /> {busy === news.event_id ? "저장하는 중" : "수정 저장"}
+                          </button>
+                          <button type="button" className="ghost-action" disabled={busy === news.event_id} onClick={() => setNewsEdit(null)}>취소</button>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div className="investment-news-review" key={news.event_id}>
                       <span>{aiFailed ? "생성 실패" : news.status}</span><h3>{news.title}</h3><p>{news.content}</p>
@@ -742,6 +907,19 @@ export function InvestmentScenarioPanel({
                             <Check size={15} /> 승인·공개
                           </button>
                         )}
+                        <button
+                          type="button"
+                          className="ghost-action"
+                          disabled={!canManage || Boolean(busy)}
+                          onClick={() => setNewsEdit({
+                            eventId: news.event_id,
+                            title: news.title,
+                            content: news.content,
+                            version: news.state_version
+                          })}
+                        >
+                          <Pencil size={15} /> 문장 수정
+                        </button>
                         <button type="button" className={aiFailed ? "" : "ghost-action"} disabled={!aiEnabled || !canManage || Boolean(busy)} onClick={() => void regenerate(news)}>
                           <RefreshCw size={15} /> {busy === news.event_id ? "다시 생성 중" : "AI로 다시 생성"}
                         </button>

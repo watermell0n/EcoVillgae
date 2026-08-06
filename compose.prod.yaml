@@ -1,0 +1,184 @@
+name: ecovillage-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecovillage}
+      POSTGRES_USER: ${POSTGRES_USER:-ecovillage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecovillage} -d ${POSTGRES_DB:-ecovillage}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 2g
+    logging: *default-logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 384mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    logging: *default-logging
+
+  ai-service:
+    build:
+      context: ./ai-service
+    restart: unless-stopped
+    environment:
+      ECOVILLAGE_AI_ENVIRONMENT: production
+      ECOVILLAGE_AI_INTERNAL_SERVICE_TOKEN: ${ECOVILLAGE_AI_INTERNAL_SERVICE_TOKEN:?AI internal token is required}
+      ECOVILLAGE_AI_INTERNAL_SERVICE_SCOPES: ai:generate:balancing,ai:generate:teacher-chat,ai:generate:economic-event,ai:generate:quiz-draft,ai:generate:investment-company
+      ECOVILLAGE_AI_PROVIDER: ${ECOVILLAGE_AI_PROVIDER:-FAKE}
+      ECOVILLAGE_AI_MODEL_ID: ${ECOVILLAGE_AI_MODEL_ID:-}
+      ECOVILLAGE_AI_OPENAI_ENABLED: ${ECOVILLAGE_AI_OPENAI_ENABLED:-false}
+      ECOVILLAGE_AI_OPENAI_MODEL_ID: ${ECOVILLAGE_AI_OPENAI_MODEL_ID:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      ECOVILLAGE_AI_PROVIDER_TIMEOUT_SECONDS: "15"
+      ECOVILLAGE_AI_MAX_OUTPUT_TOKENS: "4096"
+      ECOVILLAGE_AI_DOCS_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    mem_limit: 1g
+    logging: *default-logging
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-ecovillage}
+      POSTGRES_USER: ${POSTGRES_USER:-ecovillage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REALTIME_REDIS_ENABLED: "true"
+      AI_SERVICE_ENABLED: "true"
+      AI_SERVICE_BASE_URL: http://ai-service:8000
+      AI_SERVICE_READ_TIMEOUT: 20s
+      AI_SERVICE_TOTAL_TIMEOUT: 75s
+      AI_INTERNAL_SERVICE_TOKEN: ${ECOVILLAGE_AI_INTERNAL_SERVICE_TOKEN:?AI internal token is required}
+      AUTH_ACCESS_TOKEN_TTL: 15m
+      AUTH_REFRESH_TOKEN_TTL: 14d
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?JWT secret is required}
+      AUTH_TOKEN_PEPPER: ${AUTH_TOKEN_PEPPER:?Token pepper is required}
+      AUTH_REFRESH_COOKIE_SECURE: "true"
+      WEB_ALLOWED_ORIGINS: https://${DOMAIN:?DOMAIN is required}
+      TEACHER_OIDC_ENABLED: ${TEACHER_OIDC_ENABLED:-false}
+      TEACHER_OIDC_ISSUER: ${TEACHER_OIDC_ISSUER:-}
+      TEACHER_OIDC_JWK_SET_URI: ${TEACHER_OIDC_JWK_SET_URI:-}
+      TEACHER_OIDC_CLIENT_ID: ${TEACHER_OIDC_CLIENT_ID:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    mem_limit: 2g
+    logging: *default-logging
+
+  teacher-web:
+    build:
+      context: ./teacher-web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /backend-api
+        NEXT_PUBLIC_WEBSOCKET_URL: wss://${DOMAIN:?DOMAIN is required}/ws/v1
+        NEXT_PUBLIC_OIDC_AUTHORIZATION_URL: ${NEXT_PUBLIC_OIDC_AUTHORIZATION_URL:-}
+        NEXT_PUBLIC_OIDC_TOKEN_URL: ${NEXT_PUBLIC_OIDC_TOKEN_URL:-}
+        NEXT_PUBLIC_OIDC_CLIENT_ID: ${NEXT_PUBLIC_OIDC_CLIENT_ID:-}
+        NEXT_PUBLIC_OIDC_REDIRECT_URI: https://${DOMAIN:?DOMAIN is required}/
+        NEXT_PUBLIC_OIDC_SCOPE: openid profile email
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 1g
+    logging: *default-logging
+
+  student-web:
+    build:
+      context: ./student-app/expo
+      args:
+        EXPO_PUBLIC_API_BASE_URL: https://${DOMAIN:?DOMAIN is required}/api
+        EXPO_PUBLIC_WEBSOCKET_URL: wss://${DOMAIN:?DOMAIN is required}/ws/v1
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 256m
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      teacher-web:
+        condition: service_healthy
+      student-web:
+        condition: service_healthy
+    mem_limit: 256m
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy-data:
+  caddy-config:

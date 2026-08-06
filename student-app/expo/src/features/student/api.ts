@@ -384,33 +384,18 @@ export async function fetchQuizResults(classroomId: string, quizSessionId: strin
   };
 }
 
+export type TestAnswerSheetEntry = { questionId: string; optionId: string };
+
 /**
- * 답 제출 경로는 퀴즈 운영 방식에 따라 다릅니다. 게임형은 문항마다 바로 제출하고, 평가형은
- * 답안지를 모아 저장합니다. 방식과 다른 경로로 보내면 서버가 INVALID_QUIZ_MODE로 거절합니다.
+ * 게임형 답 제출입니다. 한 문항에 한 번만 낼 수 있고, 서버가 그 규칙을 지킵니다.
  */
-export async function submitQuizAnswer(
+export async function submitGameAnswer(
   classroomId: string,
   sessionId: string,
   questionId: string,
-  optionId: string,
-  mode: QuizSession["mode"] = "GAME"
+  optionId: string
 ) {
   if (useMocks) return { submitted: true };
-  if (mode === "TEST") {
-    return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/test-answer-sheet`, {
-      method: "PUT",
-      retryOnNetworkFailure: true,
-      body: JSON.stringify({
-        screen_id: "SCR-STU-021",
-        ui_action_id: "UIA-QZ-005",
-        client_occurred_at: now(),
-        answers: [{ question_id: questionId, option_id: optionId }],
-        answer_sheet_version: 0,
-        // 평가형은 마지막에 한 번 제출합니다. 문항을 고를 때마다 임시 저장만 합니다.
-        submit: false
-      })
-    });
-  }
   return apiRequest<unknown>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/game-answers`, {
     method: "POST",
     retryOnNetworkFailure: true,
@@ -425,6 +410,46 @@ export async function submitQuizAnswer(
       client_answered_at: now()
     })
   });
+}
+
+/**
+ * 평가형 답안지를 저장합니다.
+ *
+ * <p>서버는 답안지를 판본 단위로 통째로 보관합니다. 그래서 지금까지 고른 답을 **모두** 실어
+ * 보내야 하고, 보낸 판본이 서버가 가진 판본과 같아야 저장됩니다. 한 문항만 보내면 앞서 고른
+ * 답이 사라지고, 판본을 0으로 고정해 보내면 두 번째 문항부터 STATE_VERSION_CONFLICT로
+ * 거절됩니다. 저장에 성공하면 서버가 올려 준 판본을 돌려주므로 다음 저장에 그대로 씁니다.
+ *
+ * @param submit 마지막 제출이면 true입니다. 그 전에는 임시 저장으로 둡니다.
+ * @returns 다음 저장에 쓸 답안지 판본
+ */
+export async function saveTestAnswerSheet(
+  classroomId: string,
+  sessionId: string,
+  answers: readonly TestAnswerSheetEntry[],
+  answerSheetVersion: number,
+  submit: boolean
+): Promise<number> {
+  if (useMocks) return answerSheetVersion + 1;
+  const response = await apiRequest<{ state_version?: number }>(
+    `/classrooms/${classroomId}/quiz-sessions/${sessionId}/test-answer-sheet`,
+    {
+      method: "PUT",
+      retryOnNetworkFailure: true,
+      body: JSON.stringify({
+        screen_id: "SCR-STU-021",
+        ui_action_id: "UIA-QZ-005",
+        client_occurred_at: now(),
+        answers: answers.map((answer) => ({
+          question_id: answer.questionId,
+          option_id: answer.optionId
+        })),
+        answer_sheet_version: answerSheetVersion,
+        submit
+      })
+    }
+  );
+  return response.state_version ?? answerSheetVersion + 1;
 }
 
 export type Vote = {

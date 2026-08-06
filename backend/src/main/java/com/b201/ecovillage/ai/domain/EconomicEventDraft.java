@@ -144,8 +144,34 @@ public class EconomicEventDraft {
         transition("CANCELED", now);
     }
 
+    /**
+     * 교사가 학생 눈높이에 맞게 제목과 이야기를 고쳐 쓴다.
+     *
+     * <p>AI가 쓴 문장에는 초등학생이 읽기 어려운 낱말이 섞일 수 있다. 아직 검토 중인 초안만
+     * 고칠 수 있다. 이미 승인해 학생에게 보인 이야기는 뒤늦게 바꾸지 않는다.
+     */
+    public void rewrite(String title, String content, Instant now) {
+        if (!isUnderReview()) {
+            throw new IllegalStateException(
+                "The economic event draft is no longer under review: " + status
+            );
+        }
+        this.title = required(requireContent(title), 160);
+        this.content = requireContent(content);
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
     public boolean isUnderReview() {
         return "DRAFT".equals(status);
+    }
+
+    private static String requireContent(String value) {
+        Objects.requireNonNull(value, "content must not be null");
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("content must not be blank");
+        }
+        return normalized;
     }
 
     private void transition(String nextStatus, Instant now) {
