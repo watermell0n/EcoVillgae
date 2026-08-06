@@ -573,6 +573,8 @@ export const MODULE_DEFINITIONS = [
   { code: "RISK_MANAGEMENT", name: "투자 위험관리", description: "투자의 위험과 분산 원칙을 학습합니다." },
   { code: "MARKET_PRICE", name: "가격 변화", description: "시장 가격 변화를 경제 활동에 반영합니다." },
   { code: "TRADE", name: "개인거래", description: "학생 간 제안·동의·교사 승인 거래를 사용합니다." },
+  { code: "REAL_ESTATE", name: "교실 부동산", description: "교실 자리를 직판하고 학생 간 재판매를 운영합니다." },
+  { code: "HOUSING_SUBSCRIPTION", name: "자리 청약", description: "청약통장 조건과 추첨 방식으로 자리를 공급합니다." },
   { code: "PHYSICAL_STORE", name: "실제 상품", description: "교실의 실제 상품 판매와 재고를 운영합니다." },
   { code: "CHARACTER", name: "캐릭터", description: "학생 캐릭터와 꾸미기 아이템을 사용합니다." },
   { code: "QUIZ_GAME", name: "게임형 퀴즈", description: "점수와 선택적 순위가 있는 퀴즈를 운영합니다." },

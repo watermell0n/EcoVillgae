@@ -9,6 +9,8 @@ export type Property = {
   coordinate: string;
   displayName: string;
   tier: string;
+  isPublic: boolean;
+  isActive: boolean;
   allowsRent: boolean;
   allowsJeonse: boolean;
   allowsSale: boolean;
@@ -22,6 +24,27 @@ export type Property = {
   ownerStudentId?: string;
   status: string;
   subscriptionOfferId?: string;
+};
+
+export type PropertyLayout = {
+  rowCount: number;
+  columnCount: number;
+  stateVersion: number;
+  properties: Property[];
+};
+
+export type SubscriptionOffer = {
+  offerId: string;
+  title: string;
+  opensAt: string;
+  closesAt: string;
+  salePrice: number;
+  supplyQuantity: number;
+  minimumDepositCount: number;
+  minimumBalance: number;
+  applicantCount: number;
+  propertyIds: string[];
+  status: string;
 };
 
 export type PropertyContract = {
@@ -63,6 +86,8 @@ type PropertyResponse = {
   coordinate?: string;
   display_name?: string;
   tier?: string;
+  is_public?: boolean;
+  is_active?: boolean;
   allows_rent?: boolean;
   allows_jeonse?: boolean;
   allows_sale?: boolean;
@@ -76,6 +101,27 @@ type PropertyResponse = {
   owner_student_id?: string | null;
   status?: string;
   subscription_offer_id?: string | null;
+};
+
+type PropertyLayoutResponse = {
+  row_count?: number;
+  column_count?: number;
+  state_version?: number;
+  properties?: PropertyResponse[];
+};
+
+type SubscriptionOfferResponse = {
+  offer_id?: string;
+  title?: string;
+  opens_at?: string;
+  closes_at?: string;
+  sale_price?: number;
+  supply_quantity?: number;
+  minimum_deposit_count?: number;
+  minimum_balance?: number;
+  applicant_count?: number;
+  property_ids?: string[];
+  status?: string;
 };
 
 type ContractResponse = {
@@ -115,12 +161,14 @@ type SubscriptionApplicationResponse = {
 const mockProperties: Property[] = [
   {
     propertyId: "mock-property-a1", coordinate: "A1", displayName: "창가 1번 자리", tier: "STANDARD",
+    isPublic: true, isActive: true,
     allowsRent: true, allowsJeonse: true, allowsSale: true, allowsSubscription: false,
     salePrice: 320, depositAmount: 120, monthlyRent: 24, paymentCycleDays: 7, contractTermDays: 30,
     ownerKind: "CLASSROOM", status: "AVAILABLE"
   },
   {
     propertyId: "mock-property-b2", coordinate: "B2", displayName: "칠판 앞 자리", tier: "PREMIUM",
+    isPublic: true, isActive: true,
     allowsRent: true, allowsJeonse: false, allowsSale: false, allowsSubscription: true,
     salePrice: 0, depositAmount: 60, monthlyRent: 18, paymentCycleDays: 7, contractTermDays: 30,
     ownerKind: "CLASSROOM", status: "LISTED_FOR_RENT"
@@ -134,6 +182,8 @@ function mapProperty(item: PropertyResponse): Property[] {
     coordinate: item.coordinate ?? "",
     displayName: item.display_name ?? item.coordinate ?? "자리",
     tier: item.tier ?? "STANDARD",
+    isPublic: item.is_public ?? false,
+    isActive: item.is_active ?? true,
     allowsRent: item.allows_rent ?? false,
     allowsJeonse: item.allows_jeonse ?? false,
     allowsSale: item.allows_sale ?? false,
@@ -148,6 +198,17 @@ function mapProperty(item: PropertyResponse): Property[] {
     status: item.status ?? "UNKNOWN",
     subscriptionOfferId: item.subscription_offer_id ?? undefined
   }];
+}
+
+export async function fetchPropertyLayout(classroomId: string): Promise<PropertyLayout> {
+  if (useMocks) return { rowCount: 4, columnCount: 5, stateVersion: 1, properties: mockProperties };
+  const response = await apiRequest<PropertyLayoutResponse>(`/classrooms/${classroomId}/property-layout`);
+  return {
+    rowCount: response.row_count ?? 0,
+    columnCount: response.column_count ?? 0,
+    stateVersion: response.state_version ?? 0,
+    properties: (response.properties ?? []).flatMap(mapProperty)
+  };
 }
 
 function mapContract(item: ContractResponse): PropertyContract {
@@ -260,6 +321,50 @@ export async function fetchSubscriptionApplications(classroomId: string): Promis
   }] : []);
 }
 
+export async function fetchSubscriptionOffers(classroomId: string): Promise<SubscriptionOffer[]> {
+  if (useMocks) return [];
+  const response = await apiRequest<SubscriptionOfferResponse[]>(`/classrooms/${classroomId}/subscription-offers`);
+  return response.flatMap((item) => item.offer_id ? [{
+    offerId: item.offer_id,
+    title: item.title ?? "자리 청약",
+    opensAt: item.opens_at ?? "",
+    closesAt: item.closes_at ?? "",
+    salePrice: item.sale_price ?? 0,
+    supplyQuantity: item.supply_quantity ?? 0,
+    minimumDepositCount: item.minimum_deposit_count ?? 0,
+    minimumBalance: item.minimum_balance ?? 0,
+    applicantCount: item.applicant_count ?? 0,
+    propertyIds: item.property_ids ?? [],
+    status: item.status ?? "OPEN"
+  }] : []);
+}
+
+export async function applySubscriptionOffer(offerId: string): Promise<void> {
+  if (useMocks) return;
+  await apiRequest(`/subscription-offers/${offerId}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ client_occurred_at: new Date().toISOString() })
+  });
+}
+
+export async function cancelSubscriptionApplication(applicationId: string): Promise<void> {
+  if (useMocks) return;
+  await apiRequest(`/students/me/subscription-applications/${applicationId}`, { method: "DELETE" });
+}
+
+export async function createPropertySaleListing(propertyId: string, salePrice: number): Promise<void> {
+  if (useMocks) return;
+  await apiRequest(`/students/me/properties/${propertyId}/sale-listing`, {
+    method: "POST",
+    body: JSON.stringify({ sale_price: salePrice, client_occurred_at: new Date().toISOString() })
+  });
+}
+
+export async function cancelPropertySaleListing(propertyId: string): Promise<void> {
+  if (useMocks) return;
+  await apiRequest(`/students/me/properties/${propertyId}/sale-listing`, { method: "DELETE" });
+}
+
 export function contractTypeLabel(type: string) {
   if (type === "RENT") return "월세";
   if (type === "JEONSE") return "전세";
@@ -270,7 +375,10 @@ export function contractTypeLabel(type: string) {
 export function propertyStatusLabel(status: string) {
   if (status === "AVAILABLE") return "계약 가능";
   if (status === "LISTED_FOR_RENT") return "임대 모집";
+  if (status === "LISTED_FOR_SALE") return "친구가 판매 중";
   if (status === "SUBSCRIPTION_OPEN") return "청약 진행";
+  if (status === "STUDENT_OWNED") return "소유 중";
+  if (status === "RENTED") return "사용 중";
   if (status === "OCCUPIED") return "사용 중";
   if (status === "INACTIVE") return "사용 안 함";
   return status;
@@ -289,6 +397,8 @@ export function applicationStatusLabel(status: string) {
   if (status === "APPLIED") return "신청 완료";
   if (status === "WON") return "당첨";
   if (status === "LOST") return "미당첨";
+  if (status === "PURCHASED") return "소유권 구매 완료";
+  if (status === "CANCELED") return "신청 취소";
   return status;
 }
 

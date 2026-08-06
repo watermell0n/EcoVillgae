@@ -14229,6 +14229,60 @@
           }
         ]
       }
+    },
+    {
+      "api_id": "API-EST-023",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/property-contracts",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["property_contracts", "properties", "classroom_students"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
+    },
+    {
+      "api_id": "API-EST-024",
+      "method": "POST",
+      "path": "/students/me/properties/{resource_id}/sale-listing",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["property_sale_listings", "properties"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
+    },
+    {
+      "api_id": "API-EST-025",
+      "method": "DELETE",
+      "path": "/students/me/properties/{resource_id}/sale-listing",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["property_sale_listings", "properties"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
+    },
+    {
+      "api_id": "API-EST-026",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/subscription-offers",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["subscription_offers", "subscription_offer_properties", "subscription_applications"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
+    },
+    {
+      "api_id": "API-EST-027",
+      "method": "POST",
+      "path": "/subscription-offers/{resource_id}/cancel",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["subscription_offers", "subscription_applications", "properties"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
+    },
+    {
+      "api_id": "API-EST-028",
+      "method": "DELETE",
+      "path": "/students/me/subscription-applications/{resource_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": ["subscription_applications"],
+      "request": { "mode": "none", "fields": [] },
+      "response": { "mode": "none", "fields": [] }
     }
   ]
 }

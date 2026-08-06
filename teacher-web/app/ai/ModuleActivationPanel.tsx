@@ -46,7 +46,15 @@ const MODULE_LABELS: Record<string, string> = {
   ROLE_SALARY: "월급",
   SAVINGS: "적금",
   STORE: "상점",
-  TRADE: "개인 거래"
+  TRADE: "개인 거래",
+  REAL_ESTATE: "부동산",
+  HOUSING_SUBSCRIPTION: "청약"
+};
+
+const SEVERITY_LABELS: Record<SetupPrecheckResponse["overall_severity"], string> = {
+  PASS: "통과",
+  WARN: "확인 필요",
+  BLOCK: "조치 필요"
 };
 
 // 금리·세율 정책이 없는 모듈은 여기서 보여 줄 확정값이 없습니다. 대신 어디서 정하는지 알려 줍니다.
@@ -61,15 +69,18 @@ function moduleLabel(module: AiModuleRow) {
 }
 
 export function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrecheckResponse }>) {
+  const summary = result.overall_severity === "PASS"
+    ? "교실 운영을 시작할 준비가 됐습니다. 아래 설정값을 확인해 주세요."
+    : result.summary;
   return (
     <section className={`ai-precheck-summary ${result.overall_severity.toLowerCase()}`}>
       <div>
-        <span>AI 시작 전 점검 · {result.overall_severity}</span>
-        <strong>{result.summary}</strong>
+        <span>시작 전 자동 점검 · {SEVERITY_LABELS[result.overall_severity]}</span>
+        <strong>{summary}</strong>
       </div>
-      {result.fallback_used ? <p>AI 설명 연결에 실패해 Spring 규칙 결과를 그대로 표시했습니다.</p> : null}
+      {result.fallback_used ? <p>AI 설명을 불러오지 못했지만 기본 점검은 정상적으로 완료됐습니다.</p> : null}
       {result.checks.map((check) => (
-        <p key={check.check_id}><b>{check.severity}</b> {check.explanation}{check.correction_guidance ? ` · ${check.correction_guidance}` : ""}</p>
+        <p key={check.check_id}><b>{SEVERITY_LABELS[check.severity]}</b> {check.explanation}{check.correction_guidance ? ` · ${check.correction_guidance}` : ""}</p>
       ))}
     </section>
   );
@@ -300,13 +311,13 @@ export function ModuleActivationPanel({
 
   return (
     <PlainSection
-      title="선택 모듈 활성화"
-      description="개설 때 선택한 모듈만 표시합니다."
+      title="선택한 기능 준비하기"
+      description="바로 사용할 수 있는 기능과 추가 설정이 필요한 기능을 확인하세요."
     >
       {/* 투자 모듈은 운영 방식을 고르지 않으면 계속 "설정 대기"로 남아 교사가 놓치기 쉬우므로
           설명 아래에 한 줄로 크게 안내합니다. */}
       <p className="module-activation-notice">
-        투자 모듈은 단기 또는 장기 운영 방식을 고른 뒤 활성화합니다.
+        투자는 단기 또는 장기 운영 방식을 고른 뒤 사용할 수 있습니다.
       </p>
       {!canManage ? (
         <div className="inline-notice"><AlertTriangle size={17} /> 모듈 활성화는 학급 소유 교사만 실행할 수 있어요.</div>
@@ -332,7 +343,7 @@ export function ModuleActivationPanel({
               <header>
                 <div><strong>{moduleLabel(module)}</strong></div>
                 <b className={`module-status ${isActive ? "active" : ""}`}>
-                  {isActive ? <Check size={14} /> : null}{module.status}
+                  {isActive ? <Check size={14} /> : null}{isActive ? "사용 가능" : module.status === "설정 대기" ? "설정 필요" : module.status}
                 </b>
               </header>
               {appliedValues.length > 0 ? (
@@ -381,16 +392,16 @@ export function ModuleActivationPanel({
               {!isActive && needsPolicy ? (
                 <>
                   <button type="button" disabled={blocked} onClick={() => void requestPrecheck(module)}>
-                    {busy ? "점검하는 중" : result ? "추천 다시 확인" : "AI 추천 확인"}
+                    {busy ? "점검하는 중" : result ? "추천값 다시 보기" : "AI 추천값 보기"}
                   </button>
                   <button type="button" disabled={blocked} onClick={() => void activateWithoutPolicy(module)}>
-                    {busy ? "활성화하는 중" : "기본값으로 바로 활성화"}
+                    {busy ? "준비하는 중" : "기본값으로 사용 시작"}
                   </button>
                 </>
               ) : null}
               {!isActive && !needsPolicy ? (
                 <button type="button" disabled={blocked} onClick={() => void activateWithoutPolicy(module)}>
-                  {busy ? "활성화하는 중" : "활성화"}
+                  {busy ? "준비하는 중" : "사용 시작"}
                 </button>
               ) : null}
               {result ? (
