@@ -3563,9 +3563,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 136, `HTTP 작업 수가 136개가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 136, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 136, "HTTP 메서드·경로가 중복되었습니다."],
+    [httpOperations.length === 137, `HTTP 작업 수가 137개가 아닙니다: ${httpOperations.length}`],
+    [new Set(apiIds).size === 137, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === 137, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3582,8 +3582,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 136,
-      "OpenAPI 작업 수가 136개가 아닙니다.",
+      ) === 137,
+      "OpenAPI 작업 수가 137개가 아닙니다.",
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

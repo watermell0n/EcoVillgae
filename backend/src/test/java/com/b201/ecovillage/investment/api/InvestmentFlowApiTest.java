@@ -43,6 +43,7 @@ import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.investment.application.HistoricalIndexPath;
 import com.b201.ecovillage.investment.application.HistoricalIndexPathProvider;
 import com.b201.ecovillage.investment.domain.HistoricalIndexReference;
+import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
 import com.b201.ecovillage.investment.repository.InvestmentPositionRepository;
 import com.b201.ecovillage.ledger.application.AtomicLedgerTransactionService;
 import com.b201.ecovillage.ledger.application.LedgerTransactionCommand;
@@ -85,6 +86,7 @@ class InvestmentFlowApiTest {
     @Autowired PolicySnapshotRepository snapshotRepository;
     @Autowired AtomicLedgerTransactionService transactionService;
     @Autowired InvestmentPositionRepository positionRepository;
+    @Autowired InvestmentMarketRepository marketRepository;
 
     private UUID classroomId;
     private UUID studentId;
@@ -184,6 +186,168 @@ class InvestmentFlowApiTest {
                 classroomId, studentId, LedgerAccountType.STUDENT_WALLET,
                 LedgerAccountStatus.ACTIVE
             ).orElseThrow().getCurrentBalance());
+
+        // 하루를 넘기면 숨겨 둔 다음 가격이 공개된다. 장기는 마지막 날에만 정산하므로 아직 아니다.
+        String advancedBody = mockMvc.perform(post("/classrooms/{classroomId}/investment-market/day-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"LONG_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.current_step").value(2))
+            .andExpect(jsonPath("$.data.market_status").value("OPEN"))
+            .andExpect(jsonPath("$.data.settled").value(false))
+            .andReturn().getResponse().getContentAsString();
+        assertEquals(20, objectMapper.readTree(advancedBody).get("data").get("total_steps").asInt());
+
+        // 2일차 가격은 1000의 1% 상승인 1010이다. 이 시세로 정산되어야 한다.
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assets[0].price_history.length()").value(2))
+            .andExpect(jsonPath("$.data.assets[0].current_price").value(1010));
+    }
+
+    @Test
+    void settlesEveryHoldingAndClosesTheMarketOnTheFinalDay() throws Exception {
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":true}
+                    """))
+            .andExpect(status().isOk());
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-market/commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"command":"START","investment_mode":"LONG_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk());
+
+        String marketBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
+            .andReturn().getResponse().getContentAsString();
+        JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"side":"BUY","asset_id":"%s","quantity":2,"expected_price_version":1}
+                    """.formatted(asset.get("asset_id").asText())))
+            .andExpect(status().isCreated());
+
+        // 20단계 시나리오이므로 19번 넘기면 마지막 날이다. 마지막 날에 최종 정산하고 시장을 닫는다.
+        String lastBody = null;
+        for (int day = 2; day <= 20; day++) {
+            lastBody = mockMvc.perform(post("/classrooms/{classroomId}/investment-market/day-commands", classroomId)
+                    .principal(owner)
+                    .header("Idempotency-Key", UUID.randomUUID())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"investment_mode":"LONG_TERM","expected_state_version":%d}
+                        """.formatted(marketStateVersion())))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        }
+        JsonNode last = objectMapper.readTree(lastBody).get("data");
+        assertEquals("CLOSED", last.get("market_status").asText());
+        assertEquals(true, last.get("settled").asBoolean());
+        assertEquals(1, last.get("settled_position_count").asInt());
+
+        // 보유량은 비워지고 지갑에는 마지막 시세로 계산한 지급액이 들어온다.
+        assertEquals(0, positionRepository.findAll().getFirst().getQuantity());
+        long settled = last.get("settled_amount").asLong();
+        assertEquals(8_000L + settled, ledgerAccountRepository
+            .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                classroomId, studentId, LedgerAccountType.STUDENT_WALLET,
+                LedgerAccountStatus.ACTIVE
+            ).orElseThrow().getCurrentBalance());
+
+        // 정산이 끝난 시장은 CLOSED이므로 같은 방식의 새 시나리오를 다시 만들 수 있다.
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":true}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.market_status").value("DRAFT"));
+    }
+
+    @Test
+    void settlesShortTermOnTheNextDayBecauseSettlementIsMandatory() throws Exception {
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT").orElseThrow();
+        module.changeInvestmentModes(List.of("SHORT_TERM"), NOW);
+        moduleRepository.saveAndFlush(module);
+
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"SHORT_TERM","prefer_historical_index":false}
+                    """))
+            .andExpect(status().isOk())
+            // 단기는 역사 지수를 쓰지 않고 두 단계짜리 AI 생성 흐름을 쓴다.
+            .andExpect(jsonPath("$.data.scenario_source").value("AI_GENERATED"))
+            .andExpect(jsonPath("$.data.step_count").value(2));
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-market/commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"command":"START","investment_mode":"SHORT_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk());
+
+        String marketBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "SHORT_TERM")
+                .principal(owner))
+            .andReturn().getResponse().getContentAsString();
+        JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"side":"BUY","asset_id":"%s","quantity":2,"expected_price_version":1}
+                    """.formatted(asset.get("asset_id").asText())))
+            .andExpect(status().isCreated());
+
+        // 하루만 넘겨도 의무 정산이 일어나고 시장이 닫힌다.
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-market/day-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"SHORT_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.settled").value(true))
+            .andExpect(jsonPath("$.data.market_status").value("CLOSED"))
+            .andExpect(jsonPath("$.data.settled_position_count").value(1))
+            // 단기 2단계 상승률은 650bps이므로 1000 -> 1065, 두 주면 2130을 지급한다.
+            .andExpect(jsonPath("$.data.settled_amount").value(2130));
+
+        assertEquals(0, positionRepository.findAll().getFirst().getQuantity());
+        assertEquals(8_000L + 2_130L, ledgerAccountRepository
+            .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                classroomId, studentId, LedgerAccountType.STUDENT_WALLET,
+                LedgerAccountStatus.ACTIVE
+            ).orElseThrow().getCurrentBalance());
+    }
+
+    private long marketStateVersion() {
+        return marketRepository.findAll().stream()
+            .filter(market -> !"CLOSED".equals(market.getStatus()))
+            .findFirst().orElseThrow().getStateVersion();
     }
 
     private void fundWallet() {

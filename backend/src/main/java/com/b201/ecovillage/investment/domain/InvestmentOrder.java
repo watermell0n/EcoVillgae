@@ -87,6 +87,27 @@ public class InvestmentOrder {
         return order;
     }
 
+    /**
+     * 정산으로 실행된 매도다. 학생이 낸 주문이 아니라 교사가 다음 날로 넘길 때 서버가 만든다.
+     */
+    public static InvestmentOrder executedSell(
+        UUID id,
+        UUID classroomId,
+        UUID studentId,
+        UUID assetId,
+        int quantity,
+        long price,
+        int priceStep,
+        UUID transactionGroupId,
+        Instant now
+    ) {
+        InvestmentOrder order = executedBuy(
+            id, classroomId, studentId, assetId, quantity, price, priceStep, transactionGroupId, now
+        );
+        order.side = "SELL";
+        return order;
+    }
+
     public UUID getId() { return id; }
     public UUID getTransactionGroupId() { return transactionGroupId; }
     public String getStatus() { return status; }

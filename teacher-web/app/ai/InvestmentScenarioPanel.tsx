@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, Lock, LockOpen, LineChart, Play, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, Lock, LockOpen, LineChart, Play, RefreshCw, Sparkles } from "lucide-react";
 
 import { ApiError, apiRequest } from "../api";
 
@@ -40,6 +40,15 @@ type InvestmentMarket = {
   current_step: number;
   state_version: number;
   assets: InvestmentAsset[];
+};
+
+type DayResult = {
+  market_status: string;
+  current_step: number;
+  total_steps: number;
+  settled: boolean;
+  settled_position_count: number;
+  settled_amount: number;
 };
 
 type ScenarioResult = {
@@ -240,6 +249,33 @@ export function InvestmentScenarioPanel({
     }
   }
 
+  /**
+   * 숨겨 둔 다음 날 가격을 공개합니다. 단기는 이때 의무 정산까지 함께 일어납니다.
+   */
+  async function advanceDay() {
+    if (!market) return;
+    setBusy("day");
+    setMessage("");
+    try {
+      const result = await apiRequest<DayResult>(`/classrooms/${classroomId}/investment-market/day-commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          investment_mode: mode,
+          expected_state_version: market.state_version
+        })
+      });
+      await load();
+      setMessage(result.settled
+        ? `정산했습니다. ${result.settled_position_count}명에게 모두 ${result.settled_amount.toLocaleString("ko-KR")} ${currencyName}을 지급하고 투자를 마감했습니다.`
+        + (mode === "SHORT_TERM" ? " 다음 날 투자를 열려면 시나리오를 새로 생성해 주세요." : "")
+        : `${result.current_step}일차 가격을 공개했습니다(전체 ${result.total_steps}일). 새 이야기를 생성해 주세요.`);
+    } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function generateNews() {
     if (!market || missingNewsCount === 0) return;
     setBusy("news");
@@ -405,6 +441,18 @@ export function InvestmentScenarioPanel({
           {market.status === "PAUSED" ? (
             <div className="inline-notice"><Lock size={17} /> 학생 화면에서 이 투자에 들어갈 수 없습니다.</div>
           ) : null}
+          <div className="investment-decision-actions">
+            <button type="button" disabled={!canManage || Boolean(busy)} onClick={() => void advanceDay()}>
+              <CalendarClock size={16} /> {busy === "day"
+                ? "처리 중"
+                : mode === "SHORT_TERM" ? "다음 날 공개·정산" : "다음 날 공개"}
+            </button>
+            <small>
+              {mode === "SHORT_TERM"
+                ? "단기는 다음 날 가격을 공개하는 순간 학생 보유량을 의무 정산하고 마감합니다."
+                : `숨겨 둔 다음 날 가격을 공개합니다. 마지막 날에는 최종 정산하고 마감합니다.`}
+            </small>
+          </div>
           {missingNewsCount > 0 ? (
             <button type="button" className="wide-action" disabled={!aiEnabled || !canManage || busy === "news"} onClick={() => void generateNews()}>
               <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}

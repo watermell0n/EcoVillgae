@@ -115,6 +115,34 @@ public class InvestmentMarket {
     }
 
     /**
+     * 다음 날의 가격 단계를 공개한 뒤 현재 단계를 한 칸 올린다.
+     *
+     * <p>공개할 단계가 실제로 있는지는 시나리오를 아는 쪽에서 먼저 확인한다. 이 메서드는
+     * 시장 상태만 옮긴다.
+     */
+    public void advanceDay(Instant now) {
+        if (!OPEN.equals(status)) {
+            throw new IllegalStateException("Only an open market can advance to the next day");
+        }
+        currentStep += 1;
+        updatedAt = Objects.requireNonNull(now);
+    }
+
+    /**
+     * 정산까지 끝나 더 이상 거래하지 않는 시장이다. 방식별 유니크 조건은 CLOSED를 제외하므로
+     * 정산이 끝난 뒤에는 같은 방식의 새 시장을 다시 열 수 있다(단기의 하루 주기).
+     */
+    public void close(Instant now) {
+        if (CLOSED.equals(status)) {
+            throw new IllegalStateException("The market is already closed");
+        }
+        status = CLOSED;
+        closedAt = Objects.requireNonNull(now);
+        statusChangedAt = now;
+        updatedAt = now;
+    }
+
+    /**
      * 학생이 이 방식의 투자에 들어가지 못하게 잠근다. 시나리오와 학생 보유 내역은 그대로 남으므로
      * 다시 열 수 있다. 학급은 단기와 장기를 함께 운영하므로 잠금도 방식마다 따로 걸린다.
      */

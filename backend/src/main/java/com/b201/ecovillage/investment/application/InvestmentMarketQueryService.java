@@ -67,8 +67,8 @@ public class InvestmentMarketQueryService {
             .orElseThrow(() -> operation(
                 HttpStatus.BAD_REQUEST, "INVALID_INVESTMENT_MODE", "투자 방식이 올바르지 않습니다."
             ));
-        InvestmentMarket market = marketRepository
-            .findByClassroomIdAndInvestmentMode(classroomId, mode)
+        InvestmentMarket market = marketRepository.findByModeLiveFirst(classroomId, mode).stream()
+            .findFirst()
             .filter(candidate -> teacher || candidate.isReadable())
             .orElseThrow(() -> operation(
                 HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "아직 투자 시나리오가 없습니다."
@@ -88,7 +88,7 @@ public class InvestmentMarketQueryService {
     @Transactional(readOnly = true)
     public List<InvestmentMarketView> findAll(String subject, UUID classroomId) {
         boolean teacher = authorize(subject, classroomId);
-        return marketRepository.findAllByClassroomIdOrderByInvestmentModeAsc(classroomId).stream()
+        return marketRepository.findAllLiveByClassroomId(classroomId).stream()
             .filter(market -> market.getActiveScenarioVersionId() != null)
             .filter(market -> teacher || market.isReadable())
             .map(market -> toView(classroomId, market, teacher))

@@ -6327,6 +6327,94 @@ paths:
                 - "command"
                 - "expected_state_version"
               additionalProperties: false
+  "/classrooms/{classroom_id}/investment-market/day-commands":
+    post:
+      operationId: "apiFin014"
+      x-api-id: "API-FIN-014"
+      x-implementation-status: "planned"
+      x-schema-closure: "planned"
+      x-storage-targets:
+        - "financial_products"
+        - "financial_product_versions"
+        - "deposit_accounts"
+        - "savings_accounts"
+        - "investment_orders"
+        - "loans"
+        - "credit_profiles"
+        - "transaction_groups"
+      x-ui-action-ids:
+        - "UIA-FIN-014"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-FIN-004"
+      x-state-machine-ids:
+        - "SM-IVT-001"
+        - "SM-IVT-002"
+        - "SM-TXN-001"
+      x-rtm-ids:
+        - "FIN-005"
+        - "FIN-006"
+        - "FIN-007"
+        - "FIN-012"
+      tags:
+        - "Finance"
+      summary: "investment_mode, expected_state_version → 숨겨 둔 다음 날 가격 단계를 모든 종목에 함께 공개하고 현재 단계를 한 칸 올린다. 가격은 시나리오에 미리 정해져 있으므로 새로 만들지 않는다. 정산 시점이면 보유 학생 전원의 수량을 그날 시세로 지갑에 되돌리고 SELL 주문, 원장을 남긴 뒤 시장을 CLOSED로 닫는다. 단기는 다음 날 의무 정산이라 한 번 넘기면 곧 정산이고, 장기는 마지막 날에 최종 정산한다. CLOSED 시장은 방식별 유니크 조건에서 빠지므로 같은 방식의 새 시나리오를 다시 만들 수 있다(단기의 하루 주기)"
+      description: "사람이 검토하는 원문 기준: `API-FIN-014` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: investment_mode, expected_state_version → 숨겨 둔 다음 날 가격 단계를 모든 종목에 함께 공개하고 현재 단계를 한 칸 올린다. 가격은 시나리오에 미리 정해져 있으므로 새로 만들지 않는다. 정산 시점이면 보유 학생 전원의 수량을 그날 시세로 지갑에 되돌리고 SELL 주문, 원장을 남긴 뒤 시장을 CLOSED로 닫는다. 단기는 다음 날 의무 정산이라 한 번 넘기면 곧 정산이고, 장기는 마지막 날에 최종 정산한다. CLOSED 시장은 방식별 유니크 조건에서 빠지므로 같은 방식의 새 시나리오를 다시 만들 수 있다(단기의 하루 주기)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          $ref: "#/components/responses/Success"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "API-FIN-014는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              properties:
+                expected_state_version:
+                  type: "integer"
+                  format: "int64"
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                investment_mode:
+                  type: "string"
+              required:
+                - "investment_mode"
+                - "expected_state_version"
+              additionalProperties: true
   "/classrooms/{classroom_id}/investment-orders":
     post:
       operationId: "apiFin009"

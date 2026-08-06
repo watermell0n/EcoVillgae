@@ -30,6 +30,8 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.investment.application.InvestmentBuyCommand;
 import com.b201.ecovillage.investment.application.InvestmentBuyResult;
 import com.b201.ecovillage.investment.application.InvestmentBuyService;
+import com.b201.ecovillage.investment.application.InvestmentDayResult;
+import com.b201.ecovillage.investment.application.InvestmentDayService;
 import com.b201.ecovillage.investment.application.InvestmentMarketQueryService;
 import com.b201.ecovillage.investment.application.InvestmentMarketView;
 import com.b201.ecovillage.investment.application.InvestmentScenarioResult;
@@ -42,6 +44,7 @@ public class InvestmentController {
     private final InvestmentScenarioService scenarioService;
     private final InvestmentMarketQueryService queryService;
     private final InvestmentBuyService buyService;
+    private final InvestmentDayService dayService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -49,12 +52,14 @@ public class InvestmentController {
         InvestmentScenarioService scenarioService,
         InvestmentMarketQueryService queryService,
         InvestmentBuyService buyService,
+        InvestmentDayService dayService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.scenarioService = scenarioService;
         this.queryService = queryService;
         this.buyService = buyService;
+        this.dayService = dayService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -116,6 +121,28 @@ public class InvestmentController {
             queryService.find(subject(principal), classroomId, investmentMode),
             new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         );
+    }
+
+    /**
+     * 투자 시장을 다음 날로 넘긴다. 숨겨 둔 다음 가격 단계를 공개하고, 정산할 시점이면
+     * 학생 보유량을 현금으로 되돌린 뒤 시장을 닫는다.
+     *
+     * <p>정산 결과(지급 인원·금액)를 함께 돌려주므로 응답 모양이 START·PAUSE·RESUME과 달라
+     * 명령 엔드포인트를 따로 둔다.
+     */
+    @PostMapping("/investment-market/day-commands")
+    public ApiResponse<InvestmentDayResult> advanceDay(
+        @PathVariable UUID classroomId,
+        @Valid @RequestBody InvestmentDayCommandRequest request,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        InvestmentDayResult result = dayService.advanceDay(
+            subject(principal), classroomId, request.investmentMode(), request.expectedStateVersion()
+        );
+        return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
 
     /**
@@ -184,6 +211,15 @@ record InvestmentMarketCommandRequest(
 }
 
 record InvestmentMarketListView(java.util.List<InvestmentMarketView> markets) {
+}
+
+record InvestmentDayCommandRequest(
+    String screenId,
+    String uiActionId,
+    Instant clientOccurredAt,
+    @NotBlank String investmentMode,
+    @Min(0) long expectedStateVersion
+) {
 }
 
 record InvestmentOrderRequest(

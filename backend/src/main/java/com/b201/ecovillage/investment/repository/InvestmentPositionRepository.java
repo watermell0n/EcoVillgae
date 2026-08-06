@@ -13,6 +13,20 @@ import org.springframework.data.repository.query.Param;
 import com.b201.ecovillage.investment.domain.InvestmentPosition;
 
 public interface InvestmentPositionRepository extends JpaRepository<InvestmentPosition, UUID> {
+
+    /** 정산 대상은 그 종목을 실제로 들고 있는 학생뿐이다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select position from InvestmentPosition position
+         where position.classroomId = :classroomId
+           and position.investmentAssetId = :assetId
+           and position.quantity > 0
+        """)
+    java.util.List<InvestmentPosition> findAllHoldersForUpdate(
+        @Param("classroomId") UUID classroomId,
+        @Param("assetId") UUID assetId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select position from InvestmentPosition position

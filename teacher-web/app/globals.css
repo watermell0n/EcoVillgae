@@ -1321,7 +1321,15 @@ button:disabled {
 .investment-decision-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+}
+
+.investment-decision-actions small {
+  flex: 1 1 240px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* 아래 네 클래스는 패널이 만들어질 때 이름만 붙고 규칙이 없어 요소가 그대로 흘러내렸습니다. */

@@ -63,6 +63,20 @@ public class InvestmentPosition {
         updatedAt = Objects.requireNonNull(now);
     }
 
+    /**
+     * 보유 전량을 정산해 비운다. 정산한 수량을 돌려주므로 호출하는 쪽이 지급액을 계산한다.
+     */
+    public int settle(Instant now) {
+        int settled = quantity;
+        quantity = 0;
+        averagePrice = 0;
+        updatedAt = Objects.requireNonNull(now);
+        return settled;
+    }
+
+    public UUID getId() { return id; }
+    public UUID getClassroomStudentId() { return classroomStudentId; }
+    public UUID getInvestmentAssetId() { return investmentAssetId; }
     public int getQuantity() { return quantity; }
     public long getAveragePrice() { return averagePrice; }
     public long getStateVersion() { return stateVersion; }
