@@ -17,6 +17,15 @@ public interface ActivitySessionRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ActivitySession> findByClassroomIdAndId(UUID classroomId, UUID id);
 
+    /**
+     * 잠금 없이 읽기만 한다.
+     *
+     * <p>위 메서드는 쓰기 잠금을 걸어 읽기 전용 트랜잭션에서 쓸 수 없다. PostgreSQL이
+     * `SELECT FOR NO KEY UPDATE in a read-only transaction`으로 거절하기 때문이다.
+     * 조회 경로는 잠글 이유도 없으므로 이 메서드를 쓴다.
+     */
+    Optional<ActivitySession> findOneByClassroomIdAndId(UUID classroomId, UUID id);
+
     Optional<ActivitySession> findFirstByClassroomIdAndStatus(
         UUID classroomId,
         String status

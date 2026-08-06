@@ -12,6 +12,7 @@ import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.quiz.domain.ActivitySession;
 import com.b201.ecovillage.quiz.repository.ActivityParticipantRepository;
+import com.b201.ecovillage.quiz.repository.ActivityPresentationSlideRepository;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 
 @Service
@@ -21,17 +22,20 @@ public class GuidedActivityQueryService {
     private final UserAccountRepository userRepository;
     private final ActivitySessionRepository activityRepository;
     private final ActivityParticipantRepository participantRepository;
+    private final ActivityPresentationSlideRepository slideRepository;
 
     public GuidedActivityQueryService(
         ClassroomAuthorizationService authorizationService,
         UserAccountRepository userRepository,
         ActivitySessionRepository activityRepository,
-        ActivityParticipantRepository participantRepository
+        ActivityParticipantRepository participantRepository,
+        ActivityPresentationSlideRepository slideRepository
     ) {
         this.authorizationService = authorizationService;
         this.userRepository = userRepository;
         this.activityRepository = activityRepository;
         this.participantRepository = participantRepository;
+        this.slideRepository = slideRepository;
     }
 
     @Transactional(readOnly = true)
@@ -49,8 +53,10 @@ public class GuidedActivityQueryService {
             ClassroomPermission.READ_GUIDED_ACTIVITY,
             studentId
         );
+        // 조회는 잠그지 않습니다. 쓰기 잠금을 거는 finder는 읽기 전용 트랜잭션에서
+        // PostgreSQL이 거절해 이 API가 늘 500으로 실패했습니다.
         ActivitySession activity = activityRepository
-            .findByClassroomIdAndId(classroomId, activityId)
+            .findOneByClassroomIdAndId(classroomId, activityId)
             .orElseThrow(() -> new ClassroomOperationException(
                 HttpStatus.NOT_FOUND,
                 "RESOURCE_NOT_FOUND",
@@ -71,6 +77,12 @@ public class GuidedActivityQueryService {
                 "The student is not a participant in this activity."
             );
         }
+        // 자료가 한 장인 기존 수업은 슬라이드 행이 없어 총 장수가 0으로 나옵니다.
+        // 화면이 "1 / 0"을 보지 않도록 최소 1로 맞춥니다.
+        int totalPages = Math.max(slideRepository.countByActivitySessionId(activityId), 1);
+        int page = activity.getPresentationCursor() == null
+            ? 1
+            : Math.min(activity.getPresentationCursor(), totalPages);
         return new GuidedActivityView(
             activity.getId(),
             activity.getStatus(),
@@ -81,7 +93,9 @@ public class GuidedActivityQueryService {
             ),
             activity.getActivityType(),
             activity.getPresentationTitle(),
-            activity.getPresentationImageUrl()
+            activity.getPresentationImageUrl(),
+            page,
+            totalPages
         );
     }
 

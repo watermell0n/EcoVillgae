@@ -55,6 +55,14 @@ public class ActivitySession {
     @Column(name = "presentation_title", length = 120)
     private String presentationTitle;
 
+    /**
+     * 지금 보여 주는 자료가 몇 번째 장인지. 자료가 한 장뿐인 수업은 null로 남는다.
+     * 위 image_url·title은 이 커서가 가리키는 장의 사본이라, 학생 화면과 활동 조회는
+     * 커서를 몰라도 항상 현재 장을 본다.
+     */
+    @Column(name = "presentation_cursor")
+    private Integer presentationCursor;
+
     @Column(name = "starts_at")
     private Instant startsAt;
 
@@ -165,6 +173,35 @@ public class ActivitySession {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    /**
+     * 보여 줄 장을 옮긴다. 준비 중일 때는 첫 장을 세우고, 수업 중일 때는 넘기기가 된다.
+     *
+     * <p>{@link #configurePresentationImage}와 달리 LIVE에서도 허용한다. 수업 중에 자료를
+     * 넘기는 것이 이 기능의 목적이고, 넘기기는 자료 내용을 바꾸지 않고 커서만 옮긴다.
+     */
+    public void movePresentationTo(
+        int sequenceNumber,
+        String title,
+        String imageUrl,
+        Instant changedAt
+    ) {
+        if (!"READY".equals(status) && !"LIVE".equals(status)) {
+            throw new IllegalStateException(
+                "only a ready or live activity can move its presentation"
+            );
+        }
+        if (sequenceNumber < 1) {
+            throw new IllegalArgumentException("sequenceNumber must be 1 or greater");
+        }
+        this.presentationCursor = sequenceNumber;
+        this.presentationTitle = requiredText(title, "title");
+        if (this.presentationTitle.length() > 120) {
+            throw new IllegalArgumentException("title must not exceed 120 characters");
+        }
+        this.presentationImageUrl = requiredText(imageUrl, "imageUrl");
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public void beginFinalizing(Instant changedAt) {
         if (!"LIVE".equals(status)) {
             throw new IllegalStateException("only a live activity can begin finalizing");
@@ -238,6 +275,10 @@ public class ActivitySession {
 
     public String getPresentationTitle() {
         return presentationTitle;
+    }
+
+    public Integer getPresentationCursor() {
+        return presentationCursor;
     }
 
     private static String requiredText(String value, String field) {

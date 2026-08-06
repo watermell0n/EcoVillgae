@@ -42,6 +42,7 @@ import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
 import { EconomyQuizDifficultyPanel } from "./quiz/EconomyQuizDifficultyPanel";
+import { LessonSequencePanel } from "./lesson/LessonSequencePanel";
 import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
@@ -4360,6 +4361,12 @@ function Control({
 
   return (
     <div className="page-flow">
+      <LessonSequencePanel
+        classroomId={classroomId}
+        activeGuidedActivityId={activeGuidedActivityId}
+        canManage
+        onNotice={addLog}
+      />
       <PlainSection title="경제 개념 이미지 수업" description="준비한 이미지 한 장을 학생 전체 화면에 동시에 띄우고, 수업이 끝날 때까지 화면을 고정합니다.">
         <div className="image-lesson-panel">
           <div className="image-lesson-form">
