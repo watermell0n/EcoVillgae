@@ -7,7 +7,8 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchQuizResults, fetchQuizSession, submitQuizAnswer } from "@/features/student/api";
+import { fetchQuizResults, fetchQuizSession, saveTestAnswerSheet, submitGameAnswer } from "@/features/student/api";
+import type { TestAnswerSheetEntry } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
 /** 이미 답한 문항을 다시 고르면 서버가 막습니다. 학생이 이해할 수 있는 말로 바꿔 줍니다. */
@@ -18,6 +19,9 @@ function answerErrorMessage(error: Error) {
   if (error.message.includes("not accepting answers")) {
     return "선생님이 퀴즈를 마감했어요.";
   }
+  if (error.message.includes("answer sheet version has changed")) {
+    return "답안지를 저장하지 못했어요. 답을 한 번 더 골라 주세요.";
+  }
   return error.message;
 }
 
@@ -27,8 +31,13 @@ export default function QuizScreen() {
   const { access } = useClassroom();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [started, setStarted] = useState(false);
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [answered, setAnswered] = useState(false);
+  // 평가형은 답안지 한 장을 계속 고쳐 쓰므로 고른 답을 문항별로 모두 들고 있어야 합니다.
+  // 한 문항만 보내면 앞서 고른 답이 사라지고, 학생은 다 맞혀도 0점이 됩니다.
+  const [testAnswers, setTestAnswers] = useState<Record<string, string>>({});
+  // 서버가 가진 답안지 판본입니다. 저장할 때마다 서버가 올려 주며, 어긋나면 저장이 거절됩니다.
+  const [sheetVersion, setSheetVersion] = useState(0);
+  // 게임형에서 이미 답을 낸 문항입니다. 서버가 한 문항 한 번만 받으므로 화면도 잠급니다.
+  const [gameAnsweredIds, setGameAnsweredIds] = useState<string[]>([]);
   const quizSessionId = access?.resources.quizSessionId;
   const session = useQuery({
     queryKey: ["quiz-session", identity?.classroomId, quizSessionId],
@@ -43,34 +52,74 @@ export default function QuizScreen() {
   });
   const questions = session.data?.questions ?? [];
   const question = questions[questionIndex];
+  const isTest = session.data?.mode === "TEST";
+  // 지금 문항에 고른 답입니다. 평가형은 언제든 바꿀 수 있고, 게임형은 한 번 내면 잠깁니다.
+  const selectedOptionId = testAnswers[question?.resourceId ?? ""] ?? null;
+  const answeredThisQuestion = !isTest
+    && Boolean(question)
+    && gameAnsweredIds.includes(question.resourceId);
+
   const answer = useMutation({
     // 제출 경로는 퀴즈 운영 방식(게임형·평가형)에 따라 달라집니다.
-    mutationFn: (optionId: string) => submitQuizAnswer(
-      identity!.classroomId,
-      session.data!.quizSessionId,
-      question!.resourceId,
-      optionId,
-      session.data!.mode
-    ),
-    onSuccess: () => setAnswered(true)
+    mutationFn: async (optionId: string) => {
+      const classroomId = identity!.classroomId;
+      const sessionId = session.data!.quizSessionId;
+      if (!isTest) {
+        await submitGameAnswer(classroomId, sessionId, question!.resourceId, optionId);
+        return;
+      }
+      // 지금까지 고른 답을 모두 실어 보냅니다. 서버는 답안지를 통째로 새 판본으로 저장합니다.
+      const nextAnswers = { ...testAnswers, [question!.resourceId]: optionId };
+      const entries: TestAnswerSheetEntry[] = Object.entries(nextAnswers)
+        .map(([questionId, selected]) => ({ questionId, optionId: selected }));
+      const nextVersion = await saveTestAnswerSheet(classroomId, sessionId, entries, sheetVersion, false);
+      setSheetVersion(nextVersion);
+    },
+    onSuccess: (_result, optionId) => {
+      setTestAnswers((current) => ({ ...current, [question!.resourceId]: optionId }));
+      if (isTest) return;
+      setGameAnsweredIds((current) => current.includes(question!.resourceId)
+        ? current
+        : [...current, question!.resourceId]);
+    }
   });
 
-  useEffect(() => { setQuestionIndex(0); setStarted(false); setSelectedOptionId(null); setAnswered(false); }, [quizSessionId]);
+  // 마지막에 답안지를 한 번 제출합니다. 이 표시가 있어야 채점 대상이 됩니다.
+  const finishTest = useMutation({
+    mutationFn: async () => {
+      const entries: TestAnswerSheetEntry[] = Object.entries(testAnswers)
+        .map(([questionId, optionId]) => ({ questionId, optionId }));
+      if (entries.length === 0) return;
+      const nextVersion = await saveTestAnswerSheet(
+        identity!.classroomId,
+        session.data!.quizSessionId,
+        entries,
+        sheetVersion,
+        true
+      );
+      setSheetVersion(nextVersion);
+    }
+  });
+
+  useEffect(() => {
+    setQuestionIndex(0);
+    setStarted(false);
+    setTestAnswers({});
+    setSheetVersion(0);
+    setGameAnsweredIds([]);
+  }, [quizSessionId]);
 
   const moveQuestion = (nextIndex: number) => {
     if (nextIndex < 0 || nextIndex >= questions.length) return;
     setQuestionIndex(nextIndex);
-    setSelectedOptionId(null);
-    setAnswered(false);
     answer.reset();
   };
 
   // 마지막 문항에서는 다 푼 화면으로 넘어갑니다. 그 전에는 다음 문항으로 이동합니다.
   const finishOrAdvance = () => {
     if (questionIndex === questions.length - 1) {
+      if (isTest) finishTest.mutate();
       setQuestionIndex(questions.length);
-      setSelectedOptionId(null);
-      setAnswered(false);
       answer.reset();
       return;
     }
@@ -108,13 +157,19 @@ export default function QuizScreen() {
             <View style={styles.quizMeta}><Text style={styles.count}>{questionIndex + 1} / {questions.length}</Text><Text style={styles.reward}>정답수당 +10 {currencyName}</Text></View>
             <Text style={styles.question}>{question.prompt}</Text>
             <View style={styles.options}>
-              {question.options.map((option, index) => <Pressable disabled={!option.optionId || answer.isPending || answered} key={`${option.optionId ?? option.label}-${index}`} onPress={() => { if (option.optionId) { setSelectedOptionId(option.optionId); answer.mutate(option.optionId); } }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, (!option.optionId || answer.isPending || answered) && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>)}
+              {question.options.map((option, index) => {
+                const locked = !option.optionId || answer.isPending || answeredThisQuestion;
+                return (
+                  <Pressable disabled={locked} key={`${option.optionId ?? option.label}-${index}`} onPress={() => { if (option.optionId) answer.mutate(option.optionId); }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, locked && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>
+                );
+              })}
             </View>
             {answer.isError ? <Text style={styles.error}>{answerErrorMessage(answer.error)}</Text> : null}
+            {isTest && selectedOptionId ? <Text style={styles.helper}>답을 저장했어요. 마치기 전까지 다시 고를 수 있어요.</Text> : null}
             <View style={styles.quizActions}>
               {/* 답을 고르지 않아도 넘어갈 수 있습니다. 건너뛴 문항은 이전 문제로 돌아와 풀 수 있습니다. */}
               <Pressable disabled={questionIndex === 0 || answer.isPending} onPress={() => moveQuestion(questionIndex - 1)} style={[styles.secondaryButton, (questionIndex === 0 || answer.isPending) && styles.buttonDisabled]}><Text style={styles.secondaryButtonText}>이전 문제</Text></Pressable>
-              <Pressable disabled={answer.isPending} onPress={() => finishOrAdvance()} style={[styles.nextButton, answer.isPending && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
+              <Pressable disabled={answer.isPending || finishTest.isPending} onPress={() => finishOrAdvance()} style={[styles.nextButton, (answer.isPending || finishTest.isPending) && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
             </View>
           </View>
         </View>

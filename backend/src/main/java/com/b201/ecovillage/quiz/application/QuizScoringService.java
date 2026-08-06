@@ -60,14 +60,14 @@ public class QuizScoringService {
             .toList();
         List<QuizSubmission> allSubmissions = submissionRepository
             .findAllByClassroomIdAndQuizSessionId(classroomId, sessionId);
+        // 학생마다 채점할 답안지 한 장을 고른다. 평가형은 "제출"을 누른 답안지를 우선하되,
+        // 누르지 못한 학생은 마지막으로 저장된 답안지로 채점한다. 교사가 제출을 마감한
+        // 시점의 답안지가 곧 걷은 시험지이므로, 제출 버튼을 못 눌렀다고 0점을 줄 이유가 없다.
         Map<UUID, QuizSubmission> latestSubmission = allSubmissions.stream()
-            .filter(submission -> mode == QuizMode.GAME || submission.isSubmitted())
             .collect(Collectors.toMap(
                 QuizSubmission::getClassroomStudentId,
                 Function.identity(),
-                (left, right) -> left.getAnswerSheetVersion() >= right.getAnswerSheetVersion()
-                    ? left
-                    : right
+                (left, right) -> preferredSubmission(mode, left, right)
             ));
         List<UUID> submissionIds = latestSubmission.values().stream()
             .map(QuizSubmission::getId)
@@ -131,6 +131,21 @@ public class QuizScoringService {
             ));
         }
         return results;
+    }
+
+    /**
+     * 한 학생의 답안지 둘 중 채점할 하나다. 평가형은 제출한 답안지를 먼저 보고, 둘 다
+     * 제출했거나 둘 다 임시 저장이면 나중 판본을 쓴다.
+     */
+    private static QuizSubmission preferredSubmission(
+        QuizMode mode,
+        QuizSubmission left,
+        QuizSubmission right
+    ) {
+        if (mode == QuizMode.TEST && left.isSubmitted() != right.isSubmitted()) {
+            return left.isSubmitted() ? left : right;
+        }
+        return left.getAnswerSheetVersion() >= right.getAnswerSheetVersion() ? left : right;
     }
 
     private static final class Score {
