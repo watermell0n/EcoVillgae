@@ -614,7 +614,8 @@ public class AiProposalCommandService {
             module,
             salary,
             product,
-            quiz
+            quiz,
+            input.investmentDraft()
         );
     }
 

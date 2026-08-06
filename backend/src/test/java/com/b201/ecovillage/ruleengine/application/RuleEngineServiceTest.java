@@ -726,6 +726,170 @@ class RuleEngineServiceTest {
         );
     }
 
+    // --- 투자 조건: 하루 변동폭과 종목별 1주 시작가를 한 번에 추천한다 ---
+
+    @Test
+    void recommendsShortTermVolatilityAndAssetPricesFromStudentBalances() {
+        RuleEngineResult result = investmentResult("SHORT_TERM", 20, 9_000L, 0L);
+
+        assertEquals(5, result.candidates().size());
+        assertTrue(
+            result.candidates().stream().allMatch(candidate ->
+                candidate.targetType() == RuleTargetType.INVESTMENT_CONDITION
+                    && candidate.targetId().equals(TARGET_ID)
+            ),
+            "투자 후보는 모두 투자 모듈 하나를 가리켜야 한다"
+        );
+        RuleCandidate volatility = candidate(result, "investment-daily-volatility");
+        assertEquals(650L, volatility.proposedValue());
+        assertEquals(550L, volatility.recommendedMinValue());
+        assertEquals(750L, volatility.recommendedMaxValue());
+        assertEquals(200L, volatility.allowedMinValue());
+        assertEquals(1_500L, volatility.allowedMaxValue());
+        // 대표 잔액 9,000의 30%(2,700)로 한 종목을 3주 살 수 있는 900이 기준가다.
+        assertEquals(900L, candidate(result, "investment-asset-price-green").proposedValue());
+        assertEquals(1_130L, candidate(result, "investment-asset-price-cloud").proposedValue());
+        assertEquals(720L, candidate(result, "investment-asset-price-food").proposedValue());
+        assertEquals(1_350L, candidate(result, "investment-asset-price-energy").proposedValue());
+        // 1주가 대표 잔액보다 비싸면 아무도 살 수 없다.
+        assertEquals(9_000L, candidate(result, "investment-asset-price-green").allowedMaxValue());
+        assertEquals(RuleSeverity.PASS, result.overallSeverity());
+        assertReason(result, "INVESTMENT_VOLATILITY_BASIS");
+        assertReason(result, "INVESTMENT_PRICE_BASIS");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        // 운영 일수, 제안 변동폭
+        "7, 400",
+        "14, 300",
+        "30, 200",
+        "90, 200"
+    })
+    void longTermVolatilityFallsAsTheOperationPeriodGrows(int operationDays, long proposed) {
+        RuleEngineResult result = service.evaluate(
+            RuleEngineRequest.builder(
+                    RuleContextType.MODULE_ACTIVATION, 5, START, START.plusDays(operationDays - 1L)
+                )
+                .activeStudentCount(20)
+                .moduleActivation(module("INVESTMENT", null, null))
+                .investmentDraft(investmentDraft("LONG_TERM", 9_000L, 0L, null))
+                .build()
+        );
+
+        RuleCandidate volatility = candidate(result, "investment-daily-volatility");
+        assertEquals(proposed, volatility.proposedValue());
+        assertEquals(50L, volatility.allowedMinValue());
+        assertEquals(600L, volatility.allowedMaxValue());
+    }
+
+    @Test
+    void lowersTheVolatilityCeilingForALargeClass() {
+        assertEquals(
+            1_400L,
+            candidate(investmentResult("SHORT_TERM", 30, 9_000L, 0L), "investment-daily-volatility")
+                .allowedMaxValue()
+        );
+    }
+
+    /** 아직 아무도 돈을 받지 않은 학급에서는 발행액을 학생 수로 나눠 대표 잔액을 잡는다. */
+    @Test
+    void fallsBackToTheIssuancePerStudentWhenNoWalletHasMoneyYet() {
+        RuleEngineResult result = investmentResult("SHORT_TERM", 20, 0L, 20_000L);
+
+        assertEquals(100L, candidate(result, "investment-asset-price-green").proposedValue());
+    }
+
+    @Test
+    void warnsWhenStudentsCannotAffordEvenOneShare() {
+        RuleEngineResult result = investmentResult("SHORT_TERM", 20, 80L, 0L);
+
+        assertEquals(RuleSeverity.WARN, result.overallSeverity());
+        assertReason(result, "INVESTMENT_BALANCE_TOO_SMALL");
+    }
+
+    @Test
+    void blocksAConfirmedVolatilityOutsideTheAllowedBand() {
+        RuleEngineResult result = service.evaluate(
+            base(RuleContextType.MODULE_ACTIVATION)
+                .activeStudentCount(20)
+                .moduleActivation(module("INVESTMENT", null, null))
+                .investmentDraft(investmentDraft("SHORT_TERM", 9_000L, 0L, 5_000L))
+                .build()
+        );
+
+        assertEquals(RuleSeverity.BLOCK, result.overallSeverity());
+        assertReason(result, "VALUE_OUT_OF_RANGE");
+    }
+
+    /** 투자 모듈 활성화만으로는 정할 숫자가 없다. 조건 초안이 없으면 조용히 넘어가야 한다. */
+    @Test
+    void makesNoInvestmentCandidateWhenActivationCarriesNoConditionDraft() {
+        RuleEngineResult result = service.evaluate(
+            base(RuleContextType.MODULE_ACTIVATION)
+                .moduleActivation(module("INVESTMENT", null, null))
+                .build()
+        );
+
+        assertTrue(result.candidates().isEmpty());
+        assertEquals(RuleSeverity.PASS, result.overallSeverity());
+    }
+
+    @Test
+    void asksForTheInvestmentModeWhenTheDraftDoesNotNameOne() {
+        RuleEngineResult result = investmentResult("WHENEVER", 20, 9_000L, 0L);
+
+        assertTrue(result.candidates().isEmpty());
+        assertEquals(RuleSeverity.BLOCK, result.overallSeverity());
+        assertReason(result, "REQUIRED_VALUE_MISSING");
+    }
+
+    private RuleEngineResult investmentResult(
+        String investmentMode,
+        int studentCount,
+        long medianBalance,
+        long moneyIssuance
+    ) {
+        return service.evaluate(
+            base(RuleContextType.MODULE_ACTIVATION)
+                .activeStudentCount(studentCount)
+                .moduleActivation(module("INVESTMENT", null, null))
+                .investmentDraft(
+                    investmentDraft(investmentMode, medianBalance, moneyIssuance, null)
+                )
+                .build()
+        );
+    }
+
+    private RuleEngineRequest.InvestmentDraft investmentDraft(
+        String investmentMode,
+        long medianBalance,
+        long moneyIssuance,
+        Long confirmedVolatilityBps
+    ) {
+        return new RuleEngineRequest.InvestmentDraft(
+            TARGET_ID,
+            investmentMode,
+            moneyIssuance,
+            medianBalance,
+            medianBalance,
+            confirmedVolatilityBps,
+            List.of(
+                new RuleEngineRequest.InvestmentAsset("GREEN", "그린모빌리티", new BigDecimal("1.00"), null),
+                new RuleEngineRequest.InvestmentAsset("CLOUD", "클라우드교육", new BigDecimal("1.25"), null),
+                new RuleEngineRequest.InvestmentAsset("FOOD", "마을푸드", new BigDecimal("0.80"), null),
+                new RuleEngineRequest.InvestmentAsset("ENERGY", "새빛에너지", new BigDecimal("1.50"), null)
+            )
+        );
+    }
+
+    private static RuleCandidate candidate(RuleEngineResult result, String actionId) {
+        return result.candidates().stream()
+            .filter(item -> item.actionId().equals(actionId))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("missing candidate " + actionId));
+    }
+
     private static void assertReason(RuleEngineResult result, String reasonCode) {
         assertTrue(
             hasReason(result, reasonCode),

@@ -36,6 +36,20 @@ public interface LedgerAccountRepository extends Repository<LedgerAccount, UUID>
         LedgerAccountStatus status
     );
 
+    /**
+     * 살아 있는 학생 지갑의 잔액을 작은 값부터 준다. 평균과 중앙값을 함께 뽑아야 하므로
+     * 합계가 아니라 목록으로 받는다. 한 학급의 학생 수만큼만 나오므로 크지 않다.
+     */
+    @Query("""
+        select account.currentBalance
+          from LedgerAccount account
+         where account.classroomId = :classroomId
+           and account.accountType = com.b201.ecovillage.ledger.domain.LedgerAccountType.STUDENT_WALLET
+           and account.status = com.b201.ecovillage.ledger.domain.LedgerAccountStatus.ACTIVE
+         order by account.currentBalance
+        """)
+    List<Long> findActiveStudentWalletBalances(@Param("classroomId") UUID classroomId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select account

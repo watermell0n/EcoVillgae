@@ -6,7 +6,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +27,7 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.investment.domain.HistoricalIndexReference;
 import com.b201.ecovillage.investment.domain.InvestmentAsset;
+import com.b201.ecovillage.investment.domain.InvestmentAssetCatalog;
 import com.b201.ecovillage.investment.domain.InvestmentMarket;
 import com.b201.ecovillage.investment.domain.InvestmentMode;
 import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
@@ -38,18 +42,23 @@ import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionReposi
 @Service
 public class InvestmentScenarioService {
 
-    private static final List<AssetSeed> ASSETS = List.of(
-        new AssetSeed("GREEN", "그린모빌리티", "친환경 이동수단을 만드는 가상 기업", 1_000L),
-        new AssetSeed("CLOUD", "클라우드교육", "학교용 디지털 학습 도구를 만드는 가상 기업", 1_250L),
-        new AssetSeed("FOOD", "마을푸드", "지역 농산물 유통을 돕는 가상 기업", 800L),
-        new AssetSeed("ENERGY", "새빛에너지", "재생 에너지 설비를 만드는 가상 기업", 1_500L)
+    /**
+     * AI 생성 흐름의 가격 모양이다. 하루 최대 변동폭을 1,000으로 본 천분율이며, 교사가 정한
+     * 변동폭을 곱해 실제 등락률(bps)로 바꾼다. 모양만 고정하고 크기는 교사가 정하므로,
+     * 같은 학급이라도 변동폭을 낮추면 흐름은 같고 폭만 완만해진다.
+     */
+    private static final List<Integer> LONG_SHAPE_PERMILLE = List.of(
+        0, 600, -300, 800, -533, 367, 267, -733, 1_000, -233,
+        467, -433, 700, 200, -600, 833, -133, 400, -333, 633,
+        -500, 300, 567, -200, 433, -700, 933, -267, 333, 533
     );
-    private static final List<Integer> GENERATED_LONG_RATES = List.of(
-        0, 180, -90, 240, -160, 110, 80, -220, 300, -70,
-        140, -130, 210, 60, -180, 250, -40, 120, -100, 190,
-        -150, 90, 170, -60, 130, -210, 280, -80, 100, 160
-    );
-    private static final List<Integer> GENERATED_SHORT_RATES = List.of(0, 650);
+    /** 단기는 하루만 움직인다. 첫날은 시작가 그대로이고 다음 날 변동폭만큼 움직인다. */
+    private static final List<Integer> SHORT_SHAPE_PERMILLE = List.of(0, 1_000);
+    /** 교사가 변동폭을 정하지 않았을 때 쓰는 값이다. 기존 시나리오와 같은 흐름이 나온다. */
+    private static final int DEFAULT_SHORT_VOLATILITY_BPS = 650;
+    private static final int DEFAULT_LONG_VOLATILITY_BPS = 300;
+    private static final int MIN_VOLATILITY_BPS = 10;
+    private static final int MAX_VOLATILITY_BPS = 2_000;
 
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
@@ -86,12 +95,21 @@ public class InvestmentScenarioService {
         this.clock = clock;
     }
 
+    /**
+     * 투자 시나리오를 만든다.
+     *
+     * <p>하루 최대 변동폭과 종목별 1주 시작가는 교사가 "운영 관리 &gt; 투자"에서 정해 보낸다.
+     * 보내지 않으면 기본값으로 만든다. 장기 역사 지수를 쓰는 경우에는 실제 흐름을 그대로
+     * 살려야 하므로 변동폭을 적용하지 않는다.
+     */
     @Transactional
     public InvestmentScenarioResult generate(
         String teacherSubject,
         UUID classroomId,
         String requestedMode,
-        boolean preferHistorical
+        boolean preferHistorical,
+        Integer dailyVolatilityBps,
+        Map<String, Long> assetStartPrices
     ) {
         authorizationService.authorize(
             teacherSubject,
@@ -139,8 +157,10 @@ public class InvestmentScenarioService {
             ? InvestmentScenarioSource.HISTORICAL_INDEX
             : InvestmentScenarioSource.AI_GENERATED;
         HistoricalIndexReference reference = historical.map(HistoricalIndexPath::reference).orElse(null);
+        int volatilityBps = volatilityBps(mode, dailyVolatilityBps);
         List<Integer> rates = historical.map(HistoricalIndexPath::changeRatesBps)
-            .orElseGet(() -> generatedRates(mode, stepCount));
+            .orElseGet(() -> generatedRates(mode, stepCount, volatilityBps));
+        Map<String, Long> confirmedPrices = normalizePrices(assetStartPrices);
         int nextVersion = scenarioRepository
             .findTopByClassroomIdAndInvestmentMarketIdOrderByVersionDesc(classroomId, market.getId())
             .map(InvestmentScenarioVersion::getVersion)
@@ -151,13 +171,15 @@ public class InvestmentScenarioService {
             mode, source, reference, now
         ));
         List<InvestmentScenarioResult.Asset> createdAssets = new ArrayList<>();
-        for (int index = 0; index < ASSETS.size(); index++) {
-            AssetSeed seed = ASSETS.get(index);
+        List<InvestmentAssetCatalog.Seed> seeds = InvestmentAssetCatalog.seeds();
+        for (int index = 0; index < seeds.size(); index++) {
+            InvestmentAssetCatalog.Seed seed = seeds.get(index);
             InvestmentAsset asset = assetRepository.save(InvestmentAsset.active(
                 uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(), seed.name(),
                 seed.profile(), index + 1, now
             ));
-            long price = seed.initialPrice();
+            long startPrice = startPrice(seed, confirmedPrices);
+            long price = startPrice;
             for (int step = 1; step <= stepCount; step++) {
                 int rate = rates.get(step - 1);
                 if (step > 1) {
@@ -168,7 +190,7 @@ public class InvestmentScenarioService {
                 ));
             }
             createdAssets.add(new InvestmentScenarioResult.Asset(
-                asset.getId(), asset.getSymbol(), asset.getName(), seed.initialPrice()
+                asset.getId(), asset.getSymbol(), asset.getName(), startPrice
             ));
         }
         market.configure(scenario.getId(), now);
@@ -300,15 +322,71 @@ public class InvestmentScenarioService {
         ).orElseThrow().getPrice();
     }
 
-    private static List<Integer> generatedRates(InvestmentMode mode, int count) {
-        List<Integer> seed = mode == InvestmentMode.SHORT_TERM
-            ? GENERATED_SHORT_RATES : GENERATED_LONG_RATES;
+    /**
+     * 교사가 정한 하루 최대 변동폭이다. 값이 없거나 허용 범위를 벗어나면 기본값으로 되돌린다.
+     * 여기서 막지 않으면 0%짜리 시나리오나 하루에 몇 배가 되는 시나리오가 만들어진다.
+     */
+    private static int volatilityBps(InvestmentMode mode, Integer requested) {
+        int fallback = mode == InvestmentMode.SHORT_TERM
+            ? DEFAULT_SHORT_VOLATILITY_BPS : DEFAULT_LONG_VOLATILITY_BPS;
+        if (requested == null) {
+            return fallback;
+        }
+        if (requested < MIN_VOLATILITY_BPS || requested > MAX_VOLATILITY_BPS) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "하루 최대 변동폭은 0.10%~20.00% 사이여야 합니다."
+            );
+        }
+        return requested;
+    }
+
+    /** 교사가 보낸 1주 시작가다. 종목 기호는 대문자로 맞춘다. */
+    private static Map<String, Long> normalizePrices(Map<String, Long> requested) {
+        if (requested == null || requested.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Long> normalized = new LinkedHashMap<>();
+        requested.forEach((symbol, price) -> {
+            if (symbol == null || price == null) {
+                return;
+            }
+            if (price < 1L) {
+                throw operation(
+                    HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "1주 시작가는 1 이상이어야 합니다."
+                );
+            }
+            normalized.put(symbol.trim().toUpperCase(Locale.ROOT), price);
+        });
+        return normalized;
+    }
+
+    private static long startPrice(
+        InvestmentAssetCatalog.Seed seed,
+        Map<String, Long> confirmedPrices
+    ) {
+        Long confirmed = confirmedPrices.get(seed.symbol());
+        return confirmed == null
+            ? InvestmentAssetCatalog.priceAt(InvestmentAssetCatalog.DEFAULT_BASE_PRICE, seed.priceWeight())
+            : confirmed;
+    }
+
+    private static List<Integer> generatedRates(InvestmentMode mode, int count, int volatilityBps) {
+        List<Integer> shape = mode == InvestmentMode.SHORT_TERM
+            ? SHORT_SHAPE_PERMILLE : LONG_SHAPE_PERMILLE;
         List<Integer> result = new ArrayList<>();
         for (int index = 0; index < count; index++) {
-            result.add(seed.get(index % seed.size()));
+            result.add(scaleRate(shape.get(index % shape.size()), volatilityBps));
         }
         result.set(0, 0);
         return List.copyOf(result);
+    }
+
+    private static int scaleRate(int shapePermille, int volatilityBps) {
+        return BigDecimal.valueOf((long) shapePermille * volatilityBps)
+            .divide(BigDecimal.valueOf(1_000L), 0, RoundingMode.HALF_UP)
+            .intValueExact();
     }
 
     private static long nextPrice(long current, int rateBps) {
@@ -321,8 +399,5 @@ public class InvestmentScenarioService {
 
     private static ClassroomOperationException operation(HttpStatus status, String code, String message) {
         return new ClassroomOperationException(status, code, message);
-    }
-
-    private record AssetSeed(String symbol, String name, String profile, long initialPrice) {
     }
 }

@@ -125,6 +125,8 @@ class SetupRecommendationTargetType(StrEnum):
     LOAN_RATE = "LOAN_RATE"
     PRODUCT_PRICE = "PRODUCT_PRICE"
     GAME_REWARD = "GAME_REWARD"
+    # 투자는 하루 변동폭과 종목별 1주 시작가를 한 번에 추천하므로 후보가 여러 개 나온다.
+    INVESTMENT_CONDITION = "INVESTMENT_CONDITION"
 
 
 class PreflightSeverity(StrEnum):
@@ -371,6 +373,7 @@ class SetupPrecheckPayload(ContractModel):
                 SetupRecommendationTargetType.INCOME_TAX_RATE,
                 SetupRecommendationTargetType.DEPOSIT_RATE,
                 SetupRecommendationTargetType.LOAN_RATE,
+                SetupRecommendationTargetType.INVESTMENT_CONDITION,
             },
             SetupContextType.PRODUCT_DRAFT: {SetupRecommendationTargetType.PRODUCT_PRICE},
             SetupContextType.QUIZ_SESSION_DRAFT: {SetupRecommendationTargetType.GAME_REWARD},
@@ -407,6 +410,7 @@ class SetupPrecheckPayload(ContractModel):
                 "INCOME_TAX": SetupRecommendationTargetType.INCOME_TAX_RATE,
                 "DEPOSIT": SetupRecommendationTargetType.DEPOSIT_RATE,
                 "LOAN": SetupRecommendationTargetType.LOAN_RATE,
+                "INVESTMENT": SetupRecommendationTargetType.INVESTMENT_CONDITION,
             }
             expected_target = target_by_module.get(self.context.module_code or "")
             if self.candidates and (

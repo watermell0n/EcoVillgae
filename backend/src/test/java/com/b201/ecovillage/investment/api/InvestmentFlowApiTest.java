@@ -211,6 +211,56 @@ class InvestmentFlowApiTest {
             .andExpect(jsonPath("$.data.assets[0].current_price").value(1010));
     }
 
+    /**
+     * 교사가 "운영 관리 &gt; 투자"에서 정한 변동폭과 1주 시작가가 그대로 시나리오에 쓰인다.
+     * 변동폭은 흐름의 모양은 두고 크기만 바꾸므로, 같은 모양이 정한 폭만큼만 움직여야 한다.
+     */
+    @Test
+    void buildsTheGeneratedPathFromTheConfirmedVolatilityAndStartPrices() throws Exception {
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "investment_mode":"LONG_TERM",
+                      "prefer_historical_index":false,
+                      "daily_volatility_bps":100,
+                      "asset_start_prices":[
+                        {"symbol":"GREEN","start_price":500},
+                        {"symbol":"CLOUD","start_price":620}
+                      ]
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.scenario_source").value("AI_GENERATED"))
+            .andExpect(jsonPath("$.data.assets[0].initial_price").value(500))
+            .andExpect(jsonPath("$.data.assets[1].initial_price").value(620))
+            // 보내지 않은 종목은 서버 기본 시작가를 그대로 쓴다.
+            .andExpect(jsonPath("$.data.assets[2].initial_price").value(800));
+
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("DRAFT"))
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history[0].price").value(500))
+            // 흐름의 2단계는 변동폭의 60%다. 1.00%로 정했으므로 0.60% 오른 503이다.
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history[1].change_rate_bps").value(60))
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history[1].price").value(503));
+    }
+
+    @Test
+    void rejectsAVolatilityOutsideTheAllowedBand() throws Exception {
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":false,"daily_volatility_bps":5000}
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
     @Test
     void settlesEveryHoldingAndClosesTheMarketOnTheFinalDay() throws Exception {
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
@@ -342,6 +392,28 @@ class InvestmentFlowApiTest {
                 classroomId, studentId, LedgerAccountType.STUDENT_WALLET,
                 LedgerAccountStatus.ACTIVE
             ).orElseThrow().getCurrentBalance());
+
+        // 정산이 끝난 시장도 조회되어야 한다. 교사 화면이 이 상태를 보고 "다음 날 열기"를 낸다.
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "SHORT_TERM")
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("CLOSED"));
+
+        // 단기 한 판은 하루지만 교사는 매일 새로 열 수 있어야 한다.
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"SHORT_TERM","prefer_historical_index":false}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.market_status").value("DRAFT"));
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "SHORT_TERM")
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("DRAFT"));
     }
 
     private long marketStateVersion() {

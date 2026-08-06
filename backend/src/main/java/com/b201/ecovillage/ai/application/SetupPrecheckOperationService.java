@@ -43,6 +43,7 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.investment.domain.InvestmentAssetCatalog;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
@@ -66,6 +67,7 @@ public class SetupPrecheckOperationService {
     private final ClassroomModuleRepository moduleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final RuleEngineService ruleEngineService;
+    private final InvestmentSetupMetricsProvider investmentMetricsProvider;
     private final SetupProposalTargetSnapshotService targetSnapshotService;
     private final SetupPrecheckContractMapper contractMapper;
     private final SetupPrecheckAiClient aiClient;
@@ -89,6 +91,7 @@ public class SetupPrecheckOperationService {
         ClassroomModuleRepository moduleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
         RuleEngineService ruleEngineService,
+        InvestmentSetupMetricsProvider investmentMetricsProvider,
         SetupProposalTargetSnapshotService targetSnapshotService,
         SetupPrecheckContractMapper contractMapper,
         SetupPrecheckAiClient aiClient,
@@ -111,6 +114,7 @@ public class SetupPrecheckOperationService {
         this.moduleRepository = moduleRepository;
         this.policyVersionRepository = policyVersionRepository;
         this.ruleEngineService = ruleEngineService;
+        this.investmentMetricsProvider = investmentMetricsProvider;
         this.targetSnapshotService = targetSnapshotService;
         this.contractMapper = contractMapper;
         this.aiClient = aiClient;
@@ -364,6 +368,11 @@ public class SetupPrecheckOperationService {
                     ? currentDepositRateBps(classroom.getId(), module.getModuleCode())
                     : value.currentDepositRateBps()
             ));
+            if (input.investmentDraft() != null) {
+                builder.investmentDraft(investmentDraft(
+                    classroom.getId(), module.getId(), input.investmentDraft()
+                ));
+            }
         }
         if (input.salaryPolicy() != null) {
             SetupPrecheckInput.SalaryPolicy policy = input.salaryPolicy();
@@ -406,6 +415,38 @@ public class SetupPrecheckOperationService {
             ));
         }
         return builder.build();
+    }
+
+    /**
+     * 투자 조건 추천에 넘길 입력입니다. 종목 목록은 서버가 가진 목록을 그대로 쓰고, 학급
+     * 지표(발행액·학생 잔액)는 원장에서 직접 읽습니다. 화면은 지금 적혀 있는 값만 보냅니다.
+     */
+    private RuleEngineRequest.InvestmentDraft investmentDraft(
+        UUID classroomId,
+        UUID moduleId,
+        SetupPrecheckInput.InvestmentDraft draft
+    ) {
+        Map<String, Long> confirmed = new LinkedHashMap<>();
+        for (SetupPrecheckInput.AssetPrice price : draft.confirmedAssetPrices()) {
+            if (price != null && price.symbol() != null && price.price() != null) {
+                confirmed.put(price.symbol().trim().toUpperCase(Locale.ROOT), price.price());
+            }
+        }
+        InvestmentSetupMetricsProvider.InvestmentSetupMetrics metrics =
+            investmentMetricsProvider.of(classroomId);
+        return new RuleEngineRequest.InvestmentDraft(
+            moduleId,
+            draft.investmentMode(),
+            metrics.moneyIssuance(),
+            metrics.averageBalance(),
+            metrics.medianBalance(),
+            draft.confirmedVolatilityBps(),
+            InvestmentAssetCatalog.seeds().stream()
+                .map(seed -> new RuleEngineRequest.InvestmentAsset(
+                    seed.symbol(), seed.name(), seed.priceWeight(), confirmed.get(seed.symbol())
+                ))
+                .toList()
+        );
     }
 
     /**
@@ -576,19 +617,23 @@ public class SetupPrecheckOperationService {
             throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Check the setup precheck request.");
         }
         SetupPrecheckInput input = command.input();
+        // 투자 조건 초안은 투자 모듈 활성화 문맥에서만 쓴다. 다른 문맥에 실려 오면 거절한다.
         boolean contextMatches = switch (input.contextType()) {
             case CLASSROOM_SETUP -> input.moduleActivation() == null
                 && input.productDraft() == null
-                && input.quizDraft() == null;
+                && input.quizDraft() == null
+                && input.investmentDraft() == null;
             case MODULE_ACTIVATION -> input.moduleActivation() != null
                 && input.productDraft() == null
                 && input.quizDraft() == null;
             case PRODUCT_DRAFT -> input.moduleActivation() == null
                 && input.productDraft() != null
-                && input.quizDraft() == null;
+                && input.quizDraft() == null
+                && input.investmentDraft() == null;
             case QUIZ_SESSION_DRAFT -> input.moduleActivation() == null
                 && input.productDraft() == null
-                && input.quizDraft() != null;
+                && input.quizDraft() != null
+                && input.investmentDraft() == null;
         };
         if (!contextMatches) {
             throw operation(

@@ -607,6 +607,28 @@ const requestFieldOverrides = {
   "API-FIN-007": [
     { name: "investment_mode", values: ["SHORT_TERM", "LONG_TERM"] },
     { name: "prefer_historical_index", schema: { type: "boolean" } },
+    // 교사가 "운영 관리 > 투자"에서 정한 값이다. 없으면 서버 기본값으로 만든다.
+    {
+      name: "daily_volatility_bps",
+      optional: true,
+      schema: { type: "integer", minimum: 10, maximum: 2000 },
+    },
+    {
+      name: "asset_start_prices",
+      optional: true,
+      schema: {
+        type: "array",
+        maxItems: 20,
+        items: {
+          type: "object",
+          required: ["symbol", "start_price"],
+          properties: {
+            symbol: { type: "string" },
+            start_price: { type: "integer", minimum: 1 },
+          },
+        },
+      },
+    },
   ],
   "API-FIN-008": [
     { name: "command", values: ["START"] },
@@ -3556,6 +3578,10 @@ function buildApiFieldMapping(operations) {
   };
 }
 
+// 스펙에 엔드포인트를 더하면 이 숫자만 올린다. 개수가 어긋나면 중복 검사도 같은 숫자와
+// 비교하므로 "중복되었습니다"가 함께 뜨지만, 실제 원인은 개수 하나뿐인 경우가 많다.
+const EXPECTED_HTTP_OPERATION_COUNT = 143;
+
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
   const routeKeys = httpOperations.map((operation) => `${operation.method} ${operation.path}`);
@@ -3563,9 +3589,14 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 137, `HTTP 작업 수가 137개가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 137, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 137, "HTTP 메서드·경로가 중복되었습니다."],
+    [
+      httpOperations.length === EXPECTED_HTTP_OPERATION_COUNT,
+      `HTTP 작업 수가 ${EXPECTED_HTTP_OPERATION_COUNT}개가 아닙니다: ${httpOperations.length}`,
+    ],
+    // 중복 검사는 기대 개수가 아니라 실제 개수와 견준다. 그러지 않으면 엔드포인트를 더하고
+    // 기대 개수를 아직 올리지 않았을 때 중복이 없는데도 "중복되었습니다"가 함께 뜬다.
+    [new Set(apiIds).size === httpOperations.length, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === httpOperations.length, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3582,8 +3613,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 137,
-      "OpenAPI 작업 수가 137개가 아닙니다.",
+      ) === EXPECTED_HTTP_OPERATION_COUNT,
+      `OpenAPI 작업 수가 ${EXPECTED_HTTP_OPERATION_COUNT}개가 아닙니다.`,
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

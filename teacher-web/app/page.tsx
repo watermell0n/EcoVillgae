@@ -3910,6 +3910,7 @@ function FinanceAdmin({
               mode={mode}
               enabledModes={investmentModule.enabledModes}
               moduleActive={investmentModule.active}
+              moduleId={investmentModule.module?.resourceId}
               moduleStateVersion={investmentModule.stateVersion}
               currencyName={currencyName}
               aiEnabled={aiEnabled}

@@ -1159,9 +1159,17 @@ button:disabled {
 }
 
 .module-activation-list,
-.module-recommendation {
+.module-recommendation,
+.investment-condition-editor {
   display: grid;
   gap: 14px;
+}
+
+/* 투자 조건은 시나리오를 만들기 전에 정합니다. 아래 생성 버튼과 구분되게 테두리를 둡니다. */
+.investment-condition-editor {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
 }
 
 .module-activation-card {
@@ -1484,7 +1492,8 @@ button:disabled {
   line-height: 1.5;
 }
 
-.module-recommendation label {
+.module-recommendation label,
+.investment-condition-editor label {
   display: grid;
   gap: 7px;
   color: var(--ink);
@@ -1492,7 +1501,8 @@ button:disabled {
   font-weight: 900;
 }
 
-.module-recommendation input {
+.module-recommendation input,
+.investment-condition-editor input {
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid var(--line-strong);
@@ -1500,7 +1510,9 @@ button:disabled {
 }
 
 .module-recommendation label small,
-.module-recommendation label em {
+.module-recommendation label em,
+.investment-condition-editor label small,
+.investment-condition-editor label em {
   color: var(--muted);
   font-size: 12px;
   font-style: normal;
@@ -1535,10 +1547,14 @@ button:disabled {
   border-radius: 7px 0 0 7px;
 }
 
-.module-recommendation .value-warning input { border-color: #d7963e; }
-.module-recommendation .value-warning em { color: #98601f; }
-.module-recommendation .value-blocked input { border-color: #c44a4a; }
-.module-recommendation .value-blocked em { color: #b53b3b; }
+.module-recommendation .value-warning input,
+.investment-condition-editor .value-warning input { border-color: #d7963e; }
+.module-recommendation .value-warning em,
+.investment-condition-editor .value-warning em { color: #98601f; }
+.module-recommendation .value-blocked input,
+.investment-condition-editor .value-blocked input { border-color: #c44a4a; }
+.module-recommendation .value-blocked em,
+.investment-condition-editor .value-blocked em { color: #b53b3b; }
 
 .payroll-panel {
   display: grid;

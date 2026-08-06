@@ -195,7 +195,8 @@ public final class SetupPrecheckContract {
         SAVINGS_RATE,
         LOAN_RATE,
         PRODUCT_PRICE,
-        GAME_REWARD
+        GAME_REWARD,
+        INVESTMENT_CONDITION
     }
 
     public enum ValueUnit {

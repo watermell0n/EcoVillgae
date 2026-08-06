@@ -3,6 +3,9 @@ package com.b201.ecovillage.investment.api;
 import java.security.Principal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -74,7 +77,8 @@ public class InvestmentController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         InvestmentScenarioResult result = scenarioService.generate(
-            subject(principal), classroomId, request.investmentMode(), request.preferHistoricalIndex()
+            subject(principal), classroomId, request.investmentMode(), request.preferHistoricalIndex(),
+            request.dailyVolatilityBps(), request.startPricesBySymbol()
         );
         return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
@@ -190,14 +194,32 @@ public class InvestmentController {
     }
 }
 
+/**
+ * 투자 시나리오 생성 요청이다. dailyVolatilityBps와 assetStartPrices는 교사가
+ * "운영 관리 &gt; 투자"에서 정한 값이며, 없으면 서버 기본값으로 만든다.
+ */
 record InvestmentScenarioRequest(
     Long expectedStateVersion,
     String screenId,
     String uiActionId,
     Instant clientOccurredAt,
     @NotBlank String investmentMode,
-    boolean preferHistoricalIndex
+    boolean preferHistoricalIndex,
+    Integer dailyVolatilityBps,
+    @Valid List<AssetStartPriceRequest> assetStartPrices
 ) {
+    InvestmentScenarioRequest {
+        assetStartPrices = assetStartPrices == null ? List.of() : List.copyOf(assetStartPrices);
+    }
+
+    Map<String, Long> startPricesBySymbol() {
+        Map<String, Long> prices = new LinkedHashMap<>();
+        assetStartPrices.forEach(price -> prices.put(price.symbol(), price.startPrice()));
+        return prices;
+    }
+}
+
+record AssetStartPriceRequest(@NotBlank String symbol, @NotNull @Min(1) Long startPrice) {
 }
 
 record InvestmentMarketCommandRequest(
