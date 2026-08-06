@@ -1,0 +1,25 @@
+{
+  "comparison_id": "run-0-vs-run-a",
+  "golden_set_version": "quiz-golden-set-v1",
+  "reviewer": "A",
+  "reviewed_at": "",
+  "note": "블라인드 나란히 비교용이다. left와 right 중 어느 실행이 어느 쪽인지 채점자에게 알리지 않는다. 케이스마다 좌우 배치를 무작위로 섞는다. 값은 LEFT, RIGHT, TIE 중 하나만 쓴다.",
+
+  "blind_mapping_sealed": true,
+  "blind_mapping_note": "좌우가 어느 실행인지는 별도 파일 blind-key.json에 적어 두고 채점이 끝난 뒤에 연다.",
+
+  "cases": [
+    { "case_id": "eco-g4-mc", "winner": null, "reason": "" },
+    { "case_id": "eco-g4-ox", "winner": null, "reason": "" },
+    { "case_id": "eco-g5-mc", "winner": null, "reason": "" },
+    { "case_id": "eco-g5-ox", "winner": null, "reason": "" },
+    { "case_id": "eco-g6-mc", "winner": null, "reason": "" },
+    { "case_id": "eco-g6-ox", "winner": null, "reason": "" },
+    { "case_id": "non-g4-mc", "winner": null, "reason": "" },
+    { "case_id": "non-g4-ox", "winner": null, "reason": "" },
+    { "case_id": "non-g5-mc", "winner": null, "reason": "" },
+    { "case_id": "non-g5-ox", "winner": null, "reason": "" },
+    { "case_id": "non-g6-mc", "winner": null, "reason": "" },
+    { "case_id": "non-g6-ox", "winner": null, "reason": "" }
+  ]
+}

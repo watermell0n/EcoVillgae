@@ -1,0 +1,215 @@
+{
+  "golden_set_version": "quiz-golden-set-v1",
+  "prompt_version_at_authoring": "quiz-draft-v1",
+  "schema_version": "1.2",
+  "questions_per_case": 3,
+  "note": "사람 채점용 평가 세트다. 실제 공급자와 검토자 2명이 필요하므로 pytest 자동 실행 대상이 아니며 ai_mvp_release_v1.json의 suites에 넣지 않는다.",
+
+  "cases": [
+    {
+      "case_id": "eco-g4-mc",
+      "grade": 4,
+      "expected_difficulty": "INTRODUCTORY",
+      "content_type": "ECONOMY",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "필요와 욕구",
+      "learning_objective": "꼭 필요한 것과 갖고 싶은 것을 구분할 수 있다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "eco-g4-ox",
+      "grade": 4,
+      "expected_difficulty": "INTRODUCTORY",
+      "content_type": "ECONOMY",
+      "question_type": "OX",
+      "topic": "용돈 관리",
+      "learning_objective": "용돈을 계획해서 쓰는 방법을 설명할 수 있다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "eco-g5-mc",
+      "grade": 5,
+      "expected_difficulty": "STANDARD",
+      "content_type": "ECONOMY",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "합리적 선택과 기회비용",
+      "learning_objective": "하나를 고르면 포기하는 것이 생긴다는 것을 설명할 수 있다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "eco-g5-ox",
+      "grade": 5,
+      "expected_difficulty": "STANDARD",
+      "content_type": "ECONOMY",
+      "question_type": "OX",
+      "topic": "시장과 가격",
+      "learning_objective": "물건 값이 정해지는 과정을 설명할 수 있다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "eco-g6-mc",
+      "grade": 6,
+      "expected_difficulty": "ADVANCED",
+      "content_type": "ECONOMY",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "수요와 공급",
+      "learning_objective": "수요와 공급의 변화가 가격에 미치는 영향을 설명할 수 있다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "eco-g6-ox",
+      "grade": 6,
+      "expected_difficulty": "ADVANCED",
+      "content_type": "ECONOMY",
+      "question_type": "OX",
+      "topic": "물가 변화",
+      "learning_objective": "물가가 오르면 우리 생활이 어떻게 달라지는지 설명할 수 있다.",
+      "question_count": 3
+    },
+
+    {
+      "case_id": "non-g4-mc",
+      "grade": 4,
+      "expected_difficulty": "INTRODUCTORY",
+      "content_type": "NONSENSE",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "음식",
+      "learning_objective": "말놀이를 즐기며 낱말의 소리에 관심을 가진다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "non-g4-ox",
+      "grade": 4,
+      "expected_difficulty": "INTRODUCTORY",
+      "content_type": "NONSENSE",
+      "question_type": "OX",
+      "topic": "색깔",
+      "learning_objective": "말놀이를 즐기며 낱말의 소리에 관심을 가진다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "non-g5-mc",
+      "grade": 5,
+      "expected_difficulty": "STANDARD",
+      "content_type": "NONSENSE",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "교통수단",
+      "learning_objective": "낱말의 여러 뜻을 이용한 말놀이를 만든다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "non-g5-ox",
+      "grade": 5,
+      "expected_difficulty": "STANDARD",
+      "content_type": "NONSENSE",
+      "question_type": "OX",
+      "topic": "날씨",
+      "learning_objective": "낱말의 여러 뜻을 이용한 말놀이를 만든다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "non-g6-mc",
+      "grade": 6,
+      "expected_difficulty": "ADVANCED",
+      "content_type": "NONSENSE",
+      "question_type": "MULTIPLE_CHOICE",
+      "topic": "직업",
+      "learning_objective": "낱말을 쪼개고 이어 붙이며 말놀이를 만든다.",
+      "question_count": 3
+    },
+    {
+      "case_id": "non-g6-ox",
+      "grade": 6,
+      "expected_difficulty": "ADVANCED",
+      "content_type": "NONSENSE",
+      "question_type": "OX",
+      "topic": "몸과 건강",
+      "learning_objective": "낱말을 쪼개고 이어 붙이며 말놀이를 만든다.",
+      "question_count": 3
+    }
+  ],
+
+  "anchors": {
+    "ECONOMY": [
+      {
+        "score": 2,
+        "difficulty": "INTRODUCTORY",
+        "question": "은행에 돈을 맡기면 돌려받는 추가 금액을 무엇이라고 할까요?",
+        "choices": ["세금", "월급", "인플레이션", "이자"],
+        "answer": "이자",
+        "reason": "네 선택지가 모두 실제 경제 용어라서 뜻을 모르면 찍어서 맞히기 어렵다."
+      },
+      {
+        "score": 2,
+        "difficulty": "ADVANCED",
+        "question": "우리 반에서 모은 세금을 가장 알맞게 사용하는 방법은 무엇일까요?",
+        "choices": [
+          "한 학생이 원하는 장난감을 산다",
+          "선생님이 개인적으로 사용한다",
+          "반 전체가 쓸 공용 물품을 산다",
+          "세금을 가장 많이 낸 학생에게 모두 준다"
+        ],
+        "answer": "반 전체가 쓸 공용 물품을 산다",
+        "reason": "교실 상황에 세금의 목적을 적용해 판단하게 한다. 마지막 오답은 '많이 낸 사람이 많이 돌려받는다'는 그럴듯한 오개념이다."
+      },
+      {
+        "score": 0,
+        "question": "물건을 사고파는 곳은 어디일까요?",
+        "choices": ["시장", "하늘", "바다"],
+        "answer": "시장",
+        "reason": "오답이 경제 용어가 아니라서 문제를 읽지 않아도 답이 보인다."
+      },
+      {
+        "score": 0,
+        "question": "세금은 나라에 내는 돈이다. (O/X)",
+        "choices": ["O", "X"],
+        "answer": "O",
+        "reason": "학습목표를 그대로 문장으로 옮겨 놓아 생각할 거리가 없다."
+      }
+    ],
+
+    "NONSENSE": [
+      {
+        "score": 2,
+        "pun_type": "흉내내는 말",
+        "question": "세상에서 가장 빠른 닭은 무엇일까요?",
+        "choices": ["후다닥", "튀김닭", "병아리", "수탉"],
+        "answer": "후다닥",
+        "reason": "빠른 모습을 흉내내는 말이면서 끝에 '닭'이 들어 있다. 오답도 모두 닭과 관련된 낱말이라 그럴듯하다."
+      },
+      {
+        "score": 2,
+        "pun_type": "외국 이름 다시 읽기",
+        "question": "호주에서 쓰는 돈을 무엇이라고 할까요?",
+        "choices": ["호주머니", "호주달러", "호떡", "호루라기"],
+        "answer": "호주머니",
+        "reason": "'호주'에 돈을 뜻하는 '머니'를 붙이면 주머니가 된다. '호주달러'는 진짜 화폐 이름이라 헷갈리기 좋은 오답이다."
+      },
+      {
+        "score": 2,
+        "pun_type": "글자 쪼개기",
+        "question": "물고기 중에서 학벌이 가장 좋은 물고기는 참치다. (O/X)",
+        "choices": ["O", "X"],
+        "answer": "X",
+        "reason": "답은 고등어다. '고등어'에 '고등학교'의 '고등'이 들어 있다. OX 넌센스는 이렇게 말장난의 답을 제시하고 맞는지 묻는 방식으로 만든다."
+      },
+      {
+        "score": 0,
+        "question": "돈을 안전하게 맡기는 곳은 어디일까요?",
+        "choices": ["은행", "학교", "병원"],
+        "answer": "은행",
+        "reason": "말장난이 하나도 없는 상식 문제다. 지금 가장 자주 나오는 실패 형태이므로 category_fit 0점의 기준으로 삼는다."
+      }
+    ]
+  },
+
+  "banned_verbatim_answers": [
+    "후다닥",
+    "호주머니",
+    "고등어",
+    "인수분해",
+    "이자",
+    "분산투자"
+  ],
+  "banned_verbatim_note": "프롬프트 예시에 실린 답이다. 생성 결과에 그대로 나오면 예시를 베낀 것이므로 해당 문항은 즉시 탈락 처리한다."
+}
