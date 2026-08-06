@@ -41,6 +41,7 @@ import {
 import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
+import { EconomyQuizDifficultyPanel } from "./quiz/EconomyQuizDifficultyPanel";
 import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
@@ -1284,14 +1285,20 @@ export default function TeacherConsole() {
                 .map((module) => module.config?.active_guided_activity_id)
                 .find((value): value is string => typeof value === "string")}
               quizWorkspace={
-                <QuizDraftWorkspace
-                  classroomId={activeClassroomId}
-                  initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
-                  aiEnabled={aiSettings.enabled}
-                  students={students}
-                  activeQuizSessionId={activeQuizSessionId}
-                  onReload={() => openClassroom(activeClassroomId)}
-                />
+                <>
+                  <EconomyQuizDifficultyPanel
+                    classroomId={activeClassroomId}
+                    canManage={teacherRoles.includes("OWN")}
+                  />
+                  <QuizDraftWorkspace
+                    classroomId={activeClassroomId}
+                    initialGrade={Math.min(6, Math.max(4, Number(settings.grade) || 5))}
+                    aiEnabled={aiSettings.enabled}
+                    students={students}
+                    activeQuizSessionId={activeQuizSessionId}
+                    onReload={() => openClassroom(activeClassroomId)}
+                  />
+                </>
               }
             />
           )}
