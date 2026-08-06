@@ -158,6 +158,21 @@ public class TradeController {
         ));
     }
 
+    /** 교사가 이미 처리한 거래다. 운영 기록이 읽는다. */
+    @GetMapping("/decided")
+    public ResponseEntity<ApiResponse<List<PendingTradeView>>> decided(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return ResponseEntity.ok(new ApiResponse<>(
+            pendingTradeQueryService.findDecided(subject(principal), classroomId),
+            new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        ));
+    }
+
     @PostMapping("/{tradeId}/teacher-decisions")
     public ResponseEntity<ApiResponse<TradeCommandResponse>> decideByTeacher(
         @PathVariable UUID classroomId,

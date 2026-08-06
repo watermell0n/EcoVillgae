@@ -49,17 +49,28 @@ public class PendingTradeQueryService {
         this.studentRepository = studentRepository;
     }
 
+    /** 교사가 이미 승인하거나 거절한 거래다. */
+    @Transactional(readOnly = true)
+    public List<PendingTradeView> findDecided(String teacherSubject, UUID classroomId) {
+        return findByStatuses(teacherSubject, classroomId, List.of(
+            TradeStatus.COMPLETED, TradeStatus.REJECTED, TradeStatus.SETTLING, TradeStatus.FAILED
+        ));
+    }
+
     @Transactional(readOnly = true)
     public List<PendingTradeView> findAwaitingTeacher(String teacherSubject, UUID classroomId) {
+        return findByStatuses(teacherSubject, classroomId, List.of(TradeStatus.AWAITING_TEACHER));
+    }
+
+    private List<PendingTradeView> findByStatuses(String teacherSubject, UUID classroomId, List<TradeStatus> statuses) {
         authorizationService.authorize(
             teacherSubject,
             classroomId,
             ClassroomPermission.APPROVE_TRADE,
             null
         );
-        List<Trade> trades = tradeRepository.findAllByClassroomIdAndStatusOrderByCreatedAtDesc(
-            classroomId,
-            TradeStatus.AWAITING_TEACHER
+        List<Trade> trades = tradeRepository.findAllByClassroomIdAndStatusInOrderByCreatedAtDesc(
+            classroomId, statuses
         );
         if (trades.isEmpty()) {
             return List.of();

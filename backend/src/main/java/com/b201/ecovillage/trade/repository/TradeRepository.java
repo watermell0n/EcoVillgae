@@ -28,12 +28,10 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
         Collection<com.b201.ecovillage.trade.domain.TradeStatus> statuses
     );
 
-    /**
-     * 교사 승인을 기다리는 거래다. 승인·정산 화면이 이 목록을 그대로 보여 준다.
-     */
-    List<Trade> findAllByClassroomIdAndStatusOrderByCreatedAtDesc(
+    /** 교사가 처리한 거래다. 운영 기록이 최근 것부터 읽는다. */
+    List<Trade> findAllByClassroomIdAndStatusInOrderByCreatedAtDesc(
         UUID classroomId,
-        com.b201.ecovillage.trade.domain.TradeStatus status
+        Collection<com.b201.ecovillage.trade.domain.TradeStatus> statuses
     );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
