@@ -18,6 +18,14 @@
         reverse_proxy backend:8080
     }
 
+    handle /student {
+        redir /student/ 308
+    }
+
+    handle_path /student/* {
+        reverse_proxy student-web:80
+    }
+
     handle {
         reverse_proxy teacher-web:3000
     }

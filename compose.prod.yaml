@@ -138,6 +138,24 @@ services:
     mem_limit: 1g
     logging: *default-logging
 
+  student-web:
+    build:
+      context: ./student-app/expo
+      args:
+        EXPO_PUBLIC_API_BASE_URL: https://${DOMAIN:?DOMAIN is required}/api
+        EXPO_PUBLIC_WEBSOCKET_URL: wss://${DOMAIN:?DOMAIN is required}/ws/v1
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 256m
+    logging: *default-logging
+
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
@@ -153,6 +171,8 @@ services:
       - caddy-config:/config
     depends_on:
       teacher-web:
+        condition: service_healthy
+      student-web:
         condition: service_healthy
     mem_limit: 256m
     logging: *default-logging

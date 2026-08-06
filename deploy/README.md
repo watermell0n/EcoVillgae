@@ -20,3 +20,9 @@ sudo docker compose --env-file .env.prod -f compose.prod.yaml ps
 EXPO_PUBLIC_API_BASE_URL=https://i15b201.p.ssafy.io/api
 EXPO_PUBLIC_WEBSOCKET_URL=wss://i15b201.p.ssafy.io/ws/v1
 ```
+
+Student web is served from the same origin and uses those endpoints:
+
+```text
+https://i15b201.p.ssafy.io/student/
+```
