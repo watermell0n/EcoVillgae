@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -42,23 +43,14 @@ import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionReposi
 @Service
 public class InvestmentScenarioService {
 
-    /**
-     * AI 생성 흐름의 가격 모양이다. 하루 최대 변동폭을 1,000으로 본 천분율이며, 교사가 정한
-     * 변동폭을 곱해 실제 등락률(bps)로 바꾼다. 모양만 고정하고 크기는 교사가 정하므로,
-     * 같은 학급이라도 변동폭을 낮추면 흐름은 같고 폭만 완만해진다.
-     */
-    private static final List<Integer> LONG_SHAPE_PERMILLE = List.of(
-        0, 600, -300, 800, -533, 367, 267, -733, 1_000, -233,
-        467, -433, 700, 200, -600, 833, -133, 400, -333, 633,
-        -500, 300, 567, -200, 433, -700, 933, -267, 333, 533
-    );
-    /** 단기는 하루만 움직인다. 첫날은 시작가 그대로이고 다음 날 변동폭만큼 움직인다. */
-    private static final List<Integer> SHORT_SHAPE_PERMILLE = List.of(0, 1_000);
-    /** 교사가 변동폭을 정하지 않았을 때 쓰는 값이다. 기존 시나리오와 같은 흐름이 나온다. */
+    /** 교사가 변동폭을 정하지 않았을 때 쓰는 기준 변동폭이다. */
     private static final int DEFAULT_SHORT_VOLATILITY_BPS = 650;
     private static final int DEFAULT_LONG_VOLATILITY_BPS = 300;
     private static final int MIN_VOLATILITY_BPS = 10;
     private static final int MAX_VOLATILITY_BPS = 2_000;
+    /** 하루 등락 범위로 허용하는 한계다. 이 밖의 값은 학급 화폐가 하루 만에 무너진다. */
+    private static final int MIN_RETURN_BPS = -5_000;
+    private static final int MAX_RETURN_BPS = 5_000;
 
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
@@ -109,7 +101,7 @@ public class InvestmentScenarioService {
         String requestedMode,
         boolean preferHistorical,
         Integer dailyVolatilityBps,
-        Map<String, Long> assetStartPrices
+        Map<String, AssetCondition> assetConditions
     ) {
         authorizationService.authorize(
             teacherSubject,
@@ -158,9 +150,10 @@ public class InvestmentScenarioService {
             : InvestmentScenarioSource.AI_GENERATED;
         HistoricalIndexReference reference = historical.map(HistoricalIndexPath::reference).orElse(null);
         int volatilityBps = volatilityBps(mode, dailyVolatilityBps);
-        List<Integer> rates = historical.map(HistoricalIndexPath::changeRatesBps)
-            .orElseGet(() -> generatedRates(mode, stepCount, volatilityBps));
-        Map<String, Long> confirmedPrices = normalizePrices(assetStartPrices);
+        // 역사 지수를 쓰면 실제 등락을 그대로 살린다. 그 밖에는 종목마다 자기 범위 안에서
+        // 매번 새로 뽑으므로, 같은 학급에서 다시 만들어도 흐름이 같지 않다.
+        List<Integer> historicalRates = historical.map(HistoricalIndexPath::changeRatesBps).orElse(null);
+        Map<String, AssetCondition> confirmed = normalizeConditions(assetConditions);
         int nextVersion = scenarioRepository
             .findTopByClassroomIdAndInvestmentMarketIdOrderByVersionDesc(classroomId, market.getId())
             .map(InvestmentScenarioVersion::getVersion)
@@ -174,11 +167,16 @@ public class InvestmentScenarioService {
         List<InvestmentAssetCatalog.Seed> seeds = InvestmentAssetCatalog.seeds();
         for (int index = 0; index < seeds.size(); index++) {
             InvestmentAssetCatalog.Seed seed = seeds.get(index);
+            AssetCondition condition = confirmed.get(seed.symbol());
+            ReturnBand band = returnBand(seed, condition, volatilityBps, historicalRates);
+            List<Integer> rates = historicalRates == null
+                ? drawRates(scenario.getId(), seed.symbol(), stepCount, band)
+                : historicalRates;
             InvestmentAsset asset = assetRepository.save(InvestmentAsset.active(
                 uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(), seed.name(),
-                seed.profile(), index + 1, now
+                seed.profile(), index + 1, band.min(), band.max(), now
             ));
-            long startPrice = startPrice(seed, confirmedPrices);
+            long startPrice = startPrice(seed, condition);
             long price = startPrice;
             for (int step = 1; step <= stepCount; step++) {
                 int rate = rates.get(step - 1);
@@ -190,7 +188,8 @@ public class InvestmentScenarioService {
                 ));
             }
             createdAssets.add(new InvestmentScenarioResult.Asset(
-                asset.getId(), asset.getSymbol(), asset.getName(), startPrice
+                asset.getId(), asset.getSymbol(), asset.getName(), startPrice,
+                band.min(), band.max()
             ));
         }
         market.configure(scenario.getId(), now);
@@ -305,7 +304,9 @@ public class InvestmentScenarioService {
             assets.isEmpty() ? 0 : countSteps(classroomId, assets.get(0).getId()),
             market.getStateVersion(),
             assets.stream().map(asset -> new InvestmentScenarioResult.Asset(
-                asset.getId(), asset.getSymbol(), asset.getName(), firstPrice(classroomId, asset.getId())
+                asset.getId(), asset.getSymbol(), asset.getName(),
+                firstPrice(classroomId, asset.getId()),
+                asset.getMinReturnBps(), asset.getMaxReturnBps()
             )).toList()
         );
     }
@@ -342,51 +343,116 @@ public class InvestmentScenarioService {
         return requested;
     }
 
-    /** 교사가 보낸 1주 시작가다. 종목 기호는 대문자로 맞춘다. */
-    private static Map<String, Long> normalizePrices(Map<String, Long> requested) {
+    /** 교사가 보낸 종목별 조건이다. 종목 기호는 대문자로 맞춘다. */
+    private static Map<String, AssetCondition> normalizeConditions(
+        Map<String, AssetCondition> requested
+    ) {
         if (requested == null || requested.isEmpty()) {
             return Map.of();
         }
-        Map<String, Long> normalized = new LinkedHashMap<>();
-        requested.forEach((symbol, price) -> {
-            if (symbol == null || price == null) {
+        Map<String, AssetCondition> normalized = new LinkedHashMap<>();
+        requested.forEach((symbol, condition) -> {
+            if (symbol == null || condition == null) {
                 return;
             }
-            if (price < 1L) {
-                throw operation(
-                    HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "1주 시작가는 1 이상이어야 합니다."
-                );
-            }
-            normalized.put(symbol.trim().toUpperCase(Locale.ROOT), price);
+            validate(condition);
+            normalized.put(symbol.trim().toUpperCase(Locale.ROOT), condition);
         });
         return normalized;
     }
 
-    private static long startPrice(
-        InvestmentAssetCatalog.Seed seed,
-        Map<String, Long> confirmedPrices
-    ) {
-        Long confirmed = confirmedPrices.get(seed.symbol());
-        return confirmed == null
-            ? InvestmentAssetCatalog.priceAt(InvestmentAssetCatalog.DEFAULT_BASE_PRICE, seed.priceWeight())
-            : confirmed;
-    }
-
-    private static List<Integer> generatedRates(InvestmentMode mode, int count, int volatilityBps) {
-        List<Integer> shape = mode == InvestmentMode.SHORT_TERM
-            ? SHORT_SHAPE_PERMILLE : LONG_SHAPE_PERMILLE;
-        List<Integer> result = new ArrayList<>();
-        for (int index = 0; index < count; index++) {
-            result.add(scaleRate(shape.get(index % shape.size()), volatilityBps));
+    private static void validate(AssetCondition condition) {
+        if (condition.startPrice() != null && condition.startPrice() < 1L) {
+            throw operation(
+                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "1주 시작가는 1 이상이어야 합니다."
+            );
         }
-        result.set(0, 0);
-        return List.copyOf(result);
+        Integer min = condition.minReturnBps();
+        Integer max = condition.maxReturnBps();
+        if ((min == null) != (max == null)) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "하루 변동 범위는 최저와 최고를 함께 보내야 합니다."
+            );
+        }
+        if (min == null) {
+            return;
+        }
+        if (min > max || min < MIN_RETURN_BPS || max > MAX_RETURN_BPS) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "하루 변동 범위는 -50.00%~50.00% 안에서 최저가 최고보다 작아야 합니다."
+            );
+        }
     }
 
-    private static int scaleRate(int shapePermille, int volatilityBps) {
-        return BigDecimal.valueOf((long) shapePermille * volatilityBps)
-            .divide(BigDecimal.valueOf(1_000L), 0, RoundingMode.HALF_UP)
-            .intValueExact();
+    /**
+     * 종목의 하루 변동 범위다. 교사가 정했으면 그 값을 쓰고, 정하지 않았으면 기준 변동폭에
+     * 종목 위험 비중을 곱해 위아래로 같은 폭을 준다. 역사 지수 흐름은 실제 등락이 이미
+     * 정해져 있으므로 그 흐름의 최저·최고를 그대로 범위로 삼는다.
+     */
+    private static ReturnBand returnBand(
+        InvestmentAssetCatalog.Seed seed,
+        AssetCondition condition,
+        int volatilityBps,
+        List<Integer> historicalRates
+    ) {
+        if (historicalRates != null) {
+            return new ReturnBand(
+                historicalRates.stream().mapToInt(Integer::intValue).min().orElse(0),
+                historicalRates.stream().mapToInt(Integer::intValue).max().orElse(0)
+            );
+        }
+        if (condition != null && condition.minReturnBps() != null) {
+            return new ReturnBand(condition.minReturnBps(), condition.maxReturnBps());
+        }
+        long band = InvestmentAssetCatalog.returnBandAt(volatilityBps, seed.riskWeight());
+        return new ReturnBand(Math.toIntExact(-band), Math.toIntExact(band));
+    }
+
+    /**
+     * 종목의 하루 등락을 범위 안에서 새로 뽑는다.
+     *
+     * <p>고정된 흐름을 쓰면 단기 투자가 늘 같은 결과로 끝나 학생이 판단할 이유가 없어진다.
+     * 시나리오 판본 ID와 종목 기호로 씨앗을 만들므로 종목마다 다르게 움직이고, 판본을 새로
+     * 만들 때마다 달라지며, 같은 판본 안에서는 몇 번을 계산해도 같은 흐름이 나온다.
+     */
+    private static List<Integer> drawRates(
+        UUID scenarioVersionId,
+        String symbol,
+        int count,
+        ReturnBand band
+    ) {
+        Random random = new Random(
+            scenarioVersionId.getMostSignificantBits()
+                ^ scenarioVersionId.getLeastSignificantBits()
+                ^ symbol.hashCode()
+        );
+        List<Integer> rates = new ArrayList<>();
+        // 첫날은 시작가를 그대로 공개하므로 등락이 없다.
+        rates.add(0);
+        for (int step = 2; step <= count; step++) {
+            rates.add(band.min() + random.nextInt(band.max() - band.min() + 1));
+        }
+        return List.copyOf(rates);
+    }
+
+    private static long startPrice(InvestmentAssetCatalog.Seed seed, AssetCondition condition) {
+        if (condition != null && condition.startPrice() != null) {
+            return condition.startPrice();
+        }
+        return InvestmentAssetCatalog.priceAt(
+            InvestmentAssetCatalog.DEFAULT_BASE_PRICE, seed.priceWeight()
+        );
+    }
+
+    /** 교사가 종목마다 정한 값이다. 보내지 않은 항목은 null로 두고 서버 기본값을 쓴다. */
+    public record AssetCondition(Long startPrice, Integer minReturnBps, Integer maxReturnBps) {
+    }
+
+    private record ReturnBand(int min, int max) {
     }
 
     private static long nextPrice(long current, int rateBps) {

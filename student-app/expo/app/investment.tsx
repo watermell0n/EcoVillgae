@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
@@ -20,6 +20,17 @@ const MODE_LABELS: Record<InvestmentMode, string> = {
 
 const SPARK_BLOCKS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 
+// 한 번에 살 수 있는 주 수입니다. 서버도 1~100주만 받습니다.
+const MIN_QUANTITY = 1;
+const MAX_QUANTITY = 100;
+
+/** 입력칸의 글자를 실제로 주문할 수 있는 주 수로 정리합니다. */
+function clampQuantity(text: string) {
+  const parsed = Number.parseInt(text.replace(/[^0-9]/g, ""), 10);
+  if (!Number.isFinite(parsed)) return MIN_QUANTITY;
+  return Math.min(MAX_QUANTITY, Math.max(MIN_QUANTITY, parsed));
+}
+
 /** 공개된 가격만으로 흐름을 그립니다. 아직 공개되지 않은 가격은 서버가 보내지 않습니다. */
 function sparkline(prices: number[]) {
   if (prices.length === 0) return "";
@@ -32,6 +43,18 @@ function sparkline(prices: number[]) {
       return SPARK_BLOCKS[Math.round(ratio * (SPARK_BLOCKS.length - 1))];
     })
     .join("");
+}
+
+/**
+ * 이 기업이 하루에 얼마나 오르내릴 수 있는지 알려 줍니다.
+ *
+ * 학생이 사기 전에 "잘되면 얼마, 잘못되면 얼마"를 스스로 가늠할 수 있어야 합니다.
+ */
+function returnBandText(asset: InvestmentAsset) {
+  if (asset.minReturnBps === 0 && asset.maxReturnBps === 0) return "";
+  const low = (asset.minReturnBps / 100).toFixed(1);
+  const high = (asset.maxReturnBps / 100).toFixed(1);
+  return `하루 ${low}% ~ +${high}%`;
 }
 
 function changeText(asset: InvestmentAsset) {
@@ -121,8 +144,16 @@ function MarketView({
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  // 몇 주를 살지는 학생이 직접 정합니다. 입력 중에는 빈 칸도 있을 수 있으므로 글자로 들고
+  // 있다가, 실제로 주문할 때 쓰는 값만 숫자로 정리합니다.
+  const [quantityText, setQuantityText] = useState(String(MIN_QUANTITY));
+  const quantity = clampQuantity(quantityText);
 
   const current = market.assets.find((asset) => asset.assetId === selectedAssetId) ?? market.assets[0];
+
+  function changeQuantity(step: number) {
+    setQuantityText(String(clampQuantity(String(quantity + step))));
+  }
 
   async function buy(asset: InvestmentAsset, quantity: number) {
     if (!classroomId) return;
@@ -180,6 +211,10 @@ function MarketView({
                 <Text style={styles.holdingValue}>
                   {asset.currentPrice.toLocaleString("ko-KR")} {currencyName}
                 </Text>
+                {/* 1주 금액 바로 밑에 손해·이득 범위를 함께 보여 줍니다. */}
+                {returnBandText(asset) ? (
+                  <Text style={styles.returnBand}>{returnBandText(asset)}</Text>
+                ) : null}
                 <Text style={[styles.stockChange, change.negative && styles.loss]}>{change.text}</Text>
               </View>
             </Pressable>
@@ -213,20 +248,44 @@ function MarketView({
 
       {current ? (
         <View style={styles.decisionRow}>
+          <View style={styles.stepper}>
+            <Pressable
+              accessibilityLabel="한 주 줄이기"
+              disabled={busy || quantity <= MIN_QUANTITY}
+              onPress={() => changeQuantity(-1)}
+              style={[styles.stepperButton, (busy || quantity <= MIN_QUANTITY) && styles.buttonBusy]}
+            >
+              <Text style={styles.stepperText}>−</Text>
+            </Pressable>
+            <TextInput
+              accessibilityLabel="살 주 수"
+              inputMode="numeric"
+              keyboardType="number-pad"
+              onChangeText={setQuantityText}
+              onBlur={() => setQuantityText(String(quantity))}
+              selectTextOnFocus
+              style={styles.stepperInput}
+              value={quantityText}
+            />
+            <Pressable
+              accessibilityLabel="한 주 늘리기"
+              disabled={busy || quantity >= MAX_QUANTITY}
+              onPress={() => changeQuantity(1)}
+              style={[styles.stepperButton, (busy || quantity >= MAX_QUANTITY) && styles.buttonBusy]}
+            >
+              <Text style={styles.stepperText}>＋</Text>
+            </Pressable>
+          </View>
           <Pressable
             disabled={busy}
-            onPress={() => void buy(current, 1)}
-            style={[styles.outlineButton, busy && styles.buttonBusy]}
-          >
-            <Text style={styles.outlineText}>{busy ? "처리 중" : "1주 사기"}</Text>
-          </Pressable>
-          <Pressable
-            disabled={busy}
-            onPress={() => void buy(current, 5)}
+            onPress={() => void buy(current, quantity)}
             style={[styles.primaryButton, busy && styles.buttonBusy]}
           >
-            <Text style={styles.primaryText}>{busy ? "처리 중" : "5주 사기"}</Text>
+            <Text style={styles.primaryText}>{busy ? "처리 중" : `${quantity}주 사기`}</Text>
           </Pressable>
+          <Text style={styles.totalPreview}>
+            모두 {(current.currentPrice * quantity).toLocaleString("ko-KR")} {currencyName}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -259,11 +318,15 @@ const styles = StyleSheet.create({
   notice: { color: colors.ink900, fontSize: 15, fontWeight: "800", lineHeight: 23 },
   holdingRight: { alignItems: "flex-end", gap: 4 },
   holdingValue: { color: colors.ink900, fontSize: 18, fontWeight: "900" },
-  decisionRow: { flexDirection: "row", gap: 12 },
+  returnBand: { color: colors.muted600, fontSize: 13, fontWeight: "800" },
+  decisionRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
+  stepper: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 8, backgroundColor: colors.white, overflow: "hidden" },
+  stepperButton: { minWidth: 48, minHeight: 46, alignItems: "center", justifyContent: "center" },
+  stepperText: { color: colors.ink900, fontSize: 22, fontWeight: "900" },
+  stepperInput: { minWidth: 64, minHeight: 46, paddingHorizontal: 6, borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.lineSoft, color: colors.ink900, fontSize: 17, fontWeight: "900", textAlign: "center" },
+  totalPreview: { color: colors.muted600, fontSize: 15, fontWeight: "800" },
   primaryButton: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", paddingHorizontal: 22, borderRadius: 8, backgroundColor: colors.orange500 },
   primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" },
-  outlineButton: { minHeight: 46, justifyContent: "center", paddingHorizontal: 22, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 8, backgroundColor: colors.white },
-  outlineText: { color: colors.ink900, fontSize: 15, fontWeight: "900" },
   buttonBusy: { opacity: 0.6 },
   empty: { maxWidth: 760, gap: 10, paddingVertical: 34, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.lineSoft },
   emptyTitle: { color: colors.ink900, fontSize: 23, fontWeight: "900" },

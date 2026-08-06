@@ -21,6 +21,9 @@ public record InvestmentMarketView(
         String symbol,
         String name,
         String companyProfile,
+        /** 이 종목이 하루에 오르내릴 수 있는 범위다. 학생이 위험을 가늠할 수 있게 공개한다. */
+        int minReturnBps,
+        int maxReturnBps,
         Long currentPrice,
         Integer priceVersion,
         List<PricePoint> priceHistory,

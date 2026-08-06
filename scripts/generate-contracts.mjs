@@ -614,17 +614,20 @@ const requestFieldOverrides = {
       schema: { type: "integer", minimum: 10, maximum: 2000 },
     },
     {
-      name: "asset_start_prices",
+      name: "asset_conditions",
       optional: true,
       schema: {
         type: "array",
         maxItems: 20,
         items: {
           type: "object",
-          required: ["symbol", "start_price"],
+          required: ["symbol"],
           properties: {
             symbol: { type: "string" },
-            start_price: { type: "integer", minimum: 1 },
+            start_price: { type: "integer", minimum: 1, nullable: true },
+            // 하루에 오르내릴 수 있는 범위다. 최저와 최고를 함께 보내야 한다.
+            min_return_bps: { type: "integer", minimum: -5000, maximum: 5000, nullable: true },
+            max_return_bps: { type: "integer", minimum: -5000, maximum: 5000, nullable: true },
           },
         },
       },

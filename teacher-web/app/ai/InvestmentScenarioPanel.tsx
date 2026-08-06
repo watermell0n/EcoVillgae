@@ -14,6 +14,7 @@ import {
   type SetupCandidate,
   type SetupPrecheckResponse
 } from "../api";
+import { bpsToPercentText } from "../types";
 
 export type InvestmentMode = "SHORT_TERM" | "LONG_TERM";
 
@@ -33,6 +34,9 @@ type InvestmentAsset = {
   symbol: string;
   name: string;
   company_profile: string;
+  // 이 종목이 하루에 오르내릴 수 있는 범위입니다. 학생 화면에도 같은 값이 보입니다.
+  min_return_bps: number;
+  max_return_bps: number;
   current_price: number | null;
   price_version: number | null;
   price_history: PricePoint[];
@@ -74,12 +78,18 @@ const MODE_LABELS: Record<InvestmentMode, string> = {
 };
 
 // 규칙 엔진이 붙이는 action_id 규칙입니다. 종목 기호를 소문자로 이어 붙입니다.
-const VOLATILITY_ACTION_ID = "investment-daily-volatility";
 const ASSET_PRICE_PREFIX = "investment-asset-price-";
+const ASSET_BAND_PREFIX = "investment-asset-band-";
 
-function assetSymbolOf(candidate: SetupCandidate) {
-  return candidate.action_id.startsWith(ASSET_PRICE_PREFIX)
-    ? candidate.action_id.slice(ASSET_PRICE_PREFIX.length).toUpperCase()
+/** 학생 화면과 같은 모양으로 손해·이득 범위를 보여 줍니다. */
+function returnBandText(asset: Pick<InvestmentAsset, "min_return_bps" | "max_return_bps">) {
+  if (asset.min_return_bps === 0 && asset.max_return_bps === 0) return "아직 정해지지 않음";
+  return `${bpsToPercentText(asset.min_return_bps)} ~ ${asset.max_return_bps > 0 ? "+" : ""}${bpsToPercentText(asset.max_return_bps)}`;
+}
+
+function symbolOf(candidate: SetupCandidate, prefix: string) {
+  return candidate.action_id.startsWith(prefix)
+    ? candidate.action_id.slice(prefix.length).toUpperCase()
     : null;
 }
 
@@ -106,6 +116,8 @@ function toMarket(raw: Partial<InvestmentMarket> | null | undefined): Investment
       symbol: asset?.symbol ?? "",
       name: asset?.name ?? "",
       company_profile: asset?.company_profile ?? "",
+      min_return_bps: asset?.min_return_bps ?? 0,
+      max_return_bps: asset?.max_return_bps ?? 0,
       current_price: asset?.current_price ?? null,
       price_version: asset?.price_version ?? null,
       price_history: Array.isArray(asset?.price_history) ? asset.price_history : [],
@@ -268,8 +280,11 @@ export function InvestmentScenarioPanel({
               investment_draft: {
                 investment_mode: mode,
                 // 이미 고쳐 둔 값이 있으면 함께 보내 허용 범위 안인지 같이 확인받습니다.
-                confirmed_volatility_bps: confirmedVolatilityBps(),
-                confirmed_asset_prices: confirmedAssetPrices()
+                confirmed_asset_conditions: confirmedConditions().map((condition) => ({
+                  symbol: condition.symbol,
+                  price: condition.startPrice,
+                  band_bps: condition.bandBps
+                }))
               }
             },
             metric_scopes: []
@@ -289,17 +304,23 @@ export function InvestmentScenarioPanel({
     }
   }
 
-  function confirmedVolatilityBps() {
-    const candidate = conditionCandidates.find((item) => item.action_id === VOLATILITY_ACTION_ID);
-    return candidate ? conditionValue(candidate) : null;
-  }
-
-  function confirmedAssetPrices() {
-    return conditionCandidates.flatMap((candidate) => {
-      const symbol = assetSymbolOf(candidate);
-      const value = conditionValue(candidate);
-      return symbol && value !== null ? [{ symbol, price: value }] : [];
-    });
+  /**
+   * 지금 입력칸에 적힌 종목별 조건입니다. 변동 범위는 화면에서 "±몇 %" 한 개로 다루고,
+   * 서버에는 최저(-)와 최고(+) 두 값으로 나눠 보냅니다.
+   */
+  function confirmedConditions() {
+    const bySymbol = new Map<string, { symbol: string; startPrice: number | null; bandBps: number | null }>();
+    for (const candidate of conditionCandidates) {
+      const priceSymbol = symbolOf(candidate, ASSET_PRICE_PREFIX);
+      const bandSymbol = symbolOf(candidate, ASSET_BAND_PREFIX);
+      const symbol = priceSymbol ?? bandSymbol;
+      if (!symbol) continue;
+      const entry = bySymbol.get(symbol) ?? { symbol, startPrice: null, bandBps: null };
+      if (priceSymbol) entry.startPrice = conditionValue(candidate);
+      else entry.bandBps = conditionValue(candidate);
+      bySymbol.set(symbol, entry);
+    }
+    return [...bySymbol.values()];
   }
 
   async function generateScenario(regenerate = false) {
@@ -316,10 +337,11 @@ export function InvestmentScenarioPanel({
           investment_mode: mode,
           prefer_historical_index: mode === "LONG_TERM",
           // 교사가 아직 조건을 정하지 않았으면 보내지 않고 서버 기본값에 맡깁니다.
-          daily_volatility_bps: confirmedVolatilityBps(),
-          asset_start_prices: confirmedAssetPrices().map((price) => ({
-            symbol: price.symbol,
-            start_price: price.price
+          asset_conditions: confirmedConditions().map((condition) => ({
+            symbol: condition.symbol,
+            start_price: condition.startPrice,
+            min_return_bps: condition.bandBps === null ? null : -condition.bandBps,
+            max_return_bps: condition.bandBps
           }))
         })
       });
@@ -543,9 +565,10 @@ export function InvestmentScenarioPanel({
       {moduleActive && modeEnabled && canEditConditions ? (
         <div className="investment-condition-editor">
           <p className="section-description">
-            하루 최대 변동폭과 종목별 1주 금액을 정할 수 있습니다. 정하지 않으면 기본값으로 만듭니다.
+            종목마다 하루 변동 범위(±)와 1주 금액을 정할 수 있습니다. 가격은 그 범위 안에서
+            매일 새로 정해지므로 오를 수도 내릴 수도 있습니다. 정하지 않으면 기본값으로 만듭니다.
             {mode === "LONG_TERM"
-              ? " 장기는 FRED 역사 지수 흐름을 쓸 수 있으면 실제 등락을 그대로 쓰므로, 변동폭은 AI 생성 흐름일 때만 적용됩니다."
+              ? " 장기는 FRED 역사 지수 흐름을 쓸 수 있으면 실제 등락을 그대로 쓰므로, 변동 범위는 AI 생성 흐름일 때만 적용됩니다."
               : ""}
           </p>
           <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void requestConditions()}>
@@ -584,6 +607,10 @@ export function InvestmentScenarioPanel({
                     <small>
                       추천 {valueForDisplay(candidate.recommended_min_value, candidate.unit)} ~ {valueForDisplay(candidate.recommended_max_value, candidate.unit)} · 허용 {valueForDisplay(candidate.allowed_min_value, candidate.unit)} ~ {valueForDisplay(candidate.allowed_max_value, candidate.unit)}
                     </small>
+                    {/* 변동 범위는 위아래로 같은 폭이므로 학생에게 보일 모양 그대로 알려 줍니다. */}
+                    {symbolOf(candidate, ASSET_BAND_PREFIX) && value !== null ? (
+                      <small>학생 화면 표시: -{(value / 100).toFixed(2)}% ~ +{(value / 100).toFixed(2)}%</small>
+                    ) : null}
                     {unitHint(value, candidate.unit) ? <small>{unitHint(value, candidate.unit)}</small> : null}
                     <small>{candidate.rationale}</small>
                     {candidate.cautions.map((caution) => <em key={caution}>{caution}</em>)}
@@ -632,6 +659,7 @@ export function InvestmentScenarioPanel({
               <article key={asset.asset_id}>
                 <header><strong>{asset.name}</strong><small>{asset.symbol}</small></header>
                 <p>{asset.company_profile}</p>
+                <p><b>하루 변동 범위 {returnBandText(asset)}</b></p>
                 <ol>
                   {asset.planned_price_history.map((point) => (
                     <li key={point.step}>
@@ -700,6 +728,7 @@ export function InvestmentScenarioPanel({
                   <b>{asset.current_price?.toLocaleString("ko-KR")} {currencyName}</b>
                 </header>
                 <p>{asset.company_profile}</p>
+                <p><b>하루 변동 범위 {returnBandText(asset)}</b></p>
                 {asset.news.length === 0 ? <small>아직 이야기 초안이 없습니다.</small> : asset.news.map((news) => {
                   // AI가 실패해 규칙 엔진 안내문만 들어온 초안입니다. 승인해도 학생에게 보여 줄
                   // 이야기가 없으므로 다시 생성부터 권합니다.

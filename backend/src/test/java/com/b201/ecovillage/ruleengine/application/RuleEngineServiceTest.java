@@ -726,13 +726,13 @@ class RuleEngineServiceTest {
         );
     }
 
-    // --- 투자 조건: 하루 변동폭과 종목별 1주 시작가를 한 번에 추천한다 ---
+    // --- 투자 조건: 종목별 하루 변동 범위와 1주 시작가를 한 번에 추천한다 ---
 
     @Test
-    void recommendsShortTermVolatilityAndAssetPricesFromStudentBalances() {
+    void recommendsPerAssetBandsAndPricesFromStudentBalances() {
         RuleEngineResult result = investmentResult("SHORT_TERM", 20, 9_000L, 0L);
 
-        assertEquals(5, result.candidates().size());
+        assertEquals(8, result.candidates().size());
         assertTrue(
             result.candidates().stream().allMatch(candidate ->
                 candidate.targetType() == RuleTargetType.INVESTMENT_CONDITION
@@ -740,12 +740,16 @@ class RuleEngineServiceTest {
             ),
             "투자 후보는 모두 투자 모듈 하나를 가리켜야 한다"
         );
-        RuleCandidate volatility = candidate(result, "investment-daily-volatility");
-        assertEquals(650L, volatility.proposedValue());
-        assertEquals(550L, volatility.recommendedMinValue());
-        assertEquals(750L, volatility.recommendedMaxValue());
-        assertEquals(200L, volatility.allowedMinValue());
-        assertEquals(1_500L, volatility.allowedMaxValue());
+        // 단기 기준 6.50%에 종목 위험 비중(1.00·1.40·0.60·1.20)을 곱한 값이다.
+        RuleCandidate green = candidate(result, "investment-asset-band-green");
+        assertEquals(650L, green.proposedValue());
+        assertEquals(550L, green.recommendedMinValue());
+        assertEquals(750L, green.recommendedMaxValue());
+        assertEquals(200L, green.allowedMinValue());
+        assertEquals(1_500L, green.allowedMaxValue());
+        assertEquals(900L, candidate(result, "investment-asset-band-cloud").proposedValue());
+        assertEquals(400L, candidate(result, "investment-asset-band-food").proposedValue());
+        assertEquals(800L, candidate(result, "investment-asset-band-energy").proposedValue());
         // 대표 잔액 9,000의 30%(2,700)로 한 종목을 3주 살 수 있는 900이 기준가다.
         assertEquals(900L, candidate(result, "investment-asset-price-green").proposedValue());
         assertEquals(1_130L, candidate(result, "investment-asset-price-cloud").proposedValue());
@@ -760,13 +764,13 @@ class RuleEngineServiceTest {
 
     @ParameterizedTest
     @CsvSource({
-        // 운영 일수, 제안 변동폭
+        // 운영 일수, 위험 비중 1.00 종목의 제안 범위
         "7, 400",
         "14, 300",
         "30, 200",
         "90, 200"
     })
-    void longTermVolatilityFallsAsTheOperationPeriodGrows(int operationDays, long proposed) {
+    void longTermBandFallsAsTheOperationPeriodGrows(int operationDays, long proposed) {
         RuleEngineResult result = service.evaluate(
             RuleEngineRequest.builder(
                     RuleContextType.MODULE_ACTIVATION, 5, START, START.plusDays(operationDays - 1L)
@@ -777,17 +781,17 @@ class RuleEngineServiceTest {
                 .build()
         );
 
-        RuleCandidate volatility = candidate(result, "investment-daily-volatility");
-        assertEquals(proposed, volatility.proposedValue());
-        assertEquals(50L, volatility.allowedMinValue());
-        assertEquals(600L, volatility.allowedMaxValue());
+        RuleCandidate band = candidate(result, "investment-asset-band-green");
+        assertEquals(proposed, band.proposedValue());
+        assertEquals(50L, band.allowedMinValue());
+        assertEquals(600L, band.allowedMaxValue());
     }
 
     @Test
-    void lowersTheVolatilityCeilingForALargeClass() {
+    void lowersTheBandCeilingForALargeClass() {
         assertEquals(
             1_400L,
-            candidate(investmentResult("SHORT_TERM", 30, 9_000L, 0L), "investment-daily-volatility")
+            candidate(investmentResult("SHORT_TERM", 30, 9_000L, 0L), "investment-asset-band-green")
                 .allowedMaxValue()
         );
     }
@@ -809,7 +813,7 @@ class RuleEngineServiceTest {
     }
 
     @Test
-    void blocksAConfirmedVolatilityOutsideTheAllowedBand() {
+    void blocksAConfirmedBandOutsideTheAllowedRange() {
         RuleEngineResult result = service.evaluate(
             base(RuleContextType.MODULE_ACTIVATION)
                 .activeStudentCount(20)
@@ -865,7 +869,7 @@ class RuleEngineServiceTest {
         String investmentMode,
         long medianBalance,
         long moneyIssuance,
-        Long confirmedVolatilityBps
+        Long confirmedBandBps
     ) {
         return new RuleEngineRequest.InvestmentDraft(
             TARGET_ID,
@@ -873,13 +877,25 @@ class RuleEngineServiceTest {
             moneyIssuance,
             medianBalance,
             medianBalance,
-            confirmedVolatilityBps,
             List.of(
-                new RuleEngineRequest.InvestmentAsset("GREEN", "그린모빌리티", new BigDecimal("1.00"), null),
-                new RuleEngineRequest.InvestmentAsset("CLOUD", "클라우드교육", new BigDecimal("1.25"), null),
-                new RuleEngineRequest.InvestmentAsset("FOOD", "마을푸드", new BigDecimal("0.80"), null),
-                new RuleEngineRequest.InvestmentAsset("ENERGY", "새빛에너지", new BigDecimal("1.50"), null)
+                asset("GREEN", "그린모빌리티", "1.00", "1.00", confirmedBandBps),
+                asset("CLOUD", "클라우드교육", "1.25", "1.40", null),
+                asset("FOOD", "마을푸드", "0.80", "0.60", null),
+                asset("ENERGY", "새빛에너지", "1.50", "1.20", null)
             )
+        );
+    }
+
+    private static RuleEngineRequest.InvestmentAsset asset(
+        String symbol,
+        String name,
+        String priceWeight,
+        String riskWeight,
+        Long confirmedBandBps
+    ) {
+        return new RuleEngineRequest.InvestmentAsset(
+            symbol, name, new BigDecimal(priceWeight), new BigDecimal(riskWeight),
+            null, confirmedBandBps
         );
     }
 

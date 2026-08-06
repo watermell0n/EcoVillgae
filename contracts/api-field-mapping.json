@@ -5636,10 +5636,10 @@
             "visibility": "role-scoped"
           },
           {
-            "name": "asset_start_prices",
+            "name": "asset_conditions",
             "required": false,
             "type": "array",
-            "target": "service_input.asset_start_prices",
+            "target": "service_input.asset_conditions",
             "transform": "financial_products, financial_product_versions, deposit_accounts, savings_accounts, investment_orders, loans, credit_profiles, transaction_groups에서 검증·조합하는 request 필드",
             "nullable": true,
             "visibility": "role-scoped"

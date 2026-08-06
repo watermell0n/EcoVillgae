@@ -78,7 +78,7 @@ public class InvestmentController {
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         InvestmentScenarioResult result = scenarioService.generate(
             subject(principal), classroomId, request.investmentMode(), request.preferHistoricalIndex(),
-            request.dailyVolatilityBps(), request.startPricesBySymbol()
+            request.dailyVolatilityBps(), request.conditionsBySymbol()
         );
         return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
@@ -195,7 +195,7 @@ public class InvestmentController {
 }
 
 /**
- * 투자 시나리오 생성 요청이다. dailyVolatilityBps와 assetStartPrices는 교사가
+ * 투자 시나리오 생성 요청이다. dailyVolatilityBps와 assetConditions는 교사가
  * "운영 관리 &gt; 투자"에서 정한 값이며, 없으면 서버 기본값으로 만든다.
  */
 record InvestmentScenarioRequest(
@@ -206,20 +206,30 @@ record InvestmentScenarioRequest(
     @NotBlank String investmentMode,
     boolean preferHistoricalIndex,
     Integer dailyVolatilityBps,
-    @Valid List<AssetStartPriceRequest> assetStartPrices
+    @Valid List<AssetConditionRequest> assetConditions
 ) {
     InvestmentScenarioRequest {
-        assetStartPrices = assetStartPrices == null ? List.of() : List.copyOf(assetStartPrices);
+        assetConditions = assetConditions == null ? List.of() : List.copyOf(assetConditions);
     }
 
-    Map<String, Long> startPricesBySymbol() {
-        Map<String, Long> prices = new LinkedHashMap<>();
-        assetStartPrices.forEach(price -> prices.put(price.symbol(), price.startPrice()));
-        return prices;
+    Map<String, InvestmentScenarioService.AssetCondition> conditionsBySymbol() {
+        Map<String, InvestmentScenarioService.AssetCondition> conditions = new LinkedHashMap<>();
+        assetConditions.forEach(condition -> conditions.put(
+            condition.symbol(),
+            new InvestmentScenarioService.AssetCondition(
+                condition.startPrice(), condition.minReturnBps(), condition.maxReturnBps()
+            )
+        ));
+        return conditions;
     }
 }
 
-record AssetStartPriceRequest(@NotBlank String symbol, @NotNull @Min(1) Long startPrice) {
+record AssetConditionRequest(
+    @NotBlank String symbol,
+    @Min(1) Long startPrice,
+    Integer minReturnBps,
+    Integer maxReturnBps
+) {
 }
 
 record InvestmentMarketCommandRequest(

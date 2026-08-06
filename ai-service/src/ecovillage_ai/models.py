@@ -122,6 +122,7 @@ class SetupRecommendationTargetType(StrEnum):
     ROLE_SALARY = "ROLE_SALARY"
     INCOME_TAX_RATE = "INCOME_TAX_RATE"
     DEPOSIT_RATE = "DEPOSIT_RATE"
+    SAVINGS_RATE = "SAVINGS_RATE"
     LOAN_RATE = "LOAN_RATE"
     PRODUCT_PRICE = "PRODUCT_PRICE"
     GAME_REWARD = "GAME_REWARD"
@@ -372,6 +373,7 @@ class SetupPrecheckPayload(ContractModel):
                 SetupRecommendationTargetType.ROLE_SALARY,
                 SetupRecommendationTargetType.INCOME_TAX_RATE,
                 SetupRecommendationTargetType.DEPOSIT_RATE,
+                SetupRecommendationTargetType.SAVINGS_RATE,
                 SetupRecommendationTargetType.LOAN_RATE,
                 SetupRecommendationTargetType.INVESTMENT_CONDITION,
             },
@@ -409,6 +411,7 @@ class SetupPrecheckPayload(ContractModel):
                 "SALARY": SetupRecommendationTargetType.ROLE_SALARY,
                 "INCOME_TAX": SetupRecommendationTargetType.INCOME_TAX_RATE,
                 "DEPOSIT": SetupRecommendationTargetType.DEPOSIT_RATE,
+                "SAVINGS": SetupRecommendationTargetType.SAVINGS_RATE,
                 "LOAN": SetupRecommendationTargetType.LOAN_RATE,
                 "INVESTMENT": SetupRecommendationTargetType.INVESTMENT_CONDITION,
             }

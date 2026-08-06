@@ -14,6 +14,14 @@ public record InvestmentScenarioResult(
     long stateVersion,
     List<Asset> assets
 ) {
-    public record Asset(UUID assetId, String symbol, String name, long initialPrice) {
+    /** minReturnBps·maxReturnBps는 이 종목이 하루에 오르내릴 수 있는 범위다. */
+    public record Asset(
+        UUID assetId,
+        String symbol,
+        String name,
+        long initialPrice,
+        int minReturnBps,
+        int maxReturnBps
+    ) {
     }
 }

@@ -83,16 +83,16 @@ public record SetupPrecheckInput(
      */
     public record InvestmentDraft(
         String investmentMode,
-        Long confirmedVolatilityBps,
-        List<AssetPrice> confirmedAssetPrices
+        List<AssetCondition> confirmedAssetConditions
     ) {
         public InvestmentDraft {
-            confirmedAssetPrices = confirmedAssetPrices == null
+            confirmedAssetConditions = confirmedAssetConditions == null
                 ? List.of()
-                : List.copyOf(confirmedAssetPrices);
+                : List.copyOf(confirmedAssetConditions);
         }
     }
 
-    public record AssetPrice(String symbol, Long price) {
+    /** bandBps는 하루 변동 범위(±bps)다. 화면에는 -3.00% ~ +3.00%처럼 양쪽으로 보여 준다. */
+    public record AssetCondition(String symbol, Long price, Long bandBps) {
     }
 }

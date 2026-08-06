@@ -19,6 +19,9 @@ export type InvestmentAsset = {
   symbol: string;
   name: string;
   companyProfile: string;
+  /** 이 기업이 하루에 오르내릴 수 있는 범위(bps)입니다. 손해와 이득의 크기를 가늠할 수 있게 보여 줍니다. */
+  minReturnBps: number;
+  maxReturnBps: number;
   currentPrice: number;
   priceVersion: number;
   priceHistory: InvestmentPricePoint[];
@@ -45,6 +48,8 @@ type MarketResponse = {
     symbol: string;
     name: string;
     company_profile: string;
+    min_return_bps: number | null;
+    max_return_bps: number | null;
     current_price: number | null;
     price_version: number | null;
     price_history: Array<{ step: number; price: number; change_rate_bps: number }>;
@@ -77,6 +82,8 @@ function toMarket(response: MarketResponse): InvestmentMarket {
         symbol: asset.symbol,
         name: asset.name,
         companyProfile: asset.company_profile,
+        minReturnBps: asset.min_return_bps ?? 0,
+        maxReturnBps: asset.max_return_bps ?? 0,
         currentPrice: asset.current_price!,
         priceVersion: asset.price_version!,
         priceHistory: (Array.isArray(asset.price_history) ? asset.price_history : []).map((point) => ({

@@ -426,10 +426,10 @@ public class SetupPrecheckOperationService {
         UUID moduleId,
         SetupPrecheckInput.InvestmentDraft draft
     ) {
-        Map<String, Long> confirmed = new LinkedHashMap<>();
-        for (SetupPrecheckInput.AssetPrice price : draft.confirmedAssetPrices()) {
-            if (price != null && price.symbol() != null && price.price() != null) {
-                confirmed.put(price.symbol().trim().toUpperCase(Locale.ROOT), price.price());
+        Map<String, SetupPrecheckInput.AssetCondition> confirmed = new LinkedHashMap<>();
+        for (SetupPrecheckInput.AssetCondition condition : draft.confirmedAssetConditions()) {
+            if (condition != null && condition.symbol() != null) {
+                confirmed.put(condition.symbol().trim().toUpperCase(Locale.ROOT), condition);
             }
         }
         InvestmentSetupMetricsProvider.InvestmentSetupMetrics metrics =
@@ -440,11 +440,15 @@ public class SetupPrecheckOperationService {
             metrics.moneyIssuance(),
             metrics.averageBalance(),
             metrics.medianBalance(),
-            draft.confirmedVolatilityBps(),
             InvestmentAssetCatalog.seeds().stream()
-                .map(seed -> new RuleEngineRequest.InvestmentAsset(
-                    seed.symbol(), seed.name(), seed.priceWeight(), confirmed.get(seed.symbol())
-                ))
+                .map(seed -> {
+                    SetupPrecheckInput.AssetCondition condition = confirmed.get(seed.symbol());
+                    return new RuleEngineRequest.InvestmentAsset(
+                        seed.symbol(), seed.name(), seed.priceWeight(), seed.riskWeight(),
+                        condition == null ? null : condition.price(),
+                        condition == null ? null : condition.bandBps()
+                    );
+                })
                 .toList()
         );
     }

@@ -1,6 +1,8 @@
 package com.b201.ecovillage.investment.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -212,11 +214,11 @@ class InvestmentFlowApiTest {
     }
 
     /**
-     * 교사가 "운영 관리 &gt; 투자"에서 정한 변동폭과 1주 시작가가 그대로 시나리오에 쓰인다.
-     * 변동폭은 흐름의 모양은 두고 크기만 바꾸므로, 같은 모양이 정한 폭만큼만 움직여야 한다.
+     * 교사가 "운영 관리 &gt; 투자"에서 정한 하루 변동 범위와 1주 시작가가 그대로 쓰인다.
+     * 가격은 그 범위 안에서 매일 새로 뽑히므로 오를 수도 내릴 수도 있어야 한다.
      */
     @Test
-    void buildsTheGeneratedPathFromTheConfirmedVolatilityAndStartPrices() throws Exception {
+    void buildsTheGeneratedPathInsideTheConfirmedReturnBand() throws Exception {
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -224,9 +226,8 @@ class InvestmentFlowApiTest {
                     {
                       "investment_mode":"LONG_TERM",
                       "prefer_historical_index":false,
-                      "daily_volatility_bps":100,
-                      "asset_start_prices":[
-                        {"symbol":"GREEN","start_price":500},
+                      "asset_conditions":[
+                        {"symbol":"GREEN","start_price":500,"min_return_bps":-300,"max_return_bps":300},
                         {"symbol":"CLOUD","start_price":620}
                       ]
                     }
@@ -234,28 +235,74 @@ class InvestmentFlowApiTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.scenario_source").value("AI_GENERATED"))
             .andExpect(jsonPath("$.data.assets[0].initial_price").value(500))
+            .andExpect(jsonPath("$.data.assets[0].min_return_bps").value(-300))
+            .andExpect(jsonPath("$.data.assets[0].max_return_bps").value(300))
             .andExpect(jsonPath("$.data.assets[1].initial_price").value(620))
-            // 보내지 않은 종목은 서버 기본 시작가를 그대로 쓴다.
+            // 보내지 않은 종목은 서버 기본 시작가와 기본 변동 범위를 쓴다.
             .andExpect(jsonPath("$.data.assets[2].initial_price").value(800));
 
-        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+        String body = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
                 .param("investment_mode", "LONG_TERM")
                 .principal(owner))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
+            .andExpect(jsonPath("$.data.assets[0].min_return_bps").value(-300))
             .andExpect(jsonPath("$.data.assets[0].planned_price_history[0].price").value(500))
-            // 흐름의 2단계는 변동폭의 60%다. 1.00%로 정했으므로 0.60% 오른 503이다.
-            .andExpect(jsonPath("$.data.assets[0].planned_price_history[1].change_rate_bps").value(60))
-            .andExpect(jsonPath("$.data.assets[0].planned_price_history[1].price").value(503));
+            // 첫날은 시작가를 그대로 공개하므로 등락이 없다.
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history[0].change_rate_bps").value(0))
+            .andReturn().getResponse().getContentAsString();
+
+        JsonNode path = objectMapper.readTree(body)
+            .get("data").get("assets").get(0).get("planned_price_history");
+        boolean rose = false;
+        boolean fell = false;
+        for (JsonNode point : path) {
+            int rate = point.get("change_rate_bps").asInt();
+            assertTrue(rate >= -300 && rate <= 300, "등락이 정한 범위를 벗어났습니다: " + rate);
+            rose = rose || rate > 0;
+            fell = fell || rate < 0;
+        }
+        // 20단계짜리 흐름이 한쪽으로만 움직이면 학생이 판단할 이유가 없다.
+        assertTrue(rose, "오르는 날이 하루도 없습니다");
+        assertTrue(fell, "내리는 날이 하루도 없습니다");
     }
 
+    /** 종목마다 다른 씨앗을 쓰므로 같은 시나리오 안에서도 흐름이 겹치지 않아야 한다. */
     @Test
-    void rejectsAVolatilityOutsideTheAllowedBand() throws Exception {
+    void drawsADifferentPathForEachAsset() throws Exception {
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"investment_mode":"LONG_TERM","prefer_historical_index":false,"daily_volatility_bps":5000}
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":false}
+                    """))
+            .andExpect(status().isOk());
+
+        String body = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
+            .andReturn().getResponse().getContentAsString();
+        JsonNode assets = objectMapper.readTree(body).get("data").get("assets");
+        assertEquals(4, assets.size());
+        assertNotEquals(
+            assets.get(0).get("planned_price_history").toString(),
+            assets.get(1).get("planned_price_history").toString()
+        );
+    }
+
+    @Test
+    void rejectsAReturnBandOutsideTheAllowedRange() throws Exception {
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "investment_mode":"LONG_TERM",
+                      "prefer_historical_index":false,
+                      "asset_conditions":[
+                        {"symbol":"GREEN","min_return_bps":-9000,"max_return_bps":9000}
+                      ]
+                    }
                     """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
@@ -338,11 +385,18 @@ class InvestmentFlowApiTest {
         module.changeInvestmentModes(List.of("SHORT_TERM"), NOW);
         moduleRepository.saveAndFlush(module);
 
+        // 등락은 범위 안에서 새로 뽑히므로, 정산 금액을 확인하려면 범위를 한 점으로 좁힌다.
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"investment_mode":"SHORT_TERM","prefer_historical_index":false}
+                    {
+                      "investment_mode":"SHORT_TERM",
+                      "prefer_historical_index":false,
+                      "asset_conditions":[
+                        {"symbol":"GREEN","min_return_bps":650,"max_return_bps":650}
+                      ]
+                    }
                     """))
             .andExpect(status().isOk())
             // 단기는 역사 지수를 쓰지 않고 두 단계짜리 AI 생성 흐름을 쓴다.

@@ -116,7 +116,6 @@ public record RuleEngineRequest(
         long moneyIssuance,
         long averageStudentBalance,
         long medianStudentBalance,
-        Long confirmedVolatilityBps,
         List<InvestmentAsset> assets
     ) {
         public InvestmentDraft {
@@ -127,12 +126,17 @@ public record RuleEngineRequest(
         }
     }
 
-    /** 종목 하나다. priceWeight는 종목 사이의 가격 차이만 정한다. */
+    /**
+     * 종목 하나다. priceWeight는 종목 사이의 가격 차이만, riskWeight는 위험 차이만 정한다.
+     * confirmedBandBps는 교사가 이미 정해 둔 하루 변동 범위(±bps)다.
+     */
     public record InvestmentAsset(
         String symbol,
         String name,
         BigDecimal priceWeight,
-        Long confirmedPrice
+        BigDecimal riskWeight,
+        Long confirmedPrice,
+        Long confirmedBandBps
     ) {
     }
 

@@ -146,6 +146,7 @@ public class InvestmentMarketQueryService {
                     )).toList();
             return new InvestmentMarketView.Asset(
                 asset.getId(), asset.getSymbol(), asset.getName(), asset.getFictionalCompanyProfile(),
+                asset.getMinReturnBps(), asset.getMaxReturnBps(),
                 current == null ? null : current.getPrice(),
                 current == null ? null : current.getStepNumber(),
                 history.stream().map(InvestmentMarketQueryService::toPricePoint).toList(),

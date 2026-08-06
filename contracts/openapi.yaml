@@ -6048,8 +6048,8 @@ paths:
         - "AI-011"
       tags:
         - "Finance"
-      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index, daily_volatility_bps?, asset_start_prices?=[{symbol, start_price}] → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존. 교사가 \"운영 관리 &gt; 투자\"에서 정한 하루 최대 변동폭(10~2,000 bps)과 종목별 1주 시작가를 함께 보내면 AI 생성 흐름의 등락 폭과 시작가에 반영하고, 보내지 않으면 서버 기본값(단기 650 bps, 장기 300 bps, 시작가 800~1,500)을 사용. 역사 지수 흐름에는 변동폭을 적용하지 않고 실제 등락을 그대로 유지"
-      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index, daily_volatility_bps?, asset_start_prices?=[{symbol, start_price}] → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존. 교사가 \"운영 관리 &gt; 투자\"에서 정한 하루 최대 변동폭(10~2,000 bps)과 종목별 1주 시작가를 함께 보내면 AI 생성 흐름의 등락 폭과 시작가에 반영하고, 보내지 않으면 서버 기본값(단기 650 bps, 장기 300 bps, 시작가 800~1,500)을 사용. 역사 지수 흐름에는 변동폭을 적용하지 않고 실제 등락을 그대로 유지."
+      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index, daily_volatility_bps?, asset_conditions?=[{symbol, start_price, min_return_bps, max_return_bps}] → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존. 교사가 \"운영 관리 &gt; 투자\"에서 정한 종목별 1주 시작가와 하루 변동 범위(-5,000~5,000 bps)를 함께 보내면 그대로 반영하고, 보내지 않으면 기준 변동폭(단기 650 bps, 장기 300 bps, daily_volatility_bps로 덮어쓸 수 있음)에 종목 위험 비중을 곱한 ± 범위와 기본 시작가(800~1,500)를 사용. AI 생성 흐름의 하루 등락은 종목마다 그 범위 안에서 새로 뽑으므로 오를 수도 내릴 수도 있고, 같은 학급에서 다시 만들면 흐름이 달라짐. 역사 지수 흐름에는 실제 등락을 그대로 쓰고 그 흐름의 최저, 최고를 종목 변동 범위로 기록"
+      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index, daily_volatility_bps?, asset_conditions?=[{symbol, start_price, min_return_bps, max_return_bps}] → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존. 교사가 \"운영 관리 &gt; 투자\"에서 정한 종목별 1주 시작가와 하루 변동 범위(-5,000~5,000 bps)를 함께 보내면 그대로 반영하고, 보내지 않으면 기준 변동폭(단기 650 bps, 장기 300 bps, daily_volatility_bps로 덮어쓸 수 있음)에 종목 위험 비중을 곱한 ± 범위와 기본 시작가(800~1,500)를 사용. AI 생성 흐름의 하루 등락은 종목마다 그 범위 안에서 새로 뽑으므로 오를 수도 내릴 수도 있고, 같은 학급에서 다시 만들면 흐름이 달라짐. 역사 지수 흐름에는 실제 등락을 그대로 쓰고 그 흐름의 최저, 최고를 종목 변동 범위로 기록."
       security:
         - bearerAuth: []
       parameters:
@@ -6174,20 +6174,30 @@ paths:
                   type: "integer"
                   minimum: 10
                   maximum: 2000
-                asset_start_prices:
+                asset_conditions:
                   type: "array"
                   maxItems: 20
                   items:
                     type: "object"
                     required:
                       - "symbol"
-                      - "start_price"
                     properties:
                       symbol:
                         type: "string"
                       start_price:
                         type: "integer"
                         minimum: 1
+                        nullable: true
+                      min_return_bps:
+                        type: "integer"
+                        minimum: -5000
+                        maximum: 5000
+                        nullable: true
+                      max_return_bps:
+                        type: "integer"
+                        minimum: -5000
+                        maximum: 5000
+                        nullable: true
               required:
                 - "investment_mode"
                 - "prefer_historical_index"
@@ -11626,8 +11636,8 @@ paths:
         - "AI-010"
       tags:
         - "AI"
-      summary: "analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록. trigger_context.context_type=MODULE_ACTIVATION에 investment_draft={investment_mode, confirmed_volatility_bps?, confirmed_asset_prices?}를 실으면 투자 하루 변동폭과 종목별 1주 시작가를 INVESTMENT_CONDITION 후보로 함께 추천(숫자와 허용 범위는 규칙 엔진이 화폐 발행액, 학생 평균, 중앙 잔액, 학생 수, 운영 기간으로 계산하고 AI는 근거와 주의사항만 붙임)"
-      description: "사람이 검토하는 원문 기준: `API-AI-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록. trigger_context.context_type=MODULE_ACTIVATION에 investment_draft={investment_mode, confirmed_volatility_bps?, confirmed_asset_prices?}를 실으면 투자 하루 변동폭과 종목별 1주 시작가를 INVESTMENT_CONDITION 후보로 함께 추천(숫자와 허용 범위는 규칙 엔진이 화폐 발행액, 학생 평균, 중앙 잔액, 학생 수, 운영 기간으로 계산하고 AI는 근거와 주의사항만 붙임)."
+      summary: "analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록. trigger_context.context_type=MODULE_ACTIVATION에 investment_draft={investment_mode, confirmed_asset_conditions?=[{symbol, price, band_bps}]}를 실으면 종목별 하루 변동 범위(±bps)와 1주 시작가를 INVESTMENT_CONDITION 후보로 함께 추천(숫자와 허용 범위는 규칙 엔진이 화폐 발행액, 학생 평균, 중앙 잔액, 학생 수, 운영 기간으로 계산하고 AI는 근거와 주의사항만 붙임)"
+      description: "사람이 검토하는 원문 기준: `API-AI-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: analysis_mode=SETUP_PRECHECK|ON_DEMAND|AUTO_MONITOR, trigger_context?, period?, metric_scopes? → 202 operation_id, 규칙 기반 추천, 점검 또는 운영 제안 목록. trigger_context.context_type=MODULE_ACTIVATION에 investment_draft={investment_mode, confirmed_asset_conditions?=[{symbol, price, band_bps}]}를 실으면 종목별 하루 변동 범위(±bps)와 1주 시작가를 INVESTMENT_CONDITION 후보로 함께 추천(숫자와 허용 범위는 규칙 엔진이 화폐 발행액, 학생 평균, 중앙 잔액, 학생 수, 운영 기간으로 계산하고 AI는 근거와 주의사항만 붙임)."
       security:
         - bearerAuth: []
       parameters:

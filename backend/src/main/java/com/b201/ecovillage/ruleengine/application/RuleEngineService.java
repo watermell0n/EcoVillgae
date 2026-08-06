@@ -632,16 +632,20 @@ public class RuleEngineService {
     }
 
     /**
-     * 투자 운영 조건(하루 변동폭, 종목별 1주 시작가)을 추천한다.
+     * 투자 운영 조건(종목별 하루 변동 범위, 종목별 1주 시작가)을 추천한다.
      *
-     * <p>변동폭은 학생이 하루 사이 가격이 움직였다고 느낄 만큼은 커야 하고, 며칠에 걸쳐
+     * <p>변동 범위는 학생이 하루 사이 가격이 움직였다고 느낄 만큼은 커야 하고, 며칠에 걸쳐
      * 누적됐을 때 가격이 터지지 않을 만큼은 작아야 한다. 그래서 단기는 크게, 장기는 운영
-     * 기간이 길수록 작게 잡는다. 학생이 많으면 같은 변동폭이라도 학급 전체가 주고받는 돈이
-     * 커지므로 적금과 같은 방식으로 상한을 한 단계 낮춘다.
+     * 기간이 길수록 작게 잡는다. 학생이 많으면 같은 범위라도 학급 전체가 주고받는 돈이
+     * 커지므로 적금과 같은 방식으로 상한을 한 단계 낮춘다. 종목 사이의 위험 차이는 종목
+     * 목록이 가진 위험 비중으로만 낸다.
+     *
+     * <p>범위는 "±몇 %"인 한 개의 폭으로 추천한다. AI 계약이 후보값을 음수로 받지 않기도 하고,
+     * 오르기만 하거나 내리기만 하는 종목이 없어야 학생이 위험을 제대로 배운다.
      *
      * <p>1주 시작가는 학생이 실제로 살 수 있어야 의미가 있다. 대표 잔액(중앙값 우선)의 일부를
      * 투자에 쓴다고 보고, 그 돈으로 한 종목을 {@value #INVESTMENT_TARGET_SHARES}주쯤 살 수
-     * 있는 값을 기준가로 삼는다. 종목 사이의 가격 차이는 종목 목록이 가진 비중으로만 낸다.
+     * 있는 값을 기준가로 삼는다. 종목 사이의 가격 차이는 종목 목록이 가진 가격 비중으로만 낸다.
      */
     private void evaluateInvestment(
         RuleEngineRequest request,
@@ -673,11 +677,11 @@ public class RuleEngineService {
         }
         boolean shortTerm = "SHORT_TERM".equals(draft.investmentMode());
         Integer operationDays = schedule == null ? null : schedule.operationDays();
-        evaluateInvestmentVolatility(request, draft, shortTerm, operationDays, activation, evaluation);
+        evaluateInvestmentBands(request, draft, shortTerm, operationDays, activation, evaluation);
         evaluateInvestmentPrices(request, draft, shortTerm, activation, evaluation);
     }
 
-    private void evaluateInvestmentVolatility(
+    private void evaluateInvestmentBands(
         RuleEngineRequest request,
         RuleEngineRequest.InvestmentDraft draft,
         boolean shortTerm,
@@ -695,34 +699,43 @@ public class RuleEngineService {
         long base = shortTerm
             ? INVESTMENT_SHORT_VOLATILITY_BPS
             : longTermVolatilityBps(operationDays);
-        long proposed = clamp(roundRate50(base), allowedMin, allowedMax);
-        RuleCandidate candidate = new RuleCandidate(
-            "investment-daily-volatility",
-            RuleTargetType.INVESTMENT_CONDITION,
-            activation.targetId(),
-            proposed,
-            Math.max(allowedMin, proposed - 100L),
-            Math.min(allowedMax, proposed + 100L),
-            allowedMin,
-            allowedMax,
-            RuleValueUnit.BPS,
-            List.of("INVESTMENT_MODE_HORIZON", "INVESTMENT_CLASS_SIZE"),
-            "하루 최대 변동폭"
-        );
-        evaluation.addCandidate(candidate, draft.confirmedVolatilityBps() == null
-            ? null
-            : draft.confirmedVolatilityBps().longValue());
+        List<String> bandActionIds = new ArrayList<>();
+        for (RuleEngineRequest.InvestmentAsset asset : draft.assets()) {
+            BigDecimal risk = asset.riskWeight() == null ? BigDecimal.ONE : asset.riskWeight();
+            long proposed = clamp(
+                roundRate50(BigDecimal.valueOf(base).multiply(risk).longValue()),
+                allowedMin,
+                allowedMax
+            );
+            RuleCandidate candidate = new RuleCandidate(
+                "investment-asset-band-" + normalizeActionPart(asset.symbol()),
+                RuleTargetType.INVESTMENT_CONDITION,
+                activation.targetId(),
+                proposed,
+                Math.max(allowedMin, proposed - 100L),
+                Math.min(allowedMax, proposed + 100L),
+                allowedMin,
+                allowedMax,
+                RuleValueUnit.BPS,
+                List.of("INVESTMENT_MODE_HORIZON", "INVESTMENT_ASSET_RISK", "INVESTMENT_CLASS_SIZE"),
+                (asset.name() == null ? asset.symbol() : asset.name()) + " 하루 변동 범위(±)"
+            );
+            evaluation.addCandidate(candidate, asset.confirmedBandBps());
+            bandActionIds.add(candidate.actionId());
+        }
         evaluation.addCheck(
-            "investment-volatility-basis",
+            "investment-band-basis",
             RuleSeverity.PASS,
             "INVESTMENT_VOLATILITY_BASIS",
-            List.of(candidate.actionId()),
+            bandActionIds,
             (shortTerm
-                ? "단기는 하루 만에 결과가 나므로 변동을 느낄 수 있게 "
+                ? "단기는 하루 만에 결과가 나므로 변동을 느낄 수 있게 기준 "
                 : (operationDays == null
-                    ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 "
-                    : "장기는 " + operationDays + "일 동안 변동이 쌓이므로 "))
-                + percentText(proposed) + "를 추천했습니다."
+                    ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 기준 "
+                    : "장기는 " + operationDays + "일 동안 변동이 쌓이므로 기준 "))
+                + percentText(clamp(roundRate50(base), allowedMin, allowedMax))
+                + "를 잡고, 종목의 위험 정도만큼 넓히거나 좁혔습니다. "
+                + "가격은 이 범위 안에서 매일 새로 정해지므로 오를 수도 내릴 수도 있습니다."
         );
     }
 
