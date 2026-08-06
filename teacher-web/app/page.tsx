@@ -1118,7 +1118,13 @@ export default function TeacherConsole() {
             classroom_code: classroom.classroom_code,
             currency_name: classroom.currency_name
           };
-          setClassrooms((items) => [...items, created]);
+          // onCreated는 생성 직후·점검 완료 후·점검 재시도까지 같은 교실로 여러 번 불린다.
+          // 그대로 붙이면 목록에 같은 resource_id가 쌓여 교실 카드가 중복으로 보인다.
+          setClassrooms((items) =>
+            items.some((item) => item.resource_id === created.resource_id)
+              ? items.map((item) => (item.resource_id === created.resource_id ? created : item))
+              : [...items, created]
+          );
           setActiveClassroomId(created.resource_id);
           setActiveStateVersion(created.state_version ?? 0);
           setClassroomStateVersion(created.state_version ?? 0);
