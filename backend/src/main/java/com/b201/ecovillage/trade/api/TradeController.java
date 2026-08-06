@@ -2,6 +2,7 @@ package com.b201.ecovillage.trade.api;
 
 import java.security.Principal;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,6 +22,8 @@ import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.trade.application.CounterpartTradeDecisionRequest;
 import com.b201.ecovillage.trade.application.CreateTradeCommand;
+import com.b201.ecovillage.trade.application.PendingTradeQueryService;
+import com.b201.ecovillage.trade.application.PendingTradeView;
 import com.b201.ecovillage.trade.application.ProposerTradeCommandRequest;
 import com.b201.ecovillage.trade.application.TradeCommandResult;
 import com.b201.ecovillage.trade.application.TradeCommandService;
@@ -32,17 +36,20 @@ public class TradeController {
 
     private final TradeCommandService tradeService;
     private final TradeTeacherDecisionService teacherDecisionService;
+    private final PendingTradeQueryService pendingTradeQueryService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public TradeController(
         TradeCommandService tradeService,
         TradeTeacherDecisionService teacherDecisionService,
+        PendingTradeQueryService pendingTradeQueryService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.tradeService = tradeService;
         this.teacherDecisionService = teacherDecisionService;
+        this.pendingTradeQueryService = pendingTradeQueryService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -132,6 +139,23 @@ public class TradeController {
             )
         );
         return response(HttpStatus.OK, result, requestId, resolvedCorrelationId);
+    }
+
+    /** 교사 승인을 기다리는 거래 목록이다. 승인·정산 화면이 읽는다. */
+    @GetMapping("/awaiting-teacher")
+    public ResponseEntity<ApiResponse<List<PendingTradeView>>> awaitingTeacher(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        List<PendingTradeView> trades = pendingTradeQueryService.findAwaitingTeacher(
+            subject(principal), classroomId
+        );
+        return ResponseEntity.ok(new ApiResponse<>(
+            trades, new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        ));
     }
 
     @PostMapping("/{tradeId}/teacher-decisions")

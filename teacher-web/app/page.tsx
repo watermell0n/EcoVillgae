@@ -269,9 +269,11 @@ type ApprovalRow = {
   target: string;
   amount: string;
   status: string;
-  tradeId?: string;
+  // 승인·거절을 어느 API로 보낼지 정합니다. 서버에서 읽어 온 행에만 있습니다.
+  kind?: "TRADE" | "LOAN" | "PROPERTY";
+  resourceId?: string;
   stateVersion?: number;
-  sample?: boolean;
+  requestedAmount?: number;
 };
 
 type ClassSettings = {
@@ -356,12 +358,9 @@ const initialStudents: StudentRow[] = studentSeed.map(([nickname, role, salary, 
 // 상품 목록은 교실을 열 때 서버에서 받아옵니다. 시작값은 빈 목록입니다.
 const initialProducts: ProductRow[] = [];
 
-const initialApprovals: ApprovalRow[] = [
-  // 금액에는 화폐 이름을 붙이지 않습니다. 화면에서 학급 화폐명을 뒤에 붙여 보여 줍니다.
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30", status: "교사 승인 대기", sample: true },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000", status: "권리 상품 확인", sample: true },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340", status: "결과 정산 대기", sample: true }
-];
+// 승인 대기 목록은 서버에서 읽습니다. 예시 행을 기본값으로 넣어 두면 실제로 처리할 수
+// 없는 항목이 학급마다 남아, 교사가 진짜 승인 건과 구분할 수 없습니다.
+const initialApprovals: ApprovalRow[] = [];
 
 const courseTemplates = [
   {
@@ -413,6 +412,14 @@ const initialSettings: ClassSettings = {
 
 const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 const creditLevelLabels: Record<string, string> = { GOOD: "우수", NORMAL: "보통", CAUTION: "주의", RESTRICTED: "제한" };
+
+/** 부동산 계약 종류를 승인 목록에 보여 줄 말로 바꿉니다. */
+function contractTypeLabel(contractType?: string) {
+  if (contractType === "SALE") return "매매";
+  if (contractType === "JEONSE") return "전세";
+  if (contractType === "RENT") return "월세";
+  return "계약";
+}
 const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
 const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 
@@ -827,6 +834,99 @@ export default function TeacherConsole() {
     }
   }
 
+  /**
+   * 교사 승인을 기다리는 항목을 모읍니다.
+   *
+   * <p>거래·대출·부동산 계약은 각각 다른 화면에서 만들어지지만 교사가 처리하는 자리는
+   * "승인·정산" 한 곳입니다. 한 갈래를 읽지 못해도 나머지는 보여 줍니다.
+   */
+  async function loadApprovals(resourceId: string) {
+    const rows: ApprovalRow[] = [];
+    const failures: string[] = [];
+
+    try {
+      const trades = await apiRequest<Array<{
+        trade_id: string;
+        proposer_nickname?: string;
+        counterpart_nickname?: string;
+        description?: string | null;
+        amount?: number;
+        item_count?: number;
+        state_version?: number;
+      }>>(`/classrooms/${resourceId}/trades/awaiting-teacher`);
+      trades.forEach((trade) => rows.push({
+        id: `trade-${trade.trade_id}`,
+        type: "거래",
+        target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`
+          + (trade.description ? ` · ${trade.description}` : "")
+          + (trade.item_count ? ` · 물건 ${trade.item_count}개` : ""),
+        amount: (trade.amount ?? 0).toLocaleString("ko-KR"),
+        status: "교사 승인 대기",
+        kind: "TRADE",
+        resourceId: trade.trade_id,
+        stateVersion: trade.state_version ?? 0
+      }));
+    } catch {
+      failures.push("거래");
+    }
+
+    try {
+      const queue = await apiRequest<{
+        applications: Array<{
+          application_id: string;
+          student_nickname?: string;
+          requested_amount?: number;
+          credit_level?: string;
+          status?: string;
+        }>;
+      }>(`/classrooms/${resourceId}/loan-approval-queue`);
+      queue.applications
+        // 대기 중인 신청은 APPLIED로 옵니다. 승인·거절이 끝난 건은 목록에서 뺍니다.
+        .filter((application) => !["APPROVED", "REJECTED", "CANCELED"].includes(application.status ?? ""))
+        .forEach((application) => rows.push({
+          id: `loan-${application.application_id}`,
+          type: "대출",
+          target: `${application.student_nickname ?? "학생"} 학생 대출 신청`
+            + (application.credit_level ? ` · 신용 ${creditLevelLabels[application.credit_level] ?? application.credit_level}` : ""),
+          amount: (application.requested_amount ?? 0).toLocaleString("ko-KR"),
+          status: "교사 승인 대기",
+          kind: "LOAN",
+          resourceId: application.application_id,
+          requestedAmount: application.requested_amount ?? 0
+        }));
+    } catch {
+      failures.push("대출");
+    }
+
+    try {
+      const contracts = await apiRequest<Array<{
+        contract_id: string;
+        contract_type?: string;
+        student_nickname?: string;
+        coordinate?: string;
+        deposit_amount?: number;
+        monthly_rent?: number;
+        sale_price?: number;
+      }>>(`/classrooms/${resourceId}/property-contracts`);
+      contracts.forEach((contract) => rows.push({
+        id: `property-${contract.contract_id}`,
+        type: "부동산",
+        target: `${contract.student_nickname ?? "학생"} · ${contract.coordinate ?? ""} ${contractTypeLabel(contract.contract_type)}`,
+        amount: (contract.sale_price || contract.deposit_amount || contract.monthly_rent || 0).toLocaleString("ko-KR"),
+        status: "교사 승인 대기",
+        kind: "PROPERTY",
+        resourceId: contract.contract_id
+      }));
+    } catch {
+      failures.push("부동산 계약");
+    }
+
+    setApprovals(rows);
+    if (failures.length) {
+      addLog(`${failures.join(", ")} 승인 대기 목록을 불러오지 못했어요.`, "warning");
+    }
+  }
+
   async function openClassroom(resourceId: string, knownClassroom?: BootstrapClassroom) {
     setActiveClassroomId(resourceId);
     const classroom = knownClassroom ?? classrooms.find((item) => item.resource_id === resourceId);
@@ -1010,6 +1110,7 @@ export default function TeacherConsole() {
         setStudents([]);
       }
       await loadStoreProducts(resourceId);
+      await loadApprovals(resourceId);
       if (serverState.failures.length) {
         addLog(`${serverState.failures.join(", ")} 정보는 불러오지 못했어요. 나머지 정보만 표시합니다.`, "warning");
       }
@@ -1043,6 +1144,26 @@ export default function TeacherConsole() {
     } catch (error) {
       addLog(`교실을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     }
+  }
+
+  // 새로고침하면 저장된 세션을 서버에 물어보는 동안 잠깐 시간이 걸립니다. 그동안 로그인
+  // 화면을 띄우면, 이미 로그인해 둔 교사에게 로그인 창이 번쩍였다가 사라집니다.
+  // 확인이 끝나기 전까지는 기다리는 화면만 보여 줍니다.
+  if (authBusy) {
+    return (
+      <main className="auth-page">
+        <section className="login-panel">
+          <div className="brand login-brand">
+            <span>EV</span>
+            <div>
+              <strong>이코빌리지</strong>
+              <small>교사 관리 웹</small>
+            </div>
+          </div>
+          <p role="status">로그인 상태를 확인하고 있어요.</p>
+        </section>
+      </main>
+    );
   }
 
   if (stage === "login") {
@@ -4279,8 +4400,80 @@ function Approvals({
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
 }>) {
+  const [busyId, setBusyId] = useState("");
+
   function updateApproval(id: string, status: string) {
     setApprovals((items) => items.map((item) => item.id === id ? { ...item, status } : item));
+  }
+
+  /** 승인·거절을 갈래에 맞는 API로 보냅니다. 갈래마다 주소와 본문이 다릅니다. */
+  function decisionRequest(item: ApprovalRow, approve: boolean): { path: string; init: RequestInit } | null {
+    const reason = approve ? "교사 확인" : "교사 거절";
+    if (item.kind === "TRADE") {
+      return {
+        path: `/classrooms/${classroomId}/trades/${item.resourceId}/teacher-decisions`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: item.stateVersion ?? 0,
+            screen_id: "SCR-WEB-006",
+            ui_action_id: "UIA-WEB-006",
+            client_occurred_at: new Date().toISOString(),
+            decision: approve ? "APPROVE" : "REJECT",
+            reason
+          })
+        }
+      };
+    }
+    if (item.kind === "LOAN") {
+      return {
+        path: `/classrooms/${classroomId}/loan-applications/${item.resourceId}/teacher-decisions`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            decision: approve ? "APPROVE" : "REJECT",
+            // 신청한 금액을 그대로 승인합니다. 금액을 깎으려면 "운영 관리 > 대출·신용"에서 합니다.
+            approved_amount: approve ? item.requestedAmount ?? null : null,
+            reason
+          })
+        }
+      };
+    }
+    if (item.kind === "PROPERTY") {
+      return {
+        path: `/contracts/${item.resourceId}/${approve ? "approve" : "reject"}`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            screen_id: "SCR-WEB-006",
+            ui_action_id: "UIA-WEB-006",
+            client_occurred_at: new Date().toISOString(),
+            reason
+          })
+        }
+      };
+    }
+    return null;
+  }
+
+  async function decide(item: ApprovalRow, approve: boolean) {
+    const request = decisionRequest(item, approve);
+    if (!request) {
+      addLog("이 항목은 아직 처리 방법이 연결되지 않았어요.", "warning");
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      await runAction(
+        `${item.type} ${approve ? "승인" : "거절"}`,
+        request.path,
+        request.init,
+        () => undefined
+      );
+      updateApproval(item.id, approve ? "승인 완료" : "거절");
+    } finally {
+      setBusyId("");
+    }
   }
 
   const processedStatuses = new Set(["승인 완료", "처리 완료", "거절"]);
@@ -4299,34 +4492,8 @@ function Approvals({
               <td>{item.amount}{currencyName}</td>
               <td>{item.status}</td>
               <td>
-                <button onClick={() => {
-                  if (item.type === "거래" && item.tradeId) {
-                    runAction(
-                      "거래 승인",
-                      `/classrooms/${classroomId}/trades/${item.tradeId}/teacher-decisions`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          expected_state_version: item.stateVersion ?? 0,
-                          screen_id: "SCR-WEB-006",
-                          ui_action_id: "UIA-WEB-006",
-                          client_occurred_at: new Date().toISOString(),
-                          decision: "APPROVE",
-                          reason: "교사 확인"
-                        })
-                      },
-                      () => updateApproval(item.id, "승인 완료")
-                    );
-                    return;
-                  }
-                  if (item.type === "거래") {
-                    addLog("표시된 거래는 데모 데이터입니다. 실제 거래가 생성되면 그 거래 ID로 승인할 수 있습니다.", "warning");
-                    return;
-                  }
-                  updateApproval(item.id, "처리 완료");
-                  addLog(`${item.type} 항목을 처리했어요.`);
-                }}>승인</button>
-                <button onClick={() => updateApproval(item.id, "거절")}>거절</button>
+                <button disabled={busyId === item.id} onClick={() => void decide(item, true)}>승인</button>
+                <button disabled={busyId === item.id} onClick={() => void decide(item, false)}>거절</button>
               </td>
             </tr>
           ))}
