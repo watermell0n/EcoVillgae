@@ -1225,27 +1225,211 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+/* 단기·장기를 함께 고를 수 있으므로 하나만 고르는 목록이 아니라 각각 켜는 체크 상자입니다. */
 .investment-mode-selector {
-  display: grid;
-  gap: 7px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 14px 12px;
   color: var(--ink);
   font-size: 14px;
-  font-weight: 900;
-}
-
-.investment-mode-selector select {
-  min-height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: #fff;
-  color: var(--ink);
 }
 
 .investment-mode-selector small {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.investment-mode-selector legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.investment-mode-selector label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 4px 9px;
+  padding: 7px 0;
+  font-weight: 800;
+}
+
+.investment-mode-selector label input {
+  margin-top: 3px;
+}
+
+.investment-mode-selector label small {
+  grid-column: 2;
+}
+
+/* 초안 시나리오의 가격 흐름입니다. 교사만 보고 승인 여부를 정합니다. */
+.investment-draft-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.investment-draft-preview article {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 14px;
+}
+
+.investment-draft-preview header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.investment-draft-preview header small {
+  color: var(--muted);
+}
+
+.investment-draft-preview p {
+  margin: 6px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.investment-draft-preview ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 190px;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+.investment-draft-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.investment-draft-preview li small {
+  color: var(--muted);
+}
+
+.investment-decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 아래 네 클래스는 패널이 만들어질 때 이름만 붙고 규칙이 없어 요소가 그대로 흘러내렸습니다. */
+.investment-market-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.investment-market-summary b {
+  font-size: 15px;
+}
+
+.investment-market-summary > span {
+  color: var(--muted);
+}
+
+/* 잠금 버튼은 요약 줄 오른쪽 끝으로 보냅니다. */
+.investment-market-summary > button {
+  margin-left: auto;
+}
+
+.investment-market-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.investment-market-actions > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.investment-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.investment-review-grid > article {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.investment-review-grid > article > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.investment-review-grid > article > header small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.investment-review-grid > article > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.investment-news-review {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.investment-news-review > span {
+  justify-self: start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2f4;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.investment-news-review h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.investment-news-review p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.investment-news-review > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
 }
 
 .module-status {

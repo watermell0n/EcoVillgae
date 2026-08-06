@@ -2,6 +2,7 @@ package com.b201.ecovillage.classroom.domain;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -28,6 +29,15 @@ public class ClassroomModule {
      * 학급에서 모듈을 아예 걷어내는 것은 stop-commands(STOPPING)입니다.
      */
     public static final String STUDENT_ACCESS_SUSPENDED_KEY = "student_access_suspended";
+
+    /**
+     * INVESTMENT 모듈에서 교사가 쓰겠다고 고른 투자 방식의 목록입니다. 학급은 단기와 장기를
+     * 함께 운영할 수 있으므로 값이 두 개일 수 있습니다.
+     */
+    public static final String INVESTMENT_MODES_KEY = "investment_modes";
+
+    /** 목록이 생기기 전에 쓰던 단일 값입니다. 이전 화면과 이전 데이터를 위해 함께 유지합니다. */
+    public static final String INVESTMENT_MODE_KEY = "investment_mode";
 
     @Id
     @Column(nullable = false, updatable = false)
@@ -165,6 +175,27 @@ public class ClassroomModule {
 
     public boolean isStudentAccessSuspended() {
         return Boolean.TRUE.equals(config.get(STUDENT_ACCESS_SUSPENDED_KEY));
+    }
+
+    /**
+     * 교사가 쓰겠다고 고른 투자 방식을 바꿉니다. 단기만 켜 두었다가 장기를 나중에 더하는
+     * 경우가 있어 활성화 이후에도 바꿀 수 있어야 합니다.
+     *
+     * <p>이미 시나리오를 만든 방식을 목록에서 빼도 그 시장과 학생 보유 내역은 지우지 않습니다.
+     * 되돌릴 수 없는 정리는 stop-commands가 담당합니다.
+     */
+    public void changeInvestmentModes(List<String> investmentModes, Instant changedAt) {
+        requireActiveForConfigChange();
+        List<String> modes = List.copyOf(
+            Objects.requireNonNull(investmentModes, "investmentModes must not be null")
+        );
+        if (modes.isEmpty()) {
+            throw new IllegalArgumentException("At least one investment mode must remain selected");
+        }
+        Map<String, Object> next = new LinkedHashMap<>(config);
+        next.put(INVESTMENT_MODES_KEY, modes);
+        next.put(INVESTMENT_MODE_KEY, modes.get(0));
+        replaceConfig(next, changedAt);
     }
 
     private void requireActiveForConfigChange() {

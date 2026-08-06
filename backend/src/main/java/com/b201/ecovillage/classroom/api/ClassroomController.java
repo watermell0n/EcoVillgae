@@ -30,6 +30,9 @@ import com.b201.ecovillage.classroom.application.CourseConfigurationUpdateResult
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
 import com.b201.ecovillage.classroom.application.ClassroomRosterService;
 import com.b201.ecovillage.classroom.application.ClassroomReadService;
+import com.b201.ecovillage.classroom.application.InvestmentModeCommand;
+import com.b201.ecovillage.classroom.application.InvestmentModeCommandService;
+import com.b201.ecovillage.classroom.application.InvestmentModeResult;
 import com.b201.ecovillage.classroom.application.ModuleActivationCommand;
 import com.b201.ecovillage.classroom.application.ModuleActivationResult;
 import com.b201.ecovillage.classroom.application.ModuleActivationService;
@@ -67,6 +70,7 @@ public class ClassroomController {
     private final CourseConfigurationCommandService courseConfigurationCommandService;
     private final ModuleStopCommandService moduleStopCommandService;
     private final ModuleStudentAccessCommandService moduleStudentAccessCommandService;
+    private final InvestmentModeCommandService investmentModeCommandService;
     private final EconomicPolicyCommandService economicPolicyCommandService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
@@ -81,6 +85,7 @@ public class ClassroomController {
         CourseConfigurationCommandService courseConfigurationCommandService,
         ModuleStopCommandService moduleStopCommandService,
         ModuleStudentAccessCommandService moduleStudentAccessCommandService,
+        InvestmentModeCommandService investmentModeCommandService,
         EconomicPolicyCommandService economicPolicyCommandService,
         UuidV7Generator uuidGenerator,
         Clock clock
@@ -94,6 +99,7 @@ public class ClassroomController {
         this.courseConfigurationCommandService = courseConfigurationCommandService;
         this.moduleStopCommandService = moduleStopCommandService;
         this.moduleStudentAccessCommandService = moduleStudentAccessCommandService;
+        this.investmentModeCommandService = investmentModeCommandService;
         this.economicPolicyCommandService = economicPolicyCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
@@ -213,6 +219,44 @@ public class ClassroomController {
                 result.moduleCode(),
                 result.status(),
                 result.studentAccessSuspended(),
+                result.stateVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    /**
+     * 학급이 쓸 투자 방식(단기·장기)을 정합니다. 활성화는 한 번만 할 수 있으므로 나중에
+     * 다른 방식을 더하거나 뺄 때 이 명령을 씁니다.
+     */
+    @PostMapping("/{classroomId}/modules/INVESTMENT/investment-mode-commands")
+    public ApiResponse<InvestmentModeResponse> changeInvestmentModes(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody InvestmentModeRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        InvestmentModeResult result = investmentModeCommandService.execute(
+            new InvestmentModeCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.investmentModes()
+            )
+        );
+        return new ApiResponse<>(
+            new InvestmentModeResponse(
+                result.moduleId(),
+                result.moduleCode(),
+                result.status(),
+                result.investmentModes(),
                 result.stateVersion(),
                 result.replayed()
             ),

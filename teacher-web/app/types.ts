@@ -4,13 +4,55 @@
 
 export type AiModuleRow = {
   name: string;
+  // 화면에 보여 주는 한국어 상태입니다("열림"/"설정 대기"/"닫힘").
   status: string;
+  // 서버가 준 원래 상태입니다("ACTIVE"/"PENDING_CONFIGURATION"/"DISABLED"/"STOPPING").
+  // 판단은 이 값으로 합니다. 한국어 라벨은 표시에만 씁니다.
+  serverStatus?: string;
   code?: string;
   // 학급 모듈의 resource_id입니다. 시작 전 점검은 이 값을 target_id로 되돌려 보내야 합니다.
   resourceId?: string;
   stateVersion?: number;
   config?: Record<string, unknown>;
 };
+
+export type InvestmentMode = "SHORT_TERM" | "LONG_TERM";
+
+export const INVESTMENT_MODE_LABELS: Record<InvestmentMode, string> = {
+  SHORT_TERM: "단기 투자",
+  LONG_TERM: "장기 투자"
+};
+
+function toInvestmentMode(value: unknown): InvestmentMode | null {
+  return value === "SHORT_TERM" || value === "LONG_TERM" ? value : null;
+}
+
+/**
+ * 투자 모듈의 상태와, 교사가 쓰겠다고 고른 방식을 함께 읽습니다.
+ *
+ * 학급은 단기와 장기를 함께 운영할 수 있으므로 방식은 목록입니다. 목록이 생기기 전에 활성화된
+ * 학급은 단일 값만 갖고 있어 그 값도 한 개짜리 목록으로 읽습니다.
+ */
+export function investmentModuleInfo(modules: readonly AiModuleRow[]) {
+  const module = modules.find((item) => item.code === "INVESTMENT");
+  const config = module?.config ?? {};
+  const raw = config.investment_modes;
+  const fromList = Array.isArray(raw)
+    ? raw.map(toInvestmentMode).filter((value): value is InvestmentMode => value !== null)
+    : [];
+  const legacy = toInvestmentMode(config.investment_mode);
+  const enabledModes = fromList.length > 0 ? fromList : legacy ? [legacy] : [];
+  return {
+    module,
+    // 서버 상태로 판단합니다. 한국어 "열림"과 비교하면 화면 문구를 바꿀 때 조용히 깨집니다.
+    // 다만 서버를 거치지 않고 만든 행에는 serverStatus가 없어 화면용 상태로 대신 봅니다.
+    active: module?.serverStatus === undefined
+      ? module?.status === "열림"
+      : module.serverStatus === "ACTIVE",
+    enabledModes,
+    stateVersion: module?.stateVersion ?? 0
+  };
+}
 
 // modules-and-policies 응답의 policy_versions 항목입니다.
 // expected_policy_version은 이 목록의 version을 그대로 되돌려 보내야 합니다.

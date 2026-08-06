@@ -44,6 +44,7 @@ import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
 import type { AiModuleRow, AiPolicyVersionRow } from "./types";
+import { INVESTMENT_MODE_LABELS, investmentModuleInfo } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
 
 type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "quiz" | "control" | "approvals" | "ai";
@@ -212,6 +213,8 @@ async function openPublishedQuizForStudents({
 type ModuleRow = {
   name: string;
   status: string;
+  // 서버가 준 원래 상태입니다. 조건 판단은 한국어 라벨이 아니라 이 값으로 합니다.
+  serverStatus?: string;
   studentState: string;
   teacherTodo: string;
   resourceId?: string;
@@ -301,6 +304,20 @@ const views = [
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
 ];
+
+/**
+ * 모듈이 학급에서 실제로 켜져 있는지 판단합니다.
+ *
+ * 서버에서 읽은 행은 serverStatus를 갖고 있어 그 값으로 판단합니다. 교실 개설 화면처럼
+ * 서버를 거치지 않고 만든 행에는 serverStatus가 없으므로 화면용 한국어 상태로 대신 봅니다.
+ * 이 대비가 없으면 서버를 아직 읽지 않은 상태에서 모든 모듈이 "설정 필요"로 보입니다.
+ */
+function isModuleActive(module: Pick<ModuleRow, "status" | "serverStatus"> | undefined) {
+  if (!module) return false;
+  return module.serverStatus === undefined
+    ? module.status === "열림"
+    : module.serverStatus === "ACTIVE";
+}
 
 const initialModules: ModuleRow[] = [
   { name: "지갑", status: "열림", studentState: "기본 기능", teacherTodo: "자동 적용" },
@@ -484,7 +501,8 @@ moduleCodeByName["부동산"] = "REAL_ESTATE";
 moduleCodeByName["청약"] = "HOUSING_SUBSCRIPTION";
 // 콘솔은 서버의 INVESTMENT 한 모듈을 "단기 투자"·"장기 투자" 두 줄로 펼쳐 보여 준다(setModules).
 // 교실 생성은 반대로 이름을 코드로 되돌리므로 두 이름이 여기 없으면 코드가 undefined가 되어
-// 걸러지고, 투자를 골라도 모듈이 만들어지지 않는다. 운영 방식은 활성화 때 investment_mode로 정한다.
+// 걸러지고, 투자를 골라도 모듈이 만들어지지 않는다. 어느 방식을 쓸지는 활성화 때
+// investment_modes 목록으로 정하며, 단기와 장기를 함께 켤 수 있다.
 moduleCodeByName["단기 투자"] = "INVESTMENT";
 moduleCodeByName["장기 투자"] = "INVESTMENT";
 
@@ -921,6 +939,8 @@ export default function TeacherConsole() {
             status: module.status === "ACTIVE"
               ? "열림"
               : module.status === "PENDING_CONFIGURATION" ? "설정 대기" : "닫힘",
+            // 판단은 서버 상태로 한다. 위 한국어 라벨은 화면 표시 전용이다.
+            serverStatus: module.status,
             studentState: module.status !== "ACTIVE"
               ? "학생 이용 중지"
               : studentAccessSuspended ? "학생 이용 잠금" : "학생 이용 가능",
@@ -1202,6 +1222,7 @@ export default function TeacherConsole() {
               aiEnabled={aiSettings.enabled}
               canManage={teacherRoles.includes("OWN")}
               addLog={addLog}
+              onModulesReload={() => openClassroom(activeClassroomId)}
             />
           )}
           {view === "quiz" && (
@@ -2297,13 +2318,18 @@ function Setup({
   onReload: () => Promise<void>;
 }>) {
   const [isBulkActivating, setIsBulkActivating] = useState(false);
+  // 투자는 한 모듈이지만 단기·장기를 따로 쓰므로 어떤 방식을 골랐는지 함께 봐야 합니다.
+  const investmentInfo = useMemo(() => investmentModuleInfo(modules), [modules]);
 
   function updateSettings(field: keyof ClassSettings, value: string) {
     setSettings((current) => ({ ...current, [field]: value }));
   }
 
   // 사용/잠금은 모듈을 학급에서 걷어내지 않습니다. 학생 화면에서만 회색으로 바뀌어 들어갈 수 없고,
-  // 다시 누르면 그대로 열립니다. 아직 켜지 않은 모듈은 활성화부터 진행합니다.
+  // 다시 누르면 그대로 열립니다.
+  //
+  // 활성화는 여기서 하지 않습니다. 투자처럼 AI 시나리오를 만들어 승인해야 하는 모듈을 이 토글로
+  // 켜면 학생 화면에 보여 줄 것이 없는 상태로 열려 버립니다. 준비가 필요한 모듈은 안내만 합니다.
   function toggleModule(moduleName: string) {
     const existing = modules.find((item) => item.name === moduleName);
     if (!existing?.code) {
@@ -2311,24 +2337,13 @@ function Setup({
       return;
     }
 
-    if (existing.status !== "열림") {
-      void runAction(
-        `${moduleName} 기능 활성화`,
-        `/classrooms/${classroomId}/modules/${existing.code}/activation-commands`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            expected_state_version: existing.stateVersion ?? 0,
-            screen_id: "SCR-WEB-003",
-            ui_action_id: "UIA-MOD-001",
-            client_occurred_at: new Date().toISOString(),
-            confirm_prerequisites: true,
-            initial_policy_values: existing.code === "INVESTMENT" ? { investment_mode: "LONG_TERM" } : {},
-            recommendation_action_ids: []
-          })
-        },
-        () => { void onReload(); }
-      );
+    if (!isModuleActive(existing)) {
+      addLog(`${moduleName}은(는) 아직 활성화되지 않았어요. ‘AI·모듈’ 탭에서 활성화한 뒤 여기서 학생 이용을 조절해 주세요.`, "warning");
+      return;
+    }
+
+    if (existing.code === "INVESTMENT") {
+      addLog(`${moduleName}의 학생 이용은 ‘운영 관리 > 투자’ 탭에서 단기·장기를 따로 잠그거나 열 수 있어요.`, "warning");
       return;
     }
 
@@ -2381,7 +2396,7 @@ function Setup({
         const module = modulesByCode.get(code);
         if (!module) continue;
         // 잠긴 모듈은 이미 켜져 있으므로 활성화가 아니라 학생 이용을 다시 여는 것이 맞습니다.
-        if (module.status === "열림") {
+        if (isModuleActive(module)) {
           if (!module.studentAccessSuspended) continue;
           try {
             await apiRequest(
@@ -2417,7 +2432,8 @@ function Setup({
                 client_occurred_at: new Date().toISOString(),
                 confirm_prerequisites: true,
                 initial_policy_values: code === "INVESTMENT"
-                  ? { investment_mode: "LONG_TERM" }
+                  // 학급은 단기·장기를 함께 운영할 수 있으므로 기본값으로 켤 때 둘 다 켭니다.
+                  ? { investment_modes: ["SHORT_TERM", "LONG_TERM"] }
                   : {},
                 recommendation_action_ids: []
               })
@@ -2624,23 +2640,49 @@ function Setup({
           </button>
         </div>
         <p className="helper-text">
+          여기는 학생이 그 기능에 들어갈 수 있는지만 정하는 자리입니다. 모듈을 학급에서 빼거나 더하지 않습니다.
           사용 중인 모듈을 누르면 학생 화면에서만 잠깁니다(회색). 설정과 기록은 그대로 남고 다시 누르면 열립니다.
-          투자는 “AI 설정 → 선택 모듈 활성화”에서 단기·장기 운영 방식을 고른 뒤 사용으로 바뀝니다.
+        </p>
+        <p className="helper-text">
+          “설정 필요”는 아직 학생에게 보여 줄 것이 준비되지 않은 상태입니다. 그대로 열면 학생 화면이 비어 보이므로,
+          해당 설정 탭에서 준비를 끝내면 자동으로 “사용”으로 바뀝니다.
         </p>
         <div className="module-toggle-list">
           {selectableModuleNames.map((moduleName) => {
             const module = modules.find((item) => item.name === moduleName);
-            const isOpen = module?.status === "열림";
-            const isSuspended = Boolean(isOpen && module?.studentAccessSuspended);
+            const mode = moduleName === "단기 투자"
+              ? "SHORT_TERM"
+              : moduleName === "장기 투자" ? "LONG_TERM" : null;
+            const activated = isModuleActive(module);
+            // 투자는 어떤 방식을 고른지까지 봐야 합니다. 다만 아직 설정을 못 읽었으면
+            // 판단할 근거가 없으므로 켜져 있는 것으로 둡니다(모두 "설정 필요"로 보이지 않게).
+            const investmentModesKnown = investmentInfo.enabledModes.length > 0;
+            const ready = activated && (
+              mode === null || !investmentModesKnown || investmentInfo.enabledModes.includes(mode)
+            );
+            const isSuspended = Boolean(ready && mode === null && module?.studentAccessSuspended);
             const label = !module?.code
               ? "생성 안 됨"
-              : isSuspended ? "잠금" : isOpen ? "사용" : module.status === "설정 대기" ? "설정 대기" : "미사용";
+              : !ready ? "설정 필요" : isSuspended ? "잠금" : "사용";
+            const hint = !module?.code
+              ? "교실 생성 설정에서 이 모듈을 선택해야 합니다."
+              : !activated
+                ? "‘AI·모듈’ 탭에서 이 모듈을 먼저 활성화해 주세요."
+                : mode !== null && !ready
+                  ? "‘운영 관리 > 투자’ 탭에서 이 방식을 사용하도록 켜 주세요."
+                  // 투자는 단기·장기를 따로 잠그므로 잠금 스위치가 투자 탭의 방식별 자리에 있습니다.
+                  : mode !== null
+                    ? "‘운영 관리 > 투자’ 탭에서 단기·장기를 따로 잠그거나 열 수 있습니다."
+                    : isSuspended ? "누르면 학생 이용을 다시 엽니다." : "누르면 학생 이용을 잠급니다.";
 
+            // 누를 수는 있게 두고, 지금 할 수 없는 일이면 toggleModule이 어디로 가야 하는지 알려 줍니다.
+            // disabled로 막으면 사용 기능 목록 전체가 회색으로 죽은 것처럼 보입니다.
             return (
               <button
                 type="button"
                 key={moduleName}
-                className={isSuspended ? "suspended" : isOpen ? "enabled" : ""}
+                className={isSuspended ? "suspended" : ready ? "enabled" : ""}
+                title={hint}
                 onClick={() => toggleModule(moduleName)}
               >
                 <span>{moduleName}</span>
@@ -3531,7 +3573,8 @@ function FinanceAdmin({
   modules,
   aiEnabled,
   canManage,
-  addLog
+  addLog,
+  onModulesReload
 }: Readonly<{
   classroomId: string;
   stateVersion: number;
@@ -3545,6 +3588,7 @@ function FinanceAdmin({
   aiEnabled: boolean;
   canManage: boolean;
   addLog: (message: string, tone?: LogTone) => void;
+  onModulesReload: () => Promise<void>;
 }>) {
   const [activeTab, setActiveTab] = useState<"DEPOSIT" | "SAVINGS" | "LOAN" | "INVESTMENT">("DEPOSIT");
   const [products, setProducts] = useState<FinancialProductDraft[]>(() => defaultFinancialProducts(depositRateBps, savingsRateBps));
@@ -3555,14 +3599,8 @@ function FinanceAdmin({
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
   const [loanSaving, setLoanSaving] = useState(false);
   const [loanDecisionId, setLoanDecisionId] = useState<string | null>(null);
-  const [investment, setInvestment] = useState({
-    shortName: "단기 투자",
-    shortReturnRate: "8",
-    shortRisk: "보통",
-    longName: "장기 투자",
-    longVolatility: "보통",
-    longPeriod: "5"
-  });
+  // 종목·가격은 AI 시나리오가 만들므로 교사가 직접 입력하는 투자 상품 초안은 두지 않습니다.
+  const investmentModule = useMemo(() => investmentModuleInfo(modules), [modules]);
   useEffect(() => {
     if (!savingsAvailable && activeTab === "SAVINGS") setActiveTab("DEPOSIT");
   }, [activeTab, savingsAvailable]);
@@ -3825,36 +3863,35 @@ function FinanceAdmin({
 
       {activeTab === "INVESTMENT" ? (
         <div className="page-flow">
-          <PlainSection title="투자 운영안" description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다.">
-            <div className="investment-mode-grid">
-              <section>
-                <div className="investment-heading"><span>단기 투자</span><small>다음 날 결과 확정</small></div>
-                <div className="investment-settings">
-                  <label>상품 이름<input value={investment.shortName} onChange={(event) => setInvestment((current) => ({ ...current, shortName: event.target.value }))} /></label>
-                  <label>결과 수익률(%)<input inputMode="decimal" value={investment.shortReturnRate} onChange={(event) => setInvestment((current) => ({ ...current, shortReturnRate: event.target.value }))} /></label>
-                  <label>위험도<select value={investment.shortRisk} onChange={(event) => setInvestment((current) => ({ ...current, shortRisk: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
-                </div>
-                <button type="button" disabled title="AI 연동은 다음 작업에서 연결합니다.">AI 시나리오 생성 (준비 중)</button>
-              </section>
-              <section>
-                <div className="investment-heading"><span>장기 투자</span><small>매일 시장 소식 제공</small></div>
-                <div className="investment-settings">
-                  <label>상품 이름<input value={investment.longName} onChange={(event) => setInvestment((current) => ({ ...current, longName: event.target.value }))} /></label>
-                  <label>변동성<select value={investment.longVolatility} onChange={(event) => setInvestment((current) => ({ ...current, longVolatility: event.target.value }))}><option>낮음</option><option>보통</option><option>높음</option></select></label>
-                  <label>운영 기간(일)<input inputMode="numeric" value={investment.longPeriod} onChange={(event) => setInvestment((current) => ({ ...current, longPeriod: event.target.value }))} /></label>
-                </div>
-                <button type="button" disabled title="AI 연동은 다음 작업에서 연결합니다.">AI 상품 생성 (준비 중)</button>
-              </section>
-            </div>
-            <p className="helper-text">투자 운영 UI만 먼저 복구한 상태입니다. AI 생성과 저장 기능은 다음 작업에서 연결합니다.</p>
-            <button type="button" className="primary-save" disabled>투자 운영안 저장 (준비 중)</button>
+          <PlainSection
+            title="투자 운영안"
+            description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다. 두 방식을 함께 운영할 수 있습니다."
+          >
+            <p className="helper-text">
+              {!investmentModule.active
+                ? "투자 모듈이 아직 활성화되지 않았습니다. 'AI·모듈' 탭에서 활성화하면 아래에서 시나리오를 만들 수 있습니다."
+                : investmentModule.enabledModes.length === 0
+                  ? "사용할 투자 방식을 아래에서 켜 주세요."
+                  : `지금 사용 중인 방식: ${investmentModule.enabledModes.map((mode) => INVESTMENT_MODE_LABELS[mode]).join(", ")}`}
+            </p>
+            <p className="helper-text">
+              종목 이름과 가격 흐름은 AI가 시나리오로 만듭니다. 교사는 만들어진 흐름을 확인한 뒤 승인하거나 다시 생성합니다.
+            </p>
           </PlainSection>
-          <InvestmentScenarioPanel
-            classroomId={classroomId}
-            modules={modules}
-            aiEnabled={aiEnabled}
-            canManage={canManage}
-          />
+          {(["SHORT_TERM", "LONG_TERM"] as const).map((mode) => (
+            <InvestmentScenarioPanel
+              key={mode}
+              classroomId={classroomId}
+              mode={mode}
+              enabledModes={investmentModule.enabledModes}
+              moduleActive={investmentModule.active}
+              moduleStateVersion={investmentModule.stateVersion}
+              currencyName={currencyName}
+              aiEnabled={aiEnabled}
+              canManage={canManage}
+              onModuleChanged={onModulesReload}
+            />
+          ))}
         </div>
       ) : activeTab === "LOAN" ? (
         <div className="page-flow">

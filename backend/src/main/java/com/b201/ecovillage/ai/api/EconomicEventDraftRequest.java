@@ -20,6 +20,12 @@ public record EconomicEventDraftRequest(
     String interestRateScope,
 
     @Size(max = 1000)
-    String teacherContext
+    String teacherContext,
+
+    /**
+     * INVESTMENT_NEWS에서 이야기를 붙일 투자 방식이다. 학급이 단기와 장기를 함께 운영하므로
+     * 교사가 어느 쪽을 만드는지 지정한다. 비우면 학급이 쓰는 방식 전체를 대상으로 삼는다.
+     */
+    String investmentMode
 ) {
 }

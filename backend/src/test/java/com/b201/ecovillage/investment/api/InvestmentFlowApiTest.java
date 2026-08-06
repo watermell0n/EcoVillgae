@@ -127,10 +127,14 @@ class InvestmentFlowApiTest {
             .andExpect(jsonPath("$.data.scenario_source").value("HISTORICAL_INDEX"))
             .andExpect(jsonPath("$.data.assets.length()").value(4));
 
+        // 학급이 단기와 장기를 함께 운영하므로 조회에도 방식을 지정해야 시장이 하나로 정해진다.
         String draftBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
                 .principal(owner))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
+            // 초안은 학생에게 아직 보이지 않으므로 교사가 전체 가격 경로를 미리 검토할 수 있다.
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history.length()").value(20))
             .andReturn().getResponse().getContentAsString();
         JsonNode draft = objectMapper.readTree(draftBody).get("data");
 
@@ -139,16 +143,26 @@ class InvestmentFlowApiTest {
                 .header("Idempotency-Key", UUID.randomUUID())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"command":"START","expected_state_version":%d}
+                    {"command":"START","investment_mode":"LONG_TERM","expected_state_version":%d}
                     """.formatted(draft.get("state_version").asLong())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.market_status").value("OPEN"));
 
-        String marketBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+        // 교사가 이야기를 승인하기 전에는 학생에게 종목이 보이지 않는다. 승인이 곧 공개다.
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
                 .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assets.length()").value(0));
+
+        String marketBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.current_step").value(1))
             .andExpect(jsonPath("$.data.assets[0].price_history.length()").value(1))
+            // 시장이 열린 뒤에는 교사에게도 앞으로의 가격을 주지 않는다.
+            .andExpect(jsonPath("$.data.assets[0].planned_price_history.length()").value(0))
             .andReturn().getResponse().getContentAsString();
         JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
 

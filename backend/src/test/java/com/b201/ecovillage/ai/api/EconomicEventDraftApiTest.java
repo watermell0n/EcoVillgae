@@ -156,7 +156,9 @@ class EconomicEventDraftApiTest {
         UUID marketId = UUID.randomUUID();
         UUID scenarioId = UUID.randomUUID();
         UUID assetId = UUID.randomUUID();
-        marketRepository.save(InvestmentMarket.open(marketId, classroomId, scenarioId, revealedSteps, NOW));
+        marketRepository.save(InvestmentMarket.open(
+            marketId, classroomId, InvestmentMode.LONG_TERM, scenarioId, revealedSteps, NOW
+        ));
         scenarioRepository.save(InvestmentScenarioVersion.published(
             scenarioId,
             classroomId,

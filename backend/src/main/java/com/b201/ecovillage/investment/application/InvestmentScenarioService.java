@@ -26,6 +26,7 @@ import com.b201.ecovillage.investment.domain.HistoricalIndexReference;
 import com.b201.ecovillage.investment.domain.InvestmentAsset;
 import com.b201.ecovillage.investment.domain.InvestmentMarket;
 import com.b201.ecovillage.investment.domain.InvestmentMode;
+import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
 import com.b201.ecovillage.investment.domain.InvestmentPriceStep;
 import com.b201.ecovillage.investment.domain.InvestmentScenarioSource;
 import com.b201.ecovillage.investment.domain.InvestmentScenarioVersion;
@@ -103,23 +104,25 @@ public class InvestmentScenarioService {
         ClassroomModule module = moduleRepository.findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
             .filter(candidate -> "ACTIVE".equals(candidate.getStatus()))
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "MODULE_NOT_ACTIVE", "투자 모듈이 활성화되어 있지 않습니다."));
-        InvestmentMode configuredMode = InvestmentMode.valueOf(
-            String.valueOf(module.getConfig().getOrDefault("investment_mode", "LONG_TERM"))
-        );
-        InvestmentMode mode;
-        try {
-            mode = InvestmentMode.valueOf(requestedMode);
-        } catch (RuntimeException exception) {
-            throw operation(HttpStatus.BAD_REQUEST, "INVALID_INVESTMENT_MODE", "투자 방식이 올바르지 않습니다.");
-        }
-        if (mode != configuredMode) {
-            throw operation(HttpStatus.CONFLICT, "INVESTMENT_MODE_MISMATCH", "모듈 활성화 때 선택한 투자 방식과 다릅니다.");
+        InvestmentMode mode = InvestmentModeConfig.parse(requestedMode)
+            .orElseThrow(() -> operation(
+                HttpStatus.BAD_REQUEST, "INVALID_INVESTMENT_MODE", "투자 방식이 올바르지 않습니다."
+            ));
+        // 단기와 장기는 함께 운영할 수 있다. 다만 교사가 고르지 않은 방식은 만들 수 없다.
+        if (!InvestmentModeConfig.enabledModes(module.getConfig()).contains(mode)) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "INVESTMENT_MODE_NOT_ENABLED",
+                mode == InvestmentMode.SHORT_TERM
+                    ? "단기 투자를 사용하도록 먼저 활성화해 주세요."
+                    : "장기 투자를 사용하도록 먼저 활성화해 주세요."
+            );
         }
 
         Instant now = clock.instant();
-        InvestmentMarket market = marketRepository.findForUpdate(classroomId)
+        InvestmentMarket market = marketRepository.findForUpdate(classroomId, mode)
             .orElseGet(() -> marketRepository.save(InvestmentMarket.draft(
-                uuidGenerator.generate(), classroomId, now
+                uuidGenerator.generate(), classroomId, mode, now
             )));
         if (!InvestmentMarket.DRAFT.equals(market.getStatus())) {
             throw operation(HttpStatus.CONFLICT, "MARKET_NOT_DRAFT", "진행 중인 시장의 시나리오는 변경할 수 없습니다.");
@@ -178,11 +181,20 @@ public class InvestmentScenarioService {
     }
 
     @Transactional
-    public InvestmentScenarioResult start(String teacherSubject, UUID classroomId, long expectedStateVersion) {
+    public InvestmentScenarioResult start(
+        String teacherSubject,
+        UUID classroomId,
+        String requestedMode,
+        long expectedStateVersion
+    ) {
         authorizationService.authorize(
             teacherSubject, classroomId, ClassroomPermission.CONTROL_INVESTMENT_MARKET, null
         );
-        InvestmentMarket market = marketRepository.findForUpdate(classroomId)
+        InvestmentMode mode = InvestmentModeConfig.parse(requestedMode)
+            .orElseThrow(() -> operation(
+                HttpStatus.BAD_REQUEST, "INVALID_INVESTMENT_MODE", "투자 방식이 올바르지 않습니다."
+            ));
+        InvestmentMarket market = marketRepository.findForUpdate(classroomId, mode)
             .orElseThrow(() -> operation(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "투자 시장을 찾을 수 없습니다."));
         if (market.getStateVersion() != expectedStateVersion) {
             throw operation(HttpStatus.CONFLICT, "STATE_VERSION_CONFLICT", "투자 시장 상태가 변경되었습니다.");
@@ -207,10 +219,69 @@ public class InvestmentScenarioService {
         market.start(now);
         marketRepository.save(market);
         marketRepository.flush();
+        return resultOf(classroomId, market, scenario, assets);
+    }
+
+    /**
+     * 이 방식의 투자를 학생이 쓰지 못하게 잠그거나 다시 연다. 학급 설정에서 단기와 장기를
+     * 따로 잠글 수 있어야 하므로 모듈 전체가 아니라 방식별 시장 상태로 다룬다.
+     */
+    @Transactional
+    public InvestmentScenarioResult changeStudentAccess(
+        String teacherSubject,
+        UUID classroomId,
+        String requestedMode,
+        boolean pause,
+        long expectedStateVersion
+    ) {
+        authorizationService.authorize(
+            teacherSubject, classroomId, ClassroomPermission.CONTROL_INVESTMENT_MARKET, null
+        );
+        InvestmentMode mode = InvestmentModeConfig.parse(requestedMode)
+            .orElseThrow(() -> operation(
+                HttpStatus.BAD_REQUEST, "INVALID_INVESTMENT_MODE", "투자 방식이 올바르지 않습니다."
+            ));
+        InvestmentMarket market = marketRepository.findForUpdate(classroomId, mode)
+            .orElseThrow(() -> operation(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "투자 시장을 찾을 수 없습니다."));
+        if (market.getStateVersion() != expectedStateVersion) {
+            throw operation(HttpStatus.CONFLICT, "STATE_VERSION_CONFLICT", "투자 시장 상태가 변경되었습니다.");
+        }
+        String expected = pause ? InvestmentMarket.OPEN : InvestmentMarket.PAUSED;
+        if (!expected.equals(market.getStatus())) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "INVALID_STATE_TRANSITION",
+                pause ? "열려 있는 투자만 잠글 수 있습니다." : "잠긴 투자만 다시 열 수 있습니다."
+            );
+        }
+        InvestmentScenarioVersion scenario = scenarioRepository
+            .findByClassroomIdAndId(classroomId, market.getActiveScenarioVersionId())
+            .orElseThrow(() -> operation(HttpStatus.CONFLICT, "INVALID_PRICE_STEP", "투자 시나리오가 없습니다."));
+        Instant now = clock.instant();
+        if (pause) {
+            market.pauseForStudents(now);
+        } else {
+            market.resumeForStudents(now);
+        }
+        marketRepository.save(market);
+        marketRepository.flush();
+        return resultOf(classroomId, market, scenario, assetRepository
+            .findAllByClassroomIdAndScenarioVersionIdAndStatusOrderByDisplayOrder(
+                classroomId, scenario.getId(), InvestmentAsset.ACTIVE
+            ));
+    }
+
+    private InvestmentScenarioResult resultOf(
+        UUID classroomId,
+        InvestmentMarket market,
+        InvestmentScenarioVersion scenario,
+        List<InvestmentAsset> assets
+    ) {
         return new InvestmentScenarioResult(
-            market.getId(), scenario.getId(), market.getStatus(), scenario.getInvestmentMode().name(),
-            scenario.getScenarioSource().name(), scenario.getInvestmentMode().settlementRule(),
-            countSteps(classroomId, assets.get(0).getId()), market.getStateVersion(),
+            market.getId(), scenario.getId(), market.getStatus(), market.getInvestmentMode().name(),
+            scenario.getScenarioSource().name(), market.getInvestmentMode().settlementRule(),
+            assets.isEmpty() ? 0 : countSteps(classroomId, assets.get(0).getId()),
+            market.getStateVersion(),
             assets.stream().map(asset -> new InvestmentScenarioResult.Asset(
                 asset.getId(), asset.getSymbol(), asset.getName(), firstPrice(classroomId, asset.getId())
             )).toList()

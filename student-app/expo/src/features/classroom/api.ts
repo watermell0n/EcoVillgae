@@ -76,16 +76,21 @@ function firstConfiguredId(modules: ClassroomModule[], keys: string[]) {
   return undefined;
 }
 
-function configuredBoolean(config: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = config[key];
-    if (typeof value === "boolean") return value;
-    if (typeof value === "string") {
-      if (["true", "enabled", "active"].includes(value.toLowerCase())) return true;
-      if (["false", "disabled", "inactive"].includes(value.toLowerCase())) return false;
-    }
-  }
-  return undefined;
+/**
+ * 선생님이 쓰겠다고 고른 투자 방식을 읽습니다.
+ *
+ * 학급은 단기와 장기를 함께 운영할 수 있어 서버는 investment_modes 목록을 줍니다. 목록이
+ * 생기기 전에 활성화된 학급은 investment_mode 단일 값만 갖고 있어 그 값도 함께 읽습니다.
+ */
+function readInvestmentModes(config: Record<string, unknown> | undefined) {
+  const raw = config?.investment_modes;
+  const modes = Array.isArray(raw)
+    ? raw.map((value) => String(value))
+    : typeof config?.investment_mode === "string" ? [config.investment_mode] : [];
+  return {
+    shortTerm: modes.includes("SHORT_TERM"),
+    longTerm: modes.includes("LONG_TERM")
+  };
 }
 
 function createAccess(
@@ -99,11 +104,7 @@ function createAccess(
   const policyMode = accessPolicy?.values?.mode;
   const guidedActivityId = firstConfiguredId(activeModules, ["active_guided_activity_id", "guided_activity_id", "activity_id"]);
   const investment = activeModules.find((module) => module.code === "INVESTMENT");
-  const hasExplicitShort = activeModules.some((module) => ["SHORT_INVESTMENT", "INVESTMENT_SHORT_TERM"].includes(module.code));
-  const hasExplicitLong = activeModules.some((module) => ["LONG_INVESTMENT", "INVESTMENT_LONG_TERM"].includes(module.code));
-  const hasExplicitModes = hasExplicitShort || hasExplicitLong;
-  const shortConfigured = investment ? configuredBoolean(investment.config, ["short_term_enabled", "short_investment_enabled"]) : undefined;
-  const longConfigured = investment ? configuredBoolean(investment.config, ["long_term_enabled", "long_investment_enabled"]) : undefined;
+  const investmentModes = readInvestmentModes(investment?.config);
   return {
     modules: activeModules,
     activeCodes: new Set(activeModules.map((module) => module.code)),
@@ -120,10 +121,7 @@ function createAccess(
     mode: guidedActivityId
       ? "GUIDED"
       : policyMode === "CLOSED" ? "CLOSED" : "AUTONOMOUS",
-    investmentModes: {
-      shortTerm: hasExplicitModes ? hasExplicitShort : shortConfigured ?? Boolean(investment),
-      longTerm: hasExplicitModes ? hasExplicitLong : longConfigured ?? Boolean(investment)
-    }
+    investmentModes
   };
 }
 

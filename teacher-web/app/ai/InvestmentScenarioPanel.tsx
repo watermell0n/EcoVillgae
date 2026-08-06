@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, LineChart, Play, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Lock, LockOpen, LineChart, Play, RefreshCw, Sparkles } from "lucide-react";
 
 import { ApiError, apiRequest } from "../api";
-import type { AiModuleRow } from "../types";
+
+export type InvestmentMode = "SHORT_TERM" | "LONG_TERM";
 
 type InvestmentNews = {
   event_id: string;
@@ -15,6 +16,8 @@ type InvestmentNews = {
   revealed_at: string | null;
 };
 
+type PricePoint = { step: number; price: number; change_rate_bps: number };
+
 type InvestmentAsset = {
   asset_id: string;
   symbol: string;
@@ -22,7 +25,8 @@ type InvestmentAsset = {
   company_profile: string;
   current_price: number | null;
   price_version: number | null;
-  price_history: Array<{ step: number; price: number; change_rate_bps: number }>;
+  price_history: PricePoint[];
+  planned_price_history: PricePoint[];
   news: InvestmentNews[];
 };
 
@@ -30,7 +34,7 @@ type InvestmentMarket = {
   market_id: string;
   scenario_version_id: string;
   status: "DRAFT" | "OPEN" | "PAUSED" | "CLOSED";
-  investment_mode: "SHORT_TERM" | "LONG_TERM";
+  investment_mode: InvestmentMode;
   scenario_source: "AI_GENERATED" | "HISTORICAL_INDEX";
   settlement_rule: "NEXT_DAY_MANDATORY" | "COURSE_END_FINAL";
   current_step: number;
@@ -45,35 +49,105 @@ type ScenarioResult = {
   scenario_source: string;
 };
 
+const MODE_LABELS: Record<InvestmentMode, string> = {
+  SHORT_TERM: "단기 투자",
+  LONG_TERM: "장기 투자"
+};
+
+/**
+ * 서버 응답을 화면이 기대하는 모양으로 맞춥니다.
+ *
+ * 목록 필드가 빠져 있으면 빈 배열로 둡니다. 백엔드를 아직 새로 올리지 않았거나 예전 응답이
+ * 캐시된 경우 `planned_price_history` 같은 새 필드가 없는데, 그대로 `.length`를 읽으면
+ * 화면 전체가 흰 화면(client-side exception)이 됩니다.
+ */
+function toMarket(raw: Partial<InvestmentMarket> | null | undefined): InvestmentMarket | null {
+  if (!raw || typeof raw !== "object" || !raw.status) return null;
+  return {
+    market_id: raw.market_id ?? "",
+    scenario_version_id: raw.scenario_version_id ?? "",
+    status: raw.status,
+    investment_mode: raw.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM",
+    scenario_source: raw.scenario_source === "HISTORICAL_INDEX" ? "HISTORICAL_INDEX" : "AI_GENERATED",
+    settlement_rule: raw.settlement_rule ?? "COURSE_END_FINAL",
+    current_step: raw.current_step ?? 0,
+    state_version: raw.state_version ?? 0,
+    assets: (Array.isArray(raw.assets) ? raw.assets : []).map((asset) => ({
+      asset_id: asset?.asset_id ?? "",
+      symbol: asset?.symbol ?? "",
+      name: asset?.name ?? "",
+      company_profile: asset?.company_profile ?? "",
+      current_price: asset?.current_price ?? null,
+      price_version: asset?.price_version ?? null,
+      price_history: Array.isArray(asset?.price_history) ? asset.price_history : [],
+      planned_price_history: Array.isArray(asset?.planned_price_history)
+        ? asset.planned_price_history
+        : [],
+      news: Array.isArray(asset?.news) ? asset.news : []
+    }))
+  };
+}
+
 function messageOf(error: unknown) {
   if (error instanceof ApiError && error.code === "RESOURCE_NOT_FOUND") return "아직 생성된 투자 시나리오가 없습니다.";
+  if (error instanceof ApiError && error.code === "INVESTMENT_MODE_NOT_ENABLED") {
+    return "이 방식을 사용하도록 먼저 켜 주세요.";
+  }
+  // 없는 주소에 대한 404는 오류 코드가 없습니다. 서버가 화면보다 오래된 빌드라는 뜻이므로
+  // "시나리오가 없다"가 아니라 서버를 새로 올려야 한다고 알려 줍니다.
+  if (error instanceof ApiError && error.status === 404) {
+    return "서버에 이 기능이 아직 없습니다. 백엔드를 새로 빌드해 실행한 뒤 다시 시도해 주세요.";
+  }
+  if (error instanceof ApiError && error.code === "INVESTMENT_MODE_MISMATCH") {
+    return "서버가 아직 한 가지 방식만 지원합니다. 백엔드를 새로 빌드해 실행해 주세요.";
+  }
   return error instanceof Error ? error.message : "투자 시나리오를 처리하지 못했습니다.";
 }
 
+/**
+ * 한 가지 투자 방식(단기 또는 장기)의 AI 시나리오를 만들고 검토하는 자리입니다.
+ *
+ * <p>학급은 단기와 장기를 함께 운영하므로 이 패널은 방식마다 하나씩 놓입니다. 교사가 쓰겠다고
+ * 고르지 않은 방식은 시나리오를 만들 수 없으므로 생성 버튼을 누를 수 없습니다.
+ */
 export function InvestmentScenarioPanel({
   classroomId,
-  modules,
+  mode,
+  enabledModes,
+  moduleActive,
+  moduleStateVersion,
+  currencyName,
   aiEnabled,
-  canManage
+  canManage,
+  onModuleChanged
 }: Readonly<{
   classroomId: string;
-  modules: readonly AiModuleRow[];
+  mode: InvestmentMode;
+  enabledModes: readonly InvestmentMode[];
+  moduleActive: boolean;
+  moduleStateVersion: number;
+  // 금액 뒤에 붙는 단위는 학급마다 다르므로 화면에 고정하지 않고 받아 씁니다.
+  currencyName: string;
   aiEnabled: boolean;
   canManage: boolean;
+  onModuleChanged: () => void | Promise<void>;
 }>) {
-  const investmentModule = modules.find((module) => module.code === "INVESTMENT");
-  const configuredMode = investmentModule?.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM";
-  const moduleActive = Boolean(investmentModule?.config?.investment_mode) || investmentModule?.status === "ACTIVE";
+  const modeEnabled = enabledModes.includes(mode);
   const [market, setMarket] = useState<InvestmentMarket | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
-    if (!moduleActive) return;
+    if (!moduleActive || !modeEnabled) {
+      setMarket(null);
+      return;
+    }
     setLoading(true);
     try {
-      setMarket(await apiRequest<InvestmentMarket>(`/classrooms/${classroomId}/investment-market`));
+      setMarket(toMarket(await apiRequest<Partial<InvestmentMarket>>(
+        `/classrooms/${classroomId}/investment-market?investment_mode=${mode}`
+      )));
       setMessage("");
     } catch (error) {
       if (error instanceof ApiError && error.code === "RESOURCE_NOT_FOUND") {
@@ -84,33 +158,34 @@ export function InvestmentScenarioPanel({
     } finally {
       setLoading(false);
     }
-  }, [classroomId, moduleActive]);
+  }, [classroomId, mode, moduleActive, modeEnabled]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const reviewNews = useMemo(
-    () => market?.assets.flatMap((asset) => asset.news.map((news) => ({ asset, news }))) ?? [],
-    [market]
-  );
-  const missingNewsCount = market?.status === "OPEN"
+  const missingNewsCount = market && ["OPEN", "PAUSED"].includes(market.status)
     ? Math.max(0, market.assets.length - market.assets.filter((asset) => asset.news.length > 0).length)
     : 0;
+  const plannedPath = useMemo(
+    () => market?.assets.filter((asset) => asset.planned_price_history.length > 0) ?? [],
+    [market]
+  );
 
-  async function generateScenario() {
-    setBusy("scenario");
+  async function enableMode() {
+    setBusy("enable");
     setMessage("");
     try {
-      const result = await apiRequest<ScenarioResult>(`/classrooms/${classroomId}/investment-market/scenario`, {
-        method: "PUT",
+      await apiRequest(`/classrooms/${classroomId}/modules/INVESTMENT/investment-mode-commands`, {
+        method: "POST",
         body: JSON.stringify({
-          investment_mode: configuredMode,
-          prefer_historical_index: configuredMode === "LONG_TERM"
+          expected_state_version: moduleStateVersion,
+          screen_id: "SCR-WEB-003",
+          ui_action_id: "UIA-MOD-004",
+          client_occurred_at: new Date().toISOString(),
+          investment_modes: [...new Set([...enabledModes, mode])]
         })
       });
-      await load();
-      setMessage(result.scenario_source === "HISTORICAL_INDEX"
-        ? "FRED 역사 지수 흐름을 고정한 장기 시나리오를 생성했습니다."
-        : "AI 생성 가격 흐름으로 투자 시나리오를 만들었습니다.");
+      await onModuleChanged();
+      setMessage(`${MODE_LABELS[mode]}를 사용하도록 켰습니다. 이제 시나리오를 생성할 수 있습니다.`);
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
@@ -118,17 +193,46 @@ export function InvestmentScenarioPanel({
     }
   }
 
-  async function startMarket() {
+  async function generateScenario(regenerate = false) {
+    setBusy("scenario");
+    setMessage("");
+    try {
+      const result = await apiRequest<ScenarioResult>(`/classrooms/${classroomId}/investment-market/scenario`, {
+        method: "PUT",
+        body: JSON.stringify({
+          investment_mode: mode,
+          prefer_historical_index: mode === "LONG_TERM"
+        })
+      });
+      await load();
+      const source = result.scenario_source === "HISTORICAL_INDEX"
+        ? "FRED 역사 지수 흐름을 고정한"
+        : "AI가 만든 가격 흐름의";
+      setMessage(regenerate
+        ? `초안을 거절하고 ${source} 새 시나리오를 만들었습니다.`
+        : `${source} ${MODE_LABELS[mode]} 시나리오를 만들었습니다. 가격 흐름을 확인한 뒤 승인해 주세요.`);
+    } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function sendCommand(command: "START" | "PAUSE" | "RESUME", done: string) {
     if (!market) return;
-    setBusy("start");
+    setBusy(command);
     setMessage("");
     try {
       await apiRequest(`/classrooms/${classroomId}/investment-market/commands`, {
         method: "POST",
-        body: JSON.stringify({ command: "START", expected_state_version: market.state_version })
+        body: JSON.stringify({
+          command,
+          investment_mode: mode,
+          expected_state_version: market.state_version
+        })
       });
       await load();
-      setMessage("첫 가격을 공개하고 투자 시장을 열었습니다. 이제 AI 이야기를 생성해 주세요.");
+      setMessage(done);
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
@@ -146,8 +250,11 @@ export function InvestmentScenarioPanel({
           method: "POST",
           body: JSON.stringify({
             template_type: "INVESTMENT_NEWS",
-            teacher_context: configuredMode === "SHORT_TERM"
-              ? "학생이 문맥 단서로 다음 날의 상승 또는 하락을 추론할 수 있는 짧은 이야기"
+            investment_mode: mode,
+            // 다음 단계의 방향은 서버가 target_direction으로 따로 넘깁니다. 이 자유 입력에
+            // "상승"·"하락" 같은 방향 낱말을 쓰면 AI가 미래 정보 유출로 보고 422로 거절합니다.
+            teacher_context: mode === "SHORT_TERM"
+              ? "학생이 기업의 하루 상황만 보고 다음 날 투자 여부를 스스로 판단할 수 있는 짧은 이야기"
               : "학생이 매일 투자금을 조정할 수 있도록 기업의 하루 상황을 설명하는 이야기"
           })
         });
@@ -176,7 +283,9 @@ export function InvestmentScenarioPanel({
         })
       });
       await load();
-      setMessage(decision === "APPROVE" ? "투자 이야기를 학생에게 공개했습니다." : "초안을 거절했습니다.");
+      setMessage(decision === "APPROVE"
+        ? "투자 이야기를 학생에게 공개했습니다."
+        : "초안을 거절했습니다. 다시 생성해 주세요.");
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
@@ -184,57 +293,137 @@ export function InvestmentScenarioPanel({
     }
   }
 
-  if (!investmentModule) return null;
+  const statusLabel = !moduleActive
+    ? "모듈 미활성"
+    : !modeEnabled
+      ? "사용 안 함"
+      : market?.status === "OPEN"
+        ? "학생 이용 중"
+        : market?.status === "PAUSED"
+          ? "학생 잠금"
+          : market?.status === "DRAFT"
+            ? "검토 대기"
+            : "미생성";
 
   return (
     <section className="plain-section investment-scenario-panel">
       <div className="section-title-line">
-        <div><span className="section-kicker">투자 AI</span><h2>단기·장기 투자 시나리오</h2></div>
+        <div>
+          <span className="section-kicker">투자 AI</span>
+          <h2>{MODE_LABELS[mode]} 시나리오</h2>
+        </div>
         <span className={`ai-status ${market?.status === "OPEN" ? "on" : "off"}`}>
-          <LineChart size={16} /> {market?.status ?? "미생성"}
+          <LineChart size={16} /> {statusLabel}
         </span>
       </div>
       <p className="section-description">
-        {configuredMode === "SHORT_TERM"
+        {mode === "SHORT_TERM"
           ? "단기 투자는 오늘 매수하고 다음 날 의무 정산되는 이야기형 시나리오입니다."
           : "장기 투자는 역사 지수 흐름을 우선 사용하고 매일 새로운 기업 이야기를 제공합니다."}
       </p>
-      {!moduleActive ? <div className="inline-notice"><AlertTriangle size={17} /> 투자 모듈을 먼저 활성화해 주세요.</div> : null}
-      {loading ? <p className="empty-copy">투자 시장을 불러오는 중입니다.</p> : null}
-      {moduleActive && !market ? (
+
+      {!moduleActive ? (
+        <div className="inline-notice">
+          <AlertTriangle size={17} /> 투자 모듈을 먼저 활성화해 주세요. 활성화 전에는 시나리오를 만들 수 없습니다.
+        </div>
+      ) : !modeEnabled ? (
+        <>
+          <div className="inline-notice">
+            <AlertTriangle size={17} /> 이 학급은 {MODE_LABELS[mode]}를 아직 사용하지 않습니다.
+          </div>
+          <button type="button" className="wide-action" disabled={!canManage || busy === "enable"} onClick={() => void enableMode()}>
+            <Check size={16} /> {busy === "enable" ? "켜는 중" : `${MODE_LABELS[mode]} 사용하기`}
+          </button>
+        </>
+      ) : null}
+
+      {/* 활성화하지 않았거나 사용하지 않는 방식은 생성 자체가 막혀 있어야 합니다. */}
+      {moduleActive && modeEnabled && !market ? (
         <button type="button" className="wide-action" disabled={!canManage || busy === "scenario"} onClick={() => void generateScenario()}>
-          <Sparkles size={16} /> {busy === "scenario" ? "시나리오 생성 중" : `${configuredMode === "SHORT_TERM" ? "단기" : "장기"} AI 시나리오 생성`}
+          <Sparkles size={16} /> {busy === "scenario" ? "시나리오 생성 중" : `${MODE_LABELS[mode]} AI 시나리오 생성`}
         </button>
       ) : null}
+      {!moduleActive || !modeEnabled ? (
+        <button type="button" className="wide-action" disabled title="투자 모듈과 이 방식을 먼저 켜 주세요.">
+          <Sparkles size={16} /> {MODE_LABELS[mode]} AI 시나리오 생성
+        </button>
+      ) : null}
+
+      {loading ? <p className="empty-copy">투자 시장을 불러오는 중입니다.</p> : null}
+
       {market?.status === "DRAFT" ? (
         <div className="investment-market-actions">
-          <p><b>{market.assets.length}개 가상 기업</b>의 가격 경로가 준비되었습니다.</p>
-          <button type="button" disabled={!canManage || busy === "start"} onClick={() => void startMarket()}><Play size={16} /> 시장 시작</button>
+          <p>
+            <b>{market.assets.length}개 가상 기업</b>의 가격 경로가 준비되었습니다.
+            아래 흐름을 확인하고 승인하면 학생에게 첫 가격이 공개됩니다.
+          </p>
+          <div className="investment-draft-preview">
+            {plannedPath.map((asset) => (
+              <article key={asset.asset_id}>
+                <header><strong>{asset.name}</strong><small>{asset.symbol}</small></header>
+                <p>{asset.company_profile}</p>
+                <ol>
+                  {asset.planned_price_history.map((point) => (
+                    <li key={point.step}>
+                      {point.step}일차 {point.price.toLocaleString("ko-KR")}
+                      <small>{point.change_rate_bps > 0 ? "+" : ""}{(point.change_rate_bps / 100).toFixed(2)}%</small>
+                    </li>
+                  ))}
+                </ol>
+              </article>
+            ))}
+          </div>
+          <div className="investment-decision-actions">
+            <button type="button" disabled={!canManage || Boolean(busy)} onClick={() => void sendCommand("START", "첫 가격을 공개하고 투자 시장을 열었습니다. 이제 AI 이야기를 생성해 주세요.")}>
+              <Play size={16} /> 승인·시장 시작
+            </button>
+            <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void generateScenario(true)}>
+              <RefreshCw size={16} /> {busy === "scenario" ? "다시 생성 중" : "거절·다시 생성"}
+            </button>
+          </div>
         </div>
       ) : null}
-      {market?.status === "OPEN" ? (
+
+      {market && ["OPEN", "PAUSED"].includes(market.status) ? (
         <>
           <div className="investment-market-summary">
-            <b>{market.investment_mode === "SHORT_TERM" ? "단기 투자" : "장기 투자"}</b>
+            <b>{MODE_LABELS[market.investment_mode]}</b>
             <span>{market.scenario_source === "HISTORICAL_INDEX" ? "FRED 역사 지수 흐름" : "AI 생성 가격 흐름"}</span>
-            <span>현재 {market.current_step}일차</span>
+            {/* 단기는 오늘 투자하고 다음 날 바로 정산하므로 며칠째인지가 의미 없습니다. */}
+            {mode === "LONG_TERM" ? <span>현재 {market.current_step}일차</span> : null}
+            <button
+              type="button"
+              className="ghost-action"
+              disabled={!canManage || Boolean(busy)}
+              onClick={() => void (market.status === "OPEN"
+                ? sendCommand("PAUSE", `${MODE_LABELS[mode]}의 학생 이용을 잠갔습니다.`)
+                : sendCommand("RESUME", `${MODE_LABELS[mode]}의 학생 이용을 다시 열었습니다.`))}
+            >
+              {market.status === "OPEN" ? <><Lock size={15} /> 학생 이용 잠금</> : <><LockOpen size={15} /> 학생 이용 열기</>}
+            </button>
           </div>
+          {market.status === "PAUSED" ? (
+            <div className="inline-notice"><Lock size={17} /> 학생 화면에서 이 투자에 들어갈 수 없습니다.</div>
+          ) : null}
           {missingNewsCount > 0 ? (
-            <button type="button" className="wide-action" disabled={!aiEnabled || busy === "news"} onClick={() => void generateNews()}>
+            <button type="button" className="wide-action" disabled={!aiEnabled || !canManage || busy === "news"} onClick={() => void generateNews()}>
               <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}
             </button>
           ) : <div className="inline-notice"><Check size={17} /> 모든 종목의 현재 단계 이야기가 준비되었습니다.</div>}
           <div className="investment-review-grid">
             {market.assets.map((asset) => (
               <article key={asset.asset_id}>
-                <header><div><strong>{asset.name}</strong><small>{asset.symbol}</small></div><b>{asset.current_price?.toLocaleString("ko-KR")} 비</b></header>
+                <header>
+                  <div><strong>{asset.name}</strong><small>{asset.symbol}</small></div>
+                  <b>{asset.current_price?.toLocaleString("ko-KR")} {currencyName}</b>
+                </header>
                 <p>{asset.company_profile}</p>
                 {asset.news.length === 0 ? <small>아직 이야기 초안이 없습니다.</small> : asset.news.map((news) => (
                   <div className="investment-news-review" key={news.event_id}>
                     <span>{news.status}</span><h3>{news.title}</h3><p>{news.content}</p>
                     {news.status === "DRAFT" ? <div>
-                      <button type="button" disabled={Boolean(busy)} onClick={() => void decide(news, "APPROVE")}><Check size={15} /> 승인·공개</button>
-                      <button type="button" className="ghost-action" disabled={Boolean(busy)} onClick={() => void decide(news, "REJECT")}>거절</button>
+                      <button type="button" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "APPROVE")}><Check size={15} /> 승인·공개</button>
+                      <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "REJECT")}>거절</button>
                     </div> : null}
                   </div>
                 ))}
@@ -243,7 +432,7 @@ export function InvestmentScenarioPanel({
           </div>
         </>
       ) : null}
-      {reviewNews.length === 0 && market?.status === "OPEN" ? <p className="empty-copy">시장 시작 후 AI 이야기 초안을 생성해 주세요.</p> : null}
+
       {message ? <div className="inline-notice" role="status">{message}</div> : null}
     </section>
   );

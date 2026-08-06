@@ -24,6 +24,14 @@ public record InvestmentMarketView(
         Long currentPrice,
         Integer priceVersion,
         List<PricePoint> priceHistory,
+        /**
+         * 아직 공개되지 않은 가격 경로다. 교사가 초안 시나리오를 검토하고 승인하거나 다시
+         * 생성할지 정하려면 앞으로의 흐름을 봐야 한다.
+         *
+         * <p>학생에게는 어떤 경우에도 채우지 않는다. 미래 가격이 새면 투자 활동 자체가
+         * 무너진다. 교사에게도 시장이 초안일 때만 채운다.
+         */
+        List<PricePoint> plannedPriceHistory,
         List<News> news
     ) {
     }

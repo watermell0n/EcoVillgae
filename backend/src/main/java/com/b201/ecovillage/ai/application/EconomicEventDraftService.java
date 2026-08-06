@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,6 +34,8 @@ import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.investment.application.InvestmentNewsTargetQuery;
 import com.b201.ecovillage.investment.application.InvestmentNewsTargetView;
+import com.b201.ecovillage.investment.domain.InvestmentMode;
+import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -189,7 +192,7 @@ public class EconomicEventDraftService {
 
         InvestmentNewsTargetView investmentTarget =
             template == EconomicEventContract.TemplateType.INVESTMENT_NEWS
-                ? resolveInvestmentTarget(classroom.getId())
+                ? resolveInvestmentTarget(classroom.getId(), command.investmentMode())
                 : null;
 
         Instant now = clock.instant();
@@ -416,7 +419,10 @@ public class EconomicEventDraftService {
      * <p>계약에 교사가 종목을 지정하는 입력이 없어 서버가 고른다. 교사가 직접 고르게 하려면
      * API-AI-004에 investment_news_targets를 추가해야 한다.
      */
-    private InvestmentNewsTargetView resolveInvestmentTarget(UUID classroomId) {
+    private InvestmentNewsTargetView resolveInvestmentTarget(
+        UUID classroomId,
+        String requestedMode
+    ) {
         List<InvestmentNewsTargetView> targets =
             investmentNewsTargetQuery.findPublishableTargets(classroomId);
         if (targets.isEmpty()) {
@@ -426,13 +432,45 @@ public class EconomicEventDraftService {
                 "The classroom has no revealed investment price step to attach news to."
             );
         }
-        String configuredMode = moduleRepository
-            .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
-            .map(ClassroomModule::getConfig)
-            .map(config -> config.getOrDefault("investment_mode", "LONG_TERM").toString())
-            .orElse("LONG_TERM");
+        // 학급은 단기와 장기를 함께 운영한다. 교사가 방식을 지정하면 그 시장만, 지정하지 않으면
+        // 교사가 쓰겠다고 고른 방식 전체를 대상으로 삼는다.
+        Set<InvestmentMode> configuredModes = InvestmentModeConfig.enabledModes(
+            moduleRepository
+                .findByClassroomIdAndModuleCode(classroomId, "INVESTMENT")
+                .map(ClassroomModule::getConfig)
+                .orElse(Map.of())
+        );
+        // 대상은 열려 있는 시장에서만 나온다. 그래서 설정에 고른 방식이 남아 있지 않은 학급이라도
+        // 열린 시장이 있으면 그 시장의 방식을 그대로 인정한다.
+        Set<InvestmentMode> enabledModes = configuredModes.isEmpty()
+            ? targets.stream()
+                .map(target -> InvestmentModeConfig.parse(target.investmentMode()).orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet())
+            : configuredModes;
+        Set<InvestmentMode> allowedModes;
+        if (requestedMode == null || requestedMode.isBlank()) {
+            allowedModes = enabledModes;
+        } else {
+            InvestmentMode mode = InvestmentModeConfig.parse(requestedMode)
+                .orElseThrow(() -> operation(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_INVESTMENT_MODE",
+                    "investment_mode must be SHORT_TERM or LONG_TERM."
+                ));
+            if (!enabledModes.contains(mode)) {
+                throw operation(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "INVESTMENT_MODE_NOT_ENABLED",
+                    "The classroom does not use the requested investment mode."
+                );
+            }
+            allowedModes = Set.of(mode);
+        }
         List<InvestmentNewsTargetView> modeTargets = targets.stream()
-            .filter(target -> configuredMode.equals(target.investmentMode()))
+            .filter(target -> InvestmentModeConfig.parse(target.investmentMode())
+                .map(allowedModes::contains)
+                .orElse(false))
             .toList();
         if (modeTargets.isEmpty()) {
             throw operation(

@@ -2556,8 +2556,8 @@ paths:
         - "CLS-002"
       tags:
         - "Modules"
-      summary: "command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지)"
-      description: "사람이 검토하는 원문 기준: `API-MOD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지)."
+      summary: "command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지). 투자는 단기, 장기를 따로 잠그므로 이 명령이 아니라 API-FIN-008의 PAUSE|RESUME을 씀"
+      description: "사람이 검토하는 원문 기준: `API-MOD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: command=SUSPEND|RESUME, expected_state_version?, reason? → 모듈은 ACTIVE로 두고 학생 이용만 잠그거나 다시 열기(설정, 데이터 유지). 투자는 단기, 장기를 따로 잠그므로 이 명령이 아니라 API-FIN-008의 PAUSE|RESUME을 씀."
       security:
         - bearerAuth: []
       parameters:
@@ -2657,6 +2657,83 @@ paths:
               required:
                 - "command"
               additionalProperties: false
+  "/classrooms/{classroom_id}/modules/INVESTMENT/investment-mode-commands":
+    post:
+      operationId: "apiMod004"
+      x-api-id: "API-MOD-004"
+      x-implementation-status: "planned"
+      x-schema-closure: "planned"
+      x-storage-targets:
+        - "classroom_modules"
+        - "state_transitions"
+      x-ui-action-ids:
+        - "UIA-MOD-004"
+      x-roles:
+        - "OWN"
+      x-permission-ids:
+        - "PM-MOD-001"
+      x-state-machine-ids:
+        - "SM-MOD-001"
+      x-rtm-ids:
+        - "CLS-002"
+        - "FIN-005"
+        - "FIN-007"
+      tags:
+        - "Modules"
+      summary: "investment_modes=[SHORT_TERM|LONG_TERM …], expected_state_version? → 학급이 쓸 투자 방식을 정함. 학급은 단기와 장기를 함께 운영할 수 있고 활성화는 한 번만 하므로, 활성화 뒤에 방식을 더하거나 뺄 때 씀. 목록에서 빼도 이미 만든 시장과 학생 보유 내역은 지우지 않음(되돌릴 수 없는 정리는 API-MOD-002)"
+      description: "사람이 검토하는 원문 기준: `API-MOD-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_modes=[SHORT_TERM|LONG_TERM …], expected_state_version? → 학급이 쓸 투자 방식을 정함. 학급은 단기와 장기를 함께 운영할 수 있고 활성화는 한 번만 하므로, 활성화 뒤에 방식을 더하거나 뺄 때 씀. 목록에서 빼도 이미 만든 시장과 학생 보유 내역은 지우지 않음(되돌릴 수 없는 정리는 API-MOD-002)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          $ref: "#/components/responses/Success"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "API-MOD-004는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              properties:
+                expected_state_version:
+                  type: "integer"
+                  format: "int64"
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                investment_modes:
+                  type: "string"
+              required:
+                - "investment_modes"
+              additionalProperties: true
   "/classrooms/{classroom_id}/economic-policy":
     put:
       operationId: "apiPol001"
@@ -5971,8 +6048,8 @@ paths:
         - "AI-011"
       tags:
         - "Finance"
-      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존"
-      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 서버가 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존."
+      summary: "investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존"
+      description: "사람이 검토하는 원문 기준: `API-FIN-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: investment_mode=SHORT_TERM|LONG_TERM, prefer_historical_index → 그 방식의 시장에 가상자산 4종과 숨은 가격 단계를 생성한 DRAFT 시나리오. 학급은 단기와 장기를 함께 운영하므로 시장은 방식마다 하나씩 있고, 활성화 때 고른 investment_modes에 없는 방식은 거절. DRAFT일 때 다시 호출하면 교사가 초안을 거절하고 새 판본으로 재생성. 단기는 AI 생성 2단계 흐름, 장기는 FRED S&P 500 역사 흐름을 우선 조회하고 실패하면 고정 AI 생성 흐름으로 폴백하며 출처, 기간을 판본에 보존."
       security:
         - bearerAuth: []
       parameters:
@@ -6128,8 +6205,8 @@ paths:
         - "FIN-012"
       tags:
         - "Finance"
-      summary: "6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위"
-      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 6단계 연결 범위의 command=START, expected_state_version → 시나리오 게시, 첫 가격 공개, 시장 OPEN. 후속 ADVANCE_DAY|RESUME|PAUSE|CLOSE와 정산은 다음 단계 범위."
+      summary: "command=START|PAUSE|RESUME, investment_mode, expected_state_version → START는 시나리오 게시, 첫 가격 공개, 시장 OPEN. PAUSE, RESUME은 그 방식만 학생 이용을 잠그거나 다시 여는 되돌릴 수 있는 전환이며 보유 내역을 정리하지 않음. 후속 ADVANCE_DAY|CLOSE와 정산은 다음 단계 범위"
+      description: "사람이 검토하는 원문 기준: `API-FIN-008` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=START|PAUSE|RESUME, investment_mode, expected_state_version → START는 시나리오 게시, 첫 가격 공개, 시장 OPEN. PAUSE, RESUME은 그 방식만 학생 이용을 잠그거나 다시 여는 되돌릴 수 있는 전환이며 보유 내역을 정리하지 않음. 후속 ADVANCE_DAY|CLOSE와 정산은 다음 단계 범위."
       security:
         - bearerAuth: []
       parameters:
@@ -11383,8 +11460,8 @@ paths:
         - "AI-011"
       tags:
         - "AI"
-      summary: "source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets? → 202 operation_id"
-      description: "사람이 검토하는 원문 기준: `API-AI-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_news_targets? → 202 operation_id."
+      summary: "source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_mode?, investment_news_targets? → 202 operation_id. INVESTMENT_NEWS는 학급이 단기와 장기를 함께 운영하므로 investment_mode로 어느 쪽 이야기인지 지정하고, 비우면 학급이 쓰는 방식 전체가 대상"
+      description: "사람이 검토하는 원문 기준: `API-AI-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: source_type=TEACHER_REQUEST|MONITOR_RECOMMENDATION, source_proposal_id?, template_type=PRICE|SUPPLY|TAX|INTEREST_RATE|INVESTMENT_NEWS|REWARD|PUBLIC_FUND, interest_rate_scope?, teacher_context?, investment_mode?, investment_news_targets? → 202 operation_id. INVESTMENT_NEWS는 학급이 단기와 장기를 함께 운영하므로 investment_mode로 어느 쪽 이야기인지 지정하고, 비우면 학급이 쓰는 방식 전체가 대상."
       security:
         - bearerAuth: []
       parameters:
@@ -13837,8 +13914,8 @@ paths:
         - "AI-011"
       tags:
         - "Queries"
-      summary: "시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 미래 가격, 미공개 뉴스 제외"
-      description: "사람이 검토하는 원문 기준: `API-READ-016` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 미래 가격, 미공개 뉴스 제외."
+      summary: "한 방식의 시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 학급이 단기와 장기를 함께 운영하므로 investment_mode가 필수. 미래 가격, 미공개 뉴스 제외. 교사에게만, 그리고 시장이 DRAFT일 때만 planned_price_history로 앞으로의 가격 경로를 주어 초안을 승인, 재생성할 수 있게 함"
+      description: "사람이 검토하는 원문 기준: `API-READ-016` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 한 방식의 시장 상태, 가격 버전, 과거 선 그래프, 한도, 현재 단계까지 승인된 투자 뉴스. 학급이 단기와 장기를 함께 운영하므로 investment_mode가 필수. 미래 가격, 미공개 뉴스 제외. 교사에게만, 그리고 시장이 DRAFT일 때만 planned_price_history로 앞으로의 가격 경로를 주어 초안을 승인, 재생성할 수 있게 함."
       security:
         - bearerAuth: []
       parameters:
@@ -13915,6 +13992,56 @@ paths:
                   meta:
                     $ref: "#/components/schemas/Meta"
                 additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/investment-markets":
+    get:
+      operationId: "apiRead036"
+      x-api-id: "API-READ-036"
+      x-implementation-status: "planned"
+      x-schema-closure: "planned"
+      x-storage-targets:
+        - "service_projection"
+      x-roles:
+        - "STU"
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-016"
+        - "WEB-015"
+        - "FIN-005"
+        - "FIN-007"
+        - "AI-011"
+      tags:
+        - "Queries"
+      summary: "학급이 운영하는 모든 방식의 시장을 markets 배열로. 학생 화면이 단기, 장기를 함께 보여 주므로 필요. 시나리오가 없는 방식과, 학생에게는 잠긴(PAUSED), 미공개 시장이 빠짐"
+      description: "사람이 검토하는 원문 기준: `API-READ-036` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 학급이 운영하는 모든 방식의 시장을 markets 배열로. 학생 화면이 단기, 장기를 함께 보여 주므로 필요. 시나리오가 없는 방식과, 학생에게는 잠긴(PAUSED), 미공개 시장이 빠짐."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          $ref: "#/components/responses/Success"
         400:
           $ref: "#/components/responses/BadRequest"
         401:

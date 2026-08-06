@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
@@ -34,6 +36,14 @@ public class InvestmentMarket {
 
     @Column(name = "classroom_id", nullable = false, updatable = false)
     private UUID classroomId;
+
+    /**
+     * 이 시장이 운영하는 투자 방식이다. 학급은 단기와 장기를 동시에 운영할 수 있고 시장은
+     * 방식마다 하나씩 있으므로, 한 번 정해진 뒤에는 바뀌지 않는다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "investment_mode", nullable = false, updatable = false, length = 20)
+    private InvestmentMode investmentMode;
 
     @Column(name = "active_scenario_version_id")
     private UUID activeScenarioVersionId;
@@ -66,10 +76,16 @@ public class InvestmentMarket {
     protected InvestmentMarket() {
     }
 
-    public static InvestmentMarket draft(UUID id, UUID classroomId, Instant now) {
+    public static InvestmentMarket draft(
+        UUID id,
+        UUID classroomId,
+        InvestmentMode investmentMode,
+        Instant now
+    ) {
         InvestmentMarket market = new InvestmentMarket();
         market.id = Objects.requireNonNull(id);
         market.classroomId = Objects.requireNonNull(classroomId);
+        market.investmentMode = Objects.requireNonNull(investmentMode);
         market.currentStep = 0;
         market.status = DRAFT;
         market.statusChangedAt = Objects.requireNonNull(now);
@@ -99,6 +115,28 @@ public class InvestmentMarket {
     }
 
     /**
+     * 학생이 이 방식의 투자에 들어가지 못하게 잠근다. 시나리오와 학생 보유 내역은 그대로 남으므로
+     * 다시 열 수 있다. 학급은 단기와 장기를 함께 운영하므로 잠금도 방식마다 따로 걸린다.
+     */
+    public void pauseForStudents(Instant now) {
+        if (!OPEN.equals(status)) {
+            throw new IllegalStateException("Only an open market can be paused");
+        }
+        status = PAUSED;
+        statusChangedAt = Objects.requireNonNull(now);
+        updatedAt = now;
+    }
+
+    public void resumeForStudents(Instant now) {
+        if (!PAUSED.equals(status)) {
+            throw new IllegalStateException("Only a paused market can be resumed");
+        }
+        status = OPEN;
+        statusChangedAt = Objects.requireNonNull(now);
+        updatedAt = now;
+    }
+
+    /**
      * 시나리오가 공개되어 학생이 시세를 볼 수 있는 시장이다.
      *
      * @param currentStep 공개된 마지막 단계 번호다. 아직 공개 전이면 0이다.
@@ -106,6 +144,7 @@ public class InvestmentMarket {
     public static InvestmentMarket open(
         UUID id,
         UUID classroomId,
+        InvestmentMode investmentMode,
         UUID activeScenarioVersionId,
         int currentStep,
         Instant now
@@ -116,6 +155,7 @@ public class InvestmentMarket {
         InvestmentMarket market = new InvestmentMarket();
         market.id = Objects.requireNonNull(id);
         market.classroomId = Objects.requireNonNull(classroomId);
+        market.investmentMode = Objects.requireNonNull(investmentMode);
         market.activeScenarioVersionId = Objects.requireNonNull(activeScenarioVersionId);
         market.currentStep = currentStep;
         market.status = OPEN;
@@ -139,6 +179,10 @@ public class InvestmentMarket {
 
     public UUID getClassroomId() {
         return classroomId;
+    }
+
+    public InvestmentMode getInvestmentMode() {
+        return investmentMode;
     }
 
     public UUID getActiveScenarioVersionId() {

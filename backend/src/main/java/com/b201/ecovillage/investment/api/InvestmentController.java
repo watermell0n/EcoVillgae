@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
@@ -81,20 +82,47 @@ public class InvestmentController {
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
     ) {
-        if (!"START".equals(request.command())) {
-            throw new ClassroomOperationException(
-                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "현재 단계에서는 START 명령만 지원합니다."
-            );
-        }
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
-        InvestmentScenarioResult result = scenarioService.start(
-            subject(principal), classroomId, request.expectedStateVersion()
-        );
+        InvestmentScenarioResult result = switch (request.command()) {
+            case "START" -> scenarioService.start(
+                subject(principal), classroomId, request.investmentMode(), request.expectedStateVersion()
+            );
+            // 학생 이용 잠금과 재개는 방식마다 따로 걸리므로 모듈이 아니라 시장 상태로 다룬다.
+            case "PAUSE" -> scenarioService.changeStudentAccess(
+                subject(principal), classroomId, request.investmentMode(), true,
+                request.expectedStateVersion()
+            );
+            case "RESUME" -> scenarioService.changeStudentAccess(
+                subject(principal), classroomId, request.investmentMode(), false,
+                request.expectedStateVersion()
+            );
+            default -> throw new ClassroomOperationException(
+                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "START, PAUSE, RESUME 명령만 지원합니다."
+            );
+        };
         return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
 
     @GetMapping("/investment-market")
     public ApiResponse<InvestmentMarketView> findMarket(
+        @PathVariable UUID classroomId,
+        @RequestParam(name = "investment_mode") String investmentMode,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return new ApiResponse<>(
+            queryService.find(subject(principal), classroomId, investmentMode),
+            new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        );
+    }
+
+    /**
+     * 학급이 운영하는 단기·장기 시장을 한 번에 돌려준다. 학생 화면은 두 시장을 함께 보여 준다.
+     */
+    @GetMapping("/investment-markets")
+    public ApiResponse<InvestmentMarketListView> findMarkets(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -102,7 +130,7 @@ public class InvestmentController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         return new ApiResponse<>(
-            queryService.find(subject(principal), classroomId),
+            new InvestmentMarketListView(queryService.findAll(subject(principal), classroomId)),
             new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         );
     }
@@ -150,8 +178,12 @@ record InvestmentMarketCommandRequest(
     String uiActionId,
     Instant clientOccurredAt,
     @NotBlank String command,
+    @NotBlank String investmentMode,
     @Min(0) long expectedStateVersion
 ) {
+}
+
+record InvestmentMarketListView(java.util.List<InvestmentMarketView> markets) {
 }
 
 record InvestmentOrderRequest(

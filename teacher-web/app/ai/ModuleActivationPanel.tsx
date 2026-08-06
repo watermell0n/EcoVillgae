@@ -23,15 +23,41 @@ import {
 } from "../api";
 import {
   appliedPolicyValues,
+  investmentModuleInfo,
   modulePolicyArea,
   policyVersionOf,
+  INVESTMENT_MODE_LABELS,
   type AiModuleRow,
-  type AiPolicyVersionRow
+  type AiPolicyVersionRow,
+  type InvestmentMode
 } from "../types";
 import { PlainSection } from "../ui";
 
 // 서버에서 내려온 모듈 상태 표기입니다. page.tsx가 ACTIVE를 "열림"으로 매핑합니다.
 const ACTIVE_STATUS = "열림";
+
+const INVESTMENT_MODE_OPTIONS: ReadonlyArray<{
+  mode: InvestmentMode;
+  label: string;
+  hint: string;
+}> = [
+  {
+    mode: "SHORT_TERM",
+    label: "단기 투자 · 오늘 투자하고 다음 날 의무 정산",
+    hint: "AI가 다음 날 결과에 맞는 가상 기업 단서 이야기를 만듭니다."
+  },
+  {
+    mode: "LONG_TERM",
+    label: "장기 투자 · 매일 조정하고 마지막 날 최종 정산",
+    hint: "역사 지수 흐름을 우선 사용하고, 불가능하면 AI 생성 가격 흐름을 사용합니다."
+  }
+];
+
+/** 이미 저장된 설정에서 고른 방식을 읽습니다. 아직 없으면 장기 투자를 기본으로 제안합니다. */
+function configuredInvestmentModes(module: AiModuleRow): InvestmentMode[] {
+  const stored = investmentModuleInfo([module]).enabledModes;
+  return stored.length > 0 ? [...stored] : ["LONG_TERM"];
+}
 
 const MODULE_LABELS: Record<string, string> = {
   CHARACTER: "캐릭터",
@@ -96,7 +122,7 @@ export function ModuleActivationPanel({
 }>) {
   const [prechecks, setPrechecks] = useState<Record<string, SetupPrecheckResponse>>({});
   const [editedValues, setEditedValues] = useState<Record<string, Record<string, string>>>({});
-  const [investmentModes, setInvestmentModes] = useState<Record<string, "SHORT_TERM" | "LONG_TERM">>({});
+  const [investmentModes, setInvestmentModes] = useState<Record<string, InvestmentMode[]>>({});
   const [busyCode, setBusyCode] = useState("");
   const [message, setMessage] = useState("");
 
@@ -216,11 +242,14 @@ export function ModuleActivationPanel({
 
   async function activateWithoutPolicy(module: AiModuleRow) {
     const code = module.code!;
-    const investmentMode = investmentModes[code]
-      ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
+    const selectedModes = investmentModes[code] ?? configuredInvestmentModes(module);
     const prerequisites = missingPrerequisites(module);
     if (prerequisites.length > 0) {
       setMessage(`선행 모듈(${prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")})을 먼저 활성화해 주세요.`);
+      return;
+    }
+    if (code === "INVESTMENT" && selectedModes.length === 0) {
+      setMessage("사용할 투자 방식을 한 가지 이상 골라 주세요.");
       return;
     }
     setBusyCode(code);
@@ -237,7 +266,7 @@ export function ModuleActivationPanel({
             client_occurred_at: new Date().toISOString(),
             confirm_prerequisites: true,
             initial_policy_values: code === "INVESTMENT"
-              ? { investment_mode: investmentMode }
+              ? { investment_modes: selectedModes }
               : {},
             recommendation_action_ids: []
           })
@@ -324,8 +353,7 @@ export function ModuleActivationPanel({
           const isActive = module.status === ACTIVE_STATUS;
           const busy = busyCode === code;
           const blocked = !canManage || busy || prerequisites.length > 0;
-          const investmentMode = investmentModes[code]
-            ?? (module.config?.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM");
+          const selectedInvestmentModes = investmentModes[code] ?? configuredInvestmentModes(module);
           const appliedValues = appliedPolicyValues(policyVersions, code);
           return (
             <article className="module-activation-card" key={code}>
@@ -352,30 +380,38 @@ export function ModuleActivationPanel({
                 <p className="section-description">아직 확정한 값이 없어요. 기본값으로 운영 중입니다.</p>
               ) : null}
               {prerequisites.length > 0 ? <p className="contract-warning">먼저 활성화: {prerequisites.map((item) => MODULE_LABELS[item] ?? item).join(", ")}</p> : null}
+              {/* 학급은 단기와 장기를 함께 운영할 수 있으므로 하나만 고르는 목록이 아니라 둘 다 켤 수 있게 둡니다. */}
               {code === "INVESTMENT" && !isActive ? (
-                <label className="investment-mode-selector">
-                  투자 운영 방식
-                  <select
-                    value={investmentMode}
-                    disabled={blocked}
-                    onChange={(event) => setInvestmentModes((current) => ({
-                      ...current,
-                      [code]: event.target.value as "SHORT_TERM" | "LONG_TERM"
-                    }))}
-                  >
-                    <option value="SHORT_TERM">단기 투자 · 오늘 투자하고 다음 날 의무 정산</option>
-                    <option value="LONG_TERM">장기 투자 · 매일 조정하고 마지막 날 최종 정산</option>
-                  </select>
-                  <small>
-                    {investmentMode === "SHORT_TERM"
-                      ? "AI가 다음 날 결과에 맞는 가상 기업 단서 이야기를 만듭니다."
-                      : "역사 지수 흐름을 우선 사용하고, 불가능하면 AI 생성 가격 흐름을 사용합니다."}
-                  </small>
-                </label>
+                <fieldset className="investment-mode-selector">
+                  <legend>사용할 투자 방식 (둘 다 고를 수 있어요)</legend>
+                  {INVESTMENT_MODE_OPTIONS.map((option) => (
+                    <label key={option.mode}>
+                      <input
+                        type="checkbox"
+                        checked={selectedInvestmentModes.includes(option.mode)}
+                        disabled={blocked}
+                        onChange={(event) => setInvestmentModes((current) => {
+                          const next = new Set(current[code] ?? configuredInvestmentModes(module));
+                          if (event.target.checked) next.add(option.mode);
+                          else next.delete(option.mode);
+                          return { ...current, [code]: [...next] };
+                        })}
+                      />
+                      <span>{option.label}</span>
+                      <small>{option.hint}</small>
+                    </label>
+                  ))}
+                  {selectedInvestmentModes.length === 0 ? (
+                    <p className="contract-warning">한 가지 이상 골라야 활성화할 수 있어요.</p>
+                  ) : null}
+                </fieldset>
               ) : null}
               {code === "INVESTMENT" && isActive ? (
                 <p className="inline-notice">
-                  운영 방식: {investmentMode === "SHORT_TERM" ? "단기 투자" : "장기 투자"}
+                  운영 방식: {selectedInvestmentModes.length === 0
+                    ? "아직 고른 방식이 없어요"
+                    : selectedInvestmentModes.map((mode) => INVESTMENT_MODE_LABELS[mode]).join(", ")}
+                  {" · 방식 추가와 잠금은 '운영 관리 > 투자' 탭에서 합니다."}
                 </p>
               ) : null}
               {!isActive && needsPolicy ? (

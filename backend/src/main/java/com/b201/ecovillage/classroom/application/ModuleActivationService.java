@@ -7,8 +7,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -179,7 +181,7 @@ public class ModuleActivationService {
         if (definition.initialPolicyRequired() && currentPolicy == null && initialValues.isEmpty()) {
             initialValues = defaultInitialPolicy(classroom, moduleCode);
         }
-        String investmentMode = investmentMode(moduleCode, initialValues);
+        List<String> investmentModes = investmentModes(moduleCode, initialValues);
         if (
             definition.initialPolicyRequired()
                 && currentPolicy == null
@@ -266,8 +268,10 @@ public class ModuleActivationService {
             moduleConfig.put("policy_version", appliedPolicy.getVersion());
             moduleConfig.put("policy_version_id", appliedPolicy.getId().toString());
         }
-        if (investmentMode != null) {
-            moduleConfig.put("investment_mode", investmentMode);
+        if (investmentModes != null) {
+            moduleConfig.put("investment_modes", investmentModes);
+            // 단일 값만 읽던 이전 화면과 이미 저장된 학급 설정이 계속 동작하도록 함께 남긴다.
+            moduleConfig.put("investment_mode", investmentModes.get(0));
         }
         module.activate(moduleConfig, now);
         classroom.touch(now);
@@ -628,25 +632,44 @@ public class ModuleActivationService {
         );
     }
 
-    private static String investmentMode(
+    /**
+     * 학급은 단기 투자와 장기 투자를 함께 운영할 수 있으므로 방식은 목록으로 받는다.
+     *
+     * <p>{@code investment_modes} 목록을 쓰고, 목록이 없으면 이전 화면이 보내던
+     * {@code investment_mode} 단일 값을 한 개짜리 목록으로 읽는다.
+     */
+    static List<String> investmentModes(
         String moduleCode,
         Map<String, Object> initialValues
     ) {
         if (!"INVESTMENT".equals(moduleCode)) {
             return null;
         }
-        Object raw = initialValues.getOrDefault("investment_mode", "LONG_TERM");
-        String normalized = raw == null
-            ? ""
-            : raw.toString().trim().toUpperCase(Locale.ROOT);
-        if (!Set.of("SHORT_TERM", "LONG_TERM").contains(normalized)) {
+        Collection<?> raws = initialValues.get("investment_modes") instanceof Collection<?> values
+            ? values
+            : Set.of(initialValues.getOrDefault("investment_mode", "LONG_TERM"));
+        LinkedHashSet<String> modes = new LinkedHashSet<>();
+        for (Object raw : raws) {
+            String normalized = raw == null
+                ? ""
+                : raw.toString().trim().toUpperCase(Locale.ROOT);
+            if (!Set.of("SHORT_TERM", "LONG_TERM").contains(normalized)) {
+                throw operation(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_INVESTMENT_MODE",
+                    "investment_modes must contain only SHORT_TERM or LONG_TERM."
+                );
+            }
+            modes.add(normalized);
+        }
+        if (modes.isEmpty()) {
             throw operation(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_INVESTMENT_MODE",
-                "investment_mode must be SHORT_TERM or LONG_TERM."
+                "At least one investment mode must be selected."
             );
         }
-        return normalized;
+        return List.copyOf(modes);
     }
 
     private static boolean isSalaryModule(String moduleCode) {

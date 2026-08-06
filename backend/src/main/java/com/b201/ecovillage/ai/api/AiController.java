@@ -202,7 +202,8 @@ public class AiController {
                 templateType,
                 interestRateScope,
                 request.teacherContext(),
-                null
+                null,
+                request.investmentMode()
             )
         );
         AsyncOperationAcceptedResponse response = new AsyncOperationAcceptedResponse(

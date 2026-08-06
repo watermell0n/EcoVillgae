@@ -8,7 +8,6 @@ import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
 import { MonitoringBalancingPanel } from "./MonitoringBalancingPanel";
 import { ModuleActivationPanel } from "./ModuleActivationPanel";
 import { TeacherChatPanel } from "./TeacherChatPanel";
-import { InvestmentScenarioPanel } from "./InvestmentScenarioPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -201,13 +200,7 @@ export function AiWorkspace({
         onReload={onReload}
       />
 
-      <InvestmentScenarioPanel
-        classroomId={classroomId}
-        modules={modules}
-        aiEnabled={enabled}
-        canManage={canManage}
-      />
-
+      {/* 투자 시나리오 생성·검토는 '운영 관리 > 투자' 탭에서 단기·장기 각각의 자리에 있습니다. */}
       {/* 상품 가격 추천은 '상점 상품' 탭에서 상품을 등록·관리하는 자리에 있습니다. */}
       <DraftRecommendationPanel
         kind="quiz"

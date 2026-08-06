@@ -1,9 +1,17 @@
 import { apiRequest } from "@/api/client";
 
+export type InvestmentMode = "SHORT_TERM" | "LONG_TERM";
+
 export type InvestmentNews = {
   eventId: string;
   title: string;
   content: string;
+};
+
+export type InvestmentPricePoint = {
+  step: number;
+  price: number;
+  changeRateBps: number;
 };
 
 export type InvestmentAsset = {
@@ -13,12 +21,13 @@ export type InvestmentAsset = {
   companyProfile: string;
   currentPrice: number;
   priceVersion: number;
+  priceHistory: InvestmentPricePoint[];
   news: InvestmentNews[];
 };
 
 export type InvestmentMarket = {
   status: "DRAFT" | "OPEN" | "PAUSED" | "CLOSED";
-  investmentMode: "SHORT_TERM" | "LONG_TERM";
+  investmentMode: InvestmentMode;
   scenarioSource: "AI_GENERATED" | "HISTORICAL_INDEX";
   settlementRule: "NEXT_DAY_MANDATORY" | "COURSE_END_FINAL";
   currentStep: number;
@@ -27,7 +36,7 @@ export type InvestmentMarket = {
 
 type MarketResponse = {
   status: InvestmentMarket["status"];
-  investment_mode: InvestmentMarket["investmentMode"];
+  investment_mode: InvestmentMode;
   scenario_source: InvestmentMarket["scenarioSource"];
   settlement_rule: InvestmentMarket["settlementRule"];
   current_step: number;
@@ -38,6 +47,7 @@ type MarketResponse = {
     company_profile: string;
     current_price: number | null;
     price_version: number | null;
+    price_history: Array<{ step: number; price: number; change_rate_bps: number }>;
     news: Array<{
       event_id: string;
       title: string;
@@ -47,16 +57,21 @@ type MarketResponse = {
   }>;
 };
 
-export async function fetchInvestmentMarket(classroomId: string): Promise<InvestmentMarket> {
-  const response = await apiRequest<MarketResponse>(`/classrooms/${classroomId}/investment-market`);
+/**
+ * 서버 응답을 화면이 기대하는 모양으로 맞춥니다.
+ *
+ * 빠진 목록 필드는 빈 배열로 둡니다. 서버가 화면보다 오래된 빌드일 때 없는 필드를 그대로
+ * 읽으면 투자 화면 전체가 죽습니다.
+ */
+function toMarket(response: MarketResponse): InvestmentMarket {
   return {
     status: response.status,
-    investmentMode: response.investment_mode,
+    investmentMode: response.investment_mode === "SHORT_TERM" ? "SHORT_TERM" : "LONG_TERM",
     scenarioSource: response.scenario_source,
     settlementRule: response.settlement_rule,
-    currentStep: response.current_step,
-    assets: response.assets
-      .filter((asset) => asset.current_price !== null && asset.price_version !== null)
+    currentStep: response.current_step ?? 0,
+    assets: (Array.isArray(response.assets) ? response.assets : [])
+      .filter((asset) => asset?.current_price != null && asset?.price_version != null)
       .map((asset) => ({
         assetId: asset.asset_id,
         symbol: asset.symbol,
@@ -64,11 +79,39 @@ export async function fetchInvestmentMarket(classroomId: string): Promise<Invest
         companyProfile: asset.company_profile,
         currentPrice: asset.current_price!,
         priceVersion: asset.price_version!,
-        news: asset.news
+        priceHistory: (Array.isArray(asset.price_history) ? asset.price_history : []).map((point) => ({
+          step: point.step,
+          price: point.price,
+          changeRateBps: point.change_rate_bps
+        })),
+        news: (Array.isArray(asset.news) ? asset.news : [])
           .filter((news) => ["APPROVED", "APPLIED"].includes(news.status))
           .map((news) => ({ eventId: news.event_id, title: news.title, content: news.content }))
       }))
   };
+}
+
+/**
+ * 학급이 열어 둔 투자 시장을 모두 받아옵니다.
+ *
+ * 선생님은 단기와 장기를 함께 운영할 수 있으므로 결과는 0~2개입니다. 잠긴 방식과 아직
+ * 공개하지 않은 시나리오는 서버에서 빠진 채로 옵니다.
+ */
+export async function fetchInvestmentMarkets(classroomId: string): Promise<InvestmentMarket[]> {
+  const response = await apiRequest<{ markets: MarketResponse[] }>(
+    `/classrooms/${classroomId}/investment-markets`
+  );
+  return (response.markets ?? []).map(toMarket);
+}
+
+export async function fetchInvestmentMarket(
+  classroomId: string,
+  investmentMode: InvestmentMode
+): Promise<InvestmentMarket> {
+  const response = await apiRequest<MarketResponse>(
+    `/classrooms/${classroomId}/investment-market?investment_mode=${investmentMode}`
+  );
+  return toMarket(response);
 }
 
 export async function buyInvestment(
