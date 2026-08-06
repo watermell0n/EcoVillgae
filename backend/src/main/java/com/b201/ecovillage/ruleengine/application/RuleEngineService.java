@@ -34,6 +34,27 @@ public class RuleEngineService {
 
     private static final long BASE_SALARY = 1_000L;
     private static final long MIN_SALARY = 100L;
+    // 대출 금리 규칙(evaluateLoan)이 예금 금리를 이 범위로 전제하므로 함께 바꿔야 한다.
+    private static final long DEPOSIT_ALLOWED_MIN_BPS = 100L;
+    private static final long DEPOSIT_ALLOWED_MAX_BPS = 600L;
+    // 적금은 주 1회 납입이라 평균 예치 기간이 짧다. 예금 기준금리보다 이만큼 높게 추천한다.
+    private static final long SAVINGS_DEPOSIT_SPREAD_BPS = 150L;
+    private static final long SAVINGS_ALLOWED_MIN_BPS = 100L;
+    private static final long SAVINGS_ALLOWED_MAX_BPS = 800L;
+    // 이 인원을 넘으면 같은 이율에도 학급 전체 순발행이 커지므로 상한을 한 단계 낮춘다.
+    private static final int LARGE_CLASS_STUDENT_COUNT = 25;
+    // 단기는 하루 만에 결과가 나므로 그 하루에 변동을 느낄 수 있어야 한다.
+    private static final long INVESTMENT_SHORT_VOLATILITY_BPS = 650L;
+    private static final long INVESTMENT_SHORT_VOLATILITY_MIN_BPS = 200L;
+    private static final long INVESTMENT_SHORT_VOLATILITY_MAX_BPS = 1_500L;
+    private static final long INVESTMENT_LONG_VOLATILITY_MIN_BPS = 50L;
+    private static final long INVESTMENT_LONG_VOLATILITY_MAX_BPS = 600L;
+    // 학생이 가진 돈 가운데 투자에 쓴다고 보는 몫이다. 단기는 하루면 돌려받으므로 더 크게 본다.
+    private static final BigDecimal INVESTMENT_SHORT_BUDGET_SHARE = new BigDecimal("0.30");
+    private static final BigDecimal INVESTMENT_LONG_BUDGET_SHARE = new BigDecimal("0.20");
+    // 그 몫으로 한 종목을 몇 주 살 수 있게 할지다. 한 주만 살 수 있으면 나눠 담을 수 없다.
+    private static final long INVESTMENT_TARGET_SHARES = 3L;
+    private static final long INVESTMENT_MIN_MEANINGFUL_BALANCE = 100L;
     private static final BigDecimal REWARD_WARN_SHARE = new BigDecimal("0.25");
     private static final BigDecimal REWARD_MAX_SHARE = new BigDecimal("0.30");
     private static final BigDecimal MIN_RECOVERY_RATIO = new BigDecimal("0.50");
@@ -51,7 +72,7 @@ public class RuleEngineService {
         if (request.contextType() != null) {
             switch (request.contextType()) {
                 case CLASSROOM_SETUP -> evaluateClassroomSetup(request, evaluation);
-                case MODULE_ACTIVATION -> evaluateModuleActivation(request, evaluation);
+                case MODULE_ACTIVATION -> evaluateModuleActivation(request, schedule, evaluation);
                 case PRODUCT_DRAFT -> {
                     reference = calculateReferenceSalary(request, evaluation);
                     evaluateProduct(request, reference.net(), evaluation);
@@ -250,6 +271,7 @@ public class RuleEngineService {
 
     private void evaluateModuleActivation(
         RuleEngineRequest request,
+        PaymentSchedule schedule,
         Evaluation evaluation
     ) {
         RuleEngineRequest.ModuleActivation activation = request.moduleActivation();
@@ -281,8 +303,10 @@ public class RuleEngineService {
         switch (activation.moduleCode()) {
             case "ROLE_SALARY", "SALARY" -> evaluateSalary(request, activation, evaluation);
             case "INCOME_TAX" -> evaluateIncomeTax(request, activation, evaluation);
-            case "DEPOSIT" -> evaluateDeposit(activation, evaluation);
+            case "DEPOSIT" -> evaluateDeposit(schedule, activation, evaluation);
+            case "SAVINGS" -> evaluateSavings(request, schedule, activation, evaluation);
             case "LOAN" -> evaluateLoan(request, activation, evaluation);
+            case "INVESTMENT" -> evaluateInvestment(request, schedule, activation, evaluation);
             default -> {
                 // Modules without an initial numeric policy intentionally return no candidate.
             }
@@ -426,24 +450,125 @@ public class RuleEngineService {
         evaluation.addCandidate(candidate, activation.confirmedValue());
     }
 
+    /**
+     * 예금 이자는 만기 1회 단순이자(SIMPLE_FULL_TERM)이므로 기준금리는 운영 기간에 따라 달라진다.
+     * 짧은 수업은 예금이 한두 번밖에 만기되지 않아 한 번으로도 이자를 체감해야 하고,
+     * 긴 운영은 만기가 반복되며 이자가 순발행으로 누적되므로 낮춰야 한다.
+     *
+     * 허용 구간은 대출 금리 규칙이 예금 금리를 100~600 bps로 전제하므로 넓히지 않는다.
+     * (evaluateLoan이 이 범위를 벗어난 예금 금리를 BLOCK 처리한다.)
+     */
     private void evaluateDeposit(
+        PaymentSchedule schedule,
         RuleEngineRequest.ModuleActivation activation,
         Evaluation evaluation
     ) {
+        Integer operationDays = schedule == null ? null : schedule.operationDays();
+        long proposed = clamp(
+            roundRate50(depositBaseRate(operationDays)),
+            DEPOSIT_ALLOWED_MIN_BPS,
+            DEPOSIT_ALLOWED_MAX_BPS
+        );
         RuleCandidate candidate = new RuleCandidate(
             "deposit-rate",
             RuleTargetType.DEPOSIT_RATE,
             activation.targetId(),
-            300L,
-            200L,
-            400L,
-            100L,
-            600L,
+            proposed,
+            Math.max(DEPOSIT_ALLOWED_MIN_BPS, proposed - 100L),
+            Math.min(DEPOSIT_ALLOWED_MAX_BPS, proposed + 100L),
+            DEPOSIT_ALLOWED_MIN_BPS,
+            DEPOSIT_ALLOWED_MAX_BPS,
             RuleValueUnit.BPS,
-            List.of("DEPOSIT_TERM_BASED", "DEPOSIT_GRADE_BAND"),
+            List.of("DEPOSIT_TERM_BASED", "DEPOSIT_OPERATION_PERIOD"),
             "예금 기준금리"
         );
         evaluation.addCandidate(candidate, activation.confirmedValue());
+        // 교사가 "왜 이 값인가"를 화면에서 바로 확인할 수 있도록 근거를 남긴다.
+        evaluation.addCheck(
+            "deposit-rate-basis",
+            RuleSeverity.PASS,
+            "DEPOSIT_RATE_BASIS",
+            List.of(candidate.actionId()),
+            operationDays == null
+                ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 "
+                    + percentText(proposed) + "를 추천했습니다."
+                : "운영 기간 " + operationDays + "일을 기준으로 "
+                    + percentText(proposed) + "를 추천했습니다."
+        );
+    }
+
+    /**
+     * 운영 기간을 알 수 없으면(날짜 누락·역전) 한 달 운영 기준을 그대로 쓴다.
+     * 이 경우 validateCommon이 이미 BLOCK을 남겨 두었으므로 여기서 추가로 막지 않는다.
+     */
+    private static long depositBaseRate(Integer operationDays) {
+        if (operationDays == null) {
+            return 300L;
+        }
+        if (operationDays <= 7) {
+            return 500L;
+        }
+        if (operationDays <= 31) {
+            return 300L;
+        }
+        if (operationDays <= 90) {
+            return 200L;
+        }
+        return 150L;
+    }
+
+    /**
+     * 적금은 주 1회씩 나눠 넣고 만기에 한 번 이자를 받는다. 같은 만기라면 예금보다 평균 예치
+     * 기간이 짧아 학생이 체감하는 이자가 작으므로, 예금 기준금리보다 한 단계 높게 추천한다.
+     *
+     * <p>발행 규모도 함께 본다. 학생 수가 많을수록 같은 이율이라도 학급 전체 순발행이 커지므로
+     * 상한을 낮춘다. 예금과 마찬가지로 대출 금리 규칙(예금 대비 최소 200 bps 상향)과 충돌하지
+     * 않도록 허용 구간을 예금 상한 위로 넓히지 않는다.
+     */
+    private void evaluateSavings(
+        RuleEngineRequest request,
+        PaymentSchedule schedule,
+        RuleEngineRequest.ModuleActivation activation,
+        Evaluation evaluation
+    ) {
+        Integer operationDays = schedule == null ? null : schedule.operationDays();
+        long base = depositBaseRate(operationDays) + SAVINGS_DEPOSIT_SPREAD_BPS;
+        long allowedMax = request.activeStudentCount() > LARGE_CLASS_STUDENT_COUNT
+            ? SAVINGS_ALLOWED_MAX_BPS - 100L
+            : SAVINGS_ALLOWED_MAX_BPS;
+        long proposed = clamp(roundRate50(base), SAVINGS_ALLOWED_MIN_BPS, allowedMax);
+        RuleCandidate candidate = new RuleCandidate(
+            "savings-rate",
+            RuleTargetType.SAVINGS_RATE,
+            activation.targetId(),
+            proposed,
+            Math.max(SAVINGS_ALLOWED_MIN_BPS, proposed - 100L),
+            Math.min(allowedMax, proposed + 100L),
+            SAVINGS_ALLOWED_MIN_BPS,
+            allowedMax,
+            RuleValueUnit.BPS,
+            List.of("SAVINGS_INSTALLMENT_BASED", "DEPOSIT_OPERATION_PERIOD"),
+            "적금 기준금리"
+        );
+        evaluation.addCandidate(candidate, activation.confirmedValue());
+        evaluation.addCheck(
+            "savings-rate-basis",
+            RuleSeverity.PASS,
+            "SAVINGS_RATE_BASIS",
+            List.of(candidate.actionId()),
+            (operationDays == null
+                ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 "
+                : "운영 기간 " + operationDays + "일과 학생 " + request.activeStudentCount()
+                    + "명을 기준으로 ")
+                + percentText(proposed) + "를 추천했습니다. 주 1회 납입이라 예금보다 "
+                + percentText(SAVINGS_DEPOSIT_SPREAD_BPS) + " 높게 잡았습니다."
+        );
+    }
+
+    private static String percentText(long bps) {
+        return BigDecimal.valueOf(bps)
+            .divide(BigDecimal.valueOf(100L), 2, RoundingMode.HALF_UP)
+            .toPlainString() + "%";
     }
 
     private void evaluateLoan(
@@ -469,7 +594,7 @@ public class RuleEngineService {
             );
             return;
         }
-        if (deposit < 100 || deposit > 600) {
+        if (deposit < DEPOSIT_ALLOWED_MIN_BPS || deposit > DEPOSIT_ALLOWED_MAX_BPS) {
             evaluation.rangeBlock(
                 "loan-deposit-rate-invalid",
                 "현재 예금 기준금리가 허용 범위를 벗어났습니다.",
@@ -504,6 +629,213 @@ public class RuleEngineService {
                 "대출 금리는 예금 금리보다 최소 200 bps 높아야 합니다."
             );
         }
+    }
+
+    /**
+     * 투자 운영 조건(종목별 하루 변동 범위, 종목별 1주 시작가)을 추천한다.
+     *
+     * <p>변동 범위는 학생이 하루 사이 가격이 움직였다고 느낄 만큼은 커야 하고, 며칠에 걸쳐
+     * 누적됐을 때 가격이 터지지 않을 만큼은 작아야 한다. 그래서 단기는 크게, 장기는 운영
+     * 기간이 길수록 작게 잡는다. 학생이 많으면 같은 범위라도 학급 전체가 주고받는 돈이
+     * 커지므로 적금과 같은 방식으로 상한을 한 단계 낮춘다. 종목 사이의 위험 차이는 종목
+     * 목록이 가진 위험 비중으로만 낸다.
+     *
+     * <p>범위는 "±몇 %"인 한 개의 폭으로 추천한다. AI 계약이 후보값을 음수로 받지 않기도 하고,
+     * 오르기만 하거나 내리기만 하는 종목이 없어야 학생이 위험을 제대로 배운다.
+     *
+     * <p>1주 시작가는 학생이 실제로 살 수 있어야 의미가 있다. 대표 잔액(중앙값 우선)의 일부를
+     * 투자에 쓴다고 보고, 그 돈으로 한 종목을 {@value #INVESTMENT_TARGET_SHARES}주쯤 살 수
+     * 있는 값을 기준가로 삼는다. 종목 사이의 가격 차이는 종목 목록이 가진 가격 비중으로만 낸다.
+     */
+    private void evaluateInvestment(
+        RuleEngineRequest request,
+        PaymentSchedule schedule,
+        RuleEngineRequest.ModuleActivation activation,
+        Evaluation evaluation
+    ) {
+        RuleEngineRequest.InvestmentDraft draft = request.investmentDraft();
+        // 투자 모듈은 활성화만으로는 정할 숫자가 없다. 조건 초안을 함께 보낸 요청에서만
+        // 후보를 만든다. 그러지 않으면 모듈 활성화가 "필수값 없음"으로 막힌다.
+        if (draft == null) {
+            return;
+        }
+        if (!Set.of("SHORT_TERM", "LONG_TERM").contains(draft.investmentMode())) {
+            evaluation.missing(
+                "investment-mode-required",
+                "투자 방식은 단기 또는 장기여야 합니다.",
+                List.of()
+            );
+            return;
+        }
+        if (draft.assets().isEmpty()) {
+            evaluation.missing(
+                "investment-assets-required",
+                "1주 시작가를 정할 종목이 없습니다.",
+                List.of()
+            );
+            return;
+        }
+        boolean shortTerm = "SHORT_TERM".equals(draft.investmentMode());
+        Integer operationDays = schedule == null ? null : schedule.operationDays();
+        evaluateInvestmentBands(request, draft, shortTerm, operationDays, activation, evaluation);
+        evaluateInvestmentPrices(request, draft, shortTerm, activation, evaluation);
+    }
+
+    private void evaluateInvestmentBands(
+        RuleEngineRequest request,
+        RuleEngineRequest.InvestmentDraft draft,
+        boolean shortTerm,
+        Integer operationDays,
+        RuleEngineRequest.ModuleActivation activation,
+        Evaluation evaluation
+    ) {
+        long allowedMin = shortTerm
+            ? INVESTMENT_SHORT_VOLATILITY_MIN_BPS
+            : INVESTMENT_LONG_VOLATILITY_MIN_BPS;
+        long allowedMax = (shortTerm
+            ? INVESTMENT_SHORT_VOLATILITY_MAX_BPS
+            : INVESTMENT_LONG_VOLATILITY_MAX_BPS)
+            - (request.activeStudentCount() > LARGE_CLASS_STUDENT_COUNT ? 100L : 0L);
+        long base = shortTerm
+            ? INVESTMENT_SHORT_VOLATILITY_BPS
+            : longTermVolatilityBps(operationDays);
+        List<String> bandActionIds = new ArrayList<>();
+        for (RuleEngineRequest.InvestmentAsset asset : draft.assets()) {
+            BigDecimal risk = asset.riskWeight() == null ? BigDecimal.ONE : asset.riskWeight();
+            long proposed = clamp(
+                roundRate50(BigDecimal.valueOf(base).multiply(risk).longValue()),
+                allowedMin,
+                allowedMax
+            );
+            RuleCandidate candidate = new RuleCandidate(
+                "investment-asset-band-" + normalizeActionPart(asset.symbol()),
+                RuleTargetType.INVESTMENT_CONDITION,
+                activation.targetId(),
+                proposed,
+                Math.max(allowedMin, proposed - 100L),
+                Math.min(allowedMax, proposed + 100L),
+                allowedMin,
+                allowedMax,
+                RuleValueUnit.BPS,
+                List.of("INVESTMENT_MODE_HORIZON", "INVESTMENT_ASSET_RISK", "INVESTMENT_CLASS_SIZE"),
+                (asset.name() == null ? asset.symbol() : asset.name()) + " 하루 변동 범위(±)"
+            );
+            evaluation.addCandidate(candidate, asset.confirmedBandBps());
+            bandActionIds.add(candidate.actionId());
+        }
+        evaluation.addCheck(
+            "investment-band-basis",
+            RuleSeverity.PASS,
+            "INVESTMENT_VOLATILITY_BASIS",
+            bandActionIds,
+            (shortTerm
+                ? "단기는 하루 만에 결과가 나므로 변동을 느낄 수 있게 기준 "
+                : (operationDays == null
+                    ? "운영 기간을 확인할 수 없어 기본 기간 기준으로 기준 "
+                    : "장기는 " + operationDays + "일 동안 변동이 쌓이므로 기준 "))
+                + percentText(clamp(roundRate50(base), allowedMin, allowedMax))
+                + "를 잡고, 종목의 위험 정도만큼 넓히거나 좁혔습니다. "
+                + "가격은 이 범위 안에서 매일 새로 정해지므로 오를 수도 내릴 수도 있습니다."
+        );
+    }
+
+    private void evaluateInvestmentPrices(
+        RuleEngineRequest request,
+        RuleEngineRequest.InvestmentDraft draft,
+        boolean shortTerm,
+        RuleEngineRequest.ModuleActivation activation,
+        Evaluation evaluation
+    ) {
+        long representative = representativeStudentBalance(request, draft);
+        BigDecimal investableShare = shortTerm
+            ? INVESTMENT_SHORT_BUDGET_SHARE
+            : INVESTMENT_LONG_BUDGET_SHARE;
+        long basePrice = Math.max(
+            1L,
+            roundAmount(
+                BigDecimal.valueOf(representative)
+                    .multiply(investableShare)
+                    .divide(BigDecimal.valueOf(INVESTMENT_TARGET_SHARES), 12, RoundingMode.HALF_UP)
+            )
+        );
+        // 1주가 대표 잔액보다 비싸면 아무도 살 수 없다. 그 위로는 허용하지 않는다.
+        long allowedMax = Math.max(1L, Math.min(request.systemAmountCap(), representative));
+        List<String> priceActionIds = new ArrayList<>();
+        for (RuleEngineRequest.InvestmentAsset asset : draft.assets()) {
+            BigDecimal weight = asset.priceWeight() == null ? BigDecimal.ONE : asset.priceWeight();
+            long proposed = clamp(
+                roundToTen(BigDecimal.valueOf(basePrice).multiply(weight)),
+                1L,
+                allowedMax
+            );
+            RuleCandidate candidate = new RuleCandidate(
+                "investment-asset-price-" + normalizeActionPart(asset.symbol()),
+                RuleTargetType.INVESTMENT_CONDITION,
+                activation.targetId(),
+                proposed,
+                clamp(roundToTen(BigDecimal.valueOf(proposed).multiply(new BigDecimal("0.8"))), 1L, proposed),
+                clamp(roundToTen(BigDecimal.valueOf(proposed).multiply(new BigDecimal("1.2"))), proposed, allowedMax),
+                1L,
+                allowedMax,
+                RuleValueUnit.AMOUNT,
+                List.of("INVESTMENT_STUDENT_BALANCE", "INVESTMENT_ASSET_WEIGHT"),
+                (asset.name() == null ? asset.symbol() : asset.name()) + " 1주 시작가"
+            );
+            evaluation.addCandidate(candidate, asset.confirmedPrice());
+            priceActionIds.add(candidate.actionId());
+        }
+        evaluation.addCheck(
+            "investment-price-basis",
+            RuleSeverity.PASS,
+            "INVESTMENT_PRICE_BASIS",
+            priceActionIds,
+            "학생 대표 잔액 " + representative + "을 기준으로, 그 가운데 "
+                + investableShare.multiply(BigDecimal.valueOf(100L)).stripTrailingZeros().toPlainString()
+                + "%로 한 종목을 " + INVESTMENT_TARGET_SHARES + "주쯤 살 수 있게 잡았습니다."
+        );
+        if (representative <= INVESTMENT_MIN_MEANINGFUL_BALANCE) {
+            evaluation.addCheck(
+                "investment-balance-too-small",
+                RuleSeverity.WARN,
+                "INVESTMENT_BALANCE_TOO_SMALL",
+                priceActionIds,
+                "학생이 가진 돈이 적어 1주를 사기도 어렵습니다. 급여나 보상을 먼저 지급한 뒤 투자를 여는 편이 좋습니다."
+            );
+        }
+    }
+
+    /**
+     * 1주 시작가의 기준이 되는 학생 한 명의 돈이다. 잔액이 한쪽으로 몰린 학급에서도 흔들리지
+     * 않도록 중앙값을 먼저 쓰고, 없으면 평균, 그것도 없으면 발행액을 학생 수로 나눈다.
+     */
+    private static long representativeStudentBalance(
+        RuleEngineRequest request,
+        RuleEngineRequest.InvestmentDraft draft
+    ) {
+        if (draft.medianStudentBalance() > 0) {
+            return draft.medianStudentBalance();
+        }
+        if (draft.averageStudentBalance() > 0) {
+            return draft.averageStudentBalance();
+        }
+        if (draft.moneyIssuance() > 0 && request.activeStudentCount() > 0) {
+            return Math.max(1L, draft.moneyIssuance() / request.activeStudentCount());
+        }
+        return BASE_SALARY;
+    }
+
+    /** 장기는 하루 변동이 며칠에 걸쳐 곱해지므로 운영 기간이 길수록 하루 폭을 줄인다. */
+    private static long longTermVolatilityBps(Integer operationDays) {
+        if (operationDays == null) {
+            return 200L;
+        }
+        if (operationDays <= 7) {
+            return 400L;
+        }
+        if (operationDays <= 14) {
+            return 300L;
+        }
+        return 200L;
     }
 
     private void evaluateProduct(
@@ -1046,6 +1378,13 @@ public class RuleEngineService {
 
     private static long roundAmount(BigDecimal value) {
         return value.setScale(0, RoundingMode.HALF_UP).longValue();
+    }
+
+    /** 1주 가격은 10 단위로 끊어 학생이 읽기 쉽게 한다. */
+    private static long roundToTen(BigDecimal value) {
+        return value.divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP)
+            .multiply(BigDecimal.TEN)
+            .longValue();
     }
 
     private static long roundRate50(long value) {

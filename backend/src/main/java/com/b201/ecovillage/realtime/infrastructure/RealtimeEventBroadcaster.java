@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 
 import com.b201.ecovillage.realtime.application.RealtimeEventEnvelope;
+import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -32,8 +33,30 @@ public class RealtimeEventBroadcaster {
         return connections.get(sessionId);
     }
 
-    void remove(String sessionId) {
-        connections.remove(sessionId);
+    RealtimeConnection remove(String sessionId) {
+        return connections.remove(sessionId);
+    }
+
+    public void broadcastPresence(StudentPresenceSnapshot presence) {
+        connections.values().stream()
+            .filter(connection -> "TCH".equals(connection.ticket().role()))
+            .filter(connection -> presence.classroomId().equals(connection.ticket().classroomId()))
+            .forEach(connection -> {
+                Map<String, Object> message = new LinkedHashMap<>();
+                message.put("type", "presence.changed");
+                message.put("classroom_id", presence.classroomId());
+                message.put("student_id", presence.studentId());
+                message.put("status", presence.status());
+                message.put("current_screen", presence.currentScreen());
+                message.put("last_seen_at", presence.lastSeenAt());
+                synchronized (connection) {
+                    try {
+                        connection.send(objectMapper, message);
+                    } catch (IOException exception) {
+                        close(connection);
+                    }
+                }
+            });
     }
 
     public void broadcast(RealtimeEventEnvelope event) {

@@ -16,16 +16,17 @@
 
 | 항목 | 수 |
 | --- | ---: |
-| OpenAPI 작업 | 109 |
-| Spring 엔드포인트 | 60 |
-| OpenAPI와 연결된 Spring 엔드포인트 | 60 |
-| 기준선에 기록한 차이 | 0 |
+| OpenAPI 작업 | 134 |
+| Spring 엔드포인트 | 100 |
+| OpenAPI와 연결된 Spring 엔드포인트 | 98 |
+| 기준선에 기록한 차이 | 2 |
 
 ## 현재 차이
 
 | 종류 | API/경로 | 상세 |
 | --- | --- | --- |
-| 없음 | - | - |
+| SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-password-sessions | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherPasswordSessionController.java#create |
+| SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-registrations | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherRegistrationController.java#create |
 
 ## 담당 작업 연결
 
@@ -46,7 +47,7 @@
 
 Spring JSON은 `snake_case`입니다. TypeScript에서 camelCase를 쓰려면 생성기가 이름을 바꾸지 않는 한
 응답 경계의 단일 mapper에서만 변환합니다. 수동 interface를 선언하고 Spring JSON을 그대로
-camelCase 객체로 간주해서는 안 됩니다. 현재 Vite 학생 앱은 이전 참고용이며 이 기준선의 최종 소비자는 Expo 앱입니다.
+camelCase 객체로 간주해서는 안 됩니다. 이 기준선의 소비자는 Expo 학생 앱과 Next.js 교사 웹입니다.
 
 ## 실행
 

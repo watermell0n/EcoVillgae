@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,7 @@ public class TeacherChatService {
 
     static final String RUN_TYPE = "TEACHER_CHAT";
     static final int DAILY_LIMIT = 30;
+    private static final Logger log = LoggerFactory.getLogger(TeacherChatService.class);
     private static final Duration CHAT_TIMEOUT = Duration.ofSeconds(20);
 
     private final ClassroomAuthorizationService authorizationService;
@@ -124,8 +127,13 @@ public class TeacherChatService {
         Instant now = clock.instant();
         requireDailyQuota(teacher.getId(), now);
 
-        Instant periodFrom = command.periodFrom();
-        Instant periodTo = command.periodTo();
+        // AI 계약은 from <= to <= data_as_of를 요구하고 data_as_of는 서버 시각(now)입니다.
+        // 화면은 브라우저 시각으로 to를 만들어 보내므로 두 시각이 밀리초 단위로 엇갈리면
+        // to가 now보다 뒤여서 요청이 거절됩니다. 서버 시각으로 잘라 이 경합을 없앱니다.
+        Instant periodTo = command.periodTo().isAfter(now) ? now : command.periodTo();
+        Instant periodFrom = command.periodFrom().isAfter(periodTo)
+            ? periodTo
+            : command.periodFrom();
         Set<BalancingContract.MetricCode> metricCodes = command.metricCodes();
         Duration window = Duration.between(periodFrom, periodTo);
         EconomicMetricSnapshot current = aggregationService.aggregate(
@@ -200,6 +208,14 @@ public class TeacherChatService {
             } catch (AiServiceCallException exception) {
                 fallbackUsed = true;
                 fallbackCode = exception.getCode();
+                // 교사에게는 대체 답변만 보이므로, 원인은 로그로 남겨야 추적할 수 있습니다.
+                // AI_HTTP_400은 요청 계약 위반, AI_HTTP_422는 모델 답변이 응답 계약을 어긴 경우입니다.
+                log.warn(
+                    "Teacher chat fell back to the deterministic answer. ai_run_id={} code={} message={}",
+                    aiRunId,
+                    fallbackCode,
+                    exception.getMessage()
+                );
                 response = fallbackFactory.unavailable(request, fallbackCode);
             }
         }

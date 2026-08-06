@@ -37,6 +37,10 @@
 | SM-IVT-002 | 투자 주문 | RECEIVED·VALIDATING·EXECUTED·REJECTED |
 | SM-LON-001 | 교육용 대출 | APPLIED·APPROVED·ACTIVE·OVERDUE·REPAID |
 | SM-CRD-001 | 기본 신용 | NORMAL·GOOD·CAUTION·RESTRICTED |
+| SM-EST-001 | 교실 자리 | TEACHER_OWNED·AVAILABLE·RENTED·STUDENT_OWNED·LISTED_FOR_RENT·SUBSCRIPTION_OPEN·INACTIVE |
+| SM-EST-002 | 자리 계약 | PENDING·ACTIVE·OVERDUE·COMPLETED·REJECTED·TERMINATED |
+| SM-SUB-001 | 청약 매물·신청 | OPEN·CLOSED·DRAWN / APPLIED·WON·LOST·PURCHASED·CANCELED |
+| SM-SUB-002 | 청약통장 | ACTIVE·CLOSED 및 MANUAL·AUTO 납입 이력 |
 | SM-QST-001 | 퀴즈 문제 | DRAFT·REVIEW_REQUIRED·APPROVED·PUBLISHED·RETIRED |
 | SM-QZS-001 | 퀴즈 실행 | READY·OPEN·SCORING·REVIEWING·RESULT_PUBLISHED·CLOSED |
 | SM-QAD-001 | 출제 오류 판정 | VALID·UNDER_REVIEW·INVALIDATED |
@@ -352,7 +356,7 @@ stateDiagram-v2
 
 - 평가 임계치와 관찰기간은 버전 관리되는 교실 정책이며 코드에 고정하지 않습니다.
 - 한 번의 평가에서는 최대 한 단계만 이동합니다.
-- GOOD 금리는 최대 -1%p, CAUTION은 최대 +1%p 범위에서 신규 대출에만 반영합니다.
+- GOOD 금리는 -1%p, CAUTION은 +2%p를 신규 대출에 반영합니다. 최종 금리는 0~20% 범위로 제한합니다.
 - RESTRICTED는 신규 대출 신청을 차단하며 현재 대출의 상환은 계속 허용합니다.
 - 신용 상태는 본인과 권한 있는 교사만 조회합니다.
 

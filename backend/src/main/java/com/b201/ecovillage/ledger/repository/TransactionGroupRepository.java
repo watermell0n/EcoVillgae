@@ -1,5 +1,6 @@
 package com.b201.ecovillage.ledger.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +21,8 @@ public interface TransactionGroupRepository extends Repository<TransactionGroup,
     TransactionGroup saveAndFlush(TransactionGroup transactionGroup);
 
     Optional<TransactionGroup> findById(UUID id);
+
+    List<TransactionGroup> findAllByIdIn(Collection<UUID> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

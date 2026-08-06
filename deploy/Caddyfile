@@ -1,0 +1,24 @@
+{$DOMAIN} {
+    encode zstd gzip
+
+    @student_api path /api/*
+    handle @student_api {
+        uri strip_prefix /api
+        reverse_proxy backend:8080
+    }
+
+    @teacher_api path /backend-api/*
+    handle @teacher_api {
+        uri strip_prefix /backend-api
+        reverse_proxy backend:8080
+    }
+
+    @realtime path /ws/*
+    handle @realtime {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy teacher-web:3000
+    }
+}

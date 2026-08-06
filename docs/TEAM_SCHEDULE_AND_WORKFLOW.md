@@ -18,7 +18,7 @@ Jira 상태와 작업 수는 수시로 바뀌므로 이 문서에 고정하지 �
 
 - 학생은 학교 지급 Galaxy Tab용 React Native·Expo 앱을 사용합니다.
 - 교사는 별도 모바일 앱 없이 Next.js 웹의 수업 진행 화면과 관리 화면을 사용합니다.
-- 현재 `student-app/`의 Vite UI는 Expo 이전용 프로토타입이며 신규 기능을 추가하지 않습니다.
+- 학생 앱 코드는 `student-app/expo/` 하나이며 신규 기능은 모두 여기서 구현합니다.
 - 역할별 전환 작업과 완료 조건은 [학생 앱·교사 웹 전환 계획](CLIENT_ARCHITECTURE_TRANSITION.md)을 따릅니다.
 
 ## 2. 이번 작업 순서

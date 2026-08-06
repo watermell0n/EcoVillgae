@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.security.Principal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
@@ -83,11 +85,20 @@ class DepositWorkflowApiTest {
         owner = () -> "deposit-owner-" + classroomId;
         student = () -> studentId.toString();
 
-        classroomRepository.save(Classroom.active(
+        Classroom classroom = Classroom.active(
             classroomId,
             randomClassroomCode(),
             CREATED_AT
-        ));
+        );
+        classroom.updateCourseConfiguration(
+            4,
+            CourseSize.SEMESTER,
+            LocalDate.of(2026, 8, 3),
+            LocalDate.of(2027, 2, 2),
+            null,
+            CREATED_AT
+        );
+        classroomRepository.save(classroom);
         studentRepository.save(ClassroomStudent.enroll(
             studentId,
             classroomId,
@@ -112,6 +123,12 @@ class DepositWorkflowApiTest {
             UUID.randomUUID(),
             classroomId,
             "DEPOSIT",
+            CREATED_AT
+        ));
+        moduleRepository.save(ClassroomModule.disabled(
+            UUID.randomUUID(),
+            classroomId,
+            "SAVINGS",
             CREATED_AT
         ));
         wallet = LedgerAccount.studentWallet(
@@ -166,6 +183,9 @@ class DepositWorkflowApiTest {
             .andExpect(jsonPath("$.data.financial_products[0].resource_id")
                 .value(productId.toString()))
             .andExpect(jsonPath("$.data.financial_products[0].version").value(2))
+            // 학생 앱은 이 값으로 가입 가능 여부를 판단합니다. PUBLISHED 외의 값으로 바뀌면
+            // 학생 은행 화면이 조용히 빈 목록이 되므로 계약으로 고정합니다.
+            .andExpect(jsonPath("$.data.financial_products[0].status").value("PUBLISHED"))
             .andExpect(jsonPath("$.data.financial_products[0].product_type")
                 .value("DEPOSIT"))
             .andExpect(jsonPath("$.data.financial_products[0].minimum_amount").value(100))
@@ -232,6 +252,48 @@ class DepositWorkflowApiTest {
         assertEquals(0, liabilityBalance());
     }
 
+    @Test
+    void opensSavingsAccountPaysFirstInstallmentAndReturnsScheduleProgress()
+        throws Exception {
+        activateSavingsModule();
+        UUID productId = createAndPublishSavingsProduct();
+
+        mockMvc.perform(get("/classrooms/{classroomId}/financial-products", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.financial_products[0].product_type").value("SAVINGS"))
+            .andExpect(jsonPath("$.data.financial_products[0].installment_count").value(5))
+            .andExpect(jsonPath("$.data.financial_products[0].installment_amount").value(20));
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("product_id", productId.toString());
+        body.put("installment_amount", 20);
+        body.put("expected_product_version", 2);
+        mockMvc.perform(post("/classrooms/{classroomId}/savings-accounts", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertEquals(4_980, walletBalance());
+        assertEquals(20, savingsLiabilityBalance());
+        assertEquals(1, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM savings_accounts WHERE classroom_id = ?", Integer.class, classroomId
+        ));
+        assertEquals(5, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM savings_installments WHERE classroom_id = ?", Integer.class, classroomId
+        ));
+        mockMvc.perform(get("/classrooms/{classroomId}/students/me/deposit-and-savings", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.savings_accounts[0].paid_installment_count").value(1))
+            .andExpect(jsonPath("$.data.savings_accounts[0].installment_count").value(5))
+            .andExpect(jsonPath("$.data.savings_accounts[0].principal_balance").value(20));
+    }
+
     private UUID createAndPublishProduct() throws Exception {
         JsonNode created = productCommand(
             UUID.randomUUID(),
@@ -249,6 +311,42 @@ class DepositWorkflowApiTest {
             1
         );
         assertEquals("PUBLISHED", published.path("data").path("status").asText());
+        return productId;
+    }
+
+    private UUID createAndPublishSavingsProduct() throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "CREATE");
+        body.put("product_type", "SAVINGS");
+        body.put("name", "Daily savings");
+        body.put("term_units", 35);
+        body.put("interest_rate_bps", 500);
+        body.put("early_termination_rate_bps", 100);
+        body.put("installment_count", 5);
+        body.put("installment_amount", 20);
+        body.put("minimum_amount", 20);
+        body.put("maximum_amount", 20);
+        MvcResult createResult = mockMvc.perform(post(
+                "/classrooms/{classroomId}/financial-product-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andReturn();
+        UUID productId = UUID.fromString(objectMapper.readTree(createResult.getResponse().getContentAsByteArray())
+            .path("data").path("financial_resource_id").asText());
+        body.put("command", "PUBLISH");
+        body.put("product_id", productId.toString());
+        body.put("expected_product_version", 1);
+        mockMvc.perform(post("/classrooms/{classroomId}/financial-product-commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("PUBLISHED"));
         return productId;
     }
 
@@ -337,6 +435,14 @@ class DepositWorkflowApiTest {
         moduleRepository.save(module);
     }
 
+    private void activateSavingsModule() {
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "SAVINGS")
+            .orElseThrow();
+        module.activate(Map.of(), CREATED_AT.plusSeconds(1));
+        moduleRepository.save(module);
+    }
+
     private long walletBalance() {
         return ledgerAccountRepository
             .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
@@ -355,6 +461,18 @@ class DepositWorkflowApiTest {
                 classroomId,
                 "DEPOSIT_LIABILITY",
                 LedgerAccountType.DEPOSIT_LIABILITY,
+                LedgerAccountStatus.ACTIVE
+            )
+            .orElseThrow()
+            .getCurrentBalance();
+    }
+
+    private long savingsLiabilityBalance() {
+        return ledgerAccountRepository
+            .findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(
+                classroomId,
+                "SAVINGS_LIABILITY",
+                LedgerAccountType.SAVINGS_LIABILITY,
                 LedgerAccountStatus.ACTIVE
             )
             .orElseThrow()

@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +38,7 @@ import com.b201.ecovillage.ai.application.QuizDraftResult;
 import com.b201.ecovillage.ai.application.QuizDraftService;
 import com.b201.ecovillage.ai.application.OperationalAnalysisCommand;
 import com.b201.ecovillage.ai.application.OperationalAnalysisResult;
+import com.b201.ecovillage.ai.application.EconomicEventRewriteService;
 import com.b201.ecovillage.ai.application.OperationalAnalysisService;
 import com.b201.ecovillage.ai.application.SetupPrecheckOperationCommand;
 import com.b201.ecovillage.ai.application.SetupPrecheckOperationResult;
@@ -62,6 +64,7 @@ public class AiController {
     private final AiProposalCommandService proposalCommandService;
     private final EconomicEventDraftService economicEventDraftService;
     private final EconomicEventDecisionService economicEventDecisionService;
+    private final EconomicEventRewriteService economicEventRewriteService;
     private final QuizDraftService quizDraftService;
     private final TeacherChatService teacherChatService;
     private final UuidV7Generator uuidGenerator;
@@ -74,6 +77,7 @@ public class AiController {
         AiProposalCommandService proposalCommandService,
         EconomicEventDraftService economicEventDraftService,
         EconomicEventDecisionService economicEventDecisionService,
+        EconomicEventRewriteService economicEventRewriteService,
         QuizDraftService quizDraftService,
         TeacherChatService teacherChatService,
         UuidV7Generator uuidGenerator,
@@ -85,6 +89,7 @@ public class AiController {
         this.proposalCommandService = proposalCommandService;
         this.economicEventDraftService = economicEventDraftService;
         this.economicEventDecisionService = economicEventDecisionService;
+        this.economicEventRewriteService = economicEventRewriteService;
         this.quizDraftService = quizDraftService;
         this.teacherChatService = teacherChatService;
         this.uuidGenerator = uuidGenerator;
@@ -202,7 +207,8 @@ public class AiController {
                 templateType,
                 interestRateScope,
                 request.teacherContext(),
-                null
+                null,
+                request.investmentMode()
             )
         );
         AsyncOperationAcceptedResponse response = new AsyncOperationAcceptedResponse(
@@ -213,6 +219,33 @@ public class AiController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(
             new ApiResponse<>(response, meta(requestId, resolvedCorrelationId))
         );
+    }
+
+    /**
+     * 교사가 AI 이야기의 어려운 낱말과 문장을 학생 눈높이로 고쳐 쓴다. 승인 전 초안만 고칠 수
+     * 있으며, 정책 효과와 가격 단계 연결은 그대로 둔다.
+     */
+    @PutMapping("/economic-events/{eventId}/text")
+    public ApiResponse<EconomicEventRewriteService.EconomicEventTextResult> rewriteEconomicEventText(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID eventId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody EconomicEventTextRequest request,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        EconomicEventRewriteService.EconomicEventTextResult result = economicEventRewriteService.rewrite(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            eventId,
+            request.title(),
+            request.content(),
+            request.expectedEventVersion()
+        );
+        return new ApiResponse<>(result, meta(requestId, resolvedCorrelationId));
     }
 
     @PostMapping("/economic-events/{eventId}/decisions")

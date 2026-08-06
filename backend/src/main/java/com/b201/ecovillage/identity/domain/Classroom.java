@@ -45,6 +45,15 @@ public class Classroom {
     @Column(name = "planned_student_count", nullable = false)
     private int plannedStudentCount;
 
+    @Column(name = "display_name", nullable = false, length = 120)
+    private String displayName;
+
+    @Column(name = "class_number")
+    private Integer classNumber;
+
+    @Column(length = 500)
+    private String description;
+
     @Column(name = "actual_starts_on")
     private LocalDate actualStartsOn;
 
@@ -98,6 +107,7 @@ public class Classroom {
         this.grade = (short) grade;
         this.scaleLabel = Objects.requireNonNull(courseSize, "courseSize must not be null").name();
         this.plannedStudentCount = plannedStudentCount;
+        this.displayName = grade + "학년 경제교실";
         this.actualStartsOn = actualStartsOn;
         this.actualEndsOn = actualEndsOn;
         this.timeZone = Objects.requireNonNull(timeZone, "timeZone must not be null");
@@ -192,6 +202,34 @@ public class Classroom {
         touch(changedAt);
     }
 
+    public void updateDisplaySettings(
+        String displayName,
+        Integer classNumber,
+        String description,
+        Instant changedAt
+    ) {
+        if (displayName != null) {
+            String normalizedName = displayName.trim();
+            if (normalizedName.isEmpty() || normalizedName.length() > 120) {
+                throw new IllegalArgumentException("displayName must contain 1 to 120 characters");
+            }
+            this.displayName = normalizedName;
+        }
+        if (classNumber != null) {
+            if (classNumber < 1 || classNumber > 99) {
+                throw new IllegalArgumentException("classNumber must be between 1 and 99");
+            }
+            this.classNumber = classNumber;
+        }
+        if (description != null) {
+            if (description.length() > 500) {
+                throw new IllegalArgumentException("description must not exceed 500 characters");
+            }
+            this.description = description.isBlank() ? null : description.trim();
+        }
+        touch(changedAt);
+    }
+
     public void setAppModeOverride(String appModeOverride, Instant changedAt) {
         if (
             appModeOverride != null
@@ -244,6 +282,18 @@ public class Classroom {
 
     public int getPlannedStudentCount() {
         return plannedStudentCount;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public Integer getClassNumber() {
+        return classNumber;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public LocalDate getActualStartsOn() {

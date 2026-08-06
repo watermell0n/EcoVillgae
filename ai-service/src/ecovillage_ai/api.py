@@ -16,6 +16,8 @@ from ecovillage_ai.models import (
     EconomicEventGenerationResponse,
     ErrorCode,
     ErrorResponse,
+    InvestmentCompanyGenerationRequest,
+    InvestmentCompanyGenerationResponse,
     QuizDraftGenerationRequest,
     QuizDraftGenerationResponse,
     TeacherChatGenerationRequest,
@@ -158,3 +160,23 @@ async def generate_quiz_draft(
 ) -> QuizDraftGenerationResponse:
     validate_context(body.ai_run_id, body.correlation_id, ai_run_id, correlation_id)
     return await request.app.state.generation_service.generate(GenerationKind.QUIZ_DRAFT, body)
+
+
+@router.post(
+    "/investment-company",
+    response_model=InvestmentCompanyGenerationResponse,
+    responses=ERROR_RESPONSES,
+    operation_id="generateInvestmentCompanies",
+    dependencies=[Depends(require_scope("ai:generate:investment-company"))],
+    openapi_extra={"x-required-scope": "ai:generate:investment-company"},
+)
+async def generate_investment_companies(
+    body: InvestmentCompanyGenerationRequest,
+    request: Request,
+    correlation_id: CorrelationHeader,
+    ai_run_id: AiRunHeader,
+) -> InvestmentCompanyGenerationResponse:
+    validate_context(body.ai_run_id, body.correlation_id, ai_run_id, correlation_id)
+    return await request.app.state.generation_service.generate(
+        GenerationKind.INVESTMENT_COMPANY, body
+    )

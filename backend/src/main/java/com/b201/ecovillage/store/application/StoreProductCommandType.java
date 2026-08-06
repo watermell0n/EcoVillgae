@@ -4,5 +4,6 @@ public enum StoreProductCommandType {
     CREATE,
     UPDATE,
     PUBLISH,
-    UNPUBLISH
+    UNPUBLISH,
+    DELETE
 }

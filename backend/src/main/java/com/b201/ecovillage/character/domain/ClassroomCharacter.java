@@ -27,6 +27,10 @@ public class ClassroomCharacter {
     @Column(name = "display_name", nullable = false, length = 120)
     private String displayName;
 
+    /** 상점 기본 노출 순서. 값은 마이그레이션의 default_character_sort_order가 정한다. */
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(nullable = false, length = 40)
     private String status;
 
@@ -62,6 +66,10 @@ public class ClassroomCharacter {
 
     public String getDisplayName() {
         return displayName;
+    }
+
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public String getStatus() {

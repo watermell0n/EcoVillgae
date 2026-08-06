@@ -11,9 +11,13 @@ public class AiServiceProperties {
     private String baseUrl = "http://127.0.0.1:8000";
     private String token = "local-development-token";
     private Duration connectTimeout = Duration.ofSeconds(2);
-    private Duration readTimeout = Duration.ofSeconds(10);
-    private Duration totalTimeout = Duration.ofSeconds(15);
-    private int maxAttempts = 2;
+    // 투자 이야기 한 건이 5초 안팎 걸린다. 읽기 제한이 이보다 빠듯하면 서비스가 아직
+    // 만들고 있는데 호출한 쪽이 먼저 포기해 버린다.
+    private Duration readTimeout = Duration.ofSeconds(20);
+    // 재시도까지 감안한 전체 예산이다. 이 값이 곧 AI 서비스에 알려 주는 deadline이므로
+    // 읽기 제한보다 넉넉해야 한다.
+    private Duration totalTimeout = Duration.ofSeconds(75);
+    private int maxAttempts = 3;
 
     public boolean isEnabled() {
         return enabled;
@@ -68,6 +72,6 @@ public class AiServiceProperties {
     }
 
     public void setMaxAttempts(int maxAttempts) {
-        this.maxAttempts = Math.max(1, Math.min(2, maxAttempts));
+        this.maxAttempts = Math.max(1, Math.min(4, maxAttempts));
     }
 }

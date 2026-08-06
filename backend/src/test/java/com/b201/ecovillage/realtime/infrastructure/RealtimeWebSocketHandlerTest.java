@@ -29,6 +29,7 @@ import com.b201.ecovillage.realtime.application.RealtimeResourceAuthorizationSer
 import com.b201.ecovillage.realtime.application.RealtimeSubscriptionQueryService;
 import com.b201.ecovillage.realtime.application.RealtimeSubscriptionSnapshot;
 import com.b201.ecovillage.realtime.application.RealtimeTicket;
+import com.b201.ecovillage.realtime.application.StudentPresenceService;
 import com.b201.ecovillage.realtime.config.RealtimeProperties;
 
 import tools.jackson.databind.ObjectMapper;
@@ -121,6 +122,7 @@ class RealtimeWebSocketHandlerTest {
             broadcaster,
             queryService,
             resourceAuthorization,
+            new StudentPresenceService(),
             new RealtimeProperties(
                 false,
                 Duration.ofSeconds(60),

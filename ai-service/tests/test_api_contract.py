@@ -15,6 +15,7 @@ from tests.factories import (
     balancing_request,
     economic_event_request,
     headers,
+    investment_company_request,
     investment_news_request,
     quiz_draft_request,
     setup_precheck_request,
@@ -46,6 +47,11 @@ CASES = [
         "/internal/v1/generations/quiz-draft",
         quiz_draft_request,
         {"review_status", "questions"},
+    ),
+    (
+        "/internal/v1/generations/investment-company",
+        investment_company_request,
+        {"review_status", "investment_mode", "companies"},
     ),
 ]
 
@@ -83,12 +89,14 @@ def test_health_check(client: TestClient) -> None:
             "teacher-chat-v1",
             "economic-event-v1",
             "quiz-draft-v1",
+            "investment-company-v1",
         ],
         "provider_routes": {
             "balancing": {"provider": "FAKE", "model_id": "deterministic-v1"},
             "teacher-chat": {"provider": "FAKE", "model_id": "deterministic-v1"},
             "economic-event": {"provider": "FAKE", "model_id": "deterministic-v1"},
             "quiz-draft": {"provider": "FAKE", "model_id": "deterministic-v1"},
+            "investment-company": {"provider": "FAKE", "model_id": "deterministic-v1"},
         },
     }
 

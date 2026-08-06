@@ -127,10 +127,12 @@ public class QuizQuestionCommandService {
         ) {
             throw validation("Check the quiz question status command values.");
         }
+        // 문항 상태 전이는 학급이 아니라 해당 문항을 잠근다.
+        // expected_state_version은 문항의 state_version이므로 학급 버전과 비교하지 않는다.
         UserAccount teacher = authorize(
             command.teacherSubject(),
             command.classroomId(),
-            command.expectedStateVersion()
+            null
         );
         String requestHash = sha256(
             command.classroomId() + "|" + command.questionId() + "|"
@@ -152,6 +154,7 @@ public class QuizQuestionCommandService {
             command.classroomId(),
             command.questionId()
         );
+        requireQuestionStateVersion(command.expectedStateVersion(), question);
         QuizQuestionVersion latest = latest(command.classroomId(), question.getId());
         Instant now = clock.instant();
         try {
@@ -316,6 +319,22 @@ public class QuizQuestionCommandService {
             );
         }
         return teacher;
+    }
+
+    private static void requireQuestionStateVersion(
+        Long expectedStateVersion,
+        QuizQuestion question
+    ) {
+        if (
+            expectedStateVersion != null
+                && expectedStateVersion != question.getStateVersion()
+        ) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "STATE_VERSION_CONFLICT",
+                "The quiz question state has changed."
+            );
+        }
     }
 
     private QuizQuestion requireQuestion(UUID classroomId, UUID questionId) {

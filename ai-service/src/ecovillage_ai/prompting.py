@@ -12,6 +12,7 @@ from ecovillage_ai.models import (
     BalancingGenerationRequest,
     EconomicEventGenerationRequest,
     GenerationRequest,
+    InvestmentCompanyGenerationRequest,
     InvestmentMode,
     QuizDraftGenerationRequest,
     TeacherChatGenerationRequest,
@@ -23,12 +24,30 @@ GRADE_INSTRUCTIONS = {
     5: "초등학교 5학년 수준의 경제 개념을 일상 사례와 연결해 설명한다.",
     6: "초등학교 6학년 수준에서 원인과 영향을 구분하되 실제 금융 조언은 하지 않는다.",
 }
+# 퀴즈는 학년만으로 지침을 고르면 NONSENSE에도 경제 설명 지시가 붙는다. 분류까지 함께 본다.
+QUIZ_GRADE_INSTRUCTIONS = {
+    ("economy", 4): (
+        "초등학교 4학년이 아는 낱말만 쓰고 문장을 짧게 쓴다. 경제 용어는 배운 그대로 쓴다."
+    ),
+    ("economy", 5): "초등학교 5학년 수준의 경제 개념을 일상 사례와 연결해 설명한다.",
+    ("economy", 6): "초등학교 6학년 수준에서 원인과 영향을 구분하되 실제 금융 조언은 하지 않는다.",
+    ("nonsense", 4): (
+        "초등학교 4학년이 아는 낱말로 말놀이를 만든다. 경제 개념을 설명하려 하지 않는다."
+    ),
+    ("nonsense", 5): (
+        "초등학교 5학년이 아는 낱말로 말놀이를 만든다. 경제 개념을 설명하려 하지 않는다."
+    ),
+    ("nonsense", 6): (
+        "초등학교 6학년이 아는 낱말로 말놀이를 만든다. 경제 개념을 설명하려 하지 않는다."
+    ),
+}
 SUPPORTED_PROMPT_VERSIONS = (
     "setup-precheck-v1",
     "balancing-v1",
     "teacher-chat-v1",
     "economic-event-v1",
     "quiz-draft-v1",
+    "investment-company-v1",
 )
 
 
@@ -66,7 +85,7 @@ class PromptRegistry:
             (
                 self._read_asset("v1/common.txt"),
                 self._read_asset(selection.asset_path),
-                GRADE_INSTRUCTIONS[selection.grade],
+                self._grade_instruction(kind, selection),
             )
         )
         trusted_input = self._trusted_input(request)
@@ -147,6 +166,15 @@ class PromptRegistry:
                 return mode, "economic-event-v1", f"v1/economic-event/{mode}.txt"
             mode = request.payload.template_type.value.casefold().replace("_", "-")
             return mode, "economic-event-v1", f"v1/economic-event/{mode}.txt"
+        if kind is GenerationKind.INVESTMENT_COMPANY and isinstance(
+            request, InvestmentCompanyGenerationRequest
+        ):
+            mode = (
+                "short-term"
+                if request.payload.investment_mode is InvestmentMode.SHORT_TERM
+                else "long-term"
+            )
+            return mode, "investment-company-v1", "v1/investment-company.txt"
         if kind is GenerationKind.QUIZ_DRAFT and isinstance(
             request, QuizDraftGenerationRequest
         ):
@@ -155,12 +183,22 @@ class PromptRegistry:
             return (
                 f"{category}-{question_type}",
                 "quiz-draft-v1",
-                "v1/quiz-draft.txt",
+                f"v1/quiz-draft/{category}.txt",
             )
         raise PromptRegistryError(
             "PROMPT_COMBINATION_UNSUPPORTED",
             "생성 기능과 요청 문맥에 맞는 프롬프트가 등록되어 있지 않습니다.",
         )
+
+    @staticmethod
+    def _grade_instruction(
+        kind: GenerationKind, selection: PromptSelection
+    ) -> str:
+        if kind is not GenerationKind.QUIZ_DRAFT:
+            return GRADE_INSTRUCTIONS[selection.grade]
+        # 퀴즈 mode는 "economy-multiple-choice"처럼 분류를 앞에 둔다.
+        category = selection.mode.split("-", 1)[0]
+        return QUIZ_GRADE_INSTRUCTIONS[(category, selection.grade)]
 
     @staticmethod
     def _trusted_input(request: GenerationRequest) -> dict[str, Any]:

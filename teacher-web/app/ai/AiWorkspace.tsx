@@ -8,7 +8,6 @@ import { DraftRecommendationPanel } from "./DraftRecommendationPanel";
 import { MonitoringBalancingPanel } from "./MonitoringBalancingPanel";
 import { ModuleActivationPanel } from "./ModuleActivationPanel";
 import { TeacherChatPanel } from "./TeacherChatPanel";
-import { InvestmentScenarioPanel } from "./InvestmentScenarioPanel";
 
 type AiSettingResponse = {
   ai_resource_id: string;
@@ -31,7 +30,6 @@ export function AiWorkspace({
   initialReason,
   initialPolicyVersion,
   canManage,
-  products,
   modules,
   policyVersions,
   startDate,
@@ -40,8 +38,7 @@ export function AiWorkspace({
   effectiveTaxBps,
   onReload,
   onStateVersionChange,
-  onSettingsChanged,
-  onProductPriceApplied
+  onSettingsChanged
 }: Readonly<{
   classroomId: string;
   initialStateVersion: number;
@@ -52,21 +49,12 @@ export function AiWorkspace({
   modules: readonly AiModuleRow[];
   policyVersions: readonly AiPolicyVersionRow[];
   startDate: string;
-  products: Array<{
-    name: string;
-    price: string;
-    stock: string;
-    resourceId?: string;
-    kind?: "PHYSICAL" | "DIGITAL";
-    vatRateBps?: number;
-  }>;
   quizSessionId: string;
   activeStudentCount: number;
   effectiveTaxBps: number;
   onReload: () => Promise<void>;
   onStateVersionChange: (version: number) => void;
   onSettingsChanged: (settings: { enabled: boolean; reason: string; version: number; stateVersion: number }) => void;
-  onProductPriceApplied: (productId: string, nextPrice: number) => void;
 }>) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [stateVersion, setStateVersion] = useState(initialStateVersion);
@@ -212,23 +200,17 @@ export function AiWorkspace({
         onReload={onReload}
       />
 
-      <InvestmentScenarioPanel
-        classroomId={classroomId}
-        modules={modules}
-        aiEnabled={enabled}
-        canManage={canManage}
-      />
-
+      {/* 투자 시나리오 생성·검토는 '운영 관리 > 투자' 탭에서 단기·장기 각각의 자리에 있습니다. */}
+      {/* 상품 가격 추천은 '상점 상품' 탭에서 상품을 등록·관리하는 자리에 있습니다. */}
       <DraftRecommendationPanel
+        kind="quiz"
         classroomId={classroomId}
-        products={products}
         policyVersions={policyVersions}
         quizSessionId={quizSessionId}
         activeStudentCount={activeStudentCount}
         effectiveTaxBps={effectiveTaxBps}
         onReload={onReload}
         onStateVersionChange={onStateVersionChange}
-        onProductPriceApplied={onProductPriceApplied}
       />
     </div>
   );

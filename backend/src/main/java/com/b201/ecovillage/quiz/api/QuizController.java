@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import com.b201.ecovillage.common.api.ApiMeta;
 import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
+import com.b201.ecovillage.quiz.application.NonsenseImportCommand;
+import com.b201.ecovillage.quiz.application.NonsenseImportResult;
+import com.b201.ecovillage.quiz.application.NonsenseImportService;
 import com.b201.ecovillage.quiz.application.QuizOptionCommand;
 import com.b201.ecovillage.quiz.application.QuizQuestionCommand;
 import com.b201.ecovillage.quiz.application.QuizQuestionCommandService;
@@ -55,6 +58,7 @@ public class QuizController {
     private final QuizSessionQueryService sessionQueryService;
     private final QuizResultWorkflowService resultWorkflowService;
     private final QuizResultQueryService resultQueryService;
+    private final NonsenseImportService nonsenseImportService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -66,6 +70,7 @@ public class QuizController {
         QuizSessionQueryService sessionQueryService,
         QuizResultWorkflowService resultWorkflowService,
         QuizResultQueryService resultQueryService,
+        NonsenseImportService nonsenseImportService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -76,6 +81,7 @@ public class QuizController {
         this.sessionQueryService = sessionQueryService;
         this.resultWorkflowService = resultWorkflowService;
         this.resultQueryService = resultQueryService;
+        this.nonsenseImportService = nonsenseImportService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -322,15 +328,23 @@ public class QuizController {
                 view.quizSessionId(),
                 view.mode(),
                 view.status(),
+                view.stateVersion(),
                 view.questions().stream()
                     .map(question -> new QuizSessionQuestionResponse(
                         question.resourceId(),
+                        question.quizQuestionVersionId(),
                         question.label(),
                         question.status(),
                         question.version(),
                         question.stateVersion(),
                         question.prompt(),
-                        question.options()
+                        question.options().stream()
+                            .map(option -> new QuizSessionQuestionResponse.Option(
+                                option.optionId(),
+                                option.optionKey(),
+                                option.optionText()
+                            ))
+                            .toList()
                     ))
                     .toList()
             ),
@@ -354,6 +368,41 @@ public class QuizController {
             ),
             requestId,
             correlationId
+        );
+    }
+
+    /**
+     * 넌센스 문제은행에서 학급으로 문항을 가져온다.
+     * AI를 부르지 않으므로 주제와 학습목표를 받지 않고 객관식으로만 만든다.
+     */
+    @PostMapping("/nonsense-question-imports")
+    public ResponseEntity<ApiResponse<NonsenseImportResponse>> importNonsenseQuestions(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody NonsenseImportRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = resolve(correlationId);
+        NonsenseImportResult result = nonsenseImportService.importQuestions(
+            new NonsenseImportCommand(
+                subject(principal),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.grade(),
+                request.questionCount()
+            )
+        );
+        return response(
+            HttpStatus.CREATED,
+            new NonsenseImportResponse(
+                result.questionIds(),
+                result.remainingCount(),
+                result.bankVersion()
+            ),
+            requestId,
+            resolvedCorrelationId
         );
     }
 
@@ -449,9 +498,11 @@ public class QuizController {
             .stream()
             .map(view -> new QuizQuestionResponse(
                 view.resourceId(),
+                view.versionId(),
                 view.label(),
                 view.status(),
                 view.version(),
+                view.questionVersionId(),
                 view.stateVersion(),
                 view.contentType(),
                 view.questionType(),
@@ -459,6 +510,7 @@ public class QuizController {
                 view.explanation(),
                 view.source(),
                 view.aiRunId(),
+                view.alreadyUsedInSession(),
                 view.options().stream()
                     .map(option -> new QuizQuestionResponse.OptionResponse(
                         option.optionId(),

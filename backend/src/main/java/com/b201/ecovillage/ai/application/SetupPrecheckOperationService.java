@@ -33,7 +33,9 @@ import com.b201.ecovillage.ai.repository.AiRunRepository;
 import com.b201.ecovillage.ai.repository.AsyncOperationRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
+import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -41,6 +43,9 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.investment.domain.InvestmentAssetCatalog;
+import com.b201.ecovillage.investment.domain.InvestmentMode;
+import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
@@ -62,7 +67,9 @@ public class SetupPrecheckOperationService {
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassroomModuleRepository moduleRepository;
+    private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final RuleEngineService ruleEngineService;
+    private final InvestmentSetupMetricsProvider investmentMetricsProvider;
     private final SetupProposalTargetSnapshotService targetSnapshotService;
     private final SetupPrecheckContractMapper contractMapper;
     private final SetupPrecheckAiClient aiClient;
@@ -84,7 +91,9 @@ public class SetupPrecheckOperationService {
         UserAccountRepository userRepository,
         ClassroomRepository classroomRepository,
         ClassroomModuleRepository moduleRepository,
+        ClassroomPolicyVersionRepository policyVersionRepository,
         RuleEngineService ruleEngineService,
+        InvestmentSetupMetricsProvider investmentMetricsProvider,
         SetupProposalTargetSnapshotService targetSnapshotService,
         SetupPrecheckContractMapper contractMapper,
         SetupPrecheckAiClient aiClient,
@@ -105,7 +114,9 @@ public class SetupPrecheckOperationService {
         this.userRepository = userRepository;
         this.classroomRepository = classroomRepository;
         this.moduleRepository = moduleRepository;
+        this.policyVersionRepository = policyVersionRepository;
         this.ruleEngineService = ruleEngineService;
+        this.investmentMetricsProvider = investmentMetricsProvider;
         this.targetSnapshotService = targetSnapshotService;
         this.contractMapper = contractMapper;
         this.aiClient = aiClient;
@@ -308,8 +319,9 @@ public class SetupPrecheckOperationService {
 
     private RuleEngineRequest ruleRequest(Classroom classroom, SetupPrecheckInput input) {
         Set<String> activeModules = moduleRepository
-            .findAllByClassroomIdAndStatusOrderByModuleCode(classroom.getId(), "ACTIVE")
+            .findAllByClassroomIdOrderByModuleCode(classroom.getId())
             .stream()
+            .filter(module -> Set.of("ACTIVE", "PENDING_CONFIGURATION").contains(module.getStatus()))
             .map(ClassroomModule::getModuleCode)
             .collect(Collectors.toSet());
         RuleEngineRequest.Builder builder = RuleEngineRequest.builder(
@@ -352,8 +364,17 @@ public class SetupPrecheckOperationService {
                 module.getModuleCode(),
                 module.getId(),
                 value.confirmedValue(),
-                value.currentDepositRateBps()
+                // 대출 금리 추천은 현재 예금 기준금리를 전제로 한다. 화면이 그 값을 알 수 없으므로
+                // 요청에 없으면 확정된 DEPOSIT_RATE 정책에서 직접 읽는다.
+                value.currentDepositRateBps() == null
+                    ? currentDepositRateBps(classroom.getId(), module.getModuleCode())
+                    : value.currentDepositRateBps()
             ));
+            if (input.investmentDraft() != null) {
+                builder.investmentDraft(investmentDraft(
+                    classroom.getId(), module.getId(), input.investmentDraft()
+                ));
+            }
         }
         if (input.salaryPolicy() != null) {
             SetupPrecheckInput.SalaryPolicy policy = input.salaryPolicy();
@@ -396,6 +417,63 @@ public class SetupPrecheckOperationService {
             ));
         }
         return builder.build();
+    }
+
+    /**
+     * 투자 조건 추천에 넘길 입력입니다. 종목 목록은 서버가 가진 목록을 그대로 쓰고, 학급
+     * 지표(발행액·학생 잔액)는 원장에서 직접 읽습니다. 화면은 지금 적혀 있는 값만 보냅니다.
+     */
+    private RuleEngineRequest.InvestmentDraft investmentDraft(
+        UUID classroomId,
+        UUID moduleId,
+        SetupPrecheckInput.InvestmentDraft draft
+    ) {
+        Map<String, SetupPrecheckInput.AssetCondition> confirmed = new LinkedHashMap<>();
+        for (SetupPrecheckInput.AssetCondition condition : draft.confirmedAssetConditions()) {
+            if (condition != null && condition.symbol() != null) {
+                confirmed.put(condition.symbol().trim().toUpperCase(Locale.ROOT), condition);
+            }
+        }
+        InvestmentSetupMetricsProvider.InvestmentSetupMetrics metrics =
+            investmentMetricsProvider.of(classroomId);
+        // 방식마다 쓰는 종목 수가 다르다. 시나리오 생성과 같은 목록을 봐야 교사가 정한 값이
+        // 빠짐없이 종목에 붙는다.
+        InvestmentMode mode = InvestmentModeConfig.parse(draft.investmentMode())
+            .orElse(InvestmentMode.LONG_TERM);
+        return new RuleEngineRequest.InvestmentDraft(
+            moduleId,
+            draft.investmentMode(),
+            metrics.moneyIssuance(),
+            metrics.averageBalance(),
+            metrics.medianBalance(),
+            InvestmentAssetCatalog.seeds(mode).stream()
+                .map(seed -> {
+                    SetupPrecheckInput.AssetCondition condition = confirmed.get(seed.symbol());
+                    return new RuleEngineRequest.InvestmentAsset(
+                        seed.symbol(), seed.name(), seed.priceWeight(), seed.riskWeight(),
+                        condition == null ? null : condition.price(),
+                        condition == null ? null : condition.bandBps()
+                    );
+                })
+                .toList()
+        );
+    }
+
+    /**
+     * 확정된 예금 기준금리(bps)입니다. LOAN 외의 모듈에는 필요하지 않으며, 예금 정책이 아직
+     * 없으면 null을 돌려주어 규칙 엔진이 "예금 기준금리가 필요합니다"로 안내하게 둡니다.
+     */
+    private Integer currentDepositRateBps(UUID classroomId, String moduleCode) {
+        if (!"LOAN".equals(moduleCode)) {
+            return null;
+        }
+        return policyVersionRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "DEPOSIT_RATE")
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(values -> values.get("rate_bps"))
+            .filter(Number.class::isInstance)
+            .map(rate -> ((Number) rate).intValue())
+            .orElse(null);
     }
 
     RuleEngineResult revalidate(UUID classroomId, SetupPrecheckInput input) {
@@ -549,19 +627,23 @@ public class SetupPrecheckOperationService {
             throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Check the setup precheck request.");
         }
         SetupPrecheckInput input = command.input();
+        // 투자 조건 초안은 투자 모듈 활성화 문맥에서만 쓴다. 다른 문맥에 실려 오면 거절한다.
         boolean contextMatches = switch (input.contextType()) {
             case CLASSROOM_SETUP -> input.moduleActivation() == null
                 && input.productDraft() == null
-                && input.quizDraft() == null;
+                && input.quizDraft() == null
+                && input.investmentDraft() == null;
             case MODULE_ACTIVATION -> input.moduleActivation() != null
                 && input.productDraft() == null
                 && input.quizDraft() == null;
             case PRODUCT_DRAFT -> input.moduleActivation() == null
                 && input.productDraft() != null
-                && input.quizDraft() == null;
+                && input.quizDraft() == null
+                && input.investmentDraft() == null;
             case QUIZ_SESSION_DRAFT -> input.moduleActivation() == null
                 && input.productDraft() == null
-                && input.quizDraft() != null;
+                && input.quizDraft() != null
+                && input.investmentDraft() == null;
         };
         if (!contextMatches) {
             throw operation(

@@ -3,6 +3,7 @@ package com.b201.ecovillage.classroom.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,14 +31,17 @@ import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository
 import com.b201.ecovillage.classroom.repository.SalaryRoleRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
+import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.domain.ClassroomTeacher;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.CourseSize;
+import com.b201.ecovillage.identity.domain.StudentCredential;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
+import com.b201.ecovillage.identity.repository.StudentCredentialRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 
 @SpringBootTest(properties = {
@@ -78,11 +83,50 @@ class ClassroomRosterApiTest {
     private UserAccountRepository userAccountRepository;
 
     @Autowired
+    private StudentCredentialRepository studentCredentialRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private UUID classroomId;
     private UUID teacherId;
     private Principal ownerPrincipal;
+
+    @Test
+    void ownerCanResetStudentLoginCredential() throws Exception {
+        UUID studentId = UUID.randomUUID();
+        studentRepository.save(
+            ClassroomStudent.enroll(studentId, classroomId, 3, "새싹", NOW)
+        );
+        studentCredentialRepository.save(
+            StudentCredential.issue(studentId, classroomId, "encoded-password", NOW)
+        );
+
+        mockMvc.perform(
+            post("/classrooms/{classroomId}/students/{studentId}/password-reset-commands", classroomId, studentId)
+                .principal(ownerPrincipal)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "command": "COMPLETE",
+                      "reset_request_id": "%s",
+                      "new_password": "5678",
+                      "reason": "교사 요청"
+                    }
+                    """.formatted(UUID.randomUUID()))
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.credential_version").value(2));
+
+        StudentCredential changed = studentCredentialRepository
+            .findByClassroomIdAndClassroomStudentId(classroomId, studentId)
+            .orElseThrow();
+        assertTrue(passwordEncoder.matches("5678", changed.getPasswordHash()));
+    }
 
     @BeforeEach
     void setUp() {

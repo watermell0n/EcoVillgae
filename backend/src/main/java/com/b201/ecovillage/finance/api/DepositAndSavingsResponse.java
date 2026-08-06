@@ -4,6 +4,6 @@ import java.util.List;
 
 public record DepositAndSavingsResponse(
     List<DepositAccountViewResponse> depositAccounts,
-    List<Object> savingsAccounts
+    List<SavingsAccountViewResponse> savingsAccounts
 ) {
 }

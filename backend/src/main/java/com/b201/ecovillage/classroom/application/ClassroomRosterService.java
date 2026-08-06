@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +31,12 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
+import com.b201.ecovillage.identity.domain.StudentCredential;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
+import com.b201.ecovillage.identity.repository.StudentCredentialRepository;
 
 @Service
 public class ClassroomRosterService {
@@ -44,6 +47,8 @@ public class ClassroomRosterService {
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomStudentRepository studentRepository;
+    private final StudentCredentialRepository studentCredentialRepository;
+    private final PasswordEncoder passwordEncoder;
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final ClassroomModuleRepository moduleRepository;
@@ -55,6 +60,8 @@ public class ClassroomRosterService {
         ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomStudentRepository studentRepository,
+        StudentCredentialRepository studentCredentialRepository,
+        PasswordEncoder passwordEncoder,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
         ClassroomModuleRepository moduleRepository,
@@ -65,12 +72,56 @@ public class ClassroomRosterService {
         this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.studentRepository = studentRepository;
+        this.studentCredentialRepository = studentCredentialRepository;
+        this.passwordEncoder = passwordEncoder;
         this.salaryRoleRepository = salaryRoleRepository;
         this.policyVersionRepository = policyVersionRepository;
         this.moduleRepository = moduleRepository;
         this.precheckInvalidator = precheckInvalidator;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @Transactional
+    public StudentCredential resetStudentLogin(
+        String teacherSubject,
+        UUID classroomId,
+        UUID studentId,
+        String newPassword
+    ) {
+        authorizationService.authorize(
+            teacherSubject,
+            classroomId,
+            ClassroomPermission.MANAGE_ROSTER,
+            null
+        );
+        ClassroomStudent student = studentRepository.findById(studentId)
+            .filter(candidate -> candidate.getClassroomId().equals(classroomId))
+            .filter(candidate -> candidate.getStatus() == ClassroomStudentStatus.ACTIVE)
+            .orElseThrow(() -> new ClassroomOperationException(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "로그인을 초기화할 학생을 현재 명단에서 찾을 수 없습니다."
+            ));
+        if (newPassword == null || newPassword.length() < 4 || newPassword.length() > 72) {
+            throw validation("새 비밀번호는 4~72자로 입력해 주세요.");
+        }
+        Instant now = clock.instant();
+        StudentCredential credential = studentCredentialRepository
+            .findByClassroomIdAndClassroomStudentId(classroomId, student.getId())
+            .map(existing -> {
+                existing.replacePasswordHash(passwordEncoder.encode(newPassword), now);
+                return existing;
+            })
+            .orElseGet(() -> StudentCredential.issue(
+                student.getId(),
+                classroomId,
+                passwordEncoder.encode(newPassword),
+                now
+            ));
+        studentCredentialRepository.save(credential);
+        studentCredentialRepository.flush();
+        return credential;
     }
 
     @Transactional
@@ -107,14 +158,11 @@ public class ClassroomRosterService {
         }
 
         boolean salaryModuleActive = salaryModuleActive(command.classroomId());
-        List<ValidatedStudent> students = validateStudents(
-            command.students(),
-            salaryModuleActive
-        );
+        List<ValidatedStudent> students = validateStudents(command.students());
         if (!salaryModuleActive) {
             rejectSalaryFieldsWithoutModule(command, students);
             Instant now = clock.instant();
-            upsertStudents(command.classroomId(), students, Map.of(), now);
+            upsertStudents(command.classroomId(), students, Map.of(), now, command.replaceRoster());
             classroom.touch(now);
             try {
                 studentRepository.flush();
@@ -162,7 +210,11 @@ public class ClassroomRosterService {
             now
         );
         validateRoleReferences(students, rolesByCode.keySet());
-        upsertStudents(command.classroomId(), students, rolesByCode, now);
+        upsertStudents(command.classroomId(), students, rolesByCode, now, command.replaceRoster());
+        if (command.replaceRoster()) {
+            // 학생 배정을 먼저 바꾼 뒤에 내려야 아직 쓰이는 역할을 실수로 내리지 않습니다.
+            deactivateSalaryRolesMissingFrom(salaryRoles, rolesByCode, now);
+        }
 
         currentPolicy.supersede(now);
         policyVersionRepository.flush();
@@ -236,11 +288,16 @@ public class ClassroomRosterService {
         return existing;
     }
 
+    /**
+     * replaceRoster가 true면 요청에 없는 기존 학생을 화면에서 지운 학생으로 보고 함께 종료합니다.
+     * 종료는 상태 변경이라 지갑·거래 기록은 남습니다. false면 보낸 학생만 추가·수정합니다.
+     */
     private void upsertStudents(
         UUID classroomId,
         List<ValidatedStudent> commands,
         Map<String, SalaryRole> rolesByCode,
-        Instant now
+        Instant now,
+        boolean replaceRoster
     ) {
         List<ClassroomStudent> active = studentRepository
             .findAllByClassroomIdAndStatusOrderByRosterNumber(
@@ -250,6 +307,9 @@ public class ClassroomRosterService {
         Map<UUID, ClassroomStudent> byId = active.stream()
             .collect(Collectors.toMap(ClassroomStudent::getId, Function.identity()));
         validateAgainstExisting(commands, active);
+        if (replaceRoster) {
+            retireStudentsMissingFrom(commands, active, now);
+        }
 
         List<ClassroomStudent> changed = new ArrayList<>();
         for (ValidatedStudent command : commands) {
@@ -285,11 +345,15 @@ public class ClassroomRosterService {
         studentRepository.saveAll(changed);
     }
 
+    /**
+     * 비어 있으면 지금 저장된 역할을 그대로 둡니다. 급여 역할은 급여 모듈을 활성화할 때 이미
+     * 만들어지므로, 명단만 바꾸는 저장이 역할 목록을 다시 보내지 않아도 실패하지 않아야 합니다.
+     */
     private static List<ValidatedSalaryRole> validateSalaryRoles(
         List<SalaryRoleCommand> commands
     ) {
         if (commands == null || commands.isEmpty()) {
-            throw validation("salary_roles는 하나 이상이어야 합니다.");
+            return List.of();
         }
         List<ValidatedSalaryRole> validated = new ArrayList<>();
         Set<String> codes = new HashSet<>();
@@ -324,9 +388,12 @@ public class ClassroomRosterService {
         return validated;
     }
 
+    /**
+     * 역할은 급여 모듈이 켜져 있어도 선택 사항입니다. 교사 화면의 "직업 (선택)"과 같은 규칙이며,
+     * 역할이 없는 학생은 급여 지급 대상에서 빠질 뿐 명단 저장은 막지 않습니다.
+     */
     private static List<ValidatedStudent> validateStudents(
-        List<StudentRosterCommand> commands,
-        boolean roleRequired
+        List<StudentRosterCommand> commands
     ) {
         if (commands == null || commands.isEmpty()) {
             throw validation("students는 하나 이상이어야 합니다.");
@@ -340,14 +407,14 @@ public class ClassroomRosterService {
             String roleCode = command.roleCode() == null
                 ? ""
                 : command.roleCode().trim().toUpperCase(Locale.ROOT);
-            if (
-                command.attendanceNumber() <= 0
-                    || nickname.isEmpty()
-                    || nickname.length() > 40
-                    || (roleRequired && !ROLE_CODE.matcher(roleCode).matches())
-                    || (!roleCode.isEmpty() && !ROLE_CODE.matcher(roleCode).matches())
-            ) {
-                throw validation("학생 번호·닉네임·역할을 확인해 주세요.");
+            if (command.attendanceNumber() <= 0) {
+                throw validation("학생 번호는 1 이상이어야 합니다.");
+            }
+            if (nickname.isEmpty() || nickname.length() > 40) {
+                throw validation("학생 이름은 1~40자로 입력해 주세요.");
+            }
+            if (!roleCode.isEmpty() && !ROLE_CODE.matcher(roleCode).matches()) {
+                throw validation("역할 코드는 영문 대문자·숫자·밑줄 1~40자여야 합니다.");
             }
             if (!attendanceNumbers.add(command.attendanceNumber())) {
                 throw duplicateAttendanceNumber();
@@ -388,7 +455,8 @@ public class ClassroomRosterService {
     ) {
         boolean hasRoles = command.salaryRoles() != null && !command.salaryRoles().isEmpty();
         boolean hasAssignments = students.stream().anyMatch(student -> student.roleCode() != null);
-        if (hasRoles || hasAssignments || command.expectedPolicyVersion() != null) {
+        // expected_policy_version만 실려 온 것은 급여 설정이 아니므로 막지 않는다.
+        if (hasRoles || hasAssignments) {
             throw new ClassroomOperationException(
                 HttpStatus.CONFLICT,
                 "MODULE_NOT_ACTIVE",
@@ -401,13 +469,63 @@ public class ClassroomRosterService {
         List<ValidatedStudent> students,
         Set<String> roleCodes
     ) {
-        if (students.stream().anyMatch(student -> !roleCodes.contains(student.roleCode()))) {
+        if (students.stream()
+            .filter(student -> student.roleCode() != null)
+            .anyMatch(student -> !roleCodes.contains(student.roleCode()))) {
             throw new ClassroomOperationException(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "SALARY_ROLE_NOT_FOUND",
                 "학생이 참조한 급여 역할을 찾을 수 없습니다."
             );
         }
+    }
+
+    private void retireStudentsMissingFrom(
+        List<ValidatedStudent> commands,
+        List<ClassroomStudent> active,
+        Instant now
+    ) {
+        Set<UUID> keptIds = commands.stream()
+            .map(ValidatedStudent::studentId)
+            .filter(java.util.Objects::nonNull)
+            .collect(Collectors.toSet());
+        List<ClassroomStudent> retired = active.stream()
+            .filter(student -> !keptIds.contains(student.getId()))
+            .toList();
+        if (retired.isEmpty()) {
+            return;
+        }
+        retired.forEach(student -> student.retire(now));
+        studentRepository.saveAll(retired);
+        studentRepository.flush();
+    }
+
+    /**
+     * 요청에 없는 역할은 화면에서 지운 역할이므로 비활성으로 내립니다. 비활성 역할은 명단·급여
+     * 조회에서 빠지고 새 급여 정책에도 담기지 않습니다. 역할 목록을 아예 보내지 않은 요청은
+     * "명단만 저장"이라는 뜻이므로 아무 역할도 내리지 않습니다.
+     */
+    private void deactivateSalaryRolesMissingFrom(
+        List<ValidatedSalaryRole> commands,
+        Map<String, SalaryRole> rolesByCode,
+        Instant now
+    ) {
+        if (commands.isEmpty()) {
+            return;
+        }
+        Set<String> keptCodes = commands.stream()
+            .map(ValidatedSalaryRole::roleCode)
+            .collect(Collectors.toSet());
+        List<SalaryRole> removed = rolesByCode.values().stream()
+            .filter(role -> !keptCodes.contains(role.getRoleCode()))
+            .filter(role -> "ACTIVE".equals(role.getStatus()))
+            .toList();
+        if (removed.isEmpty()) {
+            return;
+        }
+        removed.forEach(role -> role.deactivate(now));
+        salaryRoleRepository.saveAll(removed);
+        removed.forEach(role -> rolesByCode.remove(role.getRoleCode()));
     }
 
     private static void validateAgainstExisting(

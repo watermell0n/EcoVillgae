@@ -15,6 +15,7 @@ Thumbs.db
 .docker-config/
 .pnpm-store/
 .codex/
+.codex-tmp/
 
 # Java·Gradle
 backend/.gradle/
@@ -53,3 +54,13 @@ infra/terraform/backend.*.hcl
 !infra/terraform/backend.hcl.example
 infra/terraform/*.tfvars
 !infra/terraform/*.tfvars.example
+
+# 캐릭터 렌더 감사 산출물 (scripts/character/render-audit.js)
+artifacts/
+
+# 도트 원본 반입 폴더 (정규화 전 대용량 이미지). 결과물만 커밋한다.
+assets/characters/incoming/*
+!assets/characters/incoming/README.txt
+
+# 개인 권한 설정 (머신별)
+.claude/settings.local.json

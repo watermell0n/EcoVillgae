@@ -299,6 +299,18 @@ def investment_news_request() -> dict[str, object]:
     return deepcopy(body)
 
 
+def investment_company_request() -> dict[str, object]:
+    body = common("investment-company-v1")
+    body["payload"] = {
+        "course_scale": "ONE_MONTH",
+        "investment_mode": "SHORT_TERM",
+        "company_count": 4,
+        "used_names": ["그린모빌리티"],
+        "teacher_context": "학생이 하는 일을 바로 떠올릴 수 있는 기업",
+    }
+    return deepcopy(body)
+
+
 def quiz_draft_request() -> dict[str, object]:
     body = common("quiz-draft-v1")
     body["payload"] = {

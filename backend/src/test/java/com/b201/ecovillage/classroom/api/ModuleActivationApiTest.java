@@ -178,11 +178,7 @@ class ModuleActivationApiTest {
     }
 
     @Test
-    void rejectsMissingOrInvalidInitialPolicyWithoutChangingModule() throws Exception {
-        mockMvc.perform(activationRequest("DEPOSIT", UUID.randomUUID(), 0, null))
-            .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.error.code").value("INITIAL_POLICY_REQUIRED"));
-
+    void appliesDefaultPolicyWhenInitialPolicyIsOmittedAndRejectsInvalidPolicy() throws Exception {
         mockMvc.perform(activationRequest(
             "DEPOSIT",
             UUID.randomUUID(),
@@ -198,6 +194,42 @@ class ModuleActivationApiTest {
         assertEquals("DISABLED", module.getStatus());
         assertEquals(0, module.getStateVersion());
         assertEquals(0, policyRepository.count());
+
+        mockMvc.perform(activationRequest("DEPOSIT", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+            .andExpect(jsonPath("$.data.policy_area").value("DEPOSIT_RATE"));
+
+        assertEquals("ACTIVE", module.getStatus());
+        assertEquals(1, module.getStateVersion());
+        assertEquals(1, policyRepository.count());
+    }
+
+    @Test
+    void activatesAllPolicyModulesWithDefaultPoliciesInPrerequisiteOrder() throws Exception {
+        moduleRepository.save(ClassroomModule.disabled(UUID.randomUUID(), classroomId, "ROLE_SALARY", NOW));
+        moduleRepository.save(ClassroomModule.disabled(UUID.randomUUID(), classroomId, "INCOME_TAX", NOW));
+        moduleRepository.save(ClassroomModule.disabled(UUID.randomUUID(), classroomId, "CREDIT", NOW));
+        moduleRepository.save(ClassroomModule.disabled(UUID.randomUUID(), classroomId, "LOAN", NOW));
+
+        mockMvc.perform(activationRequest("ROLE_SALARY", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        mockMvc.perform(activationRequest("INCOME_TAX", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        mockMvc.perform(activationRequest("DEPOSIT", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        mockMvc.perform(activationRequest("CREDIT", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        mockMvc.perform(activationRequest("LOAN", UUID.randomUUID(), 0, null))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        assertEquals(4, policyRepository.count());
+        assertEquals(1, salaryRoleRepository.count());
     }
 
     @Test

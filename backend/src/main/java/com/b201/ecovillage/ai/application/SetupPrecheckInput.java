@@ -22,7 +22,8 @@ public record SetupPrecheckInput(
     ModuleActivation moduleActivation,
     SalaryPolicy salaryPolicy,
     ProductDraft productDraft,
-    QuizDraft quizDraft
+    QuizDraft quizDraft,
+    InvestmentDraft investmentDraft
 ) {
     public record ModuleActivation(
         String moduleCode,
@@ -74,5 +75,24 @@ public record SetupPrecheckInput(
         Integer expectedRuns,
         Long confirmedRewardPerPerson
     ) {
+    }
+
+    /**
+     * 투자 조건 추천 요청이다. 종목 목록과 학급 지표(발행액·학생 잔액)는 서버가 채우므로
+     * 화면은 어떤 방식을 여는지와 지금 화면에 적혀 있는 값만 보낸다.
+     */
+    public record InvestmentDraft(
+        String investmentMode,
+        List<AssetCondition> confirmedAssetConditions
+    ) {
+        public InvestmentDraft {
+            confirmedAssetConditions = confirmedAssetConditions == null
+                ? List.of()
+                : List.copyOf(confirmedAssetConditions);
+        }
+    }
+
+    /** bandBps는 하루 변동 범위(±bps)다. 화면에는 -3.00% ~ +3.00%처럼 양쪽으로 보여 준다. */
+    public record AssetCondition(String symbol, Long price, Long bandBps) {
     }
 }

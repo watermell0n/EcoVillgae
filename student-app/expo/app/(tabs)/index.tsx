@@ -16,33 +16,33 @@ const toneColors = {
 };
 
 type HomeCard = {
-  id: ModuleGroup | "realEstate" | "credit";
+  id: ModuleGroup | "class";
   title: string;
   subtitle: string;
   icon: string;
   tone: keyof typeof toneColors;
-  route: "/(tabs)/shop" | "/(tabs)/wallet" | "/bank" | "/investment" | "/classroom" | "/trade" | "/quiz" | "/character" | "/paystub" | "/real-estate" | "/credit";
+  route: "/(tabs)/shop" | "/(tabs)/wallet" | "/bank" | "/investment" | "/classroom" | "/meeting" | "/trade" | "/quiz" | "/character" | "/paystub" | "/real-estate" | "/credit";
 };
 
+// 홈에 세우는 마을 건물입니다. 프로필 메뉴에서 여는 화면(지갑·캐릭터·월급명세서)은 담지 않습니다.
 const cards: HomeCard[] = [
-  { id: "realEstate", title: "부동산", subtitle: "집과 땅의 가치를 알아봐요", icon: "⌂", tone: "orange", route: "/real-estate" },
-  { id: "credit", title: "신용등급", subtitle: "내 금융 약속을 확인해요", icon: "★", tone: "purple", route: "/credit" },
-  { id: "wallet", title: "내 지갑", subtitle: "잔액과 거래 내역을 확인해요", icon: "👛", tone: "sky", route: "/(tabs)/wallet" },
-  { id: "shop", title: "이코 상점", subtitle: "열린 상품을 고르고 구매해요", icon: "🏪", tone: "orange", route: "/(tabs)/shop" },
   { id: "bank", title: "이코 은행", subtitle: "예금과 적금 상품을 살펴봐요", icon: "🏦", tone: "purple", route: "/bank" },
+  { id: "shop", title: "이코 상점", subtitle: "열린 상품을 고르고 구매해요", icon: "🏪", tone: "orange", route: "/(tabs)/shop" },
   { id: "investment", title: "투자 광장", subtitle: "시장 가격과 내 손익을 확인해요", icon: "📈", tone: "red", route: "/investment" },
-  { id: "trade", title: "친구 거래소", subtitle: "친구와 비빔 거래를 제안해요", icon: "🤝", tone: "sky", route: "/trade" },
+  { id: "trade", title: "친구 거래소", subtitle: "친구와 거래를 제안해요", icon: "🤝", tone: "sky", route: "/trade" },
+  { id: "meeting", title: "마을 회의", subtitle: "공동기금 사용처에 투표해요", icon: "🗳️", tone: "yellow", route: "/meeting" },
   { id: "quiz", title: "경제생활 퀴즈", subtitle: "선생님이 연 퀴즈에 참여해요", icon: "📝", tone: "green", route: "/quiz" },
-  { id: "meeting", title: "마을 회의", subtitle: "공동기금 사용처에 투표해요", icon: "🗳️", tone: "yellow", route: "/classroom" },
-  { id: "character", title: "내 캐릭터", subtitle: "보유 아이템을 확인해요", icon: "🙂", tone: "sky", route: "/character" },
-  { id: "paystub", title: "월급명세서", subtitle: "받은 돈과 세금을 확인해요", icon: "💼", tone: "green", route: "/paystub" }
+  { id: "realEstate", title: "부동산", subtitle: "교실 자리를 빌리거나 사요", icon: "🏘️", tone: "orange", route: "/real-estate" },
+  { id: "class", title: "선생님 수업", subtitle: "수업 자료와 진행 중인 활동을 봐요", icon: "📚", tone: "green", route: "/classroom" },
+  { id: "credit", title: "신용등급", subtitle: "내 금융 약속을 확인해요", icon: "★", tone: "purple", route: "/credit" }
 ];
 
 export default function VillageScreen() {
   const { width } = useWindowDimensions();
-  const { enabled, error, hasCachedData, isLoading, isOffline, refetch } = useClassroom();
+  const { enabled, suspended, error, hasCachedData, isLoading, isOffline, refetch } = useClassroom();
   const columns = width >= 1050 ? 3 : width >= 640 ? 2 : 1;
-  const visibleCards = cards.filter((card) => !["wallet", "character", "paystub"].includes(card.id) && (card.id === "realEstate" || card.id === "credit" ? enabled("bank") : enabled(card.id)));
+  // 선생님 수업은 모듈 스위치가 아니라 수업 진행에 딸린 화면이라 늘 보여 줍니다.
+  const visibleCards = cards.filter((card) => card.id === "class" || enabled(card.id));
 
   return (
     <Screen title="마을 광장">
@@ -64,23 +64,34 @@ export default function VillageScreen() {
         <>
         {isOffline ? <View style={styles.offlineBanner}><Text style={styles.offlineText}>오프라인 상태예요. 마지막으로 확인한 메뉴를 보여주고 있어요.</Text><Pressable onPress={() => refetch()}><Text style={styles.offlineAction}>다시 연결</Text></Pressable></View> : null}
         <View style={styles.grid}>
-          {visibleCards.map((card) => (
-            <Pressable
-              accessibilityRole="button"
-              key={card.id}
-              onPress={() => router.push(card.route)}
-              style={({ pressed }) => [
-                styles.module,
-                { width: columns === 3 ? "31.6%" : columns === 2 ? "48.5%" : "100%", borderColor: toneColors[card.tone] },
-                pressed && styles.pressed
-              ]}
-            >
-              <Text style={styles.moduleIcon}>{card.icon}</Text>
-              <Text style={styles.moduleTitle}>{card.title}</Text>
-              <Text style={styles.moduleSubtitle}>{card.subtitle}</Text>
-              <Text style={[styles.moduleCta, { backgroundColor: toneColors[card.tone] }]}>들어가기</Text>
-            </Pressable>
-          ))}
+          {visibleCards.map((card) => {
+            // 선생님이 잠근 기능은 자리를 지키되 회색으로 바뀌고 눌리지 않습니다.
+            const isLocked = card.id !== "class" && suspended(card.id);
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isLocked }}
+                key={card.id}
+                disabled={isLocked}
+                onPress={() => router.push(card.route)}
+                style={({ pressed }) => [
+                  styles.module,
+                  { width: columns === 3 ? "31.6%" : columns === 2 ? "48.5%" : "100%", borderColor: toneColors[card.tone] },
+                  isLocked && styles.moduleLocked,
+                  pressed && !isLocked && styles.pressed
+                ]}
+              >
+                <Text style={[styles.moduleIcon, isLocked && styles.lockedContent]}>{card.icon}</Text>
+                <Text style={[styles.moduleTitle, isLocked && styles.lockedTitle]}>{card.title}</Text>
+                <Text style={[styles.moduleSubtitle, isLocked && styles.lockedContent]}>
+                  {isLocked ? "지금은 선생님이 잠가 두었어요" : card.subtitle}
+                </Text>
+                <Text style={[styles.moduleCta, isLocked ? styles.lockedCta : { backgroundColor: toneColors[card.tone] }]}>
+                  {isLocked ? "잠김" : "들어가기"}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
         </>
       )}
@@ -115,6 +126,10 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   pressed: { opacity: 0.8 },
+  moduleLocked: { borderColor: "#CBD2DC", backgroundColor: "#EEF1F5" },
+  lockedTitle: { color: "#6B7482" },
+  lockedContent: { color: "#8B939F" },
+  lockedCta: { backgroundColor: "#B6BEC9" },
   moduleIcon: { marginBottom: 14, fontSize: 42 },
   moduleTitle: { color: colors.ink900, fontSize: 21, fontWeight: "900", textAlign: "center" },
   moduleSubtitle: { minHeight: 44, marginTop: 10, marginBottom: 14, color: colors.muted600, fontSize: 14, lineHeight: 21, fontWeight: "700", textAlign: "center" },

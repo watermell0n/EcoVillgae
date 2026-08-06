@@ -134,6 +134,8 @@ channels:
         $ref: "#/components/messages/ConnectionPing"
       EventAck:
         $ref: "#/components/messages/EventAck"
+      PresenceChanged:
+        $ref: "#/components/messages/PresenceChanged"
   wsEco001:
     address: "/ws/v1"
     title: "WS-ECO-001"
@@ -154,6 +156,8 @@ channels:
         $ref: "#/components/messages/ConnectionPing"
       EventAck:
         $ref: "#/components/messages/EventAck"
+      PresenceUpdate:
+        $ref: "#/components/messages/PresenceUpdate"
   wsAct001:
     address: "/ws/v1"
     title: "WS-ACT-001"
@@ -375,6 +379,7 @@ operations:
       - $ref: "#/channels/wsTch001/messages/EvtFin003"
       - $ref: "#/channels/wsTch001/messages/EvtAct004"
       - $ref: "#/channels/wsTch001/messages/EvtIvt005"
+      - $ref: "#/channels/wsTch001/messages/PresenceChanged"
   receiveWsTch001Control:
     action: "receive"
     channel:
@@ -403,6 +408,7 @@ operations:
       - $ref: "#/channels/wsEco001/messages/SubscriptionUnsubscribe"
       - $ref: "#/channels/wsEco001/messages/ConnectionPing"
       - $ref: "#/channels/wsEco001/messages/EventAck"
+      - $ref: "#/channels/wsEco001/messages/PresenceUpdate"
   sendWsAct001Events:
     action: "send"
     channel:
@@ -2665,6 +2671,67 @@ components:
             const: "connection.ping"
           client_time:
             type: "string"
+            format: "date-time"
+        additionalProperties: false
+    PresenceUpdate:
+      name: "presence.update"
+      title: "학생 접속·화면 상태 갱신"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "status"
+        properties:
+          type:
+            const: "presence.update"
+          status:
+            type: "string"
+            enum:
+              - "ONLINE"
+              - "AWAY"
+          current_screen:
+            type:
+              - "string"
+              - "null"
+            maxLength: 120
+        additionalProperties: false
+    PresenceChanged:
+      name: "presence.changed"
+      title: "교사용 학생 접속 상태 변경"
+      contentType: "application/json"
+      payload:
+        type: "object"
+        required:
+          - "type"
+          - "classroom_id"
+          - "student_id"
+          - "status"
+        properties:
+          type:
+            const: "presence.changed"
+          classroom_id:
+            type: "string"
+            format: "uuid"
+          student_id:
+            type: "string"
+            format: "uuid"
+          status:
+            type: "string"
+            enum:
+              - "ONLINE"
+              - "AWAY"
+              - "OFFLINE"
+              - "UNKNOWN"
+          current_screen:
+            type:
+              - "string"
+              - "null"
+            maxLength: 120
+          last_seen_at:
+            type:
+              - "string"
+              - "null"
             format: "date-time"
         additionalProperties: false
     EventAck:

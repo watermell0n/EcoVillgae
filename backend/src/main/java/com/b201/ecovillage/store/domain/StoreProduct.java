@@ -120,6 +120,13 @@ public class StoreProduct {
         changeStatus(StoreProductStatus.UNPUBLISHED, changedAt);
     }
 
+    public void retire(Instant changedAt) {
+        if (status == StoreProductStatus.RETIRED) {
+            throw new IllegalStateException("product is already retired");
+        }
+        changeStatus(StoreProductStatus.RETIRED, changedAt);
+    }
+
     public boolean isPublished() {
         return status == StoreProductStatus.PUBLISHED;
     }

@@ -10,6 +10,7 @@ ALL_GENERATION_SCOPES = frozenset(
         "ai:generate:teacher-chat",
         "ai:generate:economic-event",
         "ai:generate:quiz-draft",
+        "ai:generate:investment-company",
     }
 )
 
@@ -18,6 +19,7 @@ GENERATION_KINDS = (
     "teacher-chat",
     "economic-event",
     "quiz-draft",
+    "investment-company",
 )
 SUPPORTED_PROVIDERS = frozenset({"FAKE", "BEDROCK", "OPENAI"})
 ROUTE_ENV_SUFFIXES = {
@@ -25,6 +27,7 @@ ROUTE_ENV_SUFFIXES = {
     "teacher-chat": "TEACHER_CHAT",
     "economic-event": "ECONOMIC_EVENT",
     "quiz-draft": "QUIZ_DRAFT",
+    "investment-company": "INVESTMENT_COMPANY",
 }
 
 

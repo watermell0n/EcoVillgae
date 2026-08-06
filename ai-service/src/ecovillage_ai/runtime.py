@@ -13,6 +13,7 @@ class GenerationKind(StrEnum):
     TEACHER_CHAT = "teacher-chat"
     ECONOMIC_EVENT = "economic-event"
     QUIZ_DRAFT = "quiz-draft"
+    INVESTMENT_COMPANY = "investment-company"
 
 
 @dataclass(frozen=True, slots=True)

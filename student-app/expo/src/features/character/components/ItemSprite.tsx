@@ -1,51 +1,53 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 
-import { CHARACTER_RIG } from "../assetProfile";
-import { CATALOG_BY_ID } from "../catalog";
-import { BASE_SPRITE, layerProfileFor } from "../layerProfile";
-import { SLOT_LABEL } from "../types";
-
-const { logicalWidth, logicalHeight } = CHARACTER_RIG.canvas;
+import { assetSource } from "../assetMap";
+import {
+  CHARACTER_SCALE,
+  EMPTY_EQUIPPED,
+  SLOT_LABEL,
+  CATALOG_BY_ID,
+  characterDisplaySize,
+  hasCharacterAsset,
+  planCharacterLayers
+} from "../core";
+import { PixelStack } from "./PixelStack";
 
 /**
- * 단일 아이템 미리보기. 카탈로그 64종 중 아직 48x56 스프라이트가 배포되지 않은 항목은
- * 그럴듯한 대체 그림 대신 슬롯 이름을 보여준다. 없는 아트를 있는 것처럼 보이면 안 된다.
+ * 단일 상품 미리보기. 상품은 언제나 몸에 착용한 모습으로 보여준다.
+ * 코드형 렌더러를 쓰지 않으므로 잘라낸 단독 스프라이트가 존재하지 않고,
+ * 꼬리·날개처럼 몸이 없으면 형태를 알 수 없는 상품도 있다(규격 §2.5 검토 결과).
+ *
+ * 아직 64×64 에셋이 없는 상품은 그럴듯한 대체 그림 대신 슬롯 이름을 보여준다.
+ * 없는 아트를 있는 것처럼 보이면 안 된다.
  */
 export function ItemSprite({
   spriteKey,
-  scale = 2,
-  withBase = false
+  scale = CHARACTER_SCALE.thumbnail,
+  withBase = true
 }: Readonly<{ spriteKey: string; scale?: number; withBase?: boolean }>) {
-  const profile = layerProfileFor(spriteKey);
-  const width = logicalWidth * scale;
-  const height = logicalHeight * scale;
-  const size = { width, height };
+  const { width, height } = characterDisplaySize(scale);
 
-  if (!profile) {
+  if (!hasCharacterAsset(spriteKey)) {
     const slot = CATALOG_BY_ID[spriteKey]?.slot;
     return (
-      <View style={[styles.pending, size]}>
+      <View style={[styles.pending, { width, height }]}>
         <Text style={styles.pendingLabel}>{slot ? SLOT_LABEL[slot] : "아이템"}</Text>
         <Text style={styles.pendingHint}>도트 준비 중</Text>
       </View>
     );
   }
 
-  return (
-    <View style={size}>
-      {profile.backSprite ? (
-        <Image source={profile.backSprite} style={[styles.layer, size]} resizeMode="contain" fadeDuration={0} />
-      ) : null}
-      {withBase ? (
-        <Image source={BASE_SPRITE} style={[styles.layer, size]} resizeMode="contain" fadeDuration={0} />
-      ) : null}
-      <Image source={profile.sprite} style={[styles.layer, size]} resizeMode="contain" fadeDuration={0} />
-    </View>
-  );
+  const item = CATALOG_BY_ID[spriteKey];
+  const { layers } = planCharacterLayers({ ...EMPTY_EQUIPPED, [item.slot]: item.id });
+  const sources = layers
+    .filter((layer) => withBase || layer.assetId !== "base_default")
+    .map((layer) => assetSource(layer.assetId))
+    .filter((source): source is ImageSourcePropType => source !== null);
+
+  return <PixelStack sources={sources} width={width} height={height} />;
 }
 
 const styles = StyleSheet.create({
-  layer: { position: "absolute", left: 0, top: 0 },
   pending: {
     alignItems: "center",
     justifyContent: "center",

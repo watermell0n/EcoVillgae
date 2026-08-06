@@ -14,6 +14,7 @@ type Tab = "request" | "received" | "progress";
 
 export default function TradeScreen() {
   const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
   const { trades, createLocalTrade, decideIncomingTrade } = useTrades();
   const [tab, setTab] = useState<Tab>("request");
   const [friendId, setFriendId] = useState("");
@@ -43,7 +44,7 @@ export default function TradeScreen() {
       <Text style={styles.sectionTitle}>거래 신청</Text><Text style={styles.fieldLabel}>친구 검색</Text>
       <TextInput accessibilityLabel="친구 검색" value={friendQuery} onChangeText={setFriendQuery} placeholder="친구 이름 검색" placeholderTextColor="#9AAABD" style={styles.friendSearch} />
       <View style={styles.friendList}>{filteredClassmates.map((friend) => <Pressable key={friend.id} onPress={() => setFriendId(friend.id)} style={[styles.friend, friendId === friend.id && styles.friendSelected]}><Text style={styles.friendAvatar}>{friend.name.slice(0, 1)}</Text><Text style={styles.friendName}>{friend.name}</Text></Pressable>)}{friendQuery.trim() && !filteredClassmates.length ? <Text style={styles.noFriend}>찾는 친구가 없어요.</Text> : null}</View>
-      <Text style={styles.fieldLabel}>보낼 금액</Text><View style={styles.amountField}><TextInput accessibilityLabel="거래 금액" keyboardType="number-pad" value={amount} onChangeText={setAmount} style={styles.amountInput} /><Text style={styles.amountSuffix}>비빔</Text></View>
+      <Text style={styles.fieldLabel}>보낼 금액</Text><View style={styles.amountField}><TextInput accessibilityLabel="거래 금액" keyboardType="number-pad" value={amount} onChangeText={setAmount} style={styles.amountInput} /><Text style={styles.amountSuffix}>{currencyName}</Text></View>
       <Text style={styles.fieldLabel}>거래 사유</Text><TextInput accessibilityLabel="거래 사유" value={reason} onChangeText={setReason} placeholder="예: 모둠 활동 자료를 함께 준비해요" placeholderTextColor="#9AAABD" multiline style={styles.reasonInput} />
       {requestTrade.isError ? <Text style={styles.error}>{requestTrade.error.message}</Text> : null}<Pressable disabled={requestTrade.isPending} onPress={() => requestTrade.mutate()} style={[styles.submit, requestTrade.isPending && styles.submitDisabled]}><Text style={styles.submitText}>{requestTrade.isPending ? "신청 중이에요" : "거래 신청하기"}</Text></Pressable>
     </View> : null}
@@ -53,7 +54,7 @@ export default function TradeScreen() {
 }
 
 function TabButton({ active, label, onPress }: { active: boolean; label: string; onPress(): void }) { return <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive]}><Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text></Pressable>; }
-function TradeList({ trades, empty, action }: { trades: TradeRequest[]; empty: string; action?: (trade: TradeRequest) => ReactNode }) { if (!trades.length) return <View style={styles.empty}><Text style={styles.emptyText}>{empty}</Text></View>; return <View style={styles.list}>{trades.map((trade) => <View key={trade.id} style={styles.tradeRow}><View style={styles.tradeAvatar}><Text style={styles.tradeAvatarText}>{trade.counterpartName.slice(0, 1)}</Text></View><View style={styles.tradeInfo}><Text style={styles.tradeName}>{trade.counterpartName}</Text><Text style={styles.tradeReason}>{trade.reason}</Text><Text style={styles.tradeStatus}>{statusLabel(trade.status)}</Text></View><View style={styles.tradeRight}><Text style={styles.tradeAmount}>{trade.amount}비빔</Text>{action?.(trade)}</View></View>)}</View>; }
+function TradeList({ trades, empty, action }: { trades: TradeRequest[]; empty: string; action?: (trade: TradeRequest) => ReactNode }) { const { identity } = useAuth(); const currencyName = identity?.currencyName ?? "비빔"; if (!trades.length) return <View style={styles.empty}><Text style={styles.emptyText}>{empty}</Text></View>; return <View style={styles.list}>{trades.map((trade) => <View key={trade.id} style={styles.tradeRow}><View style={styles.tradeAvatar}><Text style={styles.tradeAvatarText}>{trade.counterpartName.slice(0, 1)}</Text></View><View style={styles.tradeInfo}><Text style={styles.tradeName}>{trade.counterpartName}</Text><Text style={styles.tradeReason}>{trade.reason}</Text><Text style={styles.tradeStatus}>{statusLabel(trade.status)}</Text></View><View style={styles.tradeRight}><Text style={styles.tradeAmount}>{trade.amount} {currencyName}</Text>{action?.(trade)}</View></View>)}</View>; }
 function SmallButton({ label, tone, onPress }: { label: string; tone: "green" | "light"; onPress(): void }) { return <Pressable onPress={onPress} style={[styles.smallButton, tone === "green" && styles.smallButtonGreen]}><Text style={[styles.smallButtonText, tone === "green" && styles.smallButtonTextGreen]}>{label}</Text></Pressable>; }
 function statusLabel(status: string) { return ({ AWAITING_COUNTERPART: "친구 응답 대기", AWAITING_TEACHER: "선생님 확인 대기", COMPLETED: "거래 완료", DECLINED: "친구가 거절했어요", REJECTED: "선생님이 거절했어요" } as Record<string, string>)[status] ?? "진행 중"; }
 

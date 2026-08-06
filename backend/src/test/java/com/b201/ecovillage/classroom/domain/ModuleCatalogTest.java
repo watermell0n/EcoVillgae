@@ -20,8 +20,10 @@ class ModuleCatalogTest {
 
     @Test
     void exposesOnlyCanonicalSelectableCodes() {
-        assertEquals(21, ModuleCatalog.definitions().size());
-        assertEquals(21, ModuleCatalog.codes().size());
+        assertEquals(23, ModuleCatalog.definitions().size());
+        assertEquals(23, ModuleCatalog.codes().size());
+        assertTrue(ModuleCatalog.isCanonical("REAL_ESTATE"));
+        assertTrue(ModuleCatalog.isCanonical("HOUSING_SUBSCRIPTION"));
         assertFalse(ModuleCatalog.isCanonical("WALLET"));
         assertFalse(ModuleCatalog.isCanonical("INCOME"));
         assertFalse(ModuleCatalog.isCanonical("TAX"));
@@ -53,11 +55,9 @@ class ModuleCatalogTest {
         assertEquals(22, historicalCodes.size());
         assertTrue(historicalCodes.remove(ModuleCatalog.WALLET_INFRASTRUCTURE_CODE));
         assertTrue(historicalCodes.stream().allMatch(code -> ModuleCatalog.find(code).isPresent()));
-        assertEquals(
-            ModuleCatalog.codes(),
-            historicalCodes.stream()
-                .map(code -> ModuleCatalog.require(code).code())
-                .collect(Collectors.toSet())
-        );
+        Set<String> historicalCanonicalCodes = historicalCodes.stream()
+            .map(code -> ModuleCatalog.require(code).code())
+            .collect(Collectors.toSet());
+        assertTrue(ModuleCatalog.codes().containsAll(historicalCanonicalCodes));
     }
 }

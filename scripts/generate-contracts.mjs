@@ -135,9 +135,37 @@ const mvpSupportApiIds = new Set([
   "API-AUTH-007",
   "API-AUTH-008",
   "API-FIN-007",
+  "API-FIN-004",
   "API-FIN-008",
   "API-FIN-009",
+  "API-FIN-010",
+  "API-FIN-011",
+  "API-FIN-012",
+  "API-FIN-013",
+  "API-EST-001",
+  "API-EST-002",
+  "API-EST-003",
+  "API-EST-004",
+  "API-EST-005",
+  "API-EST-006",
+  "API-EST-007",
+  "API-EST-008",
+  "API-EST-009",
+  "API-EST-010",
+  "API-EST-011",
+  "API-EST-012",
+  "API-EST-013",
+  "API-EST-014",
+  "API-EST-015",
+  "API-EST-016",
+  "API-EST-017",
+  "API-EST-018",
+  "API-EST-019",
+  "API-EST-020",
+  "API-EST-021",
+  "API-EST-022",
   "API-MOD-002",
+  "API-MOD-003",
   "API-POL-001",
   "API-QZ-006",
   "API-QZ-008",
@@ -145,6 +173,8 @@ const mvpSupportApiIds = new Set([
   "API-READ-001",
   "API-READ-003",
   "API-READ-016",
+  "API-READ-018",
+  "API-READ-019",
   "API-READ-027",
   "API-READ-028",
   "API-READ-029",
@@ -334,6 +364,9 @@ const requestFieldOverrides = {
   ],
   "API-CLS-001": [
     { name: "school_id" },
+    { name: "display_name", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
+    { name: "class_number", optional: true, schema: { type: ["integer", "null"], minimum: 1, maximum: 99 } },
+    { name: "description", optional: true, schema: { type: ["string", "null"], maxLength: 500 } },
     {
       name: "currency_name",
       schema: {
@@ -370,6 +403,9 @@ const requestFieldOverrides = {
     },
   ],
   "API-CLS-002": [
+    { name: "display_name", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
+    { name: "class_number", optional: true, schema: { type: ["integer", "null"], minimum: 1, maximum: 99 } },
+    { name: "description", optional: true, schema: { type: ["string", "null"], maxLength: 500 } },
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
     {
       name: "course_size",
@@ -418,6 +454,9 @@ const requestFieldOverrides = {
       schema: { type: "array", items: { type: "object", additionalProperties: true } },
     },
     { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    // true면 요청을 명단 전체로 보고, 빠진 학생과 급여 역할을 내린다.
+    // 생략하면 보낸 학생만 추가·수정하는 기존 개별 등록 동작을 유지한다.
+    { name: "replace_roster", optional: true, schema: { type: "boolean", default: false } },
   ],
   "API-CLS-006": [
     { name: "timezone", schema: { type: "string", default: "Asia/Seoul" } },
@@ -494,6 +533,14 @@ const requestFieldOverrides = {
   "API-MOD-002": [
     { name: "reason", schema: { type: "string", minLength: 1, maxLength: 500 } },
   ],
+  "API-MOD-003": [
+    { name: "command", values: ["SUSPEND", "RESUME"] },
+    {
+      name: "reason",
+      optional: true,
+      schema: { type: "string", maxLength: 500 },
+    },
+  ],
   "API-POL-001": [
     { name: "price_adjustment_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
     { name: "inflation_rate_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
@@ -561,6 +608,31 @@ const requestFieldOverrides = {
   "API-FIN-007": [
     { name: "investment_mode", values: ["SHORT_TERM", "LONG_TERM"] },
     { name: "prefer_historical_index", schema: { type: "boolean" } },
+    // 교사가 "운영 관리 > 투자"에서 정한 값이다. 없으면 서버 기본값으로 만든다.
+    {
+      name: "daily_volatility_bps",
+      optional: true,
+      schema: { type: "integer", minimum: 10, maximum: 2000 },
+    },
+    {
+      name: "asset_conditions",
+      optional: true,
+      schema: {
+        type: "array",
+        maxItems: 20,
+        items: {
+          type: "object",
+          required: ["symbol"],
+          properties: {
+            symbol: { type: "string" },
+            start_price: { type: "integer", minimum: 1, nullable: true },
+            // 하루에 오르내릴 수 있는 범위다. 최저와 최고를 함께 보내야 한다.
+            min_return_bps: { type: "integer", minimum: -5000, maximum: 5000, nullable: true },
+            max_return_bps: { type: "integer", minimum: -5000, maximum: 5000, nullable: true },
+          },
+        },
+      },
+    },
   ],
   "API-FIN-008": [
     { name: "command", values: ["START"] },
@@ -573,18 +645,104 @@ const requestFieldOverrides = {
     { name: "expected_price_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-FIN-010": [
-    { name: "max_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
-    { name: "base_rate_bps", schema: { type: "integer", minimum: 0 } },
-    {
-      name: "installment_options",
-      schema: { type: "array", uniqueItems: true, items: { type: "integer", minimum: 1 } },
-    },
-    { name: "grace_period_days", schema: { type: "integer", minimum: 0 } },
-    {
-      name: "credit_adjustment_rules",
-      schema: { type: "object", additionalProperties: true },
-    },
-    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    { name: "maximum_principal", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "interest_rate_bps", schema: { type: "integer", minimum: 0, maximum: 2000 } },
+    { name: "term_units", schema: { type: "integer", minimum: 7, maximum: 84, multipleOf: 7 } },
+    { name: "installment_count", schema: { type: "integer", minimum: 1, maximum: 12 } },
+    { name: "grace_units", schema: { type: "integer", minimum: 0, maximum: 7 } },
+    { name: "on_time_credit", schema: { type: "integer", minimum: 0, maximum: 100 } },
+    { name: "overdue_credit", schema: { type: "integer", minimum: -100, maximum: 0 } },
+    { name: "repaid_credit", schema: { type: "integer", minimum: 0, maximum: 100 } },
+    { name: "expected_policy_version", optional: true, schema: { type: "integer", minimum: 0 } },
+  ],
+  "API-FIN-011": [
+    { name: "command", values: ["APPLY", "CANCEL"] },
+    { name: "application_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "amount", optional: true, schema: { type: ["integer", "null"], format: "int64", minimum: 1 } },
+    { name: "installments", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+  ],
+  "API-FIN-012": [
+    { name: "decision", values: ["APPROVE", "REJECT"] },
+    { name: "approved_amount", optional: true, schema: { type: ["integer", "null"], format: "int64", minimum: 1 } },
+    { name: "reason", optional: true, schema: { type: ["string", "null"] } },
+  ],
+  "API-FIN-013": [
+    { name: "command", values: ["RETRY_DUE_PAYMENT", "PREPAY_ALL"] },
+  ],
+  "API-EST-002": [
+    { name: "rows", schema: { type: "integer", minimum: 1, maximum: 26 } },
+    { name: "columns", schema: { type: "integer", minimum: 1, maximum: 26 } },
+  ],
+  "API-EST-003": [
+    { name: "coordinate", optional: true }, { name: "display_name", optional: true },
+    { name: "row_index", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+    { name: "column_index", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
+    { name: "tier", optional: true, values: ["GENERAL", "POPULAR"] },
+    { name: "is_public", schema: { type: "boolean" } }, { name: "active", schema: { type: "boolean" } },
+    { name: "allows_rent", schema: { type: "boolean" } }, { name: "allows_jeonse", schema: { type: "boolean" } },
+    { name: "allows_sale", schema: { type: "boolean" } }, { name: "allows_subscription", schema: { type: "boolean" } },
+    { name: "sale_price", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "deposit_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "monthly_rent", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "payment_cycle_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "contract_term_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+  ],
+  "API-EST-004": [
+    { name: "display_name", optional: true }, { name: "tier", optional: true, values: ["GENERAL", "POPULAR"] },
+    { name: "is_public", schema: { type: "boolean" } }, { name: "active", schema: { type: "boolean" } },
+    { name: "allows_rent", schema: { type: "boolean" } }, { name: "allows_jeonse", schema: { type: "boolean" } },
+    { name: "allows_sale", schema: { type: "boolean" } }, { name: "allows_subscription", schema: { type: "boolean" } },
+    { name: "sale_price", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "deposit_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "monthly_rent", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "payment_cycle_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "contract_term_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+  ],
+  "API-EST-008": [
+    { name: "contract_type", values: ["RENT", "JEONSE", "SALE"] },
+    { name: "subscription_application_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+  ],
+  "API-EST-009": [{ name: "reason", optional: true }],
+  "API-EST-010": [{ name: "reason", optional: true }],
+  "API-EST-011": [],
+  "API-EST-012": [
+    { name: "lease_type", values: ["RENT", "JEONSE"] },
+    { name: "deposit_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "monthly_rent", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "payment_cycle_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "contract_term_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "is_public", schema: { type: "boolean" } },
+  ],
+  "API-EST-013": [
+    { name: "lease_type", values: ["RENT", "JEONSE"] },
+    { name: "deposit_amount", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "monthly_rent", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "payment_cycle_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "contract_term_days", schema: { type: "integer", minimum: 1, maximum: 365 } },
+    { name: "is_public", schema: { type: "boolean" } },
+  ],
+  "API-EST-015": [
+    { name: "title" }, { name: "opens_at", schema: { type: "string", format: "date-time" } },
+    { name: "closes_at", schema: { type: "string", format: "date-time" } },
+    { name: "sale_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "supply_quantity", schema: { type: "integer", minimum: 1 } },
+    { name: "minimum_deposit_count", schema: { type: "integer", minimum: 0 } },
+    { name: "minimum_balance", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "property_ids", schema: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", format: "uuid" } } },
+  ],
+  "API-EST-016": [],
+  "API-EST-017": [],
+  "API-EST-019": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+  ],
+  "API-EST-020": [
+    { name: "classroom_id", schema: { type: "string", format: "uuid" } },
+    { name: "amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+  ],
+  "API-EST-022": [
+    { name: "enabled", schema: { type: "boolean" } },
+    { name: "amount", optional: true, schema: { type: ["integer", "null"], format: "int64", minimum: 1 } },
+    { name: "cycle_days", optional: true, schema: { type: ["integer", "null"], minimum: 1, maximum: 365 } },
   ],
   "API-QZ-002": [
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
@@ -722,6 +880,16 @@ const requestFieldOverrides = {
     { name: "expected_product_version", schema: { type: "integer", minimum: 1 } },
   ],
   "API-ITM-001": [{ name: "command", values: ["EQUIP", "UNEQUIP"] }],
+  "API-ITM-002": [{
+    name: "equipment",
+    schema: {
+      type: "object",
+      propertyNames: {
+        enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+      },
+      additionalProperties: { type: ["string", "null"], format: "uuid" },
+    },
+  }],
   "API-CNT-001": [
     { name: "command", values: ["APPROVE", "REJECT", "PUBLISH", "UNPUBLISH"] },
     { name: "source_title" },
@@ -745,7 +913,7 @@ const requestFieldOverrides = {
     { name: "product_id", optional: true },
     { name: "product_type", values: ["DEPOSIT", "SAVINGS"] },
     { name: "name" },
-    { name: "term_units", schema: { type: "integer", minimum: 1 } },
+    { name: "term_units", schema: { type: "integer", minimum: 7, maximum: 84, multipleOf: 7 } },
     { name: "interest_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "early_termination_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
     { name: "installment_count", optional: true, schema: { type: "integer", minimum: 2, maximum: 12 } },
@@ -760,6 +928,11 @@ const requestFieldOverrides = {
     { name: "expected_product_version", schema: { type: "integer", minimum: 0 } },
   ],
   "API-FIN-003": [{ name: "command", values: ["EARLY_TERMINATE"] }],
+  "API-FIN-004": [
+    { name: "product_id", schema: { type: "string", format: "uuid" } },
+    { name: "installment_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "expected_product_version", schema: { type: "integer", minimum: 1 } },
+  ],
   "API-QZ-001": [
     { name: "command", values: ["CREATE", "UPDATE"] },
     { name: "question_id", optional: true },
@@ -940,7 +1113,11 @@ const mutationContextFields = [
   { name: "client_occurred_at", optional: true, schema: { type: "string", format: "date-time" } },
 ];
 
-const requiredExpectedStateVersionApis = new Set(["API-ITM-001", "API-SHP-001"]);
+const requiredExpectedStateVersionApis = new Set([
+  "API-ITM-001",
+  "API-ITM-002",
+  "API-SHP-001",
+]);
 
 function mutationContextFor(operation) {
   if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
@@ -1009,6 +1186,127 @@ const responseFieldOverrides = {
     { name: "position_quantity", schema: { type: "integer", minimum: 1 } },
     { name: "average_price", schema: { type: "integer", format: "int64", minimum: 1 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-FIN-010": [
+    { name: "version", schema: { type: "integer", minimum: 1 } },
+    { name: "maximum_principal", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "interest_rate_bps", schema: { type: "integer", minimum: 0, maximum: 2000 } },
+    { name: "term_units", schema: { type: "integer", minimum: 1 } },
+    { name: "installment_count", schema: { type: "integer", minimum: 1, maximum: 12 } },
+    { name: "grace_units", schema: { type: "integer", minimum: 0, maximum: 7 } },
+    { name: "on_time_credit", schema: { type: "integer" } },
+    { name: "overdue_credit", schema: { type: "integer" } },
+    { name: "repaid_credit", schema: { type: "integer" } },
+  ],
+  "API-FIN-011": [
+    { name: "application_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_nickname", schema: { type: "string" } },
+    { name: "requested_amount", schema: { type: "integer", format: "int64" } },
+    { name: "approved_amount", optional: true, schema: { type: ["integer", "null"], format: "int64" } },
+    { name: "credit_score", schema: { type: "integer" } },
+    { name: "credit_level", schema: { type: "string" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-FIN-012": [
+    { name: "application_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "student_nickname", schema: { type: "string" } },
+    { name: "requested_amount", schema: { type: "integer", format: "int64" } },
+    { name: "approved_amount", optional: true, schema: { type: ["integer", "null"], format: "int64" } },
+    { name: "credit_score", schema: { type: "integer" } },
+    { name: "credit_level", schema: { type: "string" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+  ],
+  "API-FIN-013": [
+    { name: "financial_resource_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE", "OVERDUE", "REPAID"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "remaining_principal", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "remaining_interest", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "credit_score", schema: { type: "integer", minimum: 0, maximum: 1000 } },
+    { name: "credit_level", schema: { type: "string", enum: ["GOOD", "NORMAL", "CAUTION", "RESTRICTED"] } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
+  "API-READ-018": [
+    { name: "credit_score", schema: { type: "integer" } },
+    { name: "credit_level", schema: { type: "string" } },
+    { name: "available_limit", schema: { type: "integer", format: "int64" } },
+    { name: "interest_rate_bps", schema: { type: "integer" } },
+    { name: "term_units", schema: { type: "integer" } },
+    { name: "installment_count", schema: { type: "integer" } },
+    { name: "can_apply", schema: { type: "boolean" } },
+    { name: "pending_application_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
+    { name: "pending_application_status", optional: true, schema: { type: ["string", "null"] } },
+    {
+      name: "loans",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["loan_id", "principal_amount", "outstanding_principal", "outstanding_interest", "applied_interest_rate_bps", "status", "matures_at", "state_version", "installments"],
+          properties: {
+            loan_id: { type: "string", format: "uuid" },
+            principal_amount: { type: "integer", format: "int64", minimum: 1 },
+            outstanding_principal: { type: "integer", format: "int64", minimum: 0 },
+            outstanding_interest: { type: "integer", format: "int64", minimum: 0 },
+            applied_interest_rate_bps: { type: "integer", minimum: 0, maximum: 2000 },
+            status: { type: "string", enum: ["ACTIVE", "OVERDUE", "REPAID"] },
+            matures_at: { type: "string", format: "date-time" },
+            state_version: { type: "integer", format: "int64", minimum: 0 },
+            installments: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["installment_id", "installment_number", "scheduled_principal", "scheduled_interest", "due_at", "grace_until", "paid_principal", "paid_interest", "status", "state_version"],
+                properties: {
+                  installment_id: { type: "string", format: "uuid" },
+                  installment_number: { type: "integer", minimum: 1 },
+                  scheduled_principal: { type: "integer", format: "int64", minimum: 0 },
+                  scheduled_interest: { type: "integer", format: "int64", minimum: 0 },
+                  due_at: { type: "string", format: "date-time" },
+                  grace_until: { type: "string", format: "date-time" },
+                  paid_principal: { type: "integer", format: "int64", minimum: 0 },
+                  paid_interest: { type: "integer", format: "int64", minimum: 0 },
+                  paid_at: { type: ["string", "null"], format: "date-time" },
+                  status: { type: "string", enum: ["SCHEDULED", "MISSED", "PAID"] },
+                  state_version: { type: "integer", format: "int64", minimum: 0 },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      name: "credit_events",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["event_id", "event_type", "score_delta", "score_before", "score_after", "reason", "occurred_at"],
+          properties: {
+            event_id: { type: "string", format: "uuid" },
+            event_type: { type: "string" },
+            score_delta: { type: "integer" },
+            score_before: { type: "integer", minimum: 0, maximum: 1000 },
+            score_after: { type: "integer", minimum: 0, maximum: 1000 },
+            reason: { type: "string" },
+            occurred_at: { type: "string", format: "date-time" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-READ-019": [
+    { name: "policy", schema: { type: "object", additionalProperties: true } },
+    { name: "applications", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+    { name: "active_loans", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
   ],
   "API-READ-016": [
     { name: "market_id", schema: { type: "string", format: "uuid" } },
@@ -1222,6 +1520,14 @@ const responseFieldOverrides = {
     },
     { name: "replayed", schema: { type: "boolean" } },
   ],
+  "API-MOD-003": [
+    { name: "module_id", schema: { type: "string", format: "uuid" } },
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string", enum: ["ACTIVE"] } },
+    { name: "student_access_suspended", schema: { type: "boolean" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
   "API-POL-001": [
     { name: "policy_version_id", schema: { type: "string", format: "uuid" } },
     { name: "policy_version", schema: { type: "integer", minimum: 1 } },
@@ -1291,6 +1597,25 @@ const responseFieldOverrides = {
     { name: "inventory_item_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string", enum: ["AVAILABLE", "EQUIPPED"] } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  // 일괄 저장 결과는 최신 프로필 전체다. API-READ-035와 같은 모양을 돌려준다.
+  "API-ITM-002": [
+    { name: "profile_id", schema: { type: "string", format: "uuid" } },
+    { name: "classroom_student_id", schema: { type: "string", format: "uuid" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "equipment_changed_at", schema: { type: "string", format: "date-time" } },
+    { name: "created_at", schema: { type: "string", format: "date-time" } },
+    { name: "updated_at", schema: { type: "string", format: "date-time" } },
+    {
+      name: "equipped_inventory_items",
+      schema: {
+        type: "object",
+        propertyNames: {
+          enum: ["BACKGROUND", "EFFECT", "BACK", "BOTTOM", "SHOES", "TOP", "NECK", "FACE", "HAND", "HAT"],
+        },
+        additionalProperties: { type: "string", format: "uuid" },
+      },
+    },
   ],
   "API-VOT-002": [
     { name: "receipt_hash", schema: { type: "string" } },
@@ -1417,9 +1742,13 @@ const responseFieldOverrides = {
   "API-READ-003": [
     { name: "classroom_id", schema: { type: "string", format: "uuid" } },
     { name: "classroom_code", schema: { type: "string" } },
+    { name: "display_name", optional: true, schema: { type: ["string", "null"] } },
+    { name: "class_number", optional: true, schema: { type: ["integer", "null"] } },
+    { name: "description", optional: true, schema: { type: ["string", "null"] } },
     { name: "currency_name", schema: { type: "string" } },
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
     { name: "course_size", schema: { type: "string", enum: ["ONE_SESSION", "ONE_WEEK", "ONE_MONTH", "SEMESTER"] } },
+    { name: "student_count", schema: { type: "integer", minimum: 0 } },
     { name: "starts_on", schema: { type: ["string", "null"], format: "date" } },
     { name: "ends_on", schema: { type: ["string", "null"], format: "date" } },
     { name: "recommended_course_id", optional: true, schema: { type: ["string", "null"], format: "uuid" } },
@@ -1430,7 +1759,14 @@ const responseFieldOverrides = {
     { name: "policy_versions", schema: projectionItems({ policy_area: { type: "string" } }) },
   ],
   "API-READ-004": [
-    { name: "students", schema: projectionItems({ attendance_number: { type: "integer", minimum: 1 }, nickname: { type: "string" }, role_code: { type: ["string", "null"] } }) },
+    { name: "students", schema: projectionItems({
+      attendance_number: { type: "integer", minimum: 1 },
+      nickname: { type: "string" },
+      role_code: { type: ["string", "null"] },
+      presence_status: { type: "string", enum: ["ONLINE", "AWAY", "OFFLINE", "UNKNOWN"] },
+      current_screen: { type: ["string", "null"], maxLength: 120 },
+      last_seen_at: { type: ["string", "null"], format: "date-time" },
+    }) },
     { name: "salary_roles", schema: projectionItems({ role_code: { type: "string" }, gross_amount: { type: "integer", format: "int64", minimum: 0 } }) },
   ],
   "API-READ-006": [
@@ -1451,6 +1787,8 @@ const responseFieldOverrides = {
       stock_quantity: { type: "integer", minimum: 0 },
       product_kind: { type: "string" },
       character_code: { type: ["string", "null"] },
+      description: { type: ["string", "null"] },
+      sort_order: { type: ["integer", "null"] },
     }, [
       "resource_id",
       "label",
@@ -1462,6 +1800,8 @@ const responseFieldOverrides = {
       "available_quantity",
       "product_kind",
       "character_code",
+      "description",
+      "sort_order",
     ]),
   }],
   "API-READ-011": [{ name: "orders", schema: projectionItems({ total_amount: { type: "integer", format: "int64", minimum: 0 }, ordered_at: { type: "string", format: "date-time" } }) }],
@@ -1505,6 +1845,8 @@ const responseFieldOverrides = {
       explanation: { type: ["string", "null"] },
       source: { type: "string", enum: ["TEACHER", "AI"] },
       ai_run_id: { type: ["string", "null"], format: "uuid" },
+      // 이 학급에서 퀴즈로 한 번이라도 열린 문항인지. 교사 화면이 재사용을 막는 데 쓴다.
+      already_used_in_session: { type: "boolean" },
       options: {
         type: "array",
         minItems: 2,
@@ -1534,6 +1876,7 @@ const responseFieldOverrides = {
       "explanation",
       "source",
       "ai_run_id",
+      "already_used_in_session",
       "options",
     ]),
   }],
@@ -1541,7 +1884,25 @@ const responseFieldOverrides = {
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
     { name: "status", schema: { type: "string" } },
-    { name: "questions", schema: projectionItems({ prompt: { type: "string" }, options: { type: "array", items: { type: "string" } } }) },
+    // 학생 앱은 답 제출에 option_id가 필요하므로 보기를 객체로 내려준다.
+    {
+      name: "questions",
+      schema: projectionItems({
+        prompt: { type: "string" },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              option_id: { type: "string", format: "uuid" },
+              option_key: { type: ["string", "null"] },
+              option_text: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        },
+      }),
+    },
   ],
   "API-READ-022": [
     { name: "result_version", schema: { type: "integer", minimum: 1 } },
@@ -1948,6 +2309,7 @@ const resourceIdByDomain = {
   CNT: "character_source_id",
   TRD: "trade_id",
   FIN: "financial_resource_id",
+  EST: "property_id",
   QZ: "quiz_resource_id",
   VOT: "vote_id",
   AI: "ai_resource_id",
@@ -1979,6 +2341,7 @@ const storageByDomain = {
   CNT: ["character_catalog", "classroom_characters"],
   TRD: ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "transaction_groups"],
   FIN: ["financial_products", "financial_product_versions", "deposit_accounts", "savings_accounts", "investment_orders", "loans", "credit_profiles", "transaction_groups"],
+  EST: ["property_layouts", "properties", "property_contracts", "property_contract_payments", "property_lease_listings", "subscription_offers", "subscription_accounts", "subscription_auto_deposit_policies", "subscription_applications", "ledger_accounts", "ledger_entries", "transaction_groups"],
   QZ: ["quiz_questions", "quiz_question_versions", "quiz_options", "quiz_sessions", "quiz_submissions", "quiz_answers", "quiz_result_versions"],
   VOT: ["votes", "vote_options", "vote_eligibilities", "vote_ballots", "view.public_vote_aggregates"],
   AI: ["ai_runs", "ai_artifacts", "ai_proposals", "ai_decisions", "economic_event_drafts", "classroom_policy_versions"],
@@ -2280,6 +2643,7 @@ function tagForApi(apiId) {
     CNT: "Characters",
     TRD: "Trades",
     FIN: "Finance",
+    EST: "Property",
     QZ: "Quiz",
     VOT: "Vote",
     AI: "AI",
@@ -2363,6 +2727,14 @@ function parameterRefs(operation) {
         schema: { type: "string", format: "date-time" },
       },
     );
+  }
+  if (["API-EST-007", "API-EST-018", "API-EST-021"].includes(operation.apiId)) {
+    parameters.push({
+      name: "classroom_id",
+      in: "query",
+      required: true,
+      schema: { type: "string", format: "uuid" },
+    });
   }
 
   const pagedQueries = new Set([
@@ -2923,6 +3295,39 @@ function controlMessages() {
         additionalProperties: false,
       },
     },
+    PresenceUpdate: {
+      name: "presence.update",
+      title: "학생 접속·화면 상태 갱신",
+      contentType: "application/json",
+      payload: {
+        type: "object",
+        required: ["type", "status"],
+        properties: {
+          type: { const: "presence.update" },
+          status: { type: "string", enum: ["ONLINE", "AWAY"] },
+          current_screen: { type: ["string", "null"], maxLength: 120 },
+        },
+        additionalProperties: false,
+      },
+    },
+    PresenceChanged: {
+      name: "presence.changed",
+      title: "교사용 학생 접속 상태 변경",
+      contentType: "application/json",
+      payload: {
+        type: "object",
+        required: ["type", "classroom_id", "student_id", "status"],
+        properties: {
+          type: { const: "presence.changed" },
+          classroom_id: { type: "string", format: "uuid" },
+          student_id: { type: "string", format: "uuid" },
+          status: { type: "string", enum: ["ONLINE", "AWAY", "OFFLINE", "UNKNOWN"] },
+          current_screen: { type: ["string", "null"], maxLength: 120 },
+          last_seen_at: { type: ["string", "null"], format: "date-time" },
+        },
+        additionalProperties: false,
+      },
+    },
     EventAck: {
       name: "event.ack",
       title: "마지막 적용 sequence 진단",
@@ -2969,6 +3374,14 @@ function buildAsyncApi(channels, events) {
     for (const controlName of controlNames) {
       messages[controlName] = { $ref: `#/components/messages/${controlName}` };
     }
+    const receivesPresence = channel.channelId === "WS-ECO-001";
+    const sendsPresence = channel.channelId === "WS-TCH-001";
+    if (receivesPresence) {
+      messages.PresenceUpdate = { $ref: "#/components/messages/PresenceUpdate" };
+    }
+    if (sendsPresence) {
+      messages.PresenceChanged = { $ref: "#/components/messages/PresenceChanged" };
+    }
 
     channelObjects[channelKey] = {
       address: "/ws/v1",
@@ -2988,17 +3401,23 @@ function buildAsyncApi(channels, events) {
       action: "send",
       channel: { $ref: `#/channels/${channelKey}` },
       summary: `${channel.channelId}에서 커밋된 서버 이벤트 전송`,
-      messages: channelEvents.map((event) => ({
-        $ref: `#/channels/${channelKey}/messages/${pascalFromId(event.eventId)}`,
-      })),
+      messages: [
+        ...channelEvents.map((event) => ({
+          $ref: `#/channels/${channelKey}/messages/${pascalFromId(event.eventId)}`,
+        })),
+        ...(sendsPresence ? [{ $ref: `#/channels/${channelKey}/messages/PresenceChanged` }] : []),
+      ],
     };
     operations[`receive${pascalFromId(channel.channelId)}Control`] = {
       action: "receive",
       channel: { $ref: `#/channels/${channelKey}` },
       summary: `${channel.channelId} 구독·해제·진단 제어 메시지 수신`,
-      messages: controlNames.map((name) => ({
-        $ref: `#/channels/${channelKey}/messages/${name}`,
-      })),
+      messages: [
+        ...controlNames.map((name) => ({
+          $ref: `#/channels/${channelKey}/messages/${name}`,
+        })),
+        ...(receivesPresence ? [{ $ref: `#/channels/${channelKey}/messages/PresenceUpdate` }] : []),
+      ],
     };
   }
 
@@ -3238,6 +3657,10 @@ function buildApiFieldMapping(operations) {
   };
 }
 
+// 스펙에 엔드포인트를 더하면 이 숫자만 올린다. 개수가 어긋나면 중복 검사도 같은 숫자와
+// 비교하므로 "중복되었습니다"가 함께 뜨지만, 실제 원인은 개수 하나뿐인 경우가 많다.
+const EXPECTED_HTTP_OPERATION_COUNT = 143;
+
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
   const routeKeys = httpOperations.map((operation) => `${operation.method} ${operation.path}`);
@@ -3245,9 +3668,14 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
   const eventTypes = events.map((event) => event.eventType);
 
   const assertions = [
-    [httpOperations.length === 110, `HTTP 작업 수가 110개가 아닙니다: ${httpOperations.length}`],
-    [new Set(apiIds).size === 110, "API ID가 중복되었습니다."],
-    [new Set(routeKeys).size === 110, "HTTP 메서드·경로가 중복되었습니다."],
+    [
+      httpOperations.length === EXPECTED_HTTP_OPERATION_COUNT,
+      `HTTP 작업 수가 ${EXPECTED_HTTP_OPERATION_COUNT}개가 아닙니다: ${httpOperations.length}`,
+    ],
+    // 중복 검사는 기대 개수가 아니라 실제 개수와 견준다. 그러지 않으면 엔드포인트를 더하고
+    // 기대 개수를 아직 올리지 않았을 때 중복이 없는데도 "중복되었습니다"가 함께 뜬다.
+    [new Set(apiIds).size === httpOperations.length, "API ID가 중복되었습니다."],
+    [new Set(routeKeys).size === httpOperations.length, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
     [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
     [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
@@ -3264,8 +3692,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
             ["get", "post", "put", "patch", "delete"].includes(key),
           ).length,
         0,
-      ) === 110,
-      "OpenAPI 작업 수가 110개가 아닙니다.",
+      ) === EXPECTED_HTTP_OPERATION_COUNT,
+      `OpenAPI 작업 수가 ${EXPECTED_HTTP_OPERATION_COUNT}개가 아닙니다.`,
     ],
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [

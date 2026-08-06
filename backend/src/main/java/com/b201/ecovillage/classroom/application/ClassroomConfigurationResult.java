@@ -9,9 +9,13 @@ import com.b201.ecovillage.identity.domain.CourseSize;
 public record ClassroomConfigurationResult(
     UUID classroomId,
     String classroomCode,
+    String displayName,
+    Integer classNumber,
+    String description,
     String currencyName,
     int grade,
     CourseSize courseSize,
+    int studentCount,
     LocalDate startsOn,
     LocalDate endsOn,
     UUID recommendedCourseId,

@@ -206,7 +206,7 @@ ACTIVE → CLOSING → READ_ONLY → ARCHIVED
 ## 10. 저장소 구조
 
 ```text
-student-app/          React Native·Expo 태블릿 앱 목표 영역(현재 Vite UI는 이전용 프로토타입)
+student-app/          React Native·Expo 태블릿 앱(앱 본체는 student-app/expo/)
 teacher-web/          Next.js 교사 관리 웹·교실 공용 화면
 backend/              Spring Boot 핵심 API·Flyway·DB 테스트
 ai-service/           FastAPI AI 서비스
@@ -221,10 +221,10 @@ scripts/              문서·계약·스키마 정적 검사
 `.env`로 복사한 뒤 다음과 같이 실행합니다.
 
 ```bash
-docker compose up -d
+docker compose up -d --wait postgres redis
 ```
 
-백엔드까지 컨테이너로 함께 실행할 때는 `app` 프로필을 사용합니다.
+기본 `docker compose up -d`도 PostgreSQL·Redis만 실행합니다. 백엔드와 AI·관측 서비스까지 컨테이너로 함께 실행할 때는 `app` 프로필을 사용합니다.
 
 ```bash
 docker compose --profile app up -d --build

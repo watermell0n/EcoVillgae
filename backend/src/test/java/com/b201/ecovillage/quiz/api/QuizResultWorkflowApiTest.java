@@ -460,7 +460,9 @@ class QuizResultWorkflowApiTest {
             body("CONFIRM", 0, null, null)
         ));
         long stateVersion = confirmed.path("data").path("state_version").asLong();
-        assertEquals(0, jdbcTemplate.queryForObject(
+        // 교사가 제출을 마감한 시점의 답안지가 곧 걷은 시험지다. 학생이 "퀴즈 마치기"를 누르지
+        // 못해 임시 저장으로 남았더라도 맞힌 문항은 그대로 점수가 된다.
+        assertEquals(10, jdbcTemplate.queryForObject(
             """
                 SELECT student_result.score
                   FROM quiz_student_results student_result

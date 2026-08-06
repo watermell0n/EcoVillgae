@@ -8,7 +8,7 @@ import {
   type PropsWithChildren
 } from "react";
 
-import { loginStudent, logoutStudent, restoreStudentIdentity } from "./api";
+import { hydrateStudentIdentity, loginStudent, logoutStudent, restoreStudentIdentity } from "./api";
 import { clearSession, getOrCreateDeviceId, saveSession, saveSessionIdentity } from "./token-vault";
 import type { StudentIdentity } from "./types";
 
@@ -48,12 +48,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const deviceId = await getOrCreateDeviceId();
     const session = await loginStudent({ ...values, deviceId });
     await saveSession(session);
-    setIdentity({
+    const sessionIdentity: StudentIdentity = {
       classroomId: session.classroomId,
       studentId: session.studentId,
       nickname: session.nickname,
       role: session.role
-    });
+    };
+    const hydrated = await hydrateStudentIdentity(sessionIdentity).catch(() => sessionIdentity);
+    await saveSessionIdentity(hydrated);
+    setIdentity(hydrated);
   }, []);
 
   const logout = useCallback(async () => {

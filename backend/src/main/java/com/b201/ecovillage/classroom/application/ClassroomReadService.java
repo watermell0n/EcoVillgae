@@ -1,5 +1,6 @@
 package com.b201.ecovillage.classroom.application;
 
+import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,15 +24,28 @@ import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
+import com.b201.ecovillage.realtime.application.StudentPresenceService;
+import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
+import com.b201.ecovillage.quiz.domain.ActivitySession;
+import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 
 @Service
 public class ClassroomReadService {
 
     private static final String PRIVATE_POLICY_AREA = "AI_SETTINGS";
+    // 학생 앱이 이 키들을 읽어 진행 중인 활동을 찾고 잠긴 모듈을 회색으로 표시한다.
+    // 여기에 없는 키는 학생 응답에서 지워지므로, 새로 추가한 config 키는 반드시 함께 등록한다.
     private static final List<String> PUBLIC_MODULE_CONFIG_KEYS = List.of(
         "policy_area",
         "policy_version",
-        "investment_mode"
+        "investment_mode",
+        ClassroomModule.ACTIVE_QUIZ_SESSION_KEY,
+        "quiz_session_id",
+        "active_vote_id",
+        "vote_id",
+        "active_guided_activity_id",
+        "guided_activity_id",
+        ClassroomModule.STUDENT_ACCESS_SUSPENDED_KEY
     );
 
     private final ClassroomAuthorizationService authorizationService;
@@ -39,19 +53,28 @@ public class ClassroomReadService {
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomModuleRepository moduleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
+    private final StudentPresenceService presenceService;
+    private final ActivitySessionRepository activitySessionRepository;
+    private final Clock clock;
 
     public ClassroomReadService(
         ClassroomAuthorizationService authorizationService,
         ClassroomStudentRepository studentRepository,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomModuleRepository moduleRepository,
-        ClassroomPolicyVersionRepository policyVersionRepository
+        ClassroomPolicyVersionRepository policyVersionRepository,
+        StudentPresenceService presenceService,
+        ActivitySessionRepository activitySessionRepository,
+        Clock clock
     ) {
         this.authorizationService = authorizationService;
         this.studentRepository = studentRepository;
         this.salaryRoleRepository = salaryRoleRepository;
         this.moduleRepository = moduleRepository;
         this.policyVersionRepository = policyVersionRepository;
+        this.presenceService = presenceService;
+        this.activitySessionRepository = activitySessionRepository;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -84,7 +107,11 @@ public class ClassroomReadService {
                 ClassroomStudentStatus.ACTIVE
             )
             .stream()
-            .map(student -> toStudentView(student, salaryRolesById))
+            .map(student -> toStudentView(
+                student,
+                salaryRolesById,
+                presenceService.get(classroomId, student.getId(), clock.instant())
+            ))
             .toList();
         List<RosterAndSalariesView.SalaryRoleView> roles = salaryRoles
             .stream()
@@ -113,9 +140,19 @@ public class ClassroomReadService {
                 "ACTIVE"
             )
             : moduleRepository.findAllByClassroomIdOrderByModuleCode(classroomId);
+        // 학생 앱은 이 값이 있으면 화면을 선생님 자료 하나로 고정합니다.
+        // 퀴즈·투표도 LIVE 활동이지만 학생이 직접 참여해야 하므로 고정 대상이 아닙니다.
+        UUID activeGuidedActivityId = activitySessionRepository
+            .findFirstByClassroomIdAndStatusAndActivityType(
+                classroomId,
+                "LIVE",
+                ActivitySession.PRESENTATION_TYPE
+            )
+            .map(activity -> activity.getId())
+            .orElse(null);
         List<ModulesAndPoliciesView.ModuleView> modules = moduleEntities
             .stream()
-            .map(module -> toModuleView(module, student))
+            .map(module -> toModuleView(module, student, activeGuidedActivityId))
             .toList();
         List<ModulesAndPoliciesView.PolicyVersionView> policies = policyVersionRepository
             .findAllByClassroomIdAndSupersededAtIsNullOrderByPolicyArea(classroomId)
@@ -141,7 +178,8 @@ public class ClassroomReadService {
 
     private static RosterAndSalariesView.StudentView toStudentView(
         ClassroomStudent student,
-        Map<UUID, SalaryRole> salaryRolesById
+        Map<UUID, SalaryRole> salaryRolesById,
+        StudentPresenceSnapshot presence
     ) {
         SalaryRole role = student.getSalaryRoleId() == null
             ? null
@@ -154,7 +192,10 @@ public class ClassroomReadService {
             student.getStateVersion(),
             student.getRosterNumber(),
             student.getNickname(),
-            role == null ? null : role.getRoleCode()
+            role == null ? null : role.getRoleCode(),
+            presence.status(),
+            presence.currentScreen(),
+            presence.lastSeenAt()
         );
     }
 
@@ -174,8 +215,15 @@ public class ClassroomReadService {
 
     private static ModulesAndPoliciesView.ModuleView toModuleView(
         ClassroomModule module,
-        boolean publicView
+        boolean publicView,
+        UUID activeGuidedActivityId
     ) {
+        Map<String, Object> config = new LinkedHashMap<>(
+            publicView ? publicModuleConfig(module.getConfig()) : module.getConfig()
+        );
+        if (activeGuidedActivityId != null) {
+            config.put("active_guided_activity_id", activeGuidedActivityId.toString());
+        }
         return new ModulesAndPoliciesView.ModuleView(
             module.getId(),
             module.getModuleCode(),
@@ -183,7 +231,7 @@ public class ClassroomReadService {
             Math.toIntExact(module.getStateVersion()),
             module.getStateVersion(),
             module.getModuleCode(),
-            publicView ? publicModuleConfig(module.getConfig()) : module.getConfig()
+            Map.copyOf(config)
         );
     }
 

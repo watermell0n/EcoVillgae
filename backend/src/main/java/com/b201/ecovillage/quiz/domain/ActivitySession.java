@@ -18,6 +18,14 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "activity_sessions")
 public class ActivitySession {
 
+    /**
+     * 학생 앱을 선생님 화면 하나로 고정하는 활동 유형입니다.
+     *
+     * 퀴즈(QUIZ)·투표(VOTE)도 같은 activity_sessions 표를 LIVE 상태로 쓰지만,
+     * 학생은 자기 기기에서 문제를 풀고 표를 던져야 하므로 화면을 고정하면 안 됩니다.
+     */
+    public static final String PRESENTATION_TYPE = "ECONOMIC_CONCEPT_IMAGE";
+
     @Id
     @Column(nullable = false, updatable = false)
     private UUID id;
@@ -40,6 +48,12 @@ public class ActivitySession {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "public_fields", nullable = false)
     private Set<String> publicFields;
+
+    @Column(name = "presentation_image_url", columnDefinition = "text")
+    private String presentationImageUrl;
+
+    @Column(name = "presentation_title", length = 120)
+    private String presentationTitle;
 
     @Column(name = "starts_at")
     private Instant startsAt;
@@ -139,6 +153,18 @@ public class ActivitySession {
         changeStatus("LIVE", changedAt);
     }
 
+    public void configurePresentationImage(String title, String imageUrl, Instant changedAt) {
+        if (!"READY".equals(status)) {
+            throw new IllegalStateException("only a ready activity can be configured");
+        }
+        this.presentationTitle = requiredText(title, "title");
+        if (this.presentationTitle.length() > 120) {
+            throw new IllegalArgumentException("title must not exceed 120 characters");
+        }
+        this.presentationImageUrl = requiredText(imageUrl, "imageUrl");
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public void beginFinalizing(Instant changedAt) {
         if (!"LIVE".equals(status)) {
             throw new IllegalStateException("only a live activity can begin finalizing");
@@ -204,6 +230,14 @@ public class ActivitySession {
 
     public Instant getEndsAt() {
         return endsAt;
+    }
+
+    public String getPresentationImageUrl() {
+        return presentationImageUrl;
+    }
+
+    public String getPresentationTitle() {
+        return presentationTitle;
     }
 
     private static String requiredText(String value, String field) {

@@ -128,12 +128,14 @@
 
 ### 4.6 Character Slot
 
-캐릭터는 48×56 논리 캔버스에 정수 좌표 도트를 직접 그린다.
+캐릭터는 64×64 논리 캔버스를 사용한다. 상세 규칙은
+[도트 캐릭터 이미지 작업 규격](CHARACTER_ASSET_SPEC.md)을 따른다.
 
 - 슬롯 배경은 흰색 또는 매우 연한 하늘색
-- `image-rendering: pixelated` 적용 예정
+- `image-rendering: pixelated` 적용, 표시 크기는 `64px × 정수 배율`만 사용
+- 컨테이너 폭에 맞춘 `%` 크기나 비정수 배율은 사용하지 않는다 (도트가 흐려진다)
 - 장착 아이템 슬롯은 `AVAILABLE`, `EQUIPPED`, `LOCKED_TRADE` 상태를 가진다.
-- 캐릭터 원본/내보내기 에셋은 `assets/characters/exports`를 기준으로 한다.
+- 캐릭터 에셋은 `assets/character/`를 기준으로 한다.
 
 ## 5. 화면별 디자인 구상
 

@@ -33,15 +33,20 @@ PostgreSQL 지원은 `flyway-database-postgresql`로 추가합니다.
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up -d
+.\scripts\start-backend-local.ps1
 ```
 
-백엔드 실행:
+이 스크립트는 PostgreSQL·Redis만 기동하고 두 서비스의 health check가 완료된 뒤 `bootRun`을 실행합니다. 이미 두 서비스를 실행했다면 `.\scripts\start-backend-local.ps1 -SkipDependencies`를 사용합니다.
+
+수동 실행은 다음과 같습니다.
 
 ```powershell
+docker compose up -d --wait postgres redis
 cd backend
 .\gradlew.bat bootRun
 ```
+
+기본 `docker compose up -d`도 PostgreSQL·Redis만 실행합니다. AI 서비스와 관측 수집기까지 필요한 통합 점검일 때만 저장소 루트에서 `docker compose --profile app up -d --build`를 사용합니다. Gradle daemon·빌드·설정 캐시가 기본 활성화되어 두 번째 `bootRun`부터는 의존성 다운로드와 전체 설정 단계를 반복하지 않습니다.
 
 기본 포트는 `8080`이며 상태 확인 주소는
 `http://localhost:8080/actuator/health`입니다. `application.yml`은 백엔드
@@ -168,4 +173,5 @@ event acknowledgement, heartbeat messages, and automatic connection expiry.
 Local `bootRun` uses the in-process event bus by default. Docker Compose sets
 `REALTIME_REDIS_ENABLED=true`, so multiple backend instances exchange committed
 outbox events through Redis Pub/Sub. Configure browser origins with
-`WEB_ALLOWED_ORIGINS`; the local default includes ports `3000` and `5173`.
+`WEB_ALLOWED_ORIGINS`; the local default includes ports `3000` (teacher web) and
+`8081` (student Expo web).

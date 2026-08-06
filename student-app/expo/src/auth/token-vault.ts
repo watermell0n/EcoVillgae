@@ -10,18 +10,25 @@ const DEVICE_ID_KEY = "ecovillage.student.deviceId";
 
 let accessToken: string | null = null;
 
-// SecureStore is a native-only persistence layer. Keep the browser preview
-// entirely in memory so it never falls back to localStorage for refresh tokens.
-const webVault = new Map<string, string>();
+// SecureStore is native-only. The Expo web preview must persist the session
+// across a browser refresh as well, otherwise students are sent to login again.
+function webStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 async function getStoredValue(key: string) {
-  if (Platform.OS === "web") return webVault.get(key) ?? null;
+  if (Platform.OS === "web") return webStorage()?.getItem(key) ?? null;
   return SecureStore.getItemAsync(key);
 }
 
 async function setStoredValue(key: string, value: string) {
   if (Platform.OS === "web") {
-    webVault.set(key, value);
+    webStorage()?.setItem(key, value);
     return;
   }
 
@@ -30,7 +37,7 @@ async function setStoredValue(key: string, value: string) {
 
 async function deleteStoredValue(key: string) {
   if (Platform.OS === "web") {
-    webVault.delete(key);
+    webStorage()?.removeItem(key);
     return;
   }
 

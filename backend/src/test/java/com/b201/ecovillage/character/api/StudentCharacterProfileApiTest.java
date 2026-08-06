@@ -3,6 +3,7 @@ package com.b201.ecovillage.character.api;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -118,6 +119,46 @@ class StudentCharacterProfileApiTest {
         ).principal(studentPrincipal))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error.code").value("CLASS_NOT_ASSIGNED"));
+    }
+
+    @Test
+    void savesAnEmptyEquipmentMapAndKeepsTheProfileReadable() throws Exception {
+        mockMvc.perform(put(
+            "/classrooms/{classroomId}/students/me/character-profile/equipment",
+            classroomId
+        )
+            .principal(studentPrincipal)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expected_state_version\":0,\"equipment\":{}}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.classroom_student_id").value(studentId.toString()))
+            .andExpect(jsonPath("$.data.equipped_inventory_items").isMap());
+    }
+
+    @Test
+    void rejectsAnEquipmentSaveWithAStaleProfileVersion() throws Exception {
+        mockMvc.perform(put(
+            "/classrooms/{classroomId}/students/me/character-profile/equipment",
+            classroomId
+        )
+            .principal(studentPrincipal)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expected_state_version\":9,\"equipment\":{}}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("STATE_VERSION_CONFLICT"));
+    }
+
+    @Test
+    void equipmentSaveRequiresTheAggregateStateVersion() throws Exception {
+        mockMvc.perform(put(
+            "/classrooms/{classroomId}/students/me/character-profile/equipment",
+            classroomId
+        )
+            .principal(studentPrincipal)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"equipment\":{}}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test

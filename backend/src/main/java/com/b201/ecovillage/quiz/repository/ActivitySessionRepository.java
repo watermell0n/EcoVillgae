@@ -22,6 +22,12 @@ public interface ActivitySessionRepository
         String status
     );
 
+    Optional<ActivitySession> findFirstByClassroomIdAndStatusAndActivityType(
+        UUID classroomId,
+        String status,
+        String activityType
+    );
+
     List<ActivitySession> findAllByClassroomIdAndStatus(UUID classroomId, String status);
 
     boolean existsByClassroomIdAndStatusIn(UUID classroomId, List<String> statuses);

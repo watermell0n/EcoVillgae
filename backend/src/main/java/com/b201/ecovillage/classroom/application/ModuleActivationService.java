@@ -7,8 +7,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +36,7 @@ import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
+import com.b201.ecovillage.identity.domain.CourseSize;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
@@ -135,6 +138,13 @@ public class ModuleActivationService {
                 "Modules can be activated only in an active classroom."
             );
         }
+        if ("SAVINGS".equals(moduleCode) && classroom.getCourseSize() != CourseSize.SEMESTER) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "MODULE_NOT_AVAILABLE_FOR_COURSE_SIZE",
+                "정기적금 모듈은 한 학기 운영에서만 활성화할 수 있습니다."
+            );
+        }
         ClassroomModule module = moduleRepository
             .findByClassroomIdAndModuleCode(command.classroomId(), moduleCode)
             .orElseThrow(() -> operation(
@@ -142,11 +152,11 @@ public class ModuleActivationService {
                 "RESOURCE_NOT_FOUND",
                 "The selected module could not be found in this classroom."
             ));
-        if (!"DISABLED".equals(module.getStatus())) {
+        if (!ClassroomModule.isActivatable(module.getStatus())) {
             throw operation(
                 HttpStatus.CONFLICT,
                 "INVALID_STATE_TRANSITION",
-                "Only a disabled module can be activated."
+                "이미 사용 중인 모듈입니다. 학생 이용만 잠그려면 학급 설정에서 잠금을 사용해 주세요."
             );
         }
         if (command.expectedStateVersion() != module.getStateVersion()) {
@@ -168,7 +178,10 @@ public class ModuleActivationService {
                 )
                 .orElse(null);
         Map<String, Object> initialValues = copyValues(command.initialPolicyValues());
-        String investmentMode = investmentMode(moduleCode, initialValues);
+        if (definition.initialPolicyRequired() && currentPolicy == null && initialValues.isEmpty()) {
+            initialValues = defaultInitialPolicy(classroom, moduleCode);
+        }
+        List<String> investmentModes = investmentModes(moduleCode, initialValues);
         if (
             definition.initialPolicyRequired()
                 && currentPolicy == null
@@ -185,7 +198,8 @@ public class ModuleActivationService {
             : initialValues;
         if (
             policyArea != null
-                && Set.of("INCOME_TAX_RATE", "DEPOSIT_RATE", "LOAN_RATE").contains(policyArea)
+                && Set.of("INCOME_TAX_RATE", "DEPOSIT_RATE", "SAVINGS_RATE", "LOAN_RATE")
+                    .contains(policyArea)
                 && rateValue(effectiveValues) == null
         ) {
             throw operation(
@@ -254,8 +268,10 @@ public class ModuleActivationService {
             moduleConfig.put("policy_version", appliedPolicy.getVersion());
             moduleConfig.put("policy_version_id", appliedPolicy.getId().toString());
         }
-        if (investmentMode != null) {
-            moduleConfig.put("investment_mode", investmentMode);
+        if (investmentModes != null) {
+            moduleConfig.put("investment_modes", investmentModes);
+            // 단일 값만 읽던 이전 화면과 이미 저장된 학급 설정이 계속 동작하도록 함께 남긴다.
+            moduleConfig.put("investment_mode", investmentModes.get(0));
         }
         module.activate(moduleConfig, now);
         classroom.touch(now);
@@ -616,25 +632,44 @@ public class ModuleActivationService {
         );
     }
 
-    private static String investmentMode(
+    /**
+     * 학급은 단기 투자와 장기 투자를 함께 운영할 수 있으므로 방식은 목록으로 받는다.
+     *
+     * <p>{@code investment_modes} 목록을 쓰고, 목록이 없으면 이전 화면이 보내던
+     * {@code investment_mode} 단일 값을 한 개짜리 목록으로 읽는다.
+     */
+    static List<String> investmentModes(
         String moduleCode,
         Map<String, Object> initialValues
     ) {
         if (!"INVESTMENT".equals(moduleCode)) {
             return null;
         }
-        Object raw = initialValues.getOrDefault("investment_mode", "LONG_TERM");
-        String normalized = raw == null
-            ? ""
-            : raw.toString().trim().toUpperCase(Locale.ROOT);
-        if (!Set.of("SHORT_TERM", "LONG_TERM").contains(normalized)) {
+        Collection<?> raws = initialValues.get("investment_modes") instanceof Collection<?> values
+            ? values
+            : Set.of(initialValues.getOrDefault("investment_mode", "LONG_TERM"));
+        LinkedHashSet<String> modes = new LinkedHashSet<>();
+        for (Object raw : raws) {
+            String normalized = raw == null
+                ? ""
+                : raw.toString().trim().toUpperCase(Locale.ROOT);
+            if (!Set.of("SHORT_TERM", "LONG_TERM").contains(normalized)) {
+                throw operation(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_INVESTMENT_MODE",
+                    "investment_modes must contain only SHORT_TERM or LONG_TERM."
+                );
+            }
+            modes.add(normalized);
+        }
+        if (modes.isEmpty()) {
             throw operation(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_INVESTMENT_MODE",
-                "investment_mode must be SHORT_TERM or LONG_TERM."
+                "At least one investment mode must be selected."
             );
         }
-        return normalized;
+        return List.copyOf(modes);
     }
 
     private static boolean isSalaryModule(String moduleCode) {
@@ -659,6 +694,47 @@ public class ModuleActivationService {
 
     private static Map<String, Object> copyValues(Map<String, Object> values) {
         return values == null ? new LinkedHashMap<>() : new LinkedHashMap<>(values);
+    }
+
+    /**
+     * Provides conservative, valid starting values when a teacher turns on a module from the
+     * classroom settings screen. Teachers can replace these values later through the policy UI.
+     */
+    private static Map<String, Object> defaultInitialPolicy(Classroom classroom, String moduleCode) {
+        return switch (moduleCode) {
+            case "ROLE_SALARY" -> Map.of(
+                "roles", List.of(Map.of(
+                    "role_code", "DEFAULT_ROLE",
+                    "name", "기본 역할",
+                    "gross_amount", 1_000L,
+                    "weight", 1L,
+                    "assigned_student_count", classroom.getPlannedStudentCount(),
+                    "deductions", Map.of(),
+                    "sort_order", 1
+                )),
+                "pay_interval_days", 7,
+                "first_pay_on", classroom.getActualStartsOn() == null
+                    ? LocalDate.now().toString()
+                    : classroom.getActualStartsOn().toString(),
+                "default_role_salary", 1_000L
+            );
+            case "INCOME_TAX" -> Map.of(
+                "rate_bps", switch (classroom.getGrade()) {
+                    case 4 -> 300L;
+                    case 5 -> 500L;
+                    default -> 1_000L;
+                }
+            );
+            case "DEPOSIT" -> Map.of(
+                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 150L : 300L
+            );
+            // 적금은 주 1회 납입이라 평균 예치 기간이 짧아 예금보다 조금 높게 시작한다.
+            case "SAVINGS" -> Map.of(
+                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 300L : 450L
+            );
+            case "LOAN" -> Map.of("rate_bps", 900L);
+            default -> Map.of();
+        };
     }
 
     private static List<Map<String, Object>> roleMaps(Map<String, Object> values) {

@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.application.EffectiveAccessModeService;
+import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -71,6 +73,7 @@ public class QuizSessionCommandService {
     private final QuizQuestionVersionRepository versionRepository;
     private final QuizOptionRepository optionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final ClassroomModuleRepository moduleRepository;
     private final EffectiveAccessModeService accessModeService;
     private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
@@ -90,6 +93,7 @@ public class QuizSessionCommandService {
         QuizQuestionVersionRepository versionRepository,
         QuizOptionRepository optionRepository,
         IdempotencyRecordRepository idempotencyRepository,
+        ClassroomModuleRepository moduleRepository,
         EffectiveAccessModeService accessModeService,
         RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
@@ -108,6 +112,7 @@ public class QuizSessionCommandService {
         this.versionRepository = versionRepository;
         this.optionRepository = optionRepository;
         this.idempotencyRepository = idempotencyRepository;
+        this.moduleRepository = moduleRepository;
         this.accessModeService = accessModeService;
         this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
@@ -283,6 +288,12 @@ public class QuizSessionCommandService {
             );
         }
         validateStart(command);
+        // 학생 앱은 활성 퀴즈 모듈의 config에서 세션 id를 찾는다.
+        // 모듈이 꺼져 있으면 세션을 만들어도 학생 화면에 열리지 않으므로 먼저 막는다.
+        ClassroomModule quizModule = requireActiveQuizModule(
+            command.classroomId(),
+            command.mode()
+        );
         List<QuizQuestionVersion> versions = versionRepository
             .findAllByClassroomIdAndIdIn(
                 command.classroomId(),
@@ -401,7 +412,52 @@ public class QuizSessionCommandService {
                 )
             );
         }
+        quizModule.trackActiveQuizSession(command.sessionId(), now);
+        moduleRepository.save(quizModule);
+        // 학생 앱은 활성 모듈 중 먼저 찾은 세션 하나만 읽습니다. 게임형과 평가형이 각각 세션을
+        // 들고 있으면 새로 연 퀴즈 대신 예전 퀴즈가 계속 보이므로, 다른 쪽 표시는 지웁니다.
+        clearActiveQuizSession(
+            command.classroomId(),
+            command.mode() == QuizMode.GAME ? QuizMode.TEST : QuizMode.GAME,
+            now
+        );
         return session;
+    }
+
+    /**
+     * GAME은 QUIZ_GAME, TEST는 QUIZ_TEST 모듈이 활성이어야 학생 화면에 퀴즈가 열린다.
+     */
+    private ClassroomModule requireActiveQuizModule(UUID classroomId, QuizMode mode) {
+        String moduleCode = mode == QuizMode.GAME ? "QUIZ_GAME" : "QUIZ_TEST";
+        ClassroomModule module = moduleRepository
+            .findForUpdateByClassroomIdAndModuleCode(classroomId, moduleCode)
+            .orElseThrow(() -> operation(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                moduleCode + " must be activated before a quiz can be opened."
+            ));
+        if (!"ACTIVE".equals(module.getStatus())) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                moduleCode + " must be activated before a quiz can be opened."
+            );
+        }
+        return module;
+    }
+
+    /**
+     * 제출을 마감하면 학생 화면에서 퀴즈가 내려가야 하므로 활성 세션 표시를 지운다.
+     */
+    private void clearActiveQuizSession(UUID classroomId, QuizMode mode, Instant now) {
+        String moduleCode = mode == QuizMode.GAME ? "QUIZ_GAME" : "QUIZ_TEST";
+        moduleRepository
+            .findForUpdateByClassroomIdAndModuleCode(classroomId, moduleCode)
+            .filter(module -> "ACTIVE".equals(module.getStatus()))
+            .ifPresent(module -> {
+                module.clearActiveQuizSession(now);
+                moduleRepository.save(module);
+            });
     }
 
     private QuizSession close(QuizSessionCommand command, Instant now) {
@@ -435,6 +491,9 @@ public class QuizSessionCommandService {
                 exception.getMessage()
             );
         }
+        // Keep the latest session id in module config after submissions close.
+        // Students use it to observe scoring/review state and read their result after publication.
+        // Starting the next session replaces this id, and stopping the module clears its config.
         return session;
     }
 

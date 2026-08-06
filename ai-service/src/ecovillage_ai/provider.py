@@ -54,6 +54,8 @@ class FakeGenerationProvider:
             return self._economic_event(trusted_input["payload"])
         if kind is GenerationKind.QUIZ_DRAFT:
             return self._quiz_draft(trusted_input["payload"])
+        if kind is GenerationKind.INVESTMENT_COMPANY:
+            return self._investment_company(trusted_input["payload"])
         raise TypeError("지원하지 않는 생성 종류입니다.")
 
     @staticmethod
@@ -300,6 +302,31 @@ class FakeGenerationProvider:
                 "검토용 이야기입니다."
             )
         return output
+
+    @staticmethod
+    def _investment_company(payload: dict[str, Any]) -> dict[str, Any]:
+        """이미 쓴 이름을 피해 순번이 붙은 가상 기업을 만든다. 검증 경로를 그대로 통과한다."""
+
+        used = {" ".join(name.split()).casefold() for name in payload["used_names"]}
+        companies = []
+        index = 0
+        while len(companies) < payload["company_count"]:
+            index += 1
+            name = f"보기공방 {index}호"
+            if " ".join(name.split()).casefold() in used:
+                continue
+            companies.append(
+                {
+                    "symbol": f"DEMO{index}",
+                    "name": name,
+                    "profile": f"학급 투자 수업을 위해 지어낸 {index}번째 가상 기업입니다.",
+                }
+            )
+        return {
+            "review_status": "REVIEW_REQUIRED",
+            "investment_mode": payload["investment_mode"],
+            "companies": companies,
+        }
 
     @staticmethod
     def _quiz_draft(payload: dict[str, Any]) -> dict[str, Any]:

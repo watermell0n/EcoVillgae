@@ -132,13 +132,14 @@ public class InvestmentBuyService {
             return result(order, position);
         }
 
-        InvestmentMarket market = marketRepository.findForUpdate(command.classroomId())
-            .filter(candidate -> InvestmentMarket.OPEN.equals(candidate.getStatus()))
-            .orElseThrow(() -> operation(HttpStatus.CONFLICT, "MARKET_NOT_OPEN", "현재 투자 시장이 열려 있지 않습니다."));
+        // 학급이 단기와 장기를 함께 운영하므로 종목이 어느 시장의 것인지부터 정한다.
         InvestmentAsset asset = assetRepository.findByClassroomIdAndId(command.classroomId(), command.assetId())
             .filter(InvestmentAsset::isActive)
-            .filter(candidate -> candidate.getScenarioVersionId().equals(market.getActiveScenarioVersionId()))
             .orElseThrow(() -> operation(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "현재 시장의 투자 종목이 아닙니다."));
+        InvestmentMarket market = marketRepository
+            .findForUpdateByActiveScenario(command.classroomId(), asset.getScenarioVersionId())
+            .filter(candidate -> InvestmentMarket.OPEN.equals(candidate.getStatus()))
+            .orElseThrow(() -> operation(HttpStatus.CONFLICT, "MARKET_NOT_OPEN", "현재 투자 시장이 열려 있지 않습니다."));
         InvestmentPriceStep price = priceStepRepository
             .findByClassroomIdAndInvestmentAssetIdAndStepNumber(
                 command.classroomId(), asset.getId(), market.getCurrentStep()

@@ -154,10 +154,11 @@ ON DELETE RESTRICT
 | `course_templates` | G | `template_code varchar(40)`, `name varchar(120)`, `grade_min smallint`, `grade_max smallint`, `scale_label varchar(20)`, `status varchar(40) D=DRAFT` | `template_code UQ`, 학년 4~6 |
 | `course_template_versions` | G | `course_template_id uuid FK(course_templates)`, `version integer`, `difficulty_profile jsonb D={}`, `status varchar(40)`, `published_at timestamptz?`, `retired_at timestamptz?` | `(course_template_id,version) UQ`, 게시 후 불변 |
 | `course_template_modules` | G | `course_template_version_id uuid FK(course_template_versions)`, `module_code varchar(40)`, `recommendation_level varchar(40)`, `sort_order integer D=0`, `config_json jsonb D={}` | `(course_template_version_id,module_code) UQ` |
-| `classrooms` | S | `school_id uuid FK(schools)`, `course_template_version_id uuid? FK(course_template_versions)`, `classroom_code varchar(8)`, `currency_name varchar(10)`, `grade smallint`, `scale_label varchar(20)`, `planned_student_count integer`, `actual_starts_on date?`, `actual_ends_on date?`, `app_mode_override varchar(40)?`, `time_zone varchar(60) D=Asia/Seoul` | `classroom_code UQ`, 예상 학생 수>0, 코드·단위명 생성 후 불변, SM-CLS-001 |
+| `classrooms` | S | `school_id uuid FK(schools)`, `course_template_version_id uuid? FK(course_template_versions)`, `classroom_code varchar(8)`, `display_name varchar(120)`, `class_number integer?`, `description varchar(500)?`, `currency_name varchar(10)`, `grade smallint`, `scale_label varchar(20)`, `planned_student_count integer`, `actual_starts_on date?`, `actual_ends_on date?`, `app_mode_override varchar(40)?`, `time_zone varchar(60) D=Asia/Seoul` | `classroom_code UQ`, 예상 학생 수>0, 반 번호 1~99, 코드·단위명 생성 후 불변, SM-CLS-001 |
 | `classroom_teachers` | I | `user_id uuid FK(users)`, `role varchar(40)`, `assigned_at timestamptz D=now()`, `ended_at timestamptz?` | 활성 OWNER 1명, 활성 `(classroom_id,user_id,role)` UQ |
 | `classroom_students` | S | `salary_role_id uuid? FK(salary_roles)`, `roster_number integer`, `nickname varchar(40)`, `joined_at timestamptz D=now()`, `retired_at timestamptz?` | `(classroom_id,roster_number) UQ`, `(classroom_id,lower(nickname)) UQ` |
 | `student_credentials` | 없음 | `classroom_student_id uuid PK FK(classroom_students)`, `classroom_id uuid`, `password_hash text`, `credential_version bigint D=1`, `changed_at timestamptz D=now()` | 학급 복합 FK, 로그인 실패 횟수·잠금 컬럼 없음 |
+| `teacher_credentials` | 없음 | `teacher_user_id uuid PK FK(users)`, `email varchar(254)`, `password_hash text`, `credential_version bigint D=1`, `changed_at timestamptz D=now()` | `email UQ`, 비밀번호 원문은 저장하지 않음 |
 | `student_sessions` | G | `classroom_id uuid`, `classroom_student_id uuid FK(classroom_students)`, `device_link_id uuid? FK(device_links)`, `token_hash varchar(128)`, `status varchar(40)`, `expires_at timestamptz`, `revoked_at timestamptz?` | `token_hash UQ`, 학생별 ACTIVE 1개 |
 | `device_links` | S | `classroom_student_id uuid FK(classroom_students)`, `device_fingerprint_hash varchar(128)`, `device_name varchar(120)?`, `linked_at timestamptz D=now()`, `last_seen_at timestamptz?`, `revoked_at timestamptz?` | `(classroom_student_id,device_fingerprint_hash) UQ` |
 | `classroom_modules` | S | `module_code varchar(40)`, `config_json jsonb D={}`, `enabled_at timestamptz?`, `stopped_at timestamptz?` | `(classroom_id,module_code) UQ`, SM-MOD-001 |
@@ -338,6 +339,8 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-039 | `school_ai_setting_versions` | `version>0`, 사유는 공백이 아니며 `superseded_at`은 `effective_from`보다 뒤 |
 | CK-040 | `student_character_profiles` | `state_version>=0 AND equipment_revision>=0` |
 | CK-041 | `character_equipment` | 슬롯은 10개 허용값 중 하나이고 `state_version>=0` |
+| CK-042 | `classrooms` | `class_number IS NULL OR class_number BETWEEN 1 AND 99` |
+| CK-043 | `loan_installments` | `status IN ('SCHEDULED','MISSED','PAID')` |
 
 상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 

@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "teacher-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "teacher-web", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "student-expo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "student-app/expo", "run", "web"],
+      "port": 8081
+    },
+    {
+      "name": "student-expo-8082",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "student-app/expo", "run", "web", "--", "--port", "8082"],
+      "port": 8082
+    }
+  ]
+}

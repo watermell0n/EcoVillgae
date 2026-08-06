@@ -1,10 +1,21 @@
 {
   "version": 1,
   "summary": {
-    "openapi_operations": 109,
-    "spring_endpoints": 60,
-    "matched_spring_endpoints": 60,
-    "current_known_differences": 0
+    "openapi_operations": 134,
+    "spring_endpoints": 100,
+    "matched_spring_endpoints": 98,
+    "current_known_differences": 2
   },
-  "differences": []
+  "differences": [
+    {
+      "kind": "SPRING_ROUTE_NOT_IN_OPENAPI",
+      "route": "POST /auth/teacher-password-sessions",
+      "source": "backend/src/main/java/com/b201/ecovillage/identity/api/TeacherPasswordSessionController.java#create"
+    },
+    {
+      "kind": "SPRING_ROUTE_NOT_IN_OPENAPI",
+      "route": "POST /auth/teacher-registrations",
+      "source": "backend/src/main/java/com/b201/ecovillage/identity/api/TeacherRegistrationController.java#create"
+    }
+  ]
 }

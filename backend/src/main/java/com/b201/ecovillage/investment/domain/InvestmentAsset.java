@@ -50,6 +50,14 @@ public class InvestmentAsset {
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 
+    /** 하루에 내려갈 수 있는 최저 등락률(bps)이다. 손해 쪽이므로 보통 음수다. */
+    @Column(name = "min_return_bps", nullable = false)
+    private int minReturnBps;
+
+    /** 하루에 올라갈 수 있는 최고 등락률(bps)이다. */
+    @Column(name = "max_return_bps", nullable = false)
+    private int maxReturnBps;
+
     @Column(nullable = false, length = 40)
     private String status;
 
@@ -100,7 +108,34 @@ public class InvestmentAsset {
         int displayOrder,
         Instant now
     ) {
+        return active(
+            id, classroomId, scenarioVersionId, symbol, name, fictionalCompanyProfile,
+            displayOrder, 0, 0, now
+        );
+    }
+
+    /**
+     * 하루 변동 범위까지 정해 만든다. 학생에게 "이 기업은 하루에 어디까지 오르내릴 수
+     * 있는지"를 보여 주려면 가격 단계와 별개로 종목 자체가 범위를 알고 있어야 한다.
+     */
+    public static InvestmentAsset active(
+        UUID id,
+        UUID classroomId,
+        UUID scenarioVersionId,
+        String symbol,
+        String name,
+        String fictionalCompanyProfile,
+        int displayOrder,
+        int minReturnBps,
+        int maxReturnBps,
+        Instant now
+    ) {
+        if (minReturnBps > maxReturnBps) {
+            throw new IllegalArgumentException("min return must not exceed max return");
+        }
         InvestmentAsset asset = new InvestmentAsset();
+        asset.minReturnBps = minReturnBps;
+        asset.maxReturnBps = maxReturnBps;
         asset.id = Objects.requireNonNull(id);
         asset.classroomId = Objects.requireNonNull(classroomId);
         asset.scenarioVersionId = Objects.requireNonNull(scenarioVersionId);
@@ -148,6 +183,19 @@ public class InvestmentAsset {
         return normalized;
     }
 
+    /**
+     * 교사가 학생 눈높이에 맞게 기업 이름과 소개 문장을 고친다.
+     *
+     * <p>기호(symbol)와 가격 흐름은 그대로 둔다. 교사가 정한 1주 시작가와 변동 범위가 기호로
+     * 묶여 있고, 이미 만들어 둔 가격 단계도 종목에 붙어 있기 때문이다. 바뀌는 것은 교사와
+     * 학생 화면에 보이는 글뿐이다.
+     */
+    public void rewrite(String name, String fictionalCompanyProfile, Instant now) {
+        this.name = requireContractName(name);
+        this.fictionalCompanyProfile = requireCompanyProfile(fictionalCompanyProfile);
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
     public boolean isActive() {
         return ACTIVE.equals(status);
     }
@@ -174,6 +222,14 @@ public class InvestmentAsset {
 
     public int getDisplayOrder() {
         return displayOrder;
+    }
+
+    public int getMinReturnBps() {
+        return minReturnBps;
+    }
+
+    public int getMaxReturnBps() {
+        return maxReturnBps;
     }
 
     public String getStatus() {

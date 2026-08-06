@@ -18,9 +18,9 @@
 
 ## 2. 현재 상태와 전환 원칙
 
-- `student-app/`에는 React·Vite 학생 UI가 구현되어 있으나 최종 기술은 Expo입니다.
-- 기존 Vite 구현은 Expo 화면 이전의 참고 자료로 보존하고 신규 기능을 추가하지 않습니다.
-- Expo에서 로그인, Expo Router, API 연결, 지갑·상점 핵심 화면과 Galaxy Tab 설치 빌드가 통과하면 Vite 코드를 별도 MR로 제거합니다.
+- 학생 앱은 `student-app/expo/`의 React Native·Expo 구현 하나로 통일했습니다. 이전용 React·Vite UI는 제거를 완료했습니다.
+- 모든 신규 학생 기능은 `student-app/expo/`에서 구현합니다.
+- 캐릭터 도트 에셋 정본은 `student-app/public/character/`에 남아 있으며 `scripts/character/sync-assets.js`가 Expo 번들로 동기화합니다.
 - `teacher-web/`은 Next.js를 유지하며 수업 진행 화면과 상세 관리 화면을 같은 웹 애플리케이션에서 제공합니다.
 - `SCR-TCH-*`는 별도 교사용 앱 ID가 아니라 교사 웹의 수업 진행 경로 ID로 유지합니다.
 
@@ -34,10 +34,10 @@
 
 ### 신현경 · 프런트엔드
 
-- 최신 `develop`에서 Expo 전환 브랜치를 만들고 기존 Vite UI를 화면 단위로 이전합니다.
+- 학생 화면은 `student-app/expo/`에서 Expo Router 기반으로 구현합니다.
 - Expo Router, TanStack Query, React Hook Form·Zod, SecureStore를 우선 연결합니다.
 - 교사 기능은 `teacher-web/`의 Next.js 수업 진행·관리 경로에만 구현합니다.
-- Galaxy Tab 내부 배포 빌드를 검증하기 전 Vite 구현을 삭제하지 않습니다.
+- Galaxy Tab 내부 배포 빌드 검증은 남은 과제이며, 실기기 빌드가 깨지면 즉시 보고합니다.
 
 ### 박수경 · AI
 
@@ -47,7 +47,7 @@
 
 ### 최상진 · 캐릭터 디자인
 
-- 캐릭터는 Galaxy Tab Expo 앱에서도 동일한 48×56 정수 좌표 도트 데이터로 렌더링하고, 슬롯별 장착 상태만 전달합니다.
+- 캐릭터는 Galaxy Tab Expo 앱에서도 웹과 동일한 64×64 도트 에셋으로 렌더링하고, 슬롯별 장착 상태만 전달합니다. 제작·검수 기준은 [도트 캐릭터 이미지 작업 규격](design/CHARACTER_ASSET_SPEC.md)을 따릅니다.
 - 프로필, 상점 미리보기, 장착 슬롯별 크기·파일명·여백 규칙을 문서화합니다.
 - 웹 전용 CSS 표현에 의존하지 않는 에셋 전달 기준을 프런트 담당자와 확인합니다.
 
@@ -57,8 +57,8 @@
 2. 역할별 Jira 이슈 하나를 브랜치와 MR 하나에 연결합니다.
 3. 공용 계약·루트 설정은 통합 담당자와 먼저 합의합니다.
 4. `develop`에서 앱·웹·백엔드·AI 통합 검증을 마친 결과만 `master`로 이동합니다.
-5. 기존 Vite 제거는 Expo 핵심 기능과 Galaxy Tab 빌드 검증 후 별도 MR로 수행합니다.
+5. 기존 Vite 학생 UI 제거는 완료했습니다. 학생 앱 CI는 `student-app/expo`의 타입체크와 웹 export로 검증합니다.
 
 ## 5. 팀 공지문
 
-> 학생 클라이언트는 학교 지급 Galaxy Tab용 React Native·Expo 앱으로, 교사는 별도 모바일 앱 없이 Next.js 웹으로 확정했습니다. 현재 `student-app/`의 Vite UI는 Expo 전환 참고용 프로토타입이므로 신규 기능을 추가하지 말고, 핵심 화면과 실기기 빌드가 검증될 때까지 삭제하지 않습니다. 학생 앱과 교사 웹은 UI·인증 저장·배포를 분리하고 Spring Boot REST API와 WebSocket 계약을 공유합니다. 각 담당자는 Jira의 본인 전환 이슈에서 작업하고 최신 `develop`에서 분기해 `develop` 대상 MR을 만듭니다. `master`에는 통합 검증을 마친 결과만 반영합니다.
+> 학생 클라이언트는 학교 지급 Galaxy Tab용 React Native·Expo 앱으로, 교사는 별도 모바일 앱 없이 Next.js 웹으로 확정했습니다. 학생 앱 코드는 `student-app/expo/` 하나이며 이전용 Vite UI는 제거했으므로, 모든 신규 학생 기능은 Expo 프로젝트에서 구현합니다. 학생 앱과 교사 웹은 UI·인증 저장·배포를 분리하고 Spring Boot REST API와 WebSocket 계약을 공유합니다. 각 담당자는 Jira의 본인 전환 이슈에서 작업하고 최신 `develop`에서 분기해 `develop` 대상 MR을 만듭니다. `master`에는 통합 검증을 마친 결과만 반영합니다.

@@ -10,6 +10,9 @@ import com.b201.ecovillage.identity.domain.CourseSize;
 public record CreateClassroomCommand(
     String teacherSubject,
     UUID schoolId,
+    String displayName,
+    Integer classNumber,
+    String description,
     String currencyName,
     int grade,
     CourseSize courseSize,

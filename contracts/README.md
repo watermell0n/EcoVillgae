@@ -4,7 +4,7 @@
 
 | 파일 | 역할 | 기준 문서 |
 | --- | --- | --- |
-| [openapi.yaml](openapi.yaml) | 109개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
+| [openapi.yaml](openapi.yaml) | 110개 REST API의 경로·권한·요청·응답·오류 계약 | [HTTP API 명세](../docs/HTTP_API_SPEC.md) |
 | [ai-internal-openapi.yaml](ai-internal-openapi.yaml) | Spring과 FastAPI 사이 schema v1.2, 4개 내부 생성 API 계약 | [내부 AI API 계약](../docs/ai/INTERNAL_API_CONTRACT.md) |
 | [asyncapi.yaml](asyncapi.yaml) | 10개 논리 채널·48개 서버 이벤트·4개 연결 제어 메시지 계약 | [WebSocket 명세](../docs/WEBSOCKET_SPEC.md) |
 | [api-field-mapping.json](api-field-mapping.json) | 109개 작업의 MVP/후속 분류와 요청·응답 필드·저장 경계 | [API·스키마 정합성 검토](../docs/reviews/API_SCHEMA_FIELD_AUDIT.md) |
@@ -37,9 +37,9 @@ pnpm --package=@asyncapi/cli dlx asyncapi validate contracts/asyncapi.yaml
 `spring-openapi-baseline.json`에 기록하며, 새로운 차이 또는 해소된 차이가 생기면 CI가 실패해
 명세와 구현 중 어느 쪽을 갱신할지 검토하도록 합니다.
 
-학생 클라이언트의 최종 대상은 Expo 앱입니다. Expo에서는 OpenAPI 생성 타입을 그대로 사용하거나
-API 경계의 단일 mapper에서만 `snake_case`를 camelCase로 바꾸며, 현재 Vite 프로토타입의 수동
-응답 타입을 신규 계약의 기준으로 사용하지 않습니다.
+학생 클라이언트는 Expo 앱입니다. Expo에서는 OpenAPI 생성 타입을 그대로 사용하거나
+API 경계의 단일 mapper에서만 `snake_case`를 camelCase로 바꾸며, 손으로 적은 응답 타입을
+신규 계약의 기준으로 사용하지 않습니다.
 
 생성기는 다음 불변식을 검사합니다.
 

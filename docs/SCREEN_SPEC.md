@@ -227,6 +227,8 @@
 | UIA-CLS-008 | SCR-WEB-026 종료 시작 | OWN | `ACTIVE → CLOSING`, 영향 확인·재인증 | PM-CLS-006 / SM-CLS-001 |
 | UIA-MOD-001 | SCR-WEB-005 모듈 추가 | OWN | 조건부 선행 모듈·학년 정책 통과, 추천 초기 정책 확인 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 / SM-MOD-001·SM-AIR-001 |
 | UIA-MOD-002 | SCR-WEB-005 모듈 중지 | OWN | `ACTIVE → STOPPING`, LIVE 활동 없음 | PM-MOD-001 / SM-MOD-001 |
+| UIA-MOD-003 | SCR-WEB-005 학생 이용 잠금·열기 | OWN | 모듈은 `ACTIVE` 유지, 학생 화면에서만 회색으로 잠기고 되돌릴 수 있음 | PM-MOD-001 / SM-MOD-001 |
+| UIA-MOD-004 | SCR-WEB-005 투자 운영 방식 저장 | OWN | 투자 모듈 `ACTIVE`, 단기·장기 중 하나 이상 선택, 기존 시장·보유 내역은 삭제하지 않음 | PM-MOD-001 / SM-MOD-001 |
 | UIA-POL-001 | SCR-WEB-009 경제정책 저장 | OWN | 최신 정책 버전, 이후 거래·신규 상품부터 적용 | PM-POL-001 |
 | UIA-POL-002 | SCR-WEB-010 세금·기금 사용처 저장 | OWN | 기본 항목 유지 가능, 예산 규칙 검증 | PM-POL-002 |
 | UIA-ACT-001 | SCR-TCH-004 지도 활동 시작 | OWN·COT | `READY → LIVE`, 대상·공개 범위 스냅샷 | PM-ACT-001 / SM-ACT-001 |
@@ -244,6 +246,7 @@
 | UIA-SHP-003 | SCR-TCH-010 실제 상품 준비 | OWN·COT | `PAID → READY_FOR_PICKUP` | PM-SHP-003 / SM-SHP-001 |
 | UIA-SHP-004 | SCR-TCH-010 실제 상품 수령 확인 | OWN·COT | `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 / SM-SHP-001 |
 | UIA-ITM-001 | SCR-STU-008 캐릭터 장착·해제 | STU | 본인 `AVAILABLE ↔ EQUIPPED`, 잠금 아이템 제외 | PM-ITM-001 / SM-ITM-001 |
+| UIA-ITM-002 | SCR-STU-007 캐릭터 착용 일괄 저장 | STU | 상점 드래프트를 확정, 프로필 `state_version` 일치 시 전체 슬롯 원자적 저장 | PM-ITM-001 / SM-ITM-001 |
 | UIA-CNT-001 | SCR-OPS-003 원작 검토·전역 게시 | POP | 출처·배포 지역·권리 상태·검토일 완비 | PM-CNT-001 |
 | UIA-CNT-002 | SCR-WEB-011 승인 캐릭터 선택 | OWN | POP 게시 원작만 학급 상품에 연결 | PM-CNT-001 |
 | UIA-TRD-001 | SCR-STU-010 거래 제안 등록 | STU | `DRAFT → AWAITING_COUNTERPART`, 아이템 잠금 | PM-TRD-001 / SM-TRD-001·SM-ITM-001 |
@@ -268,6 +271,7 @@
 | UIA-FIN-011 | SCR-STU-019 대출 신청·취소 | STU | `AUTONOMOUS + 대출 ACTIVE`, RESTRICTED 아님 | PM-FIN-005 / SM-LON-001 |
 | UIA-FIN-012 | SCR-TCH-009 대출 승인·거절 | OWN·COT | `APPLIED`, 최신 신용·잔액·동시 대출 재검증 | PM-FIN-006 / SM-LON-001 |
 | UIA-FIN-013 | SCR-STU-019 대출 유예·중도상환 | STU | `ACTIVE` 또는 `OVERDUE`, 음수 잔액 금지 | PM-FIN-007 / SM-LON-001·SM-TXN-001 |
+| UIA-FIN-014 | SCR-WEB-015 투자 다음 날 진행·정산 | OWN·COT | 해당 투자 방식 시장 `OPEN`, 최신 상태 버전 일치, 다음 가격 단계를 공개하고 마지막 단계면 자동 정산·`CLOSED` 전환 | PM-FIN-004 / SM-IVT-001·SM-IVT-002·SM-TXN-001 |
 
 ### 5.4 퀴즈·투표
 

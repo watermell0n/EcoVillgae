@@ -63,7 +63,8 @@
 | `Content-Type` | `application/json` |
 
 허용 scope는 기능별로 `ai:generate:balancing`, `ai:generate:teacher-chat`,
-`ai:generate:economic-event`, `ai:generate:quiz-draft`를 사용합니다. 사용자 액세스 토큰,
+`ai:generate:economic-event`, `ai:generate:quiz-draft`, `ai:generate:investment-company`를
+사용합니다. 사용자 액세스 토큰,
 학생 세션 토큰과 공용 화면 토큰은 내부 AI API에서 거절합니다.
 
 ## 4. 공통 요청 envelope
@@ -273,7 +274,23 @@ FastAPI는 공급자 호출 전에 주제·개념·학습목표의 민감정보,
 학생 조롱·유해 표현을 결정적으로 검사합니다. 세부 규칙과 48개 평가 세트, Swagger
 실행법은 [교사용 AI 퀴즈 초안](QUIZ_DRAFT.md)을 따릅니다.
 
-### 6.5 실행 상태
+### 6.5 투자 가상 기업
+
+`POST /internal/v1/generations/investment-company`
+
+입력은 학년, `course_scale`, `investment_mode=SHORT_TERM|LONG_TERM`, 만들 기업 수
+(`company_count` 1~8), 이미 쓴 기업 이름(`used_names`), 선택 입력인 교사 맥락으로 제한합니다.
+출력은 기업마다 `symbol`(영어 대문자 2~10자), `name`(2~40자), `profile`(10~300자)입니다.
+
+- 시나리오를 새로 만들 때마다 호출하므로 기업 이름은 매번 달라집니다.
+- `used_names`에 있는 이름이 다시 오면 전체 응답을 거부합니다.
+- 기호와 이름은 기업끼리 겹칠 수 없고, `company_count`와 개수가 같아야 합니다.
+- 실제 기업·상표·인물 이름, 가격·수익률 예측과 매매 추천은 출력할 수 없습니다.
+- 저장 시작 상태는 `REVIEW_REQUIRED`이며, 교사가 초안 시나리오를 승인해야 학생에게 보입니다.
+
+생성에 실패하면 Spring이 기본 기업 목록으로 시나리오를 만들므로 투자 수업은 멈추지 않습니다.
+
+### 6.6 실행 상태
 
 `GET /healthz`는 데이터베이스나 외부 공급자를 호출하지 않고 현재 프로세스의 실행 구성을
 반환합니다. `status`, 서비스 버전, 내부 AI `schema_version`, 지원 프롬프트 버전 목록과

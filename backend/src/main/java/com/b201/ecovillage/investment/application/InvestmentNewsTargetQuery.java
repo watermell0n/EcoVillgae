@@ -48,35 +48,41 @@ public class InvestmentNewsTargetQuery {
     /**
      * 학급에서 지금 뉴스를 붙일 수 있는 종목을 표시 순서대로 돌려준다.
      *
+     * <p>학급은 단기와 장기를 함께 운영하므로 열려 있는 두 시장의 종목이 모두 담긴다.
+     * 어느 방식의 종목인지는 결과의 {@code investmentMode}로 구분한다.
+     *
      * <p>공개 단계가 없거나 시장이 열려 있지 않으면 빈 목록이다. 공개 이력이 1단계부터
      * 현재 단계까지 이어지지 않는 종목은 AI 계약을 만족할 수 없어 제외한다.
      */
     @Transactional(readOnly = true)
     public List<InvestmentNewsTargetView> findPublishableTargets(UUID classroomId) {
-        InvestmentMarket market = marketRepository
-            .findByClassroomIdAndStatus(classroomId, InvestmentMarket.OPEN)
-            .filter(InvestmentMarket::isReadable)
-            .orElse(null);
-        if (market == null) {
-            return List.of();
+        List<InvestmentNewsTargetView> targets = new ArrayList<>();
+        for (InvestmentMarket market : marketRepository
+            .findAllByClassroomIdAndStatus(classroomId, InvestmentMarket.OPEN)) {
+            if (!market.isReadable()) {
+                continue;
+            }
+            InvestmentScenarioVersion scenario = publishedScenario(classroomId, market);
+            if (scenario == null) {
+                continue;
+            }
+            for (InvestmentAsset asset : assetRepository
+                .findAllByClassroomIdAndScenarioVersionIdAndStatusOrderByDisplayOrder(
+                    classroomId,
+                    market.getActiveScenarioVersionId(),
+                    InvestmentAsset.ACTIVE
+                )) {
+                toTarget(classroomId, market, scenario, asset).ifPresent(targets::add);
+            }
         }
-        InvestmentScenarioVersion scenario = scenarioRepository
+        return List.copyOf(targets);
+    }
+
+    private InvestmentScenarioVersion publishedScenario(UUID classroomId, InvestmentMarket market) {
+        return scenarioRepository
             .findByClassroomIdAndId(classroomId, market.getActiveScenarioVersionId())
             .filter(candidate -> InvestmentScenarioVersion.PUBLISHED.equals(candidate.getStatus()))
             .orElse(null);
-        if (scenario == null) {
-            return List.of();
-        }
-        List<InvestmentNewsTargetView> targets = new ArrayList<>();
-        for (InvestmentAsset asset : assetRepository
-            .findAllByClassroomIdAndScenarioVersionIdAndStatusOrderByDisplayOrder(
-                classroomId,
-                market.getActiveScenarioVersionId(),
-                InvestmentAsset.ACTIVE
-            )) {
-            toTarget(classroomId, market, scenario, asset).ifPresent(targets::add);
-        }
-        return List.copyOf(targets);
     }
 
     /**
@@ -87,24 +93,26 @@ public class InvestmentNewsTargetQuery {
         UUID classroomId,
         UUID assetId
     ) {
+        // 종목이 단기·장기 중 어느 시장의 것인지는 종목이 속한 시나리오로 되짚어 찾는다.
+        InvestmentAsset asset = assetRepository.findByClassroomIdAndId(classroomId, assetId)
+            .filter(InvestmentAsset::isActive)
+            .orElse(null);
+        if (asset == null) {
+            return Optional.empty();
+        }
         InvestmentMarket market = marketRepository
-            .findByClassroomIdAndStatus(classroomId, InvestmentMarket.OPEN)
+            .findByClassroomIdAndActiveScenarioVersionId(classroomId, asset.getScenarioVersionId())
+            .filter(candidate -> InvestmentMarket.OPEN.equals(candidate.getStatus()))
             .filter(InvestmentMarket::isReadable)
             .orElse(null);
         if (market == null) {
             return Optional.empty();
         }
-        InvestmentScenarioVersion scenario = scenarioRepository
-            .findByClassroomIdAndId(classroomId, market.getActiveScenarioVersionId())
-            .filter(candidate -> InvestmentScenarioVersion.PUBLISHED.equals(candidate.getStatus()))
-            .orElse(null);
+        InvestmentScenarioVersion scenario = publishedScenario(classroomId, market);
         if (scenario == null) {
             return Optional.empty();
         }
-        return assetRepository.findByClassroomIdAndId(classroomId, assetId)
-            .filter(InvestmentAsset::isActive)
-            .filter(asset -> asset.getScenarioVersionId().equals(market.getActiveScenarioVersionId()))
-            .flatMap(asset -> toTarget(classroomId, market, scenario, asset));
+        return toTarget(classroomId, market, scenario, asset);
     }
 
     private Optional<InvestmentNewsTargetView> toTarget(
@@ -149,9 +157,9 @@ public class InvestmentNewsTargetQuery {
             asset.getName(),
             asset.getSymbol(),
             asset.getFictionalCompanyProfile(),
-            scenario.getInvestmentMode().name(),
+            market.getInvestmentMode().name(),
             scenario.getScenarioSource().name(),
-            scenario.getInvestmentMode().settlementRule(),
+            market.getInvestmentMode().settlementRule(),
             currentStep.getStepNumber(),
             targetStep.getStepNumber(),
             direction(targetStep.getChangeRateBps()),

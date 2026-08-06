@@ -221,11 +221,34 @@ reason = [TAX_GRADE_PROFILE, TAX_RECOVERY_BALANCE]
 
 예금 모듈 활성화 시에만 만듭니다.
 
+예금 이자는 만기 1회 단순이자(`SIMPLE_FULL_TERM`, `이자 = 원금 × rate_bps / 10000`)이므로 연이율이 아닙니다. 그래서 기준금리를 **실제 운영 기간**에 따라 조정합니다. 짧은 수업은 예금이 한두 번밖에 만기되지 않아 한 번으로도 이자를 체감해야 하고, 긴 운영은 만기가 반복되며 이자가 순발행으로 누적되므로 낮춰야 합니다.
+
+학년은 사용하지 않습니다.
+
+| 운영 기간(일) | 기준값 |
+| --- | --- |
+| 7 이하 | 500 |
+| 8 ~ 31 | 300 |
+| 32 ~ 90 | 200 |
+| 91 이상 | 150 |
+
 ```
-proposed = roundRate50(300)
-recommended_min, recommended_max = 200, 400
+operation_days = 3.1의 운영 일수 (운영 시작일~종료일 포함)
+proposed = clamp(roundRate50(기준값(operation_days)), 100, 600)
+recommended_min = max(allowed_min, proposed - 100)
+recommended_max = min(allowed_max, proposed + 100)
 allowed_min, allowed_max = 100, 600
-reason = [DEPOSIT_TERM_BASED, DEPOSIT_GRADE_BAND]
+reason = [DEPOSIT_TERM_BASED, DEPOSIT_OPERATION_PERIOD]
+```
+
+운영 일수를 계산할 수 없으면(날짜 누락·시작일보다 이른 종료일) 한 달 운영 기준인 300을 씁니다. 이 경우 공통 검증이 이미 `REQUIRED_VALUE_MISSING` 또는 `VALUE_OUT_OF_RANGE`로 차단합니다.
+
+허용 구간 `100 ~ 600`은 5.4 대출 금리 규칙이 전제하는 값입니다. 대출은 현재 예금 금리가 이 범위를 벗어나면 활성화를 차단하므로, 예금 허용 구간을 바꿀 때는 5.4를 함께 바꿔야 합니다.
+
+추천 근거를 교사 화면에 보여 주기 위해 `PASS` 등급 점검 항목 `DEPOSIT_RATE_BASIS`를 함께 남깁니다.
+
+```
+"운영 기간 31일을 기준으로 3.00%를 추천했습니다."
 ```
 
 ### 5.4 대출 금리 `LOAN_RATE`

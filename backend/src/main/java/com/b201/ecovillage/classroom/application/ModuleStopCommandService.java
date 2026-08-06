@@ -11,12 +11,14 @@ import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
+import com.b201.ecovillage.classroom.domain.ModuleCatalog;
 import com.b201.ecovillage.classroom.domain.ModuleStateTransition;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ModuleStateTransitionRepository;
@@ -52,6 +54,7 @@ public class ModuleStopCommandService {
     private final ClassroomStudentRepository studentRepository;
     private final DepositAccountRepository depositAccountRepository;
     private final TradeRepository tradeRepository;
+    private final JdbcTemplate jdbc;
     private final SetupPrecheckInvalidator precheckInvalidator;
     private final RealtimeEventPublisher eventPublisher;
     private final AuditTrailService auditTrailService;
@@ -67,6 +70,7 @@ public class ModuleStopCommandService {
         ClassroomStudentRepository studentRepository,
         DepositAccountRepository depositAccountRepository,
         TradeRepository tradeRepository,
+        JdbcTemplate jdbc,
         SetupPrecheckInvalidator precheckInvalidator,
         RealtimeEventPublisher eventPublisher,
         AuditTrailService auditTrailService,
@@ -81,6 +85,7 @@ public class ModuleStopCommandService {
         this.studentRepository = studentRepository;
         this.depositAccountRepository = depositAccountRepository;
         this.tradeRepository = tradeRepository;
+        this.jdbc = jdbc;
         this.precheckInvalidator = precheckInvalidator;
         this.eventPublisher = eventPublisher;
         this.auditTrailService = auditTrailService;
@@ -140,6 +145,8 @@ public class ModuleStopCommandService {
                 "The module state has changed."
             );
         }
+
+        validatePropertyStop(command.classroomId(), moduleCode);
 
         List<String> blockers = cleanupBlockers(command.classroomId(), moduleCode);
         Instant now = clock.instant();
@@ -270,7 +277,49 @@ public class ModuleStopCommandService {
         ) {
             blockers.add("TRADE_SETTLEMENT_REQUIRED");
         }
+        if ("LOAN".equals(moduleCode)) {
+            Integer activeLoans = jdbc.queryForObject(
+                "select (select count(*) from loans where classroom_id=? and status in ('ACTIVE','OVERDUE')) + (select count(*) from loan_applications where classroom_id=? and status='APPLIED')",
+                Integer.class,
+                classroomId,
+                classroomId
+            );
+            if (activeLoans != null && activeLoans > 0) {
+                blockers.add("LOAN_SETTLEMENT_REQUIRED");
+            }
+        }
         return List.copyOf(blockers);
+    }
+
+    private void validatePropertyStop(java.util.UUID classroomId, String moduleCode) {
+        if ("CREDIT".equals(moduleCode) && moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "LOAN")
+            .map(module -> "ACTIVE".equals(module.getStatus()) || "STOPPING".equals(module.getStatus()))
+            .orElse(false)) {
+            throw operation(HttpStatus.CONFLICT, "ACTIVE_DEPENDENT_MODULE_EXISTS", "대출 모듈을 먼저 종료해 주세요.");
+        }
+        if ("REAL_ESTATE".equals(moduleCode) && moduleRepository
+            .existsByClassroomIdAndModuleCodeAndStatus(classroomId, "HOUSING_SUBSCRIPTION", "ACTIVE")) {
+            throw operation(HttpStatus.CONFLICT, "ACTIVE_DEPENDENT_MODULE_EXISTS", "청약 모듈을 먼저 종료해 주세요.");
+        }
+        if ("HOUSING_SUBSCRIPTION".equals(moduleCode)) {
+            Integer activeSubscriptions = jdbc.queryForObject(
+                "select (select count(*) from subscription_offers where classroom_id=? and status='OPEN') + (select count(*) from subscription_applications where classroom_id=? and status in ('APPLIED','WON'))",
+                Integer.class, classroomId, classroomId
+            );
+            if (activeSubscriptions != null && activeSubscriptions > 0) {
+                throw operation(HttpStatus.CONFLICT, "ACTIVE_SUBSCRIPTION_EXISTS", "진행 중인 청약 공고와 신청을 먼저 정리해 주세요.");
+            }
+        }
+        if ("REAL_ESTATE".equals(moduleCode)) {
+            Integer activePropertyOperations = jdbc.queryForObject(
+                "select (select count(*) from property_contracts where classroom_id=? and status in ('PENDING','ACTIVE','OVERDUE')) + (select count(*) from property_sale_listings where classroom_id=? and status='ACTIVE') + (select count(*) from property_lease_listings where classroom_id=? and status='ACTIVE')",
+                Integer.class, classroomId, classroomId, classroomId
+            );
+            if (activePropertyOperations != null && activePropertyOperations > 0) {
+                throw operation(HttpStatus.CONFLICT, "ACTIVE_PROPERTY_OPERATION_EXISTS", "진행 중인 자리 계약과 매물을 먼저 정리해 주세요.");
+            }
+        }
     }
 
     private static String validate(ModuleStopCommand command) {
@@ -286,7 +335,13 @@ public class ModuleStopCommandService {
                 "Module code and a stop reason are required."
             );
         }
-        return command.moduleCode().trim().toUpperCase(Locale.ROOT);
+        return ModuleCatalog.find(command.moduleCode())
+            .map(ModuleCatalog.Definition::code)
+            .orElseThrow(() -> operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "UNSUPPORTED_MODULE_CODE",
+                "The selected module is not supported."
+            ));
     }
 
     @SuppressWarnings("unchecked")

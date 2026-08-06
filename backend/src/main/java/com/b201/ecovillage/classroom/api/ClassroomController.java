@@ -2,20 +2,29 @@ package com.b201.ecovillage.classroom.api;
 
 import java.security.Principal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.b201.ecovillage.classroom.application.AutonomousScheduleCommand;
@@ -23,6 +32,8 @@ import com.b201.ecovillage.classroom.application.AccessModeCommand;
 import com.b201.ecovillage.classroom.application.AccessModeCommandService;
 import com.b201.ecovillage.classroom.application.AccessModeResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
+import com.b201.ecovillage.classroom.application.ClassroomArchiveService;
+import com.b201.ecovillage.classroom.application.ClassroomArchiveResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.CourseConfigurationCommand;
 import com.b201.ecovillage.classroom.application.CourseConfigurationCommandService;
@@ -30,12 +41,18 @@ import com.b201.ecovillage.classroom.application.CourseConfigurationUpdateResult
 import com.b201.ecovillage.classroom.application.ClassroomCreationService;
 import com.b201.ecovillage.classroom.application.ClassroomRosterService;
 import com.b201.ecovillage.classroom.application.ClassroomReadService;
+import com.b201.ecovillage.classroom.application.InvestmentModeCommand;
+import com.b201.ecovillage.classroom.application.InvestmentModeCommandService;
+import com.b201.ecovillage.classroom.application.InvestmentModeResult;
 import com.b201.ecovillage.classroom.application.ModuleActivationCommand;
 import com.b201.ecovillage.classroom.application.ModuleActivationResult;
 import com.b201.ecovillage.classroom.application.ModuleActivationService;
 import com.b201.ecovillage.classroom.application.ModuleStopCommand;
 import com.b201.ecovillage.classroom.application.ModuleStopCommandService;
 import com.b201.ecovillage.classroom.application.ModuleStopResult;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessCommand;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessCommandService;
+import com.b201.ecovillage.classroom.application.ModuleStudentAccessResult;
 import com.b201.ecovillage.classroom.application.ModulesAndPoliciesView;
 import com.b201.ecovillage.classroom.application.RosterAndSalariesView;
 import com.b201.ecovillage.classroom.application.CreateClassroomCommand;
@@ -56,6 +73,7 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 public class ClassroomController {
 
     private final ClassroomCreationService creationService;
+    private final ClassroomArchiveService archiveService;
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
     private final ClassroomReadService readService;
@@ -63,12 +81,15 @@ public class ClassroomController {
     private final ModuleActivationService moduleActivationService;
     private final CourseConfigurationCommandService courseConfigurationCommandService;
     private final ModuleStopCommandService moduleStopCommandService;
+    private final ModuleStudentAccessCommandService moduleStudentAccessCommandService;
+    private final InvestmentModeCommandService investmentModeCommandService;
     private final EconomicPolicyCommandService economicPolicyCommandService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public ClassroomController(
         ClassroomCreationService creationService,
+        ClassroomArchiveService archiveService,
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
         ClassroomReadService readService,
@@ -76,11 +97,14 @@ public class ClassroomController {
         ModuleActivationService moduleActivationService,
         CourseConfigurationCommandService courseConfigurationCommandService,
         ModuleStopCommandService moduleStopCommandService,
+        ModuleStudentAccessCommandService moduleStudentAccessCommandService,
+        InvestmentModeCommandService investmentModeCommandService,
         EconomicPolicyCommandService economicPolicyCommandService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.creationService = creationService;
+        this.archiveService = archiveService;
         this.configurationService = configurationService;
         this.rosterService = rosterService;
         this.readService = readService;
@@ -88,9 +112,35 @@ public class ClassroomController {
         this.moduleActivationService = moduleActivationService;
         this.courseConfigurationCommandService = courseConfigurationCommandService;
         this.moduleStopCommandService = moduleStopCommandService;
+        this.moduleStudentAccessCommandService = moduleStudentAccessCommandService;
+        this.investmentModeCommandService = investmentModeCommandService;
         this.economicPolicyCommandService = economicPolicyCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @DeleteMapping("/{classroomId}")
+    public ApiResponse<ClassroomArchiveResponse> archiveClassroom(
+        @PathVariable UUID classroomId,
+        @RequestParam("expected_state_version") long expectedStateVersion,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        ClassroomArchiveResult result = archiveService.archive(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            expectedStateVersion
+        );
+        UUID requestId = uuidGenerator.generate();
+        UUID correlation = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return new ApiResponse<>(
+            new ClassroomArchiveResponse(
+                result.classroomId(),
+                result.status(),
+                result.stateVersion()
+            ),
+            meta(requestId, correlation)
+        );
     }
 
     @PutMapping("/{classroomId}/course-configuration")
@@ -119,7 +169,10 @@ public class ClassroomController {
                 request.difficultyProfile(),
                 request.expectedPolicyVersion(),
                 request.classroomCode(),
-                request.currencyName()
+                request.currencyName(),
+                request.displayName(),
+                request.classNumber(),
+                request.description()
             )
         );
         return new ApiResponse<>(
@@ -164,6 +217,85 @@ public class ClassroomController {
                 result.stateVersion(),
                 result.cleanupRequired(),
                 result.cleanupBlockers(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    /**
+     * 학생 이용만 잠그거나 다시 엽니다. 모듈은 계속 ACTIVE이므로 설정·데이터가 남고
+     * 학생 화면에서는 회색으로 표시됩니다. 모듈을 학급에서 걷어낼 때만 stop-commands를 씁니다.
+     */
+    @PostMapping("/{classroomId}/modules/{moduleCode}/student-access-commands")
+    public ApiResponse<ModuleStudentAccessResponse> changeModuleStudentAccess(
+        @PathVariable UUID classroomId,
+        @PathVariable String moduleCode,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ModuleStudentAccessRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        ModuleStudentAccessResult result = moduleStudentAccessCommandService.execute(
+            new ModuleStudentAccessCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                moduleCode,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.command(),
+                request.reason()
+            )
+        );
+        return new ApiResponse<>(
+            new ModuleStudentAccessResponse(
+                result.moduleId(),
+                result.moduleCode(),
+                result.status(),
+                result.studentAccessSuspended(),
+                result.stateVersion(),
+                result.replayed()
+            ),
+            meta(requestId, resolvedCorrelationId)
+        );
+    }
+
+    /**
+     * 학급이 쓸 투자 방식(단기·장기)을 정합니다. 활성화는 한 번만 할 수 있으므로 나중에
+     * 다른 방식을 더하거나 뺄 때 이 명령을 씁니다.
+     */
+    @PostMapping("/{classroomId}/modules/INVESTMENT/investment-mode-commands")
+    public ApiResponse<InvestmentModeResponse> changeInvestmentModes(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody InvestmentModeRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        InvestmentModeResult result = investmentModeCommandService.execute(
+            new InvestmentModeCommand(
+                principal == null ? null : principal.getName(),
+                classroomId,
+                requestId,
+                resolvedCorrelationId,
+                request.expectedStateVersion(),
+                request.investmentModes()
+            )
+        );
+        return new ApiResponse<>(
+            new InvestmentModeResponse(
+                result.moduleId(),
+                result.moduleCode(),
+                result.status(),
+                result.investmentModes(),
+                result.stateVersion(),
                 result.replayed()
             ),
             meta(requestId, resolvedCorrelationId)
@@ -323,7 +455,8 @@ public class ClassroomController {
                 students,
                 salaryRoles,
                 request.expectedPolicyVersion(),
-                request.expectedStateVersion()
+                request.expectedStateVersion(),
+                Boolean.TRUE.equals(request.replaceRoster())
             )
         );
         RosterAndSalariesResponse data = new RosterAndSalariesResponse(
@@ -334,6 +467,45 @@ public class ClassroomController {
         );
         return new ApiResponse<>(data, meta(requestId, correlationId));
     }
+
+    @PostMapping("/{classroomId}/students/{studentId}/password-reset-commands")
+    public ApiResponse<StudentPasswordResetResponse> resetStudentLogin(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID studentId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @Valid @RequestBody StudentPasswordResetRequest request,
+        Principal principal
+    ) {
+        var credential = rosterService.resetStudentLogin(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            studentId,
+            request.newPassword()
+        );
+        return new ApiResponse<>(
+            new StudentPasswordResetResponse(
+                credential.getCredentialVersion(),
+                credential.getChangedAt()
+            ),
+            meta(requestId, null)
+        );
+    }
+
+    public record StudentPasswordResetRequest(
+        @JsonProperty("expected_state_version") Long expectedStateVersion,
+        @JsonProperty("screen_id") String screenId,
+        @JsonProperty("ui_action_id") String uiActionId,
+        @JsonProperty("client_occurred_at") Instant clientOccurredAt,
+        @NotBlank @Pattern(regexp = "COMPLETE") String command,
+        @NotNull @JsonProperty("reset_request_id") UUID resetRequestId,
+        @NotBlank @Size(min = 4, max = 72) @JsonProperty("new_password") String newPassword,
+        @NotBlank String reason
+    ) { }
+
+    public record StudentPasswordResetResponse(
+        @JsonProperty("credential_version") long credentialVersion,
+        @JsonProperty("completed_at") Instant completedAt
+    ) { }
 
     @GetMapping("/{classroomId}/roster-and-salaries")
     public ApiResponse<RosterAndSalariesView> rosterAndSalaries(
@@ -382,6 +554,9 @@ public class ClassroomController {
             new CreateClassroomCommand(
                 principal == null ? null : principal.getName(),
                 request.schoolId(),
+                request.displayName(),
+                request.classNumber(),
+                request.description(),
                 request.currencyName(),
                 request.grade(),
                 request.courseSize(),

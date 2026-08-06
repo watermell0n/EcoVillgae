@@ -152,6 +152,12 @@ public class CourseConfigurationCommandService {
             command.recommendedCourseId(),
             now
         );
+        classroom.updateDisplaySettings(
+            command.displayName(),
+            command.classNumber(),
+            command.description(),
+            now
+        );
         try {
             policyRepository.flush();
             classroomRepository.saveAndFlush(classroom);
@@ -212,6 +218,7 @@ public class CourseConfigurationCommandService {
         if (
             command.grade() < 4 || command.grade() > 6
                 || command.endsOn().isBefore(command.startsOn())
+                || command.displayName() != null && command.displayName().isBlank()
         ) {
             throw operation(
                 HttpStatus.BAD_REQUEST,
@@ -322,7 +329,10 @@ public class CourseConfigurationCommandService {
             "difficulty_profile", command.difficultyProfile(),
             "expected_policy_version", command.expectedPolicyVersion(),
             "classroom_code", command.classroomCode(),
-            "currency_name", command.currencyName()
+            "currency_name", command.currencyName(),
+            "display_name", command.displayName(),
+            "class_number", command.classNumber(),
+            "description", command.description()
         );
     }
 
@@ -341,6 +351,9 @@ public class CourseConfigurationCommandService {
                 : command.recommendedCourseId().toString()
         );
         values.put("difficulty_profile", command.difficultyProfile());
+        values.put("display_name", command.displayName() == null ? "" : command.displayName());
+        values.put("class_number", command.classNumber() == null ? 0 : command.classNumber());
+        values.put("description", command.description() == null ? "" : command.description());
         return values;
     }
 

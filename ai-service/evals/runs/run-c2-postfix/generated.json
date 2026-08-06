@@ -1,0 +1,1490 @@
+{
+  "run_id": "run-c2-postfix",
+  "golden_set_version": "quiz-golden-set-v1",
+  "generated_at": "2026-08-06T11:33:40.660451Z",
+  "base_url": "http://localhost:8000",
+  "provider": "OPENAI",
+  "model_id": "gpt-5.4",
+  "prompt_version": "quiz-draft-v1",
+  "case_count": 12,
+  "succeeded_count": 12,
+  "question_count": 36,
+  "cases": [
+    {
+      "case_id": "eco-g4-mc",
+      "status": "OK",
+      "elapsed_ms": 7445,
+      "request": {
+        "ai_run_id": "e0333a00-a396-468c-a584-9d549a2a9e71",
+        "request_id": "f997b14a-3cd1-4d50-94b5-f976e3d0c07f",
+        "correlation_id": "2ea228d8-bdd5-49ca-86ca-14b3a5c3493c",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:18.745452Z",
+        "locale": "ko-KR",
+        "grade": 4,
+        "payload": {
+          "topic": "필요와 욕구",
+          "difficulty": "INTRODUCTORY",
+          "concepts": [
+            "필요와 욕구"
+          ],
+          "learning_objectives": [
+            "꼭 필요한 것과 갖고 싶은 것을 구분할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "e0333a00-a396-468c-a584-9d549a2a9e71",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1893,
+          "output_tokens": 513
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "다음 중 필요에 가장 알맞은 것은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "겨울에 입는 두꺼운 옷"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "새로 나온 장난감"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "유행하는 운동화"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "게임에 쓰는 아이템"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "A는 추운 날 몸을 보호해 생활하는 데 꼭 필요한 물건이기 때문이에요. 나머지는 있으면 좋지만 없어도 바로 생활하기는 할 수 있어요.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "필요와 욕구"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "다음 중 욕구에 가장 알맞은 것은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "마실 물"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "하루 세 끼 밥"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "잠을 잘 곳"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "좋아하는 캐릭터 스티커"
+                }
+              ],
+              "correct_choice_key": "D",
+              "explanation": "D는 있으면 즐겁지만 꼭 없어서는 안 되는 것은 아니에요. 물, 밥, 잘 곳은 생활에 꼭 필요한 것이에요.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "필요와 욕구"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "비가 많이 오는 날 학교에 갈 때, 필요에 가까운 것은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "새로운 보드게임"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "비를 막는 우산"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "반짝이는 머리핀"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "간식으로 먹을 사탕"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "B는 비를 피해서 안전하게 이동하는 데 도움이 되어 꼭 필요한 쪽에 가까워요. 다른 것은 있으면 좋지만 그 상황에서 꼭 필요하지는 않아요.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "필요와 욕구"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "eco-g4-ox",
+      "status": "OK",
+      "elapsed_ms": 5388,
+      "request": {
+        "ai_run_id": "90afa8ab-3f21-4c88-a130-ad506a90cf1f",
+        "request_id": "7031de61-b0bb-4c38-9042-d280f255982d",
+        "correlation_id": "6ffa6f87-c70b-4f58-80ef-5cb48d2e6eba",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:18.745452Z",
+        "locale": "ko-KR",
+        "grade": 4,
+        "payload": {
+          "topic": "용돈 관리",
+          "difficulty": "INTRODUCTORY",
+          "concepts": [
+            "용돈 관리"
+          ],
+          "learning_objectives": [
+            "용돈을 계획해서 쓰는 방법을 설명할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "90afa8ab-3f21-4c88-a130-ad506a90cf1f",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1884,
+          "output_tokens": 402
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "용돈을 계획해서 쓰려면 먼저 사고 싶은 것과 꼭 필요한 것을 나누어 생각하는 것이 좋다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O가 맞습니다. 용돈을 쓰기 전에 꼭 필요한 것과 사고 싶은 것을 나누면 무엇을 먼저 사야 하는지 정하기 쉬워집니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "용돈 관리"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "용돈을 받자마자 모두 써야 용돈 관리를 잘하는 것이다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "X가 맞습니다. 용돈 관리는 받은 돈을 바로 다 쓰는 것이 아니라, 얼마를 쓰고 얼마를 남길지 미리 정하는 것입니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "용돈 관리"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "용돈 기입장을 쓰면 어디에 돈을 썼는지 알 수 있어서 다음 계획을 세우는 데 도움이 된다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O가 맞습니다. 용돈 기입장을 쓰면 돈을 어디에 썼는지 알 수 있어서 다음에 어떻게 쓸지 더 잘 계획할 수 있습니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "용돈 관리"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "eco-g5-mc",
+      "status": "OK",
+      "elapsed_ms": 8432,
+      "request": {
+        "ai_run_id": "75c4ec1f-8367-4394-82cc-12b10173886f",
+        "request_id": "31492edc-9c84-4554-a970-494960968cc1",
+        "correlation_id": "4a8b0140-7327-44a4-bc0a-ab79e80c46a5",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:18.745452Z",
+        "locale": "ko-KR",
+        "grade": 5,
+        "payload": {
+          "topic": "합리적 선택과 기회비용",
+          "difficulty": "STANDARD",
+          "concepts": [
+            "합리적 선택과 기회비용"
+          ],
+          "learning_objectives": [
+            "하나를 고르면 포기하는 것이 생긴다는 것을 설명할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "75c4ec1f-8367-4394-82cc-12b10173886f",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1888,
+          "output_tokens": 632
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "민수가 용돈으로 공책이나 색연필 중 하나만 살 수 있을 때, 공책을 고르면 무엇이 기회비용에 가장 가깝나요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "공책을 사는 만족"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "색연필을 사지 못한 것"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "용돈을 받은 날짜"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "가게까지 걸어간 시간"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "기회비용은 하나를 선택할 때 포기한 것의 가치입니다. B처럼 공책을 고르면서 색연필을 살 기회를 놓친 것이 기회비용에 해당합니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "합리적 선택과 기회비용"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "지우는 방과 후에 축구 연습과 독서 모임 중 하나만 갈 수 있습니다. 지우가 독서 모임을 선택한 이유로 가장 알맞은 것은 무엇인가요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "아무 생각 없이 가까운 곳이라서"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "둘 다 갈 수 없으니 포기할 것이 없어서"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "자기에게 더 필요한 활동이라고 판단해서"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "선택하면 기회비용이 사라져서"
+                }
+              ],
+              "correct_choice_key": "C",
+              "explanation": "합리적 선택은 여러 선택지의 장단점을 비교하고 자기에게 더 필요한 것을 고르는 것입니다. C는 이유를 생각해 선택한 경우라서 가장 알맞습니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "합리적 선택과 기회비용"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "다음 중 합리적 선택을 가장 잘 설명한 것은 무엇인가요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "마음이 가는 대로 바로 고르는 것"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "포기하는 것을 생각하지 않고 고르는 것"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "좋아 보이는 것을 모두 한꺼번에 고르는 것"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "얻는 것과 포기하는 것을 비교해 고르는 것"
+                }
+              ],
+              "correct_choice_key": "D",
+              "explanation": "합리적 선택은 선택의 좋은 점만 보는 것이 아니라 포기하게 되는 것도 함께 살펴보는 것입니다. D처럼 얻는 것과 포기하는 것을 비교해야 더 알맞은 선택을 할 수 있습니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "합리적 선택과 기회비용"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "eco-g5-ox",
+      "status": "OK",
+      "elapsed_ms": 5954,
+      "request": {
+        "ai_run_id": "1effd8c1-4cdf-479a-bdc2-981579aa43dc",
+        "request_id": "f72c5933-8192-411e-a49f-e709f0239811",
+        "correlation_id": "f8903b31-7122-4ea4-bcc6-64541abdbf90",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:18.745452Z",
+        "locale": "ko-KR",
+        "grade": 5,
+        "payload": {
+          "topic": "시장과 가격",
+          "difficulty": "STANDARD",
+          "concepts": [
+            "시장과 가격"
+          ],
+          "learning_objectives": [
+            "물건 값이 정해지는 과정을 설명할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "1effd8c1-4cdf-479a-bdc2-981579aa43dc",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1868,
+          "output_tokens": 465
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "같은 물건이라도 사고 싶어 하는 사람이 많아지면, 파는 사람이 그대로일 때 가격이 올라갈 수 있다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O인 이유는 사고 싶어 하는 사람이 많아지면 물건이 빨리 팔려서, 파는 쪽이 더 높은 값에도 팔 수 있기 때문입니다. 시장에서는 사고자 하는 수와 팔려는 수가 가격을 움직입니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "시장과 가격"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "시장에서 물건 값은 파는 사람이 혼자 마음대로 정하므로, 사려는 사람 수는 가격과 관계가 없다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "X인 이유는 시장의 가격은 파는 사람만이 아니라 사려는 사람의 수와 생각도 함께 영향을 주기 때문입니다. 사려는 사람이 적으면 비싸게 정한 값에 잘 팔리지 않을 수 있습니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "시장과 가격"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "사려는 사람은 줄고 같은 물건을 파는 가게는 늘어나면, 가격이 내려갈 수 있다.",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O인 이유는 사려는 사람보다 파는 곳이 많아지면 물건이 남기 쉬워서, 더 잘 팔기 위해 값을 낮출 수 있기 때문입니다. 그래서 시장에서는 수요와 공급의 변화에 따라 가격이 달라집니다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "시장과 가격"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "eco-g6-mc",
+      "status": "OK",
+      "elapsed_ms": 8634,
+      "request": {
+        "ai_run_id": "041a8f48-02a9-4bd1-bc57-b49d02e8a542",
+        "request_id": "caed833a-0d16-44ef-badb-90e44fc923fc",
+        "correlation_id": "629b90d0-13ca-48df-be80-fe0970a9f331",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:24.133929Z",
+        "locale": "ko-KR",
+        "grade": 6,
+        "payload": {
+          "topic": "수요와 공급",
+          "difficulty": "ADVANCED",
+          "concepts": [
+            "수요와 공급"
+          ],
+          "learning_objectives": [
+            "수요와 공급의 변화가 가격에 미치는 영향을 설명할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "041a8f48-02a9-4bd1-bc57-b49d02e8a542",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1881,
+          "output_tokens": 742
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "학교 앞 문구점에서 인기 있는 스티커를 소개하는 영상이 퍼진 뒤, 스티커를 사려는 학생이 크게 늘었습니다. 문구점에 들어온 스티커 수는 그대로일 때 가격이 가장 알맞게 어떻게 변할 가능성이 클까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "가격이 오른다"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "가격이 내린다"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "가격이 그대로다"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "가격이 사라진다"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "사려는 사람이 늘면 수요가 증가합니다. 이때 물건 수가 그대로이면 원하는 사람이 더 많아져 가격이 올라가기 쉽습니다. A가 알맞습니다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "수요와 공급"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "마을 농장에서 토마토를 많이 수확해 가게에 가져왔습니다. 그런데 토마토를 사려는 사람 수는 이전과 비슷합니다. 이 상황에서 토마토 가격이 내려질 가능성이 큰 이유로 가장 알맞은 것은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "수요가 줄어서 세금이 늘기 때문"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "공급이 늘어 경쟁적으로 팔게 되기 때문"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "월급이 늘어 저축이 늘기 때문"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "이자가 내려 소비가 멈추기 때문"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "토마토를 파는 양이 많아지면 공급이 증가한 것입니다. 사려는 사람 수가 비슷할 때는 더 잘 팔기 위해 가격을 낮출 수 있습니다. B는 공급 증가가 가격 하락으로 이어지는 이유를 잘 설명합니다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "수요와 공급"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "운동회 날 갑자기 날씨가 매우 더워져서 매점의 생수가 빨리 팔렸습니다. 동시에 생수를 실은 배송차가 늦어 새 생수가 바로 들어오지 못했습니다. 이 상황을 가장 잘 설명한 것은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "수요와 공급이 함께 줄어 가격이 꼭 내려간다"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "수요는 늘고 공급은 줄어 가격이 오를 가능성이 크다"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "수요는 그대로이고 공급만 늘어 가격이 오른다"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "수요가 늘어도 공급과 상관없이 가격은 변하지 않는다"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "더운 날씨 때문에 생수를 사려는 사람이 늘어 수요가 증가했습니다. 또 배송이 늦어 새 물건이 들어오지 못하면 공급은 줄어듭니다. 수요는 늘고 공급은 줄면 가격이 오를 가능성이 커집니다. B가 가장 알맞습니다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "수요와 공급"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "eco-g6-ox",
+      "status": "OK",
+      "elapsed_ms": 5581,
+      "request": {
+        "ai_run_id": "ee617552-b64e-47da-b9df-6f7e9507af12",
+        "request_id": "cba92a8c-9874-44c3-bbf9-feffa2fd3fca",
+        "correlation_id": "02fe4269-39b0-41df-acb4-3c5b1a2a2180",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:24.700099Z",
+        "locale": "ko-KR",
+        "grade": 6,
+        "payload": {
+          "topic": "물가 변화",
+          "difficulty": "ADVANCED",
+          "concepts": [
+            "물가 변화"
+          ],
+          "learning_objectives": [
+            "물가가 오르면 우리 생활이 어떻게 달라지는지 설명할 수 있다."
+          ],
+          "category": "ECONOMY",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "ee617552-b64e-47da-b9df-6f7e9507af12",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 1876,
+          "output_tokens": 524
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "ECONOMY",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "물가가 전반적으로 오르면, 같은 돈으로 살 수 있는 물건의 양이 줄어들 수 있다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O가 맞다. 물가가 오르면 물건 한 개를 사는 데 필요한 돈이 커질 수 있어서, 같은 금액으로는 예전보다 적은 양을 사게 될 수 있다. 즉, 물가 상승은 생활에서 살 수 있는 양에 영향을 준다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "물가 변화"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "문구점에서 공책 가격과 연필 가격이 함께 올랐다면, 같은 예산으로도 전과 똑같은 수량을 사는 데 어려움이 없을 가능성이 더 크다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "X가 맞다. 공책과 연필 가격이 함께 오르면 같은 예산으로 살 수 있는 수량이 줄어들 가능성이 크다. 가격 상승이 여러 물건에 동시에 나타나면 생활 계획을 다시 세워야 할 수 있다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "물가 변화"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "우리 집 한 달 예산이 그대로인데 식료품 가격이 오르면, 다른 지출을 줄이거나 구매 계획을 바꿔야 할 수 있다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "O가 맞다. 한 달 예산이 그대로인데 식료품 가격이 오르면 필요한 먹거리를 사는 데 더 많은 돈이 들 수 있다. 그러면 다른 곳에 쓰는 돈을 줄이거나, 무엇을 먼저 살지 계획을 바꾸는 일이 생길 수 있다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "물가 변화"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g4-mc",
+      "status": "OK",
+      "elapsed_ms": 6058,
+      "request": {
+        "ai_run_id": "61b7510f-b217-49be-9c36-203fddd39499",
+        "request_id": "78fbd610-9e98-436a-938a-ce4f6ab70202",
+        "correlation_id": "10180e3f-3da1-49e9-b880-3755337310f3",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:26.191341Z",
+        "locale": "ko-KR",
+        "grade": 4,
+        "payload": {
+          "topic": "음식",
+          "difficulty": "INTRODUCTORY",
+          "concepts": [
+            "음식"
+          ],
+          "learning_objectives": [
+            "말놀이를 즐기며 낱말의 소리에 관심을 가진다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "61b7510f-b217-49be-9c36-203fddd39499",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2819,
+          "output_tokens": 511
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "세상에서 가장 급하게 먹는 음식은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "허둥지둥"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "후루룩"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "주먹밥"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "비빔밥"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "정답은 B입니다. '후루룩'은 빨리 먹는 소리를 흉내내는 말이라서, 급하게 먹는 음식이라는 질문에 말장난으로 어울립니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "음식"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "가장 깜짝 놀라서 먹는 떡은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "화들떡"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "가래떡"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "꿀떡"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "시루떡"
+                }
+              ],
+              "correct_choice_key": "C",
+              "explanation": "정답은 C입니다. '꿀떡'은 원래 있는 떡 이름이면서, 놀라서 침을 꿀꺽 삼키는 느낌을 떠올리게 하는 말장난입니다. A는 실제로 쓰이는 낱말이 아니라서 정답이 될 수 없습니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "음식"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "바다에서 가장 얌전히 먹는 음식은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "조개"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "미역"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "김밥"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "초밥"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "정답은 A입니다. '조개'는 '조용하게'의 '조' 소리를 떠올리게 하여 얌전한 느낌으로 연결되는 말놀이입니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "음식"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g4-ox",
+      "status": "OK",
+      "elapsed_ms": 5827,
+      "request": {
+        "ai_run_id": "c0801404-0588-4124-9c18-d0bbc3f4d6be",
+        "request_id": "16cc0392-7c22-4f91-805b-cc71ec655594",
+        "correlation_id": "a22efbd8-0439-4ef2-b628-3908dbc487f1",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:27.178272Z",
+        "locale": "ko-KR",
+        "grade": 4,
+        "payload": {
+          "topic": "색깔",
+          "difficulty": "INTRODUCTORY",
+          "concepts": [
+            "색깔"
+          ],
+          "learning_objectives": [
+            "말놀이를 즐기며 낱말의 소리에 관심을 가진다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "c0801404-0588-4124-9c18-d0bbc3f4d6be",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2815,
+          "output_tokens": 512
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "색깔 중에서 바람이 아주 세게 불 때 떠오르는 색은 파랑이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "O"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "X"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "정답은 O이다. '파랑'은 색 이름이면서 '바람이 세게 파랑파랑 분다'처럼 들리는 소리 겹치기를 떠올리게 하는 말놀이 답이다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "색깔"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "색깔 중에서 숨어 있다가 갑자기 나올 것 같은 색은 초록이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "O"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "X"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "정답은 X이다. '초록'은 숨었다 나오는 소리나 글자와 겹치지 않아 말장난이 성립하지 않는다. 이 말놀이의 답으로는 '까망'이 더 알맞다. '까망'은 '까꿍'처럼 갑자기 나타나는 느낌의 흉내말을 떠올리게 한다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "색깔"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "색깔 중에서 물감이 많이 모여 있는 것처럼 들리는 색은 주황이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "O"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "X"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "정답은 X이다. '주황'은 물감이 모여 있다는 말과 소리나 글자가 겹치지 않는다. 이 말놀이의 답으로는 '노랑'이 더 알맞다. '노랑'은 '노랗게'처럼 색을 바로 떠올리게 하는 낱말이지만, 질문의 조건과 맞는 진짜 말장난 답은 아니다.",
+              "difficulty": "INTRODUCTORY",
+              "concept_tags": [
+                "색깔"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g5-mc",
+      "status": "OK",
+      "elapsed_ms": 6381,
+      "request": {
+        "ai_run_id": "a071e5c9-bb0b-453f-bdc2-09babf89b01a",
+        "request_id": "4dfe15be-f970-4061-b937-96b35c7cca3a",
+        "correlation_id": "0a97a366-7e5b-4182-9d56-1309428d3eff",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:30.282066Z",
+        "locale": "ko-KR",
+        "grade": 5,
+        "payload": {
+          "topic": "교통수단",
+          "difficulty": "STANDARD",
+          "concepts": [
+            "교통수단"
+          ],
+          "learning_objectives": [
+            "낱말의 여러 뜻을 이용한 말놀이를 만든다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "a071e5c9-bb0b-453f-bdc2-09babf89b01a",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2819,
+          "output_tokens": 513
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "차들끼리 싸우지 않고 사이좋게 지내면 무엇이라고 할까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "자동차례"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "자전거"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "기차역"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "버스길"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "A가 맞다. '자동차례'는 '자동차'와 '차례'가 소리로 겹쳐 들리는 말장난이다. 차들이 질서를 지키며 차례를 지킨다는 느낌으로 답이 정해진다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "교통수단"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "비가 아주 많이 오는 날 타는 차는 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "소방차"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "세차"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "기차"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "유모차"
+                }
+              ],
+              "correct_choice_key": "B",
+              "explanation": "B가 맞다. '세차'는 보통 차를 닦는 말이지만, 소리로 들으면 '비가 세차게 온다'의 '세차'와 겹친다. 그래서 비가 많이 오는 날의 차라는 말장난이 된다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "교통수단"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "잠이 아주 많은 교통수단은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "잠수함"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "비행기"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "경운기"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "전동차"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "A가 맞다. '잠수함'은 원래 물속으로 들어가는 탈것 이름이지만, 글자를 보면 '잠'이 들어 있어 잠이 많은 것처럼 읽히는 말장난이 된다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "교통수단"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g5-ox",
+      "status": "OK",
+      "elapsed_ms": 6998,
+      "request": {
+        "ai_run_id": "7f6bff55-e566-433d-8471-cc3e780ff561",
+        "request_id": "ad41e86b-26e4-4c79-a3da-78712fec41f4",
+        "correlation_id": "c7255eae-2ccb-4208-a235-90085b1bafcc",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:32.250306Z",
+        "locale": "ko-KR",
+        "grade": 5,
+        "payload": {
+          "topic": "날씨",
+          "difficulty": "STANDARD",
+          "concepts": [
+            "날씨"
+          ],
+          "learning_objectives": [
+            "낱말의 여러 뜻을 이용한 말놀이를 만든다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "7f6bff55-e566-433d-8471-cc3e780ff561",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2811,
+          "output_tokens": 521
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "비가 아주 착하면 이름이 우산이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "O",
+              "explanation": "정답은 O다. '우산'은 비가 올 때 쓰는 물건이면서, 소리로 들으면 '우쌈'처럼 '아주 착하다'는 느낌으로 장난스럽게 다시 읽히는 말놀이가 된다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "날씨"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "눈이 내릴 때 가장 바쁜 강아지의 이름은 눈사람이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "정답은 X다. '눈사람'은 눈으로 만든 사람이라는 뜻이라서 강아지 이름 말장난으로는 성립하지 않는다. 이 질문에서 성립하는 쪽에 더 가까운 답은 '멍멍'처럼 강아지 소리를 흉내내는 낱말이지만, 제시한 '눈사람'은 날씨 낱말과 강아지 소리가 겹치지 않는다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "날씨"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "해가 쨍쨍한 날에 듣기 좋은 말장난 답은 해바라기다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "정답은 X다. '해바라기'는 해를 바라보는 식물 이름이라서 질문만으로는 소리나 글자가 겹치는 말장난이 되지 않는다. 날씨로 말장난을 만들려면 실제로 다른 낱말과 소리나 글자가 겹쳐야 하는데, 이 문장에서는 그런 겹침이 없다.",
+              "difficulty": "STANDARD",
+              "concept_tags": [
+                "날씨"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g6-mc",
+      "status": "OK",
+      "elapsed_ms": 6081,
+      "request": {
+        "ai_run_id": "2ed7314c-b62f-4e24-9c3c-e3569ba587e5",
+        "request_id": "398d0476-f4d1-42c5-95c2-718df86a39ea",
+        "correlation_id": "3c6d3f22-ca8b-4fda-9c7e-e27ec7982f73",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:32.767959Z",
+        "locale": "ko-KR",
+        "grade": 6,
+        "payload": {
+          "topic": "직업",
+          "difficulty": "ADVANCED",
+          "concepts": [
+            "직업"
+          ],
+          "learning_objectives": [
+            "낱말을 쪼개고 이어 붙이며 말놀이를 만든다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "MULTIPLE_CHOICE",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "2ed7314c-b62f-4e24-9c3c-e3569ba587e5",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2819,
+          "output_tokens": 505
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "직업 중에서 가장 차가운 바람을 잘 부는 직업은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "선풍기"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "목수"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "미용사"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "화가"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "A가 정답이다. '선풍기'는 물건 이름이지만, '선'과 '풍'과 '기'가 이어져 바람을 부는 느낌이 강해 질문의 함정에 어울리는 답으로 쓰였다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "직업"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "직업 중에서 늘 종이를 기다리는 사람은 누구일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "작가"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "화가"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "농부"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "어부"
+                }
+              ],
+              "correct_choice_key": "A",
+              "explanation": "A가 정답이다. '작가'는 글을 쓰는 직업이라 종이와 잘 어울린다. 다른 선택지도 직업 이름이지만, 질문처럼 종이를 기다린다는 말장난은 되지 않는다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "직업"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "MULTIPLE_CHOICE",
+              "question": "직업 중에서 가장 많이 듣는 직업은 무엇일까요?",
+              "choices": [
+                {
+                  "choice_key": "A",
+                  "text": "의사"
+                },
+                {
+                  "choice_key": "B",
+                  "text": "판사"
+                },
+                {
+                  "choice_key": "C",
+                  "text": "교사"
+                },
+                {
+                  "choice_key": "D",
+                  "text": "가수"
+                }
+              ],
+              "correct_choice_key": "D",
+              "explanation": "D가 정답이다. '가수'는 노래를 들려주는 직업이라 '듣는'과 연결되는 함정형 질문으로 볼 수 있다. 다른 선택지도 익숙한 직업이지만 같은 말장난은 성립하지 않는다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "직업"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "non-g6-ox",
+      "status": "OK",
+      "elapsed_ms": 7654,
+      "request": {
+        "ai_run_id": "e054bbeb-9a45-424b-b2ed-939312ec44ff",
+        "request_id": "59a674a0-5644-4c9e-97c9-5343369cb370",
+        "correlation_id": "88436d5c-e5be-4e06-a954-300fbc4c150e",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "attempt": 1,
+        "deadline_at": "2026-08-06T11:36:33.005874Z",
+        "locale": "ko-KR",
+        "grade": 6,
+        "payload": {
+          "topic": "몸과 건강",
+          "difficulty": "ADVANCED",
+          "concepts": [
+            "몸과 건강"
+          ],
+          "learning_objectives": [
+            "낱말을 쪼개고 이어 붙이며 말놀이를 만든다."
+          ],
+          "category": "NONSENSE",
+          "question_type": "OX",
+          "count": 3
+        }
+      },
+      "response": {
+        "ai_run_id": "e054bbeb-9a45-424b-b2ed-939312ec44ff",
+        "schema_version": "1.2",
+        "prompt_version": "quiz-draft-v1",
+        "provider": "OPENAI",
+        "model_id": "gpt-5.4",
+        "safety_status": "PASSED",
+        "validation_codes": [],
+        "usage": {
+          "input_tokens": 2817,
+          "output_tokens": 561
+        },
+        "output": {
+          "review_status": "REVIEW_REQUIRED",
+          "category": "NONSENSE",
+          "questions": [
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "몸이 아주 가벼워서 자꾸 날아갈 것 같은 사람을 가리키는 넌센스 답이 '허수아비'이다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "'허수아비'는 밭에 세우는 이미 있는 낱말이지만, 몸이 가벼운 사람이라는 말장난으로는 소리나 글자가 겹치지 않는다. 이 질문에서 성립하는 쪽은 '날씬하다'처럼 몸이 가벼워 보인다는 뜻의 연상일 뿐 넌센스가 아니다. 따라서 제시한 답은 맞지 않는다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "몸과 건강"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "몸에서 가장 부지런히 길을 찾는 곳을 묻는 넌센스의 답을 '눈동자'라고 하면 맞다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "'눈동자'는 이미 있는 낱말이지만, 길을 찾는다는 말과 소리나 글자가 겹치지 않아 말장난이 성립하지 않는다. 이 문장에서 그럴듯해 보여도 연상일 뿐이다. 따라서 제시한 답은 맞지 않는다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "몸과 건강"
+              ]
+            },
+            {
+              "review_status": "REVIEW_REQUIRED",
+              "question_type": "OX",
+              "question": "몸이 아플 때 가장 먼저 '쉿' 하고 조용히 시키는 곳을 묻는 넌센스의 답이 '입술'이라는 말은 맞다. (O/X)",
+              "choices": [
+                {
+                  "choice_key": "O",
+                  "text": "맞다"
+                },
+                {
+                  "choice_key": "X",
+                  "text": "아니다"
+                }
+              ],
+              "correct_choice_key": "X",
+              "explanation": "'입술'은 입과 관련된 낱말이지만 '쉿' 하고 조용히 시킨다는 말과 소리나 글자가 실제로 겹치지 않는다. 뜻만 이어진 연상이라 넌센스가 아니다. 따라서 제시한 답은 맞지 않는다.",
+              "difficulty": "ADVANCED",
+              "concept_tags": [
+                "몸과 건강"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

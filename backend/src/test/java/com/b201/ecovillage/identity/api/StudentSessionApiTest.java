@@ -44,6 +44,9 @@ import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.repository.DeviceLinkRepository;
 import com.b201.ecovillage.identity.repository.StudentCredentialRepository;
 import com.b201.ecovillage.identity.repository.StudentSessionRepository;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
+import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:student-login;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -83,6 +86,9 @@ class StudentSessionApiTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private LedgerAccountRepository ledgerAccountRepository;
 
     private UUID classroomId;
     private UUID studentId;
@@ -158,6 +164,107 @@ class StudentSessionApiTest {
             deviceId.toString(),
             deviceLinkRepository.findAll().getFirst().getDeviceFingerprintHash()
         );
+    }
+
+    @Test
+    void registersFirstTimeStudentAtRequestedAttendanceNumberUsingFourCharacterPassword()
+        throws Exception {
+        String nickname = "새학생";
+        UUID firstPlaceholderId = UUID.randomUUID();
+        UUID requestedPlaceholderId = UUID.randomUUID();
+        classroomStudentRepository.save(
+            ClassroomStudent.enroll(firstPlaceholderId, classroomId, 1, "학생 1", CREATED_AT)
+        );
+        classroomStudentRepository.save(
+            ClassroomStudent.enroll(requestedPlaceholderId, classroomId, 2, "학생 2", CREATED_AT)
+        );
+
+        mockMvc.perform(
+            post("/auth/student-sessions")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "classroom_code": "ABCD2345",
+                      "attendance_number": 2,
+                      "nickname": "새학생",
+                      "password": "1234",
+                      "device_id": "%s"
+                    }
+                    """.formatted(UUID.randomUUID()))
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"));
+
+        ClassroomStudent registered = classroomStudentRepository
+            .findByClassroomIdAndNicknameIgnoreCaseAndRetiredAtIsNull(classroomId, nickname)
+            .orElseThrow();
+        assertEquals(2, registered.getRosterNumber());
+        assertEquals(requestedPlaceholderId, registered.getId());
+        assertTrue(studentCredentialRepository.findById(firstPlaceholderId).isEmpty());
+        assertTrue(studentCredentialRepository.findById(registered.getId()).isPresent());
+        assertTrue(ledgerAccountRepository
+            .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                classroomId,
+                registered.getId(),
+                LedgerAccountType.STUDENT_WALLET,
+                LedgerAccountStatus.ACTIVE
+            )
+            .isPresent());
+    }
+
+    @Test
+    void requiresAttendanceNumberForStudentLogin() throws Exception {
+        mockMvc.perform(
+            post("/auth/student-sessions")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "classroom_code": "ABCD2345",
+                      "nickname": "새학생",
+                      "password": "1234",
+                      "device_id": "%s"
+                    }
+                    """.formatted(UUID.randomUUID()))
+        )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void rejectsFirstTimeStudentWhenConfiguredClassroomCapacityIsFull() throws Exception {
+        for (int rosterNumber = 1; rosterNumber <= 30; rosterNumber++) {
+            if (rosterNumber == 7) {
+                continue;
+            }
+            classroomStudentRepository.save(
+                ClassroomStudent.enroll(
+                    UUID.randomUUID(),
+                    classroomId,
+                    rosterNumber,
+                    "학생" + rosterNumber,
+                    CREATED_AT
+                )
+            );
+        }
+
+        mockMvc.perform(
+            post("/auth/student-sessions")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "classroom_code": "ABCD2345",
+                      "attendance_number": 31,
+                      "nickname": "정원초과",
+                      "password": "1234",
+                      "device_id": "%s"
+                    }
+                    """.formatted(UUID.randomUUID()))
+        )
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("CLASSROOM_FULL"));
     }
 
     @Test

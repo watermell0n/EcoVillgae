@@ -4,8 +4,16 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { colors, radii } from "@/theme/tokens";
 
 export function BackButton() {
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)");
+  };
+
   return (
-    <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.button}>
+    <Pressable accessibilityRole="button" onPress={goBack} style={styles.button}>
       <Text style={styles.text}>← 돌아가기</Text>
     </Pressable>
   );

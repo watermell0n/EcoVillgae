@@ -25,7 +25,8 @@ public record RuleEngineRequest(
     ModuleActivation moduleActivation,
     SalaryPolicy salaryPolicy,
     ProductDraft productDraft,
-    QuizDraft quizDraft
+    QuizDraft quizDraft,
+    InvestmentDraft investmentDraft
 ) {
     public RuleEngineRequest {
         TreeSet<String> normalizedModules = new TreeSet<>();
@@ -103,6 +104,42 @@ public record RuleEngineRequest(
     ) {
     }
 
+    /**
+     * 투자 조건 추천에 쓰는 학급 지표와 교사 확정값이다.
+     *
+     * <p>금액은 학급 화폐 단위이며, 잔액은 지금 학생 지갑에 남아 있는 돈이다. 아직 아무도
+     * 돈을 받지 않은 학급이면 잔액이 0이므로 화폐 발행액을 대신 본다.
+     */
+    public record InvestmentDraft(
+        UUID targetId,
+        String investmentMode,
+        long moneyIssuance,
+        long averageStudentBalance,
+        long medianStudentBalance,
+        List<InvestmentAsset> assets
+    ) {
+        public InvestmentDraft {
+            if (investmentMode != null) {
+                investmentMode = investmentMode.trim().toUpperCase(Locale.ROOT);
+            }
+            assets = assets == null ? List.of() : List.copyOf(assets);
+        }
+    }
+
+    /**
+     * 종목 하나다. priceWeight는 종목 사이의 가격 차이만, riskWeight는 위험 차이만 정한다.
+     * confirmedBandBps는 교사가 이미 정해 둔 하루 변동 범위(±bps)다.
+     */
+    public record InvestmentAsset(
+        String symbol,
+        String name,
+        BigDecimal priceWeight,
+        BigDecimal riskWeight,
+        Long confirmedPrice,
+        Long confirmedBandBps
+    ) {
+    }
+
     public static final class Builder {
         private final RuleContextType contextType;
         private final int grade;
@@ -121,6 +158,7 @@ public record RuleEngineRequest(
         private SalaryPolicy salaryPolicy;
         private ProductDraft productDraft;
         private QuizDraft quizDraft;
+        private InvestmentDraft investmentDraft;
 
         private Builder(
             RuleContextType contextType,
@@ -191,6 +229,11 @@ public record RuleEngineRequest(
             return this;
         }
 
+        public Builder investmentDraft(InvestmentDraft value) {
+            investmentDraft = value;
+            return this;
+        }
+
         public RuleEngineRequest build() {
             return new RuleEngineRequest(
                 contextType,
@@ -209,7 +252,8 @@ public record RuleEngineRequest(
                 moduleActivation,
                 salaryPolicy,
                 productDraft,
-                quizDraft
+                quizDraft,
+                investmentDraft
             );
         }
     }
