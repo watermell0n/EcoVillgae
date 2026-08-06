@@ -7,9 +7,6 @@ import {
   ApiError,
   apiRequest,
   inputTextToValue,
-  unitHint,
-  unitSuffix,
-  valueForDisplay,
   valueToInputText,
   type SetupCandidate,
   type SetupPrecheckResponse
@@ -145,21 +142,34 @@ function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "투자 시나리오를 처리하지 못했습니다.";
 }
 
-type AssetTextDraft = { assetId: string; name: string; profile: string };
+type AssetTextDraft = {
+  assetId: string;
+  name: string;
+  profile: string;
+  // 화면에서는 "1주 금액"과 "±몇 %" 한 개로 다룹니다. 비우면 지금 값을 그대로 둡니다.
+  startPrice: string;
+  bandPercent: string;
+};
 
 /**
- * 기업 이름과 소개 문장을 고치는 자리입니다. 가격과 변동 범위는 여기서 바꾸지 않으므로
- * 시나리오를 다시 만들지 않고도 어려운 낱말만 학생 눈높이로 바꿀 수 있습니다.
+ * 종목 하나를 고치는 자리입니다.
+ *
+ * <p>이름과 소개는 언제든 고칠 수 있습니다. 1주 금액과 변동 범위는 고치면 가격 흐름을 다시
+ * 뽑으므로, 아직 학생에게 공개하지 않은 초안일 때만 열어 줍니다.
  */
 function AssetTextEditor({
   draft,
   busy,
+  editablePrice,
+  currencyName,
   onChange,
   onCancel,
   onSave
 }: Readonly<{
   draft: AssetTextDraft;
   busy: boolean;
+  editablePrice: boolean;
+  currencyName: string;
   onChange: (next: AssetTextDraft) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -174,6 +184,33 @@ function AssetTextEditor({
         기업 소개
         <textarea rows={3} maxLength={1000} value={draft.profile} onChange={(event) => onChange({ ...draft, profile: event.target.value })} />
       </label>
+      {editablePrice ? (
+        <>
+          <label>
+            1주 금액 ({currencyName})
+            <input
+              type="number"
+              min="1"
+              step="10"
+              value={draft.startPrice}
+              onChange={(event) => onChange({ ...draft, startPrice: event.target.value })}
+            />
+          </label>
+          <label>
+            하루 변동 범위 (±%)
+            <input
+              type="number"
+              min="0.01"
+              step="0.5"
+              value={draft.bandPercent}
+              onChange={(event) => onChange({ ...draft, bandPercent: event.target.value })}
+            />
+            <small>고치면 가격 흐름을 다시 뽑습니다.</small>
+          </label>
+        </>
+      ) : (
+        <small>이미 시작한 투자라 1주 금액과 변동 범위는 바꿀 수 없어요. 이름과 소개만 고칠 수 있습니다.</small>
+      )}
       <div className="row-actions">
         <button type="button" disabled={busy} onClick={onSave}>{busy ? "저장하는 중" : "수정 저장"}</button>
         <button type="button" className="ghost-action" disabled={busy} onClick={onCancel}>취소</button>
@@ -218,13 +255,9 @@ export function InvestmentScenarioPanel({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
-  // 교사가 정하는 투자 조건입니다. AI 추천을 받으면 후보가 채워지고, 그 값을 고쳐서
-  // 시나리오 생성에 그대로 실어 보냅니다. 추천을 받지 않으면 서버 기본값으로 만듭니다.
-  const [conditions, setConditions] = useState<SetupPrecheckResponse | null>(null);
-  const [conditionValues, setConditionValues] = useState<Record<string, string>>({});
   // AI가 지은 기업 이름·소개와 이야기에는 초등학생이 읽기 어려운 낱말이 섞입니다.
   // 시나리오를 다시 만들면 가격 흐름까지 바뀌므로, 글만 고칠 수 있게 편집 상태를 따로 둡니다.
-  const [assetEdit, setAssetEdit] = useState<{ assetId: string; name: string; profile: string } | null>(null);
+  const [assetEdit, setAssetEdit] = useState<AssetTextDraft | null>(null);
   const [newsEdit, setNewsEdit] = useState<{ eventId: string; title: string; content: string; version: number } | null>(null);
 
   const load = useCallback(async () => {
@@ -282,32 +315,15 @@ export function InvestmentScenarioPanel({
     }
   }
 
-  /** 지금 입력칸에 적힌 값입니다. 비었거나 단위에 맞지 않으면 null이라 보내지 않습니다. */
-  function conditionValue(candidate: SetupCandidate) {
-    return inputTextToValue(conditionValues[candidate.action_id] ?? "", candidate.unit);
-  }
-
-  function outsideAllowed(candidate: SetupCandidate) {
-    const value = conditionValue(candidate);
-    return value === null
-      || value < candidate.allowed_min_value
-      || value > candidate.allowed_max_value;
-  }
-
-  const conditionCandidates = conditions?.candidates ?? [];
-  const invalidConditions = conditionCandidates.some(outsideAllowed);
-
   /**
-   * 규칙 엔진에 투자 조건 추천을 요청합니다. 세율·금리와 같은 경로를 쓰며, 숫자와 허용
-   * 범위는 규칙 엔진이 학급 지표로 계산하고 AI는 근거와 주의사항만 붙입니다.
+   * 규칙 엔진에서 종목별 1주 금액·변동 범위 추천값을 받아 옵니다.
+   *
+   * <p>따로 누르는 버튼 없이 시나리오를 만들 때 함께 부릅니다. 추천값은 종목 목록의 기호에
+   * 묶여 있고 시나리오도 같은 기호로 만들어지므로, 받은 값이 그대로 그 종목에 적용됩니다.
+   * 실패해도 시나리오 생성은 서버 기본값으로 이어 갑니다.
    */
-  async function requestConditions() {
-    if (!moduleId) {
-      setMessage("모듈 정보를 아직 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.");
-      return;
-    }
-    setBusy("conditions");
-    setMessage("");
+  async function fetchRecommendedConditions(): Promise<SetupPrecheckResponse | null> {
+    if (!moduleId) return null;
     try {
       const response = await apiRequest<SetupPrecheckResponse>(
         `/classrooms/${classroomId}/ai/balancing-analysis-operations`,
@@ -320,65 +336,63 @@ export function InvestmentScenarioPanel({
               module_activation: { module_code: "INVESTMENT", target_id: moduleId },
               investment_draft: {
                 investment_mode: mode,
-                // 이미 고쳐 둔 값이 있으면 함께 보내 허용 범위 안인지 같이 확인받습니다.
-                confirmed_asset_conditions: confirmedConditions().map((condition) => ({
-                  symbol: condition.symbol,
-                  price: condition.startPrice,
-                  band_bps: condition.bandBps
-                }))
+                confirmed_asset_conditions: []
               }
             },
             metric_scopes: []
           })
         }
       );
-      setConditions(response);
-      setConditionValues(Object.fromEntries(response.candidates.map((candidate) => [
-        candidate.action_id,
-        valueToInputText(candidate.proposed_value, candidate.unit)
-      ])));
-      setMessage("추천값을 확인하고 필요하면 고친 뒤 시나리오를 생성해 주세요.");
-    } catch (error) {
-      setMessage(messageOf(error));
-    } finally {
-      setBusy("");
+      return response;
+    } catch {
+      // 추천을 받지 못해도 서버 기본값으로 시나리오를 만들 수 있습니다.
+      return null;
     }
   }
 
   /**
-   * 지금 입력칸에 적힌 종목별 조건입니다. 변동 범위는 화면에서 "±몇 %" 한 개로 다루고,
+   * 추천 응답에서 종목별 조건을 뽑습니다. 변동 범위는 화면에서 "±몇 %" 한 개로 다루고,
    * 서버에는 최저(-)와 최고(+) 두 값으로 나눠 보냅니다.
    */
-  function confirmedConditions() {
+  function conditionsOf(candidates: readonly SetupCandidate[]) {
     const bySymbol = new Map<string, { symbol: string; startPrice: number | null; bandBps: number | null }>();
-    for (const candidate of conditionCandidates) {
+    for (const candidate of candidates) {
       const priceSymbol = symbolOf(candidate, ASSET_PRICE_PREFIX);
       const bandSymbol = symbolOf(candidate, ASSET_BAND_PREFIX);
       const symbol = priceSymbol ?? bandSymbol;
       if (!symbol) continue;
       const entry = bySymbol.get(symbol) ?? { symbol, startPrice: null, bandBps: null };
-      if (priceSymbol) entry.startPrice = conditionValue(candidate);
-      else entry.bandBps = conditionValue(candidate);
+      const value = inputTextToValue(
+        valueToInputText(candidate.proposed_value, candidate.unit),
+        candidate.unit
+      );
+      if (priceSymbol) entry.startPrice = value;
+      else entry.bandBps = value;
       bySymbol.set(symbol, entry);
     }
     return [...bySymbol.values()];
   }
 
+  /**
+   * 시나리오를 만듭니다.
+   *
+   * <p>기업 이름·소개와 함께 1주 금액·변동 범위 추천값도 이때 같이 받아 적용합니다. 따로
+   * "AI 추천 받기"를 누르던 방식은 아직 만들지도 않은 종목의 이름으로 값을 보여 주어
+   * 교사가 어느 기업 이야기인지 알 수 없었습니다.
+   */
   async function generateScenario(regenerate = false) {
-    if (invalidConditions) {
-      setMessage("허용 구간 밖의 값으로는 시나리오를 만들 수 없습니다.");
-      return;
-    }
     setBusy("scenario");
     setMessage("");
     try {
+      const recommended = await fetchRecommendedConditions();
+      const assetConditions = recommended ? conditionsOf(recommended.candidates) : [];
       const result = await apiRequest<ScenarioResult>(`/classrooms/${classroomId}/investment-market/scenario`, {
         method: "PUT",
         body: JSON.stringify({
           investment_mode: mode,
           prefer_historical_index: mode === "LONG_TERM",
-          // 교사가 아직 조건을 정하지 않았으면 보내지 않고 서버 기본값에 맡깁니다.
-          asset_conditions: confirmedConditions().map((condition) => ({
+          // 추천을 받지 못했으면 비워 보내고 서버 기본값에 맡깁니다.
+          asset_conditions: assetConditions.map((condition) => ({
             symbol: condition.symbol,
             start_price: condition.startPrice,
             min_return_bps: condition.bandBps === null ? null : -condition.bandBps,
@@ -390,9 +404,12 @@ export function InvestmentScenarioPanel({
       const source = result.scenario_source === "HISTORICAL_INDEX"
         ? "FRED 역사 지수 흐름을 고정한"
         : "AI가 만든 가격 흐름의";
+      const applied = assetConditions.length > 0
+        ? " 1주 금액과 변동 범위는 AI 추천값으로 채웠어요. 종목마다 고칠 수 있습니다."
+        : "";
       setMessage(regenerate
-        ? `초안을 거절하고 ${source} 새 시나리오를 만들었습니다.`
-        : `${source} ${MODE_LABELS[mode]} 시나리오를 만들었습니다. 가격 흐름을 확인한 뒤 승인해 주세요.`);
+        ? `초안을 거절하고 ${source} 새 시나리오를 만들었습니다.${applied}`
+        : `${source} ${MODE_LABELS[mode]} 시나리오를 만들었습니다.${applied} 가격 흐름을 확인한 뒤 승인해 주세요.`);
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
@@ -400,11 +417,24 @@ export function InvestmentScenarioPanel({
     }
   }
 
-  /** 기업 이름과 소개 문장만 고칩니다. 기호와 가격 흐름은 서버에서 그대로 둡니다. */
+  /**
+   * 종목 내용을 고칩니다. 1주 금액과 변동 범위를 함께 보내면 서버가 가격 흐름을 다시 뽑습니다.
+   */
   async function saveAssetText() {
     if (!assetEdit) return;
     if (!assetEdit.name.trim() || !assetEdit.profile.trim()) {
       setMessage("기업 이름과 소개를 모두 입력해 주세요.");
+      return;
+    }
+    const editablePrice = market?.status === "DRAFT";
+    const startPrice = editablePrice ? Number(assetEdit.startPrice) : NaN;
+    const bandPercent = editablePrice ? Number(assetEdit.bandPercent) : NaN;
+    if (editablePrice && (!Number.isInteger(startPrice) || startPrice < 1)) {
+      setMessage("1주 금액은 1 이상의 정수로 입력해 주세요.");
+      return;
+    }
+    if (editablePrice && (!Number.isFinite(bandPercent) || bandPercent <= 0 || bandPercent > 50)) {
+      setMessage("하루 변동 범위는 0.01%~50% 사이로 입력해 주세요.");
       return;
     }
     setBusy(assetEdit.assetId);
@@ -414,17 +444,33 @@ export function InvestmentScenarioPanel({
         method: "PUT",
         body: JSON.stringify({
           name: assetEdit.name.trim(),
-          company_profile: assetEdit.profile.trim()
+          company_profile: assetEdit.profile.trim(),
+          // 화면은 %, 서버는 정수 bps로 주고받습니다.
+          start_price: editablePrice ? startPrice : null,
+          band_bps: editablePrice ? Math.round(bandPercent * 100) : null
         })
       });
       setAssetEdit(null);
       await load();
-      setMessage("기업 이름과 소개를 고쳤습니다.");
+      setMessage(editablePrice
+        ? "종목 내용을 고치고 가격 흐름을 다시 뽑았습니다."
+        : "기업 이름과 소개를 고쳤습니다.");
     } catch (error) {
       setMessage(messageOf(error));
     } finally {
       setBusy("");
     }
+  }
+
+  /** 카드에서 수정을 열 때 지금 값을 그대로 채워 줍니다. */
+  function startAssetEdit(asset: InvestmentAsset, startPrice: number | null) {
+    setAssetEdit({
+      assetId: asset.asset_id,
+      name: asset.name,
+      profile: asset.company_profile,
+      startPrice: String(startPrice ?? asset.current_price ?? ""),
+      bandPercent: (asset.max_return_bps / 100).toString()
+    });
   }
 
   /** 승인 전 이야기 초안의 제목과 본문을 고쳐 씁니다. */
@@ -656,76 +702,21 @@ export function InvestmentScenarioPanel({
         </>
       ) : null}
 
-      {/* 시나리오를 만들 때 쓰는 값입니다. 이미 시작한 흐름에는 되돌아 적용되지 않으므로
-          새로 만들거나 다시 만들 수 있을 때만 보여 줍니다. */}
-      {moduleActive && modeEnabled && canEditConditions ? (
-        <div className="investment-condition-editor">
-          <p className="section-description">
-            종목마다 하루 변동 범위(±)와 1주 금액을 정할 수 있습니다. 가격은 그 범위 안에서
-            매일 새로 정해지므로 오를 수도 내릴 수도 있습니다. 정하지 않으면 기본값으로 만듭니다.
-            {mode === "LONG_TERM"
-              ? " 장기는 FRED 역사 지수 흐름을 쓸 수 있으면 실제 등락을 그대로 쓰므로, 변동 범위는 AI 생성 흐름일 때만 적용됩니다."
-              : ""}
-          </p>
-          <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void requestConditions()}>
-            <Sparkles size={16} /> {busy === "conditions"
-              ? "추천 받는 중"
-              : conditions ? "AI 추천 다시 받기" : "AI 추천 받기"}
-          </button>
-          {conditions ? (
-            <>
-              {conditions.checks.map((check) => (
-                <p key={check.check_id} className={check.severity === "PASS" ? "helper-text" : "contract-warning"}>
-                  {check.explanation}{check.correction_guidance ? ` · ${check.correction_guidance}` : ""}
-                </p>
-              ))}
-              {conditionCandidates.map((candidate) => {
-                const value = conditionValue(candidate);
-                const blocked = outsideAllowed(candidate);
-                const warned = !blocked && value !== null
-                  && (value < candidate.recommended_min_value || value > candidate.recommended_max_value);
-                // 이율·변동폭은 %, 1주 금액은 학급 화폐 단위로 보여 줍니다.
-                const suffix = unitSuffix(candidate.unit) || currencyName;
-                return (
-                  <label className={blocked ? "value-blocked" : warned ? "value-warning" : ""} key={candidate.action_id}>
-                    {candidate.label} ({suffix})
-                    <span className="value-input with-unit">
-                      <input
-                        type="number"
-                        step={candidate.unit === "RATE_BPS" ? "0.5" : "10"}
-                        value={conditionValues[candidate.action_id] ?? ""}
-                        onChange={(event) => setConditionValues((current) => ({
-                          ...current, [candidate.action_id]: event.target.value
-                        }))}
-                      />
-                      <b aria-hidden="true">{suffix}</b>
-                    </span>
-                    <small>
-                      추천 {valueForDisplay(candidate.recommended_min_value, candidate.unit)} ~ {valueForDisplay(candidate.recommended_max_value, candidate.unit)} · 허용 {valueForDisplay(candidate.allowed_min_value, candidate.unit)} ~ {valueForDisplay(candidate.allowed_max_value, candidate.unit)}
-                    </small>
-                    {/* 변동 범위는 위아래로 같은 폭이므로 학생에게 보일 모양 그대로 알려 줍니다. */}
-                    {symbolOf(candidate, ASSET_BAND_PREFIX) && value !== null ? (
-                      <small>학생 화면 표시: -{(value / 100).toFixed(2)}% ~ +{(value / 100).toFixed(2)}%</small>
-                    ) : null}
-                    {unitHint(value, candidate.unit) ? <small>{unitHint(value, candidate.unit)}</small> : null}
-                    <small>{candidate.rationale}</small>
-                    {candidate.cautions.map((caution) => <em key={caution}>{caution}</em>)}
-                    {blocked ? (
-                      <em>{value === null
-                        ? (candidate.unit === "RATE_BPS" ? "0.01% 단위의 숫자로 입력해 주세요." : "정수로 입력해 주세요.")
-                        : "허용 구간 밖이라 시나리오에 쓸 수 없습니다."}</em>
-                    ) : warned ? <em>추천 구간 밖입니다. 확인한 뒤 생성해 주세요.</em> : null}
-                  </label>
-                );
-              })}
-            </>
-          ) : null}
-        </div>
+      {/* 1주 금액과 변동 범위는 시나리오를 만들 때 AI 추천값으로 함께 채웁니다.
+          만든 뒤에는 종목 카드에서 바로 고칩니다. */}
+      {moduleActive && modeEnabled && canCreateScenario ? (
+        <p className="section-description">
+          시나리오를 만들면 기업 이름·소개와 함께 종목마다 1주 금액과 하루 변동 범위(±)를
+          AI 추천값으로 채웁니다. 만든 뒤 종목 카드에서 값을 고칠 수 있습니다.
+          {mode === "LONG_TERM"
+            ? " 장기는 FRED 역사 지수 흐름을 쓸 수 있으면 실제 등락을 그대로 쓰므로, 변동 범위는 AI 생성 흐름일 때만 적용됩니다."
+            : ""}
+        </p>
       ) : null}
 
       {/* 활성화하지 않았거나 사용하지 않는 방식은 생성 자체가 막혀 있어야 합니다. */}
       {moduleActive && modeEnabled && canCreateScenario ? (
-        <button type="button" className="wide-action" disabled={!canManage || busy === "scenario" || invalidConditions} onClick={() => void generateScenario()}>
+        <button type="button" className="wide-action" disabled={!canManage || busy === "scenario"} onClick={() => void generateScenario()}>
           <Sparkles size={16} /> {busy === "scenario"
             ? "시나리오 생성 중"
             : closed ? `다음 ${MODE_LABELS[mode]} 열기` : `${MODE_LABELS[mode]} AI 시나리오 생성`}
@@ -758,6 +749,8 @@ export function InvestmentScenarioPanel({
                   <AssetTextEditor
                     draft={assetEdit}
                     busy={busy === asset.asset_id}
+                    editablePrice={market?.status === "DRAFT"}
+                    currencyName={currencyName}
                     onChange={setAssetEdit}
                     onCancel={() => setAssetEdit(null)}
                     onSave={() => void saveAssetText()}
@@ -769,7 +762,7 @@ export function InvestmentScenarioPanel({
                       type="button"
                       className="ghost-action"
                       disabled={!canManage || Boolean(busy)}
-                      onClick={() => setAssetEdit({ assetId: asset.asset_id, name: asset.name, profile: asset.company_profile })}
+                      onClick={() => startAssetEdit(asset, asset.planned_price_history[0]?.price ?? asset.current_price)}
                     >
                       <Pencil size={15} /> 이름·소개 수정
                     </button>
@@ -847,6 +840,8 @@ export function InvestmentScenarioPanel({
                   <AssetTextEditor
                     draft={assetEdit}
                     busy={busy === asset.asset_id}
+                    editablePrice={market?.status === "DRAFT"}
+                    currencyName={currencyName}
                     onChange={setAssetEdit}
                     onCancel={() => setAssetEdit(null)}
                     onSave={() => void saveAssetText()}
@@ -858,7 +853,7 @@ export function InvestmentScenarioPanel({
                       type="button"
                       className="ghost-action"
                       disabled={!canManage || Boolean(busy)}
-                      onClick={() => setAssetEdit({ assetId: asset.asset_id, name: asset.name, profile: asset.company_profile })}
+                      onClick={() => startAssetEdit(asset, asset.planned_price_history[0]?.price ?? asset.current_price)}
                     >
                       <Pencil size={15} /> 이름·소개 수정
                     </button>

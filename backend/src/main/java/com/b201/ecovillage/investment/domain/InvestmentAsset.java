@@ -196,6 +196,16 @@ public class InvestmentAsset {
         this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
+    /** 하루 변동 범위를 다시 정한다. 아직 시작하지 않은 시장에서만 부른다. */
+    public void reband(int minReturnBps, int maxReturnBps, Instant now) {
+        if (minReturnBps > maxReturnBps) {
+            throw new IllegalArgumentException("min return must not exceed max return");
+        }
+        this.minReturnBps = minReturnBps;
+        this.maxReturnBps = maxReturnBps;
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
     public boolean isActive() {
         return ACTIVE.equals(status);
     }
