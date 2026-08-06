@@ -177,6 +177,19 @@ export function hasTeacherAccessToken() {
 
 export function getRealtimeWebSocketUrl() {
   const configured = process.env.NEXT_PUBLIC_WEBSOCKET_URL;
+  // API를 Next 프록시(/backend-api)로 쓸 때 웹소켓 주소를 페이지 origin으로 만들면
+  // Next 개발 서버(3000)로 붙게 되는데, 프록시 라우트는 웹소켓을 넘겨 주지 못한다.
+  // 프록시가 향하는 백엔드(8080)에 페이지와 같은 호스트 이름으로 직접 붙는다.
+  // 웹소켓은 쿠키가 아니라 티켓으로 인증하므로 교차 출처여도 문제없다.
+  if (!configured && API_BASE_URL.startsWith("/")) {
+    const url = new URL(window.location.href);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.port = "8080";
+    url.pathname = "/ws/v1";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  }
   const url = new URL(configured ?? API_BASE_URL, window.location.href);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   if (!configured || url.pathname === "/" || url.pathname === "") {
