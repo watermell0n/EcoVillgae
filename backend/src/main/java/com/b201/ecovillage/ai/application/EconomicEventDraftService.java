@@ -54,6 +54,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class EconomicEventDraftService {
 
+    private static final org.slf4j.Logger LOG =
+        org.slf4j.LoggerFactory.getLogger(EconomicEventDraftService.class);
+
     static final String RUN_TYPE = "ECONOMIC_EVENT_DRAFT";
     private static final String OPERATION_TYPE = "AI_ECONOMIC_EVENT_DRAFT";
     private static final String CANCELED_STATUS = "CANCELED";
@@ -257,7 +260,15 @@ public class EconomicEventDraftService {
                 verifyOutput(request, response);
             } catch (AiServiceCallException exception) {
                 fallbackUsed = true;
-                fallbackCode = exception.getCode();
+                // 상태 코드만 남기면 나중에 왜 실패했는지 되짚을 수 없다. AI 서비스가 준
+                // 검증 코드를 함께 남겨 둔다.
+                fallbackCode = exception.getValidationCodes().isEmpty()
+                    ? exception.getCode()
+                    : exception.getCode() + ":" + String.join(",", exception.getValidationCodes());
+                LOG.warn(
+                    "투자·경제 이벤트 AI 생성 실패로 대체안을 사용합니다. classroom={} template={} reason={}",
+                    classroom.getId(), template, fallbackCode
+                );
                 response = fallbackFactory.create(request, fallbackCode);
             }
         }

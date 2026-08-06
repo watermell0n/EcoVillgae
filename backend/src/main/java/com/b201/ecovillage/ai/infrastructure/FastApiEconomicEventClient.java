@@ -21,6 +21,7 @@ public class FastApiEconomicEventClient implements EconomicEventAiClient {
     private final AiServiceProperties properties;
     private final RestClient restClient;
     private final Clock clock;
+    private final JsonMapper objectMapper;
 
     public FastApiEconomicEventClient(
         AiServiceProperties properties,
@@ -29,6 +30,7 @@ public class FastApiEconomicEventClient implements EconomicEventAiClient {
     ) {
         this.properties = properties;
         this.clock = clock;
+        this.objectMapper = objectMapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(properties.getConnectTimeout());
         requestFactory.setReadTimeout(properties.getReadTimeout());
@@ -48,7 +50,8 @@ public class FastApiEconomicEventClient implements EconomicEventAiClient {
             throw new AiServiceCallException("AI_DISABLED", "The AI event service is disabled.");
         }
         RestClientException lastFailure = null;
-        int attempts = Math.min(2, properties.getMaxAttempts());
+        AiServiceErrorBody lastFailureDetail = AiServiceErrorBody.unknown();
+        int attempts = properties.getMaxAttempts();
         for (int attempt = 1; attempt <= attempts; attempt++) {
             if (!clock.instant().isBefore(request.deadlineAt())) {
                 throw new AiServiceCallException(
@@ -77,16 +80,25 @@ public class FastApiEconomicEventClient implements EconomicEventAiClient {
                 return response;
             } catch (RestClientResponseException exception) {
                 lastFailure = exception;
-                if (exception.getStatusCode().is4xxClientError() && exception.getStatusCode().value() != 429) {
+                lastFailureDetail = AiServiceErrorBody.parse(objectMapper, exception);
+                // 모델이 만든 문장이 안전 규칙에 걸린 경우는 같은 입력으로 다시 뽑으면 대개 통과한다.
+                // 반대로 입력 계약 위반은 몇 번을 보내도 같은 결과이므로 즉시 포기한다.
+                if (!lastFailureDetail.worthRetrying(exception.getStatusCode().value())) {
                     break;
                 }
             } catch (RestClientException exception) {
                 lastFailure = exception;
+                lastFailureDetail = AiServiceErrorBody.unknown();
             }
         }
         String code = lastFailure instanceof RestClientResponseException responseException
             ? "AI_HTTP_" + responseException.getStatusCode().value()
             : "AI_UNAVAILABLE";
-        throw new AiServiceCallException(code, "The AI event service call failed.", lastFailure);
+        throw new AiServiceCallException(
+            code,
+            "The AI event service call failed: " + lastFailureDetail.describe(),
+            lastFailureDetail.validationCodes(),
+            lastFailure
+        );
     }
 }

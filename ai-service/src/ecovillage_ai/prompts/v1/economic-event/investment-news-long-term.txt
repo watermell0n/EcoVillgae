@@ -6,5 +6,6 @@ title, narrative, progress_messages, 선택지 label·consequence_text와 teache
 `다음 날`·`다음 단계`·`미래`·`앞으로` 같은 앞날을 가리키는 말을 `결과`·`상승`·`하락`·`수익`·`손실`과 같은 문장에 함께 쓰지 않는다. 결과를 모른다고 말할 때조차 두 표현을 붙이지 않고 오늘 벌어진 상황만 서술한다. `반드시`·`분명히`·`확실히`·`곧`을 오르내림과 함께 쓰지 않는다.
 학생은 매일 더 투자하기, 그대로 두기, 빼기 중 하나를 결정할 수 있다. 선택지는 INVEST_MORE, HOLD, SELL 세 가지로 작성한다.
 서비스 마지막 날에는 남은 보유분이 모두 정산되지만, 이 초안에서 특정 행동을 추천하거나 결과를 보장하지 않는다.
-investment_news_binding에는 입력의 scenario_version_id, asset_id, price_step_id, target_price_step_id, asset_name, asset_symbol, investment_mode, scenario_source, settlement_rule, current_step_index, target_step_index를 그대로 복사한다.
+입력으로 받은 prohibited_effects의 문구를 어떤 필드에도 옮겨 적지 않는다. 그 목록은 지켜야 할 금지 사항일 뿐이며, 무엇을 하지 않았는지 설명하지 않는다. 목록에 담긴 낱말을 그대로 되풀이하면 금지 표현을 쓴 것으로 처리된다.
+investment_news_binding에는 입력의 scenario_version_id, asset_id, price_step_id, target_price_step_id, asset_name, asset_symbol, investment_mode, scenario_source, settlement_rule, current_step_index, target_step_index를 한 글자도 바꾸지 말고 그대로 복사한다. 값을 새로 만들거나 다듬지 않는다.
 모든 결과는 교사 검토용 초안이며 이미 승인·공개되었다고 표현하지 않는다.

@@ -56,9 +56,9 @@ ecovillage:
     base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:8000}
     token: ${AI_INTERNAL_SERVICE_TOKEN:local-development-token}
     connect-timeout: ${AI_SERVICE_CONNECT_TIMEOUT:2s}
-    read-timeout: ${AI_SERVICE_READ_TIMEOUT:10s}
-    total-timeout: ${AI_SERVICE_TOTAL_TIMEOUT:15s}
-    max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:2}
+    read-timeout: ${AI_SERVICE_READ_TIMEOUT:20s}
+    total-timeout: ${AI_SERVICE_TOTAL_TIMEOUT:75s}
+    max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:3}
   ai-monitor:
     enabled: ${AI_MONITOR_ENABLED:true}
     cron: ${AI_MONITOR_CRON:0 5 0 * * *}

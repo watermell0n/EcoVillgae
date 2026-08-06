@@ -305,24 +305,71 @@ export function InvestmentScenarioPanel({
     }
   }
 
+  async function reject(news: InvestmentNews) {
+    await apiRequest(`/classrooms/${classroomId}/ai/economic-events/${news.event_id}/decisions`, {
+      method: "POST",
+      body: JSON.stringify({
+        decision: "REJECT",
+        edits: {},
+        reason: "투자 이야기 재생성 필요",
+        expected_event_version: news.state_version
+      })
+    });
+  }
+
   async function decide(news: InvestmentNews, decision: "APPROVE" | "REJECT") {
     setBusy(news.event_id);
     setMessage("");
     try {
-      await apiRequest(`/classrooms/${classroomId}/ai/economic-events/${news.event_id}/decisions`, {
-        method: "POST",
-        body: JSON.stringify({
-          decision,
-          edits: {},
-          reason: decision === "APPROVE" ? "학생에게 공개할 투자 이야기 검토 완료" : "투자 이야기 재생성 필요",
-          expected_event_version: news.state_version
-        })
-      });
+      if (decision === "REJECT") {
+        await reject(news);
+      } else {
+        await apiRequest(`/classrooms/${classroomId}/ai/economic-events/${news.event_id}/decisions`, {
+          method: "POST",
+          body: JSON.stringify({
+            decision,
+            edits: {},
+            reason: "학생에게 공개할 투자 이야기 검토 완료",
+            expected_event_version: news.state_version
+          })
+        });
+      }
       await load();
       setMessage(decision === "APPROVE"
         ? "투자 이야기를 학생에게 공개했습니다."
         : "초안을 거절했습니다. 다시 생성해 주세요.");
     } catch (error) {
+      setMessage(messageOf(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  /**
+   * 지금 초안을 물리고 그 자리에서 새 이야기를 요청합니다.
+   *
+   * <p>AI 생성이 실패해 규칙 엔진 안내문만 들어온 경우, 교사가 거절과 생성을 두 번 나눠
+   * 누르지 않고 한 번에 다시 시도할 수 있어야 합니다.
+   */
+  async function regenerate(news: InvestmentNews) {
+    setBusy(news.event_id);
+    setMessage("");
+    try {
+      await reject(news);
+      await apiRequest(`/classrooms/${classroomId}/ai/economic-event-draft-operations`, {
+        method: "POST",
+        body: JSON.stringify({
+          template_type: "INVESTMENT_NEWS",
+          investment_mode: mode,
+          teacher_context: mode === "SHORT_TERM"
+            ? "학생이 기업의 하루 상황만 보고 다음 날 투자 여부를 스스로 판단할 수 있는 짧은 이야기"
+            : "학생이 매일 투자금을 조정할 수 있도록 기업의 하루 상황을 설명하는 이야기"
+        })
+      });
+      await load();
+      setMessage("이야기를 다시 생성했습니다. 내용을 확인한 뒤 승인해 주세요.");
+    } catch (error) {
+      await load();
       setMessage(messageOf(error));
     } finally {
       setBusy("");
@@ -466,15 +513,27 @@ export function InvestmentScenarioPanel({
                   <b>{asset.current_price?.toLocaleString("ko-KR")} {currencyName}</b>
                 </header>
                 <p>{asset.company_profile}</p>
-                {asset.news.length === 0 ? <small>아직 이야기 초안이 없습니다.</small> : asset.news.map((news) => (
-                  <div className="investment-news-review" key={news.event_id}>
-                    <span>{news.status}</span><h3>{news.title}</h3><p>{news.content}</p>
-                    {news.status === "DRAFT" ? <div>
-                      <button type="button" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "APPROVE")}><Check size={15} /> 승인·공개</button>
-                      <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "REJECT")}>거절</button>
-                    </div> : null}
-                  </div>
-                ))}
+                {asset.news.length === 0 ? <small>아직 이야기 초안이 없습니다.</small> : asset.news.map((news) => {
+                  // AI가 실패해 규칙 엔진 안내문만 들어온 초안입니다. 승인해도 학생에게 보여 줄
+                  // 이야기가 없으므로 다시 생성부터 권합니다.
+                  const aiFailed = news.content.includes("AI 이야기 생성에 실패");
+                  return (
+                    <div className="investment-news-review" key={news.event_id}>
+                      <span>{aiFailed ? "생성 실패" : news.status}</span><h3>{news.title}</h3><p>{news.content}</p>
+                      {news.status === "DRAFT" ? <div>
+                        {aiFailed ? null : (
+                          <button type="button" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "APPROVE")}>
+                            <Check size={15} /> 승인·공개
+                          </button>
+                        )}
+                        <button type="button" className={aiFailed ? "" : "ghost-action"} disabled={!aiEnabled || !canManage || Boolean(busy)} onClick={() => void regenerate(news)}>
+                          <RefreshCw size={15} /> {busy === news.event_id ? "다시 생성 중" : "AI로 다시 생성"}
+                        </button>
+                        <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "REJECT")}>거절</button>
+                      </div> : null}
+                    </div>
+                  );
+                })}
               </article>
             ))}
           </div>
