@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.identity.repository.ClassroomTeacherRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
+import com.b201.ecovillage.quiz.domain.ActivitySession;
+import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:classroom-read;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
@@ -74,6 +77,9 @@ class ClassroomReadApiTest {
 
     @Autowired
     private ClassroomPolicyVersionRepository policyVersionRepository;
+
+    @Autowired
+    private ActivitySessionRepository activitySessionRepository;
 
     private UUID classroomId;
     private ClassroomStudent student;
@@ -247,6 +253,55 @@ class ClassroomReadApiTest {
             .andExpect(jsonPath("$.data.policy_versions[0].policy_area").value("SALARY"));
     }
 
+    /**
+     * 학생 앱은 active_guided_activity_id가 있으면 화면을 선생님 자료 하나로 고정합니다.
+     * 퀴즈는 학생이 자기 기기에서 풀어야 하므로 고정 대상이 아닙니다.
+     */
+    @Test
+    void liveQuizDoesNotLockStudentsToTheGuidedScreen() throws Exception {
+        activitySessionRepository.saveAndFlush(
+            ActivitySession.liveQuiz(
+                UUID.randomUUID(),
+                classroomId,
+                teacherUserId(OWNER_SUBJECT),
+                true,
+                NOW
+            )
+        );
+
+        mockMvc.perform(
+            get("/classrooms/{classroomId}/modules-and-policies", classroomId)
+                .principal(() -> student.getId().toString())
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.modules[0].config.active_guided_activity_id")
+                .doesNotExist());
+    }
+
+    @Test
+    void liveImageLessonLocksStudentsToTheGuidedScreen() throws Exception {
+        UUID activityId = UUID.randomUUID();
+        ActivitySession lesson = ActivitySession.ready(
+            activityId,
+            classroomId,
+            ActivitySession.PRESENTATION_TYPE,
+            teacherUserId(OWNER_SUBJECT),
+            true,
+            NOW
+        );
+        lesson.configurePresentationImage("경제 개념 수업", "https://cdn.test/lesson.png", NOW);
+        lesson.start(NOW, Set.of());
+        activitySessionRepository.saveAndFlush(lesson);
+
+        mockMvc.perform(
+            get("/classrooms/{classroomId}/modules-and-policies", classroomId)
+                .principal(() -> student.getId().toString())
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.modules[0].config.active_guided_activity_id")
+                .value(activityId.toString()));
+    }
+
     @Test
     void rejectsOtherClassroomForStudent() throws Exception {
         Classroom otherClassroom = classroomRepository.save(
@@ -287,6 +342,10 @@ class ClassroomReadApiTest {
         )
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.error.code").value("AUTH_REQUIRED"));
+    }
+
+    private UUID teacherUserId(String subject) {
+        return userAccountRepository.findByExternalSubject(subject).orElseThrow().getId();
     }
 
     private void assignTeacher(

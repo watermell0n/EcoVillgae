@@ -60,7 +60,7 @@ public class ImageLessonService {
                 ActivitySession created = ActivitySession.ready(
                     requestId,
                     classroomId,
-                    "ECONOMIC_CONCEPT_IMAGE",
+                    ActivitySession.PRESENTATION_TYPE,
                     teacherId,
                     true,
                     clock.instant()

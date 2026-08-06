@@ -18,6 +18,14 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "activity_sessions")
 public class ActivitySession {
 
+    /**
+     * 학생 앱을 선생님 화면 하나로 고정하는 활동 유형입니다.
+     *
+     * 퀴즈(QUIZ)·투표(VOTE)도 같은 activity_sessions 표를 LIVE 상태로 쓰지만,
+     * 학생은 자기 기기에서 문제를 풀고 표를 던져야 하므로 화면을 고정하면 안 됩니다.
+     */
+    public static final String PRESENTATION_TYPE = "ECONOMIC_CONCEPT_IMAGE";
+
     @Id
     @Column(nullable = false, updatable = false)
     private UUID id;

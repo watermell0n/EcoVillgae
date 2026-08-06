@@ -26,6 +26,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.realtime.application.StudentPresenceService;
 import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
+import com.b201.ecovillage.quiz.domain.ActivitySession;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 
 @Service
@@ -139,8 +140,14 @@ public class ClassroomReadService {
                 "ACTIVE"
             )
             : moduleRepository.findAllByClassroomIdOrderByModuleCode(classroomId);
+        // 학생 앱은 이 값이 있으면 화면을 선생님 자료 하나로 고정합니다.
+        // 퀴즈·투표도 LIVE 활동이지만 학생이 직접 참여해야 하므로 고정 대상이 아닙니다.
         UUID activeGuidedActivityId = activitySessionRepository
-            .findFirstByClassroomIdAndStatus(classroomId, "LIVE")
+            .findFirstByClassroomIdAndStatusAndActivityType(
+                classroomId,
+                "LIVE",
+                ActivitySession.PRESENTATION_TYPE
+            )
             .map(activity -> activity.getId())
             .orElse(null);
         List<ModulesAndPoliciesView.ModuleView> modules = moduleEntities
