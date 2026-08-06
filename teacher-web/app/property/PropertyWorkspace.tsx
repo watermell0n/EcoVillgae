@@ -260,7 +260,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
               <label className={styles.check}><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} />학생에게 계약 가능한 자리로 공개</label>
               <button type="button" className={styles.primary} disabled={busy || selected.owner_kind === "STUDENT"} onClick={() => void saveSelected()}>설정 저장</button>
               {subscriptionEnabled && selected.owner_kind === "TEACHER" && ["AVAILABLE", "TEACHER_OWNED"].includes(selected.status) ? (
-                <button type="button" className={styles.secondary} onClick={() => toggleOfferSeat(selected)}>{offerSeats.has(selected.property_id) ? <><X size={16} />청약 선택 해제</> : <><Check size={16} />청약 공급에 선택</>}</button>
+                <button type="button" className={offerSeats.has(selected.property_id) ? styles.offerPicked : styles.secondary} onClick={() => toggleOfferSeat(selected)}>{offerSeats.has(selected.property_id) ? <><X size={16} />청약 선택 해제</> : <><Check size={16} />청약 공급에 선택</>}</button>
               ) : null}
               {selected.owner_kind === "STUDENT" ? <p className={styles.help}>학생 소유 자리의 공개·판매 설정은 소유 학생이 관리합니다.</p> : null}
             </> : <p className={styles.empty}>좌석을 선택하면 매매·전세·월세 조건과 공개 여부를 설정할 수 있어요.</p>}

@@ -413,6 +413,21 @@ const initialSettings: ClassSettings = {
 const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 const creditLevelLabels: Record<string, string> = { GOOD: "우수", NORMAL: "보통", CAUTION: "주의", RESTRICTED: "제한" };
 
+/**
+ * 신용 등급별 한도와 금리입니다. 서버(LoanCreditPolicy)와 같은 기준을 씁니다.
+ * 교사가 정책값을 정하는 자리에서 바로 결과를 확인할 수 있게 표로 만들어 줍니다.
+ */
+function creditGrades(maximumPrincipal: number, baseRatePercent: number) {
+  const limit = (ratio: number) => Math.floor((maximumPrincipal * ratio) / 100).toLocaleString("ko-KR");
+  const rate = (delta: number) => `${Math.max(0, Math.min(20, baseRatePercent + delta)).toFixed(2)}%`;
+  return [
+    { level: "GOOD", scoreText: "750점 이상", limitText: `${limit(100)} (100%)`, rateText: `${rate(-1)} (기준 -1%p)` },
+    { level: "NORMAL", scoreText: "600~749점", limitText: `${limit(80)} (80%)`, rateText: `${rate(0)} (기준)` },
+    { level: "CAUTION", scoreText: "450~599점", limitText: `${limit(60)} (60%)`, rateText: `${rate(2)} (기준 +2%p)` },
+    { level: "RESTRICTED", scoreText: "450점 미만", limitText: "신청 불가", rateText: "-" }
+  ];
+}
+
 /** 부동산 계약 종류를 승인 목록에 보여 줄 말로 바꿉니다. */
 function contractTypeLabel(contractType?: string) {
   if (contractType === "SALE") return "매매";
@@ -576,6 +591,8 @@ export default function TeacherConsole() {
     stateVersion: 0
   });
   const [approvals, setApprovals] = useState<ApprovalRow[]>(initialApprovals);
+  // 이미 처리한 승인 건입니다. 서버에서 읽으므로 새로고침해도 남습니다.
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalRow[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [settings, setSettings] = useState<ClassSettings>(initialSettings);
   const title = useMemo(() => views.find((item) => item.key === view)?.label ?? "운영 현황", [view]);
@@ -925,6 +942,49 @@ export default function TeacherConsole() {
     if (failures.length) {
       addLog(`${failures.join(", ")} 승인 대기 목록을 불러오지 못했어요.`, "warning");
     }
+    await loadApprovalHistory(resourceId);
+  }
+
+  /** 이미 처리한 승인 건입니다. 승인·정산 화면의 "운영 기록"에 쌓입니다. */
+  async function loadApprovalHistory(resourceId: string) {
+    const rows: ApprovalRow[] = [];
+    try {
+      const decided = await apiRequest<Array<{
+        trade_id: string;
+        proposer_nickname?: string;
+        counterpart_nickname?: string;
+        amount?: number;
+        status?: string;
+      }>>(`/classrooms/${resourceId}/trades/decided`);
+      decided.forEach((trade) => rows.push({
+        id: `trade-done-${trade.trade_id}`,
+        type: "거래",
+        target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`,
+        amount: (trade.amount ?? 0).toLocaleString("ko-KR"),
+        status: trade.status === "REJECTED" ? "거절" : "승인 완료"
+      }));
+    } catch {
+      // 기록을 읽지 못해도 승인 대기 목록은 그대로 씁니다.
+    }
+    try {
+      const decided = await apiRequest<Array<{
+        application_id: string;
+        student_nickname?: string;
+        requested_amount?: number;
+        approved_amount?: number | null;
+        status?: string;
+      }>>(`/classrooms/${resourceId}/loan-decisions`);
+      decided.forEach((application) => rows.push({
+        id: `loan-done-${application.application_id}`,
+        type: "대출",
+        target: `${application.student_nickname ?? "학생"} 학생 대출 신청`,
+        amount: (application.approved_amount ?? application.requested_amount ?? 0).toLocaleString("ko-KR"),
+        status: application.status === "REJECTED" ? "거절" : "승인 완료"
+      }));
+    } catch {
+      // 위와 같습니다.
+    }
+    setApprovalHistory(rows);
   }
 
   async function openClassroom(resourceId: string, knownClassroom?: BootstrapClassroom) {
@@ -1412,6 +1472,7 @@ export default function TeacherConsole() {
               currencyName={settings.currency}
               approvals={approvals}
               setApprovals={setApprovals}
+              history={approvalHistory}
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
@@ -4158,7 +4219,7 @@ function FinanceAdmin({
       </PlainSection>
 
       {activeTab === "INVESTMENT" ? (
-        <div className="page-flow">
+        <>
           <PlainSection
             title="투자 운영안"
             description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다. 두 방식을 함께 운영할 수 있습니다."
@@ -4189,9 +4250,9 @@ function FinanceAdmin({
               onModuleChanged={onModulesReload}
             />
           ))}
-        </div>
+        </>
       ) : activeTab === "LOAN" ? (
-        <div className="page-flow">
+        <>
           <PlainSection title="대출 정책" description="저장한 값은 이후의 새 신청부터 적용됩니다. 기간은 주 단위이며 회차별 자동 상환됩니다.">
             <div className="financial-product-editor">
               <div className="financial-product-heading"><strong>정책 버전 {loanPolicy.version || "기본"}</strong><span>대출·신용</span></div>
@@ -4205,7 +4266,24 @@ function FinanceAdmin({
                 <label>연체 신용점수(-100~0)<input type="number" min="-100" max="0" value={loanPolicy.overdueCredit} onChange={(event) => updateLoanPolicy("overdueCredit", event.target.value)} /></label>
                 <label>완납 신용점수(0~100)<input type="number" min="0" max="100" value={loanPolicy.repaidCredit} onChange={(event) => updateLoanPolicy("repaidCredit", event.target.value)} /></label>
               </div>
-              <p className="helper-text">신용 750점 이상은 한도 100%·기준 금리 -1%p, 600점 이상은 한도 80%·기준 금리, 450점 이상은 한도 60%·기준 금리 +2%p가 적용됩니다. 450점 미만은 신규 신청이 제한됩니다.</p>
+              {/* 등급마다 한도와 금리가 달라지므로, 정책을 정하면서 바로 확인할 수 있게 표로 둡니다. */}
+              <div className="credit-grade-guide">
+                <strong>신용 등급 확인</strong>
+                <table className="approval-table">
+                  <thead><tr><th>등급</th><th>신용점수</th><th>대출 한도</th><th>적용 금리</th></tr></thead>
+                  <tbody>
+                    {creditGrades(Number(loanPolicy.maximumPrincipal) || 0, Number(loanPolicy.interestRate) || 0).map((grade) => (
+                      <tr key={grade.level}>
+                        <td><b>{creditLevelLabels[grade.level] ?? grade.level}</b></td>
+                        <td>{grade.scoreText}</td>
+                        <td>{grade.limitText}</td>
+                        <td>{grade.rateText}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="helper-text">한도와 금리는 위에 저장한 값을 기준으로 등급마다 자동 적용됩니다. 제한 등급은 새 대출을 신청할 수 없습니다.</p>
+              </div>
               <div className="financial-actions"><button type="button" disabled={loanSaving} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
             </div>
           </PlainSection>
@@ -4254,7 +4332,7 @@ function FinanceAdmin({
               ))}
             </div>
           </PlainSection>
-        </div>
+        </>
       ) : (
         <PlainSection
           title={activeTab === "DEPOSIT" ? "예금 상품" : "적금 상품"}
@@ -4385,10 +4463,14 @@ function Control({
   );
 }
 
+/** 운영 기록 한 쪽에 담는 줄 수입니다. 이보다 많아지면 쪽 번호로 나눠 봅니다. */
+const APPROVAL_HISTORY_PAGE_SIZE = 10;
+
 function Approvals({
   currencyName,
   approvals,
   setApprovals,
+  history,
   runAction,
   addLog,
   classroomId
@@ -4396,11 +4478,13 @@ function Approvals({
   currencyName: string;
   approvals: ApprovalRow[];
   setApprovals: React.Dispatch<React.SetStateAction<ApprovalRow[]>>;
+  history: ApprovalRow[];
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
 }>) {
   const [busyId, setBusyId] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
 
   function updateApproval(id: string, status: string) {
     setApprovals((items) => items.map((item) => item.id === id ? { ...item, status } : item));
@@ -4478,7 +4562,15 @@ function Approvals({
 
   const processedStatuses = new Set(["승인 완료", "처리 완료", "거절"]);
   const pendingApprovals = approvals.filter((item) => !processedStatuses.has(item.status));
-  const processedApprovals = approvals.filter((item) => processedStatuses.has(item.status));
+  // 서버에서 읽은 기록과, 방금 이 화면에서 처리해 아직 서버를 다시 읽지 않은 건을 합칩니다.
+  const justProcessed = approvals.filter((item) => processedStatuses.has(item.status));
+  const allProcessed = [...justProcessed, ...history];
+  const historyPageCount = Math.max(1, Math.ceil(allProcessed.length / APPROVAL_HISTORY_PAGE_SIZE));
+  const safeHistoryPage = Math.min(historyPage, historyPageCount);
+  const pagedHistory = allProcessed.slice(
+    (safeHistoryPage - 1) * APPROVAL_HISTORY_PAGE_SIZE,
+    safeHistoryPage * APPROVAL_HISTORY_PAGE_SIZE
+  );
 
   return (
     <div className="page-flow">
@@ -4500,16 +4592,34 @@ function Approvals({
           </tbody></table></div>
         )}
       </PlainSection>
-      {processedApprovals.length > 0 ? (
-        <PlainSection title="처리 내역">
-          <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>처리 상태</th></tr></thead><tbody>
-            {processedApprovals.map((item) => (
-              <tr key={item.id}><td><b>{item.type}</b></td><td>{item.target}</td><td>{item.amount}</td><td><strong className="approval-result">{item.status}</strong></td></tr>
-            ))}
-          </tbody></table></div>
-        </PlainSection>
-      ) : null}
-      <PlainSection title="운영 기록">
+      <PlainSection title="운영 기록" description="이미 승인하거나 거절한 항목입니다.">
+        {allProcessed.length === 0 ? <p className="empty-copy">아직 처리한 항목이 없어요.</p> : (
+          <>
+            <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>처리 상태</th></tr></thead><tbody>
+              {pagedHistory.map((item) => (
+                <tr key={item.id}><td><b>{item.type}</b></td><td>{item.target}</td><td>{item.amount}{currencyName}</td><td><strong className="approval-result">{item.status}</strong></td></tr>
+              ))}
+            </tbody></table></div>
+            {/* 기록이 쌓이면 화면이 끝없이 길어지므로 쪽으로 나눠 봅니다. */}
+            {historyPageCount > 1 ? (
+              <nav className="approval-pager" aria-label="운영 기록 쪽 이동">
+                <button type="button" disabled={safeHistoryPage === 1} onClick={() => setHistoryPage(safeHistoryPage - 1)}>이전</button>
+                {Array.from({ length: historyPageCount }, (_, index) => index + 1).map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    className={page === safeHistoryPage ? "active" : ""}
+                    aria-current={page === safeHistoryPage ? "page" : undefined}
+                    onClick={() => setHistoryPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button type="button" disabled={safeHistoryPage === historyPageCount} onClick={() => setHistoryPage(safeHistoryPage + 1)}>다음</button>
+              </nav>
+            ) : null}
+          </>
+        )}
         <ActionLine
           label="리포트 조회"
           value="잔액, 지출, 예금, 퀴즈 참여"
