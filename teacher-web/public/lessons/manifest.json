@@ -1,357 +1,360 @@
 {
-    "source":  "경제학습_최종_분류.zip",
-    "format":  "webp (quality 95, 1448x1086)",
-    "imageCount":  39,
-    "categoryCount":  17,
-    "categories":  [
-                       {
-                           "id":  "01_월급과 실수령액",
-                           "round":  1,
-                           "title":  "월급과 실수령액",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  3,
-                                             "title":  "월급과 실수령액",
-                                             "file":  "lessons/01_월급과 실수령액/3. 월급과 실수령액.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "02_세금과 공동기금",
-                           "round":  2,
-                           "title":  "세금과 공동기금",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  34,
-                                             "title":  "세금이란",
-                                             "file":  "lessons/02_세금과 공동기금/34. 세금이란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "03_필요와 욕구 구분하기",
-                           "round":  3,
-                           "title":  "필요와 욕구 구분하기",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  6,
-                                             "title":  "비교와 선택",
-                                             "file":  "lessons/03_필요와 욕구 구분하기/6. 비교와 선택.webp"
-                                         },
-                                         {
-                                             "no":  7,
-                                             "title":  "기회비용이란",
-                                             "file":  "lessons/03_필요와 욕구 구분하기/7. 기회비용이란.webp"
-                                         },
-                                         {
-                                             "no":  8,
-                                             "title":  "소비와 저축",
-                                             "file":  "lessons/03_필요와 욕구 구분하기/8. 소비와 저축.webp"
-                                         },
-                                         {
-                                             "no":  9,
-                                             "title":  "예산세우기",
-                                             "file":  "lessons/03_필요와 욕구 구분하기/9. 예산세우기.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "04_우리 반 상점 운영",
-                           "round":  4,
-                           "title":  "우리 반 상점 운영",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  4,
-                                             "title":  "생산과소비",
-                                             "file":  "lessons/04_우리 반 상점 운영/4. 생산과소비.webp"
-                                         },
-                                         {
-                                             "no":  5,
-                                             "title":  "유통이란",
-                                             "file":  "lessons/04_우리 반 상점 운영/5. 유통이란.webp"
-                                         },
-                                         {
-                                             "no":  29,
-                                             "title":  "수요와 공급",
-                                             "file":  "lessons/04_우리 반 상점 운영/29. 수요와 공급.webp"
-                                         },
-                                         {
-                                             "no":  30,
-                                             "title":  "물가란",
-                                             "file":  "lessons/04_우리 반 상점 운영/30. 물가란.webp"
-                                         },
-                                         {
-                                             "no":  31,
-                                             "title":  "인플레이션이란",
-                                             "file":  "lessons/04_우리 반 상점 운영/31. 인플레이션이란.webp"
-                                         },
-                                         {
-                                             "no":  32,
-                                             "title":  "디플레이션이란",
-                                             "file":  "lessons/04_우리 반 상점 운영/32. 디플레이션이란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "05_예금과 적금",
-                           "round":  5,
-                           "title":  "예금과 적금",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  10,
-                                             "title":  "예금이란",
-                                             "file":  "lessons/05_예금과 적금/10. 예금이란.webp"
-                                         },
-                                         {
-                                             "no":  11,
-                                             "title":  "적금이란",
-                                             "file":  "lessons/05_예금과 적금/11. 적금이란.webp"
-                                         },
-                                         {
-                                             "no":  12,
-                                             "title":  "원금과 이자",
-                                             "file":  "lessons/05_예금과 적금/12. 원금과 이자.webp"
-                                         },
-                                         {
-                                             "no":  13,
-                                             "title":  "금리란",
-                                             "file":  "lessons/05_예금과 적금/13. 금리란.webp"
-                                         },
-                                         {
-                                             "no":  14,
-                                             "title":  "복리란",
-                                             "file":  "lessons/05_예금과 적금/14. 복리란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "06_빌린 돈과 상환",
-                           "round":  6,
-                           "title":  "빌린 돈과 상환",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  15,
-                                             "title":  "빌린돈과 상환",
-                                             "file":  "lessons/06_빌린 돈과 상환/15. 빌린돈과 상환.webp"
-                                         },
-                                         {
-                                             "no":  16,
-                                             "title":  "대출이란",
-                                             "file":  "lessons/06_빌린 돈과 상환/16. 대출이란.webp"
-                                         },
-                                         {
-                                             "no":  18,
-                                             "title":  "연체란",
-                                             "file":  "lessons/06_빌린 돈과 상환/18. 연체란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "07_청약과 내 집 마련",
-                           "round":  7,
-                           "title":  "청약과 내 집 마련",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  28,
-                                             "title":  "청약과 내집 마련",
-                                             "file":  "lessons/07_청약과 내 집 마련/28. 청약과 내집 마련.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "08_부동산과 주거 선택",
-                           "round":  8,
-                           "title":  "부동산과 주거 선택",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  27,
-                                             "title":  "부동산과 주거선택",
-                                             "file":  "lessons/08_부동산과 주거 선택/27. 부동산과 주거선택.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "09_단기 투자와 결과",
-                           "round":  9,
-                           "title":  "단기 투자와 결과",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  22,
-                                             "title":  "투자란",
-                                             "file":  "lessons/09_단기 투자와 결과/22. 투자란.webp"
-                                         },
-                                         {
-                                             "no":  23,
-                                             "title":  "위험과 수익",
-                                             "file":  "lessons/09_단기 투자와 결과/23. 위험과 수익.webp"
-                                         },
-                                         {
-                                             "no":  24,
-                                             "title":  "단기투자란",
-                                             "file":  "lessons/09_단기 투자와 결과/24. 단기투자란.webp"
-                                         },
-                                         {
-                                             "no":  26,
-                                             "title":  "위험과 분산투자",
-                                             "file":  "lessons/09_단기 투자와 결과/26. 위험과 분산투자.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "10_장기 투자와 정보 판단",
-                           "round":  10,
-                           "title":  "장기 투자와 정보 판단",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  25,
-                                             "title":  "장기투자란",
-                                             "file":  "lessons/10_장기 투자와 정보 판단/25. 장기투자란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "11_친구와 안전하게 거래하기",
-                           "round":  11,
-                           "title":  "친구와 안전하게 거래하기",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  17,
-                                             "title":  "신용이란",
-                                             "file":  "lessons/11_친구와 안전하게 거래하기/17. 신용이란.webp"
-                                         },
-                                         {
-                                             "no":  20,
-                                             "title":  "친구와 안전하게 거래하기",
-                                             "file":  "lessons/11_친구와 안전하게 거래하기/20. 친구와 안전하게 거래하기.webp"
-                                         },
-                                         {
-                                             "no":  21,
-                                             "title":  "금융사기와개인정보",
-                                             "file":  "lessons/11_친구와 안전하게 거래하기/21. 금융사기와개인정보.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "12_공동기금과 투표",
-                           "round":  12,
-                           "title":  "공동기금과 투표",
-                           "isNew":  false,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  35,
-                                             "title":  "공동기금은 어디에 사용되나요",
-                                             "file":  "lessons/12_공동기금과 투표/35. 공동기금은 어디에 사용되나요.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "13_경제 개념 확인 퀴즈",
-                           "round":  13,
-                           "title":  "경제 개념 확인 퀴즈",
-                           "isNew":  false,
-                           "note":  "이 회차는 특정 개념 이미지 한 종류를 학습하는 차시가 아니라, 1~12회차 및 추가 분류의 경제 개념을 종합 확인하는 퀴즈 차시입니다. 따라서 별도의 개념 이미지를 중복 배치하지 않았습니다.",
-                           "items":  [
-
-                                     ]
-                       },
-                       {
-                           "id":  "14_돈과 가계생활",
-                           "round":  14,
-                           "title":  "돈과 가계생활",
-                           "isNew":  true,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  1,
-                                             "title":  "돈의역할",
-                                             "file":  "lessons/14_돈과 가계생활/1. 돈의역할.webp"
-                                         },
-                                         {
-                                             "no":  2,
-                                             "title":  "수입과 지출",
-                                             "file":  "lessons/14_돈과 가계생활/2. 수입과 지출.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "15_보험과 위험 대비",
-                           "round":  15,
-                           "title":  "보험과 위험 대비",
-                           "isNew":  true,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  19,
-                                             "title":  "보험이란",
-                                             "file":  "lessons/15_보험과 위험 대비/19. 보험이란.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "16_경기와 경제지표",
-                           "round":  16,
-                           "title":  "경기와 경제지표",
-                           "isNew":  true,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  33,
-                                             "title":  "경기호황과 불황",
-                                             "file":  "lessons/16_경기와 경제지표/33. 경기호황과 불황.webp"
-                                         },
-                                         {
-                                             "no":  39,
-                                             "title":  "국내총생산GDP",
-                                             "file":  "lessons/16_경기와 경제지표/39. 국내총생산GDP.webp"
-                                         }
-                                     ]
-                       },
-                       {
-                           "id":  "17_국제무역과 환율",
-                           "round":  17,
-                           "title":  "국제무역과 환율",
-                           "isNew":  true,
-                           "note":  null,
-                           "items":  [
-                                         {
-                                             "no":  36,
-                                             "title":  "수출과수입",
-                                             "file":  "lessons/17_국제무역과 환율/36. 수출과수입.webp"
-                                         },
-                                         {
-                                             "no":  37,
-                                             "title":  "환율이란",
-                                             "file":  "lessons/17_국제무역과 환율/37. 환율이란.webp"
-                                         },
-                                         {
-                                             "no":  38,
-                                             "title":  "관세란",
-                                             "file":  "lessons/17_국제무역과 환율/38. 관세란.webp"
-                                         }
-                                     ]
-                       }
-                   ]
+  "source": "경제학습_최종_분류.zip",
+  "format": "webp (quality 95, 1448x1086)",
+  "imageCount": 40,
+  "categoryCount": 17,
+  "categories": [
+    {
+      "id": "01_월급과 실수령액",
+      "round": 1,
+      "title": "월급과 실수령액",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "3",
+          "title": "월급과 실수령액",
+          "file": "lessons/01_월급과 실수령액/3. 월급과 실수령액.webp"
+        }
+      ]
+    },
+    {
+      "id": "02_세금과 공동기금",
+      "round": 2,
+      "title": "세금과 공동기금",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "34",
+          "title": "세금이란",
+          "file": "lessons/02_세금과 공동기금/34. 세금이란.webp"
+        }
+      ]
+    },
+    {
+      "id": "03_필요와 욕구 구분하기",
+      "round": 3,
+      "title": "필요와 욕구 구분하기",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "6",
+          "title": "비교와 선택",
+          "file": "lessons/03_필요와 욕구 구분하기/6. 비교와 선택.webp"
+        },
+        {
+          "no": "7",
+          "title": "기회비용이란",
+          "file": "lessons/03_필요와 욕구 구분하기/7. 기회비용이란.webp"
+        },
+        {
+          "no": "8",
+          "title": "소비와 저축",
+          "file": "lessons/03_필요와 욕구 구분하기/8. 소비와 저축.webp"
+        },
+        {
+          "no": "9",
+          "title": "예산세우기",
+          "file": "lessons/03_필요와 욕구 구분하기/9. 예산세우기.webp"
+        }
+      ]
+    },
+    {
+      "id": "04_우리 반 상점 운영",
+      "round": 4,
+      "title": "우리 반 상점 운영",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "4",
+          "title": "생산과소비",
+          "file": "lessons/04_우리 반 상점 운영/4. 생산과소비.webp"
+        },
+        {
+          "no": "5",
+          "title": "유통이란",
+          "file": "lessons/04_우리 반 상점 운영/5. 유통이란.webp"
+        },
+        {
+          "no": "29",
+          "title": "수요와 공급",
+          "file": "lessons/04_우리 반 상점 운영/29. 수요와 공급.webp"
+        },
+        {
+          "no": "30",
+          "title": "물가란",
+          "file": "lessons/04_우리 반 상점 운영/30. 물가란.webp"
+        },
+        {
+          "no": "31",
+          "title": "인플레이션이란",
+          "file": "lessons/04_우리 반 상점 운영/31. 인플레이션이란.webp"
+        },
+        {
+          "no": "32",
+          "title": "디플레이션이란",
+          "file": "lessons/04_우리 반 상점 운영/32. 디플레이션이란.webp"
+        }
+      ]
+    },
+    {
+      "id": "05_예금과 적금",
+      "round": 5,
+      "title": "예금과 적금",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "10",
+          "title": "예금이란",
+          "file": "lessons/05_예금과 적금/10. 예금이란.webp"
+        },
+        {
+          "no": "11",
+          "title": "적금이란",
+          "file": "lessons/05_예금과 적금/11. 적금이란.webp"
+        },
+        {
+          "no": "12",
+          "title": "원금과 이자",
+          "file": "lessons/05_예금과 적금/12. 원금과 이자.webp"
+        },
+        {
+          "no": "13",
+          "title": "금리란",
+          "file": "lessons/05_예금과 적금/13. 금리란.webp"
+        },
+        {
+          "no": "14",
+          "title": "복리란",
+          "file": "lessons/05_예금과 적금/14. 복리란.webp"
+        }
+      ]
+    },
+    {
+      "id": "06_빌린 돈과 상환",
+      "round": 6,
+      "title": "빌린 돈과 상환",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "15",
+          "title": "빌린돈과 상환",
+          "file": "lessons/06_빌린 돈과 상환/15. 빌린돈과 상환.webp"
+        },
+        {
+          "no": "16",
+          "title": "대출이란",
+          "file": "lessons/06_빌린 돈과 상환/16. 대출이란.webp"
+        },
+        {
+          "no": "18",
+          "title": "연체란",
+          "file": "lessons/06_빌린 돈과 상환/18. 연체란.webp"
+        }
+      ]
+    },
+    {
+      "id": "07_청약과 내 집 마련",
+      "round": 7,
+      "title": "청약과 내 집 마련",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "28",
+          "title": "청약과 내집 마련",
+          "file": "lessons/07_청약과 내 집 마련/28. 청약과 내집 마련.webp"
+        }
+      ]
+    },
+    {
+      "id": "08_부동산과 주거 선택",
+      "round": 8,
+      "title": "부동산과 주거 선택",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "27",
+          "title": "부동산과 주거선택",
+          "file": "lessons/08_부동산과 주거 선택/27. 부동산과 주거선택.webp"
+        }
+      ]
+    },
+    {
+      "id": "09_단기 투자와 결과",
+      "round": 9,
+      "title": "단기 투자와 결과",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "22",
+          "title": "투자란",
+          "file": "lessons/09_단기 투자와 결과/22. 투자란.webp"
+        },
+        {
+          "no": "23",
+          "title": "위험과 수익",
+          "file": "lessons/09_단기 투자와 결과/23. 위험과 수익.webp"
+        },
+        {
+          "no": "24",
+          "title": "단기투자란",
+          "file": "lessons/09_단기 투자와 결과/24. 단기투자란.webp"
+        },
+        {
+          "no": "26",
+          "title": "위험과 분산투자",
+          "file": "lessons/09_단기 투자와 결과/26. 위험과 분산투자.webp"
+        }
+      ]
+    },
+    {
+      "id": "10_장기 투자와 정보 판단",
+      "round": 10,
+      "title": "장기 투자와 정보 판단",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "25",
+          "title": "장기투자란",
+          "file": "lessons/10_장기 투자와 정보 판단/25. 장기투자란.webp"
+        }
+      ]
+    },
+    {
+      "id": "11_친구와 안전하게 거래하기",
+      "round": 11,
+      "title": "친구와 안전하게 거래하기",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "17",
+          "title": "신용이란",
+          "file": "lessons/11_친구와 안전하게 거래하기/17. 신용이란.webp"
+        },
+        {
+          "no": "17-1",
+          "title": "신용등급이란",
+          "file": "lessons/11_친구와 안전하게 거래하기/17-1. 신용등급이란.webp"
+        },
+        {
+          "no": "20",
+          "title": "친구와 안전하게 거래하기",
+          "file": "lessons/11_친구와 안전하게 거래하기/20. 친구와 안전하게 거래하기.webp"
+        },
+        {
+          "no": "21",
+          "title": "금융사기와개인정보",
+          "file": "lessons/11_친구와 안전하게 거래하기/21. 금융사기와개인정보.webp"
+        }
+      ]
+    },
+    {
+      "id": "12_공동기금과 투표",
+      "round": 12,
+      "title": "공동기금과 투표",
+      "isNew": false,
+      "note": null,
+      "items": [
+        {
+          "no": "35",
+          "title": "공동기금은 어디에 사용되나요",
+          "file": "lessons/12_공동기금과 투표/35. 공동기금은 어디에 사용되나요.webp"
+        }
+      ]
+    },
+    {
+      "id": "13_경제 개념 확인 퀴즈",
+      "round": 13,
+      "title": "경제 개념 확인 퀴즈",
+      "isNew": false,
+      "note": "이 회차는 특정 개념 이미지 한 종류를 학습하는 차시가 아니라, 1~12회차 및 추가 분류의 경제 개념을 종합 확인하는 퀴즈 차시입니다. 따라서 별도의 개념 이미지를 중복 배치하지 않았습니다.",
+      "items": []
+    },
+    {
+      "id": "14_돈과 가계생활",
+      "round": 14,
+      "title": "돈과 가계생활",
+      "isNew": true,
+      "note": null,
+      "items": [
+        {
+          "no": "1",
+          "title": "돈의역할",
+          "file": "lessons/14_돈과 가계생활/1. 돈의역할.webp"
+        },
+        {
+          "no": "2",
+          "title": "수입과 지출",
+          "file": "lessons/14_돈과 가계생활/2. 수입과 지출.webp"
+        }
+      ]
+    },
+    {
+      "id": "15_보험과 위험 대비",
+      "round": 15,
+      "title": "보험과 위험 대비",
+      "isNew": true,
+      "note": null,
+      "items": [
+        {
+          "no": "19",
+          "title": "보험이란",
+          "file": "lessons/15_보험과 위험 대비/19. 보험이란.webp"
+        }
+      ]
+    },
+    {
+      "id": "16_경기와 경제지표",
+      "round": 16,
+      "title": "경기와 경제지표",
+      "isNew": true,
+      "note": null,
+      "items": [
+        {
+          "no": "33",
+          "title": "경기호황과 불황",
+          "file": "lessons/16_경기와 경제지표/33. 경기호황과 불황.webp"
+        },
+        {
+          "no": "39",
+          "title": "국내총생산GDP",
+          "file": "lessons/16_경기와 경제지표/39. 국내총생산GDP.webp"
+        }
+      ]
+    },
+    {
+      "id": "17_국제무역과 환율",
+      "round": 17,
+      "title": "국제무역과 환율",
+      "isNew": true,
+      "note": null,
+      "items": [
+        {
+          "no": "36",
+          "title": "수출과수입",
+          "file": "lessons/17_국제무역과 환율/36. 수출과수입.webp"
+        },
+        {
+          "no": "37",
+          "title": "환율이란",
+          "file": "lessons/17_국제무역과 환율/37. 환율이란.webp"
+        },
+        {
+          "no": "38",
+          "title": "관세란",
+          "file": "lessons/17_국제무역과 환율/38. 관세란.webp"
+        }
+      ]
+    }
+  ]
 }
