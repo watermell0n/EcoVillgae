@@ -1102,7 +1102,9 @@ export default function TeacherConsole() {
         onCreated={(classroom) => {
           const created: BootstrapClassroom = {
             resource_id: classroom.classroom_id,
-            label: classroom.classroom_code,
+            // 생성 응답에는 교실 이름이 없다. 입장 코드를 이름 자리에 넣으면 목록 카드가
+            // 코드로 보이므로, 방금 입력한 교실 이름을 그대로 쓴다.
+            label: settings.className || classroom.classroom_code,
             status: classroom.status,
             state_version: classroom.state_version,
             classroom_code: classroom.classroom_code,
