@@ -4645,6 +4645,124 @@ paths:
               required:
                 - "student_id"
               additionalProperties: false
+  "/classrooms/{classroom_id}/store/price-inflation-commands":
+    post:
+      operationId: "apiShp005"
+      x-api-id: "API-SHP-005"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "store_products"
+        - "store_product_versions"
+        - "store_stocks"
+        - "store_orders"
+        - "store_order_items"
+      x-ui-action-ids:
+        - "UIA-SHP-005"
+      x-roles:
+        - "OWN"
+      x-permission-ids:
+        - "PM-SHP-001"
+      x-state-machine-ids:
+        - "SM-CLS-001"
+      x-rtm-ids:
+        - "FIN-011"
+      tags:
+        - "Store"
+      summary: "rate_bps=1..100000, expected_state_version, expected_policy_version → 학급의 모든 상품 가격을 같은 비율로 올리고 상품마다 새 버전을 하나씩 만듦. 캐릭터 상품과 판매 종료 상품도 포함하며 은퇴, 공개 상태는 그대로 물려받음. 정책 상한을 넘으면 상한값으로 맞춤"
+      description: "사람이 검토하는 원문 기준: `API-SHP-005` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: rate_bps=1..100000, expected_state_version, expected_policy_version → 학급의 모든 상품 가격을 같은 비율로 올리고 상품마다 새 버전을 하나씩 만듦. 캐릭터 상품과 판매 종료 상품도 포함하며 은퇴, 공개 상태는 그대로 물려받음. 정책 상한을 넘으면 상한값으로 맞춤."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "applied_count"
+                      - "clamped_count"
+                      - "unchanged_count"
+                      - "state_version"
+                    properties:
+                      applied_count:
+                        type: "integer"
+                        minimum: 0
+                      clamped_count:
+                        type: "integer"
+                        minimum: 0
+                      unchanged_count:
+                        type: "integer"
+                        minimum: 0
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-SHP-005 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                expected_state_version:
+                  type: "integer"
+                  format: "int64"
+                  minimum: 0
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                expected_policy_version:
+                  type: "integer"
+                  minimum: 0
+                rate_bps:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 100000
+              required:
+                - "expected_policy_version"
+                - "rate_bps"
+              additionalProperties: false
   "/classrooms/{classroom_id}/inventory-items/{resource_id}/commands":
     post:
       operationId: "apiItm001"

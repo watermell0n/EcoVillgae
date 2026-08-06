@@ -170,6 +170,7 @@ const mvpSupportApiIds = new Set([
   "API-QZ-006",
   "API-QZ-008",
   "API-QZ-009",
+  "API-SHP-005",
   "API-READ-001",
   "API-READ-003",
   "API-READ-016",
@@ -1016,6 +1017,10 @@ const requestFieldOverrides = {
     { name: "reason_code" },
     { name: "description" },
   ],
+  "API-SHP-005": [
+    { name: "expected_policy_version", schema: { type: "integer", minimum: 0 } },
+    { name: "rate_bps", schema: { type: "integer", minimum: 1, maximum: 100000 } },
+  ],
   "API-QZ-010": [
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
     { name: "question_count", schema: { type: "integer", minimum: 1, maximum: 30 } },
@@ -1367,6 +1372,13 @@ const responseFieldOverrides = {
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "teacher_view", schema: { type: "boolean" } },
     { name: "assets", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  // 인상 결과를 교사 화면이 그대로 문장으로 만들 수 있게 셋으로 나눠 준다.
+  "API-SHP-005": [
+    { name: "applied_count", schema: { type: "integer", minimum: 0 } },
+    { name: "clamped_count", schema: { type: "integer", minimum: 0 } },
+    { name: "unchanged_count", schema: { type: "integer", minimum: 0 } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
   // 넌센스는 AI를 부르지 않아 비동기 작업이 아니다. 가져온 문항 id와 은행에 남은 수를 바로 준다.
   "API-QZ-010": [
@@ -3744,8 +3756,8 @@ function buildApiFieldMapping(operations) {
 // 스펙에 엔드포인트를 더하면 이 숫자만 올린다. 개수가 어긋나면 중복 검사도 같은 숫자와
 // 비교하므로 "중복되었습니다"가 함께 뜨지만, 실제 원인은 개수 하나뿐인 경우가 많다.
 // API-ACT-003·004(수업 자료 순서 진행), API-QZ-010(넌센스 문항 가져오기),
-// API-CLS-009(학급 보관)을 명세에 넣으면서 143 -> 147이 되었다.
-const EXPECTED_HTTP_OPERATION_COUNT = 147;
+// API-CLS-009(학급 보관), API-SHP-005(가격 일괄 인상)을 명세에 넣었다.
+const EXPECTED_HTTP_OPERATION_COUNT = 148;
 
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
