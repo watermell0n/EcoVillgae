@@ -1,0 +1,485 @@
+{
+  "run_id": "run-c2-postfix",
+  "golden_set_version": "quiz-golden-set-v1",
+  "reviewer": "B",
+  "reviewed_at": "",
+  "note": "점수는 0, 1, 2 정수만 쓴다. 채점 전에 anchors를 먼저 읽는다. 다른 검토자와 상의하지 않는다. questions.md만 보고 채점한다.",
+  "banned_verbatim_answers": [
+    "후다닥",
+    "호주머니",
+    "고등어",
+    "인수분해",
+    "이자",
+    "분산투자"
+  ],
+  "cases": [
+    {
+      "case_id": "eco-g4-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "eco-g4-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "eco-g5-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "eco-g5-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "eco-g6-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "eco-g6-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g4-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g4-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g5-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g5-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g6-mc",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    },
+    {
+      "case_id": "non-g6-ox",
+      "variety": null,
+      "questions": [
+        {
+          "index": 1,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 2,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        },
+        {
+          "index": 3,
+          "answer_correctness": null,
+          "distractor_quality": null,
+          "grade_fit": null,
+          "category_fit": null,
+          "explanation_quality": null,
+          "veto_wrong_answer": false,
+          "veto_verbatim_reuse": false,
+          "comment": ""
+        }
+      ]
+    }
+  ]
+}

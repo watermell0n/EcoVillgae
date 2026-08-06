@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { AlertTriangle, Bot, Check, CheckCircle2, LoaderCircle, Play, RefreshCw, Sparkles } from "lucide-react";
 import { ApiError, apiRequest } from "../api";
-import type { QuizDraftOperationResponse, QuizQuestion, QuizSessionCommandResponse } from "../api";
+import type {
+  NonsenseImportResponse,
+  QuizDraftOperationResponse,
+  QuizQuestion,
+  QuizSessionCommandResponse
+} from "../api";
 
 type QuestionStatusResponse = {
   quiz_resource_id: string;
@@ -33,7 +38,39 @@ type QuizResults = {
 };
 
 // 문제은행 목록에서 무엇을 보여 줄지 고르는 탭입니다.
-type BankFilter = "recent" | "approved" | "all";
+type BankFilter = "recent" | "approved";
+
+// 학생 화면에 연 퀴즈 한 건입니다. 세션 목록 API가 없어 교사 브라우저에 기록해 둡니다.
+type OpenedQuiz = {
+  sessionId: string;
+  mode: "GAME" | "TEST";
+  contentType: "ECONOMY" | "NONSENSE";
+  openedAt: string;
+  questions: Array<{ versionId: string; prompt: string }>;
+};
+
+// 새로고침하거나 학급을 나갔다 와도 "마지막에 만든 문항"과 "연 퀴즈"가 유지되게 합니다.
+const lastBatchKey = (classroomId: string) => `ecovillage.quiz.lastBatch.${classroomId}`;
+const openedQuizzesKey = (classroomId: string) => `ecovillage.quiz.openedQuizzes.${classroomId}`;
+
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStored(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // 저장 공간이 막혀 있어도 이번 화면 동작은 그대로 이어 갑니다.
+  }
+}
 
 const STATUS_LABEL: Record<QuizQuestion["status"], string> = {
   DRAFT: "작성 중",
@@ -92,6 +129,9 @@ export function QuizDraftWorkspace({
   const [contentType, setContentType] = useState<"ECONOMY" | "NONSENSE">("ECONOMY");
   const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "OX">("MULTIPLE_CHOICE");
   const [questionCount, setQuestionCount] = useState(3);
+  // 넌센스는 문제은행에서 가져오므로 AI 설정과 무관하고 주제·학습목표도 받지 않는다.
+  const isNonsense = contentType === "NONSENSE";
+  const submitBlocked = !isNonsense && !aiEnabled;
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [generatedIds, setGeneratedIds] = useState<Set<string>>(new Set());
   const [bankFilter, setBankFilter] = useState<BankFilter>("recent");
@@ -109,6 +149,7 @@ export function QuizDraftWorkspace({
   const [sessionResults, setSessionResults] = useState<QuizResults | null>(null);
   // 이미 학생 화면에 열어 준 문항입니다. 같은 문항으로 두 번 열지 않도록 잠급니다.
   const [openedVersionIds, setOpenedVersionIds] = useState<string[]>([]);
+  const [openedQuizzes, setOpenedQuizzes] = useState<OpenedQuiz[]>([]);
   const [sessionError, setSessionError] = useState("");
   const [sessionMessage, setSessionMessage] = useState("");
 
@@ -132,7 +173,9 @@ export function QuizDraftWorkspace({
   }, [classroomId]);
 
   useEffect(() => {
-    setGeneratedIds(new Set());
+    // 마지막 생성분과 연 퀴즈는 브라우저에 남겨 두고 다시 읽습니다.
+    setGeneratedIds(new Set(readStored<string[]>(lastBatchKey(classroomId), [])));
+    setOpenedQuizzes(readStored<OpenedQuiz[]>(openedQuizzesKey(classroomId), []));
     setBankFilter("recent");
     setMessage("");
     setError("");
@@ -144,6 +187,12 @@ export function QuizDraftWorkspace({
     setSessionMessage("");
     void loadQuestions();
   }, [classroomId, loadQuestions]);
+
+  // 마지막 생성분을 기록합니다. 목록에서 사라진 문항은 다음에 읽을 때 자연히 걸러집니다.
+  const rememberBatch = useCallback((ids: string[]) => {
+    setGeneratedIds(new Set(ids));
+    writeStored(lastBatchKey(classroomId), ids);
+  }, [classroomId]);
 
   // 이미 진행 중인 세션도 다시 읽어, 페이지를 나갔다 와도 같은 문항을
   // 또 선택해 새 퀴즈를 열지 않도록 합니다.
@@ -163,9 +212,11 @@ export function QuizDraftWorkspace({
           status: session.status,
           stateVersion: session.state_version
         });
-        setOpenedVersionIds(session.questions.flatMap((question) => (
+        const fetched = session.questions.flatMap((question) => (
           question.quiz_question_version_id ? [question.quiz_question_version_id] : []
-        )));
+        ));
+        // 방금 연 퀴즈의 잠금을 응답이 늦게 오거나 비어 있다고 지우면 안 되므로 합칩니다.
+        setOpenedVersionIds((current) => [...new Set([...current, ...fetched])]);
         if (["REVIEWING", "RESULT_PUBLISHED", "CLOSED"].includes(session.status)) {
           void apiRequest<QuizResults>(`/classrooms/${classroomId}/quiz-sessions/${session.quiz_session_id}/results`)
             .then(setSessionResults)
@@ -182,15 +233,17 @@ export function QuizDraftWorkspace({
     [questions]
   );
 
-  const visibleQuestions = useMemo(() => {
-    if (bankFilter === "approved") return approvedQuestions;
-    if (bankFilter === "all" || generatedIds.size === 0) return questions;
-    return questions.filter((question) => generatedIds.has(question.resource_id));
-  }, [approvedQuestions, bankFilter, generatedIds, questions]);
+  // '최근 생성'은 언제나 마지막 한 번의 생성분만 보여 줍니다. 승인한 문항은 여기서 빠집니다.
+  const recentQuestions = useMemo(
+    () => questions.filter((question) => generatedIds.has(question.resource_id)),
+    [generatedIds, questions]
+  );
+
+  const visibleQuestions = bankFilter === "approved" ? approvedQuestions : recentQuestions;
 
   const emptyBankCopy = bankFilter === "approved"
     ? "승인한 문항이 없어요. 문항을 검토한 뒤 '검토 후 승인'을 누르면 여기로 옵니다."
-    : "표시할 문항이 없어요. AI 초안을 먼저 생성해 보세요.";
+    : "최근에 만든 문항이 없어요. 위에서 문항을 생성하거나 가져오면 여기에 나타납니다.";
 
   // 세션 시작에 쓸 수 있는 문항은 게시된 것만입니다. 서버도 같은 조건을 검사합니다.
   const publishedQuestions = useMemo(
@@ -243,6 +296,17 @@ export function QuizDraftWorkspace({
   const usedQuestions = useMemo(
     () => publishedQuestions.filter((question) => isUsed(question)),
     [publishedQuestions, isUsed]
+  );
+  // 연 퀴즈 기록에 없는 사용 문항입니다. 다른 브라우저에서 열었거나 기록이 지워진 경우입니다.
+  const recordedUsedVersionIds = useMemo(
+    () => new Set(openedQuizzes.flatMap((quiz) => quiz.questions.map((item) => item.versionId))),
+    [openedQuizzes]
+  );
+  const unrecordedUsedQuestions = useMemo(
+    () => usedQuestions.filter(
+      (question) => !recordedUsedVersionIds.has(question.question_version_id)
+    ),
+    [recordedUsedVersionIds, usedQuestions]
   );
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
@@ -297,6 +361,22 @@ export function QuizDraftWorkspace({
       const openedCount = selectedQuestions.length;
       setStartedSession({ id: response.quiz_resource_id, mode: sessionMode, status: response.status, stateVersion: response.state_version });
       setSessionResults(null);
+      // 아래 '생성된 퀴즈'에 새 칸으로 바로 올립니다. 새로고침을 기다리지 않습니다.
+      const openedQuiz: OpenedQuiz = {
+        sessionId: response.quiz_resource_id,
+        mode: sessionMode,
+        contentType: selectedContentTypes[0],
+        openedAt: new Date().toISOString(),
+        questions: selectedQuestions.map((question) => ({
+          versionId: question.question_version_id,
+          prompt: question.prompt
+        }))
+      };
+      setOpenedQuizzes((current) => {
+        const next = [openedQuiz, ...current.filter((item) => item.sessionId !== openedQuiz.sessionId)];
+        writeStored(openedQuizzesKey(classroomId), next);
+        return next;
+      });
       // 같은 문항으로 다시 열지 못하게 잠급니다.
       setOpenedVersionIds((current) => [...new Set([...current, ...selectedVersionIds])]);
       setSelectedVersionIds([]);
@@ -407,13 +487,18 @@ export function QuizDraftWorkspace({
 
   async function generateDrafts(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!aiEnabled || generating) return;
-    if (!topic.trim() || !learningObjective.trim()) {
-      setError("주제와 학습목표를 모두 입력해 주세요.");
-      return;
-    }
+    if (submitBlocked || generating) return;
     if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 30) {
       setError("문항 수는 1개 이상 30개 이하로 입력해 주세요.");
+      return;
+    }
+    // 넌센스는 사람이 검토한 문제은행에서 가져오므로 AI를 부르지 않는다.
+    if (isNonsense) {
+      await importNonsense();
+      return;
+    }
+    if (!topic.trim() || !learningObjective.trim()) {
+      setError("주제와 학습목표를 모두 입력해 주세요.");
       return;
     }
 
@@ -438,10 +523,42 @@ export function QuizDraftWorkspace({
           })
         }
       );
-      setGeneratedIds(new Set(response.question_ids));
+      rememberBatch(response.question_ids);
       setBankFilter("recent");
       await loadQuestions();
       setMessage(`${response.question_ids.length}개 문항을 만들었어요. 정답과 해설을 확인한 뒤 승인해 주세요.`);
+    } catch (caught) {
+      setError(quizErrorMessage(caught));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function importNonsense() {
+    setGenerating(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await apiRequest<NonsenseImportResponse>(
+        `/classrooms/${classroomId}/nonsense-question-imports`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            grade,
+            question_count: questionCount,
+            screen_id: "SCR-WEB-018",
+            ui_action_id: "UIA-QZ-004",
+            client_occurred_at: new Date().toISOString()
+          })
+        }
+      );
+      rememberBatch(response.question_ids);
+      setBankFilter("recent");
+      await loadQuestions();
+      const remaining = response.remaining_count > 0
+        ? `이 학년에서 더 가져올 수 있는 문제는 ${response.remaining_count}개예요.`
+        : "이 학년의 넌센스 문제를 모두 가져왔어요.";
+      setMessage(`넌센스 ${response.question_ids.length}개를 가져왔어요. ${remaining}`);
     } catch (caught) {
       setError(quizErrorMessage(caught));
     } finally {
@@ -477,6 +594,13 @@ export function QuizDraftWorkspace({
         ? { ...item, status: response.status, state_version: response.state_version }
         : item));
       if (command === "APPROVE") {
+        // 승인한 문항은 '승인된 문제'로 옮겨 가므로 '최근 생성'에서 바로 빼 줍니다.
+        setGeneratedIds((current) => {
+          const next = new Set(current);
+          next.delete(question.resource_id);
+          writeStored(lastBatchKey(classroomId), [...next]);
+          return next;
+        });
         setMessage("문항을 승인했어요. '승인된 문제' 탭에서 문제은행에 게시할 수 있어요.");
       } else {
         // 게시한 문항을 아래 '퀴즈 시작'에 바로 담아 둡니다.
@@ -498,50 +622,73 @@ export function QuizDraftWorkspace({
     <div className="page-flow quiz-draft-workspace">
       <section className="plain-section">
         <div className="section-title">
-          <span className="section-kicker">교사용 AI 퀴즈</span>
+          <span className="section-kicker">{isNonsense ? "넌센스 문제은행" : "교사용 AI 퀴즈"}</span>
           <h2>검토용 문항 생성</h2>
-          <p>AI 문항은 학생에게 바로 공개되지 않으며 교사가 정답과 해설을 검토해야 합니다.</p>
+          <p>
+            {isNonsense
+              ? "넌센스는 미리 검토한 문제은행에서 가져옵니다. 학생에게 바로 공개되지 않으니 확인한 뒤 승인해 주세요."
+              : "AI 문항은 학생에게 바로 공개되지 않으며 교사가 정답과 해설을 검토해야 합니다."}
+          </p>
         </div>
 
         <form className="quiz-draft-form" onSubmit={(event) => void generateDrafts(event)}>
-          {!aiEnabled ? (
+          {submitBlocked ? (
             <div className="chat-disabled"><AlertTriangle size={18} /> 학급 AI가 중지되어 초안을 생성할 수 없어요.</div>
           ) : null}
           <div className="quiz-draft-grid">
             <label>학년
-              <select value={grade} disabled={!aiEnabled || generating} onChange={(event) => setGrade(Number(event.target.value))}>
+              <select value={grade} disabled={submitBlocked || generating} onChange={(event) => setGrade(Number(event.target.value))}>
                 <option value={4}>초등 4학년</option>
                 <option value={5}>초등 5학년</option>
                 <option value={6}>초등 6학년</option>
               </select>
             </label>
             <label>분류
-              <select value={contentType} disabled={!aiEnabled || generating} onChange={(event) => setContentType(event.target.value as typeof contentType)}>
+              <select
+                value={contentType}
+                disabled={generating}
+                onChange={(event) => {
+                  const next = event.target.value as typeof contentType;
+                  setContentType(next);
+                  // 넌센스는 객관식만 만든다. OX로는 말장난이 성립하지 않는다.
+                  if (next === "NONSENSE") setQuestionType("MULTIPLE_CHOICE");
+                }}
+              >
                 <option value="ECONOMY">경제</option>
                 <option value="NONSENSE">넌센스</option>
               </select>
             </label>
             <label>문항 유형
-              <select value={questionType} disabled={!aiEnabled || generating} onChange={(event) => setQuestionType(event.target.value as typeof questionType)}>
+              <select value={questionType} disabled={isNonsense || submitBlocked || generating} onChange={(event) => setQuestionType(event.target.value as typeof questionType)}>
                 <option value="MULTIPLE_CHOICE">객관식</option>
-                <option value="OX">OX</option>
+                {isNonsense ? null : <option value="OX">OX</option>}
               </select>
             </label>
             <label>문항 수
-              <input type="number" min="1" max="30" value={questionCount} disabled={!aiEnabled || generating} onChange={(event) => setQuestionCount(Number(event.target.value))} />
+              <input type="number" min="1" max="30" value={questionCount} disabled={submitBlocked || generating} onChange={(event) => setQuestionCount(Number(event.target.value))} />
             </label>
-            <label className="quiz-wide-field">주제
-              <input value={topic} maxLength={200} disabled={!aiEnabled || generating} onChange={(event) => setTopic(event.target.value)} />
-            </label>
-            <label className="quiz-wide-field">학습목표
-              <textarea rows={3} value={learningObjective} maxLength={500} disabled={!aiEnabled || generating} onChange={(event) => setLearningObjective(event.target.value)} />
-            </label>
+            {isNonsense ? null : (
+              <>
+                <label className="quiz-wide-field">주제
+                  <input value={topic} maxLength={200} disabled={submitBlocked || generating} onChange={(event) => setTopic(event.target.value)} />
+                </label>
+                <label className="quiz-wide-field">학습목표
+                  <textarea rows={3} value={learningObjective} maxLength={500} disabled={submitBlocked || generating} onChange={(event) => setLearningObjective(event.target.value)} />
+                </label>
+              </>
+            )}
           </div>
           <div className="quiz-draft-submit">
-            <small>난이도는 학년에 맞춰 자동 조정합니다. 하루 최대 30개까지 생성할 수 있어요.</small>
-            <button type="submit" className="primary-save" disabled={!aiEnabled || generating}>
+            <small>
+              {isNonsense
+                ? "검토를 마친 넌센스 문제를 무작위로 가져옵니다. 이미 가져간 문제는 다시 나오지 않아요."
+                : "난이도는 학년에 맞춰 자동 조정합니다. 하루 최대 30개까지 생성할 수 있어요."}
+            </small>
+            <button type="submit" className="primary-save" disabled={submitBlocked || generating}>
               {generating ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}
-              {generating ? "문항을 만드는 중" : "AI 초안 생성"}
+              {generating
+                ? (isNonsense ? "문제를 가져오는 중" : "문항을 만드는 중")
+                : (isNonsense ? "넌센스 문제 가져오기" : "AI 초안 생성")}
             </button>
           </div>
         </form>
@@ -560,7 +707,6 @@ export function QuizDraftWorkspace({
               <button type="button" className={bankFilter === "approved" ? "active" : ""} onClick={() => setBankFilter("approved")}>
                 승인된 문제{approvedQuestions.length > 0 ? ` ${approvedQuestions.length}` : ""}
               </button>
-              <button type="button" className={bankFilter === "all" ? "active" : ""} onClick={() => setBankFilter("all")}>전체 문제은행</button>
             </div>
             <button type="button" className="ghost-action" disabled={loading} onClick={() => void loadQuestions()}>
               <RefreshCw size={15} /> 새로고침
@@ -671,21 +817,6 @@ export function QuizDraftWorkspace({
                 </ul>
               )}
 
-              {usedQuestions.length > 0 ? (
-                <details className="quiz-used-questions">
-                  <summary>이미 진행한 문항 {usedQuestions.length}개</summary>
-                  <p className="section-description">
-                    학생에게 한 번 열었던 문항입니다. 같은 문항으로 다시 열 수 없고, 문제은행에는 그대로 남습니다.
-                  </p>
-                  <ul>
-                    {usedQuestions.map((question) => (
-                      <li key={question.question_version_id}>
-                        <span className="quiz-start-prompt">{question.prompt}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
             </div>
 
             <div className="quiz-start-form">
@@ -762,6 +893,63 @@ export function QuizDraftWorkspace({
                 {sessionMessage ? <div className="quiz-start-success"><CheckCircle2 size={16} /> {sessionMessage}</div> : null}
                 {sessionError ? <div className="quiz-start-failure" role="alert">{sessionError}</div> : null}
               </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      <section className="plain-section">
+        <div className="section-title">
+          <span className="section-kicker">수업 진행</span>
+          <h2>생성된 퀴즈</h2>
+          <p>학생 화면에 연 퀴즈를 퀴즈별로 나눠서 봅니다. 여기에 쓴 문항은 다시 열 수 없어요.</p>
+        </div>
+
+        {openedQuizzes.length === 0 && unrecordedUsedQuestions.length === 0 ? (
+          <p className="empty-copy">
+            아직 연 퀴즈가 없어요. 위에서 문항을 고르고 &quot;학생 화면에 퀴즈 열기&quot;를 누르면 여기에 쌓입니다.
+          </p>
+        ) : (
+          <div className="opened-quiz-list">
+            {openedQuizzes.map((quiz, index) => (
+              <article
+                className={`opened-quiz-card${quiz.sessionId === openSessionId ? " live" : ""}`}
+                key={quiz.sessionId}
+              >
+                <header>
+                  <div>
+                    <strong>퀴즈 {openedQuizzes.length - index}</strong>
+                    <small>
+                      {quiz.contentType === "ECONOMY" ? "경제" : "넌센스"} · {quiz.mode === "GAME" ? "게임형" : "평가형"} · 문항 {quiz.questions.length}개
+                    </small>
+                  </div>
+                  {quiz.sessionId === openSessionId ? <span className="opened-quiz-live">진행 중</span> : null}
+                </header>
+                <ol>
+                  {quiz.questions.map((question) => (
+                    <li key={question.versionId}>{question.prompt}</li>
+                  ))}
+                </ol>
+              </article>
+            ))}
+
+            {unrecordedUsedQuestions.length > 0 ? (
+              <article className="opened-quiz-card">
+                <header>
+                  <div>
+                    <strong>이전에 진행한 문항</strong>
+                    <small>문항 {unrecordedUsedQuestions.length}개</small>
+                  </div>
+                </header>
+                <p className="section-description">
+                  다른 기기에서 열었거나 기록이 남지 않은 문항이에요. 어느 퀴즈였는지는 알 수 없지만 다시 열 수는 없습니다.
+                </p>
+                <ol>
+                  {unrecordedUsedQuestions.map((question) => (
+                    <li key={question.question_version_id}>{question.prompt}</li>
+                  ))}
+                </ol>
+              </article>
             ) : null}
           </div>
         )}
