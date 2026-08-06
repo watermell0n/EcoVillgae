@@ -241,7 +241,10 @@ type ProductRow = {
   stateVersion?: number;
   // 서버의 상품 상태입니다. PUBLISHED만 학생 상점에 보입니다.
   status?: string;
-  kind?: "PHYSICAL" | "DIGITAL";
+  // 서버가 준 종류를 그대로 담습니다. 상품 종류는 바꿀 수 없어서 수정·삭제 명령에
+  // 원래 값을 되돌려 보내야 합니다. 캐릭터 상품을 PHYSICAL로 뭉개면 서버가
+  // PRODUCT_TYPE_CONFLICT로 거절합니다.
+  kind?: "PHYSICAL" | "DIGITAL" | "CHARACTER";
   vatRateBps?: number;
 };
 
@@ -820,7 +823,9 @@ export default function TeacherConsole() {
         version: product.version,
         stateVersion: product.state_version,
         status: product.status,
-        kind: product.product_kind === "DIGITAL" ? "DIGITAL" : "PHYSICAL",
+        kind: product.product_kind === "DIGITAL" || product.product_kind === "CHARACTER"
+          ? product.product_kind
+          : "PHYSICAL",
         vatRateBps: product.vat_rate_bps
       })));
     } catch (error) {
@@ -3309,6 +3314,27 @@ function ShopAdmin({
   const [draftProduct, setDraftProduct] = useState<ProductRow | null>(null);
   const [inflationRate, setInflationRate] = useState("10");
 
+  /**
+   * 교사가 직접 관리하는 상품만 목록에 둡니다.
+   *
+   * 캐릭터 상품은 시스템 카탈로그 항목이고, 이름·삭제를 건드리면 학생이 이미 보유하거나
+   * 착용한 아이템과 어긋납니다. spriteKey가 character_catalog.character_code에 묶여 있어
+   * 문서도 변경을 금지합니다. 원래 인덱스를 함께 들고 다녀야 수정·삭제가 올바른 상품을
+   * 가리킵니다.
+   */
+  const managedProducts = useMemo(
+    () => products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => product.kind !== "CHARACTER"),
+    [products]
+  );
+  const characterProductCount = products.length - managedProducts.length;
+  /** AI 가격 추천은 교사가 등록한 상품에만 씁니다. */
+  const teacherOwnedProducts = useMemo(
+    () => managedProducts.map(({ product }) => product),
+    [managedProducts]
+  );
+
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -3446,13 +3472,20 @@ function ShopAdmin({
     }
     setSubmitting(true);
     try {
+      // 바꿀 값을 current에 먼저 담습니다. 세 명령이 모두 unit_price를 새 버전에 쓰므로
+      // 마지막 PUBLISH까지 같은 값을 보내야 수정이 되돌려지지 않습니다.
       const wasPublished = draft.status === "PUBLISHED";
-      let current: ProductRow = draft;
+      let current: ProductRow = {
+        ...draft,
+        name: draft.name.trim(),
+        price: String(price),
+        stock: String(stock)
+      };
       if (wasPublished) {
         const unpublished = await sendProductCommand(current, "UNPUBLISH");
         current = { ...current, version: unpublished.version, status: unpublished.status };
       }
-      const updated = await sendProductCommand(current, "UPDATE", { price, stock, name: draft.name });
+      const updated = await sendProductCommand(current, "UPDATE");
       current = { ...current, version: updated.version, status: updated.status };
       if (wasPublished) await sendProductCommand(current, "PUBLISH");
       setEditingIndex(null);
@@ -3495,38 +3528,46 @@ function ShopAdmin({
     }
   }
 
+  /**
+   * 인플레이션은 서버가 한 번에 처리합니다.
+   *
+   * 전에는 상품마다 공개중지·수정·재공개 세 번을 보내서 상품 14개에 42번의 요청이 오갔습니다.
+   * 상품이 늘수록 그대로 늘어나는 구조였고, 중간에 실패하면 일부만 오른 상태로 남았습니다.
+   * 이제 요청 한 번으로 끝나고 서버가 한 트랜잭션에서 처리합니다.
+   */
   async function applyInflation() {
     const rate = Number(inflationRate);
-    if (!Number.isFinite(rate) || rate <= 0) return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
-    const targets = products.filter((product) => product.resourceId);
-    if (targets.length === 0) return addLog("가격을 올릴 상품이 없어요.", "warning");
-    if (!window.confirm(`모든 상품 가격을 ${rate}% 올릴까요?`)) return;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
+    }
+    if (!window.confirm(`캐릭터 상품까지 포함해 모든 상품 가격을 ${rate}% 올릴까요?`)) return;
     setSubmitting(true);
-    const failed: string[] = [];
     try {
-      for (const product of targets) {
-        const nextPrice = Math.round(Number(product.price) * (1 + rate / 100));
-        try {
-          const wasPublished = product.status === "PUBLISHED";
-          let current = product;
-          if (wasPublished) {
-            const unpublished = await sendProductCommand(current, "UNPUBLISH");
-            current = { ...current, version: unpublished.version, status: unpublished.status };
-          }
-          const updated = await sendProductCommand(current, "UPDATE", { price: nextPrice });
-          current = { ...current, version: updated.version, status: updated.status };
-          if (wasPublished) await sendProductCommand(current, "PUBLISH");
-        } catch {
-          failed.push(product.name);
-        }
-      }
+      const stateVersionForRequest = await currentClassroomStateVersion();
+      const result = await apiRequest<{
+        applied_count: number;
+        clamped_count: number;
+        unchanged_count: number;
+        state_version: number;
+      }>(`/classrooms/${classroomId}/store/price-inflation-commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: stateVersionForRequest,
+          expected_policy_version: policyVersion,
+          // 화면은 %로 받고 서버는 bp로 받습니다. 10% -> 1000bp.
+          rate_bps: Math.round(rate * 100),
+          screen_id: "SCR-TCH-STORE",
+          ui_action_id: "UIA-STORE-PRICE-INFLATION",
+          client_occurred_at: new Date().toISOString()
+        })
+      });
       await onReload();
-      addLog(
-        failed.length === 0
-          ? `상점 상품 가격을 ${rate}% 인상했어요.`
-          : `${failed.join(", ")} 상품은 가격을 올리지 못했어요. 나머지는 ${rate}% 인상했어요.`,
-        failed.length === 0 ? "success" : "error"
-      );
+      const clamped = result.clamped_count > 0
+        ? ` ${result.clamped_count}종은 정책 상한에 걸려 상한값으로 맞췄어요.`
+        : "";
+      addLog(`상품 ${result.applied_count}종의 가격을 ${rate}% 인상했어요.${clamped}`);
+    } catch (error) {
+      addLog(`가격을 인상하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -3555,7 +3596,9 @@ function ShopAdmin({
           <DraftRecommendationPanel
             kind="product"
             classroomId={classroomId}
-            products={products}
+            // 캐릭터 상품은 시스템이 정한 항목이라 개별 가격 추천 대상이 아닙니다.
+            // 그 가격은 위 인플레이션으로만 움직입니다.
+            products={teacherOwnedProducts}
             policyVersions={policyVersions}
             currencyName={currencyName}
             activeStudentCount={activeStudentCount}
@@ -3570,15 +3613,26 @@ function ShopAdmin({
       </PlainSection>
       <PlainSection title="상품 관리">
         <div className="inflation-control">
-          <div><b>인플레이션 적용</b><span>모든 상품 가격을 같은 비율로 올려 서버에 저장해요.</span></div>
+          <div>
+            <b>인플레이션 적용</b>
+            <span>캐릭터 상품까지 포함해 모든 상품 가격을 같은 비율로 올려 서버에 저장해요.</span>
+          </div>
           <label>인상률 <input inputMode="decimal" value={inflationRate} onChange={(event) => setInflationRate(event.target.value)} />%</label>
           <button type="button" disabled={submitting} onClick={() => void applyInflation()}>
             {submitting ? "적용하는 중" : "적용하기"}
           </button>
         </div>
         <div className="product-list">
-          {products.length === 0 ? <p className="empty-copy">등록한 상품이 없어요. 위에서 상품을 올려 주세요.</p> : null}
-          {products.map((product, index) => {
+          {managedProducts.length === 0
+            ? <p className="empty-copy">등록한 상품이 없어요. 위에서 상품을 올려 주세요.</p>
+            : null}
+          {characterProductCount > 0 ? (
+            <p className="helper-text">
+              캐릭터 상품 {characterProductCount}종은 시스템이 정한 항목이라 여기서 고치거나 지우지
+              않습니다. 학생 이코 상점에는 그대로 보이고, 가격은 위 인플레이션으로 함께 움직입니다.
+            </p>
+          ) : null}
+          {managedProducts.map(({ product, index }) => {
             const activeDraft = editingIndex === index ? draftProduct : null;
             const isPublished = product.status === "PUBLISHED";
 

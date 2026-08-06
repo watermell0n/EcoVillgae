@@ -21,7 +21,9 @@ type ProductDraft = {
   price: string;
   stock: string;
   resourceId?: string;
-  kind?: "PHYSICAL" | "DIGITAL";
+  // 서버가 준 종류를 그대로 되돌려 보내야 합니다. 캐릭터 상품을 PHYSICAL로 바꿔 보내면
+  // 서버가 PRODUCT_TYPE_CONFLICT로 거절해 가격 추천이 기존 상품에 적용되지 않습니다.
+  kind?: "PHYSICAL" | "DIGITAL" | "CHARACTER";
   vatRateBps?: number;
 };
 
