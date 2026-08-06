@@ -186,9 +186,11 @@ export function QuizDraftWorkspace({
       questions: Array<{ quiz_question_version_id?: string }>;
     }>(`/classrooms/${classroomId}/quiz-sessions/${activeQuizSessionId}`)
       .then((session) => {
-        setOpenedVersionIds(session.questions.flatMap((question) => (
+        const fetched = session.questions.flatMap((question) => (
           question.quiz_question_version_id ? [question.quiz_question_version_id] : []
-        )));
+        ));
+        // 방금 연 퀴즈의 잠금을 응답이 늦게 오거나 비어 있다고 지우면 안 되므로 합칩니다.
+        setOpenedVersionIds((current) => [...new Set([...current, ...fetched])]);
       })
       .catch(() => {
         // 세션 정보를 바로 읽지 못해도 새 시작 요청의 서버 검증은 유지합니다.
