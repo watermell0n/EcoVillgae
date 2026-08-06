@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,6 +80,26 @@ public class InvestmentController {
         InvestmentScenarioResult result = scenarioService.generate(
             subject(principal), classroomId, request.investmentMode(), request.preferHistoricalIndex(),
             request.dailyVolatilityBps(), request.conditionsBySymbol()
+        );
+        return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
+    }
+
+    /**
+     * 가상 기업의 이름과 소개 문장만 고친다. 가격 흐름은 그대로 두므로 시나리오를 다시
+     * 만들지 않고도 어려운 낱말을 학생 눈높이로 바꿀 수 있다.
+     */
+    @PutMapping("/investment-market/assets/{assetId}")
+    public ApiResponse<InvestmentScenarioService.InvestmentAssetTextResult> rewriteAssetText(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID assetId,
+        @Valid @RequestBody InvestmentAssetTextRequest request,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        InvestmentScenarioService.InvestmentAssetTextResult result = scenarioService.rewriteAssetText(
+            subject(principal), classroomId, assetId, request.name(), request.companyProfile()
         );
         return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
@@ -198,6 +219,13 @@ public class InvestmentController {
  * 투자 시나리오 생성 요청이다. dailyVolatilityBps와 assetConditions는 교사가
  * "운영 관리 &gt; 투자"에서 정한 값이며, 없으면 서버 기본값으로 만든다.
  */
+/** 교사가 고친 기업 이름과 소개 문장이다. 기호와 가격은 여기서 바꾸지 않는다. */
+record InvestmentAssetTextRequest(
+    @NotBlank @Size(max = 100) String name,
+    @NotBlank @Size(max = 1000) String companyProfile
+) {
+}
+
 record InvestmentScenarioRequest(
     Long expectedStateVersion,
     String screenId,

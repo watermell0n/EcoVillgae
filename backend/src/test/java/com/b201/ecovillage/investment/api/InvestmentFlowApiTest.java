@@ -132,7 +132,8 @@ class InvestmentFlowApiTest {
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.scenario_source").value("HISTORICAL_INDEX"))
-            .andExpect(jsonPath("$.data.assets.length()").value(4));
+            // 장기는 여러 날 비교하며 고르므로 종목을 6개 둔다(단기는 3개).
+            .andExpect(jsonPath("$.data.assets.length()").value(6));
 
         // 학급이 단기와 장기를 함께 운영하므로 조회에도 방식을 지정해야 시장이 하나로 정해진다.
         String draftBody = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
@@ -286,7 +287,7 @@ class InvestmentFlowApiTest {
                 .principal(owner))
             .andReturn().getResponse().getContentAsString();
         JsonNode assets = objectMapper.readTree(body).get("data").get("assets");
-        assertEquals(4, assets.size());
+        assertEquals(6, assets.size());
         assertNotEquals(
             assets.get(0).get("planned_price_history").toString(),
             assets.get(1).get("planned_price_history").toString()

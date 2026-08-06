@@ -1448,6 +1448,30 @@ button:disabled {
   padding-top: 4px;
 }
 
+/* 교사가 AI 문장을 고쳐 쓰는 자리입니다. 보기 카드와 뉴스 카드에서 같은 모양을 씁니다. */
+.investment-asset-editor,
+.investment-news-review label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.investment-asset-editor input,
+.investment-asset-editor textarea,
+.investment-news-review input,
+.investment-news-review textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  resize: vertical;
+}
+
 .module-status {
   padding: 6px 10px;
   border-radius: 999px;

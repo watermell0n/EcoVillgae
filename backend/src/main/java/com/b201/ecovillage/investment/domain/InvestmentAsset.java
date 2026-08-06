@@ -183,6 +183,19 @@ public class InvestmentAsset {
         return normalized;
     }
 
+    /**
+     * 교사가 학생 눈높이에 맞게 기업 이름과 소개 문장을 고친다.
+     *
+     * <p>기호(symbol)와 가격 흐름은 그대로 둔다. 교사가 정한 1주 시작가와 변동 범위가 기호로
+     * 묶여 있고, 이미 만들어 둔 가격 단계도 종목에 붙어 있기 때문이다. 바뀌는 것은 교사와
+     * 학생 화면에 보이는 글뿐이다.
+     */
+    public void rewrite(String name, String fictionalCompanyProfile, Instant now) {
+        this.name = requireContractName(name);
+        this.fictionalCompanyProfile = requireCompanyProfile(fictionalCompanyProfile);
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+    }
+
     public boolean isActive() {
         return ACTIVE.equals(status);
     }

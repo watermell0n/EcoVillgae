@@ -298,6 +298,57 @@ public class InvestmentScenarioService {
             ));
     }
 
+    /**
+     * 교사가 가상 기업의 이름과 소개 문장을 고친다.
+     *
+     * <p>AI가 지은 문장에는 초등학생이 읽기 어려운 낱말이 섞일 수 있다. 시나리오를 다시
+     * 만들면 가격 흐름까지 바뀌므로, 글만 고칠 수 있는 길을 따로 둔다. 정산이 끝난 시장은
+     * 학생이 이미 결과를 본 뒤라 고치지 않는다.
+     */
+    @Transactional
+    public InvestmentAssetTextResult rewriteAssetText(
+        String teacherSubject,
+        UUID classroomId,
+        UUID assetId,
+        String name,
+        String companyProfile
+    ) {
+        authorizationService.authorize(
+            teacherSubject,
+            classroomId,
+            ClassroomPermission.MANAGE_INVESTMENT_SCENARIO,
+            null
+        );
+        InvestmentAsset asset = assetRepository.findByClassroomIdAndId(classroomId, assetId)
+            .filter(InvestmentAsset::isActive)
+            .orElseThrow(() -> operation(
+                HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "종목을 찾을 수 없습니다."
+            ));
+        try {
+            asset.rewrite(name, companyProfile, clock.instant());
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw operation(
+                HttpStatus.BAD_REQUEST,
+                "VALIDATION_ERROR",
+                "기업 이름은 1~100자, 소개는 1~1000자로 입력해 주세요."
+            );
+        }
+        assetRepository.save(asset);
+        assetRepository.flush();
+        return new InvestmentAssetTextResult(
+            asset.getId(), asset.getSymbol(), asset.getName(), asset.getFictionalCompanyProfile()
+        );
+    }
+
+    /** 문장만 고친 결과다. 가격과 변동 범위는 바뀌지 않으므로 담지 않는다. */
+    public record InvestmentAssetTextResult(
+        UUID assetId,
+        String symbol,
+        String name,
+        String companyProfile
+    ) {
+    }
+
     private InvestmentScenarioResult resultOf(
         UUID classroomId,
         InvestmentMarket market,

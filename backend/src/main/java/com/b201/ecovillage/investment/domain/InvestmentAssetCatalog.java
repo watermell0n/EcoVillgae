@@ -19,6 +19,11 @@ public final class InvestmentAssetCatalog {
     /** 교사가 시작가를 정하지 않았을 때 쓰는 기준가다. */
     public static final long DEFAULT_BASE_PRICE = 1_000L;
 
+    /** 단기 투자에 쓰는 종목 수다. 하루 만에 판단해야 하므로 적게 둔다. */
+    private static final int SHORT_TERM_COUNT = 3;
+    /** 장기 투자에 쓰는 종목 수다. 여러 날 비교하며 고르므로 넉넉히 둔다. */
+    private static final int LONG_TERM_COUNT = 6;
+
     private static final List<Seed> SEEDS = List.of(
         new Seed("GREEN", "그린모빌리티", "친환경 이동수단을 만드는 가상 기업",
             new BigDecimal("1.00"), new BigDecimal("1.00")),
@@ -27,14 +32,22 @@ public final class InvestmentAssetCatalog {
         new Seed("FOOD", "마을푸드", "지역 농산물 유통을 돕는 가상 기업",
             new BigDecimal("0.80"), new BigDecimal("0.60")),
         new Seed("ENERGY", "새빛에너지", "재생 에너지 설비를 만드는 가상 기업",
-            new BigDecimal("1.50"), new BigDecimal("1.20"))
+            new BigDecimal("1.50"), new BigDecimal("1.20")),
+        new Seed("HEALTH", "튼튼케어", "학생 건강을 돌보는 용품을 만드는 가상 기업",
+            new BigDecimal("1.10"), new BigDecimal("0.80")),
+        new Seed("BOOK", "책마을출판", "어린이 책을 만들고 파는 가상 기업",
+            new BigDecimal("0.90"), new BigDecimal("0.70"))
     );
 
     private InvestmentAssetCatalog() {
     }
 
-    public static List<Seed> seeds() {
-        return SEEDS;
+    /**
+     * 투자 방식에 쓰는 종목 목록이다. 자리와 순서는 방식마다 고정이므로, 교사가 정한 1주
+     * 시작가와 변동 범위를 묶어 두는 종목 기호도 다시 만들 때마다 같다.
+     */
+    public static List<Seed> seeds(InvestmentMode mode) {
+        return SEEDS.subList(0, mode == InvestmentMode.SHORT_TERM ? SHORT_TERM_COUNT : LONG_TERM_COUNT);
     }
 
     /** 기준가에 종목 비중을 곱한 1주 가격이다. 10 단위로 끊어 학생이 읽기 쉽게 한다. */

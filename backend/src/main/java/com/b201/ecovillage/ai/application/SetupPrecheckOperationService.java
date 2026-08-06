@@ -44,6 +44,8 @@ import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.UserAccountRepository;
 import com.b201.ecovillage.investment.domain.InvestmentAssetCatalog;
+import com.b201.ecovillage.investment.domain.InvestmentMode;
+import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
@@ -434,13 +436,17 @@ public class SetupPrecheckOperationService {
         }
         InvestmentSetupMetricsProvider.InvestmentSetupMetrics metrics =
             investmentMetricsProvider.of(classroomId);
+        // 방식마다 쓰는 종목 수가 다르다. 시나리오 생성과 같은 목록을 봐야 교사가 정한 값이
+        // 빠짐없이 종목에 붙는다.
+        InvestmentMode mode = InvestmentModeConfig.parse(draft.investmentMode())
+            .orElse(InvestmentMode.LONG_TERM);
         return new RuleEngineRequest.InvestmentDraft(
             moduleId,
             draft.investmentMode(),
             metrics.moneyIssuance(),
             metrics.averageBalance(),
             metrics.medianBalance(),
-            InvestmentAssetCatalog.seeds().stream()
+            InvestmentAssetCatalog.seeds(mode).stream()
                 .map(seed -> {
                     SetupPrecheckInput.AssetCondition condition = confirmed.get(seed.symbol());
                     return new RuleEngineRequest.InvestmentAsset(
