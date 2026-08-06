@@ -369,9 +369,23 @@ export async function castVote(classroomId: string, vote: Vote, optionId: string
 }
 
 export async function fetchGuidedActivity(classroomId: string, activityId: string) {
-  if (useMocks) return { activityId, status: "LIVE", participantCount: 24 };
-  const response = await apiRequest<{ activity_id: string; status: string; participant_count: number }>(`/classrooms/${classroomId}/guided-activities/${activityId}`);
-  return { activityId: response.activity_id, status: response.status, participantCount: response.participant_count };
+  if (useMocks) return { activityId, status: "LIVE", participantCount: 24, activityType: "ECONOMIC_CONCEPT_IMAGE", presentationTitle: "경제 개념 수업", presentationImageUrl: undefined };
+  const response = await apiRequest<{
+    activity_id: string;
+    status: string;
+    participant_count: number;
+    activity_type?: string;
+    presentation_title?: string;
+    presentation_image_url?: string;
+  }>(`/classrooms/${classroomId}/guided-activities/${activityId}`);
+  return {
+    activityId: response.activity_id,
+    status: response.status,
+    participantCount: response.participant_count,
+    activityType: response.activity_type,
+    presentationTitle: response.presentation_title,
+    presentationImageUrl: response.presentation_image_url
+  };
 }
 
 export type InventoryItem = { resourceId: string; label: string; status: string; stateVersion: number; characterCode: string; equipped: boolean };

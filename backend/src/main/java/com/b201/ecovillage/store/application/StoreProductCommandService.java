@@ -235,15 +235,7 @@ public class StoreProductCommandService {
                 "The product type cannot be changed."
             );
         }
-        if (
-            command.command() == StoreProductCommandType.UPDATE
-                && !product.canReviseDraft()
-        ) {
-            throw invalidTransition("A published product must be unpublished before updating.");
-        }
-
         Map<String, Object> before = summary(product, latest);
-        product.updateDescription(command.name(), command.description(), now);
         StoreStock stock = stockRepository
             .findForUpdate(command.classroomId(), product.getId())
             .orElseThrow(() -> operation(
@@ -251,11 +243,21 @@ public class StoreProductCommandService {
                 "PRODUCT_STOCK_MISSING",
                 "The product stock record could not be found."
             ));
+        if (command.command() == StoreProductCommandType.DELETE) {
+            product.retire(now);
+            latest.retire(now);
+            stock.replaceAvailableQuantity(0, now);
+            productRepository.save(product);
+            stockRepository.save(stock);
+            return new Execution(product, latest, before);
+        }
+
+        product.updateDescription(command.name(), command.description(), now);
         stock.replaceAvailableQuantity(command.stockQuantity(), now);
         attachApprovedCharacter(command, product.getId());
 
         boolean purchasable = switch (command.command()) {
-            case UPDATE -> false;
+            case UPDATE -> product.isPublished();
             case PUBLISH -> {
                 try {
                     product.publish(now);
@@ -272,6 +274,7 @@ public class StoreProductCommandService {
                 }
                 yield false;
             }
+            case DELETE -> throw validation("DELETE must retire an existing product.");
             case CREATE -> throw validation("CREATE must create a new product.");
         };
         latest.retire(now);

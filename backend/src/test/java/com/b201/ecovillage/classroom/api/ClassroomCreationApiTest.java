@@ -98,7 +98,7 @@ class ClassroomCreationApiTest {
     }
 
     @Test
-    void createsClassroomOwnerAndDisabledSelectedModulesWithoutDefaultPolicy() throws Exception {
+    void createsClassroomOwnerAndActivatesModulesWithoutInitialConfiguration() throws Exception {
         String response = mockMvc.perform(
             post("/classrooms")
                 .principal(principal)
@@ -135,8 +135,8 @@ class ClassroomCreationApiTest {
             Long.class
         ));
         assertTrue(classroomModuleRepository.findAll().stream().allMatch(
-            module -> "DISABLED".equals(module.getStatus())
-                && module.getEnabledAt() == null
+            module -> "ACTIVE".equals(module.getStatus())
+                && module.getEnabledAt() != null
         ));
 
         mockMvc.perform(
@@ -341,7 +341,7 @@ class ClassroomCreationApiTest {
         assertEquals(1, classroomRepository.count());
         assertEquals(2, classroomModuleRepository.count());
         assertTrue(classroomModuleRepository.findAll().stream().allMatch(
-            module -> "DISABLED".equals(module.getStatus())
+            module -> "ACTIVE".equals(module.getStatus())
         ));
     }
 

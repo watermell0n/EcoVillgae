@@ -564,8 +564,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, planned_student_count, status)
-                    VALUES (?, ?, ?, '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                         grade, scale_label, planned_student_count, display_name, status)
+                    VALUES (?, ?, ?, '별', 5, 'ONE_MONTH', 30, '중복 코드 교실', 'ACTIVE')
                     """, uuid(), secondSchool, seed.classroomCode());
             }
         });
@@ -574,8 +574,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, planned_student_count, status)
-                    VALUES (?, ?, ?, '우리 반 돈', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                         grade, scale_label, planned_student_count, display_name, status)
+                    VALUES (?, ?, ?, '우리 반 돈', 5, 'ONE_MONTH', 30, '잘못된 화폐 교실', 'ACTIVE')
                     """, uuid(), secondSchool, classroomCode());
             }
         });
@@ -584,8 +584,8 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO classrooms
                         (id, school_id, classroom_code, currency_name,
-                         grade, scale_label, planned_student_count, status)
-                    VALUES (?, ?, 'INVALID1', '별', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                         grade, scale_label, planned_student_count, display_name, status)
+                    VALUES (?, ?, 'INVALID1', '별', 5, 'ONE_MONTH', 30, '잘못된 코드 교실', 'ACTIVE')
                     """, uuid(), secondSchool);
             }
         });
@@ -643,7 +643,7 @@ class SchemaIntegrityTest {
             execute(connection, """
                 INSERT INTO classroom_modules
                     (id, classroom_id, module_code, status)
-                VALUES (?, ?, 'QUIZ', 'ACTIVE')
+                VALUES (?, ?, 'QUIZ_GAME', 'ACTIVE')
                 """, uuid(), first.classroomId());
             execute(connection, """
                 INSERT INTO autonomous_schedules
@@ -657,7 +657,7 @@ class SchemaIntegrityTest {
                 execute(connection, """
                     INSERT INTO autonomous_schedule_modules
                         (id, classroom_id, autonomous_schedule_id, module_code)
-                    VALUES (?, ?, ?, 'QUIZ')
+                    VALUES (?, ?, ?, 'QUIZ_GAME')
                     """, uuid(), first.classroomId(), secondSchedule);
             }
         });
@@ -815,8 +815,8 @@ class SchemaIntegrityTest {
             execute(connection, """
                 INSERT INTO classrooms
                     (id, school_id, classroom_code, currency_name,
-                     grade, scale_label, planned_student_count, status)
-                VALUES (?, ?, ?, '에코', 5, 'ONE_MONTH', 30, 'ACTIVE')
+                     grade, scale_label, planned_student_count, display_name, status)
+                VALUES (?, ?, ?, '에코', 5, 'ONE_MONTH', 30, '5학년 경제교실', 'ACTIVE')
                 """, classroom, school, classroomCode);
         }
         UUID student = null;

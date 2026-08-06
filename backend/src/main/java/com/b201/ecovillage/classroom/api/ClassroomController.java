@@ -10,12 +10,14 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.b201.ecovillage.classroom.application.AutonomousScheduleCommand;
@@ -23,6 +25,8 @@ import com.b201.ecovillage.classroom.application.AccessModeCommand;
 import com.b201.ecovillage.classroom.application.AccessModeCommandService;
 import com.b201.ecovillage.classroom.application.AccessModeResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationResult;
+import com.b201.ecovillage.classroom.application.ClassroomArchiveService;
+import com.b201.ecovillage.classroom.application.ClassroomArchiveResult;
 import com.b201.ecovillage.classroom.application.ClassroomConfigurationService;
 import com.b201.ecovillage.classroom.application.CourseConfigurationCommand;
 import com.b201.ecovillage.classroom.application.CourseConfigurationCommandService;
@@ -62,6 +66,7 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 public class ClassroomController {
 
     private final ClassroomCreationService creationService;
+    private final ClassroomArchiveService archiveService;
     private final ClassroomConfigurationService configurationService;
     private final ClassroomRosterService rosterService;
     private final ClassroomReadService readService;
@@ -77,6 +82,7 @@ public class ClassroomController {
 
     public ClassroomController(
         ClassroomCreationService creationService,
+        ClassroomArchiveService archiveService,
         ClassroomConfigurationService configurationService,
         ClassroomRosterService rosterService,
         ClassroomReadService readService,
@@ -91,6 +97,7 @@ public class ClassroomController {
         Clock clock
     ) {
         this.creationService = creationService;
+        this.archiveService = archiveService;
         this.configurationService = configurationService;
         this.rosterService = rosterService;
         this.readService = readService;
@@ -103,6 +110,30 @@ public class ClassroomController {
         this.economicPolicyCommandService = economicPolicyCommandService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @DeleteMapping("/{classroomId}")
+    public ApiResponse<ClassroomArchiveResponse> archiveClassroom(
+        @PathVariable UUID classroomId,
+        @RequestParam("expected_state_version") long expectedStateVersion,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        ClassroomArchiveResult result = archiveService.archive(
+            principal == null ? null : principal.getName(),
+            classroomId,
+            expectedStateVersion
+        );
+        UUID requestId = uuidGenerator.generate();
+        UUID correlation = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return new ApiResponse<>(
+            new ClassroomArchiveResponse(
+                result.classroomId(),
+                result.status(),
+                result.stateVersion()
+            ),
+            meta(requestId, correlation)
+        );
     }
 
     @PutMapping("/{classroomId}/course-configuration")

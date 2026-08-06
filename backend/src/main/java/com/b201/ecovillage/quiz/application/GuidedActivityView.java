@@ -5,6 +5,10 @@ import java.util.UUID;
 public record GuidedActivityView(
     UUID activityId,
     String status,
-    long participantCount
+    long stateVersion,
+    long participantCount,
+    String activityType,
+    String presentationTitle,
+    String presentationImageUrl
 ) {
 }
