@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import com.b201.ecovillage.quiz.domain.ActivityPresentationSlide;
 import com.b201.ecovillage.quiz.domain.ActivitySession;
 import com.b201.ecovillage.quiz.repository.ActivityPresentationSlideRepository;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
+import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 /**
  * 선생님 수업 모듈을 열고, 자료를 순서대로 넘긴다.
@@ -28,9 +30,10 @@ import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
  * <p>자료는 시작할 때 한 번에 담고 수업 중에는 커서만 옮긴다. 넘길 때마다 자료를 다시
  * 받으면 교사 화면과 학생 화면이 다른 장을 보게 될 수 있다.
  *
- * <p>학생 화면은 활동 조회를 3초마다 폴링해 현재 장을 그린다. 그래서 넘기기가 학생 쪽
- * 코드를 건드리지 않고, 커서가 가리키는 장을 activity_sessions에 사본으로 남기는 것만으로
- * 동작한다.
+ * <p>커서가 가리키는 장은 activity_sessions에 사본으로 남겨 활동 조회가 항상 현재 장을
+ * 돌려주게 한다. 넘길 때는 WS-ACT-001 채널로 activity.presentation.changed를 발행해
+ * 학생 화면이 폴링 주기를 기다리지 않고 즉시 다시 읽게 한다. 폴링은 연결이 끊겼을 때를
+ * 위한 안전망으로만 남는다.
  */
 @Service
 public class ImageLessonService {
@@ -44,6 +47,7 @@ public class ImageLessonService {
     private final ActivityPresentationSlideRepository slideRepository;
     private final ClassroomAuthorizationService authorizationService;
     private final GuidedActivityCommandService commandService;
+    private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -54,6 +58,7 @@ public class ImageLessonService {
         ActivityPresentationSlideRepository slideRepository,
         ClassroomAuthorizationService authorizationService,
         GuidedActivityCommandService commandService,
+        RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -63,6 +68,7 @@ public class ImageLessonService {
         this.slideRepository = slideRepository;
         this.authorizationService = authorizationService;
         this.commandService = commandService;
+        this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -220,6 +226,25 @@ public class ImageLessonService {
                 clock.instant()
             );
             activityRepository.saveAndFlush(activity);
+            // 학생 화면이 폴링 주기를 기다리지 않고 바로 따라오도록 알린다.
+            // 자료 자체는 실어 보내지 않는다. 데이터 URI가 수백 KB라 이벤트로 나르면
+            // 스트림이 무거워지고, 학생 앱은 알림을 받고 현재 장을 다시 읽으면 된다.
+            eventPublisher.publish(
+                classroomId,
+                "ACTIVITY",
+                activityId,
+                "activity.presentation.changed",
+                "ACTIVITY",
+                activityId,
+                activity.getStateVersion(),
+                Map.of(
+                    "activity_id", activityId.toString(),
+                    "page", clamped,
+                    "total_pages", total,
+                    "title", activity.getPresentationTitle()
+                ),
+                true
+            );
         }
         return new PresentationView(
             activity.getId(),

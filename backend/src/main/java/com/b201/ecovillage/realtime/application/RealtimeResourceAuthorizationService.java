@@ -41,8 +41,10 @@ public class RealtimeResourceAuthorizationService {
         UUID resourceId
     ) {
         boolean authorized = switch (channel) {
+            // 잠금 없는 조회를 쓴다. 쓰기 잠금 finder는 읽기 전용 트랜잭션에서
+            // PostgreSQL이 거절해 활동 채널 구독이 늘 INVALID_MESSAGE로 실패했다.
             case ACTIVITY -> activityRepository
-                .findByClassroomIdAndId(ticket.classroomId(), resourceId)
+                .findOneByClassroomIdAndId(ticket.classroomId(), resourceId)
                 .filter(activity -> participantAllowed(ticket, resourceId))
                 .isPresent();
             case QUIZ -> quizRepository

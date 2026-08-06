@@ -65,8 +65,8 @@ if (operationIds.length !== 147)
   throw new Error(`operationId 수가 147개가 아닙니다: ${operationIds.length}`);
 if (sourceChannelIds.length !== 10)
   throw new Error(`채널 수가 10이 아닙니다: ${sourceChannelIds.length}`);
-if (sourceEventIds.length !== 48)
-  throw new Error(`이벤트 수가 48이 아닙니다: ${sourceEventIds.length}`);
+if (sourceEventIds.length !== 49)
+  throw new Error(`이벤트 수가 49가 아닙니다: ${sourceEventIds.length}`);
 
 console.log(
   JSON.stringify(

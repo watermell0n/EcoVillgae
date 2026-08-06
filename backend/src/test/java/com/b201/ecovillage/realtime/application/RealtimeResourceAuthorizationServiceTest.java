@@ -42,7 +42,7 @@ class RealtimeResourceAuthorizationServiceTest {
     void acceptsActivityFromTicketClassroom() {
         RealtimeTicket ticket = ticket();
         UUID activityId = UUID.randomUUID();
-        when(activityRepository.findByClassroomIdAndId(ticket.classroomId(), activityId))
+        when(activityRepository.findOneByClassroomIdAndId(ticket.classroomId(), activityId))
             .thenReturn(Optional.of(mock(ActivitySession.class)));
 
         assertDoesNotThrow(() -> service.requireAuthorized(
@@ -56,7 +56,7 @@ class RealtimeResourceAuthorizationServiceTest {
     void rejectsResourceOutsideTicketClassroom() {
         RealtimeTicket ticket = ticket();
         UUID activityId = UUID.randomUUID();
-        when(activityRepository.findByClassroomIdAndId(ticket.classroomId(), activityId))
+        when(activityRepository.findOneByClassroomIdAndId(ticket.classroomId(), activityId))
             .thenReturn(Optional.empty());
 
         assertThrows(
@@ -69,7 +69,7 @@ class RealtimeResourceAuthorizationServiceTest {
     void rejectsStudentWhoIsNotAnActivityParticipant() {
         RealtimeTicket ticket = studentTicket();
         UUID activityId = UUID.randomUUID();
-        when(activityRepository.findByClassroomIdAndId(ticket.classroomId(), activityId))
+        when(activityRepository.findOneByClassroomIdAndId(ticket.classroomId(), activityId))
             .thenReturn(Optional.of(mock(ActivitySession.class)));
         when(participantRepository
             .existsByClassroomIdAndActivitySessionIdAndClassroomStudentId(

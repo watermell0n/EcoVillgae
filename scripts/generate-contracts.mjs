@@ -3512,7 +3512,7 @@ function buildAsyncApi(channels, events) {
       title: "이코빌리지 Realtime WebSocket API",
       version: "0.1.0",
       description:
-        "WEBSOCKET_SPEC.md의 논리 채널 10개와 도메인 이벤트 48개를 기계 판독 계약으로 고정합니다. 변경 명령은 HTTP로만 받고 WebSocket은 커밋된 상태를 최소 1회 전달합니다.",
+        "WEBSOCKET_SPEC.md의 논리 채널 10개와 도메인 이벤트 49개를 기계 판독 계약으로 고정합니다. 변경 명령은 HTTP로만 받고 WebSocket은 커밋된 상태를 최소 1회 전달합니다.",
     },
     defaultContentType: "application/json",
     servers: {
@@ -3763,9 +3763,9 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
     [new Set(apiIds).size === httpOperations.length, "API ID가 중복되었습니다."],
     [new Set(routeKeys).size === httpOperations.length, "HTTP 메서드·경로가 중복되었습니다."],
     [channels.length === 10, `WebSocket 채널 수가 10이 아닙니다: ${channels.length}`],
-    [events.length === 48, `이벤트 수가 48이 아닙니다: ${events.length}`],
-    [new Set(eventIds).size === 48, "이벤트 ID가 중복되었습니다."],
-    [new Set(eventTypes).size === 48, "event_type이 중복되었습니다."],
+    [events.length === 49, `이벤트 수가 49가 아닙니다: ${events.length}`],
+    [new Set(eventIds).size === 49, "이벤트 ID가 중복되었습니다."],
+    [new Set(eventTypes).size === 49, "event_type이 중복되었습니다."],
     [
       events.every((event) => event.channelIds.length > 0),
       "채널에 연결되지 않은 이벤트가 있습니다.",
@@ -3784,8 +3784,8 @@ function assertGeneration(httpOperations, channels, events, openapi, asyncapi, f
     [Object.keys(asyncapi.channels).length === 10, "AsyncAPI 채널 수가 10이 아닙니다."],
     [
       Object.keys(asyncapi.components.messages).filter((name) => name.startsWith("Evt")).length ===
-        48,
-      "AsyncAPI 이벤트 메시지 수가 48이 아닙니다.",
+        49,
+      "AsyncAPI 이벤트 메시지 수가 49가 아닙니다.",
     ],
     [
       fieldMapping.operations.every(
