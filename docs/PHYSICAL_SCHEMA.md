@@ -235,6 +235,7 @@ ON DELETE RESTRICT
 | --- | --- | --- | --- |
 | `activity_sessions` | S | `activity_type varchar(40)`, `policy_snapshot_id uuid? FK(policy_snapshots)`, `created_by_user_id uuid FK(users)`, `public_display_enabled boolean D=false`, `starts_at timestamptz?`, `ends_at timestamptz?` | SM-ACT-001 |
 | `activity_participants` | I | `activity_session_id uuid FK(activity_sessions)`, `classroom_student_id uuid FK(classroom_students)`, `participant_status varchar(40)`, `joined_at timestamptz?`, `completed_at timestamptz?` | `(activity_session_id,classroom_student_id) UQ` |
+| `activity_presentation_slides` | I | `activity_session_id uuid FK(activity_sessions)`, `sequence_number integer`, `title varchar(120)`, `image_url text` | `(activity_session_id,sequence_number) UQ`, 순서 1부터. 담은 뒤 수정하지 않고 `activity_sessions.presentation_cursor`만 옮김 |
 | `quiz_questions` | S | `created_by_user_id uuid FK(users)`, `content_type varchar(40)`, `title varchar(160)?` | 문제 컨테이너, 교사 화면 전용 |
 | `quiz_question_versions` | I | `quiz_question_id uuid FK(quiz_questions)`, `version integer`, `content_type varchar(40)`, `question_type varchar(40)`, `status varchar(40)`, `prompt text`, `explanation text?`, `source varchar(40)`, `ai_run_id uuid? FK(ai_runs)`, `published_at timestamptz?`, `retired_at timestamptz?` | `(quiz_question_id,version) UQ`, SM-QST-001 |
 | `quiz_options` | I | `quiz_question_version_id uuid FK(quiz_question_versions)`, `option_key varchar(20)`, `option_text text`, `is_correct boolean`, `sort_order integer` | `(quiz_question_version_id,option_key) UQ`, 정답 1개 이상 |

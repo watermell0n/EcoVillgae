@@ -2267,6 +2267,161 @@ paths:
                 - "acknowledged_blocking_items"
                 - "reason"
               additionalProperties: true
+  "/classrooms/{classroom_id}":
+    delete:
+      operationId: "apiCls009"
+      x-api-id: "API-CLS-009"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classrooms"
+        - "classroom_teachers"
+        - "classroom_students"
+        - "salary_roles"
+        - "classroom_modules"
+        - "autonomous_schedules"
+        - "autonomous_schedule_modules"
+      x-ui-action-ids:
+        - "UIA-CLS-009"
+      x-roles:
+        - "OWN"
+      x-permission-ids:
+        - "PM-CLS-001"
+      x-state-machine-ids:
+        - "SM-CLS-001"
+      x-rtm-ids:
+        - "CLS-001"
+      tags:
+        - "Classrooms"
+      summary: "쿼리 expected_state_version → 개설 도중이나 운영 중인 학급을 목록에서 내려 보관 처리. 본문은 없음"
+      description: "사람이 검토하는 원문 기준: `API-CLS-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: 쿼리 expected_state_version → 개설 도중이나 운영 중인 학급을 목록에서 내려 보관 처리. 본문은 없음."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        204:
+          description: "성공적으로 처리했으며 응답 본문이 없습니다."
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: "apiRead002"
+      x-api-id: "API-READ-002"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classrooms"
+        - "course_template_versions"
+      x-roles:
+        - "STU"
+        - "OWN"
+        - "COT"
+        - "SAD"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-003"
+        - "WEB-003"
+        - "ADM-001"
+        - "AUTH-007"
+        - "CLS-001"
+        - "CLS-010"
+        - "CRS-001"
+      tags:
+        - "Queries"
+      summary: "역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함"
+      description: "사람이 검토하는 원문 기준: `API-READ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT, SAD.\n\n핵심 계약: 역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "classroom_id"
+                      - "currency_name"
+                      - "grade"
+                      - "course_size"
+                      - "planned_student_count"
+                      - "status"
+                      - "state_version"
+                    properties:
+                      classroom_id:
+                        type: "string"
+                        format: "uuid"
+                      classroom_code:
+                        type: "string"
+                      currency_name:
+                        type: "string"
+                      grade:
+                        type: "integer"
+                        enum:
+                          - 4
+                          - 5
+                          - 6
+                      course_size:
+                        type: "string"
+                      planned_student_count:
+                        type: "integer"
+                        minimum: 1
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
   "/classrooms/{classroom_id}/modules/{module_code}/activation-commands":
     post:
       operationId: "apiMod001"
@@ -3254,6 +3409,264 @@ paths:
                     - "CANCEL"
                 reason:
                   type: "string"
+              required:
+                - "command"
+              additionalProperties: false
+  "/classrooms/{classroom_id}/guided-activities/image-lessons":
+    post:
+      operationId: "apiAct003"
+      x-api-id: "API-ACT-003"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "activity_sessions"
+        - "activity_participants"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
+      x-ui-action-ids:
+        - "UIA-ACT-003"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-ACT-001"
+      x-state-machine-ids:
+        - "SM-ACT-001"
+        - "SM-APP-001"
+      x-rtm-ids:
+        - "CLS-009"
+      tags:
+        - "Guided activities"
+      summary: "slides=[{title, image_url} …] 또는 한 장짜리 title, image_url → 자료를 순서대로 담은 활동을 만들고 READY → LIVE, 첫 장을 학생 화면에 고정"
+      description: "사람이 검토하는 원문 기준: `API-ACT-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: slides=[{title, image_url} …] 또는 한 장짜리 title, image_url → 자료를 순서대로 담은 활동을 만들고 READY → LIVE, 첫 장을 학생 화면에 고정."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        201:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "activity_id"
+                      - "status"
+                      - "state_version"
+                    properties:
+                      activity_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "LIVE"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-ACT-003 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                slides:
+                  type: "array"
+                  minItems: 1
+                  maxItems: 60
+                  items:
+                    type: "object"
+                    additionalProperties: false
+                    required:
+                      - "title"
+                      - "image_url"
+                    properties:
+                      title:
+                        type: "string"
+                        maxLength: 120
+                      image_url:
+                        type: "string"
+                        maxLength: 8000000
+                title:
+                  type: "string"
+                  maxLength: 120
+                image_url:
+                  type: "string"
+                  maxLength: 8000000
+              additionalProperties: false
+  "/classrooms/{classroom_id}/guided-activities/{resource_id}/presentation-commands":
+    post:
+      operationId: "apiAct004"
+      x-api-id: "API-ACT-004"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "activity_sessions"
+        - "activity_participants"
+        - "realtime_streams"
+        - "outbox_events"
+        - "audit_events"
+      x-ui-action-ids:
+        - "UIA-ACT-004"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-ACT-001"
+      x-state-machine-ids:
+        - "SM-ACT-001"
+      x-rtm-ids:
+        - "CLS-009"
+      tags:
+        - "Guided activities"
+      summary: "command=NEXT|PREVIOUS|GOTO, page? → 보여 주는 장을 옮기고 현재 위치와 총 장수를 돌려줌. 양 끝을 넘기려 하면 옮기지 않고 현재 위치를 유지"
+      description: "사람이 검토하는 원문 기준: `API-ACT-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=NEXT|PREVIOUS|GOTO, page? → 보여 주는 장을 옮기고 현재 위치와 총 장수를 돌려줌. 양 끝을 넘기려 하면 옮기지 않고 현재 위치를 유지."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/ResourceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "activity_id"
+                      - "status"
+                      - "state_version"
+                      - "page"
+                      - "total_pages"
+                      - "title"
+                      - "image_url"
+                      - "has_previous"
+                      - "has_next"
+                    properties:
+                      activity_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      page:
+                        type: "integer"
+                        minimum: 1
+                      total_pages:
+                        type: "integer"
+                        minimum: 1
+                      title:
+                        type: "string"
+                      image_url:
+                        type: "string"
+                      has_previous:
+                        type: "boolean"
+                      has_next:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-ACT-004 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                command:
+                  type: "string"
+                  enum:
+                    - "NEXT"
+                    - "PREVIOUS"
+                    - "GOTO"
+                page:
+                  type: "integer"
+                  minimum: 1
               required:
                 - "command"
               additionalProperties: false
@@ -11207,6 +11620,122 @@ paths:
                 - "reason"
                 - "expected_result_version"
               additionalProperties: false
+  "/classrooms/{classroom_id}/nonsense-question-imports":
+    post:
+      operationId: "apiQz010"
+      x-api-id: "API-QZ-010"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "quiz_questions"
+        - "quiz_question_versions"
+        - "quiz_options"
+        - "quiz_sessions"
+        - "quiz_submissions"
+        - "quiz_answers"
+        - "quiz_result_versions"
+      x-ui-action-ids:
+        - "UIA-QZ-010"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-QZ-001"
+      x-state-machine-ids:
+        - "SM-QST-001"
+      x-rtm-ids:
+        - "QZ-001"
+      tags:
+        - "Quiz"
+      summary: "grade=4|5|6, question_count=1..30 → 사람이 검토한 넌센스 문제은행에서 학급에 없는 문항만 뽑아 DRAFT로 담고 남은 수를 돌려줌. AI를 부르지 않아 학급 AI 설정과 일일 한도를 보지 않음"
+      description: "사람이 검토하는 원문 기준: `API-QZ-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: grade=4|5|6, question_count=1..30 → 사람이 검토한 넌센스 문제은행에서 학급에 없는 문항만 뽑아 DRAFT로 담고 남은 수를 돌려줌. AI를 부르지 않아 학급 AI 설정과 일일 한도를 보지 않음."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        201:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "question_ids"
+                      - "remaining_count"
+                      - "bank_version"
+                    properties:
+                      question_ids:
+                        type: "array"
+                        items:
+                          type: "string"
+                          format: "uuid"
+                      remaining_count:
+                        type: "integer"
+                        minimum: 0
+                      bank_version:
+                        type: "string"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-QZ-010 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                screen_id:
+                  type: "string"
+                  pattern: "^SCR-[A-Z]+-\\d{3}$"
+                ui_action_id:
+                  type: "string"
+                  pattern: "^UIA-[A-Z]+-\\d{3}$"
+                client_occurred_at:
+                  type: "string"
+                  format: "date-time"
+                grade:
+                  type: "integer"
+                  enum:
+                    - 4
+                    - 5
+                    - 6
+                question_count:
+                  type: "integer"
+                  minimum: 1
+                  maximum: 30
+              required:
+                - "grade"
+                - "question_count"
+              additionalProperties: false
   "/classrooms/{classroom_id}/votes/{resource_id}/commands":
     post:
       operationId: "apiVot001"
@@ -13254,107 +13783,6 @@ paths:
                           additionalProperties: false
                       start_screen:
                         type: "string"
-                    additionalProperties: false
-                  meta:
-                    $ref: "#/components/schemas/Meta"
-                additionalProperties: false
-        400:
-          $ref: "#/components/responses/BadRequest"
-        401:
-          $ref: "#/components/responses/Unauthorized"
-        403:
-          $ref: "#/components/responses/Forbidden"
-        404:
-          $ref: "#/components/responses/NotFound"
-        409:
-          $ref: "#/components/responses/Conflict"
-        422:
-          $ref: "#/components/responses/UnprocessableEntity"
-        429:
-          $ref: "#/components/responses/TooManyRequests"
-        500:
-          $ref: "#/components/responses/InternalError"
-        503:
-          $ref: "#/components/responses/ServiceUnavailable"
-  "/classrooms/{classroom_id}":
-    get:
-      operationId: "apiRead002"
-      x-api-id: "API-READ-002"
-      x-implementation-status: "mvp-contract"
-      x-schema-closure: "strict"
-      x-storage-targets:
-        - "classrooms"
-        - "course_template_versions"
-      x-roles:
-        - "STU"
-        - "OWN"
-        - "COT"
-        - "SAD"
-      x-permission-ids: []
-      x-state-machine-ids: []
-      x-rtm-ids:
-        - "STU-003"
-        - "WEB-003"
-        - "ADM-001"
-        - "AUTH-007"
-        - "CLS-001"
-        - "CLS-010"
-        - "CRS-001"
-      tags:
-        - "Queries"
-      summary: "역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함"
-      description: "사람이 검토하는 원문 기준: `API-READ-002` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT, SAD.\n\n핵심 계약: 역할별 학급 상태, 기간, 코스, 화폐 단위명 요약, 허용 역할에는 학급 코드 포함."
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/XCorrelationId"
-        - $ref: "#/components/parameters/ClassroomIdPath"
-      responses:
-        200:
-          description: "MVP 작업별 명시적 성공 응답"
-          content:
-            application/json:
-              schema:
-                type: "object"
-                required:
-                  - "data"
-                  - "meta"
-                properties:
-                  data:
-                    type: "object"
-                    required:
-                      - "classroom_id"
-                      - "currency_name"
-                      - "grade"
-                      - "course_size"
-                      - "planned_student_count"
-                      - "status"
-                      - "state_version"
-                    properties:
-                      classroom_id:
-                        type: "string"
-                        format: "uuid"
-                      classroom_code:
-                        type: "string"
-                      currency_name:
-                        type: "string"
-                      grade:
-                        type: "integer"
-                        enum:
-                          - 4
-                          - 5
-                          - 6
-                      course_size:
-                        type: "string"
-                      planned_student_count:
-                        type: "integer"
-                        minimum: 1
-                      status:
-                        type: "string"
-                      state_version:
-                        type: "integer"
-                        format: "int64"
-                        minimum: 0
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -15607,16 +16035,36 @@ paths:
                     required:
                       - "activity_id"
                       - "status"
+                      - "state_version"
                       - "participant_count"
+                      - "activity_type"
+                      - "presentation_page"
+                      - "presentation_total_pages"
                     properties:
                       activity_id:
                         type: "string"
                         format: "uuid"
                       status:
                         type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
                       participant_count:
                         type: "integer"
                         minimum: 0
+                      activity_type:
+                        type: "string"
+                      presentation_title:
+                        type: "string"
+                      presentation_image_url:
+                        type: "string"
+                      presentation_page:
+                        type: "integer"
+                        minimum: 1
+                      presentation_total_pages:
+                        type: "integer"
+                        minimum: 1
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"

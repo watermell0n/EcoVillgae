@@ -857,6 +857,34 @@ const requestFieldOverrides = {
     { name: "command", values: ["END", "CANCEL"] },
     { name: "reason", optional: true },
   ],
+  // 여러 장을 담을 때는 slides를, 한 장만 띄울 때는 title·image_url을 보낸다.
+  // 둘 중 하나만 오면 되므로 셋 다 선택 항목이고, 어느 쪽도 없으면 서버가 거절한다.
+  "API-ACT-003": [
+    {
+      name: "slides",
+      optional: true,
+      schema: {
+        type: "array",
+        minItems: 1,
+        maxItems: 60,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "image_url"],
+          properties: {
+            title: { type: "string", maxLength: 120 },
+            image_url: { type: "string", maxLength: 8000000 },
+          },
+        },
+      },
+    },
+    { name: "title", optional: true, schema: { type: "string", maxLength: 120 } },
+    { name: "image_url", optional: true, schema: { type: "string", maxLength: 8000000 } },
+  ],
+  "API-ACT-004": [
+    { name: "command", values: ["NEXT", "PREVIOUS", "GOTO"] },
+    { name: "page", optional: true, schema: { type: "integer", minimum: 1 } },
+  ],
   "API-DSP-001": [
     { name: "command", values: ["CONNECT", "DISCONNECT"] },
     { name: "display_session_id", optional: true },
@@ -987,6 +1015,10 @@ const requestFieldOverrides = {
     { name: "question_id" },
     { name: "reason_code" },
     { name: "description" },
+  ],
+  "API-QZ-010": [
+    { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
+    { name: "question_count", schema: { type: "integer", minimum: 1, maximum: 30 } },
   ],
   "API-VOT-001": [
     {
@@ -1119,8 +1151,24 @@ const requiredExpectedStateVersionApis = new Set([
   "API-SHP-001",
 ]);
 
+/**
+ * expected_state_version을 아예 받지 않는 작업이다.
+ *
+ * <p>새 자원을 만들거나(수업 시작·문항 가져오기) 커서만 옮기는(자료 넘기기) 동작은
+ * 비교할 이전 버전이 없다. 수업 중에 버전이 조금 낡았다는 이유로 넘기기가 막히면
+ * 교사는 원인을 알 수 없는 충돌 안내만 보게 된다.
+ */
+const noExpectedStateVersionApis = new Set([
+  "API-ACT-003",
+  "API-ACT-004",
+  "API-QZ-010",
+]);
+
 function mutationContextFor(operation) {
   if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  if (noExpectedStateVersionApis.has(operation.apiId)) {
+    return mutationContextFields.filter((field) => field.name !== "expected_state_version");
+  }
   return mutationContextFields.map((field) => {
     if (
       field.name === "expected_state_version"
@@ -1319,6 +1367,15 @@ const responseFieldOverrides = {
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "teacher_view", schema: { type: "boolean" } },
     { name: "assets", schema: { type: "array", items: { type: "object", additionalProperties: true } } },
+  ],
+  // 넌센스는 AI를 부르지 않아 비동기 작업이 아니다. 가져온 문항 id와 은행에 남은 수를 바로 준다.
+  "API-QZ-010": [
+    {
+      name: "question_ids",
+      schema: { type: "array", items: { type: "string", format: "uuid" } },
+    },
+    { name: "remaining_count", schema: { type: "integer", minimum: 0 } },
+    { name: "bank_version", schema: { type: "string" } },
   ],
   "API-QZ-002": [
     { name: "operation_id", schema: { type: "string", format: "uuid" } },
@@ -1570,6 +1627,24 @@ const responseFieldOverrides = {
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string", enum: ["FINALIZING", "CANCELED"] } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  // 수업 시작은 API-ACT-001과 같은 GuidedActivityResponse를 돌려준다.
+  "API-ACT-003": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["LIVE"] } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  // 넘긴 뒤 교사 화면이 "3 / 6"과 버튼 잠금을 그릴 수 있도록 위치와 양 끝 여부를 함께 준다.
+  "API-ACT-004": [
+    { name: "activity_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "page", schema: { type: "integer", minimum: 1 } },
+    { name: "total_pages", schema: { type: "integer", minimum: 1 } },
+    { name: "title", schema: { type: "string" } },
+    { name: "image_url", schema: { type: "string" } },
+    { name: "has_previous", schema: { type: "boolean" } },
+    { name: "has_next", schema: { type: "boolean" } },
   ],
   "API-DSP-001": [
     { name: "display_session_id", schema: { type: "string", format: "uuid" } },
@@ -2008,10 +2083,19 @@ const responseFieldOverrides = {
     { name: "quiz_submission_count", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "generated_at", schema: { type: "string", format: "date-time" } },
   ],
+  // 자료 수업이 쓰는 필드까지 실제 DTO(GuidedActivityViewResponse)에 맞춰 적는다.
+  // activity_type·presentation_* 은 이미지 수업 작업에서, presentation_page·
+  // presentation_total_pages 는 자료 순서 진행에서 늘었는데 여기에 반영되지 않았다.
   "API-READ-024": [
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
     { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "participant_count", schema: { type: "integer", minimum: 0 } },
+    { name: "activity_type", schema: { type: "string" } },
+    { name: "presentation_title", optional: true, schema: { type: "string" } },
+    { name: "presentation_image_url", optional: true, schema: { type: "string" } },
+    { name: "presentation_page", schema: { type: "integer", minimum: 1 } },
+    { name: "presentation_total_pages", schema: { type: "integer", minimum: 1 } },
   ],
   "API-READ-025": [
     { name: "activity_id", schema: { type: "string", format: "uuid" } },
@@ -3659,7 +3743,9 @@ function buildApiFieldMapping(operations) {
 
 // 스펙에 엔드포인트를 더하면 이 숫자만 올린다. 개수가 어긋나면 중복 검사도 같은 숫자와
 // 비교하므로 "중복되었습니다"가 함께 뜨지만, 실제 원인은 개수 하나뿐인 경우가 많다.
-const EXPECTED_HTTP_OPERATION_COUNT = 143;
+// API-ACT-003·004(수업 자료 순서 진행), API-QZ-010(넌센스 문항 가져오기),
+// API-CLS-009(학급 보관)을 명세에 넣으면서 143 -> 147이 되었다.
+const EXPECTED_HTTP_OPERATION_COUNT = 147;
 
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
