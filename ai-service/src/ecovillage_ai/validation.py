@@ -491,7 +491,11 @@ def _validate_content_safety(
         codes.append("PERSONAL_ANALYSIS_DETECTED")
     if any(phrase in text for phrase in FINANCIAL_ADVICE_PHRASES):
         codes.append("FINANCIAL_ADVICE_DETECTED")
-    if any(phrase in text for phrase in FUTURE_PRICE_PHRASES):
+    # 미래 가격 금지는 가상 자산의 다음 단계 가격이 새는 것을 막는 장치다. 퀴즈에는 자산 문맥이
+    # 없고, 6학년 수요·공급 단원은 "가격이 오를"을 설명하는 것이 학습목표라서 제외한다.
+    if not isinstance(request, QuizDraftGenerationRequest) and any(
+        phrase in text for phrase in FUTURE_PRICE_PHRASES
+    ):
         codes.append("FUTURE_PRICE_PREDICTION_DETECTED")
     if isinstance(output, QuizDraftOutput):
         codes.extend(quiz_content_safety_codes(output))
