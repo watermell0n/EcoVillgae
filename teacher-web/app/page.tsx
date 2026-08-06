@@ -5,6 +5,7 @@ import {
   Bot,
   ChevronLeft,
   ClipboardCheck,
+  Grid3X3,
   Landmark,
   LayoutDashboard,
   LogOut,
@@ -46,8 +47,9 @@ import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
 import type { AiModuleRow, AiPolicyVersionRow } from "./types";
 import { INVESTMENT_MODE_LABELS, investmentModuleInfo } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
+import { PropertyWorkspace } from "./property/PropertyWorkspace";
 
-type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "quiz" | "control" | "approvals" | "ai";
+type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "property" | "quiz" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "complete";
 type LogTone = "success" | "warning" | "error";
@@ -300,6 +302,7 @@ const views = [
   { key: "roster" as const, label: "학생·급여", icon: Users },
   { key: "shop" as const, label: "상점 상품", icon: ShoppingBag },
   { key: "finance" as const, label: "운영 관리", icon: Landmark },
+  { key: "property" as const, label: "부동산·청약", icon: Grid3X3 },
   { key: "control" as const, label: "수업 준비·퀴즈", icon: MonitorPlay },
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
@@ -1225,6 +1228,15 @@ export default function TeacherConsole() {
               onModulesReload={() => openClassroom(activeClassroomId)}
             />
           )}
+          {view === "property" && (
+            <PropertyWorkspace
+              classroomId={activeClassroomId}
+              currencyName={settings.currency}
+              realEstateEnabled={modules.some((module) => module.code === "REAL_ESTATE" && module.status === "열림")}
+              subscriptionEnabled={modules.some((module) => module.code === "HOUSING_SUBSCRIPTION" && module.status === "열림")}
+              onNotice={addLog}
+            />
+          )}
           {view === "quiz" && (
             <QuizDraftWorkspace
               classroomId={activeClassroomId}
@@ -1670,6 +1682,14 @@ function CreateClassroomFlow({
         .filter((code): code is string => code !== undefined && supportedCodes.has(code))
     )];
 
+    // 적금은 회차별 납입을 전제로 하므로 한 학기 운영에서만 개설할 수 있다.
+    // 기간을 바꾼 직후의 오래된 선택값까지 방어해 서버 오류로 이어지지 않게 한다.
+    if (moduleCodes.includes("SAVINGS") && periodToCourseSize(settings.period) !== "SEMESTER") {
+      setShowConfirmation(false);
+      setCreationError("적금은 한 학기 운영에서만 사용할 수 있어요. 한 학기 운영을 선택하거나 적금을 해제해 주세요.");
+      return;
+    }
+
     setSubmitting(true);
     setCreationError("");
     try {
@@ -1800,7 +1820,7 @@ function CreateClassroomFlow({
             <h1>모듈 선택</h1>
             <div className="module-card-grid">
               {selectableModuleNames.map((moduleName) => {
-                const unavailable = false;
+                const unavailable = moduleName === "적금" && settings.period !== "1학기 운영";
                 const isOpen = selectedModules.has(moduleName)
                   || [...selectedModules].some((selectedModule) => getRequiredModules(selectedModule).includes(moduleName));
                 const isRequired = !selectedModules.has(moduleName)
@@ -1832,6 +1852,11 @@ function CreateClassroomFlow({
                 );
               })}
             </div>
+            {settings.period !== "1학기 운영" ? (
+              <p className="inline-notice" role="status">
+                적금은 회차별 납입을 위해 한 학기 운영에서만 선택할 수 있어요. 모든 모듈을 사용하려면 한 학기 운영을 선택해 주세요.
+              </p>
+            ) : null}
             <div className="wizard-actions">
               <button type="button" onClick={() => setStep("basic")}>이전</button>
               <button type="button" className="primary" onClick={() => setShowConfirmation(true)}>개설하기</button>

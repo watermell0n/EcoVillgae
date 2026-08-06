@@ -94,7 +94,7 @@ export function appliedPolicyValues(
     const rateBps = values.rate_bps;
     if (typeof rateBps !== "number") return [];
     return [{
-      label: policyArea === "INCOME_TAX_RATE" ? "적용된 소득세율" : "적용된 기준금리",
+      label: policyArea === "INCOME_TAX_RATE" ? "현재 소득세율" : "현재 금리",
       text: bpsToPercentText(rateBps)
     }];
   }
@@ -111,7 +111,7 @@ export function appliedPolicyValues(
     const lowest = Math.min(...amounts);
     const highest = Math.max(...amounts);
     return [{
-      label: amounts.length === 1 ? "적용된 1회 급여" : `적용된 1회 급여 (역할 ${amounts.length}개)`,
+      label: amounts.length === 1 ? "현재 1회 급여" : `현재 1회 급여 (역할 ${amounts.length}개)`,
       text: lowest === highest
         ? lowest.toLocaleString("ko-KR")
         : `${lowest.toLocaleString("ko-KR")} ~ ${highest.toLocaleString("ko-KR")}`

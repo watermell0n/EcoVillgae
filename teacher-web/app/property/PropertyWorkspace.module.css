@@ -1,0 +1,76 @@
+.workspace { display: grid; gap: 22px; color: #172638; }
+.heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.heading p, .sectionTitle p { margin: 0 0 5px; color: #e87830; font-size: 13px; font-weight: 900; letter-spacing: .08em; }
+.heading h2, .sectionTitle h3 { margin: 0; font-size: 27px; }
+.heading span { display: block; margin-top: 7px; color: #687689; }
+.primary, .secondary, .reject { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 0; border-radius: 10px; font-weight: 850; cursor: pointer; }
+.primary { color: white; background: #1f8b67; }
+.secondary { color: #25374a; background: white; border: 1px solid #d8e0e8; }
+.reject { color: #b63c3c; background: #fff0f0; }
+.primary:disabled, .secondary:disabled, .reject:disabled { opacity: .45; cursor: default; }
+.error { padding: 13px 16px; border-radius: 10px; color: #9c3131; background: #fff0f0; font-weight: 700; }
+.layoutControls { display: flex; align-items: flex-end; gap: 10px; padding: 14px; border: 1px solid #dfe6ec; border-radius: 14px; background: white; }
+.layoutControls label, .inspector label, .offerForm label { display: grid; gap: 6px; color: #647184; font-size: 13px; font-weight: 800; }
+.layoutControls input { width: 72px; }
+.layoutControls input, .inspector input, .offerForm input { min-height: 42px; padding: 0 11px; border: 1px solid #d5dee7; border-radius: 9px; color: #172638; background: white; font: inherit; }
+.legend { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: #657286; font-size: 12px; font-weight: 750; }
+.legend i { width: 11px; height: 11px; margin-left: 5px; border-radius: 3px; }
+.legend i[data-tone="direct"] { background: #e7f7ef; border: 1px solid #64b995; }
+.legend i[data-tone="resale"] { background: #fff1df; border: 1px solid #e89a3c; }
+.legend i[data-tone="subscription"] { background: #f0eaff; border: 1px solid #9470dc; }
+.legend i[data-tone="owned"] { background: #edf1f5; border: 1px solid #9aa6b3; }
+.mainGrid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; }
+.mapPanel, .inspector, .section, .emptyPanel, .subscriptionOff, .disabledPanel { border: 1px solid #dfe6ec; border-radius: 16px; background: white; }
+.mapPanel { display: flex; justify-content: center; padding: 22px; overflow-x: auto; }
+.seatStage { width: 100%; min-width: calc(var(--columns) * 104px); }
+.board { width: min(420px, 70%); margin: 0 auto 25px; padding: 9px; border: 4px solid #8a9daf; border-radius: 7px; color: #65778a; background: #f6fafc; text-align: center; font-size: 12px; font-weight: 900; letter-spacing: .35em; }
+.seatGrid { display: grid; grid-template-columns: repeat(var(--columns), minmax(88px, 1fr)); gap: 10px; }
+.seat { min-height: 91px; display: grid; place-content: center; gap: 4px; border: 1.5px solid #98a8b5; border-radius: 12px; color: #25374a; background: #f1f4f7; text-align: center; cursor: pointer; }
+.seat b { font-size: 17px; }
+.seat span { font-size: 12px; font-weight: 800; }
+.seat small { font-size: 11px; color: #586779; }
+.seat[data-status="AVAILABLE"] { border-color: #62b590; background: #eaf8f1; }
+.seat[data-status="LISTED_FOR_SALE"] { border-color: #e59a40; background: #fff3e3; }
+.seat[data-status="SUBSCRIPTION_OPEN"] { border-color: #9270d4; background: #f2edff; }
+.seat[data-status="TEACHER_OWNED"] { border-style: dashed; background: #fbfcfd; }
+.seat[data-selected="true"] { outline: 3px solid rgba(40, 117, 187, .22); border-color: #2875bb; transform: translateY(-1px); }
+.seat[data-offer="true"] { box-shadow: inset 0 0 0 3px #8d68d4; }
+.inspector { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.inspectorTitle { display: flex; align-items: center; justify-content: space-between; }
+.inspectorTitle small { color: #788698; font-weight: 800; }
+.inspectorTitle h3 { margin: 3px 0 0; font-size: 28px; }
+.inspectorTitle span { padding: 6px 9px; border-radius: 999px; color: #276f58; background: #e7f7ef; font-size: 11px; font-weight: 900; }
+.check { grid-template-columns: 18px 1fr !important; align-items: center; color: #3b4a5d !important; }
+.check input { width: 17px; min-height: 17px; }
+.help, .empty { margin: 0; color: #758296; line-height: 1.55; }
+.emptyPanel { padding: 55px; color: #748296; text-align: center; }
+.section { padding: 20px; display: grid; gap: 16px; }
+.sectionTitle { display: flex; align-items: flex-end; justify-content: space-between; }
+.sectionTitle span { color: #7654bf; font-size: 13px; font-weight: 900; }
+.cardList { display: grid; gap: 10px; }
+.contractCard, .offerCard { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px; border: 1px solid #e1e7ed; border-radius: 12px; }
+.contractCard > div:first-child, .offerCard > div:first-child { display: grid; gap: 4px; }
+.contractCard b, .offerCard b { font-size: 16px; }
+.contractCard span, .offerCard span, .offerCard small { display: flex; align-items: center; gap: 5px; color: #6f7c8e; font-size: 13px; }
+.contractCard strong { margin-top: 3px; color: #197258; }
+.contractCard > div:last-child, .offerCard > div:last-child { display: flex; align-items: center; gap: 8px; }
+.offerCard em { padding: 5px 8px; border-radius: 999px; color: #7050b5; background: #f2edff; font-size: 11px; font-style: normal; font-weight: 900; }
+.offerForm { display: grid; grid-template-columns: 1.5fr repeat(3, minmax(100px, .65fr)) 1.1fr auto; align-items: end; gap: 10px; }
+.subscriptionOff { padding: 18px 20px; display: flex; gap: 12px; color: #687689; }
+.subscriptionOff b { color: #314256; }
+.disabledPanel { min-height: 380px; display: grid; place-content: center; justify-items: center; padding: 50px; text-align: center; }
+.disabledPanel h2 { margin: 15px 0 8px; }
+.disabledPanel p { max-width: 600px; margin: 0; color: #6f7c8e; line-height: 1.7; }
+
+@media (max-width: 1080px) {
+  .mainGrid { grid-template-columns: 1fr; }
+  .offerForm { grid-template-columns: repeat(2, 1fr); }
+  .legend { width: 100%; margin: 4px 0 0; }
+  .layoutControls { flex-wrap: wrap; }
+}
+
+@media (max-width: 720px) {
+  .heading, .contractCard, .offerCard { align-items: stretch; flex-direction: column; }
+  .offerForm { grid-template-columns: 1fr; }
+  .contractCard > div:last-child, .offerCard > div:last-child { justify-content: flex-end; }
+}

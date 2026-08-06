@@ -89,6 +89,11 @@ public class PropertyController {
         return response(HttpStatus.OK, properties.mine(subject(principal), classroomId));
     }
 
+    @GetMapping("/classrooms/{classroomId}/property-contracts")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> pendingContracts(@PathVariable UUID classroomId, Principal principal) {
+        return response(HttpStatus.OK, properties.contractsForClassroom(subject(principal), classroomId));
+    }
+
     @PostMapping("/properties/{propertyId}/contracts")
     public ResponseEntity<ApiResponse<Map<String, Object>>> requestContract(
         @PathVariable UUID propertyId, @Valid @RequestBody ContractRequest request, Principal principal
@@ -141,11 +146,35 @@ public class PropertyController {
         return response(HttpStatus.OK, Map.of("listing_id", listingId, "status", "CLOSED"));
     }
 
+    @PostMapping("/students/me/properties/{propertyId}/sale-listing")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createSaleListing(
+        @PathVariable UUID propertyId, @Valid @RequestBody SaleListingRequest request, Principal principal
+    ) {
+        return response(HttpStatus.CREATED, properties.createSaleListing(subject(principal), propertyId, request.salePrice()));
+    }
+
+    @DeleteMapping("/students/me/properties/{propertyId}/sale-listing")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelSaleListing(@PathVariable UUID propertyId, Principal principal) {
+        properties.cancelSaleListing(subject(principal), propertyId);
+        return response(HttpStatus.OK, Map.of("property_id", propertyId, "status", "CLOSED"));
+    }
+
     @PostMapping("/classrooms/{classroomId}/subscription-offers")
     public ResponseEntity<ApiResponse<Map<String, Object>>> createOffer(
         @PathVariable UUID classroomId, @Valid @RequestBody SubscriptionOfferRequest request, Principal principal
     ) {
         return response(HttpStatus.CREATED, properties.createOffer(subject(principal), classroomId, request.input()));
+    }
+
+    @GetMapping("/classrooms/{classroomId}/subscription-offers")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> offers(@PathVariable UUID classroomId, Principal principal) {
+        return response(HttpStatus.OK, properties.offers(subject(principal), classroomId));
+    }
+
+    @PostMapping("/subscription-offers/{offerId}/cancel")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelOffer(@PathVariable UUID offerId, Principal principal) {
+        properties.cancelOffer(subject(principal), offerId);
+        return response(HttpStatus.OK, Map.of("offer_id", offerId, "status", "CANCELED"));
     }
 
     @PostMapping("/subscription-offers/{offerId}/apply")
@@ -167,6 +196,12 @@ public class PropertyController {
         @RequestParam("classroom_id") UUID classroomId, Principal principal
     ) {
         return response(HttpStatus.OK, properties.applications(subject(principal), classroomId));
+    }
+
+    @DeleteMapping("/students/me/subscription-applications/{applicationId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelApplication(@PathVariable UUID applicationId, Principal principal) {
+        properties.cancelApplication(subject(principal), applicationId);
+        return response(HttpStatus.OK, Map.of("application_id", applicationId, "status", "CANCELED"));
     }
 
     @PostMapping("/students/me/subscription-account")
@@ -267,6 +302,12 @@ public class PropertyController {
         @Min(0) @JsonProperty("monthly_rent") long monthlyRent, @Min(1) @JsonProperty("payment_cycle_days") int paymentCycleDays,
         @Min(1) @JsonProperty("contract_term_days") int contractTermDays, @JsonProperty("is_public") boolean isPublic
     ) { PropertyService.ListingInput input() { return new PropertyService.ListingInput(leaseType, depositAmount, monthlyRent, paymentCycleDays, contractTermDays, isPublic); } }
+
+    public record SaleListingRequest(
+        @JsonProperty("expected_state_version") Long expectedStateVersion, @JsonProperty("screen_id") String screenId,
+        @JsonProperty("ui_action_id") String uiActionId, @JsonProperty("client_occurred_at") Instant clientOccurredAt,
+        @Min(1) @JsonProperty("sale_price") long salePrice
+    ) { }
 
     public record SubscriptionOfferRequest(
         @JsonProperty("expected_state_version") Long expectedStateVersion, @JsonProperty("screen_id") String screenId,

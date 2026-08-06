@@ -188,6 +188,12 @@
 | API-EST-020 | `POST /students/me/subscription-account/deposits` | STU | `classroom_id, amount` → 통장 납입·지갑 원장 | PM-EST-003 · SM-SUB-002·SM-TXN-001 | `SUBSCRIPTION_ACCOUNT_NOT_FOUND`, `INSUFFICIENT_BALANCE` | — |
 | API-EST-021 | `GET /students/me/subscription-account?classroom_id={C}` | STU | 누적 납입액·횟수·최근 납입·자동 납입·이력 | PM-EST-003 · SM-SUB-002 | `SUBSCRIPTION_ACCOUNT_NOT_FOUND` | — |
 | API-EST-022 | `PUT /classrooms/{C}/subscription-auto-deposit-policy` | OWN·COT | `enabled, amount?, cycle_days?` → 학급 청약통장 자동 납입 정책을 설정하고 활성 통장에 반영 | PM-EST-004 · SM-SUB-002 | `INVALID_SUBSCRIPTION_AUTO_DEPOSIT`, `MODULE_NOT_ACTIVE` | — |
+| API-EST-023 | `GET /classrooms/{C}/property-contracts` | OWN·COT | 학생·좌석 정보가 포함된 구매 승인 대기 목록 | PM-EST-001 · SM-EST-002 | `MODULE_NOT_ACTIVE` | — |
+| API-EST-024 | `POST /students/me/properties/{R}/sale-listing` | 소유 STU | `sale_price` → 학생 간 재판매 매물 공개 | PM-EST-003 · SM-EST-001 | `PROPERTY_OWNER_REQUIRED`, `ACTIVE_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-025 | `DELETE /students/me/properties/{R}/sale-listing` | 소유 STU | 재판매 취소 → 비공개 학생 소유 자리 | PM-EST-003 · SM-EST-001 | `PENDING_PROPERTY_CONTRACT_EXISTS` | — |
+| API-EST-026 | `GET /classrooms/{C}/subscription-offers` | STU·OWN·COT | 청약 공고·공급 좌석·신청 인원 목록 | PM-EST-002 · SM-SUB-001 | `MODULE_NOT_ACTIVE` | — |
+| API-EST-027 | `POST /subscription-offers/{R}/cancel` | OWN·COT | 열린 공고와 신청 취소·좌석 직판 상태 복원 | PM-EST-004 · SM-SUB-001 | `INVALID_SUBSCRIPTION_STATE` | — |
+| API-EST-028 | `DELETE /students/me/subscription-applications/{R}` | 신청 STU | 추첨 전 본인 청약 신청 취소 | PM-EST-003 · SM-SUB-001 | `RESOURCE_NOT_OWNED`, `INVALID_SUBSCRIPTION_STATE` | — |
 
 ## 7. 퀴즈·투표 API
 

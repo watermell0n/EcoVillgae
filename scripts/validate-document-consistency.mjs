@@ -97,14 +97,14 @@ const definitionSources = [
   },
   {
     name: "화면 행동",
-    expected: 71,
+    expected: 73,
     files: ["docs/SCREEN_SPEC.md"],
     pattern: /^\| (UIA-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UIA-[A-Z]+-\d{3})(?!\d)/g,
   },
   {
     name: "HTTP API",
-    expected: 142,
+    expected: 151,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,

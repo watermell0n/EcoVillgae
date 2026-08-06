@@ -8676,6 +8676,27 @@ paths:
         503:
           $ref: "#/components/responses/ServiceUnavailable"
   "/classrooms/{classroom_id}/subscription-offers":
+    get:
+      operationId: "apiEst026"
+      x-api-id: "API-EST-026"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "학급 청약 공고와 공급 좌석·신청 인원 조회"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "청약 공고 목록"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                additionalProperties: true
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        409: { $ref: "#/components/responses/Conflict" }
     post:
       operationId: "apiEst015"
       x-api-id: "API-EST-015"
@@ -16206,6 +16227,121 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/property-contracts":
+    get:
+      operationId: "apiEst023"
+      x-api-id: "API-EST-023"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "교사용 자리 계약 승인 대기 목록"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "승인 대기 계약 목록"
+          content:
+            application/json:
+              schema: { type: "object", additionalProperties: true }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+  "/students/me/properties/{resource_id}/sale-listing":
+    post:
+      operationId: "apiEst024"
+      x-api-id: "API-EST-024"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "학생 소유 자리 재판매 등록"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required: ["sale_price"]
+              properties:
+                sale_price: { type: "integer", format: "int64", minimum: 1 }
+                expected_state_version: { type: "integer", format: "int64", minimum: 0 }
+                screen_id: { type: "string" }
+                ui_action_id: { type: "string" }
+                client_occurred_at: { type: "string", format: "date-time" }
+              additionalProperties: false
+      responses:
+        201:
+          description: "재판매 매물"
+          content:
+            application/json:
+              schema: { type: "object", additionalProperties: true }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        409: { $ref: "#/components/responses/Conflict" }
+        422: { $ref: "#/components/responses/UnprocessableEntity" }
+    delete:
+      operationId: "apiEst025"
+      x-api-id: "API-EST-025"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "학생 소유 자리 재판매 취소"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceIdPath"
+      responses:
+        200:
+          description: "재판매 취소 결과"
+          content:
+            application/json:
+              schema: { type: "object", additionalProperties: true }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        409: { $ref: "#/components/responses/Conflict" }
+  "/subscription-offers/{resource_id}/cancel":
+    post:
+      operationId: "apiEst027"
+      x-api-id: "API-EST-027"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "교사 청약 공고 취소"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "청약 취소 결과"
+          content:
+            application/json:
+              schema: { type: "object", additionalProperties: true }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        409: { $ref: "#/components/responses/Conflict" }
+  "/students/me/subscription-applications/{resource_id}":
+    delete:
+      operationId: "apiEst028"
+      x-api-id: "API-EST-028"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      tags: ["Property"]
+      summary: "학생 청약 신청 취소"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceIdPath"
+      responses:
+        200:
+          description: "신청 취소 결과"
+          content:
+            application/json:
+              schema: { type: "object", additionalProperties: true }
+        401: { $ref: "#/components/responses/Unauthorized" }
+        403: { $ref: "#/components/responses/Forbidden" }
+        409: { $ref: "#/components/responses/Conflict" }
 components:
   securitySchemes:
     bearerAuth:
