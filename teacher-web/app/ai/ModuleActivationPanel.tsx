@@ -138,8 +138,12 @@ export function ModuleActivationPanel({
   const [message, setMessage] = useState("");
 
   // 서버에 등록된 모듈만 활성화할 수 있습니다. 개설 전 화면에는 code가 없습니다.
+  // 콘솔은 서버의 INVESTMENT 한 모듈을 "단기 투자"·"장기 투자" 두 줄로 펼쳐 보여 주지만,
+  // 이 화면은 서버 모듈 하나가 카드 하나이고 점검·입력값·진행 상태를 모두 코드로 관리하므로
+  // 코드마다 한 줄만 남깁니다. 투자 방식은 카드 안의 체크박스에서 함께 고릅니다.
   const serverModules = modules
     .filter((module) => module.code)
+    .filter((module, index, items) => items.findIndex((item) => item.code === module.code) === index)
     .sort((left, right) => Number(missingPrerequisites(left).length > 0) - Number(missingPrerequisites(right).length > 0));
 
   function missingPrerequisites(module: AiModuleRow) {
