@@ -24,7 +24,39 @@ type QuizStudent = {
 };
 
 // 문제은행 목록에서 무엇을 보여 줄지 고르는 탭입니다.
-type BankFilter = "recent" | "approved" | "all";
+type BankFilter = "recent" | "approved";
+
+// 학생 화면에 연 퀴즈 한 건입니다. 세션 목록 API가 없어 교사 브라우저에 기록해 둡니다.
+type OpenedQuiz = {
+  sessionId: string;
+  mode: "GAME" | "TEST";
+  contentType: "ECONOMY" | "NONSENSE";
+  openedAt: string;
+  questions: Array<{ versionId: string; prompt: string }>;
+};
+
+// 새로고침하거나 학급을 나갔다 와도 "마지막에 만든 문항"과 "연 퀴즈"가 유지되게 합니다.
+const lastBatchKey = (classroomId: string) => `ecovillage.quiz.lastBatch.${classroomId}`;
+const openedQuizzesKey = (classroomId: string) => `ecovillage.quiz.openedQuizzes.${classroomId}`;
+
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStored(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // 저장 공간이 막혀 있어도 이번 화면 동작은 그대로 이어 갑니다.
+  }
+}
 
 const STATUS_LABEL: Record<QuizQuestion["status"], string> = {
   DRAFT: "작성 중",
@@ -102,6 +134,7 @@ export function QuizDraftWorkspace({
   const [startedSession, setStartedSession] = useState<{ id: string; mode: string } | null>(null);
   // 이미 학생 화면에 열어 준 문항입니다. 같은 문항으로 두 번 열지 않도록 잠급니다.
   const [openedVersionIds, setOpenedVersionIds] = useState<string[]>([]);
+  const [openedQuizzes, setOpenedQuizzes] = useState<OpenedQuiz[]>([]);
   const [sessionError, setSessionError] = useState("");
   const [sessionMessage, setSessionMessage] = useState("");
 
@@ -125,7 +158,9 @@ export function QuizDraftWorkspace({
   }, [classroomId]);
 
   useEffect(() => {
-    setGeneratedIds(new Set());
+    // 마지막 생성분과 연 퀴즈는 브라우저에 남겨 두고 다시 읽습니다.
+    setGeneratedIds(new Set(readStored<string[]>(lastBatchKey(classroomId), [])));
+    setOpenedQuizzes(readStored<OpenedQuiz[]>(openedQuizzesKey(classroomId), []));
     setBankFilter("recent");
     setMessage("");
     setError("");
@@ -136,6 +171,12 @@ export function QuizDraftWorkspace({
     setSessionMessage("");
     void loadQuestions();
   }, [classroomId, loadQuestions]);
+
+  // 마지막 생성분을 기록합니다. 목록에서 사라진 문항은 다음에 읽을 때 자연히 걸러집니다.
+  const rememberBatch = useCallback((ids: string[]) => {
+    setGeneratedIds(new Set(ids));
+    writeStored(lastBatchKey(classroomId), ids);
+  }, [classroomId]);
 
   // 이미 진행 중인 세션도 다시 읽어, 페이지를 나갔다 와도 같은 문항을
   // 또 선택해 새 퀴즈를 열지 않도록 합니다.
@@ -159,15 +200,17 @@ export function QuizDraftWorkspace({
     [questions]
   );
 
-  const visibleQuestions = useMemo(() => {
-    if (bankFilter === "approved") return approvedQuestions;
-    if (bankFilter === "all" || generatedIds.size === 0) return questions;
-    return questions.filter((question) => generatedIds.has(question.resource_id));
-  }, [approvedQuestions, bankFilter, generatedIds, questions]);
+  // '최근 생성'은 언제나 마지막 한 번의 생성분만 보여 줍니다. 승인한 문항은 여기서 빠집니다.
+  const recentQuestions = useMemo(
+    () => questions.filter((question) => generatedIds.has(question.resource_id)),
+    [generatedIds, questions]
+  );
+
+  const visibleQuestions = bankFilter === "approved" ? approvedQuestions : recentQuestions;
 
   const emptyBankCopy = bankFilter === "approved"
     ? "승인한 문항이 없어요. 문항을 검토한 뒤 '검토 후 승인'을 누르면 여기로 옵니다."
-    : "표시할 문항이 없어요. AI 초안을 먼저 생성해 보세요.";
+    : "최근에 만든 문항이 없어요. 위에서 문항을 생성하거나 가져오면 여기에 나타납니다.";
 
   // 세션 시작에 쓸 수 있는 문항은 게시된 것만입니다. 서버도 같은 조건을 검사합니다.
   const publishedQuestions = useMemo(
@@ -221,6 +264,17 @@ export function QuizDraftWorkspace({
     () => publishedQuestions.filter((question) => isUsed(question)),
     [publishedQuestions, isUsed]
   );
+  // 연 퀴즈 기록에 없는 사용 문항입니다. 다른 브라우저에서 열었거나 기록이 지워진 경우입니다.
+  const recordedUsedVersionIds = useMemo(
+    () => new Set(openedQuizzes.flatMap((quiz) => quiz.questions.map((item) => item.versionId))),
+    [openedQuizzes]
+  );
+  const unrecordedUsedQuestions = useMemo(
+    () => usedQuestions.filter(
+      (question) => !recordedUsedVersionIds.has(question.question_version_id)
+    ),
+    [recordedUsedVersionIds, usedQuestions]
+  );
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
   const canStart = !starting
@@ -273,6 +327,22 @@ export function QuizDraftWorkspace({
       );
       const openedCount = selectedQuestions.length;
       setStartedSession({ id: response.quiz_resource_id, mode: sessionMode });
+      // 아래 '생성된 퀴즈'에 새 칸으로 바로 올립니다. 새로고침을 기다리지 않습니다.
+      const openedQuiz: OpenedQuiz = {
+        sessionId: response.quiz_resource_id,
+        mode: sessionMode,
+        contentType: selectedContentTypes[0],
+        openedAt: new Date().toISOString(),
+        questions: selectedQuestions.map((question) => ({
+          versionId: question.question_version_id,
+          prompt: question.prompt
+        }))
+      };
+      setOpenedQuizzes((current) => {
+        const next = [openedQuiz, ...current.filter((item) => item.sessionId !== openedQuiz.sessionId)];
+        writeStored(openedQuizzesKey(classroomId), next);
+        return next;
+      });
       // 같은 문항으로 다시 열지 못하게 잠급니다.
       setOpenedVersionIds((current) => [...new Set([...current, ...selectedVersionIds])]);
       setSelectedVersionIds([]);
@@ -329,7 +399,7 @@ export function QuizDraftWorkspace({
           })
         }
       );
-      setGeneratedIds(new Set(response.question_ids));
+      rememberBatch(response.question_ids);
       setBankFilter("recent");
       await loadQuestions();
       setMessage(`${response.question_ids.length}개 문항을 만들었어요. 정답과 해설을 확인한 뒤 승인해 주세요.`);
@@ -358,7 +428,7 @@ export function QuizDraftWorkspace({
           })
         }
       );
-      setGeneratedIds(new Set(response.question_ids));
+      rememberBatch(response.question_ids);
       setBankFilter("recent");
       await loadQuestions();
       const remaining = response.remaining_count > 0
@@ -400,6 +470,13 @@ export function QuizDraftWorkspace({
         ? { ...item, status: response.status, state_version: response.state_version }
         : item));
       if (command === "APPROVE") {
+        // 승인한 문항은 '승인된 문제'로 옮겨 가므로 '최근 생성'에서 바로 빼 줍니다.
+        setGeneratedIds((current) => {
+          const next = new Set(current);
+          next.delete(question.resource_id);
+          writeStored(lastBatchKey(classroomId), [...next]);
+          return next;
+        });
         setMessage("문항을 승인했어요. '승인된 문제' 탭에서 문제은행에 게시할 수 있어요.");
       } else {
         // 게시한 문항을 아래 '퀴즈 시작'에 바로 담아 둡니다.
@@ -506,7 +583,6 @@ export function QuizDraftWorkspace({
               <button type="button" className={bankFilter === "approved" ? "active" : ""} onClick={() => setBankFilter("approved")}>
                 승인된 문제{approvedQuestions.length > 0 ? ` ${approvedQuestions.length}` : ""}
               </button>
-              <button type="button" className={bankFilter === "all" ? "active" : ""} onClick={() => setBankFilter("all")}>전체 문제은행</button>
             </div>
             <button type="button" className="ghost-action" disabled={loading} onClick={() => void loadQuestions()}>
               <RefreshCw size={15} /> 새로고침
@@ -600,21 +676,6 @@ export function QuizDraftWorkspace({
                 </ul>
               )}
 
-              {usedQuestions.length > 0 ? (
-                <details className="quiz-used-questions">
-                  <summary>이미 진행한 문항 {usedQuestions.length}개</summary>
-                  <p className="section-description">
-                    학생에게 한 번 열었던 문항입니다. 같은 문항으로 다시 열 수 없고, 문제은행에는 그대로 남습니다.
-                  </p>
-                  <ul>
-                    {usedQuestions.map((question) => (
-                      <li key={question.question_version_id}>
-                        <span className="quiz-start-prompt">{question.prompt}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
             </div>
 
             <div className="quiz-start-form">
@@ -691,6 +752,63 @@ export function QuizDraftWorkspace({
                 {sessionMessage ? <div className="quiz-start-success"><CheckCircle2 size={16} /> {sessionMessage}</div> : null}
                 {sessionError ? <div className="quiz-start-failure" role="alert">{sessionError}</div> : null}
               </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      <section className="plain-section">
+        <div className="section-title">
+          <span className="section-kicker">수업 진행</span>
+          <h2>생성된 퀴즈</h2>
+          <p>학생 화면에 연 퀴즈를 퀴즈별로 나눠서 봅니다. 여기에 쓴 문항은 다시 열 수 없어요.</p>
+        </div>
+
+        {openedQuizzes.length === 0 && unrecordedUsedQuestions.length === 0 ? (
+          <p className="empty-copy">
+            아직 연 퀴즈가 없어요. 위에서 문항을 고르고 &quot;학생 화면에 퀴즈 열기&quot;를 누르면 여기에 쌓입니다.
+          </p>
+        ) : (
+          <div className="opened-quiz-list">
+            {openedQuizzes.map((quiz, index) => (
+              <article
+                className={`opened-quiz-card${quiz.sessionId === openSessionId ? " live" : ""}`}
+                key={quiz.sessionId}
+              >
+                <header>
+                  <div>
+                    <strong>퀴즈 {openedQuizzes.length - index}</strong>
+                    <small>
+                      {quiz.contentType === "ECONOMY" ? "경제" : "넌센스"} · {quiz.mode === "GAME" ? "게임형" : "평가형"} · 문항 {quiz.questions.length}개
+                    </small>
+                  </div>
+                  {quiz.sessionId === openSessionId ? <span className="opened-quiz-live">진행 중</span> : null}
+                </header>
+                <ol>
+                  {quiz.questions.map((question) => (
+                    <li key={question.versionId}>{question.prompt}</li>
+                  ))}
+                </ol>
+              </article>
+            ))}
+
+            {unrecordedUsedQuestions.length > 0 ? (
+              <article className="opened-quiz-card">
+                <header>
+                  <div>
+                    <strong>이전에 진행한 문항</strong>
+                    <small>문항 {unrecordedUsedQuestions.length}개</small>
+                  </div>
+                </header>
+                <p className="section-description">
+                  다른 기기에서 열었거나 기록이 남지 않은 문항이에요. 어느 퀴즈였는지는 알 수 없지만 다시 열 수는 없습니다.
+                </p>
+                <ol>
+                  {unrecordedUsedQuestions.map((question) => (
+                    <li key={question.question_version_id}>{question.prompt}</li>
+                  ))}
+                </ol>
+              </article>
             ) : null}
           </div>
         )}
