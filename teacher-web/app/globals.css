@@ -4293,3 +4293,164 @@ select:focus-visible {
 @media (max-width: 900px) {
   .image-lesson-panel { grid-template-columns: 1fr; }
 }
+
+/* 수업자료 기반 고정 퀴즈의 난이도 선택 패널입니다. */
+.economy-quiz-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.economy-quiz-heading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.economy-quiz-heading p {
+  margin: 6px 0 0;
+  color: #5d6b5a;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+/*
+ * 난이도 카드 3장을 나란히 두되, 카드 자체는 세로로 긴 형태로 세웁니다.
+ * 폭을 제한하지 않으면 카드가 화면 끝까지 늘어나 선택지가 아니라 긴 띠처럼 보입니다.
+ */
+.economy-quiz-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 660px);
+}
+
+.economy-quiz-level {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 230px;
+  padding: 20px 17px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 14px;
+  background: #fbfdfa;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 카드가 좁으므로 난이도 이름과 문항 수도 가로로 붙이지 않고 위아래로 놓습니다. */
+.economy-quiz-level-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.economy-quiz-level strong { font-size: 19px; font-weight: 900; }
+
+.economy-quiz-level-count {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #eceee9;
+  color: #55624f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.economy-quiz-level-desc {
+  color: #5d6b5a;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 21px;
+}
+
+.economy-quiz-level.active {
+  border-color: #4c9a5f;
+  background: #eef7f0;
+  box-shadow: inset 0 0 0 1px #4c9a5f;
+}
+
+.economy-quiz-level.active .economy-quiz-level-count {
+  background: #d3e9da;
+  color: #2f6b41;
+}
+
+.economy-quiz-level:disabled { cursor: not-allowed; opacity: 0.65; }
+
+.economy-quiz-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #2f7a45;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.economy-quiz-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.economy-quiz-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+
+.economy-quiz-message {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: #eef7f0;
+  color: #2f6b41;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.economy-quiz-error {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: #fdeeee;
+  color: #a33a3a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.economy-quiz-preview {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+
+.economy-quiz-preview > li {
+  padding: 13px 14px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 11px;
+  background: #fbfdfa;
+}
+
+.economy-quiz-preview-head { display: grid; gap: 3px; margin-bottom: 8px; }
+.economy-quiz-preview-head strong { font-size: 15px; font-weight: 800; line-height: 22px; }
+.economy-quiz-preview-head span { color: #6b7869; font-size: 12px; font-weight: 700; }
+
+.economy-quiz-preview ul { display: grid; gap: 4px; margin: 0 0 8px; padding: 0; list-style: none; }
+.economy-quiz-preview ul li { color: #46523f; font-size: 14px; }
+.economy-quiz-preview ul li.correct { color: #2f7a45; font-weight: 800; }
+
+/* 카드 3장을 세워 두기 어려운 좁은 폭에서는 한 장씩 쌓습니다. */
+@media (max-width: 560px) {
+  .economy-quiz-levels { grid-template-columns: 1fr; }
+  .economy-quiz-level { min-height: 0; }
+}
+
+.economy-quiz-panel .spin { animation: economy-quiz-spin 1s linear infinite; }
+
+@keyframes economy-quiz-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
