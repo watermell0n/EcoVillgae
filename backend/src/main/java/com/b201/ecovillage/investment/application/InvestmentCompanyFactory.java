@@ -62,7 +62,7 @@ public class InvestmentCompanyFactory {
      * 자리마다 보여 줄 기업을 돌려준다. 결과 길이와 순서는 종목 목록과 같다.
      */
     public List<Company> create(Classroom classroom, InvestmentMode mode) {
-        List<InvestmentAssetCatalog.Seed> seeds = InvestmentAssetCatalog.seeds();
+        List<InvestmentAssetCatalog.Seed> seeds = InvestmentAssetCatalog.seeds(mode);
         if (!aiSettings.enabled(classroom.getId())) {
             return fallback(seeds);
         }
