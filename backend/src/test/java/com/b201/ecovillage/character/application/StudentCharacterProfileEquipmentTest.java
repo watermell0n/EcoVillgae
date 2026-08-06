@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,7 +132,7 @@ class StudentCharacterProfileEquipmentTest {
             classroomId,
             profileId
         )).thenReturn(List.of(shoes), List.of(hatRow, topRow));
-        when(profile.getStateVersion()).thenReturn(3L, 3L, 4L);
+        when(profile.getStateVersion()).thenReturn(3L, 4L);
         List<CharacterEquipment> saved = new ArrayList<>();
         when(equipmentRepository.save(any(CharacterEquipment.class))).thenAnswer(invocation -> {
             saved.add(invocation.getArgument(0));
@@ -149,7 +150,7 @@ class StudentCharacterProfileEquipmentTest {
         verify(equipmentRepository).delete(shoes);
         assertEquals(2, saved.size());
         assertEquals(
-            List.of(CharacterSlot.HAT, CharacterSlot.TOP),
+            List.of(CharacterSlot.TOP, CharacterSlot.HAT),
             saved.stream().map(CharacterEquipment::getSlot).toList()
         );
         verify(profile).markEquipmentChanged(NOW);
@@ -163,7 +164,7 @@ class StudentCharacterProfileEquipmentTest {
         InOrder order = inOrder(equipmentRepository);
         order.verify(equipmentRepository).delete(shoes);
         order.verify(equipmentRepository).flush();
-        order.verify(equipmentRepository).save(any(CharacterEquipment.class));
+        order.verify(equipmentRepository, times(2)).save(any(CharacterEquipment.class));
     }
 
     @Test

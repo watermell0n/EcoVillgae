@@ -3017,6 +3017,55 @@ paths:
                 - "budget_allocations"
                 - "expected_policy_version"
               additionalProperties: false
+  "/classrooms/{classroom_id}/guided-activities/image-lessons":
+    post:
+      operationId: "startGuidedImageLesson"
+      x-api-id: "API-ACT-IMAGE-001"
+      x-implementation-status: "implemented"
+      tags:
+        - "Activities"
+      summary: "경제 개념 이미지를 학생 전체 화면에 동기화"
+      description: "활성 학생 전원을 참가자로 등록하고 GUIDED 모드로 전환한다. 종료 전까지 학생 앱은 이미지 화면으로 고정된다."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              required:
+                - "title"
+                - "image_url"
+              properties:
+                title:
+                  type: "string"
+                  maxLength: 120
+                image_url:
+                  type: "string"
+                  maxLength: 8000000
+              additionalProperties: false
+      responses:
+        200:
+          description: "이미지 수업 시작"
+          content:
+            application/json:
+              schema:
+                type: "object"
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
   "/classrooms/{classroom_id}/guided-activities/{resource_id}/start-commands":
     post:
       operationId: "apiAct001"
@@ -3666,8 +3715,8 @@ paths:
         - "ECO-007"
       tags:
         - "Store"
-      summary: "expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version"
-      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version."
+      summary: "상품 생성·수정·공개·삭제와 가격 변경"
+      description: "기존 상품도 가격과 재고를 변경할 수 있으며 DELETE는 주문 이력을 보존한 채 상품을 판매 종료한다."
       security:
         - bearerAuth: []
       parameters:
@@ -3758,6 +3807,7 @@ paths:
                     - "UPDATE"
                     - "PUBLISH"
                     - "UNPUBLISH"
+                    - "DELETE"
                 product_id:
                   type: "string"
                   format: "uuid"
@@ -12921,6 +12971,41 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      operationId: "archiveClassroom"
+      x-api-id: "API-CLS-DELETE-001"
+      x-implementation-status: "implemented"
+      tags:
+        - "Classrooms"
+      summary: "교실 삭제(보관 처리)"
+      description: "소유 교사만 실행할 수 있다. 거래 이력은 보존하고 교실을 ARCHIVED로 전환해 목록에서 숨긴다."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - name: "expected_state_version"
+          in: "query"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+            minimum: 0
+      responses:
+        200:
+          description: "보관 처리 완료"
+          content:
+            application/json:
+              schema:
+                type: "object"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
   "/classrooms/{classroom_id}/configuration":
     get:
       operationId: "apiRead003"
@@ -13283,7 +13368,7 @@ paths:
     get:
       operationId: "apiRead007"
       x-api-id: "API-READ-007"
-      x-implementation-status: "mvp-contract"
+      x-implementation-status: "implemented"
       x-schema-closure: "strict"
       x-storage-targets:
         - "ledger_accounts"
@@ -15007,6 +15092,7 @@ paths:
                     required:
                       - "activity_id"
                       - "status"
+                      - "state_version"
                       - "participant_count"
                     properties:
                       activity_id:
@@ -15014,9 +15100,19 @@ paths:
                         format: "uuid"
                       status:
                         type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
                       participant_count:
                         type: "integer"
                         minimum: 0
+                      activity_type:
+                        type: "string"
+                      presentation_title:
+                        type: "string"
+                      presentation_image_url:
+                        type: "string"
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"

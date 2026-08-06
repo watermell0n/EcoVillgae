@@ -41,6 +41,12 @@ public class ActivitySession {
     @Column(name = "public_fields", nullable = false)
     private Set<String> publicFields;
 
+    @Column(name = "presentation_image_url", columnDefinition = "text")
+    private String presentationImageUrl;
+
+    @Column(name = "presentation_title", length = 120)
+    private String presentationTitle;
+
     @Column(name = "starts_at")
     private Instant startsAt;
 
@@ -139,6 +145,18 @@ public class ActivitySession {
         changeStatus("LIVE", changedAt);
     }
 
+    public void configurePresentationImage(String title, String imageUrl, Instant changedAt) {
+        if (!"READY".equals(status)) {
+            throw new IllegalStateException("only a ready activity can be configured");
+        }
+        this.presentationTitle = requiredText(title, "title");
+        if (this.presentationTitle.length() > 120) {
+            throw new IllegalArgumentException("title must not exceed 120 characters");
+        }
+        this.presentationImageUrl = requiredText(imageUrl, "imageUrl");
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public void beginFinalizing(Instant changedAt) {
         if (!"LIVE".equals(status)) {
             throw new IllegalStateException("only a live activity can begin finalizing");
@@ -204,6 +222,14 @@ public class ActivitySession {
 
     public Instant getEndsAt() {
         return endsAt;
+    }
+
+    public String getPresentationImageUrl() {
+        return presentationImageUrl;
+    }
+
+    public String getPresentationTitle() {
+        return presentationTitle;
     }
 
     private static String requiredText(String value, String field) {

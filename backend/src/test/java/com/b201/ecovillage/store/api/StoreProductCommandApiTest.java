@@ -329,12 +329,13 @@ class StoreProductCommandApiTest {
             body("PUBLISH", productId, 1, "상태 상품", 10, 0, 1, 0, 0)
         );
         mockMvc.perform(commandRequest(UUID.randomUUID(), body(
-                "UPDATE", productId, 2, "게시 중 수정", 10, 0, 1, 0, 0
+                "UPDATE", productId, 2, "게시 중 수정", 20, 0, 1, 0, 0
             )))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+            .andExpect(jsonPath("$.data.version").value(3));
         mockMvc.perform(commandRequest(UUID.randomUUID(), body(
-                "PUBLISH", productId, 2, "중복 게시", 10, 0, 1, 0, 0
+                "PUBLISH", productId, 3, "중복 게시", 20, 0, 1, 0, 0
             )))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.error.code").value("INVALID_STATE_TRANSITION"));
@@ -355,8 +356,8 @@ class StoreProductCommandApiTest {
         jdbcTemplate.update(
             """
             INSERT INTO classroom_characters (
-                id, classroom_id, character_catalog_id, display_name, status
-            ) VALUES (?, ?, ?, '여우', 'ACTIVE')
+                id, classroom_id, character_catalog_id, display_name, sort_order, status
+            ) VALUES (?, ?, ?, '여우', 0, 'ACTIVE')
             """,
             classroomCharacterId,
             classroomId,

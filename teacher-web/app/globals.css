@@ -4174,3 +4174,56 @@ select:focus-visible {
 .roster-dialog .roster-manage-table td:nth-child(5) {
   width: 150px;
 }
+.image-lesson-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.image-lesson-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.image-lesson-form label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+
+.image-file-picker span {
+  padding: 11px 13px;
+  border: 1px dashed #9fb4a3;
+  border-radius: 8px;
+  color: #59665b;
+  background: #f7faf7;
+}
+
+.image-lesson-preview {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #dce5dd;
+  border-radius: 12px;
+  color: #778078;
+  background: #f4f7f4;
+}
+
+.image-lesson-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 460px;
+  object-fit: contain;
+  background: #fff;
+}
+
+.image-lesson-live {
+  color: #18864b;
+}
+
+@media (max-width: 900px) {
+  .image-lesson-panel { grid-template-columns: 1fr; }
+}

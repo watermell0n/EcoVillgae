@@ -12,4 +12,6 @@ public interface LedgerEntryRepository extends Repository<LedgerEntry, UUID> {
     <S extends LedgerEntry> List<S> saveAll(Iterable<S> entries);
 
     List<LedgerEntry> findAllByTransactionGroupIdOrderByLedgerAccountId(UUID transactionGroupId);
+
+    List<LedgerEntry> findTop20ByLedgerAccountIdOrderByAccountSequenceDesc(UUID ledgerAccountId);
 }

@@ -1035,6 +1035,25 @@ export default function TeacherConsole() {
     setView("overview");
   }
 
+  async function deleteClassroom(classroom: BootstrapClassroom) {
+    if (!window.confirm(`“${classroom.label}” 교실을 삭제할까요? 학생과 거래 기록은 보관되며 목록에서 숨겨집니다.`)) return;
+    try {
+      await apiRequest(
+        `/classrooms/${classroom.resource_id}?expected_state_version=${classroom.state_version ?? 0}`,
+        { method: "DELETE" }
+      );
+      const remaining = classrooms.filter((item) => item.resource_id !== classroom.resource_id);
+      setClassrooms(remaining);
+      setHasClassroom(remaining.length > 0);
+      if (activeClassroomId === classroom.resource_id) {
+        setActiveClassroomId(remaining[0]?.resource_id ?? "");
+      }
+      addLog("교실을 삭제했어요. 데이터는 보관 상태로 전환됐습니다.");
+    } catch (error) {
+      addLog(`교실을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    }
+  }
+
   if (stage === "login") {
     return (
       <TeacherLogin
@@ -1062,6 +1081,7 @@ export default function TeacherConsole() {
           setStage("create");
         }}
         onOpen={openClassroom}
+        onDelete={deleteClassroom}
         onLogout={logout}
       />
     );
@@ -1254,6 +1274,9 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               stateVersion={classroomStateVersion}
               students={students}
+              activeGuidedActivityId={modules
+                .map((module) => module.config?.active_guided_activity_id)
+                .find((value): value is string => typeof value === "string")}
               quizWorkspace={
                 <QuizDraftWorkspace
                   classroomId={activeClassroomId}
@@ -1421,6 +1444,7 @@ function ClassroomSelect({
   onCreate,
   onResume,
   onOpen,
+  onDelete,
   onLogout
 }: Readonly<{
   settings: ClassSettings;
@@ -1430,6 +1454,7 @@ function ClassroomSelect({
   onCreate: () => void;
   onResume: () => void;
   onOpen: (resourceId: string) => void;
+  onDelete: (classroom: BootstrapClassroom) => Promise<void>;
   onLogout: () => void;
 }>) {
   return (
@@ -1455,14 +1480,18 @@ function ClassroomSelect({
           </div>
           {hasClassroom ? (
             classrooms.map((classroom) => (
-              <button className="classroom-row" type="button" key={classroom.resource_id} onClick={() => void onOpen(classroom.resource_id)}>
+              <div className="classroom-row" key={classroom.resource_id}>
                 <span>
                   <strong>{classroom.label || settings.className}</strong>
                   <small>{classroom.classroom_code ? `입장 코드 ${classroom.classroom_code}` : settings.schoolName}</small>
                 </span>
                 <span>{classroom.currency_name ? `화폐 ${classroom.currency_name}` : `${settings.startDate} ~ ${settings.endDate}`}</span>
                 <b>{classroom.status || "운영 중"}</b>
-              </button>
+                <span className="row-actions">
+                  <button type="button" onClick={() => void onOpen(classroom.resource_id)}>열기</button>
+                  <button type="button" className="danger-text" onClick={() => void onDelete(classroom)}>삭제</button>
+                </span>
+              </div>
             ))
           ) : (
             <div className="empty-classroom">
@@ -3308,7 +3337,7 @@ function ShopAdmin({
   // 공개 중지 -> 수정 -> 다시 공개 순서로 처리한 뒤 목록을 다시 읽습니다.
   async function sendProductCommand(
     product: ProductRow,
-    command: "UPDATE" | "PUBLISH" | "UNPUBLISH",
+    command: "UPDATE" | "PUBLISH" | "UNPUBLISH" | "DELETE",
     overrides: { price?: number; stock?: number; name?: string } = {}
   ) {
     const stateVersionForRequest = await currentClassroomStateVersion();
@@ -3395,6 +3424,21 @@ function ShopAdmin({
       addLog(product.status === "PUBLISHED" ? "상품을 학생 상점에서 내렸어요." : "상품을 학생 상점에 올렸어요.");
     } catch (error) {
       addLog(`상품 공개 상태를 바꾸지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteProduct(product: ProductRow) {
+    if (!product.resourceId) return;
+    if (!window.confirm(`“${product.name}” 상품을 삭제할까요? 기존 주문 기록은 보존됩니다.`)) return;
+    setSubmitting(true);
+    try {
+      await sendProductCommand(product, "DELETE");
+      await onReload();
+      addLog("상품을 삭제했어요. 기존 주문 내역은 그대로 보존됩니다.");
+    } catch (error) {
+      addLog(`상품을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -3515,6 +3559,7 @@ function ShopAdmin({
                       <button className="ghost" type="button" disabled={submitting} onClick={() => void togglePublished(product)}>
                         {isPublished ? "내리기" : "학생에게 공개"}
                       </button>
+                      <button className="danger-text" type="button" disabled={submitting} onClick={() => void deleteProduct(product)}>삭제</button>
                     </div>
                   </>
                 )}
@@ -4000,6 +4045,7 @@ function Control({
   classroomId,
   stateVersion,
   students,
+  activeGuidedActivityId,
   quizWorkspace
 }: Readonly<{
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
@@ -4007,6 +4053,7 @@ function Control({
   classroomId: string;
   stateVersion: number;
   students: StudentRow[];
+  activeGuidedActivityId?: string;
   quizWorkspace: ReactNode;
 }>) {
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
@@ -4014,6 +4061,92 @@ function Control({
   const [draftLesson, setDraftLesson] = useState<LessonMaterial | null>(null);
   const [selectedLessonTitle, setSelectedLessonTitle] = useState<string>(lessonQuizCatalog[0]?.title ?? "");
   const [newQuizTitle, setNewQuizTitle] = useState("");
+  const [imageTitle, setImageTitle] = useState("경제 개념 수업");
+  const [imageDataUrl, setImageDataUrl] = useState("");
+  const [imageFileName, setImageFileName] = useState("");
+  const [activeImageLesson, setActiveImageLesson] = useState<{ activityId: string; stateVersion: number } | null>(null);
+  const [imageLessonBusy, setImageLessonBusy] = useState(false);
+
+  useEffect(() => {
+    if (!activeGuidedActivityId) {
+      setActiveImageLesson(null);
+      return;
+    }
+    void apiRequest<{ activity_id: string; state_version: number; activity_type?: string }>(
+      `/classrooms/${classroomId}/guided-activities/${activeGuidedActivityId}`
+    ).then((activity) => {
+      if (activity.activity_type === "ECONOMIC_CONCEPT_IMAGE") {
+        setActiveImageLesson({ activityId: activity.activity_id, stateVersion: activity.state_version });
+      }
+    }).catch(() => undefined);
+  }, [activeGuidedActivityId, classroomId]);
+
+  function selectLessonImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      addLog("이미지 파일만 선택해 주세요.", "warning");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addLog("수업 이미지는 5MB 이하로 선택해 주세요.", "warning");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageDataUrl(String(reader.result ?? ""));
+      setImageFileName(file.name);
+      if (imageTitle === "경제 개념 수업") setImageTitle(file.name.replace(/\.[^.]+$/, ""));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function startImageLesson() {
+    if (!imageDataUrl || !imageTitle.trim()) {
+      addLog("수업 제목과 이미지를 준비해 주세요.", "warning");
+      return;
+    }
+    setImageLessonBusy(true);
+    try {
+      const result = await apiRequest<{ activity_id: string; state_version: number }>(
+        `/classrooms/${classroomId}/guided-activities/image-lessons`,
+        {
+          method: "POST",
+          body: JSON.stringify({ title: imageTitle.trim(), image_url: imageDataUrl })
+        }
+      );
+      setActiveImageLesson({ activityId: result.activity_id, stateVersion: result.state_version });
+      addLog("수업 이미지를 학생 화면에 띄우고 화면을 고정했어요.");
+    } catch (error) {
+      addLog(`이미지 수업을 시작하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setImageLessonBusy(false);
+    }
+  }
+
+  async function finishImageLesson() {
+    if (!activeImageLesson) return;
+    setImageLessonBusy(true);
+    try {
+      await apiRequest(
+        `/classrooms/${classroomId}/guided-activities/${activeImageLesson.activityId}/finish-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: activeImageLesson.stateVersion,
+            command: "END",
+            reason: "교사가 이미지 수업을 종료함"
+          })
+        }
+      );
+      setActiveImageLesson(null);
+      addLog("이미지 수업을 종료하고 학생 화면 고정을 풀었어요.");
+    } catch (error) {
+      addLog(`이미지 수업을 종료하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setImageLessonBusy(false);
+    }
+  }
 
   function startLessonEdit(material: LessonMaterial) {
     setEditingLessonId(material.id);
@@ -4078,6 +4211,30 @@ function Control({
 
   return (
     <div className="page-flow">
+      <PlainSection title="경제 개념 이미지 수업" description="준비한 이미지 한 장을 학생 전체 화면에 동시에 띄우고, 수업이 끝날 때까지 화면을 고정합니다.">
+        <div className="image-lesson-panel">
+          <div className="image-lesson-form">
+            <label>수업 제목<input maxLength={120} value={imageTitle} onChange={(event) => setImageTitle(event.target.value)} /></label>
+            <label className="image-file-picker">
+              수업 이미지
+              <input type="file" accept="image/*" onChange={selectLessonImage} />
+              <span>{imageFileName || "PNG, JPG 등 5MB 이하"}</span>
+            </label>
+            <div className="row-actions">
+              <button type="button" disabled={imageLessonBusy || !imageDataUrl || Boolean(activeImageLesson)} onClick={() => void startImageLesson()}>
+                {imageLessonBusy ? "처리 중" : "학생 화면에 띄우기"}
+              </button>
+              <button type="button" className="danger-text" disabled={imageLessonBusy || !activeImageLesson} onClick={() => void finishImageLesson()}>
+                수업 종료·고정 해제
+              </button>
+            </div>
+            {activeImageLesson ? <strong className="image-lesson-live">● 현재 학생 화면에 표시 중</strong> : null}
+          </div>
+          <div className="image-lesson-preview">
+            {imageDataUrl ? <img src={imageDataUrl} alt={`${imageTitle} 미리보기`} /> : <span>선택한 이미지가 여기에 표시됩니다.</span>}
+          </div>
+        </div>
+      </PlainSection>
       <PlainSection title="수업 준비" description="회차별 수업 자료를 정리하고, 같은 자리에서 퀴즈를 만들고 수정해요.">
         <div className="lesson-list">
           {lessonMaterials.map((material) => {

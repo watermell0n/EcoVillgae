@@ -26,6 +26,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.realtime.application.StudentPresenceService;
 import com.b201.ecovillage.realtime.application.StudentPresenceService.StudentPresenceSnapshot;
+import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 
 @Service
 public class ClassroomReadService {
@@ -52,6 +53,7 @@ public class ClassroomReadService {
     private final ClassroomModuleRepository moduleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final StudentPresenceService presenceService;
+    private final ActivitySessionRepository activitySessionRepository;
     private final Clock clock;
 
     public ClassroomReadService(
@@ -61,6 +63,7 @@ public class ClassroomReadService {
         ClassroomModuleRepository moduleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
         StudentPresenceService presenceService,
+        ActivitySessionRepository activitySessionRepository,
         Clock clock
     ) {
         this.authorizationService = authorizationService;
@@ -69,6 +72,7 @@ public class ClassroomReadService {
         this.moduleRepository = moduleRepository;
         this.policyVersionRepository = policyVersionRepository;
         this.presenceService = presenceService;
+        this.activitySessionRepository = activitySessionRepository;
         this.clock = clock;
     }
 
@@ -135,9 +139,13 @@ public class ClassroomReadService {
                 "ACTIVE"
             )
             : moduleRepository.findAllByClassroomIdOrderByModuleCode(classroomId);
+        UUID activeGuidedActivityId = activitySessionRepository
+            .findFirstByClassroomIdAndStatus(classroomId, "LIVE")
+            .map(activity -> activity.getId())
+            .orElse(null);
         List<ModulesAndPoliciesView.ModuleView> modules = moduleEntities
             .stream()
-            .map(module -> toModuleView(module, student))
+            .map(module -> toModuleView(module, student, activeGuidedActivityId))
             .toList();
         List<ModulesAndPoliciesView.PolicyVersionView> policies = policyVersionRepository
             .findAllByClassroomIdAndSupersededAtIsNullOrderByPolicyArea(classroomId)
@@ -200,8 +208,15 @@ public class ClassroomReadService {
 
     private static ModulesAndPoliciesView.ModuleView toModuleView(
         ClassroomModule module,
-        boolean publicView
+        boolean publicView,
+        UUID activeGuidedActivityId
     ) {
+        Map<String, Object> config = new LinkedHashMap<>(
+            publicView ? publicModuleConfig(module.getConfig()) : module.getConfig()
+        );
+        if (activeGuidedActivityId != null) {
+            config.put("active_guided_activity_id", activeGuidedActivityId.toString());
+        }
         return new ModulesAndPoliciesView.ModuleView(
             module.getId(),
             module.getModuleCode(),
@@ -209,7 +224,7 @@ public class ClassroomReadService {
             Math.toIntExact(module.getStateVersion()),
             module.getStateVersion(),
             module.getModuleCode(),
-            publicView ? publicModuleConfig(module.getConfig()) : module.getConfig()
+            Map.copyOf(config)
         );
     }
 

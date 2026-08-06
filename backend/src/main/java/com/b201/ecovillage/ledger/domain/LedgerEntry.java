@@ -129,4 +129,8 @@ public class LedgerEntry {
     public long getBalanceAfter() {
         return balanceAfter;
     }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

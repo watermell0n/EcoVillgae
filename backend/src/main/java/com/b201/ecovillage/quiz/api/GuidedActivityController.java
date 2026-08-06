@@ -23,6 +23,7 @@ import com.b201.ecovillage.quiz.application.GuidedActivityQueryService;
 import com.b201.ecovillage.quiz.application.GuidedActivityResult;
 import com.b201.ecovillage.quiz.application.GuidedActivityStartCommand;
 import com.b201.ecovillage.quiz.application.GuidedActivityView;
+import com.b201.ecovillage.quiz.application.ImageLessonService;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}/guided-activities")
@@ -30,19 +31,42 @@ public class GuidedActivityController {
 
     private final GuidedActivityCommandService commandService;
     private final GuidedActivityQueryService queryService;
+    private final ImageLessonService imageLessonService;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
     public GuidedActivityController(
         GuidedActivityCommandService commandService,
         GuidedActivityQueryService queryService,
+        ImageLessonService imageLessonService,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.imageLessonService = imageLessonService;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @PostMapping("/image-lessons")
+    public ApiResponse<GuidedActivityResponse> startImageLesson(
+        @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody ImageLessonStartRequest request,
+        Principal principal
+    ) {
+        UUID correlation = resolve(correlationId);
+        GuidedActivityResult result = imageLessonService.start(
+            subject(principal),
+            classroomId,
+            requestId,
+            correlation,
+            request.title(),
+            request.imageUrl()
+        );
+        return new ApiResponse<>(response(result), meta(requestId, correlation));
     }
 
     @PostMapping("/{activityId}/start-commands")
@@ -119,7 +143,11 @@ public class GuidedActivityController {
             new GuidedActivityViewResponse(
                 result.activityId(),
                 result.status(),
-                result.participantCount()
+                result.stateVersion(),
+                result.participantCount(),
+                result.activityType(),
+                result.presentationTitle(),
+                result.presentationImageUrl()
             ),
             meta(requestId, correlation)
         );
