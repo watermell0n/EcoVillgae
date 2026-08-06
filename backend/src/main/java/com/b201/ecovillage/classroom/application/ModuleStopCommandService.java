@@ -277,10 +277,27 @@ public class ModuleStopCommandService {
         ) {
             blockers.add("TRADE_SETTLEMENT_REQUIRED");
         }
+        if ("LOAN".equals(moduleCode)) {
+            Integer activeLoans = jdbc.queryForObject(
+                "select (select count(*) from loans where classroom_id=? and status in ('ACTIVE','OVERDUE')) + (select count(*) from loan_applications where classroom_id=? and status='APPLIED')",
+                Integer.class,
+                classroomId,
+                classroomId
+            );
+            if (activeLoans != null && activeLoans > 0) {
+                blockers.add("LOAN_SETTLEMENT_REQUIRED");
+            }
+        }
         return List.copyOf(blockers);
     }
 
     private void validatePropertyStop(java.util.UUID classroomId, String moduleCode) {
+        if ("CREDIT".equals(moduleCode) && moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "LOAN")
+            .map(module -> "ACTIVE".equals(module.getStatus()) || "STOPPING".equals(module.getStatus()))
+            .orElse(false)) {
+            throw operation(HttpStatus.CONFLICT, "ACTIVE_DEPENDENT_MODULE_EXISTS", "대출 모듈을 먼저 종료해 주세요.");
+        }
         if ("REAL_ESTATE".equals(moduleCode) && moduleRepository
             .existsByClassroomIdAndModuleCodeAndStatus(classroomId, "HOUSING_SUBSCRIPTION", "ACTIVE")) {
             throw operation(HttpStatus.CONFLICT, "ACTIVE_DEPENDENT_MODULE_EXISTS", "청약 모듈을 먼저 종료해 주세요.");

@@ -427,7 +427,7 @@ const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예�
 
 const moduleDependencies: Record<string, string[]> = {
   월급: ["지갑"],
-  세금: ["지갑"],
+  세금: ["월급", "지갑"],
   상점: ["지갑"],
   캐릭터: ["지갑", "상점"],
   "개인 거래": ["지갑"],
@@ -2813,6 +2813,7 @@ function Roster({
   const [draftStudent, setDraftStudent] = useState<StudentRow | null>(null);
   const [studentQuery, setStudentQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("전체 상태");
+  const [rosterDirty, setRosterDirty] = useState(false);
   const [newStudent, setNewStudent] = useState<StudentRow>({
     attendance: String(students.length + 1),
     nickname: "",
@@ -2853,8 +2854,9 @@ function Roster({
     }
 
     setStudents((items) => items.map((item, itemIndex) => itemIndex === index ? draftStudent : item));
+    setRosterDirty(true);
     cancelEdit();
-    addLog(`${draftStudent.nickname} 학생 정보를 수정했어요.`);
+    addLog(`${draftStudent.nickname} 학생 정보를 수정했어요. 명단 저장 전에는 급여에 반영되지 않아요.`, "warning");
   }
 
   function addStudent() {
@@ -2876,6 +2878,7 @@ function Roster({
     };
 
     setStudents((items) => [...items, studentToAdd]);
+    setRosterDirty(true);
     setNewStudent({
       attendance: String(students.length + 2),
       nickname: "",
@@ -2892,10 +2895,38 @@ function Roster({
   function removeStudent(index: number) {
     const target = students[index];
     setStudents((items) => items.filter((_, itemIndex) => itemIndex !== index));
+    setRosterDirty(true);
     setDeletingIndex(null);
     cancelEdit();
     // 삭제는 "명단 저장"을 눌러야 서버에 반영됩니다. 저장 전에 창을 닫으면 되돌아옵니다.
     addLog(`${target.nickname} 학생을 목록에서 뺐어요. 아래 “명단 저장”을 눌러야 반영됩니다.`, "warning");
+  }
+
+  function resetStudentLogin(student: StudentRow) {
+    if (!student.resourceId) {
+      addLog("먼저 명단을 저장한 뒤 학생 로그인을 초기화해 주세요.", "warning");
+      return;
+    }
+    const newPassword = window.prompt(`${student.attendance}번 ${student.nickname} 학생이 다시 로그인할 임시 비밀번호를 입력해 주세요.`, "1234");
+    if (newPassword === null) return;
+    if (newPassword.length < 4 || newPassword.length > 72) {
+      addLog("임시 비밀번호는 4~72자로 입력해 주세요.", "warning");
+      return;
+    }
+    void runAction(
+      "학생 로그인 초기화",
+      `/classrooms/${classroomId}/students/${student.resourceId}/password-reset-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          command: "COMPLETE",
+          reset_request_id: crypto.randomUUID(),
+          new_password: newPassword,
+          reason: "교사 명단 화면에서 학생 로그인 초기화"
+        })
+      },
+      () => addLog(`${student.attendance}번 학생의 로그인을 초기화했어요. 출석번호·현재 이름·새 임시 비밀번호로 다시 로그인할 수 있습니다.`)
+    );
   }
 
   function closeManager() {
@@ -2941,6 +2972,20 @@ function Roster({
       sort_order: index + 1
     }))
   };
+
+  function saveRoster(closeAfterSave = false) {
+    return runAction(
+      hasSalaryModule ? "명단·급여 저장" : "명단 저장",
+      `/classrooms/${classroomId}/roster-and-salaries`,
+      { method: "PUT", body: JSON.stringify(rosterBody) },
+      () => {
+        setRosterDirty(false);
+        if (closeAfterSave) closeManager();
+        addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
+        void onReload();
+      }
+    );
+  }
   const payableStudents = students.filter((student) => student.resourceId && student.role.trim());
   const grossTotal = payableStudents.reduce((sum, student) => sum + (Number(student.salary) || 0), 0);
   const taxTotal = Math.floor(grossTotal * (incomeTaxRateBps / 10_000));
@@ -3126,6 +3171,7 @@ function Roster({
                               </div>
                             ) : (
                               <div className="row-actions">
+                                <button className="ghost" type="button" onClick={() => resetStudentLogin(student)}>로그인 초기화</button>
                                 <button type="button" onClick={() => startEdit(index)}>수정</button>
                                 <button className="icon-danger" type="button" aria-label={`${student.nickname} 삭제`} onClick={() => setDeletingIndex(index)}>
                                   <Trash2 aria-hidden="true" size={15} />
@@ -3146,7 +3192,8 @@ function Roster({
             </div>
 
             <footer className="roster-dialog-footer">
-              <button type="button" onClick={closeManager}>완료</button>
+              <button type="button" className="ghost" onClick={closeManager}>취소</button>
+              <button type="button" onClick={() => void saveRoster(true)}>명단 저장하고 닫기</button>
             </footer>
           </section>
         </div>
@@ -3168,22 +3215,18 @@ function Roster({
         <ActionLine
           label="명단 저장"
           value={`${students.length}명 반영`}
-          action="저장"
-          onClick={() => runAction(
-            hasSalaryModule ? "명단·급여 저장" : "명단 저장",
-            `/classrooms/${classroomId}/roster-and-salaries`,
-            { method: "PUT", body: JSON.stringify(rosterBody) },
-            () => {
-              addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
-              void onReload();
-            }
-          )}
+          action={rosterDirty ? "변경 저장" : "저장"}
+          onClick={() => void saveRoster()}
         />
         {hasSalaryModule ? <ActionLine
           label="급여 지급"
           value={`직업이 있는 ${payableStudents.length}명에게 ${netTotal}${settings.currency}`}
           action="지급"
           onClick={() => {
+            if (rosterDirty) {
+              addLog("명단 또는 직업 변경을 먼저 저장한 뒤 급여를 지급해 주세요.", "warning");
+              return;
+            }
             if (payableStudents.length === 0) {
               addLog("직업이 배정된 학생이 없어요. 명단에서 직업을 넣고 저장한 뒤 지급해 주세요.", "warning");
               return;
@@ -3617,6 +3660,32 @@ type LoanApplicationRow = {
   status: string;
 };
 
+type LoanInstallmentRow = {
+  installmentId: string;
+  installmentNumber: number;
+  dueAt: string;
+  graceUntil: string;
+  scheduledPrincipal: number;
+  scheduledInterest: number;
+  status: string;
+};
+
+type ActiveLoanRow = {
+  loanId: string;
+  studentId: string;
+  studentNickname: string;
+  principalAmount: number;
+  outstandingPrincipal: number;
+  outstandingInterest: number;
+  appliedInterestRateBps: number;
+  status: string;
+  maturesAt: string;
+  stateVersion: number;
+  creditScore: number;
+  creditLevel: string;
+  installments: LoanInstallmentRow[];
+};
+
 // 아직 상품을 만들지 않았을 때 보여 주는 초안입니다. 이자율은 모듈 활성화 때 확정한
 // 기준금리를 그대로 씁니다. 고정값을 쓰면 적용한 금리와 화면의 금리가 달라집니다.
 function defaultFinancialProducts(
@@ -3665,6 +3734,7 @@ function FinanceAdmin({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [loanPolicy, setLoanPolicy] = useState<LoanPolicyDraft>({ version: 0, maximumPrincipal: "300", interestRate: String((loanRateBps ?? 700) / 100), termWeeks: "4", installmentCount: "4", graceDays: "3", onTimeCredit: "10", overdueCredit: "-30", repaidCredit: "20" });
   const [loanApplications, setLoanApplications] = useState<LoanApplicationRow[]>([]);
+  const [activeLoans, setActiveLoans] = useState<ActiveLoanRow[]>([]);
   const [loanAmounts, setLoanAmounts] = useState<Record<string, string>>({});
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
   const [loanSaving, setLoanSaving] = useState(false);
@@ -3744,6 +3814,21 @@ function FinanceAdmin({
     void apiRequest<{
       policy: { version: number; maximum_principal: number; interest_rate_bps: number; term_units: number; installment_count: number; grace_units: number; on_time_credit: number; overdue_credit: number; repaid_credit: number };
       applications: Array<{ application_id: string; student_id: string; student_nickname: string; requested_amount: number; credit_score: number; credit_level: string; status: string }>;
+      active_loans: Array<{
+        loan_id: string;
+        student_id: string;
+        student_nickname: string;
+        principal_amount: number;
+        outstanding_principal: number;
+        outstanding_interest: number;
+        applied_interest_rate_bps: number;
+        status: string;
+        matures_at: string;
+        state_version: number;
+        credit_score: number;
+        credit_level: string;
+        installments: Array<{ installment_id: string; installment_number: number; due_at: string; grace_until: string; scheduled_principal: number; scheduled_interest: number; status: string }>;
+      }>;
     }>(`/classrooms/${classroomId}/loan-approval-queue`).then((response) => {
       if (cancelled) return;
       setLoanPolicy({
@@ -3765,6 +3850,29 @@ function FinanceAdmin({
         creditScore: item.credit_score,
         creditLevel: item.credit_level,
         status: item.status
+      })));
+      setActiveLoans(response.active_loans.map((loan) => ({
+        loanId: loan.loan_id,
+        studentId: loan.student_id,
+        studentNickname: loan.student_nickname,
+        principalAmount: loan.principal_amount,
+        outstandingPrincipal: loan.outstanding_principal,
+        outstandingInterest: loan.outstanding_interest,
+        appliedInterestRateBps: loan.applied_interest_rate_bps,
+        status: loan.status,
+        maturesAt: loan.matures_at,
+        stateVersion: loan.state_version,
+        creditScore: loan.credit_score,
+        creditLevel: loan.credit_level,
+        installments: loan.installments.map((installment) => ({
+          installmentId: installment.installment_id,
+          installmentNumber: installment.installment_number,
+          dueAt: installment.due_at,
+          graceUntil: installment.grace_until,
+          scheduledPrincipal: installment.scheduled_principal,
+          scheduledInterest: installment.scheduled_interest,
+          status: installment.status
+        }))
       })));
       setLoanAmounts(Object.fromEntries(response.applications.map((item) => [item.application_id, String(item.requested_amount)])));
     }).catch(() => undefined);
@@ -3979,7 +4087,7 @@ function FinanceAdmin({
                 <label>연체 신용점수(-100~0)<input type="number" min="-100" max="0" value={loanPolicy.overdueCredit} onChange={(event) => updateLoanPolicy("overdueCredit", event.target.value)} /></label>
                 <label>완납 신용점수(0~100)<input type="number" min="0" max="100" value={loanPolicy.repaidCredit} onChange={(event) => updateLoanPolicy("repaidCredit", event.target.value)} /></label>
               </div>
-              <p className="helper-text">신용 750점 이상은 한도 100%, 600점 이상은 80%, 450점 이상은 60%를 신청할 수 있습니다. 450점 미만은 신규 신청이 제한됩니다.</p>
+              <p className="helper-text">신용 750점 이상은 한도 100%·기준 금리 -1%p, 600점 이상은 한도 80%·기준 금리, 450점 이상은 한도 60%·기준 금리 +2%p가 적용됩니다. 450점 미만은 신규 신청이 제한됩니다.</p>
               <div className="financial-actions"><button type="button" disabled={loanSaving} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
             </div>
           </PlainSection>
@@ -3996,6 +4104,33 @@ function FinanceAdmin({
                   <div className="financial-actions">
                     <button type="button" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "APPROVE")}>승인·지급</button>
                     <button type="button" className="ghost" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "REJECT")}>거절</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PlainSection>
+          <PlainSection title="상환·연체 현황" description="진행 중인 대출의 남은 금액과 회차별 납부 상태를 확인합니다.">
+            <div className="financial-product-list">
+              {activeLoans.length === 0 ? <p className="empty-state">현재 상환 중인 대출이 없습니다.</p> : activeLoans.map((loan) => (
+                <div className="financial-product-editor" key={loan.loanId}>
+                  <div className="financial-product-heading">
+                    <strong>{loan.studentNickname}</strong>
+                    <span>{loan.status === "OVERDUE" ? "연체" : "상환 중"} · 신용 {loan.creditScore}점 · {creditLevelLabels[loan.creditLevel] ?? loan.creditLevel}</span>
+                  </div>
+                  <div className="financial-fields">
+                    <label>대출 원금({currencyName})<input value={loan.principalAmount.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>남은 원금({currencyName})<input value={loan.outstandingPrincipal.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>남은 이자({currencyName})<input value={loan.outstandingInterest.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>적용 금리<input value={`${(loan.appliedInterestRateBps / 100).toFixed(2)}%`} readOnly /></label>
+                    <label>만기일<input value={new Date(loan.maturesAt).toLocaleDateString("ko-KR")} readOnly /></label>
+                  </div>
+                  <div className="financial-product-list">
+                    {loan.installments.map((installment) => (
+                      <div className="financial-product-heading" key={installment.installmentId}>
+                        <strong>{installment.installmentNumber}회차 · {installment.status === "PAID" ? "납부 완료" : installment.status === "MISSED" ? "연체" : "납부 예정"}</strong>
+                        <span>{new Date(installment.dueAt).toLocaleDateString("ko-KR")} · {(installment.scheduledPrincipal + installment.scheduledInterest).toLocaleString("ko-KR")} {currencyName}{installment.status === "MISSED" ? ` · 유예 ${new Date(installment.graceUntil).toLocaleDateString("ko-KR")}까지` : ""}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

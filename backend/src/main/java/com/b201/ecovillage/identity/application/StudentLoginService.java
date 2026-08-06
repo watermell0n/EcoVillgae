@@ -232,7 +232,11 @@ public class StudentLoginService {
                 .findForLogin(lockedClassroom.getId(), command.attendanceNumber())
                 .filter(candidate -> candidate.getStatus() == ClassroomStudentStatus.ACTIVE)
                 .ifPresent(candidate -> {
-                    if (!nicknameMatches(candidate, nickname)) {
+                    boolean unclaimedPlaceholder = isUnassignedPlaceholder(
+                        lockedClassroom.getId(),
+                        candidate
+                    );
+                    if (!nicknameMatches(candidate, nickname) && !unclaimedPlaceholder) {
                         throw new InvalidCredentialsException();
                     }
                 });
@@ -270,6 +274,7 @@ public class StudentLoginService {
 
         Optional<StudentAccess> placeholder = claimUnassignedPlaceholder(
             lockedClassroom,
+            command.attendanceNumber(),
             nickname,
             command.password(),
             now
@@ -320,6 +325,7 @@ public class StudentLoginService {
 
     private Optional<StudentAccess> claimUnassignedPlaceholder(
         Classroom classroom,
+        Integer attendanceNumber,
         String nickname,
         String password,
         Instant now
@@ -330,6 +336,8 @@ public class StudentLoginService {
                 ClassroomStudentStatus.ACTIVE
             )
             .stream()
+            .filter(candidate -> attendanceNumber == null
+                || candidate.getRosterNumber() == attendanceNumber)
             .filter(candidate -> candidate.getNickname().equals(initialStudentNickname(candidate.getRosterNumber())))
             .filter(candidate -> studentCredentialRepository
                 .findByClassroomIdAndClassroomStudentId(classroom.getId(), candidate.getId())
@@ -348,6 +356,13 @@ public class StudentLoginService {
                 );
                 return new StudentAccess(candidate, credential, true);
             });
+    }
+
+    private boolean isUnassignedPlaceholder(UUID classroomId, ClassroomStudent student) {
+        return student.getNickname().equals(initialStudentNickname(student.getRosterNumber()))
+            && studentCredentialRepository
+                .findByClassroomIdAndClassroomStudentId(classroomId, student.getId())
+                .isEmpty();
     }
 
     private static String initialStudentNickname(int rosterNumber) {

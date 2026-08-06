@@ -57,6 +57,7 @@ export async function loginStudent(input: StudentLoginInput): Promise<StudentSes
     retryOnNetworkFailure: true,
     body: JSON.stringify({
       classroom_code: input.classroomCode,
+      attendance_number: input.attendanceNumber,
       nickname: input.nickname,
       password: input.password,
       device_id: input.deviceId

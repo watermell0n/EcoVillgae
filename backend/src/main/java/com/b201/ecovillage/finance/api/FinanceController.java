@@ -24,6 +24,7 @@ import com.b201.ecovillage.common.api.ApiResponse;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.application.DepositAccountQueryService;
 import com.b201.ecovillage.finance.application.LoanApplicationService;
+import com.b201.ecovillage.finance.application.LoanRepaymentProcessor;
 import com.b201.ecovillage.finance.application.DepositAccountResult;
 import com.b201.ecovillage.finance.application.DepositSubscriptionCommand;
 import com.b201.ecovillage.finance.application.DepositSubscriptionService;
@@ -49,6 +50,7 @@ public class FinanceController {
     private final SavingsAccountQueryService savingsQueryService;
     private final FinancialProductQueryService productQueryService;
     private final LoanApplicationService loanApplicationService;
+    private final LoanRepaymentProcessor loanRepaymentProcessor;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -61,6 +63,7 @@ public class FinanceController {
         SavingsAccountQueryService savingsQueryService,
         FinancialProductQueryService productQueryService,
         LoanApplicationService loanApplicationService,
+        LoanRepaymentProcessor loanRepaymentProcessor,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -72,6 +75,7 @@ public class FinanceController {
         this.savingsQueryService = savingsQueryService;
         this.productQueryService = productQueryService;
         this.loanApplicationService = loanApplicationService;
+        this.loanRepaymentProcessor = loanRepaymentProcessor;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -292,6 +296,8 @@ public class FinanceController {
     @PostMapping("/loan-application-commands")
     public ResponseEntity<ApiResponse<LoanApplicationResponse>> applyLoan(
         @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         @Valid @RequestBody LoanApplicationRequest request,
         Principal principal
     ) {
@@ -308,7 +314,8 @@ public class FinanceController {
                 subject(principal),
                 classroomId,
                 request.amount(),
-                request.installments()
+                request.installments(),
+                requestId
             );
         } else if ("CANCEL".equalsIgnoreCase(request.command())) {
             if (request.applicationId() == null) {
@@ -321,7 +328,8 @@ public class FinanceController {
             value = loanApplicationService.cancel(
                 subject(principal),
                 classroomId,
-                request.applicationId()
+                request.applicationId(),
+                requestId
             );
         } else {
             throw new ClassroomOperationException(
@@ -330,8 +338,8 @@ public class FinanceController {
                 "대출 명령은 APPLY 또는 CANCEL이어야 합니다."
             );
         }
-        UUID requestId = uuidGenerator.generate();
-        return response(HttpStatus.OK, loan(value), requestId, uuidGenerator.generate());
+        return response(HttpStatus.OK, loan(value), requestId,
+            correlationId == null ? uuidGenerator.generate() : correlationId);
     }
 
     @GetMapping("/students/me/loans-and-credit")
@@ -347,8 +355,11 @@ public class FinanceController {
                 loan.principalAmount(),
                 loan.outstandingPrincipal(),
                 loan.outstandingInterest(),
+                loan.appliedInterestRateBps(),
                 loan.status(),
-                loan.maturesAt()
+                loan.maturesAt(),
+                loan.stateVersion(),
+                loan.installments().stream().map(FinanceController::installment).toList()
             ))
             .toList();
         return response(
@@ -363,7 +374,12 @@ public class FinanceController {
                 value.canApply(),
                 value.pendingApplicationId(),
                 value.pendingApplicationStatus(),
-                loans
+                loans,
+                value.creditEvents().stream().map(event -> new CreditEventResponse(
+                    event.eventId(), event.eventType(), event.scoreDelta(), event.scoreBefore(),
+                    event.scoreAfter(), event.levelBefore(), event.levelAfter(), event.reason(),
+                    event.occurredAt()
+                )).toList()
             ),
             requestId,
             uuidGenerator.generate()
@@ -380,7 +396,14 @@ public class FinanceController {
                 policy(loanApplicationService.policy(subject, classroomId)),
                 loanApplicationService.queue(subject, classroomId).stream()
                     .map(FinanceController::loan)
-                    .toList()
+                    .toList(),
+                loanApplicationService.activeLoans(subject, classroomId).stream()
+                    .map(loan -> new LoanApprovalQueueResponse.ActiveLoanResponse(
+                        loan.loanId(), loan.studentId(), loan.studentNickname(), loan.principalAmount(),
+                        loan.outstandingPrincipal(), loan.outstandingInterest(), loan.appliedInterestRateBps(),
+                        loan.status(), loan.maturesAt(), loan.stateVersion(), loan.creditScore(), loan.creditLevel(),
+                        loan.installments().stream().map(FinanceController::installment).toList()
+                    )).toList()
             ),
             requestId,
             uuidGenerator.generate()
@@ -390,6 +413,8 @@ public class FinanceController {
     @PutMapping("/loan-policy")
     public ResponseEntity<ApiResponse<LoanPolicyResponse>> updateLoanPolicy(
         @PathVariable UUID classroomId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         @Valid @RequestBody LoanPolicyRequest request,
         Principal principal
     ) {
@@ -404,16 +429,19 @@ public class FinanceController {
             request.onTimeCredit(),
             request.overdueCredit(),
             request.repaidCredit(),
-            request.expectedPolicyVersion()
+            request.expectedPolicyVersion(),
+            requestId
         );
-        UUID requestId = uuidGenerator.generate();
-        return response(HttpStatus.OK, policy(value), requestId, uuidGenerator.generate());
+        return response(HttpStatus.OK, policy(value), requestId,
+            correlationId == null ? uuidGenerator.generate() : correlationId);
     }
 
     @PostMapping("/loan-applications/{applicationId}/teacher-decisions")
     public ResponseEntity<ApiResponse<LoanApplicationResponse>> decideLoan(
         @PathVariable UUID classroomId,
         @PathVariable UUID applicationId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         @Valid @RequestBody LoanDecisionRequest request,
         Principal principal
     ) {
@@ -431,16 +459,45 @@ public class FinanceController {
             applicationId,
             approve,
             request.approvedAmount(),
-            request.reason()
+            request.reason(),
+            requestId
         );
-        UUID requestId = uuidGenerator.generate();
-        return response(HttpStatus.OK, loan(value), requestId, uuidGenerator.generate());
+        return response(HttpStatus.OK, loan(value), requestId,
+            correlationId == null ? uuidGenerator.generate() : correlationId);
+    }
+
+    @PostMapping("/loans/{loanId}/repayment-commands")
+    public ResponseEntity<ApiResponse<LoanRepaymentResponse>> repayLoan(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID loanId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody LoanRepaymentRequest request,
+        Principal principal
+    ) {
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        var result = loanRepaymentProcessor.repay(
+            subject(principal), classroomId, loanId, request.command(), request.expectedStateVersion(),
+            requestId, resolvedCorrelationId
+        );
+        return response(HttpStatus.OK, new LoanRepaymentResponse(
+            result.loanId(), result.status(), result.stateVersion(), result.remainingPrincipal(),
+            result.remainingInterest(), result.creditScore(), result.creditLevel(), result.replayed()
+        ), requestId, resolvedCorrelationId);
     }
 
     private static LoanApplicationResponse loan(LoanApplicationService.LoanApplicationView value) {
         return new LoanApplicationResponse(
             value.applicationId(), value.studentId(), value.studentNickname(), value.requestedAmount(),
             value.approvedAmount(), value.creditScore(), value.creditLevel(), value.status(), value.createdAt()
+        );
+    }
+
+    private static LoanInstallmentResponse installment(LoanApplicationService.InstallmentView value) {
+        return new LoanInstallmentResponse(
+            value.installmentId(), value.installmentNumber(), value.scheduledPrincipal(),
+            value.scheduledInterest(), value.dueAt(), value.graceUntil(), value.paidPrincipal(),
+            value.paidInterest(), value.paidAt(), value.status(), value.stateVersion()
         );
     }
 

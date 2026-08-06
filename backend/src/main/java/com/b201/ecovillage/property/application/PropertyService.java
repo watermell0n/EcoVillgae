@@ -113,7 +113,7 @@ public class PropertyService {
         if (changed == 0) jdbc.update("insert into property_layouts(classroom_id,row_count,column_count,state_version,updated_at,created_at) values(?,?,?,0,?,?)", classroomId, rows, columns, now, now);
         for (int row = 1; row <= rows; row++) for (int column = 1; column <= columns; column++) {
             String coordinate = coordinate(row, column);
-            jdbc.update("insert into properties(id,classroom_id,coordinate,display_name,row_index,column_index,property_tier,is_public,is_active,allows_rent,allows_jeonse,allows_sale,allows_subscription,sale_price,deposit_amount,monthly_rent,rent_payment_cycle_days,contract_term_days,owner_kind,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,'GENERAL',true,true,true,true,true,false,0,0,0,7,28,'TEACHER','AVAILABLE',?,?,?)", uuids.generate(), classroomId, coordinate, coordinate, row, column, now, now, now);
+            jdbc.update("insert into properties(id,classroom_id,coordinate,display_name,row_index,column_index,property_tier,is_public,is_active,allows_rent,allows_jeonse,allows_sale,allows_subscription,sale_price,deposit_amount,monthly_rent,rent_payment_cycle_days,contract_term_days,owner_kind,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,'GENERAL',false,true,false,false,false,false,0,0,0,7,28,'TEACHER','TEACHER_OWNED',?,?,?)", uuids.generate(), classroomId, coordinate, coordinate, row, column, now, now, now);
         }
         return layout(subject, classroomId);
     }

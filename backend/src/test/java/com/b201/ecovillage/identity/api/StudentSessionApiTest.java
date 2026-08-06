@@ -167,10 +167,54 @@ class StudentSessionApiTest {
     }
 
     @Test
-    void registersFirstTimeStudentWithoutAttendanceNumberUsingFourCharacterPassword()
+    void registersFirstTimeStudentAtRequestedAttendanceNumberUsingFourCharacterPassword()
         throws Exception {
         String nickname = "새학생";
+        UUID firstPlaceholderId = UUID.randomUUID();
+        UUID requestedPlaceholderId = UUID.randomUUID();
+        classroomStudentRepository.save(
+            ClassroomStudent.enroll(firstPlaceholderId, classroomId, 1, "학생 1", CREATED_AT)
+        );
+        classroomStudentRepository.save(
+            ClassroomStudent.enroll(requestedPlaceholderId, classroomId, 2, "학생 2", CREATED_AT)
+        );
 
+        mockMvc.perform(
+            post("/auth/student-sessions")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "classroom_code": "ABCD2345",
+                      "attendance_number": 2,
+                      "nickname": "새학생",
+                      "password": "1234",
+                      "device_id": "%s"
+                    }
+                    """.formatted(UUID.randomUUID()))
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"));
+
+        ClassroomStudent registered = classroomStudentRepository
+            .findByClassroomIdAndNicknameIgnoreCaseAndRetiredAtIsNull(classroomId, nickname)
+            .orElseThrow();
+        assertEquals(2, registered.getRosterNumber());
+        assertEquals(requestedPlaceholderId, registered.getId());
+        assertTrue(studentCredentialRepository.findById(firstPlaceholderId).isEmpty());
+        assertTrue(studentCredentialRepository.findById(registered.getId()).isPresent());
+        assertTrue(ledgerAccountRepository
+            .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                classroomId,
+                registered.getId(),
+                LedgerAccountType.STUDENT_WALLET,
+                LedgerAccountStatus.ACTIVE
+            )
+            .isPresent());
+    }
+
+    @Test
+    void requiresAttendanceNumberForStudentLogin() throws Exception {
         mockMvc.perform(
             post("/auth/student-sessions")
                 .header("Idempotency-Key", UUID.randomUUID())
@@ -184,22 +228,8 @@ class StudentSessionApiTest {
                     }
                     """.formatted(UUID.randomUUID()))
         )
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.data.role").value("STU"));
-
-        ClassroomStudent registered = classroomStudentRepository
-            .findByClassroomIdAndNicknameIgnoreCaseAndRetiredAtIsNull(classroomId, nickname)
-            .orElseThrow();
-        assertEquals(1, registered.getRosterNumber());
-        assertTrue(studentCredentialRepository.findById(registered.getId()).isPresent());
-        assertTrue(ledgerAccountRepository
-            .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
-                classroomId,
-                registered.getId(),
-                LedgerAccountType.STUDENT_WALLET,
-                LedgerAccountStatus.ACTIVE
-            )
-            .isPresent());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test
@@ -226,6 +256,7 @@ class StudentSessionApiTest {
                 .content("""
                     {
                       "classroom_code": "ABCD2345",
+                      "attendance_number": 31,
                       "nickname": "정원초과",
                       "password": "1234",
                       "device_id": "%s"

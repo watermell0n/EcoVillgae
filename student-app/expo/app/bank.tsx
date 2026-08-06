@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { applyLoan, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
+import { applyLoan, cancelLoanApplication, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, repayLoan, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
 
 type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
@@ -33,6 +33,17 @@ export default function BankScreen() {
   });
   const applyLoanMutation = useMutation({
     mutationFn: ({ amount, installments }: { amount: number; installments: number }) => applyLoan(identity!.classroomId, amount, installments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["loan-overview", identity?.classroomId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
+    }
+  });
+  const cancelLoanMutation = useMutation({
+    mutationFn: (applicationId: string) => cancelLoanApplication(identity!.classroomId, applicationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["loan-overview", identity?.classroomId] })
+  });
+  const repaymentMutation = useMutation({
+    mutationFn: ({ loanId, stateVersion, command }: { loanId: string; stateVersion: number; command: "RETRY_DUE_PAYMENT" | "PREPAY_ALL" }) => repayLoan(identity!.classroomId, loanId, stateVersion, command),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["loan-overview", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
@@ -113,12 +124,21 @@ export default function BankScreen() {
               <View style={styles.loanMetric}><Text style={styles.accountDetailLabel}>대출 가능 금액</Text><Text style={styles.accountDetailValue}>{loan.data.availableLimit.toLocaleString("ko-KR")}</Text><Text style={styles.loanMetricDetail}>전체 금리 {(loan.data.interestRateBps / 100).toFixed(2)}%</Text></View>
             </View>
             <Text style={styles.passbookNotice}>{loan.data.termUnits / 7}주 동안 {loan.data.installmentCount}회 나누어 상환해요.</Text>
-            {loan.data.pendingApplicationStatus ? <Text style={styles.pendingNotice}>대출 신청이 접수되었어요. 선생님 승인을 기다려요.</Text> : <View style={styles.loanApplyRow}>
+            {loan.data.pendingApplicationStatus ? <View style={styles.pendingBlock}><Text style={styles.pendingNotice}>대출 신청이 접수되었어요. 선생님 승인을 기다려요.</Text><Pressable disabled={!loan.data.pendingApplicationId || cancelLoanMutation.isPending} onPress={() => loan.data?.pendingApplicationId && cancelLoanMutation.mutate(loan.data.pendingApplicationId)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>신청 취소</Text></Pressable></View> : <View style={styles.loanApplyRow}>
               <TextInput accessibilityLabel="대출 신청 금액" value={loanAmount} onChangeText={setLoanAmount} keyboardType="number-pad" style={styles.loanAmountInput} />
               <Pressable disabled={!canSubmitLoan || applyLoanMutation.isPending} onPress={() => applyLoanMutation.mutate({ amount: requestedLoanAmount, installments: loan.data.installmentCount })} style={[styles.passbookButton, (!canSubmitLoan || applyLoanMutation.isPending) && styles.disabled]}><Text style={styles.passbookButtonText}>{applyLoanMutation.isPending ? "신청 중" : "대출 신청"}</Text></Pressable>
             </View>}
             {!loan.data.canApply && !loan.data.pendingApplicationStatus ? <Text style={styles.pendingNotice}>현재는 대출을 신청할 수 없어요. 신용점수와 기존 대출을 확인해 주세요.</Text> : null}
-            {loan.data.loans.map((item) => <View key={item.loanId} style={styles.loanRow}><Text style={styles.accountDetailLabel}>{item.status === "OVERDUE" ? "연체" : item.status === "REPAID" ? "상환 완료" : "상환 중"}</Text><Text style={styles.loanMetricDetail}>가입 금액 {item.principalAmount.toLocaleString("ko-KR")} · 남은 원금 {item.outstandingPrincipal.toLocaleString("ko-KR")}</Text><Text style={styles.loanMetricDetail}>예상 이자 {item.outstandingInterest.toLocaleString("ko-KR")} · 만기 {item.maturesAt || "확인 중"}</Text></View>)}
+            {loan.data.loans.map((item) => <View key={item.loanId} style={styles.loanRow}>
+              <Text style={styles.accountDetailLabel}>{item.status === "OVERDUE" ? "연체" : item.status === "REPAID" ? "상환 완료" : "상환 중"}</Text>
+              <Text style={styles.loanMetricDetail}>대출금 {item.principalAmount.toLocaleString("ko-KR")} · 남은 원금 {item.outstandingPrincipal.toLocaleString("ko-KR")}</Text>
+              <Text style={styles.loanMetricDetail}>남은 이자 {item.outstandingInterest.toLocaleString("ko-KR")} · 적용금리 {(item.appliedInterestRateBps / 100).toFixed(2)}%</Text>
+              {item.installments.map((installment) => <View key={installment.installmentId} style={styles.installmentRow}><Text style={styles.installmentTitle}>{installment.installmentNumber}회차 · {installment.status === "PAID" ? "납부 완료" : installment.status === "MISSED" ? "미납" : "납부 예정"}</Text><Text style={styles.loanMetricDetail}>{(installment.scheduledPrincipal + installment.scheduledInterest).toLocaleString("ko-KR")} {currencyName} · {new Date(installment.dueAt).toLocaleDateString("ko-KR")}</Text>{installment.status === "MISSED" ? <Text style={styles.overdueText}>재납부 기한 {new Date(installment.graceUntil).toLocaleDateString("ko-KR")}</Text> : null}</View>)}
+              {["ACTIVE", "OVERDUE"].includes(item.status) ? <View style={styles.loanActions}>
+                {item.installments.some((installment) => installment.status === "MISSED") ? <Pressable disabled={repaymentMutation.isPending} onPress={() => repaymentMutation.mutate({ loanId: item.loanId, stateVersion: item.stateVersion, command: "RETRY_DUE_PAYMENT" })} style={styles.passbookButton}><Text style={styles.passbookButtonText}>미납 회차 다시 납부</Text></Pressable> : null}
+                <Pressable disabled={repaymentMutation.isPending} onPress={() => Alert.alert("대출 전액 상환", `남은 ${(item.outstandingPrincipal + item.outstandingInterest).toLocaleString("ko-KR")} ${currencyName}을 지금 상환할까요?`, [{ text: "취소", style: "cancel" }, { text: "전액 상환", onPress: () => repaymentMutation.mutate({ loanId: item.loanId, stateVersion: item.stateVersion, command: "PREPAY_ALL" }) }])} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>전액 상환</Text></Pressable>
+              </View> : null}
+            </View>)}
           </> : <Text style={styles.passbookNotice}>대출 정보를 불러오지 못했어요.</Text>}
         </PassbookCover>
       ) : (
@@ -168,6 +188,8 @@ export default function BankScreen() {
       {subscribe.isError ? <Text style={styles.error}>{subscribe.error.message}</Text> : null}
       {loan.isError ? <Text style={styles.error}>{loan.error.message}</Text> : null}
       {applyLoanMutation.isError ? <Text style={styles.error}>{applyLoanMutation.error.message}</Text> : null}
+      {cancelLoanMutation.isError ? <Text style={styles.error}>{cancelLoanMutation.error.message}</Text> : null}
+      {repaymentMutation.isError ? <Text style={styles.error}>{repaymentMutation.error.message}</Text> : null}
     </Screen>
   );
 }
@@ -239,7 +261,14 @@ const styles = StyleSheet.create({
   loanApplyRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   loanAmountInput: { flex: 1, minHeight: 42, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 6, color: colors.ink900, fontSize: 16, fontWeight: "800" },
   pendingNotice: { color: colors.green500, fontSize: 14, fontWeight: "800" },
+  pendingBlock: { gap: 8, alignItems: "flex-start" },
   loanRow: { gap: 4, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#E8E2D2" },
+  installmentRow: { gap: 2, marginTop: 5, padding: 9, borderRadius: 6, backgroundColor: colors.sky100 },
+  installmentTitle: { color: colors.ink900, fontSize: 13, fontWeight: "900" },
+  overdueText: { color: colors.red500, fontSize: 12, fontWeight: "800" },
+  loanActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  secondaryButton: { minHeight: 42, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 6, backgroundColor: colors.white },
+  secondaryButtonText: { color: colors.ink900, fontSize: 14, fontWeight: "900" },
   loanProductBadge: { alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "#E5F0F6", color: "#35647C", fontSize: 12, fontWeight: "900" },
   emptyText: { paddingVertical: 20, borderTopWidth: 1, borderTopColor: colors.lineSoft, color: colors.muted600, fontSize: 15, fontWeight: "700" },
   error: { paddingTop: 12, color: colors.red500, fontWeight: "700" }

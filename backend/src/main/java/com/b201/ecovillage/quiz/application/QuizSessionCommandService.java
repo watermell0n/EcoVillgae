@@ -491,7 +491,9 @@ public class QuizSessionCommandService {
                 exception.getMessage()
             );
         }
-        clearActiveQuizSession(command.classroomId(), session.getMode(), now);
+        // Keep the latest session id in module config after submissions close.
+        // Students use it to observe scoring/review state and read their result after publication.
+        // Starting the next session replaces this id, and stopping the module clears its config.
         return session;
     }
 

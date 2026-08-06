@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -12,6 +12,7 @@ import {
   applySubscriptionOffer,
   cancelPropertySaleListing,
   cancelSubscriptionApplication,
+  contractTypeLabel,
   createPropertySaleListing,
   depositSubscription,
   fetchMyProperties,
@@ -22,6 +23,8 @@ import {
   openSubscriptionAccount,
   propertyStatusLabel,
   requestPropertyContract,
+  selectableContractTypes,
+  type ContractType,
   type Property
 } from "@/features/property/api";
 import { colors, radii } from "@/theme/tokens";
@@ -47,6 +50,7 @@ export default function RealEstateScreen() {
   const subscriptionEnabled = enabled("subscription") && realEstateEnabled;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedContractType, setSelectedContractType] = useState<ContractType>("SALE");
   const [depositInput, setDepositInput] = useState("10");
   const [resaleInput, setResaleInput] = useState("100");
 
@@ -84,6 +88,12 @@ export default function RealEstateScreen() {
   const seatGridWidth = columns * seatWidth + (columns - 1) * SEAT_GAP;
   const wonApplication = selected ? applications.data?.find((item) => item.status === "WON" && item.assignedPropertyId === selected.propertyId) : undefined;
   const hasActiveApplication = applications.data?.some((item) => ["APPLIED", "WON"].includes(item.status)) ?? false;
+  const contractTypes = selected ? selectableContractTypes(selected) : [];
+
+  useEffect(() => {
+    if (!contractTypes.length) return;
+    if (!contractTypes.includes(selectedContractType)) setSelectedContractType(contractTypes[0]);
+  }, [selectedId, selectedContractType, contractTypes]);
 
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ["property-layout", classroomId] }),
@@ -94,8 +104,8 @@ export default function RealEstateScreen() {
   ]);
 
   const purchase = useMutation({
-    mutationFn: ({ property, applicationId }: { property: Property; applicationId?: string }) => requestPropertyContract(property.propertyId, "SALE", applicationId),
-    onSuccess: async () => { setNotice("구매를 신청했어요. 선생님이 승인하면 소유권이 이전돼요."); await refresh(); },
+    mutationFn: ({ property, contractType, applicationId }: { property: Property; contractType: ContractType; applicationId?: string }) => requestPropertyContract(property.propertyId, contractType, applicationId),
+    onSuccess: async (_result, variables) => { setNotice(`${contractTypeLabel(variables.contractType)} 계약을 신청했어요. 선생님 승인 후 반영돼요.`); await refresh(); },
     onError: (error: Error) => setNotice(error.message)
   });
   const resale = useMutation({
@@ -131,9 +141,9 @@ export default function RealEstateScreen() {
 
   const depositAmount = Number(depositInput);
   const resalePrice = Number(resaleInput);
-  const canBuySelected = Boolean(selected && (
-    (["AVAILABLE", "LISTED_FOR_SALE"].includes(selected.status) && selected.allowsSale && selected.salePrice > 0)
-      || (selected.status === "SUBSCRIPTION_OPEN" && wonApplication)
+  const canContractSelected = Boolean(selected && (
+    (["AVAILABLE", "LISTED_FOR_SALE", "LISTED_FOR_RENT"].includes(selected.status) && contractTypes.includes(selectedContractType))
+      || (selected.status === "SUBSCRIPTION_OPEN" && wonApplication && selectedContractType === "SALE")
   ));
 
   if (!realEstateEnabled) {
@@ -177,8 +187,16 @@ export default function RealEstateScreen() {
 
       {selected ? <StateCard tone={mineIds.has(selected.propertyId) ? "mint" : "cream"}>
         <View style={styles.detailHead}><View><Text style={styles.cardTitle}>{selected.coordinate} · {selected.displayName}</Text><Text style={styles.cardMeta}>{mineIds.has(selected.propertyId) ? "내가 소유한 자리" : propertyStatusLabel(selected.status)}</Text></View>{selected.salePrice > 0 ? <Text style={styles.detailPrice}>{selected.salePrice.toLocaleString("ko-KR")} {currency}</Text> : null}</View>
-        {canBuySelected ? <Pressable disabled={purchase.isPending} onPress={() => purchase.mutate({ property: selected, applicationId: wonApplication?.applicationId })} style={[styles.primary, purchase.isPending && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : "소유권 구매 신청"}</Text></Pressable> : null}
-        {!mineIds.has(selected.propertyId) && !canBuySelected ? <Text style={styles.description}>{selected.status === "SUBSCRIPTION_OPEN" ? "청약 당첨 후 구매를 신청할 수 있어요." : "이미 소유자가 있어 지금은 구매할 수 없어요."}</Text> : null}
+        {!mineIds.has(selected.propertyId) && selected.status !== "SUBSCRIPTION_OPEN" && contractTypes.length ? <>
+          <View style={styles.contractTypes}>{contractTypes.map((type) => <Pressable key={type} onPress={() => setSelectedContractType(type)} style={[styles.contractType, selectedContractType === type && styles.contractTypeSelected]}><Text style={[styles.contractTypeText, selectedContractType === type && styles.contractTypeTextSelected]}>{contractTypeLabel(type)}</Text></Pressable>)}</View>
+          <Text style={styles.description}>{selectedContractType === "SALE"
+            ? `매매가 ${selected.salePrice.toLocaleString("ko-KR")} ${currency}`
+            : selectedContractType === "JEONSE"
+              ? `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.contractTermDays}일`
+              : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}/${selected.paymentCycleDays}일 · ${selected.contractTermDays}일`}</Text>
+        </> : null}
+        {canContractSelected ? <Pressable disabled={purchase.isPending} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, purchase.isPending && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable> : null}
+        {!mineIds.has(selected.propertyId) && !canContractSelected ? <Text style={styles.description}>{selected.status === "SUBSCRIPTION_OPEN" ? "청약 당첨 후 구매를 신청할 수 있어요." : selected.isPublic ? "이 자리에는 현재 신청 가능한 매매·전세·월세 조건이 없어요." : "선생님이 아직 이 자리를 공개하지 않았어요."}</Text> : null}
       </StateCard> : null}
 
       <View style={styles.section}>
@@ -192,7 +210,7 @@ export default function RealEstateScreen() {
 
       {subscriptionEnabled ? <View style={styles.section}>
         <Text style={styles.sectionTitle}>청약통장</Text>
-        {account.isPending ? <ActivityIndicator color={colors.purple500} /> : account.data ? <StateCard tone="cream">
+        {account.isPending ? <ActivityIndicator color={colors.purple500} /> : account.isError ? <StateCard title="청약통장 정보를 불러오지 못했어요"><Text style={styles.description}>{account.error.message}</Text><Pressable onPress={() => account.refetch()} style={styles.secondary}><Text style={styles.secondaryText}>다시 확인</Text></Pressable></StateCard> : account.data ? <StateCard tone="cream">
           <Text style={styles.balance}>{account.data.totalDepositAmount.toLocaleString("ko-KR")} {currency}</Text><Text style={styles.cardMeta}>납입 {account.data.depositCount}회</Text>
           <View style={styles.inlineForm}><TextInput accessibilityLabel="청약통장 납입 금액" inputMode="numeric" keyboardType="number-pad" value={depositInput} onChangeText={setDepositInput} style={styles.input} /><Pressable disabled={!Number.isInteger(depositAmount) || depositAmount < 1 || deposit.isPending} onPress={() => deposit.mutate(depositAmount)} style={styles.primary}><Text style={styles.primaryText}>납입하기</Text></Pressable></View>
         </StateCard> : <StateCard title="청약통장이 아직 없어요"><Text style={styles.description}>통장을 개설하고 분양가 이상을 예치하면 청약에 신청할 수 있어요.</Text><Pressable disabled={openAccount.isPending} onPress={() => openAccount.mutate()} style={styles.primary}><Text style={styles.primaryText}>청약통장 개설</Text></Pressable></StateCard>}
@@ -227,5 +245,6 @@ const styles = StyleSheet.create({
   detailHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, detailPrice: { color: colors.green500, fontSize: 20, fontWeight: "900" }, cardTitle: { color: colors.ink900, fontSize: 18, fontWeight: "900" }, cardMeta: { color: colors.muted600, fontSize: 14, fontWeight: "700" }, offerPrice: { color: colors.purple500, fontSize: 18, fontWeight: "900" }, balance: { color: colors.purple500, fontSize: 30, fontWeight: "900" },
   inlineForm: { marginTop: 8, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 }, input: { minWidth: 120, minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white, color: colors.ink900, fontSize: 17, fontWeight: "800" },
   primary: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", marginTop: 10, paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.green500 }, orangeButton: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.orange500 }, primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" }, secondary: { alignSelf: "flex-start", minHeight: 42, justifyContent: "center", marginTop: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, secondaryText: { color: colors.ink900, fontWeight: "900" }, disabled: { opacity: .45 },
-  applicationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, applicationStatus: { color: colors.purple500, fontSize: 16, fontWeight: "900" }
+  applicationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, applicationStatus: { color: colors.purple500, fontSize: 16, fontWeight: "900" },
+  contractTypes: { marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 8 }, contractType: { paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.chip, backgroundColor: colors.white }, contractTypeSelected: { borderColor: colors.green500, backgroundColor: colors.washMint }, contractTypeText: { color: colors.muted600, fontWeight: "900" }, contractTypeTextSelected: { color: colors.green500 }
 });

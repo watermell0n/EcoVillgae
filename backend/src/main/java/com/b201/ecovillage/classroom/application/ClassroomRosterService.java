@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +31,12 @@ import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
+import com.b201.ecovillage.identity.domain.StudentCredential;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
+import com.b201.ecovillage.identity.repository.StudentCredentialRepository;
 
 @Service
 public class ClassroomRosterService {
@@ -44,6 +47,8 @@ public class ClassroomRosterService {
     private final ClassroomAuthorizationService authorizationService;
     private final ClassroomRepository classroomRepository;
     private final ClassroomStudentRepository studentRepository;
+    private final StudentCredentialRepository studentCredentialRepository;
+    private final PasswordEncoder passwordEncoder;
     private final SalaryRoleRepository salaryRoleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final ClassroomModuleRepository moduleRepository;
@@ -55,6 +60,8 @@ public class ClassroomRosterService {
         ClassroomAuthorizationService authorizationService,
         ClassroomRepository classroomRepository,
         ClassroomStudentRepository studentRepository,
+        StudentCredentialRepository studentCredentialRepository,
+        PasswordEncoder passwordEncoder,
         SalaryRoleRepository salaryRoleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
         ClassroomModuleRepository moduleRepository,
@@ -65,12 +72,56 @@ public class ClassroomRosterService {
         this.authorizationService = authorizationService;
         this.classroomRepository = classroomRepository;
         this.studentRepository = studentRepository;
+        this.studentCredentialRepository = studentCredentialRepository;
+        this.passwordEncoder = passwordEncoder;
         this.salaryRoleRepository = salaryRoleRepository;
         this.policyVersionRepository = policyVersionRepository;
         this.moduleRepository = moduleRepository;
         this.precheckInvalidator = precheckInvalidator;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
+    }
+
+    @Transactional
+    public StudentCredential resetStudentLogin(
+        String teacherSubject,
+        UUID classroomId,
+        UUID studentId,
+        String newPassword
+    ) {
+        authorizationService.authorize(
+            teacherSubject,
+            classroomId,
+            ClassroomPermission.MANAGE_ROSTER,
+            null
+        );
+        ClassroomStudent student = studentRepository.findById(studentId)
+            .filter(candidate -> candidate.getClassroomId().equals(classroomId))
+            .filter(candidate -> candidate.getStatus() == ClassroomStudentStatus.ACTIVE)
+            .orElseThrow(() -> new ClassroomOperationException(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "로그인을 초기화할 학생을 현재 명단에서 찾을 수 없습니다."
+            ));
+        if (newPassword == null || newPassword.length() < 4 || newPassword.length() > 72) {
+            throw validation("새 비밀번호는 4~72자로 입력해 주세요.");
+        }
+        Instant now = clock.instant();
+        StudentCredential credential = studentCredentialRepository
+            .findByClassroomIdAndClassroomStudentId(classroomId, student.getId())
+            .map(existing -> {
+                existing.replacePasswordHash(passwordEncoder.encode(newPassword), now);
+                return existing;
+            })
+            .orElseGet(() -> StudentCredential.issue(
+                student.getId(),
+                classroomId,
+                passwordEncoder.encode(newPassword),
+                now
+            ));
+        studentCredentialRepository.save(credential);
+        studentCredentialRepository.flush();
+        return credential;
     }
 
     @Transactional

@@ -106,7 +106,7 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_32 creates all 100 physical tables")
+    @DisplayName("DBT-000: Flyway V1_1~V1_33 creates all 100 physical tables")
     void allMigrationsCreateOneHundredTables() throws SQLException {
         assertEquals(100, physicalTableCount());
     }
@@ -116,8 +116,23 @@ class SchemaIntegrityTest {
     void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
         flyway.clean();
         assertEquals(0, physicalTableCount());
-        assertEquals(32, flyway.migrate().migrationsExecuted);
+        assertEquals(33, flyway.migrate().migrationsExecuted);
         assertEquals(100, physicalTableCount());
+    }
+
+    @Test
+    @DisplayName("DBT-023: loan installment status constraint is installed")
+    void loanInstallmentStatusConstraintIsInstalled() throws SQLException {
+        try (Connection connection = connection();
+             PreparedStatement statement = connection.prepareStatement("""
+                 SELECT count(*)
+                   FROM pg_constraint
+                  WHERE conname = 'ck_loan_installments_status'
+                 """);
+             ResultSet result = statement.executeQuery()) {
+            assertTrue(result.next());
+            assertEquals(1, result.getInt(1));
+        }
     }
 
     private static int physicalTableCount() throws SQLException {

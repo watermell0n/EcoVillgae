@@ -12,6 +12,7 @@ public record StudentSessionRequest(
     @Size(max = 64)
     String classroomCode,
 
+    @NotNull
     @Min(1)
     Integer attendanceNumber,
 

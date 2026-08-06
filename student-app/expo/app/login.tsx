@@ -20,6 +20,7 @@ import { colors } from "@/theme/tokens";
 
 const loginSchema = z.object({
   classroomCode: z.string().trim().min(4, "학급 코드를 입력해 주세요."),
+  attendanceNumber: z.coerce.number().int().min(1, "출석번호를 입력해 주세요."),
   nickname: z.string().trim().min(1, "닉네임을 입력해 주세요.").max(20),
   password: z.string().min(4, "비밀번호는 4자 이상이에요.")
 });
@@ -38,6 +39,7 @@ export default function LoginScreen() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       classroomCode: "",
+      attendanceNumber: 1,
       nickname: "",
       password: ""
     }
@@ -70,6 +72,7 @@ export default function LoginScreen() {
             <Text accessibilityRole="header" style={styles.formTitle}>이코빌리지</Text>
             <Text style={styles.description}>학급 코드로 계정을 만들거나 다시 로그인해요</Text>
             <Field control={control} error={errors.classroomCode?.message} label="학급 코드" name="classroomCode" />
+            <Field control={control} error={errors.attendanceNumber?.message} keyboardType="number-pad" label="출석번호" name="attendanceNumber" />
             <Field control={control} error={errors.nickname?.message} label="닉네임" name="nickname" />
             <Field control={control} error={errors.password?.message} label="비밀번호" name="password" secureTextEntry />
             {errors.root?.message ? <Text style={styles.formError}>{errors.root.message}</Text> : null}
