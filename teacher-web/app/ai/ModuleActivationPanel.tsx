@@ -94,6 +94,17 @@ function moduleLabel(module: AiModuleRow) {
   return MODULE_LABELS[module.code ?? ""] ?? module.name;
 }
 
+/**
+ * 선행 모듈을 몇 단계나 거쳐야 하는지입니다. 활성화 상태와 무관하게 늘 같은 값이라
+ * 카드 자리가 중간에 바뀌지 않습니다. 같은 깊이끼리는 서버가 준 순서를 그대로 둡니다.
+ */
+function prerequisiteDepth(code: string | undefined, seen: readonly string[] = []): number {
+  if (!code || seen.includes(code)) return 0;
+  const prerequisites = MODULE_PREREQUISITES[code] ?? [];
+  if (prerequisites.length === 0) return 0;
+  return 1 + Math.max(...prerequisites.map((required) => prerequisiteDepth(required, [...seen, code])));
+}
+
 export function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrecheckResponse }>) {
   const summary = result.overall_severity === "PASS"
     ? "교실 운영을 시작할 준비가 됐습니다. 아래 설정값을 확인해 주세요."
@@ -141,10 +152,14 @@ export function ModuleActivationPanel({
   // 콘솔은 서버의 INVESTMENT 한 모듈을 "단기 투자"·"장기 투자" 두 줄로 펼쳐 보여 주지만,
   // 이 화면은 서버 모듈 하나가 카드 하나이고 점검·입력값·진행 상태를 모두 코드로 관리하므로
   // 코드마다 한 줄만 남깁니다. 투자 방식은 카드 안의 체크박스에서 함께 고릅니다.
+  // 순서는 선행 관계만으로 정합니다. "지금 선행 모듈이 켜져 있는지"로 정렬하면 월급을 켜는
+  // 순간 세금 카드가 위로 뛰어올라, 교사가 방금까지 보던 자리에서 사라져 AI 추천을 받지 못한
+  // 채 다음 단계로 넘어가게 됩니다. 선행 깊이는 활성화 여부와 무관하므로 세금은 언제나 월급
+  // 아래, 대출은 언제나 예금·신용 아래에 그대로 남습니다.
   const serverModules = modules
     .filter((module) => module.code)
     .filter((module, index, items) => items.findIndex((item) => item.code === module.code) === index)
-    .sort((left, right) => Number(missingPrerequisites(left).length > 0) - Number(missingPrerequisites(right).length > 0));
+    .sort((left, right) => prerequisiteDepth(left.code) - prerequisiteDepth(right.code));
 
   function missingPrerequisites(module: AiModuleRow) {
     const code = module.code;
