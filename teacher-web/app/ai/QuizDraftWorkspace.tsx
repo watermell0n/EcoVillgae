@@ -764,22 +764,7 @@ export function QuizDraftWorkspace({
           <p>게시된 문항 중 이번 수업에 쓸 문항을 고르면 학생 화면에 문제가 열립니다.</p>
         </div>
 
-        {startedSession ? (
-          <div className="quiz-start-feedback" aria-live="polite">
-            <div className="inline-notice">
-              <strong>현재 세션 · {startedSession.status === "OPEN" ? "학생 답안 제출 중" : startedSession.status === "SCORING" ? "제출 마감·채점 대기" : startedSession.status === "REVIEWING" ? "결과 검토 중" : startedSession.status === "RESULT_PUBLISHED" ? "결과 공개됨" : startedSession.status}</strong>
-              {startedSession.status === "OPEN" ? <button type="button" disabled={starting} onClick={() => void closeSubmissions()}>답안 제출 마감</button> : null}
-              {startedSession.status === "SCORING" ? <button type="button" disabled={starting} onClick={() => void confirmResults()}>채점 결과 계산</button> : null}
-              {startedSession.status === "REVIEWING" ? <button type="button" disabled={starting || !sessionResults} onClick={() => void publishResults()}>결과·정답 학생 공개</button> : null}
-            </div>
-            {sessionResults ? (
-              <div className="quiz-start-success">
-                <CheckCircle2 size={16} /> 결과 버전 {sessionResults.result_version} · 참여 결과 {String(sessionResults.summary.participant_count ?? sessionResults.leaderboard.length)}명
-                {sessionResults.leaderboard.length ? <span> · {sessionResults.leaderboard.slice(0, 3).map((entry) => `${entry.rank}위 ${entry.nickname}`).join(", ")}</span> : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {/* 진행 상태와 '답안 제출 마감'은 아래 '생성된 퀴즈'의 해당 퀴즈 칸에서 다룹니다. */}
 
         {publishedQuestions.length === 0 ? (
           <p className="empty-copy">
@@ -930,6 +915,24 @@ export function QuizDraftWorkspace({
                     <li key={question.versionId}>{question.prompt}</li>
                   ))}
                 </ol>
+                {/* 진행 상태와 다음 단계 버튼은 그 퀴즈 칸 안에 둡니다. 위 '퀴즈 시작'에 두면
+                    어느 퀴즈를 마감하는 것인지 알 수 없습니다. */}
+                {startedSession && startedSession.id === quiz.sessionId ? (
+                  <div className="quiz-start-feedback" aria-live="polite">
+                    <div className="inline-notice">
+                      <strong>현재 세션 · {startedSession.status === "OPEN" ? "학생 답안 제출 중" : startedSession.status === "SCORING" ? "제출 마감·채점 대기" : startedSession.status === "REVIEWING" ? "결과 검토 중" : startedSession.status === "RESULT_PUBLISHED" ? "결과 공개됨" : startedSession.status}</strong>
+                      {startedSession.status === "OPEN" ? <button type="button" disabled={starting} onClick={() => void closeSubmissions()}>답안 제출 마감</button> : null}
+                      {startedSession.status === "SCORING" ? <button type="button" disabled={starting} onClick={() => void confirmResults()}>채점 결과 계산</button> : null}
+                      {startedSession.status === "REVIEWING" ? <button type="button" disabled={starting || !sessionResults} onClick={() => void publishResults()}>결과·정답 학생 공개</button> : null}
+                    </div>
+                    {sessionResults ? (
+                      <div className="quiz-start-success">
+                        <CheckCircle2 size={16} /> 결과 버전 {sessionResults.result_version} · 참여 결과 {String(sessionResults.summary.participant_count ?? sessionResults.leaderboard.length)}명
+                        {sessionResults.leaderboard.length ? <span> · {sessionResults.leaderboard.slice(0, 3).map((entry) => `${entry.rank}위 ${entry.nickname}`).join(", ")}</span> : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
             ))}
 
