@@ -427,7 +427,7 @@ const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예�
 
 const moduleDependencies: Record<string, string[]> = {
   월급: ["지갑"],
-  세금: ["지갑"],
+  세금: ["월급", "지갑"],
   상점: ["지갑"],
   캐릭터: ["지갑", "상점"],
   "개인 거래": ["지갑"],
@@ -1035,6 +1035,25 @@ export default function TeacherConsole() {
     setView("overview");
   }
 
+  async function deleteClassroom(classroom: BootstrapClassroom) {
+    if (!window.confirm(`“${classroom.label}” 교실을 삭제할까요? 학생과 거래 기록은 보관되며 목록에서 숨겨집니다.`)) return;
+    try {
+      await apiRequest(
+        `/classrooms/${classroom.resource_id}?expected_state_version=${classroom.state_version ?? 0}`,
+        { method: "DELETE" }
+      );
+      const remaining = classrooms.filter((item) => item.resource_id !== classroom.resource_id);
+      setClassrooms(remaining);
+      setHasClassroom(remaining.length > 0);
+      if (activeClassroomId === classroom.resource_id) {
+        setActiveClassroomId(remaining[0]?.resource_id ?? "");
+      }
+      addLog("교실을 삭제했어요. 데이터는 보관 상태로 전환됐습니다.");
+    } catch (error) {
+      addLog(`교실을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    }
+  }
+
   if (stage === "login") {
     return (
       <TeacherLogin
@@ -1062,6 +1081,7 @@ export default function TeacherConsole() {
           setStage("create");
         }}
         onOpen={openClassroom}
+        onDelete={deleteClassroom}
         onLogout={logout}
       />
     );
@@ -1254,6 +1274,9 @@ export default function TeacherConsole() {
               classroomId={activeClassroomId}
               stateVersion={classroomStateVersion}
               students={students}
+              activeGuidedActivityId={modules
+                .map((module) => module.config?.active_guided_activity_id)
+                .find((value): value is string => typeof value === "string")}
               quizWorkspace={
                 <QuizDraftWorkspace
                   classroomId={activeClassroomId}
@@ -1421,6 +1444,7 @@ function ClassroomSelect({
   onCreate,
   onResume,
   onOpen,
+  onDelete,
   onLogout
 }: Readonly<{
   settings: ClassSettings;
@@ -1430,6 +1454,7 @@ function ClassroomSelect({
   onCreate: () => void;
   onResume: () => void;
   onOpen: (resourceId: string) => void;
+  onDelete: (classroom: BootstrapClassroom) => Promise<void>;
   onLogout: () => void;
 }>) {
   return (
@@ -1455,14 +1480,18 @@ function ClassroomSelect({
           </div>
           {hasClassroom ? (
             classrooms.map((classroom) => (
-              <button className="classroom-row" type="button" key={classroom.resource_id} onClick={() => void onOpen(classroom.resource_id)}>
+              <div className="classroom-row" key={classroom.resource_id}>
                 <span>
                   <strong>{classroom.label || settings.className}</strong>
                   <small>{classroom.classroom_code ? `입장 코드 ${classroom.classroom_code}` : settings.schoolName}</small>
                 </span>
                 <span>{classroom.currency_name ? `화폐 ${classroom.currency_name}` : `${settings.startDate} ~ ${settings.endDate}`}</span>
                 <b>{classroom.status || "운영 중"}</b>
-              </button>
+                <span className="row-actions">
+                  <button type="button" onClick={() => void onOpen(classroom.resource_id)}>열기</button>
+                  <button type="button" className="danger-text" onClick={() => void onDelete(classroom)}>삭제</button>
+                </span>
+              </div>
             ))
           ) : (
             <div className="empty-classroom">
@@ -2784,6 +2813,7 @@ function Roster({
   const [draftStudent, setDraftStudent] = useState<StudentRow | null>(null);
   const [studentQuery, setStudentQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("전체 상태");
+  const [rosterDirty, setRosterDirty] = useState(false);
   const [newStudent, setNewStudent] = useState<StudentRow>({
     attendance: String(students.length + 1),
     nickname: "",
@@ -2824,8 +2854,9 @@ function Roster({
     }
 
     setStudents((items) => items.map((item, itemIndex) => itemIndex === index ? draftStudent : item));
+    setRosterDirty(true);
     cancelEdit();
-    addLog(`${draftStudent.nickname} 학생 정보를 수정했어요.`);
+    addLog(`${draftStudent.nickname} 학생 정보를 수정했어요. 명단 저장 전에는 급여에 반영되지 않아요.`, "warning");
   }
 
   function addStudent() {
@@ -2847,6 +2878,7 @@ function Roster({
     };
 
     setStudents((items) => [...items, studentToAdd]);
+    setRosterDirty(true);
     setNewStudent({
       attendance: String(students.length + 2),
       nickname: "",
@@ -2863,10 +2895,38 @@ function Roster({
   function removeStudent(index: number) {
     const target = students[index];
     setStudents((items) => items.filter((_, itemIndex) => itemIndex !== index));
+    setRosterDirty(true);
     setDeletingIndex(null);
     cancelEdit();
     // 삭제는 "명단 저장"을 눌러야 서버에 반영됩니다. 저장 전에 창을 닫으면 되돌아옵니다.
     addLog(`${target.nickname} 학생을 목록에서 뺐어요. 아래 “명단 저장”을 눌러야 반영됩니다.`, "warning");
+  }
+
+  function resetStudentLogin(student: StudentRow) {
+    if (!student.resourceId) {
+      addLog("먼저 명단을 저장한 뒤 학생 로그인을 초기화해 주세요.", "warning");
+      return;
+    }
+    const newPassword = window.prompt(`${student.attendance}번 ${student.nickname} 학생이 다시 로그인할 임시 비밀번호를 입력해 주세요.`, "1234");
+    if (newPassword === null) return;
+    if (newPassword.length < 4 || newPassword.length > 72) {
+      addLog("임시 비밀번호는 4~72자로 입력해 주세요.", "warning");
+      return;
+    }
+    void runAction(
+      "학생 로그인 초기화",
+      `/classrooms/${classroomId}/students/${student.resourceId}/password-reset-commands`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          command: "COMPLETE",
+          reset_request_id: crypto.randomUUID(),
+          new_password: newPassword,
+          reason: "교사 명단 화면에서 학생 로그인 초기화"
+        })
+      },
+      () => addLog(`${student.attendance}번 학생의 로그인을 초기화했어요. 출석번호·현재 이름·새 임시 비밀번호로 다시 로그인할 수 있습니다.`)
+    );
   }
 
   function closeManager() {
@@ -2912,6 +2972,20 @@ function Roster({
       sort_order: index + 1
     }))
   };
+
+  function saveRoster(closeAfterSave = false) {
+    return runAction(
+      hasSalaryModule ? "명단·급여 저장" : "명단 저장",
+      `/classrooms/${classroomId}/roster-and-salaries`,
+      { method: "PUT", body: JSON.stringify(rosterBody) },
+      () => {
+        setRosterDirty(false);
+        if (closeAfterSave) closeManager();
+        addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
+        void onReload();
+      }
+    );
+  }
   const payableStudents = students.filter((student) => student.resourceId && student.role.trim());
   const grossTotal = payableStudents.reduce((sum, student) => sum + (Number(student.salary) || 0), 0);
   const taxTotal = Math.floor(grossTotal * (incomeTaxRateBps / 10_000));
@@ -3097,6 +3171,7 @@ function Roster({
                               </div>
                             ) : (
                               <div className="row-actions">
+                                <button className="ghost" type="button" onClick={() => resetStudentLogin(student)}>로그인 초기화</button>
                                 <button type="button" onClick={() => startEdit(index)}>수정</button>
                                 <button className="icon-danger" type="button" aria-label={`${student.nickname} 삭제`} onClick={() => setDeletingIndex(index)}>
                                   <Trash2 aria-hidden="true" size={15} />
@@ -3117,7 +3192,8 @@ function Roster({
             </div>
 
             <footer className="roster-dialog-footer">
-              <button type="button" onClick={closeManager}>완료</button>
+              <button type="button" className="ghost" onClick={closeManager}>취소</button>
+              <button type="button" onClick={() => void saveRoster(true)}>명단 저장하고 닫기</button>
             </footer>
           </section>
         </div>
@@ -3139,22 +3215,18 @@ function Roster({
         <ActionLine
           label="명단 저장"
           value={`${students.length}명 반영`}
-          action="저장"
-          onClick={() => runAction(
-            hasSalaryModule ? "명단·급여 저장" : "명단 저장",
-            `/classrooms/${classroomId}/roster-and-salaries`,
-            { method: "PUT", body: JSON.stringify(rosterBody) },
-            () => {
-              addLog(hasSalaryModule ? "명단과 급여 정책을 저장했어요." : "학생 명단을 저장했어요.");
-              void onReload();
-            }
-          )}
+          action={rosterDirty ? "변경 저장" : "저장"}
+          onClick={() => void saveRoster()}
         />
         {hasSalaryModule ? <ActionLine
           label="급여 지급"
           value={`직업이 있는 ${payableStudents.length}명에게 ${netTotal}${settings.currency}`}
           action="지급"
           onClick={() => {
+            if (rosterDirty) {
+              addLog("명단 또는 직업 변경을 먼저 저장한 뒤 급여를 지급해 주세요.", "warning");
+              return;
+            }
             if (payableStudents.length === 0) {
               addLog("직업이 배정된 학생이 없어요. 명단에서 직업을 넣고 저장한 뒤 지급해 주세요.", "warning");
               return;
@@ -3308,7 +3380,7 @@ function ShopAdmin({
   // 공개 중지 -> 수정 -> 다시 공개 순서로 처리한 뒤 목록을 다시 읽습니다.
   async function sendProductCommand(
     product: ProductRow,
-    command: "UPDATE" | "PUBLISH" | "UNPUBLISH",
+    command: "UPDATE" | "PUBLISH" | "UNPUBLISH" | "DELETE",
     overrides: { price?: number; stock?: number; name?: string } = {}
   ) {
     const stateVersionForRequest = await currentClassroomStateVersion();
@@ -3395,6 +3467,21 @@ function ShopAdmin({
       addLog(product.status === "PUBLISHED" ? "상품을 학생 상점에서 내렸어요." : "상품을 학생 상점에 올렸어요.");
     } catch (error) {
       addLog(`상품 공개 상태를 바꾸지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteProduct(product: ProductRow) {
+    if (!product.resourceId) return;
+    if (!window.confirm(`“${product.name}” 상품을 삭제할까요? 기존 주문 기록은 보존됩니다.`)) return;
+    setSubmitting(true);
+    try {
+      await sendProductCommand(product, "DELETE");
+      await onReload();
+      addLog("상품을 삭제했어요. 기존 주문 내역은 그대로 보존됩니다.");
+    } catch (error) {
+      addLog(`상품을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -3515,6 +3602,7 @@ function ShopAdmin({
                       <button className="ghost" type="button" disabled={submitting} onClick={() => void togglePublished(product)}>
                         {isPublished ? "내리기" : "학생에게 공개"}
                       </button>
+                      <button className="danger-text" type="button" disabled={submitting} onClick={() => void deleteProduct(product)}>삭제</button>
                     </div>
                   </>
                 )}
@@ -3572,6 +3660,32 @@ type LoanApplicationRow = {
   status: string;
 };
 
+type LoanInstallmentRow = {
+  installmentId: string;
+  installmentNumber: number;
+  dueAt: string;
+  graceUntil: string;
+  scheduledPrincipal: number;
+  scheduledInterest: number;
+  status: string;
+};
+
+type ActiveLoanRow = {
+  loanId: string;
+  studentId: string;
+  studentNickname: string;
+  principalAmount: number;
+  outstandingPrincipal: number;
+  outstandingInterest: number;
+  appliedInterestRateBps: number;
+  status: string;
+  maturesAt: string;
+  stateVersion: number;
+  creditScore: number;
+  creditLevel: string;
+  installments: LoanInstallmentRow[];
+};
+
 // 아직 상품을 만들지 않았을 때 보여 주는 초안입니다. 이자율은 모듈 활성화 때 확정한
 // 기준금리를 그대로 씁니다. 고정값을 쓰면 적용한 금리와 화면의 금리가 달라집니다.
 function defaultFinancialProducts(
@@ -3620,6 +3734,7 @@ function FinanceAdmin({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [loanPolicy, setLoanPolicy] = useState<LoanPolicyDraft>({ version: 0, maximumPrincipal: "300", interestRate: String((loanRateBps ?? 700) / 100), termWeeks: "4", installmentCount: "4", graceDays: "3", onTimeCredit: "10", overdueCredit: "-30", repaidCredit: "20" });
   const [loanApplications, setLoanApplications] = useState<LoanApplicationRow[]>([]);
+  const [activeLoans, setActiveLoans] = useState<ActiveLoanRow[]>([]);
   const [loanAmounts, setLoanAmounts] = useState<Record<string, string>>({});
   const [loanReasons, setLoanReasons] = useState<Record<string, string>>({});
   const [loanSaving, setLoanSaving] = useState(false);
@@ -3699,6 +3814,21 @@ function FinanceAdmin({
     void apiRequest<{
       policy: { version: number; maximum_principal: number; interest_rate_bps: number; term_units: number; installment_count: number; grace_units: number; on_time_credit: number; overdue_credit: number; repaid_credit: number };
       applications: Array<{ application_id: string; student_id: string; student_nickname: string; requested_amount: number; credit_score: number; credit_level: string; status: string }>;
+      active_loans: Array<{
+        loan_id: string;
+        student_id: string;
+        student_nickname: string;
+        principal_amount: number;
+        outstanding_principal: number;
+        outstanding_interest: number;
+        applied_interest_rate_bps: number;
+        status: string;
+        matures_at: string;
+        state_version: number;
+        credit_score: number;
+        credit_level: string;
+        installments: Array<{ installment_id: string; installment_number: number; due_at: string; grace_until: string; scheduled_principal: number; scheduled_interest: number; status: string }>;
+      }>;
     }>(`/classrooms/${classroomId}/loan-approval-queue`).then((response) => {
       if (cancelled) return;
       setLoanPolicy({
@@ -3720,6 +3850,29 @@ function FinanceAdmin({
         creditScore: item.credit_score,
         creditLevel: item.credit_level,
         status: item.status
+      })));
+      setActiveLoans(response.active_loans.map((loan) => ({
+        loanId: loan.loan_id,
+        studentId: loan.student_id,
+        studentNickname: loan.student_nickname,
+        principalAmount: loan.principal_amount,
+        outstandingPrincipal: loan.outstanding_principal,
+        outstandingInterest: loan.outstanding_interest,
+        appliedInterestRateBps: loan.applied_interest_rate_bps,
+        status: loan.status,
+        maturesAt: loan.matures_at,
+        stateVersion: loan.state_version,
+        creditScore: loan.credit_score,
+        creditLevel: loan.credit_level,
+        installments: loan.installments.map((installment) => ({
+          installmentId: installment.installment_id,
+          installmentNumber: installment.installment_number,
+          dueAt: installment.due_at,
+          graceUntil: installment.grace_until,
+          scheduledPrincipal: installment.scheduled_principal,
+          scheduledInterest: installment.scheduled_interest,
+          status: installment.status
+        }))
       })));
       setLoanAmounts(Object.fromEntries(response.applications.map((item) => [item.application_id, String(item.requested_amount)])));
     }).catch(() => undefined);
@@ -3934,7 +4087,7 @@ function FinanceAdmin({
                 <label>연체 신용점수(-100~0)<input type="number" min="-100" max="0" value={loanPolicy.overdueCredit} onChange={(event) => updateLoanPolicy("overdueCredit", event.target.value)} /></label>
                 <label>완납 신용점수(0~100)<input type="number" min="0" max="100" value={loanPolicy.repaidCredit} onChange={(event) => updateLoanPolicy("repaidCredit", event.target.value)} /></label>
               </div>
-              <p className="helper-text">신용 750점 이상은 한도 100%, 600점 이상은 80%, 450점 이상은 60%를 신청할 수 있습니다. 450점 미만은 신규 신청이 제한됩니다.</p>
+              <p className="helper-text">신용 750점 이상은 한도 100%·기준 금리 -1%p, 600점 이상은 한도 80%·기준 금리, 450점 이상은 한도 60%·기준 금리 +2%p가 적용됩니다. 450점 미만은 신규 신청이 제한됩니다.</p>
               <div className="financial-actions"><button type="button" disabled={loanSaving} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
             </div>
           </PlainSection>
@@ -3951,6 +4104,33 @@ function FinanceAdmin({
                   <div className="financial-actions">
                     <button type="button" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "APPROVE")}>승인·지급</button>
                     <button type="button" className="ghost" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "REJECT")}>거절</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PlainSection>
+          <PlainSection title="상환·연체 현황" description="진행 중인 대출의 남은 금액과 회차별 납부 상태를 확인합니다.">
+            <div className="financial-product-list">
+              {activeLoans.length === 0 ? <p className="empty-state">현재 상환 중인 대출이 없습니다.</p> : activeLoans.map((loan) => (
+                <div className="financial-product-editor" key={loan.loanId}>
+                  <div className="financial-product-heading">
+                    <strong>{loan.studentNickname}</strong>
+                    <span>{loan.status === "OVERDUE" ? "연체" : "상환 중"} · 신용 {loan.creditScore}점 · {creditLevelLabels[loan.creditLevel] ?? loan.creditLevel}</span>
+                  </div>
+                  <div className="financial-fields">
+                    <label>대출 원금({currencyName})<input value={loan.principalAmount.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>남은 원금({currencyName})<input value={loan.outstandingPrincipal.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>남은 이자({currencyName})<input value={loan.outstandingInterest.toLocaleString("ko-KR")} readOnly /></label>
+                    <label>적용 금리<input value={`${(loan.appliedInterestRateBps / 100).toFixed(2)}%`} readOnly /></label>
+                    <label>만기일<input value={new Date(loan.maturesAt).toLocaleDateString("ko-KR")} readOnly /></label>
+                  </div>
+                  <div className="financial-product-list">
+                    {loan.installments.map((installment) => (
+                      <div className="financial-product-heading" key={installment.installmentId}>
+                        <strong>{installment.installmentNumber}회차 · {installment.status === "PAID" ? "납부 완료" : installment.status === "MISSED" ? "연체" : "납부 예정"}</strong>
+                        <span>{new Date(installment.dueAt).toLocaleDateString("ko-KR")} · {(installment.scheduledPrincipal + installment.scheduledInterest).toLocaleString("ko-KR")} {currencyName}{installment.status === "MISSED" ? ` · 유예 ${new Date(installment.graceUntil).toLocaleDateString("ko-KR")}까지` : ""}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -4001,6 +4181,7 @@ function Control({
   classroomId,
   stateVersion,
   students,
+  activeGuidedActivityId,
   quizWorkspace
 }: Readonly<{
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
@@ -4008,6 +4189,7 @@ function Control({
   classroomId: string;
   stateVersion: number;
   students: StudentRow[];
+  activeGuidedActivityId?: string;
   quizWorkspace: ReactNode;
 }>) {
   const [lessonMaterials, setLessonMaterials] = useState<LessonMaterial[]>(initialLessonMaterials);
@@ -4015,6 +4197,92 @@ function Control({
   const [draftLesson, setDraftLesson] = useState<LessonMaterial | null>(null);
   const [selectedLessonTitle, setSelectedLessonTitle] = useState<string>(lessonQuizCatalog[0]?.title ?? "");
   const [newQuizTitle, setNewQuizTitle] = useState("");
+  const [imageTitle, setImageTitle] = useState("경제 개념 수업");
+  const [imageDataUrl, setImageDataUrl] = useState("");
+  const [imageFileName, setImageFileName] = useState("");
+  const [activeImageLesson, setActiveImageLesson] = useState<{ activityId: string; stateVersion: number } | null>(null);
+  const [imageLessonBusy, setImageLessonBusy] = useState(false);
+
+  useEffect(() => {
+    if (!activeGuidedActivityId) {
+      setActiveImageLesson(null);
+      return;
+    }
+    void apiRequest<{ activity_id: string; state_version: number; activity_type?: string }>(
+      `/classrooms/${classroomId}/guided-activities/${activeGuidedActivityId}`
+    ).then((activity) => {
+      if (activity.activity_type === "ECONOMIC_CONCEPT_IMAGE") {
+        setActiveImageLesson({ activityId: activity.activity_id, stateVersion: activity.state_version });
+      }
+    }).catch(() => undefined);
+  }, [activeGuidedActivityId, classroomId]);
+
+  function selectLessonImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      addLog("이미지 파일만 선택해 주세요.", "warning");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      addLog("수업 이미지는 5MB 이하로 선택해 주세요.", "warning");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageDataUrl(String(reader.result ?? ""));
+      setImageFileName(file.name);
+      if (imageTitle === "경제 개념 수업") setImageTitle(file.name.replace(/\.[^.]+$/, ""));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function startImageLesson() {
+    if (!imageDataUrl || !imageTitle.trim()) {
+      addLog("수업 제목과 이미지를 준비해 주세요.", "warning");
+      return;
+    }
+    setImageLessonBusy(true);
+    try {
+      const result = await apiRequest<{ activity_id: string; state_version: number }>(
+        `/classrooms/${classroomId}/guided-activities/image-lessons`,
+        {
+          method: "POST",
+          body: JSON.stringify({ title: imageTitle.trim(), image_url: imageDataUrl })
+        }
+      );
+      setActiveImageLesson({ activityId: result.activity_id, stateVersion: result.state_version });
+      addLog("수업 이미지를 학생 화면에 띄우고 화면을 고정했어요.");
+    } catch (error) {
+      addLog(`이미지 수업을 시작하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setImageLessonBusy(false);
+    }
+  }
+
+  async function finishImageLesson() {
+    if (!activeImageLesson) return;
+    setImageLessonBusy(true);
+    try {
+      await apiRequest(
+        `/classrooms/${classroomId}/guided-activities/${activeImageLesson.activityId}/finish-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: activeImageLesson.stateVersion,
+            command: "END",
+            reason: "교사가 이미지 수업을 종료함"
+          })
+        }
+      );
+      setActiveImageLesson(null);
+      addLog("이미지 수업을 종료하고 학생 화면 고정을 풀었어요.");
+    } catch (error) {
+      addLog(`이미지 수업을 종료하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setImageLessonBusy(false);
+    }
+  }
 
   function startLessonEdit(material: LessonMaterial) {
     setEditingLessonId(material.id);
@@ -4079,6 +4347,30 @@ function Control({
 
   return (
     <div className="page-flow">
+      <PlainSection title="경제 개념 이미지 수업" description="준비한 이미지 한 장을 학생 전체 화면에 동시에 띄우고, 수업이 끝날 때까지 화면을 고정합니다.">
+        <div className="image-lesson-panel">
+          <div className="image-lesson-form">
+            <label>수업 제목<input maxLength={120} value={imageTitle} onChange={(event) => setImageTitle(event.target.value)} /></label>
+            <label className="image-file-picker">
+              수업 이미지
+              <input type="file" accept="image/*" onChange={selectLessonImage} />
+              <span>{imageFileName || "PNG, JPG 등 5MB 이하"}</span>
+            </label>
+            <div className="row-actions">
+              <button type="button" disabled={imageLessonBusy || !imageDataUrl || Boolean(activeImageLesson)} onClick={() => void startImageLesson()}>
+                {imageLessonBusy ? "처리 중" : "학생 화면에 띄우기"}
+              </button>
+              <button type="button" className="danger-text" disabled={imageLessonBusy || !activeImageLesson} onClick={() => void finishImageLesson()}>
+                수업 종료·고정 해제
+              </button>
+            </div>
+            {activeImageLesson ? <strong className="image-lesson-live">● 현재 학생 화면에 표시 중</strong> : null}
+          </div>
+          <div className="image-lesson-preview">
+            {imageDataUrl ? <img src={imageDataUrl} alt={`${imageTitle} 미리보기`} /> : <span>선택한 이미지가 여기에 표시됩니다.</span>}
+          </div>
+        </div>
+      </PlainSection>
       <PlainSection title="수업 준비" description="회차별 수업 자료를 정리하고, 같은 자리에서 퀴즈를 만들고 수정해요.">
         <div className="lesson-list">
           {lessonMaterials.map((material) => {

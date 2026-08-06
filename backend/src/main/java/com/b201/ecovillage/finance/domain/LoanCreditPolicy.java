@@ -21,4 +21,19 @@ public final class LoanCreditPolicy {
         if (score >= 450) return "CAUTION";
         return "RESTRICTED";
     }
+
+    /** 우량 등급은 1%p 할인하고 주의 등급은 2%p 가산한다. */
+    public static int interestRateForLevel(int baseInterestRateBps, String level) {
+        if (baseInterestRateBps < 0 || baseInterestRateBps > 2_000 || level == null) {
+            throw new IllegalArgumentException("loan credit rate values are invalid");
+        }
+        int adjusted = switch (level) {
+            case "GOOD" -> baseInterestRateBps - 100;
+            case "NORMAL" -> baseInterestRateBps;
+            case "CAUTION" -> baseInterestRateBps + 200;
+            case "RESTRICTED" -> baseInterestRateBps + 400;
+            default -> throw new IllegalArgumentException("unsupported credit level");
+        };
+        return Math.max(0, Math.min(2_000, adjusted));
+    }
 }

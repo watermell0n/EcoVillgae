@@ -52,7 +52,7 @@ export default function ShopScreen() {
   const purchase = useMutation({
     mutationFn: (product: StoreProduct) => purchaseStoreProduct(identity!.classroomId, product),
     onSuccess: (order) => {
-      showMessage("구매 요청 완료", `${order.totalAmount} ${currencyName} 구매가 접수됐어요.`);
+      showMessage("구매 완료", `${order.totalAmount} ${currencyName} 결제가 완료됐어요.`);
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["store-catalog", identity?.classroomId] });
       // 캐릭터를 사면 보유 아이템이 늘어난다. staleTime이 30초라 무효화하지 않으면
@@ -84,6 +84,7 @@ export default function ShopScreen() {
   return (
     <Screen title="이코 상점">
       <View style={styles.tabs}><Pressable onPress={() => setShopType("classroom")} style={[styles.tab, shopType === "classroom" && styles.tabActive]}><Text style={styles.tabText}>교실 상점</Text></Pressable><Pressable onPress={() => setShopType("eco")} style={[styles.tab, shopType === "eco" && styles.tabActive]}><Text style={styles.tabText}>이코 상점</Text></Pressable></View>
+      <Text style={styles.purchasePolicy}>구매를 확인하면 교사 승인 없이 바로 결제되고 재고에 반영돼요.</Text>
       {catalog.isPending ? (
         <View style={styles.center}><ActivityIndicator color={colors.orange500} size="large" /><Text style={styles.helper}>상품을 불러오고 있어요.</Text></View>
       ) : catalog.isError ? (
@@ -139,6 +140,7 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: "transparent" },
   tabActive: { borderBottomColor: colors.orange500 },
   tabText: { color: colors.ink900, fontSize: 16, fontWeight: "900" },
+  purchasePolicy: { color: colors.muted600, fontSize: 13, fontWeight: "700" },
   product: {
     width: "31.8%",
     minHeight: 240,

@@ -340,6 +340,7 @@ UK-001~009·UK-011~016·UK-018의 부분·함수 유일성은 PostgreSQL `CREATE
 | CK-040 | `student_character_profiles` | `state_version>=0 AND equipment_revision>=0` |
 | CK-041 | `character_equipment` | 슬롯은 10개 허용값 중 하나이고 `state_version>=0` |
 | CK-042 | `classrooms` | `class_number IS NULL OR class_number BETWEEN 1 AND 99` |
+| CK-043 | `loan_installments` | `status IN ('SCHEDULED','MISSED','PAID')` |
 
 상태 `CHECK` 값은 [핵심 상태 머신](STATE_MACHINES.md)의 전체 상태를 사용합니다. 상태 머신이 있는 테이블은 해당 `SM-*`의 상태 집합을 DDL에 그대로 넣고, 상태 머신이 없는 보조 테이블은 4장의 상태 목록을 사용합니다.
 

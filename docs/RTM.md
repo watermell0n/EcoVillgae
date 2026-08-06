@@ -98,8 +98,8 @@ RTM v1.3은 확정 요구사항을 출처·역할·모듈·인수 기준과 연�
 | FIN-006 | DEC | 학생 | 투자 주문 | 현재가·정수·잔액·보유량 제한, 금지 주문 접근 불가 | 주문 E2E·경계 테스트 | SM-IVT-002·SM-TXN-001 · PM-FIN-003 · SCR-STU-017 / TEST TBD |
 | FIN-007 | DEC | 학생·교사 | 투자 안전·정산 | 한도·손실상한·선 그래프·PAUSED·CLOSED 정산 동작 | 시나리오 E2E | SM-IVT-001·SM-IVT-002 · PM-FIN-001·PM-FIN-003·PM-FIN-004 · SCR-STU-016·SCR-STU-018·SCR-WEB-015 / TEST TBD |
 | FIN-008 | DEC | 학생·교사 | 대출 신청·실행 | 교사 승인 후 원금 지급과 계좌 생성이 원자적 | 승인 E2E | SM-LON-001·SM-TXN-001 · PM-FIN-001·PM-FIN-005·PM-FIN-006 · SCR-STU-019·SCR-TCH-009·SCR-WEB-016 / TEST TBD |
-| FIN-009 | DEC | 학생·시스템 | 대출 상환·연체 | 잔액 부족 시 OVERDUE, 유예 상환과 음수 잔액 방지 | 스케줄·경계 테스트 | SM-LON-001·SM-TXN-001 · PM-FIN-007·PM-SVC-001 · SCR-STU-019 / TEST TBD |
-| FIN-010 | DEC | 학생·교사 | 신용 | 네 단계 전이·금리 조정·신규 대출 차단·비공개 적용 | 상태·권한 테스트 | SM-LON-001·SM-CRD-001 · PM-FIN-006·PM-FIN-008 · SCR-STU-020·SCR-TCH-009·SCR-WEB-016 / TEST TBD |
+| FIN-009 | DEC | 학생·시스템 | 대출 상환·연체 | 잔액 부족 시 OVERDUE, 유예 상환과 음수 잔액 방지 | 스케줄·경계 테스트 | SM-LON-001·SM-TXN-001 · PM-FIN-007·PM-SVC-001 · SCR-STU-019 / `LoanWorkflowApiTest` |
+| FIN-010 | DEC | 학생·교사 | 신용 | 네 단계 전이·금리 조정·신규 대출 차단·비공개 적용 | 상태·권한 테스트 | SM-LON-001·SM-CRD-001 · PM-FIN-006·PM-FIN-008 · SCR-STU-020·SCR-TCH-009·SCR-WEB-016 / `LoanWorkflowApiTest`, `LoanCreditPolicyTest` |
 | FIN-011 | DEC·AI | 교사·시스템 | 정책 변경 | 세율은 이후 거래, 금리는 신규 금융상품에만 적용 | 정책 버전 테스트 | SM-TXN-001·SM-AIR-001 · PM-POL-001·PM-FIN-001·PM-AI-004 · SCR-WEB-009·SCR-WEB-014·SCR-WEB-016·SCR-WEB-021 / TEST TBD |
 | FIN-012 | DEC | 교사·시스템 | 교실 종료 금융 정산 | 예적금·투자·대출 종료 결과와 최종 스냅샷 일치 | 종료 통합 테스트 | SM-CLS-001·SM-DEP-001·SM-SAV-001·SM-IVT-001·SM-LON-001 · PM-CLS-006·PM-FIN-009 · SCR-WEB-026·SCR-STU-024 / TEST TBD |
 

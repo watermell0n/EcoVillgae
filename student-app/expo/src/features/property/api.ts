@@ -405,6 +405,8 @@ export function applicationStatusLabel(status: string) {
 /** 자리에서 학생이 지금 신청할 수 있는 계약 종류입니다. */
 export function selectableContractTypes(property: Property): ContractType[] {
   if (property.status === "SUBSCRIPTION_OPEN") return property.allowsSale ? ["SALE"] : [];
+  if (!["AVAILABLE", "LISTED_FOR_RENT", "LISTED_FOR_SALE"].includes(property.status)) return [];
+  if (property.status === "LISTED_FOR_SALE") return property.allowsSale && property.salePrice > 0 ? ["SALE"] : [];
   const types: ContractType[] = [];
   if (property.allowsRent && property.monthlyRent > 0) types.push("RENT");
   if (property.allowsJeonse && property.depositAmount > 0) types.push("JEONSE");

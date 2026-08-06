@@ -14,6 +14,7 @@ import com.b201.ecovillage.identity.domain.AccountStatus;
 import com.b201.ecovillage.identity.domain.Classroom;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
 import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
+import com.b201.ecovillage.identity.domain.ClassroomStatus;
 import com.b201.ecovillage.identity.domain.ClassroomTeacherRole;
 import com.b201.ecovillage.identity.domain.UserAccount;
 import com.b201.ecovillage.identity.domain.UserType;
@@ -74,6 +75,7 @@ public class AuthBootstrapQueryService {
         List<AuthBootstrapView.ClassroomView> classrooms = classroomRepository
             .findAllById(rolesByClassroom.keySet())
             .stream()
+            .filter(classroom -> classroom.getStatus() != ClassroomStatus.ARCHIVED)
             .sorted(Comparator.comparing(Classroom::getClassroomCode))
             .map(AuthBootstrapQueryService::toView)
             .toList();

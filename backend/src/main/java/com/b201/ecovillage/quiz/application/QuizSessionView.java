@@ -9,6 +9,7 @@ public record QuizSessionView(
     UUID quizSessionId,
     QuizMode mode,
     String status,
+    long stateVersion,
     List<QuizSessionQuestionView> questions
 ) {
 }

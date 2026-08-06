@@ -97,7 +97,11 @@ function createAccess(
   modules: ClassroomModule[],
   policies: ModulesAndPoliciesResponse["policy_versions"] = []
 ): ClassroomAccess {
-  const activeModules = modules.filter((module) => module.status === "ACTIVE");
+  // 대출 중지를 요청해도 미납 회차 정리가 끝날 때까지 학생이 상환 화면에는 들어갈 수 있어야 합니다.
+  // 신규 신청은 백엔드가 ACTIVE 상태에서만 허용합니다.
+  const activeModules = modules.filter((module) => (
+    module.status === "ACTIVE" || (module.code === "LOAN" && module.status === "STOPPING")
+  ));
   const accessPolicy = [...policies]
     .filter((policy) => policy.policy_area === "ACCESS_MODE")
     .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0];

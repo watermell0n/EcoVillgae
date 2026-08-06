@@ -7,6 +7,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record GuidedActivityViewResponse(
     @JsonProperty("activity_id") UUID activityId,
     String status,
-    @JsonProperty("participant_count") long participantCount
+    @JsonProperty("state_version") long stateVersion,
+    @JsonProperty("participant_count") long participantCount,
+    @JsonProperty("activity_type") String activityType,
+    @JsonProperty("presentation_title") String presentationTitle,
+    @JsonProperty("presentation_image_url") String presentationImageUrl
 ) {
 }

@@ -74,10 +74,14 @@ public class GuidedActivityQueryService {
         return new GuidedActivityView(
             activity.getId(),
             activity.getStatus(),
+            activity.getStateVersion(),
             participantRepository.countByClassroomIdAndActivitySessionId(
                 classroomId,
                 activityId
-            )
+            ),
+            activity.getActivityType(),
+            activity.getPresentationTitle(),
+            activity.getPresentationImageUrl()
         );
     }
 

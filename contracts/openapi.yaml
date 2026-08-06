@@ -84,8 +84,8 @@ paths:
         - "AUTH-007"
       tags:
         - "Authentication"
-      summary: "classroom_code, nickname, password(4자 이상), device_id(선택 attendance_number) → 정원 내 계정 생성 또는 로그인, 토큰, 유효 진입 화면"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, nickname, password(4자 이상), device_id(선택 attendance_number) → 정원 내 계정 생성 또는 로그인, 토큰, 유효 진입 화면."
+      summary: "classroom_code, attendance_number, nickname, password(4자 이상), device_id → 해당 출석번호의 명단 학생 계정 생성 또는 로그인, 토큰, 유효 진입 화면"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 인증 전 STU.\n\n핵심 계약: classroom_code, attendance_number, nickname, password(4자 이상), device_id → 해당 출석번호의 명단 학생 계정 생성 또는 로그인, 토큰, 유효 진입 화면."
       security: []
       parameters:
         - $ref: "#/components/parameters/XCorrelationId"
@@ -7083,8 +7083,8 @@ paths:
     post:
       operationId: "apiFin013"
       x-api-id: "API-FIN-013"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -7120,7 +7120,65 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "financial_resource_id"
+                      - "status"
+                      - "state_version"
+                      - "remaining_principal"
+                      - "remaining_interest"
+                      - "credit_score"
+                      - "credit_level"
+                      - "replayed"
+                    properties:
+                      financial_resource_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "ACTIVE"
+                          - "OVERDUE"
+                          - "REPAID"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      remaining_principal:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      remaining_interest:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      credit_score:
+                        type: "integer"
+                        minimum: 0
+                        maximum: 1000
+                      credit_level:
+                        type: "string"
+                        enum:
+                          - "GOOD"
+                          - "NORMAL"
+                          - "CAUTION"
+                          - "RESTRICTED"
+                      replayed:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -7145,7 +7203,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-013는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-013 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -7167,7 +7225,7 @@ paths:
                     - "PREPAY_ALL"
               required:
                 - "command"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/property-layout":
     get:
       operationId: "apiEst001"
@@ -14662,6 +14720,7 @@ paths:
                       - "installment_count"
                       - "can_apply"
                       - "loans"
+                      - "credit_events"
                     properties:
                       credit_score:
                         type: "integer"
@@ -14691,7 +14750,144 @@ paths:
                         type: "array"
                         items:
                           type: "object"
-                          additionalProperties: true
+                          required:
+                            - "loan_id"
+                            - "principal_amount"
+                            - "outstanding_principal"
+                            - "outstanding_interest"
+                            - "applied_interest_rate_bps"
+                            - "status"
+                            - "matures_at"
+                            - "state_version"
+                            - "installments"
+                          properties:
+                            loan_id:
+                              type: "string"
+                              format: "uuid"
+                            principal_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
+                            outstanding_principal:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            outstanding_interest:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            applied_interest_rate_bps:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 2000
+                            status:
+                              type: "string"
+                              enum:
+                                - "ACTIVE"
+                                - "OVERDUE"
+                                - "REPAID"
+                            matures_at:
+                              type: "string"
+                              format: "date-time"
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            installments:
+                              type: "array"
+                              items:
+                                type: "object"
+                                required:
+                                  - "installment_id"
+                                  - "installment_number"
+                                  - "scheduled_principal"
+                                  - "scheduled_interest"
+                                  - "due_at"
+                                  - "grace_until"
+                                  - "paid_principal"
+                                  - "paid_interest"
+                                  - "status"
+                                  - "state_version"
+                                properties:
+                                  installment_id:
+                                    type: "string"
+                                    format: "uuid"
+                                  installment_number:
+                                    type: "integer"
+                                    minimum: 1
+                                  scheduled_principal:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
+                                  scheduled_interest:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
+                                  due_at:
+                                    type: "string"
+                                    format: "date-time"
+                                  grace_until:
+                                    type: "string"
+                                    format: "date-time"
+                                  paid_principal:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
+                                  paid_interest:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
+                                  paid_at:
+                                    type:
+                                      - "string"
+                                      - "null"
+                                    format: "date-time"
+                                  status:
+                                    type: "string"
+                                    enum:
+                                      - "SCHEDULED"
+                                      - "MISSED"
+                                      - "PAID"
+                                  state_version:
+                                    type: "integer"
+                                    format: "int64"
+                                    minimum: 0
+                                additionalProperties: false
+                          additionalProperties: false
+                      credit_events:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "event_id"
+                            - "event_type"
+                            - "score_delta"
+                            - "score_before"
+                            - "score_after"
+                            - "reason"
+                            - "occurred_at"
+                          properties:
+                            event_id:
+                              type: "string"
+                              format: "uuid"
+                            event_type:
+                              type: "string"
+                            score_delta:
+                              type: "integer"
+                            score_before:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 1000
+                            score_after:
+                              type: "integer"
+                              minimum: 0
+                              maximum: 1000
+                            reason:
+                              type: "string"
+                            occurred_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
                     additionalProperties: false
                   meta:
                     $ref: "#/components/schemas/Meta"
@@ -14759,11 +14955,17 @@ paths:
                     required:
                       - "policy"
                       - "applications"
+                      - "active_loans"
                     properties:
                       policy:
                         type: "object"
                         additionalProperties: true
                       applications:
+                        type: "array"
+                        items:
+                          type: "object"
+                          additionalProperties: true
+                      active_loans:
                         type: "array"
                         items:
                           type: "object"
@@ -14974,8 +15176,8 @@ paths:
         - "QZ-004"
       tags:
         - "Queries"
-      summary: "역할별 진행 상태, 문항 스냅샷, 제출 상태"
-      description: "사람이 검토하는 원문 기준: `API-READ-021` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 진행 상태, 문항 스냅샷, 제출 상태."
+      summary: "역할별 진행 상태, 세션 state_version, 문항 스냅샷, 제출 상태"
+      description: "사람이 검토하는 원문 기준: `API-READ-021` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 역할별 진행 상태, 세션 state_version, 문항 스냅샷, 제출 상태."
       security:
         - bearerAuth: []
       parameters:

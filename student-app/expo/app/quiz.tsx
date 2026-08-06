@@ -7,7 +7,7 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchQuizSession, submitQuizAnswer } from "@/features/student/api";
+import { fetchQuizResults, fetchQuizSession, submitQuizAnswer } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
 /** 이미 답한 문항을 다시 고르면 서버가 막습니다. 학생이 이해할 수 있는 말로 바꿔 줍니다. */
@@ -33,7 +33,13 @@ export default function QuizScreen() {
   const session = useQuery({
     queryKey: ["quiz-session", identity?.classroomId, quizSessionId],
     queryFn: () => fetchQuizSession(identity!.classroomId, quizSessionId!),
-    enabled: Boolean(identity?.classroomId && quizSessionId)
+    enabled: Boolean(identity?.classroomId && quizSessionId),
+    refetchInterval: (query) => ["RESULT_PUBLISHED", "CLOSED"].includes(query.state.data?.status ?? "") ? false : 3_000
+  });
+  const results = useQuery({
+    queryKey: ["quiz-results", identity?.classroomId, quizSessionId],
+    queryFn: () => fetchQuizResults(identity!.classroomId, quizSessionId!),
+    enabled: Boolean(identity?.classroomId && quizSessionId && ["RESULT_PUBLISHED", "CLOSED"].includes(session.data?.status ?? ""))
   });
   const questions = session.data?.questions ?? [];
   const question = questions[questionIndex];
@@ -79,6 +85,13 @@ export default function QuizScreen() {
         <View style={styles.center}><ActivityIndicator color={colors.green500} /><Text style={styles.helper}>퀴즈를 불러오고 있어요.</Text></View>
       ) : session.isError ? (
         <StateCard title="퀴즈를 불러오지 못했어요"><Text style={styles.error}>{session.error.message}</Text><Pressable onPress={() => session.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 불러오기</Text></Pressable></StateCard>
+      ) : ["SCORING", "REVIEWING"].includes(session.data?.status ?? "") ? (
+        <StateCard title="선생님이 결과를 확인하고 있어요"><Text style={styles.helper}>답안 제출이 마감됐어요. 결과가 공개되면 이 화면에 점수와 보상이 표시됩니다.</Text></StateCard>
+      ) : ["RESULT_PUBLISHED", "CLOSED"].includes(session.data?.status ?? "") ? (
+        results.isPending ? <View style={styles.center}><ActivityIndicator color={colors.green500} /><Text style={styles.helper}>결과를 불러오고 있어요.</Text></View> : results.isError ? <StateCard title="결과를 불러오지 못했어요"><Text style={styles.error}>{results.error.message}</Text><Pressable onPress={() => results.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 불러오기</Text></Pressable></StateCard> : <StateCard tone="mint">
+          <Text style={styles.lobbyEyebrow}>퀴즈 결과</Text><Text style={styles.resultScore}>{results.data?.score ?? 0}점</Text><Text style={styles.cardMeta}>정답 {results.data?.correctCount ?? 0}개 · 순위 {results.data?.rank ? `${results.data.rank}위` : "비공개"} · 보상 {(results.data?.rewardAmount ?? 0).toLocaleString("ko-KR")} {currencyName}</Text>
+          {results.data?.leaderboard.length ? <View style={styles.resultBoard}>{results.data.leaderboard.map((entry) => <Text key={`${entry.rank}-${entry.nickname}`} style={styles.helper}>{entry.rank}위 · {entry.nickname}</Text>)}</View> : null}
+        </StateCard>
       ) : !started ? (
         <View style={styles.quizLobby}>
           <Text style={styles.lobbyEyebrow}>선생님이 준비한 퀴즈</Text>
@@ -146,6 +159,7 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.4 },
   error: { marginTop: 16, color: colors.red500, fontWeight: "700", textAlign: "center" },
   helper: { marginTop: 14, color: colors.muted600, fontSize: 15, lineHeight: 22, textAlign: "center" },
+  resultScore: { marginTop: 10, color: colors.green500, fontSize: 44, fontWeight: "900" }, cardMeta: { marginTop: 8, color: colors.muted600, fontSize: 15, fontWeight: "800" }, resultBoard: { marginTop: 16, alignItems: "flex-start", gap: 4 },
   retry: { alignSelf: "center", marginTop: 12, paddingHorizontal: 18, paddingVertical: 10, borderRadius: radii.control, backgroundColor: colors.green500 },
   retryText: { color: colors.white, fontWeight: "900" }
 });

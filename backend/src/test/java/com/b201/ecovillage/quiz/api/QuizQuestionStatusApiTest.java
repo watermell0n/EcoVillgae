@@ -308,7 +308,7 @@ class QuizQuestionStatusApiTest {
             "학생 앱이 읽는 active_quiz_session_id가 비어 있으면 퀴즈가 보이지 않는다"
         );
 
-        // 제출을 마감하면 학생 화면에서 내려가야 한다.
+        // 제출 마감 뒤에도 학생은 같은 세션에서 채점·검토 대기 상태와 공개 결과를 확인한다.
         long stateVersion = jdbcTemplate.queryForObject(
             "SELECT state_version FROM quiz_sessions WHERE activity_session_id = ?",
             Long.class,
@@ -334,9 +334,9 @@ class QuizQuestionStatusApiTest {
             .andExpect(status().isOk());
 
         assertEquals(
-            null,
+            sessionId.toString(),
             moduleConfigValue("QUIZ_GAME", "active_quiz_session_id"),
-            "제출을 마감했으면 활성 세션 표시가 지워져야 한다"
+            "제출 마감 직후 세션 id를 지우면 학생이 결과 공개 상태를 조회할 수 없다"
         );
     }
 

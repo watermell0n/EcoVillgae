@@ -184,22 +184,71 @@ export type LoanOverview = {
   canApply: boolean;
   pendingApplicationId: string | null;
   pendingApplicationStatus: string | null;
-  loans: Array<{ loanId: string; principalAmount: number; outstandingPrincipal: number; outstandingInterest: number; status: string; maturesAt: string }>;
+  loans: Array<{
+    loanId: string;
+    principalAmount: number;
+    outstandingPrincipal: number;
+    outstandingInterest: number;
+    appliedInterestRateBps: number;
+    status: string;
+    maturesAt: string;
+    stateVersion: number;
+    installments: Array<{
+      installmentId: string;
+      installmentNumber: number;
+      scheduledPrincipal: number;
+      scheduledInterest: number;
+      dueAt: string;
+      graceUntil: string;
+      paidAt: string | null;
+      status: string;
+    }>;
+  }>;
+  creditEvents: Array<{
+    eventId: string;
+    eventType: string;
+    scoreDelta: number;
+    scoreBefore: number;
+    scoreAfter: number;
+    reason: string;
+    occurredAt: string;
+  }>;
 };
 
 export async function fetchLoanOverview(classroomId: string): Promise<LoanOverview> {
-  if (useMocks) return { creditScore: 600, creditLevel: "NORMAL", availableLimit: 240, interestRateBps: 700, termUnits: 28, installmentCount: 4, canApply: true, pendingApplicationId: null, pendingApplicationStatus: null, loans: [] };
+  if (useMocks) return { creditScore: 600, creditLevel: "NORMAL", availableLimit: 240, interestRateBps: 700, termUnits: 28, installmentCount: 4, canApply: true, pendingApplicationId: null, pendingApplicationStatus: null, loans: [], creditEvents: [] };
   const response = await apiRequest<{
     credit_score: number; credit_level: string; available_limit: number; interest_rate_bps: number;
     term_units: number; installment_count: number; can_apply: boolean;
     pending_application_id: string | null; pending_application_status: string | null;
-    loans: Array<{ loan_id: string; principal_amount: number; outstanding_principal: number; outstanding_interest: number; status: string; matures_at: string }>;
+    loans: Array<{
+      loan_id: string; principal_amount: number; outstanding_principal: number; outstanding_interest: number;
+      applied_interest_rate_bps: number; status: string; matures_at: string; state_version: number;
+      installments: Array<{ installment_id: string; installment_number: number; scheduled_principal: number; scheduled_interest: number; due_at: string; grace_until: string; paid_at: string | null; status: string }>;
+    }>;
+    credit_events: Array<{ event_id: string; event_type: string; score_delta: number; score_before: number; score_after: number; reason: string; occurred_at: string }>;
   }>(`/classrooms/${classroomId}/students/me/loans-and-credit`);
   return {
     creditScore: response.credit_score, creditLevel: response.credit_level, availableLimit: response.available_limit,
     interestRateBps: response.interest_rate_bps, termUnits: response.term_units, installmentCount: response.installment_count,
     canApply: response.can_apply, pendingApplicationId: response.pending_application_id, pendingApplicationStatus: response.pending_application_status,
-    loans: response.loans.map((loan) => ({ loanId: loan.loan_id, principalAmount: loan.principal_amount, outstandingPrincipal: loan.outstanding_principal, outstandingInterest: loan.outstanding_interest, status: loan.status, maturesAt: loan.matures_at }))
+    loans: response.loans.map((loan) => ({
+      loanId: loan.loan_id, principalAmount: loan.principal_amount,
+      outstandingPrincipal: loan.outstanding_principal, outstandingInterest: loan.outstanding_interest,
+      appliedInterestRateBps: loan.applied_interest_rate_bps, status: loan.status,
+      maturesAt: loan.matures_at, stateVersion: loan.state_version,
+      installments: loan.installments.map((installment) => ({
+        installmentId: installment.installment_id, installmentNumber: installment.installment_number,
+        scheduledPrincipal: installment.scheduled_principal, scheduledInterest: installment.scheduled_interest,
+        dueAt: installment.due_at, graceUntil: installment.grace_until,
+        paidAt: installment.paid_at, status: installment.status
+      }))
+    })),
+    creditEvents: response.credit_events.map((event) => ({
+      eventId: event.event_id, eventType: event.event_type, scoreDelta: event.score_delta,
+      scoreBefore: event.score_before, scoreAfter: event.score_after,
+      reason: event.reason, occurredAt: event.occurred_at
+    }))
   };
 }
 
@@ -209,6 +258,29 @@ export async function applyLoan(classroomId: string, amount: number, installment
     method: "POST", retryOnNetworkFailure: true, body: JSON.stringify({ command: "APPLY", amount, installments })
   });
   return { applicationId: response.application_id, status: response.status };
+}
+
+export async function cancelLoanApplication(classroomId: string, applicationId: string) {
+  if (useMocks) return { applicationId, status: "CANCELED" };
+  const response = await apiRequest<{ application_id: string; status: string }>(`/classrooms/${classroomId}/loan-application-commands`, {
+    method: "POST",
+    body: JSON.stringify({ command: "CANCEL", application_id: applicationId })
+  });
+  return { applicationId: response.application_id, status: response.status };
+}
+
+export async function repayLoan(classroomId: string, loanId: string, stateVersion: number, command: "RETRY_DUE_PAYMENT" | "PREPAY_ALL") {
+  if (useMocks) return { financial_resource_id: loanId, status: command === "PREPAY_ALL" ? "REPAID" : "ACTIVE", state_version: stateVersion + 1, remaining_principal: 0, remaining_interest: 0, credit_score: 620, credit_level: "NORMAL" };
+  return apiRequest<{ financial_resource_id: string; status: string; state_version: number; remaining_principal: number; remaining_interest: number; credit_score: number; credit_level: string }>(`/classrooms/${classroomId}/loans/${loanId}/repayment-commands`, {
+    method: "POST",
+    body: JSON.stringify({
+      expected_state_version: stateVersion,
+      screen_id: "SCR-STU-019",
+      ui_action_id: "UIA-FIN-013",
+      client_occurred_at: now(),
+      command
+    })
+  });
 }
 
 export async function createTrade(classroomId: string, counterpartStudentId: string, description: string, amount: number) {
@@ -239,6 +311,16 @@ export type QuizSession = {
   mode: string;
   status: string;
   questions: Array<{ resourceId: string; prompt: string; options: QuizOption[] }>;
+};
+
+export type QuizResults = {
+  resultVersion: number;
+  status: string;
+  score: number;
+  correctCount: number;
+  rank: number;
+  rewardAmount: number;
+  leaderboard: Array<{ rank: number; nickname: string }>;
 };
 
 export async function fetchQuizSession(classroomId: string, quizSessionId: string): Promise<QuizSession> {
@@ -278,6 +360,27 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
         ? { label: option }
         : { optionId: option.option_id, label: option.option_text ?? option.label ?? "선택지" })
     }] : [])
+  };
+}
+
+export async function fetchQuizResults(classroomId: string, quizSessionId: string): Promise<QuizResults> {
+  const response = await apiRequest<{
+    result_version?: number;
+    status?: string;
+    summary?: { score?: number; correct_count?: number; rank?: number; reward_amount?: number };
+    leaderboard?: Array<{ rank?: number; nickname?: string }>;
+  }>(`/classrooms/${classroomId}/quiz-sessions/${quizSessionId}/results`);
+  return {
+    resultVersion: response.result_version ?? 0,
+    status: response.status ?? "PUBLISHED",
+    score: response.summary?.score ?? 0,
+    correctCount: response.summary?.correct_count ?? 0,
+    rank: response.summary?.rank ?? 0,
+    rewardAmount: response.summary?.reward_amount ?? 0,
+    leaderboard: (response.leaderboard ?? []).map((entry) => ({
+      rank: entry.rank ?? 0,
+      nickname: entry.nickname ?? "학생"
+    }))
   };
 }
 
@@ -369,9 +472,23 @@ export async function castVote(classroomId: string, vote: Vote, optionId: string
 }
 
 export async function fetchGuidedActivity(classroomId: string, activityId: string) {
-  if (useMocks) return { activityId, status: "LIVE", participantCount: 24 };
-  const response = await apiRequest<{ activity_id: string; status: string; participant_count: number }>(`/classrooms/${classroomId}/guided-activities/${activityId}`);
-  return { activityId: response.activity_id, status: response.status, participantCount: response.participant_count };
+  if (useMocks) return { activityId, status: "LIVE", participantCount: 24, activityType: "ECONOMIC_CONCEPT_IMAGE", presentationTitle: "경제 개념 수업", presentationImageUrl: undefined };
+  const response = await apiRequest<{
+    activity_id: string;
+    status: string;
+    participant_count: number;
+    activity_type?: string;
+    presentation_title?: string;
+    presentation_image_url?: string;
+  }>(`/classrooms/${classroomId}/guided-activities/${activityId}`);
+  return {
+    activityId: response.activity_id,
+    status: response.status,
+    participantCount: response.participant_count,
+    activityType: response.activity_type,
+    presentationTitle: response.presentation_title,
+    presentationImageUrl: response.presentation_image_url
+  };
 }
 
 export type InventoryItem = { resourceId: string; label: string; status: string; stateVersion: number; characterCode: string; equipped: boolean };

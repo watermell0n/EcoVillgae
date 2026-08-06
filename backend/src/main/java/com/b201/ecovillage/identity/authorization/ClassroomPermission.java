@@ -27,6 +27,10 @@ public enum ClassroomPermission {
         "PM-CLS-005",
         Set.of(ClassroomActorRole.OWN)
     ),
+    ARCHIVE_CLASSROOM(
+        "PM-CLS-009",
+        Set.of(ClassroomActorRole.OWN)
+    ),
     MANAGE_MODULES(
         "PM-MOD-001",
         Set.of(ClassroomActorRole.OWN)

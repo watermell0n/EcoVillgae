@@ -48,6 +48,12 @@ function statusLabel(status: string) {
   } as Record<string, string>)[status] ?? status;
 }
 
+function contractTypeLabel(type: string) {
+  if (type === "RENT") return "월세";
+  if (type === "JEONSE") return "전세";
+  return "매매";
+}
+
 export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled, subscriptionEnabled, onNotice }: Props) {
   const [layout, setLayout] = useState<PropertyLayout>(emptyLayout);
   const [contracts, setContracts] = useState<PendingPropertyContract[]>([]);
@@ -57,6 +63,13 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   const [rows, setRows] = useState("5");
   const [columns, setColumns] = useState("5");
   const [salePrice, setSalePrice] = useState("100");
+  const [depositAmount, setDepositAmount] = useState("0");
+  const [monthlyRent, setMonthlyRent] = useState("0");
+  const [paymentCycleDays, setPaymentCycleDays] = useState("7");
+  const [contractTermDays, setContractTermDays] = useState("30");
+  const [allowsSale, setAllowsSale] = useState(true);
+  const [allowsJeonse, setAllowsJeonse] = useState(false);
+  const [allowsRent, setAllowsRent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [offerTitle, setOfferTitle] = useState("우리 반 자리 청약");
@@ -101,6 +114,13 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   useEffect(() => {
     if (!selected) return;
     setSalePrice(String(selected.sale_price));
+    setDepositAmount(String(selected.deposit_amount));
+    setMonthlyRent(String(selected.monthly_rent));
+    setPaymentCycleDays(String(selected.payment_cycle_days || 7));
+    setContractTermDays(String(selected.contract_term_days || 30));
+    setAllowsSale(selected.allows_sale);
+    setAllowsJeonse(selected.allows_jeonse);
+    setAllowsRent(selected.allows_rent);
     setDisplayName(selected.display_name);
     setIsPublic(selected.is_public);
   }, [selected]);
@@ -125,9 +145,29 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   async function saveSelected() {
     if (!selected) return;
     const price = Number(salePrice);
-    if (!Number.isInteger(price) || price < 0) return onNotice("직판 가격은 0 이상의 정수로 입력해 주세요.", "warning");
+    const deposit = Number(depositAmount);
+    const rent = Number(monthlyRent);
+    const cycle = Number(paymentCycleDays);
+    const term = Number(contractTermDays);
+    if (![price, deposit, rent, cycle, term].every(Number.isInteger)) return onNotice("계약 금액과 기간은 정수로 입력해 주세요.", "warning");
+    if (price < 0 || deposit < 0 || rent < 0 || cycle < 1 || term < 1) return onNotice("금액은 0 이상, 납부 주기와 계약 기간은 1일 이상이어야 해요.", "warning");
+    if (allowsSale && price < 1) return onNotice("매매를 허용하려면 매매가를 1 이상 입력해 주세요.", "warning");
+    if (allowsJeonse && deposit < 1) return onNotice("전세를 허용하려면 보증금을 1 이상 입력해 주세요.", "warning");
+    if (allowsRent && rent < 1) return onNotice("월세를 허용하려면 월세 금액을 1 이상 입력해 주세요.", "warning");
+    if (isPublic && !allowsSale && !allowsJeonse && !allowsRent) return onNotice("학생에게 공개하려면 매매·전세·월세 중 하나 이상을 허용해 주세요.", "warning");
     await run(
-      () => updateClassroomProperty(selected, { display_name: displayName.trim() || selected.coordinate, sale_price: price, is_public: isPublic }),
+      () => updateClassroomProperty(selected, {
+        display_name: displayName.trim() || selected.coordinate,
+        sale_price: price,
+        deposit_amount: deposit,
+        monthly_rent: rent,
+        payment_cycle_days: cycle,
+        contract_term_days: term,
+        allows_sale: allowsSale,
+        allows_jeonse: allowsJeonse,
+        allows_rent: allowsRent,
+        is_public: isPublic
+      }),
       `${selected.coordinate} 자리 설정을 저장했어요.`
     );
   }
@@ -209,26 +249,37 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
             {selected ? <>
               <div className={styles.inspectorTitle}><div><small>선택한 자리</small><h3>{selected.coordinate}</h3></div><span>{statusLabel(selected.status)}</span></div>
               <label>표시 이름<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
-              <label>직판 가격 ({currencyName})<input inputMode="numeric" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} /></label>
-              <label className={styles.check}><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} />학생에게 직판 매물 공개</label>
+              <label className={styles.check}><input type="checkbox" checked={allowsSale} onChange={(event) => setAllowsSale(event.target.checked)} />매매 허용</label>
+              <label>매매가 ({currencyName})<input inputMode="numeric" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} /></label>
+              <label className={styles.check}><input type="checkbox" checked={allowsJeonse} onChange={(event) => setAllowsJeonse(event.target.checked)} />전세 허용</label>
+              <label>전세 보증금 ({currencyName})<input inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></label>
+              <label className={styles.check}><input type="checkbox" checked={allowsRent} onChange={(event) => setAllowsRent(event.target.checked)} />월세 허용</label>
+              <label>월세 ({currencyName})<input inputMode="numeric" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label>
+              <label>납부 주기 (일)<input inputMode="numeric" value={paymentCycleDays} onChange={(event) => setPaymentCycleDays(event.target.value)} /></label>
+              <label>계약 기간 (일)<input inputMode="numeric" value={contractTermDays} onChange={(event) => setContractTermDays(event.target.value)} /></label>
+              <label className={styles.check}><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} />학생에게 계약 가능한 자리로 공개</label>
               <button type="button" className={styles.primary} disabled={busy || selected.owner_kind === "STUDENT"} onClick={() => void saveSelected()}>설정 저장</button>
               {subscriptionEnabled && selected.owner_kind === "TEACHER" && ["AVAILABLE", "TEACHER_OWNED"].includes(selected.status) ? (
                 <button type="button" className={styles.secondary} onClick={() => toggleOfferSeat(selected)}>{offerSeats.has(selected.property_id) ? <><X size={16} />청약 선택 해제</> : <><Check size={16} />청약 공급에 선택</>}</button>
               ) : null}
               {selected.owner_kind === "STUDENT" ? <p className={styles.help}>학생 소유 자리의 공개·판매 설정은 소유 학생이 관리합니다.</p> : null}
-            </> : <p className={styles.empty}>좌석을 선택하면 이름과 직판 가격을 설정할 수 있어요.</p>}
+            </> : <p className={styles.empty}>좌석을 선택하면 매매·전세·월세 조건과 공개 여부를 설정할 수 있어요.</p>}
           </aside>
         </div>
       ) : <div className={styles.emptyPanel}>행과 열을 입력한 뒤 좌석판을 만들어 주세요.</div>}
 
       <section className={styles.section}>
-        <div className={styles.sectionTitle}><div><p>구매 요청</p><h3>승인 대기 {contracts.length}건</h3></div></div>
+        <div className={styles.sectionTitle}><div><p>계약 요청</p><h3>승인 대기 {contracts.length}건</h3></div></div>
         {contracts.length ? <div className={styles.cardList}>{contracts.map((contract) => (
           <article className={styles.contractCard} key={contract.contract_id}>
-            <div><b>{contract.coordinate} · {contract.student_nickname}</b><span>{contract.roster_number}번 학생 · {contract.landlord_kind === "STUDENT" ? "학생 재판매" : "교사 직판"}</span><strong>{contract.sale_price.toLocaleString("ko-KR")} {currencyName}</strong></div>
-            <div><button type="button" className={styles.reject} disabled={busy} onClick={() => void run(() => decidePropertyContract(contract.contract_id, false), "구매 요청을 거절했어요.")}>거절</button><button type="button" className={styles.primary} disabled={busy} onClick={() => void run(() => decidePropertyContract(contract.contract_id, true), "구매를 승인하고 소유권을 이전했어요.")}>승인</button></div>
+            <div><b>{contract.coordinate} · {contract.student_nickname}</b><span>{contract.roster_number}번 학생 · {contractTypeLabel(contract.contract_type)} · {contract.landlord_kind === "STUDENT" ? "학생 매물" : "교사 공급"}</span><strong>{contract.contract_type === "SALE"
+              ? `${contract.sale_price.toLocaleString("ko-KR")} ${currencyName}`
+              : contract.contract_type === "JEONSE"
+                ? `보증금 ${contract.deposit_amount.toLocaleString("ko-KR")} ${currencyName}`
+                : `보증금 ${contract.deposit_amount.toLocaleString("ko-KR")} ${currencyName} · 월세 ${contract.monthly_rent.toLocaleString("ko-KR")} ${currencyName}`}</strong></div>
+            <div><button type="button" className={styles.reject} disabled={busy} onClick={() => void run(() => decidePropertyContract(contract.contract_id, false), "계약 요청을 거절했어요.")}>거절</button><button type="button" className={styles.primary} disabled={busy} onClick={() => void run(() => decidePropertyContract(contract.contract_id, true), "계약을 승인했어요.")}>승인</button></div>
           </article>
-        ))}</div> : <p className={styles.empty}>현재 승인할 구매 요청이 없어요.</p>}
+        ))}</div> : <p className={styles.empty}>현재 승인할 계약 요청이 없어요.</p>}
       </section>
 
       {subscriptionEnabled ? <section className={styles.section}>

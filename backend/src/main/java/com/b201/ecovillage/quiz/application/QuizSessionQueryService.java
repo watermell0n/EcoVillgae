@@ -106,6 +106,7 @@ public class QuizSessionQueryService {
             session.getId(),
             session.getMode(),
             session.getStatus().name(),
+            session.getStateVersion(),
             questions
         );
     }

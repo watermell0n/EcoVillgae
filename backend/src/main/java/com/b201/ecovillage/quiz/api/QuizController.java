@@ -328,6 +328,7 @@ public class QuizController {
                 view.quizSessionId(),
                 view.mode(),
                 view.status(),
+                view.stateVersion(),
                 view.questions().stream()
                     .map(question -> new QuizSessionQuestionResponse(
                         question.resourceId(),
