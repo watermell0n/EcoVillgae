@@ -1,0 +1,370 @@
+{
+  "bank_version": "nonsense-bank-v1",
+  "source": "팀에서 고른 넌센스 문항 40개 중 초등 4~6학년에 안전하고 말장난이 확실히 성립하는 것만 골랐다.",
+  "status": "REVIEW_REQUIRED",
+  "review_note": "교사 검토 전 초안이다. 오답(선택지)은 원본에 없어 새로 만들었으므로 특히 함께 봐 주세요.",
+  "excluded_note": "폭력·비하 소재(칠레, 창피해, 치과), 연예인 이름(태연), 말장난이 약한 것, 프롬프트 예시로 쓴 것(후다닥·호주머니·고등어·인수분해)은 뺐다.",
+
+  "questions": [
+    {
+      "id": "nb-001",
+      "grades": [4, 5, 6],
+      "theme": "동네",
+      "pun_type": "글자 쪼개기",
+      "question": "초등학생이 가장 좋아하는 동네는 어디일까요?",
+      "choices": [
+        { "key": "A", "text": "방학동" },
+        { "key": "B", "text": "목동" },
+        { "key": "C", "text": "신촌" },
+        { "key": "D", "text": "상계동" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "'방학동'은 실제 동네 이름이면서 학교를 쉬는 '방학'이 들어 있어요. 그래서 학생들이 좋아하는 동네라는 말장난이 됩니다."
+    },
+    {
+      "id": "nb-002",
+      "grades": [4, 5, 6],
+      "theme": "음식",
+      "pun_type": "소리 겹치기",
+      "question": "한국에서 가장 급하게 만든 떡은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "가래떡" },
+        { "key": "B", "text": "헐레벌떡" },
+        { "key": "C", "text": "시루떡" },
+        { "key": "D", "text": "꿀떡" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'헐레벌떡'은 급하게 서두르는 모습을 흉내내는 말인데 끝에 '떡'이 들어 있어요. 그래서 급하게 만든 떡이라는 말장난이 됩니다."
+    },
+    {
+      "id": "nb-003",
+      "grades": [4, 5, 6],
+      "theme": "음식",
+      "pun_type": "소리 겹치기",
+      "question": "도둑이 가장 싫어하는 아이스크림은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "월드콘" },
+        { "key": "B", "text": "메로나" },
+        { "key": "C", "text": "누가바" },
+        { "key": "D", "text": "빠삐코" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "'누가바'는 아이스크림 이름이면서 '누가 봐'처럼 들려요. 남몰래 움직이는 도둑이 가장 듣기 싫은 말이라는 말장난입니다."
+    },
+    {
+      "id": "nb-004",
+      "grades": [4, 5, 6],
+      "theme": "과일",
+      "pun_type": "글자 쪼개기",
+      "question": "세상에서 가장 뜨거운 과일은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "천도복숭아" },
+        { "key": "B", "text": "수박" },
+        { "key": "C", "text": "참외" },
+        { "key": "D", "text": "자두" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "'천도복숭아'에 들어 있는 '천도'가 온도 천 도처럼 들려요. 그래서 가장 뜨거운 과일이라는 말장난이 됩니다."
+    },
+    {
+      "id": "nb-005",
+      "grades": [4, 5],
+      "theme": "자연",
+      "pun_type": "흉내내는 말",
+      "question": "땅은 어떻게 울까요?",
+      "choices": [
+        { "key": "A", "text": "엉엉" },
+        { "key": "B", "text": "훌쩍훌쩍" },
+        { "key": "C", "text": "흙흙" },
+        { "key": "D", "text": "펑펑" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "우는 소리 '흑흑'과 땅을 이루는 '흙'의 소리가 겹쳐요. 땅이니까 '흙흙' 하고 운다는 말장난입니다."
+    },
+    {
+      "id": "nb-006",
+      "grades": [4, 5, 6],
+      "theme": "교통수단",
+      "pun_type": "글자 쪼개기",
+      "question": "소나타는 누가 탈까요?",
+      "choices": [
+        { "key": "A", "text": "말" },
+        { "key": "B", "text": "소" },
+        { "key": "C", "text": "닭" },
+        { "key": "D", "text": "개" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'소나타'를 '소 나타'처럼 끊어 읽으면 앞에 '소'가 들어 있어요. 그래서 소가 타는 차라는 말장난이 됩니다."
+    },
+    {
+      "id": "nb-007",
+      "grades": [5, 6],
+      "theme": "인사말",
+      "pun_type": "외국 이름 다시 읽기",
+      "question": "왕이 헤어질 때 하는 인사는 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "하이킹" },
+        { "key": "B", "text": "바이킹" },
+        { "key": "C", "text": "굿킹" },
+        { "key": "D", "text": "모닝킹" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "헤어질 때 하는 영어 인사 '바이'와 왕을 뜻하는 '킹'을 붙이면 '바이킹'이 돼요. 실제로 있는 낱말이라 말장난이 성립합니다."
+    },
+    {
+      "id": "nb-008",
+      "grades": [4, 5, 6],
+      "theme": "운동",
+      "pun_type": "소리 겹치기",
+      "question": "공이 웃으면 무엇이 될까요?",
+      "choices": [
+        { "key": "A", "text": "풋볼" },
+        { "key": "B", "text": "농구" },
+        { "key": "C", "text": "야구" },
+        { "key": "D", "text": "배구" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "웃음소리 '풋'과 뺨을 뜻하는 '볼'을 붙이면 축구를 가리키는 '풋볼'이 돼요. 공이 웃는 모습을 말장난으로 만든 것입니다."
+    },
+    {
+      "id": "nb-009",
+      "grades": [5, 6],
+      "theme": "나라",
+      "pun_type": "외국 이름 다시 읽기",
+      "question": "차도가 없는 나라는 어디일까요?",
+      "choices": [
+        { "key": "A", "text": "중국" },
+        { "key": "B", "text": "태국" },
+        { "key": "C", "text": "인도" },
+        { "key": "D", "text": "일본" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "'인도'는 나라 이름이면서 사람이 걷는 길을 뜻하기도 해요. 사람이 다니는 길만 있으니 차가 다니는 길이 없다는 말장난입니다."
+    },
+    {
+      "id": "nb-010",
+      "grades": [5, 6],
+      "theme": "도시",
+      "pun_type": "외국 이름 다시 읽기",
+      "question": "꽃가게 주인이 가장 싫어하는 도시는 어디일까요?",
+      "choices": [
+        { "key": "A", "text": "파리" },
+        { "key": "B", "text": "시드니" },
+        { "key": "C", "text": "런던" },
+        { "key": "D", "text": "로마" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'시드니'를 우리말처럼 읽으면 씨앗을 뜻하는 '시드'가 들어 있어요. 꽃이 씨로 돌아가 버리면 곤란하다는 말장난입니다."
+    },
+    {
+      "id": "nb-011",
+      "grades": [5, 6],
+      "theme": "사람",
+      "pun_type": "외국 이름 다시 읽기",
+      "question": "방금 화장실에서 나온 사람은 어느 나라 사람일까요?",
+      "choices": [
+        { "key": "A", "text": "일본 사람" },
+        { "key": "B", "text": "중국 사람" },
+        { "key": "C", "text": "태국 사람" },
+        { "key": "D", "text": "인도 사람" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "'일본'을 '일 본'처럼 끊어 읽으면 볼일을 보고 나왔다는 뜻으로 들려요. 소리가 겹쳐서 생기는 말장난입니다."
+    },
+    {
+      "id": "nb-012",
+      "grades": [5, 6],
+      "theme": "학교",
+      "pun_type": "소리 겹치기",
+      "question": "반성문을 영어로 하면 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "리포트" },
+        { "key": "B", "text": "레터" },
+        { "key": "C", "text": "글로벌" },
+        { "key": "D", "text": "노트" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "'글로벌'을 '글로 벌'처럼 끊어 읽으면 글로 받는 벌이라는 뜻이 돼요. 반성문이 딱 그렇다는 말장난입니다."
+    },
+    {
+      "id": "nb-013",
+      "grades": [5, 6],
+      "theme": "직업",
+      "pun_type": "소리 겹치기",
+      "question": "스님들이 절에 없으면 무엇이라고 할까요?",
+      "choices": [
+        { "key": "A", "text": "외출중" },
+        { "key": "B", "text": "부재중" },
+        { "key": "C", "text": "통화중" },
+        { "key": "D", "text": "공사중" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'부재중'은 자리에 없다는 뜻인데, 절을 뜻하는 '부처'의 '부'와 절 '재'가 겹쳐 들려요. 절에 없다는 말장난이 됩니다."
+    },
+    {
+      "id": "nb-014",
+      "grades": [4, 5, 6],
+      "theme": "음식",
+      "pun_type": "소리 겹치기",
+      "question": "팥이 목마를 때 콩에게 하는 말은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "콩기름" },
+        { "key": "B", "text": "콩국수" },
+        { "key": "C", "text": "콩나물" },
+        { "key": "D", "text": "콩자반" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "'콩나물'을 '콩, 나 물'처럼 끊어 읽으면 콩에게 물을 달라고 하는 말이 돼요. 실제로 있는 낱말이라 말장난이 성립합니다."
+    },
+    {
+      "id": "nb-015",
+      "grades": [4, 5],
+      "theme": "몸과 건강",
+      "pun_type": "소리 겹치기",
+      "question": "머리가 아플 때 약을 얼마나 먹어야 할까요?",
+      "choices": [
+        { "key": "A", "text": "한 통" },
+        { "key": "B", "text": "두 통" },
+        { "key": "C", "text": "세 통" },
+        { "key": "D", "text": "네 통" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "머리가 아픈 것을 '두통'이라고 해요. '두 통'과 소리가 같아서 생기는 말장난입니다."
+    },
+    {
+      "id": "nb-016",
+      "grades": [4, 5],
+      "theme": "숫자",
+      "pun_type": "소리 겹치기",
+      "question": "사람들을 모두 일어나게 하는 숫자는 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "넷" },
+        { "key": "B", "text": "다섯" },
+        { "key": "C", "text": "여섯" },
+        { "key": "D", "text": "일곱" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'다섯'을 '다 서'처럼 들으면 모두 서라는 말로 들려요. 그래서 사람들을 일어나게 하는 숫자라는 말장난입니다."
+    },
+    {
+      "id": "nb-017",
+      "grades": [4, 5, 6],
+      "theme": "물건",
+      "pun_type": "질문 속 함정",
+      "question": "마른 옷은 벗고 젖은 옷만 입는 것은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "옷걸이" },
+        { "key": "B", "text": "세탁기" },
+        { "key": "C", "text": "빨랫줄" },
+        { "key": "D", "text": "건조대" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "빨랫줄은 젖은 빨래를 걸었다가 마르면 걷어 가요. 사람이 옷을 입고 벗는 것처럼 뒤집어 표현한 말놀이입니다."
+    },
+    {
+      "id": "nb-018",
+      "grades": [6],
+      "theme": "학교",
+      "pun_type": "소리 겹치기",
+      "question": "수학책을 난로 위에 두면 무엇이 될까요?",
+      "choices": [
+        { "key": "A", "text": "수학익힘책" },
+        { "key": "B", "text": "수학문제집" },
+        { "key": "C", "text": "수학공책" },
+        { "key": "D", "text": "수학정리집" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "난로 위에 두면 익겠지요. 음식이 익는다는 뜻과 책 이름의 '익힘'이 소리로 겹치는 말장난입니다."
+    },
+    {
+      "id": "nb-019",
+      "grades": [6],
+      "theme": "직업",
+      "pun_type": "글자 쪼개기",
+      "question": "세상에서 가장 가난한 왕은 누구일까요?",
+      "choices": [
+        { "key": "A", "text": "최고임금" },
+        { "key": "B", "text": "최저임금" },
+        { "key": "C", "text": "평균임금" },
+        { "key": "D", "text": "기본임금" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'임금'은 받는 돈을 뜻하기도 하고 왕을 뜻하기도 해요. 가장 낮은 임금이니 가장 가난한 왕이라는 말장난입니다."
+    },
+    {
+      "id": "nb-020",
+      "grades": [6],
+      "theme": "물건",
+      "pun_type": "외국 이름 다시 읽기",
+      "question": "초인종이 없다는 말을 두 글자로 하면 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "침묵" },
+        { "key": "B", "text": "노벨" },
+        { "key": "C", "text": "정적" },
+        { "key": "D", "text": "무음" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "초인종을 뜻하는 영어 '벨'이 없다는 말을 영어로 하면 '노 벨'이 돼요. 상을 뜻하는 '노벨'과 소리가 같아 말장난이 됩니다."
+    },
+    {
+      "id": "nb-021",
+      "grades": [5, 6],
+      "theme": "음식",
+      "pun_type": "소리 겹치기",
+      "question": "간짜장이 일반 짜장보다 비싼 이유는 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "면 때문이야" },
+        { "key": "B", "text": "간 때문이야" },
+        { "key": "C", "text": "양파 때문이야" },
+        { "key": "D", "text": "그릇 때문이야" }
+      ],
+      "correct_choice_key": "B",
+      "explanation": "'간짜장'의 앞 글자 '간'을 몸속 기관인 '간'처럼 읽은 말장난이에요. 같은 소리를 두 가지 뜻으로 쓴 것입니다."
+    },
+    {
+      "id": "nb-022",
+      "grades": [5, 6],
+      "theme": "가족",
+      "pun_type": "질문 속 함정",
+      "question": "영희는 오빠만 다섯입니다. 첫째는 일남, 둘째는 이남, 셋째는 삼남, 넷째는 사남입니다. 그렇다면 막내의 이름은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "오남" },
+        { "key": "B", "text": "육남" },
+        { "key": "C", "text": "영희" },
+        { "key": "D", "text": "막남" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "오빠가 다섯이라고 했으니 영희가 가장 어린 막내예요. 이름 규칙에 눈이 쏠려 문제의 조건을 놓치게 만드는 함정입니다."
+    },
+    {
+      "id": "nb-023",
+      "grades": [6],
+      "theme": "도형",
+      "pun_type": "글자 쪼개기",
+      "question": "정삼각형의 동생 이름은 무엇일까요?",
+      "choices": [
+        { "key": "A", "text": "정사각" },
+        { "key": "B", "text": "이등변" },
+        { "key": "C", "text": "정삼각" },
+        { "key": "D", "text": "정오각" }
+      ],
+      "correct_choice_key": "C",
+      "explanation": "'정삼각형'에서 '형'을 떼면 '정삼각'이 남아요. 형이 빠졌으니 동생이라는 말장난입니다."
+    },
+    {
+      "id": "nb-024",
+      "grades": [4, 5],
+      "theme": "동물",
+      "pun_type": "소리 겹치기",
+      "question": "오리가 얼면 무엇이 될까요?",
+      "choices": [
+        { "key": "A", "text": "언덕" },
+        { "key": "B", "text": "얼음" },
+        { "key": "C", "text": "빙산" },
+        { "key": "D", "text": "고드름" }
+      ],
+      "correct_choice_key": "A",
+      "explanation": "오리는 '덕'이라고도 불러요. 얼어붙은 덕이니 '언 덕', 곧 '언덕'이 된다는 말장난입니다."
+    }
+  ]
+}
