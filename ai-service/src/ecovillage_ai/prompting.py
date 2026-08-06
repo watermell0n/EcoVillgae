@@ -12,6 +12,7 @@ from ecovillage_ai.models import (
     BalancingGenerationRequest,
     EconomicEventGenerationRequest,
     GenerationRequest,
+    InvestmentCompanyGenerationRequest,
     InvestmentMode,
     QuizDraftGenerationRequest,
     TeacherChatGenerationRequest,
@@ -29,6 +30,7 @@ SUPPORTED_PROMPT_VERSIONS = (
     "teacher-chat-v1",
     "economic-event-v1",
     "quiz-draft-v1",
+    "investment-company-v1",
 )
 
 
@@ -147,6 +149,15 @@ class PromptRegistry:
                 return mode, "economic-event-v1", f"v1/economic-event/{mode}.txt"
             mode = request.payload.template_type.value.casefold().replace("_", "-")
             return mode, "economic-event-v1", f"v1/economic-event/{mode}.txt"
+        if kind is GenerationKind.INVESTMENT_COMPANY and isinstance(
+            request, InvestmentCompanyGenerationRequest
+        ):
+            mode = (
+                "short-term"
+                if request.payload.investment_mode is InvestmentMode.SHORT_TERM
+                else "long-term"
+            )
+            return mode, "investment-company-v1", "v1/investment-company.txt"
         if kind is GenerationKind.QUIZ_DRAFT and isinstance(
             request, QuizDraftGenerationRequest
         ):

@@ -26,6 +26,9 @@ from ecovillage_ai.models import (
     GenerationOutput,
     GenerationRequest,
     GenerationResponse,
+    InvestmentCompanyGenerationRequest,
+    InvestmentCompanyGenerationResponse,
+    InvestmentCompanyOutput,
     QuizDraftGenerationRequest,
     QuizDraftGenerationResponse,
     QuizDraftOutput,
@@ -46,6 +49,7 @@ OUTPUT_MODELS: dict[GenerationKind, type[GenerationOutput]] = {
     GenerationKind.TEACHER_CHAT: TeacherChatOutput,
     GenerationKind.ECONOMIC_EVENT: EconomicEventOutput,
     GenerationKind.QUIZ_DRAFT: QuizDraftOutput,
+    GenerationKind.INVESTMENT_COMPANY: InvestmentCompanyOutput,
 }
 
 
@@ -309,4 +313,6 @@ class GenerationService:
             return EconomicEventGenerationResponse.model_validate(metadata)
         if isinstance(request, QuizDraftGenerationRequest):
             return QuizDraftGenerationResponse.model_validate(metadata)
+        if isinstance(request, InvestmentCompanyGenerationRequest):
+            return InvestmentCompanyGenerationResponse.model_validate(metadata)
         raise TypeError("지원하지 않는 생성 요청입니다.")

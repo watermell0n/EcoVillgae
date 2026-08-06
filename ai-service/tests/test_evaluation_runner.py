@@ -58,7 +58,9 @@ def test_release_manifest_has_exactly_350_versioned_evaluation_cases() -> None:
         "investment-news": 32,
         "quiz-draft": 48,
     }
-    assert result["prompt_versions"] == sorted(SUPPORTED_PROMPT_VERSIONS)
+    # 평가 세트는 위 7개 스위트로 고정되어 있고, 평가 세트가 아직 없는 기능(투자 기업 생성)의
+    # 프롬프트도 서비스에는 실려 있다. 그래서 완전 일치가 아니라 부분집합으로 본다.
+    assert set(result["prompt_versions"]) <= set(SUPPORTED_PROMPT_VERSIONS)
 
 
 def test_human_review_uses_lower_reviewer_scores_and_passes_gate(

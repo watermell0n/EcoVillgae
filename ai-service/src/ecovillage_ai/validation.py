@@ -18,6 +18,9 @@ from ecovillage_ai.features.economic_event import (
     event_grade_and_effect_codes,
     validate_economic_event_input,
 )
+from ecovillage_ai.features.investment_company import (
+    investment_company_context_codes,
+)
 from ecovillage_ai.features.quiz_draft import (
     quiz_content_safety_codes,
     quiz_grade_quality_codes,
@@ -38,6 +41,8 @@ from ecovillage_ai.models import (
     ErrorCode,
     GenerationOutput,
     GenerationRequest,
+    InvestmentCompanyGenerationRequest,
+    InvestmentCompanyOutput,
     QuizDraftGenerationRequest,
     QuizDraftOutput,
     SetupPrecheckOutput,
@@ -216,6 +221,10 @@ def _validate_context(
             codes.append("QUIZ_DIFFICULTY_MISMATCH")
         codes.extend(quiz_structure_quality_codes(output))
         return codes
+    if isinstance(request, InvestmentCompanyGenerationRequest) and isinstance(
+        output, InvestmentCompanyOutput
+    ):
+        return investment_company_context_codes(request.payload, output)
     return ["OUTPUT_TYPE_MISMATCH"]
 
 

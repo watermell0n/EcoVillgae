@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.b201.ecovillage.ai.contract.InvestmentCompanyContract;
+import com.b201.ecovillage.ai.infrastructure.InvestmentCompanyAiClient;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -290,6 +293,41 @@ class InvestmentFlowApiTest {
         );
     }
 
+    /**
+     * 기업 이름은 시나리오를 만들 때마다 AI가 새로 짓는다. 같은 이름이 되풀이되면 학생이
+     * 기업을 보지 않고 지난번 결과만 기억해 고르게 된다.
+     */
+    @Test
+    void namesTheCompaniesAgainEveryTimeAScenarioIsBuilt() throws Exception {
+        String first = generateAndReadNames();
+        // 초안을 거절하고 다시 만들면 같은 자리에 다른 이름이 와야 한다.
+        String second = generateAndReadNames();
+
+        assertNotEquals(first, second);
+        assertTrue(first.contains("1회차 1번 기업"), first);
+        assertTrue(second.contains("2회차 1번 기업"), second);
+    }
+
+    private String generateAndReadNames() throws Exception {
+        mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
+                .principal(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":false}
+                    """))
+            .andExpect(status().isOk());
+        String body = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(owner))
+            .andReturn().getResponse().getContentAsString();
+        JsonNode assets = objectMapper.readTree(body).get("data").get("assets");
+        StringBuilder names = new StringBuilder();
+        for (JsonNode asset : assets) {
+            names.append(asset.get("name").asText()).append('|');
+        }
+        return names.toString();
+    }
+
     @Test
     void rejectsAReturnBandOutsideTheAllowedRange() throws Exception {
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
@@ -500,6 +538,35 @@ class InvestmentFlowApiTest {
 
     @TestConfiguration
     static class HistoricalPathConfiguration {
+        /**
+         * 기업 이름은 시나리오마다 AI가 새로 짓는다. 테스트에서는 실제 AI를 부르지 않고
+         * 호출 횟수만큼 다른 이름을 돌려주어 "매번 새 이름"이 지켜지는지 본다.
+         */
+        @Bean
+        @Primary
+        InvestmentCompanyAiClient stubInvestmentCompanyAiClient() {
+            AtomicInteger round = new AtomicInteger();
+            return request -> {
+                int turn = round.incrementAndGet();
+                return new InvestmentCompanyContract.Response(
+                    request.aiRunId(), "1.2", InvestmentCompanyContract.PROMPT_VERSION,
+                    "FAKE", "test", "PASSED", List.of(),
+                    new InvestmentCompanyContract.Usage(1, 1),
+                    new InvestmentCompanyContract.Output(
+                        "REVIEW_REQUIRED",
+                        request.payload().investmentMode(),
+                        java.util.stream.IntStream.rangeClosed(1, request.payload().companyCount())
+                            .mapToObj(index -> new InvestmentCompanyContract.Company(
+                                "AI" + turn + index,
+                                turn + "회차 " + index + "번 기업",
+                                turn + "회차에 새로 지은 " + index + "번째 가상 기업입니다."
+                            ))
+                            .toList()
+                    )
+                );
+            };
+        }
+
         @Bean
         @Primary
         HistoricalIndexPathProvider fixedHistoricalPathProvider() {

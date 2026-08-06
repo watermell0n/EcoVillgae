@@ -60,6 +60,7 @@ public class InvestmentScenarioService {
     private final InvestmentAssetRepository assetRepository;
     private final InvestmentPriceStepRepository priceStepRepository;
     private final HistoricalIndexPathProvider historicalProvider;
+    private final InvestmentCompanyFactory companyFactory;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -72,6 +73,7 @@ public class InvestmentScenarioService {
         InvestmentAssetRepository assetRepository,
         InvestmentPriceStepRepository priceStepRepository,
         HistoricalIndexPathProvider historicalProvider,
+        InvestmentCompanyFactory companyFactory,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -83,6 +85,7 @@ public class InvestmentScenarioService {
         this.assetRepository = assetRepository;
         this.priceStepRepository = priceStepRepository;
         this.historicalProvider = historicalProvider;
+        this.companyFactory = companyFactory;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -164,17 +167,20 @@ public class InvestmentScenarioService {
             mode, source, reference, now
         ));
         List<InvestmentScenarioResult.Asset> createdAssets = new ArrayList<>();
-        List<InvestmentAssetCatalog.Seed> seeds = InvestmentAssetCatalog.seeds();
-        for (int index = 0; index < seeds.size(); index++) {
-            InvestmentAssetCatalog.Seed seed = seeds.get(index);
+        // 기업 이름은 시나리오마다 AI가 새로 짓는다. 교사가 정한 값은 종목 목록의 자리에
+        // 묶여 있으므로 자리와 순서는 그대로 두고 보여 줄 이름만 바뀐다.
+        List<InvestmentCompanyFactory.Company> companies = companyFactory.create(classroom, mode);
+        for (int index = 0; index < companies.size(); index++) {
+            InvestmentCompanyFactory.Company company = companies.get(index);
+            InvestmentAssetCatalog.Seed seed = company.seed();
             AssetCondition condition = confirmed.get(seed.symbol());
             ReturnBand band = returnBand(seed, condition, volatilityBps, historicalRates);
             List<Integer> rates = historicalRates == null
                 ? drawRates(scenario.getId(), seed.symbol(), stepCount, band)
                 : historicalRates;
             InvestmentAsset asset = assetRepository.save(InvestmentAsset.active(
-                uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(), seed.name(),
-                seed.profile(), index + 1, band.min(), band.max(), now
+                uuidGenerator.generate(), classroomId, scenario.getId(), company.symbol(),
+                company.name(), company.profile(), index + 1, band.min(), band.max(), now
             ));
             long startPrice = startPrice(seed, condition);
             long price = startPrice;

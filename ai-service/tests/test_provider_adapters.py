@@ -244,6 +244,7 @@ async def test_router_calls_only_the_selected_feature_provider() -> None:
             GenerationKind.TEACHER_CHAT: openai,
             GenerationKind.ECONOMIC_EVENT: fake,
             GenerationKind.QUIZ_DRAFT: fake,
+            GenerationKind.INVESTMENT_COMPANY: fake,
         }
     )
 

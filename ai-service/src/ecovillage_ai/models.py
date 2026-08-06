@@ -789,11 +789,39 @@ class QuizDraftGenerationRequest(CommonGenerationRequest):
     payload: QuizDraftPayload
 
 
+class InvestmentCompanyPayload(ContractModel):
+    """학급 투자 활동에 쓸 가상 기업을 새로 지어 달라는 요청이다.
+
+    실제 기업 이름을 쓰지 않도록 개수와 방식만 주고, 교사가 덧붙인 맥락은 지시가 아니라
+    데이터로만 다룬다. 이미 쓴 이름을 함께 보내면 그 이름을 다시 쓰지 않는다.
+    """
+
+    course_scale: CourseScale
+    investment_mode: InvestmentMode
+    company_count: Annotated[StrictInt, Field(ge=1, le=8)]
+    used_names: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=100)]], Field(max_length=40)
+    ]
+    teacher_context: Annotated[str, Field(max_length=1000)] | None = None
+
+    @field_validator("used_names")
+    @classmethod
+    def used_names_must_be_unique(cls, values: list[str]) -> list[str]:
+        if len(values) != len(set(values)):
+            raise ValueError("이미 쓴 기업 이름은 중복될 수 없습니다.")
+        return values
+
+
+class InvestmentCompanyGenerationRequest(CommonGenerationRequest):
+    payload: InvestmentCompanyPayload
+
+
 GenerationRequest = (
     BalancingGenerationRequest
     | TeacherChatGenerationRequest
     | EconomicEventGenerationRequest
     | QuizDraftGenerationRequest
+    | InvestmentCompanyGenerationRequest
 )
 
 
@@ -1107,12 +1135,37 @@ class QuizDraftOutput(ContractModel):
     questions: Annotated[list[QuizQuestionDraft], Field(min_length=1, max_length=30)]
 
 
+class InvestmentCompanyDraft(ContractModel):
+    """가상 기업 하나다. 기호와 이름은 그대로 저장되므로 저장 제약과 같은 길이로 받는다."""
+
+    symbol: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9]{1,9}$")]
+    name: Annotated[str, Field(min_length=2, max_length=40)]
+    profile: Annotated[str, Field(min_length=10, max_length=300)]
+
+
+class InvestmentCompanyOutput(ContractModel):
+    review_status: Literal["REVIEW_REQUIRED"]
+    investment_mode: InvestmentMode
+    companies: Annotated[list[InvestmentCompanyDraft], Field(min_length=1, max_length=8)]
+
+    @model_validator(mode="after")
+    def companies_must_be_distinct(self) -> InvestmentCompanyOutput:
+        symbols = [company.symbol for company in self.companies]
+        if len(symbols) != len(set(symbols)):
+            raise ValueError("가상 기업 기호는 중복될 수 없습니다.")
+        names = [" ".join(company.name.split()).casefold() for company in self.companies]
+        if len(names) != len(set(names)):
+            raise ValueError("가상 기업 이름은 중복될 수 없습니다.")
+        return self
+
+
 GenerationOutput = (
     SetupPrecheckOutput
     | BalancingOutput
     | TeacherChatOutput
     | EconomicEventOutput
     | QuizDraftOutput
+    | InvestmentCompanyOutput
 )
 
 
@@ -1148,11 +1201,16 @@ class QuizDraftGenerationResponse(ResponseMetadata):
     output: QuizDraftOutput
 
 
+class InvestmentCompanyGenerationResponse(ResponseMetadata):
+    output: InvestmentCompanyOutput
+
+
 GenerationResponse = (
     BalancingGenerationResponse
     | TeacherChatGenerationResponse
     | EconomicEventGenerationResponse
     | QuizDraftGenerationResponse
+    | InvestmentCompanyGenerationResponse
 )
 
 

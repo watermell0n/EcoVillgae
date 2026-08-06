@@ -422,12 +422,14 @@ def _run_docker_smoke() -> CommandCheck:
                 break
             except OSError:
                 time.sleep(0.5)
+        # 평가 세트가 아직 없는 기능도 실행 중인 서비스는 프롬프트를 싣고 있다. 출시 게이트는
+        # 평가한 프롬프트가 모두 실행 중인지만 확인한다.
         expected_prompts = set(load_release_manifest()["prompt_versions"])
         if (
             health is None
             or health.get("status") != "UP"
             or health.get("schema_version") != "1.2"
-            or set(health.get("prompt_versions", [])) != expected_prompts
+            or not expected_prompts <= set(health.get("prompt_versions", []))
             or any(
                 route.get("provider") != "FAKE"
                 or route.get("model_id") != "deterministic-v1"
