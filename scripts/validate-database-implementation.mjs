@@ -54,6 +54,15 @@ const expectedMigrations = [
   "V1_25__retire_bottom_overalls.sql",
   "V1_26__sell_only_basic_and_background_characters.sql",
   "V1_27__retire_off_sale_character_product_versions.sql",
+  // V1_28~V1_33은 투자·부동산·구독·대출 작업에서 추가됐지만 이 목록에 반영되지 않아
+  // 검증이 계속 실패하고 있었다. V1_34는 수업 자료 순서 진행이 넣은 표다.
+  "V1_28__investment_market_per_mode.sql",
+  "V1_29__property_resale_and_subscription_flow.sql",
+  "V1_30__property_module_catalog_constraints.sql",
+  "V1_31__investment_asset_return_band.sql",
+  "V1_32__guided_image_lessons.sql",
+  "V1_33__loan_installment_status_constraint.sql",
+  "V1_34__guided_presentation_slides.sql",
 ];
 
 function unique(values) {
@@ -118,8 +127,10 @@ for (const table of difference(implementedTables, documentedTables)) {
 for (const table of duplicates(implementedTables)) {
   errors.push(`table is created more than once: ${table}`);
 }
-if (implementedTables.length !== 99) {
-  errors.push(`expected 99 tables, found ${implementedTables.length}`);
+// 99 -> 101: 부동산·구독 모듈이 넣은 표들로 이미 100이었고, V1_34가
+// activity_presentation_slides를 더해 101이 되었다.
+if (implementedTables.length !== 101) {
+  errors.push(`expected 101 tables, found ${implementedTables.length}`);
 }
 
 const documentedIndexes = [

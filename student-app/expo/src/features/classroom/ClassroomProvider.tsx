@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
 import { fetchClassroomAccess, hasModule, isModuleSuspended, type ClassroomAccess, type ModuleGroup } from "./api";
+import { PresentationRealtimeClient } from "./presentationRealtime";
 import { colors } from "@/theme/tokens";
 import { fetchGuidedActivity } from "@/features/student/api";
 
@@ -58,9 +59,27 @@ export function ClassroomProvider({ children }: PropsWithChildren) {
     queryKey: ["guided-activity", identity?.classroomId, guidedActivityId],
     queryFn: () => fetchGuidedActivity(identity!.classroomId, guidedActivityId!),
     enabled: Boolean(identity?.classroomId && guidedActivityId),
-    refetchInterval: 3_000,
+    // 자료가 넘어가면 WS-ACT-001 이벤트로 바로 다시 읽습니다. 이 주기는 연결이 끊겼을 때를
+    // 위한 안전망이라 짧게 둘 이유가 없습니다. 자료는 수백 KB라 잦은 폴링이 그대로 비용입니다.
+    refetchInterval: 20_000,
     refetchIntervalInBackground: true
   });
+
+  // 선생님이 자료를 넘기면 폴링 주기를 기다리지 않고 즉시 현재 장을 다시 읽습니다.
+  const refetchGuided = guidedQuery.refetch;
+  useEffect(() => {
+    const classroomId = identity?.classroomId;
+    if (!classroomId || !guidedActivityId) return;
+    const client = new PresentationRealtimeClient({
+      classroomId,
+      activityId: guidedActivityId,
+      onPresentationChanged: () => {
+        void refetchGuided();
+      }
+    });
+    client.start();
+    return () => client.stop();
+  }, [identity?.classroomId, guidedActivityId, refetchGuided]);
 
   const value = useMemo<ClassroomContextValue>(() => ({
     access: query.data,

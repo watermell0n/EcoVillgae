@@ -245,7 +245,7 @@ public class StoreProductCommandService {
             ));
         if (command.command() == StoreProductCommandType.DELETE) {
             product.retire(now);
-            latest.retire(now);
+            retireIfLive(latest, now);
             stock.replaceAvailableQuantity(0, now);
             productRepository.save(product);
             stockRepository.save(stock);
@@ -277,7 +277,7 @@ public class StoreProductCommandService {
             case DELETE -> throw validation("DELETE must retire an existing product.");
             case CREATE -> throw validation("CREATE must create a new product.");
         };
-        latest.retire(now);
+        retireIfLive(latest, now);
         StoreProductVersion next = versionRepository.save(version(
             command,
             product.getId(),
@@ -307,8 +307,10 @@ public class StoreProductCommandService {
         StoreProductCommand command,
         UUID productId
     ) {
+        // 은퇴한 버전만 남은 상품도 교사가 고치고 지울 수 있어야 한다. V1_27이 판매 종료
+        // 캐릭터의 버전을 은퇴시킨 뒤로 그 상품들이 PRODUCT_VERSION_MISSING으로 막혀 있었다.
         return versionRepository
-            .findTopByClassroomIdAndStoreProductIdAndRetiredAtIsNullOrderByVersionDesc(
+            .findTopByClassroomIdAndStoreProductIdOrderByVersionDesc(
                 command.classroomId(),
                 productId
             )
@@ -657,6 +659,19 @@ public class StoreProductCommandService {
             return Long.parseLong(String.valueOf(value));
         } catch (RuntimeException exception) {
             throw idempotencyResultMissing();
+        }
+    }
+
+    /**
+     * 살아 있는 버전만 은퇴시킨다.
+     *
+     * <p>V1_27이 판매 종료 캐릭터의 버전을 이미 은퇴시켜 두었다. 그런 상품을 교사가 고치거나
+     * 지울 때 다시 은퇴시키려 하면 도메인이 예외를 던지므로, 이미 은퇴한 버전은 건너뛴다.
+     * 은퇴 시점을 나중 시각으로 덮어써서 이력을 흐리지 않는 효과도 있다.
+     */
+    private static void retireIfLive(StoreProductVersion version, Instant now) {
+        if (version.getRetiredAt() == null) {
+            version.retire(now);
         }
     }
 

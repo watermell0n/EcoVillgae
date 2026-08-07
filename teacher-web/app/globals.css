@@ -4578,3 +4578,109 @@ select:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+
+/* 회차 자료를 순서대로 넘기는 선생님 수업 모듈입니다. */
+.lesson-sequence-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.lesson-sequence-heading h2 { margin: 0; font-size: 19px; font-weight: 900; }
+
+.lesson-sequence-heading p {
+  margin: 6px 0 0;
+  color: #5d6b5a;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.lesson-sequence-setup,
+.lesson-sequence-live { display: grid; gap: 12px; }
+
+.lesson-sequence-setup label {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.lesson-sequence-setup select { min-height: 40px; padding: 0 10px; }
+
+.lesson-sequence-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px 12px 32px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 11px;
+  background: #fbfdfa;
+  max-width: 420px;
+}
+
+.lesson-sequence-list li { color: #46523f; font-size: 14px; }
+
+.lesson-sequence-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.lesson-sequence-progress strong {
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: #eef7f0;
+  color: #2f6b41;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.lesson-sequence-progress span { color: #46523f; font-size: 15px; font-weight: 800; }
+
+.lesson-sequence-progress em {
+  color: #2f7a45;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.lesson-sequence-preview {
+  max-width: 420px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 11px;
+  background: #fbfdfa;
+}
+
+.lesson-sequence-preview img { display: block; width: 100%; height: auto; }
+
+.lesson-sequence-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.lesson-sequence-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+}
+
+.lesson-sequence-error {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: #fdeeee;
+  color: #a33a3a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lesson-sequence-spin { animation: lesson-sequence-rotate 1s linear infinite; }
+
+@keyframes lesson-sequence-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

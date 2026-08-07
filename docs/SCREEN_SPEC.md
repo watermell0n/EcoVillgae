@@ -225,6 +225,7 @@
 | UIA-CLS-006 | SCR-WEB-008 반복 일정 저장 | OWN | `ACTIVE`, 유효 시간대 | PM-CLS-007 / SM-APP-001 |
 | UIA-CLS-007 | SCR-TCH-003 지금 열기·닫기 | OWN·COT | `ACTIVE`, GUIDED가 아니면 수동 모드 반영 | PM-CLS-008 / SM-APP-001 |
 | UIA-CLS-008 | SCR-WEB-026 종료 시작 | OWN | `ACTIVE → CLOSING`, 영향 확인·재인증 | PM-CLS-006 / SM-CLS-001 |
+| UIA-CLS-009 | SCR-WEB-002 학급 보관 | OWN | 개설 중이거나 운영 중인 학급을 목록에서 내려 보관 처리 | PM-CLS-001 / SM-CLS-001 |
 | UIA-MOD-001 | SCR-WEB-005 모듈 추가 | OWN | 조건부 선행 모듈·학년 정책 통과, 추천 초기 정책 확인 후 정책 저장과 `DISABLED → ACTIVE` 원자 처리 | PM-MOD-001·PM-AI-003 / SM-MOD-001·SM-AIR-001 |
 | UIA-MOD-002 | SCR-WEB-005 모듈 중지 | OWN | `ACTIVE → STOPPING`, LIVE 활동 없음 | PM-MOD-001 / SM-MOD-001 |
 | UIA-MOD-003 | SCR-WEB-005 학생 이용 잠금·열기 | OWN | 모듈은 `ACTIVE` 유지, 학생 화면에서만 회색으로 잠기고 되돌릴 수 있음 | PM-MOD-001 / SM-MOD-001 |
@@ -233,6 +234,8 @@
 | UIA-POL-002 | SCR-WEB-010 세금·기금 사용처 저장 | OWN | 기본 항목 유지 가능, 예산 규칙 검증 | PM-POL-002 |
 | UIA-ACT-001 | SCR-TCH-004 지도 활동 시작 | OWN·COT | `READY → LIVE`, 대상·공개 범위 스냅샷 | PM-ACT-001 / SM-ACT-001 |
 | UIA-ACT-002 | SCR-TCH-004 지도 활동 종료·취소 | OWN·COT | `LIVE → FINALIZING` 또는 `CANCELED` | PM-ACT-001 / SM-ACT-001 |
+| UIA-ACT-003 | SCR-TCH-004 회차 자료로 수업 시작 | OWN·COT | 회차 자료를 순서대로 담아 `READY → LIVE`, 첫 장을 학생 화면에 고정 | PM-ACT-001 / SM-ACT-001·SM-APP-001 |
+| UIA-ACT-004 | SCR-TCH-004 수업 자료 넘기기 | OWN·COT | 보여 줄 장을 이전·다음으로 옮김. 자료는 그대로 두고 커서만 이동 | PM-ACT-001 / SM-ACT-001 |
 | UIA-DSP-001 | SCR-TCH-007 공용 화면 연결·해제 | OWN·COT | 담당 활동, 공개 스키마만 발급 | PM-DSP-001 |
 
 ### 5.2 경제·상점·개인거래
@@ -245,6 +248,7 @@
 | UIA-SHP-002 | SCR-STU-007 상품 구매 | STU | `ACTIVE + AUTONOMOUS + MOD ACTIVE`, 잔액·재고 검증 | PM-SHP-002 / SM-SHP-001·SM-TXN-001 |
 | UIA-SHP-003 | SCR-TCH-010 실제 상품 준비 | OWN·COT | `PAID → READY_FOR_PICKUP` | PM-SHP-003 / SM-SHP-001 |
 | UIA-SHP-004 | SCR-TCH-010 실제 상품 수령 확인 | OWN·COT | `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 / SM-SHP-001 |
+| UIA-SHP-005 | SCR-WEB-008 상품 가격 일괄 인상 | OWN | 인상률을 받아 모든 상품 가격을 한 번에 올림. 캐릭터 상품 포함 | PM-SHP-001 / SM-CLS-001 |
 | UIA-ITM-001 | SCR-STU-008 캐릭터 장착·해제 | STU | 본인 `AVAILABLE ↔ EQUIPPED`, 잠금 아이템 제외 | PM-ITM-001 / SM-ITM-001 |
 | UIA-ITM-002 | SCR-STU-007 캐릭터 착용 일괄 저장 | STU | 상점 드래프트를 확정, 프로필 `state_version` 일치 시 전체 슬롯 원자적 저장 | PM-ITM-001 / SM-ITM-001 |
 | UIA-CNT-001 | SCR-OPS-003 원작 검토·전역 게시 | POP | 출처·배포 지역·권리 상태·검토일 완비 | PM-CNT-001 |
@@ -286,6 +290,7 @@
 | UIA-QZ-007 | SCR-TCH-005 퀴즈 결과 확정·공개 | OWN·COT | `REVIEWING → RESULT_PUBLISHED → CLOSED` | PM-QZ-002 / SM-QZS-001 |
 | UIA-QZ-008 | SCR-STU-023 오류 문항 신고 | STU | 본인 응시 문항, 사유 입력 | PM-QZ-003 / SM-QAD-001 |
 | UIA-QZ-009 | SCR-WEB-019 문항 무효화·재채점 | OWN·COT | `UNDER_REVIEW → INVALIDATED`, 결과 버전·복구 생성 | PM-QZ-002·PM-QZ-003 / SM-QAD-001·SM-QZS-001·SM-TXN-001 |
+| UIA-QZ-010 | SCR-WEB-018 넌센스 문항 가져오기 | OWN·COT | 사람이 검토한 문제은행에서 학급에 없는 문항만 뽑아 `DRAFT`로 담음. AI를 부르지 않음 | PM-QZ-001 / SM-QST-001 |
 | UIA-VOT-001 | SCR-TCH-006 투표 종료·결과 확정 | OWN·COT | 활동 `LIVE → FINALIZING → COMPLETED` | PM-ACT-002 / SM-ACT-001 |
 | UIA-VOT-002 | SCR-STU-012 익명 투표 제출 | STU | 참여자, 활동 `LIVE`, 1회 제출 정책 | PM-ACT-001 / SM-ACT-001 |
 

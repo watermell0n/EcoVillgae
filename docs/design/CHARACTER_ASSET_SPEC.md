@@ -333,7 +333,11 @@ export const CHARACTER_PALETTE = {
 
 ### 4.4 마스크는 단색
 
-가림 마스크는 알파 스텐실이므로 **`#ffffff` 단색 + 투명**만 쓴다. 현재 `top_blue_tshirt_occlusion.png`·`shoes_sneakers_occlusion.png`가 이 규칙을 따른다.
+가림 마스크는 알파 스텐실이므로 **`#ffffff` 단색 + 투명**만 쓴다.
+
+현재 저장소에 가림 마스크 파일은 없다. `top_blue_tshirt_occlusion.png`·`shoes_sneakers_occlusion.png`는
+§6.0에서 삭제했다(§13 정규화 기록 참고). 렌더러의 마스크 경로는 살아 있으므로
+`assets.occlusion`을 등록한 상품이 생기면 이 규칙을 그대로 적용한다.
 
 ---
 
@@ -480,10 +484,8 @@ student-app/public/character/          ← 정본. 앱 빌드 산출물이 아�
     effect/     effect_swim_tube_behind.png, effect_swim_tube_front.png …
     background/ bg_spring.png …
 
-  masks/
-    top_blue_tshirt_occlusion.png
-    shoes_sneakers_occlusion.png
-    …
+  (masks/ 는 현재 없다. §6.0에서 가림 마스크를 삭제했다.
+   다시 필요해지면 {spriteKey}_occlusion.png 규칙으로 이 자리에 둔다)
 
 student-app/expo/assets/character/     ← 복제본. 직접 수정하지 않는다
 ```

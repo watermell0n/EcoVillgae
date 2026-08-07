@@ -97,14 +97,17 @@ const definitionSources = [
   },
   {
     name: "화면 행동",
-    expected: 73,
+    // 73 -> 77: UIA-ACT-003·004(수업 자료 순서 진행), UIA-CLS-009(학급 보관),
+    // UIA-QZ-010(넌센스 문항 가져오기), UIA-SHP-005(가격 일괄 인상)을 정의했다.
+    expected: 78,
     files: ["docs/SCREEN_SPEC.md"],
     pattern: /^\| (UIA-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UIA-[A-Z]+-\d{3})(?!\d)/g,
   },
   {
     name: "HTTP API",
-    expected: 151,
+    // 151 -> 156: API-ACT-003·004, API-CLS-009, API-QZ-010, API-SHP-005를 명세에 넣었다.
+    expected: 156,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
@@ -118,7 +121,8 @@ const definitionSources = [
   },
   {
     name: "WebSocket 이벤트",
-    expected: 48,
+    // 48 -> 49: EVT-ACT-008(수업 자료 넘김 알림)을 추가했다.
+    expected: 49,
     files: ["docs/WEBSOCKET_SPEC.md"],
     pattern: /^\| (EVT-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(EVT-[A-Z]+-\d{3})(?!\d)/g,
@@ -139,7 +143,8 @@ const definitionSources = [
   },
   {
     name: "검사 제약",
-    expected: 42,
+    // 42 -> 43: 4bf9de3(대출 신용 흐름 보완)이 CK를 추가하면서 이 값을 갱신하지 않았다.
+    expected: 43,
     files: ["docs/PHYSICAL_SCHEMA.md"],
     pattern: /^\| (CK-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(CK-\d{3})(?!\d)/g,

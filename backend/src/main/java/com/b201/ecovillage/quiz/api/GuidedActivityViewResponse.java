@@ -11,6 +11,8 @@ public record GuidedActivityViewResponse(
     @JsonProperty("participant_count") long participantCount,
     @JsonProperty("activity_type") String activityType,
     @JsonProperty("presentation_title") String presentationTitle,
-    @JsonProperty("presentation_image_url") String presentationImageUrl
+    @JsonProperty("presentation_image_url") String presentationImageUrl,
+    @JsonProperty("presentation_page") int presentationPage,
+    @JsonProperty("presentation_total_pages") int presentationTotalPages
 ) {
 }
