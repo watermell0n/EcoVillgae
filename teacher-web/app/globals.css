@@ -1489,6 +1489,12 @@ button:disabled {
 .quiz-draft-workspace button,
 .embedded-quiz-workspace button,
 .ai-workspace button,
+.recommendation-panel button,
+.investment-scenario-panel button,
+.lesson-sequence-panel button,
+.product-row button,
+.inflation-control button,
+.lesson-row button,
 .classroom-row .row-actions button,
 .approval-pager button {
   min-height: 40px;
@@ -1508,6 +1514,12 @@ button:disabled {
 .quiz-draft-workspace button:hover:not(:disabled),
 .embedded-quiz-workspace button:hover:not(:disabled),
 .ai-workspace button:hover:not(:disabled),
+.recommendation-panel button:hover:not(:disabled),
+.investment-scenario-panel button:hover:not(:disabled),
+.lesson-sequence-panel button:hover:not(:disabled),
+.product-row button:hover:not(:disabled),
+.inflation-control button:hover:not(:disabled),
+.lesson-row button:hover:not(:disabled),
 .classroom-row .row-actions button:hover:not(:disabled),
 .approval-pager button:hover:not(:disabled) {
   border-color: var(--green);
@@ -1518,7 +1530,9 @@ button:disabled {
 .quiz-draft-workspace .primary-save,
 .quiz-draft-workspace .wide-action,
 .ai-workspace .primary-save,
-.ai-workspace .wide-action {
+.ai-workspace .wide-action,
+.recommendation-panel .wide-action,
+.investment-scenario-panel .wide-action {
   color: #ffffff;
   background: var(--green);
   border-color: var(--green);
@@ -1527,12 +1541,15 @@ button:disabled {
 .quiz-draft-workspace .primary-save:hover:not(:disabled),
 .quiz-draft-workspace .wide-action:hover:not(:disabled),
 .ai-workspace .primary-save:hover:not(:disabled),
-.ai-workspace .wide-action:hover:not(:disabled) {
+.ai-workspace .wide-action:hover:not(:disabled),
+.recommendation-panel .wide-action:hover:not(:disabled),
+.investment-scenario-panel .wide-action:hover:not(:disabled) {
   background: #17795a;
 }
 
 .quiz-draft-workspace .danger-text,
-.ai-workspace .danger-text {
+.ai-workspace .danger-text,
+.lesson-sequence-panel .danger-text {
   color: #b63c3c;
   border-color: #efc9c9;
   background: #fff6f6;
@@ -2089,7 +2106,9 @@ button:disabled {
 }
 
 .wide-action {
-  grid-column: span 3;
+  /* span 3은 1열 카드에 암묵적 열 2개를 만들어 제목이 세로로 눕고 내용이 좌우로
+     찢어졌습니다. 1 / -1은 어떤 격자에서든 "그 줄 전체"만 차지합니다. */
+  grid-column: 1 / -1;
   min-height: 46px;
   border: 0;
   border-radius: 8px;
@@ -2786,6 +2805,18 @@ button:disabled {
 .section-title-line h2,
 .section-title-line p {
   margin: 0;
+}
+
+/* 카드 제목 크기를 .section-title(17px)과 맞춰 탭 전체의 결을 통일합니다. */
+.section-title-line h2 {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.section-title-line p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .section-kicker {
@@ -4723,7 +4754,13 @@ select:focus-visible {
 .quiz-draft-workspace textarea,
 .embedded-quiz-workspace input,
 .embedded-quiz-workspace select,
-.embedded-quiz-workspace textarea {
+.embedded-quiz-workspace textarea,
+.recommendation-panel input,
+.recommendation-panel select,
+.recommendation-panel textarea,
+.investment-scenario-panel input,
+.investment-scenario-panel select,
+.investment-scenario-panel textarea {
   min-height: 42px;
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
@@ -4736,7 +4773,9 @@ select:focus-visible {
 
 .ai-workspace textarea,
 .quiz-draft-workspace textarea,
-.embedded-quiz-workspace textarea {
+.embedded-quiz-workspace textarea,
+.recommendation-panel textarea,
+.investment-scenario-panel textarea {
   resize: vertical;
 }
 
@@ -4748,7 +4787,13 @@ select:focus-visible {
 .quiz-draft-workspace textarea:focus,
 .embedded-quiz-workspace input:focus,
 .embedded-quiz-workspace select:focus,
-.embedded-quiz-workspace textarea:focus {
+.embedded-quiz-workspace textarea:focus,
+.recommendation-panel input:focus,
+.recommendation-panel select:focus,
+.recommendation-panel textarea:focus,
+.investment-scenario-panel input:focus,
+.investment-scenario-panel select:focus,
+.investment-scenario-panel textarea:focus {
   border-color: var(--green);
 }
 
@@ -4758,7 +4803,9 @@ select:focus-visible {
 .quiz-draft-workspace input[type="checkbox"],
 .quiz-draft-workspace input[type="radio"],
 .embedded-quiz-workspace input[type="checkbox"],
-.embedded-quiz-workspace input[type="radio"] {
+.embedded-quiz-workspace input[type="radio"],
+.recommendation-panel input[type="checkbox"],
+.investment-scenario-panel input[type="checkbox"] {
   width: 17px;
   height: 17px;
   min-height: 17px;
@@ -5355,4 +5402,190 @@ select:focus-visible {
   .quiz-draft-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* ==========================================================================
+   상점 상품·운영 관리(투자)·수업 준비 화면 정리 (QA 2차)
+   ========================================================================== */
+
+/* 퀴즈 시작: 문항 고르기와 진행 설정을 두 칸으로 나란히 둡니다.
+   (예전에는 wide-action의 span 3이 우연히 만들던 배치였습니다.) */
+.quiz-start {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quiz-start > .inline-notice,
+.quiz-start > .inline-error,
+.quiz-start > .wide-action {
+  grid-column: 1 / -1;
+}
+
+/* ----- 상점 상품: 상품 등록 (6) ----- */
+/* 상품명 칸은 적당한 폭에서 멈추고, 가격·재고는 그 옆에 붙어 카드 밖으로 나가지 않습니다. */
+.shop-admin-form {
+  grid-template-columns: minmax(220px, 460px) minmax(130px, 180px) minmax(130px, 180px);
+  justify-content: start;
+  gap: 20px;
+}
+
+.shop-admin-form input,
+.shop-admin-form select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+/* ----- 상점 상품: AI 가격 추천 검토 (7~10) ----- */
+/* 등록 카드 안에 상자가 한 겹 더 있어 답답했습니다. 제목이 칸 위에 바로 얹히게 테두리를 뺍니다. */
+.shop-price-review .plain-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.recommendation-result {
+  gap: 14px;
+}
+
+.recommendation-result > label {
+  max-width: 420px;
+}
+
+.recommendation-result input {
+  min-height: 42px;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+.recommendation-result .value-input {
+  max-width: 240px;
+}
+
+.recommendation-result > label > input {
+  max-width: 240px;
+}
+
+/* ----- 상점 상품: 상품 관리 (11) ----- */
+.inflation-control input {
+  min-height: 40px;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+/* ----- 수업 준비: 회차 수업·경제 개념 수업 (3·4) ----- */
+.lesson-sequence-panel select,
+.new-quiz-line select,
+.lesson-row select,
+.lesson-row input {
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.new-quiz-line select {
+  min-height: 44px;
+  min-width: 220px;
+}
+
+/* "수업 자료 보기"는 금융상품 화면에서 물려받은 위 여백 때문에 선택칸보다 아래로 처졌습니다. */
+.new-quiz-line .add-financial-product {
+  min-height: 44px;
+  margin-top: 0;
+  border-radius: 10px;
+}
+
+.add-financial-product {
+  border-radius: 10px;
+}
+
+/* ----- 퀴즈 문제은행: 난이도 카드 (5) ----- */
+/* 난이도 카드는 버튼 요소지만, 공통 버튼 규칙(높이 40px 알약)이 아니라 세로 카드로 그립니다.
+   공통 규칙(.embedded-quiz-workspace button)보다 구체적인 선택자로 되살립니다. */
+.economy-quiz-panel button.economy-quiz-level {
+  min-height: 250px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 20px 17px;
+  border-radius: 14px;
+  text-align: left;
+  font-weight: 500;
+}
+
+.economy-quiz-level-desc {
+  font-size: 13px;
+}
+
+.economy-quiz-actions {
+  margin-top: 10px;
+}
+
+/* ----- 운영 관리: 대출·신용 (12) ----- */
+/* 위 정책 입력칸들과 사이를 두고, 글씨는 다른 표들과 같은 13px로 맞춥니다. */
+.credit-grade-guide {
+  margin-top: 18px;
+}
+
+.credit-grade-guide > strong {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.credit-grade-guide .approval-table {
+  min-width: 0;
+}
+
+.credit-grade-guide .approval-table th,
+.credit-grade-guide .approval-table td {
+  padding: 9px 10px 9px 0;
+  font-size: 13px;
+}
+
+.credit-grade-guide .approval-table b {
+  font-size: 13px;
+}
+
+/* ----- 운영 관리: 투자 시나리오 (13~18) ----- */
+/* 종목 카드는 한 줄에 3개씩: 단기 3종목은 한 줄, 장기 6종목은 2행 3열이 됩니다. */
+.investment-review-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.investment-draft-preview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .investment-review-grid,
+  .investment-draft-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .investment-review-grid,
+  .investment-draft-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 승인·거절 결정 버튼은 카드 아래 가운데에 둡니다. */
+.investment-market-actions .investment-decision-actions {
+  justify-content: center;
+}
+
+.investment-news-review > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
 }
