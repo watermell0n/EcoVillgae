@@ -35,6 +35,8 @@ import com.b201.ecovillage.trade.domain.TradeOperationException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -305,6 +307,24 @@ public class ApiExceptionHandler {
             "VALIDATION_ERROR",
             "요청 입력값을 확인해 주세요.",
             false,
+            List.of(),
+            request
+        );
+    }
+
+    // 예상하지 못한 예외가 Spring 기본 오류 본문으로 나가면 프런트가 원인을 읽지 못한다.
+    // 항상 {error:{code,message}} 봉투로 감싸 내려보낸다.
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiErrorResponse> handleUnexpected(
+        Exception exception,
+        HttpServletRequest request
+    ) {
+        log.error("Unhandled exception for {} {}", request.getMethod(), request.getRequestURI(), exception);
+        return response(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            true,
             List.of(),
             request
         );

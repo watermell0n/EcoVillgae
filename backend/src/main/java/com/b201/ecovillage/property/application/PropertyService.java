@@ -205,7 +205,19 @@ public class PropertyService {
         if (type.equals("RENT") && rent < 1) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_RENT_PRICE", "월세 금액을 먼저 설정해 주세요.");
         if (type.equals("JEONSE") && deposit < 1) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_JEONSE_DEPOSIT", "전세 보증금을 먼저 설정해 주세요.");
         Instant now = clock.instant(); UUID id = uuids.generate();
-        jdbc.update("insert into property_contracts(id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?,?)", id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, now, now, now);
+        // 청약 당첨 매매는 이미 청약통장에 예치된 돈으로 승인 시점에 정산하므로 신청 시점에는 걷지 않는다.
+        long charge = property.status().equals("SUBSCRIPTION_OPEN") ? 0 : type.equals("SALE") ? salePrice : deposit;
+        Runnable insertPending = () -> jdbc.update("insert into property_contracts(id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,paid_at,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?,?)", id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, charge > 0 ? now : null, now, now, now);
+        if (charge == 0) {
+            insertPending.run();
+        } else {
+            // 돈은 신청 버튼을 누르는 순간 빠져나간다. 승인은 자리 상태만 바꾸고, 거절하면 그대로 환불된다.
+            if (wallet(property.classroomId(), studentId, now).getCurrentBalance() < charge) {
+                throw error(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "지갑 잔액이 부족해 계약을 신청할 수 없습니다. 필요한 금액은 " + charge + "입니다.");
+            }
+            Contract pending = new Contract(id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, null, null, null, "PENDING", now);
+            settle(pending, charge, type.equals("SALE") ? "PROPERTY_SALE" : type.equals("RENT") ? "PROPERTY_RENT_DEPOSIT" : "PROPERTY_JEONSE_DEPOSIT", studentId, "property-request-" + id, now, insertPending);
+        }
         return contractView(contract(property.classroomId(), id, false));
     }
 
@@ -216,7 +228,11 @@ public class PropertyService {
         if (!contract.status().equals("PENDING")) throw error(HttpStatus.CONFLICT, "INVALID_CONTRACT_STATE", "승인 대기 중인 계약만 처리할 수 있습니다.");
         UUID teacherId = teacher(subject); Instant now = clock.instant();
         if (!approve) {
-            jdbc.update("update property_contracts set status='REJECTED',decision_reason=?,approved_by_user_id=?,approved_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", reason, teacherId, now, now, now, contractId);
+            Runnable rejectContract = () -> jdbc.update("update property_contracts set status='REJECTED',decision_reason=?,approved_by_user_id=?,approved_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", reason, teacherId, now, now, now, contractId);
+            // 신청 시점에 이미 돈을 낸 계약은 거절과 동시에 학생 지갑으로 돌려준다.
+            long refund = contract.paidAt() == null ? 0 : contract.contractType().equals("SALE") ? contract.salePrice() : contract.depositAmount();
+            if (refund > 0) settleReverse(contract, refund, teacherId, idempotencyKey, now, rejectContract);
+            else rejectContract.run();
             return contractView(contract(contract.classroomId(), contractId, false));
         }
         Property property = property(contract.classroomId(), contract.propertyId(), true);
@@ -231,16 +247,20 @@ public class PropertyService {
                 jdbc.update("update property_sale_listings set status='PURCHASED',state_version=state_version+1,updated_at=? where property_id=? and status='ACTIVE'", now, property.id());
                 if (contract.subscriptionApplicationId() != null) jdbc.update("update subscription_applications set status='PURCHASED',updated_at=? where id=?", now, contract.subscriptionApplicationId());
             };
-            if (contract.subscriptionApplicationId() == null) settle(contract, contract.salePrice(), "PROPERTY_SALE", teacherId, idempotencyKey, now, completeSale);
-            else settleSubscriptionSale(contract, teacherId, idempotencyKey, now, completeSale);
+            // paid_at이 있으면 신청 시점에 이미 돈이 옮겨졌으므로 승인은 상태 전이만 한다.
+            if (contract.subscriptionApplicationId() != null) settleSubscriptionSale(contract, teacherId, idempotencyKey, now, completeSale);
+            else if (contract.paidAt() != null) completeSale.run();
+            else settle(contract, contract.salePrice(), "PROPERTY_SALE", teacherId, idempotencyKey, now, completeSale);
         } else {
-            settle(contract, contract.depositAmount(), contract.contractType().equals("RENT") ? "PROPERTY_RENT_DEPOSIT" : "PROPERTY_JEONSE_DEPOSIT", teacherId, idempotencyKey, now, () -> {
+            Runnable activateLease = () -> {
                 Instant end = now.plus(contract.contractTermDays(), ChronoUnit.DAYS);
                 Instant next = contract.contractType().equals("RENT") ? now.plus(contract.paymentCycleDays(), ChronoUnit.DAYS) : null;
                 jdbc.update("update property_contracts set status='ACTIVE',approved_by_user_id=?,decision_reason=?,approved_at=?,started_at=?,ends_at=?,next_payment_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", teacherId, reason, now, now, end, next, now, now, contract.id());
                 jdbc.update("update properties set status='RENTED',state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", now, now, property.id());
                 if (next != null) jdbc.update("insert into property_contract_payments(id,classroom_id,property_contract_id,due_at,amount,status,created_at,updated_at) values(?,?,?,?,?,'SCHEDULED',?,?)", uuids.generate(), contract.classroomId(), contract.id(), next, contract.monthlyRent(), now, now);
-            });
+            };
+            if (contract.paidAt() != null) activateLease.run();
+            else settle(contract, contract.depositAmount(), contract.contractType().equals("RENT") ? "PROPERTY_RENT_DEPOSIT" : "PROPERTY_JEONSE_DEPOSIT", teacherId, idempotencyKey, now, activateLease);
         }
         return contractView(contract(contract.classroomId(), contractId, false));
     }
@@ -502,9 +522,9 @@ public class PropertyService {
     private SaleListing activeSaleListing(UUID classroomId,UUID propertyId,boolean lock){return jdbc.query("select id,classroom_id,property_id,seller_student_id,sale_price,status from property_sale_listings where classroom_id=? and property_id=? and status='ACTIVE'"+(lock?" for update":""),rs->rs.next()?saleListing(rs):null,classroomId,propertyId);}
     private static SaleListing saleListing(java.sql.ResultSet rs)throws java.sql.SQLException{return new SaleListing(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),rs.getObject(4,UUID.class),rs.getLong(5),rs.getString(6));}
     private static Map<String,Object> saleListingView(SaleListing l){return Map.of("listing_id",l.id(),"property_id",l.propertyId(),"seller_student_id",l.sellerStudentId(),"sale_price",l.salePrice(),"status",l.status());}
-    private Contract contractById(UUID id,boolean lock){Contract value=jdbc.query("select id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,started_at,ends_at,next_payment_at,status from property_contracts where id=?"+(lock?" for update":""),rs->rs.next()?contract(rs):null,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","계약을 찾을 수 없습니다.");return value;}
-    private Contract contract(UUID classroomId,UUID id,boolean lock){Contract value=jdbc.query("select id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,started_at,ends_at,next_payment_at,status from property_contracts where classroom_id=? and id=?"+(lock?" for update":""),rs->rs.next()?contract(rs):null,classroomId,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","계약을 찾을 수 없습니다.");return value;}
-    private static Contract contract(java.sql.ResultSet rs)throws java.sql.SQLException{return new Contract(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),rs.getObject(4,UUID.class),rs.getObject(5,UUID.class),rs.getObject(6,UUID.class),rs.getString(7),rs.getObject(8,UUID.class),rs.getString(9),rs.getObject(10,UUID.class),rs.getLong(11),rs.getLong(12),rs.getLong(13),(Integer)rs.getObject(14),(Integer)rs.getObject(15),instant(rs,16),instant(rs,17),instant(rs,18),rs.getString(19));}
+    private Contract contractById(UUID id,boolean lock){Contract value=jdbc.query("select id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,started_at,ends_at,next_payment_at,status,paid_at from property_contracts where id=?"+(lock?" for update":""),rs->rs.next()?contract(rs):null,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","계약을 찾을 수 없습니다.");return value;}
+    private Contract contract(UUID classroomId,UUID id,boolean lock){Contract value=jdbc.query("select id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,started_at,ends_at,next_payment_at,status,paid_at from property_contracts where classroom_id=? and id=?"+(lock?" for update":""),rs->rs.next()?contract(rs):null,classroomId,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","계약을 찾을 수 없습니다.");return value;}
+    private static Contract contract(java.sql.ResultSet rs)throws java.sql.SQLException{return new Contract(rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),rs.getObject(4,UUID.class),rs.getObject(5,UUID.class),rs.getObject(6,UUID.class),rs.getString(7),rs.getObject(8,UUID.class),rs.getString(9),rs.getObject(10,UUID.class),rs.getLong(11),rs.getLong(12),rs.getLong(13),(Integer)rs.getObject(14),(Integer)rs.getObject(15),instant(rs,16),instant(rs,17),instant(rs,18),rs.getString(19),instant(rs,20));}
     private static Map<String,Object> contractView(Contract c){Map<String,Object> m=new LinkedHashMap<>();m.put("contract_id",c.id());m.put("property_id",c.propertyId());m.put("contract_type",c.contractType());m.put("occupant_student_id",c.occupantStudentId());m.put("landlord_kind",c.landlordKind());m.put("landlord_student_id",c.landlordStudentId());m.put("deposit_amount",c.depositAmount());m.put("monthly_rent",c.monthlyRent());m.put("sale_price",c.salePrice());m.put("started_at",c.startedAt());m.put("ends_at",c.endsAt());m.put("next_payment_at",c.nextPaymentAt());m.put("status",c.status());return m;}
     private Offer offerById(UUID id,boolean lock){Offer value=jdbc.query("select id,classroom_id,title,application_opens_at,application_closes_at,sale_price,supply_quantity,minimum_deposit_count,minimum_balance,status from subscription_offers where id=?"+(lock?" for update":""),rs->rs.next()?offer(rs):null,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","청약 매물을 찾을 수 없습니다.");return value;}
     private Offer offer(UUID classroomId,UUID id,boolean lock){Offer value=jdbc.query("select id,classroom_id,title,application_opens_at,application_closes_at,sale_price,supply_quantity,minimum_deposit_count,minimum_balance,status from subscription_offers where classroom_id=? and id=?"+(lock?" for update":""),rs->rs.next()?offer(rs):null,classroomId,id);if(value==null)throw error(HttpStatus.NOT_FOUND,"RESOURCE_NOT_FOUND","청약 매물을 찾을 수 없습니다.");return value;}
@@ -531,7 +551,7 @@ public class PropertyService {
     private record Property(UUID id,UUID classroomId,String coordinate,String displayName,String tier,boolean isPublic,boolean active,boolean rent,boolean jeonse,boolean sale,boolean subscription,long salePrice,long depositAmount,long monthlyRent,int paymentCycleDays,int contractTermDays,String ownerKind,UUID ownerStudentId,String status,UUID subscriptionOfferId,UUID subscriptionWinnerStudentId){}
     private record Listing(UUID id,UUID classroomId,UUID propertyId,UUID landlordStudentId,String leaseType,long depositAmount,long monthlyRent,int paymentCycleDays,int contractTermDays,boolean isPublic,String status){}
     private record SaleListing(UUID id,UUID classroomId,UUID propertyId,UUID sellerStudentId,long salePrice,String status){}
-    private record Contract(UUID id,UUID classroomId,UUID propertyId,UUID listingId,UUID subscriptionOfferId,UUID subscriptionApplicationId,String contractType,UUID occupantStudentId,String landlordKind,UUID landlordStudentId,long depositAmount,long monthlyRent,long salePrice,Integer paymentCycleDays,Integer contractTermDays,Instant startedAt,Instant endsAt,Instant nextPaymentAt,String status){}
+    private record Contract(UUID id,UUID classroomId,UUID propertyId,UUID listingId,UUID subscriptionOfferId,UUID subscriptionApplicationId,String contractType,UUID occupantStudentId,String landlordKind,UUID landlordStudentId,long depositAmount,long monthlyRent,long salePrice,Integer paymentCycleDays,Integer contractTermDays,Instant startedAt,Instant endsAt,Instant nextPaymentAt,String status,Instant paidAt){}
     private record Offer(UUID id,UUID classroomId,String title,Instant opensAt,Instant closesAt,long salePrice,int supplyQuantity,int minimumDepositCount,long minimumBalance,String status){}
     private record Application(UUID id,UUID classroomId,UUID offerId,UUID studentId,int depositCount,long depositAmount,UUID assignedPropertyId,String status,Instant appliedAt){}
     private record SubscriptionAccount(UUID studentId,UUID classroomId,long totalDepositAmount,int depositCount,Instant lastDepositedAt,Long autoAmount,Integer autoCycleDays,Instant nextAutoAt,String status,long stateVersion){}
