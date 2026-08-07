@@ -1211,7 +1211,7 @@ button:disabled {
 .module-activation-card button {
   /* 격자 안에서 그대로 두면 카드 폭 전체로 늘어납니다. 글자보다 조금 넉넉한 폭이면 충분합니다. */
   width: fit-content;
-  justify-self: start;
+  justify-self: center;
   min-height: 40px;
   padding: 0 22px;
   border: 0;
