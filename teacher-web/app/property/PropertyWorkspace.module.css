@@ -3,10 +3,11 @@
  * 없이 그려져 왼쪽에 붙어 있었습니다. 같은 폭·여백을 직접 맞춰 탭 사이 통일감을 지킵니다.
  */
 .workspace { width: min(1440px, 100%); display: grid; gap: 18px; margin: 0 auto; padding: 24px 28px 54px; color: #172638; }
-.heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
-.heading p, .sectionTitle p { margin: 0 0 5px; color: #e87830; font-size: 13px; font-weight: 900; letter-spacing: .08em; }
-.heading h2, .sectionTitle h3 { margin: 0; font-size: 27px; }
-.heading span { display: block; margin-top: 7px; color: #687689; }
+/* 다른 탭 카드들과 같은 흰 칸 안에 제목을 담고, 머리글 색·크기도 공통 규칙(회색 12px 킥커 + 17px 제목)에 맞춥니다. */
+.heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 20px 22px; border: 1px solid #dfe6ec; border-radius: 16px; background: #ffffff; box-shadow: 0 3px 12px rgb(30 42 80 / 3%); }
+.heading p, .sectionTitle p { margin: 0 0 5px; color: #6a7284; font-size: 12px; font-weight: 900; letter-spacing: .08em; }
+.heading h2, .sectionTitle h3 { margin: 0; font-size: 17px; }
+.heading span { display: block; margin-top: 7px; color: #687689; font-size: 13px; }
 .primary, .secondary, .reject, .offerPicked { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 0; border-radius: 10px; font-weight: 850; cursor: pointer; }
 .primary { color: white; background: #1f8b67; }
 .secondary { color: #25374a; background: white; border: 1px solid #d8e0e8; }
