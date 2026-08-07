@@ -194,7 +194,7 @@ button:disabled {
 .classroom-row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
+  grid-template-columns: auto minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
   align-items: center;
   gap: 24px;
   min-height: 92px;
@@ -204,6 +204,16 @@ button:disabled {
   color: var(--ink);
   background: #ffffff;
   text-align: left;
+}
+
+/* 열기·삭제 버튼은 줄의 왼쪽 끝에 둡니다. DOM 순서는 그대로 두고 자리만 옮깁니다. */
+.classroom-row .row-actions {
+  order: -1;
+}
+
+/* 임시 저장 줄에는 버튼 칸이 없으므로 원래 3칸 배치를 유지합니다. */
+.classroom-row.draft {
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
 }
 
 .classroom-row:hover {
@@ -1472,6 +1482,160 @@ button:disabled {
   resize: vertical;
 }
 
+/*
+ * 퀴즈·AI 화면의 버튼은 브라우저 기본 모양(각진 회색 테두리)이라 다른 탭과 따로 놀았습니다.
+ * 부동산·청약 화면의 버튼 모양을 기준으로 맞춥니다. 글꼴은 페이지 것을 그대로 물려받습니다.
+ */
+.quiz-draft-workspace button,
+.embedded-quiz-workspace button,
+.ai-workspace button,
+.recommendation-panel button,
+.investment-scenario-panel button,
+.lesson-sequence-panel button,
+.product-row button,
+.inflation-control button,
+.lesson-row button,
+.classroom-row .row-actions button,
+.approval-pager button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.quiz-draft-workspace button:hover:not(:disabled),
+.embedded-quiz-workspace button:hover:not(:disabled),
+.ai-workspace button:hover:not(:disabled),
+.recommendation-panel button:hover:not(:disabled),
+.investment-scenario-panel button:hover:not(:disabled),
+.lesson-sequence-panel button:hover:not(:disabled),
+.product-row button:hover:not(:disabled),
+.inflation-control button:hover:not(:disabled),
+.lesson-row button:hover:not(:disabled),
+.classroom-row .row-actions button:hover:not(:disabled),
+.approval-pager button:hover:not(:disabled) {
+  border-color: var(--green);
+  background: #f4faf7;
+}
+
+/* 주된 동작은 채운 버튼으로 둡니다. 나머지는 테두리만 있는 버튼입니다. */
+.quiz-draft-workspace .primary-save,
+.quiz-draft-workspace .wide-action,
+.ai-workspace .primary-save,
+.ai-workspace .wide-action,
+.recommendation-panel .wide-action,
+.investment-scenario-panel .wide-action {
+  color: #ffffff;
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.quiz-draft-workspace .primary-save:hover:not(:disabled),
+.quiz-draft-workspace .wide-action:hover:not(:disabled),
+.ai-workspace .primary-save:hover:not(:disabled),
+.ai-workspace .wide-action:hover:not(:disabled),
+.recommendation-panel .wide-action:hover:not(:disabled),
+.investment-scenario-panel .wide-action:hover:not(:disabled) {
+  background: #17795a;
+}
+
+.quiz-draft-workspace .danger-text,
+.ai-workspace .danger-text,
+.lesson-sequence-panel .danger-text {
+  color: #b63c3c;
+  border-color: #efc9c9;
+  background: #fff6f6;
+}
+
+/* 버튼이 다닥다닥 붙어 읽기 어려웠습니다. 줄마다 숨 쉴 틈을 둡니다. */
+.quiz-draft-workspace .row-actions,
+.quiz-draft-workspace .recommendation-tabs,
+.quiz-draft-workspace .quiz-bank-toolbar,
+.ai-workspace .row-actions,
+.ai-workspace .section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/*
+ * 중지 사유 입력칸은 섹션 폭을 그대로 쓰고, 검토 버튼은 그 아래 가운데에 둡니다.
+ * 입력칸과 버튼이 한 줄에 붙어 있으면 입력칸이 좁아지고 버튼이 어디 속한지 헷갈립니다.
+ */
+.ai-workspace .ai-disable-form {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.ai-workspace .ai-disable-form > label {
+  width: 100%;
+}
+
+.quiz-draft-workspace article footer,
+.ai-workspace article footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* 교실 목록의 열기·삭제 버튼입니다. 서로 붙어 있어 잘못 누르기 쉬웠습니다. */
+.classroom-row .row-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.classroom-row .row-actions .danger-text {
+  color: #b63c3c;
+  border-color: #efc9c9;
+  background: #fff6f6;
+}
+
+/* 대출 정책 옆에 두는 신용 등급 표입니다. */
+.credit-grade-guide {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.credit-grade-guide > strong {
+  font-size: 14px;
+}
+
+/* 운영 기록 쪽 이동입니다. */
+.approval-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.approval-pager button {
+  min-width: 40px;
+  padding: 0 12px;
+}
+
+.approval-pager button.active {
+  color: #ffffff;
+  background: var(--green);
+  border-color: var(--green);
+}
+
 .module-status {
   padding: 6px 10px;
   border-radius: 999px;
@@ -1942,7 +2106,9 @@ button:disabled {
 }
 
 .wide-action {
-  grid-column: span 3;
+  /* span 3은 1열 카드에 암묵적 열 2개를 만들어 제목이 세로로 눕고 내용이 좌우로
+     찢어졌습니다. 1 / -1은 어떤 격자에서든 "그 줄 전체"만 차지합니다. */
+  grid-column: 1 / -1;
   min-height: 46px;
   border: 0;
   border-radius: 8px;
@@ -2639,6 +2805,18 @@ button:disabled {
 .section-title-line h2,
 .section-title-line p {
   margin: 0;
+}
+
+/* 카드 제목 크기를 .section-title(17px)과 맞춰 탭 전체의 결을 통일합니다. */
+.section-title-line h2 {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.section-title-line p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .section-kicker {
@@ -4454,3 +4632,960 @@ select:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+
+/* 회차 자료를 순서대로 넘기는 선생님 수업 모듈입니다. */
+.lesson-sequence-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.lesson-sequence-heading h2 { margin: 0; font-size: 19px; font-weight: 900; }
+
+.lesson-sequence-heading p {
+  margin: 6px 0 0;
+  color: #5d6b5a;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.lesson-sequence-setup,
+.lesson-sequence-live { display: grid; gap: 12px; }
+
+.lesson-sequence-setup label {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.lesson-sequence-setup select { min-height: 40px; padding: 0 10px; }
+
+.lesson-sequence-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px 12px 32px;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 11px;
+  background: #fbfdfa;
+  max-width: 420px;
+}
+
+.lesson-sequence-list li { color: #46523f; font-size: 14px; }
+
+.lesson-sequence-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.lesson-sequence-progress strong {
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: #eef7f0;
+  color: #2f6b41;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.lesson-sequence-progress span { color: #46523f; font-size: 15px; font-weight: 800; }
+
+.lesson-sequence-progress em {
+  color: #2f7a45;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.lesson-sequence-preview {
+  max-width: 420px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft, #e3e8e0);
+  border-radius: 11px;
+  background: #fbfdfa;
+}
+
+.lesson-sequence-preview img { display: block; width: 100%; height: auto; }
+
+.lesson-sequence-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.lesson-sequence-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+}
+
+.lesson-sequence-error {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: #fdeeee;
+  color: #a33a3a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lesson-sequence-spin { animation: lesson-sequence-rotate 1s linear infinite; }
+
+@keyframes lesson-sequence-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   AI 설정·수업 준비(퀴즈) 화면 정리
+   브라우저 기본 모양으로 남아 있던 입력칸·체크 목록을 부동산·청약 탭과 같은
+   둥근 테두리로 맞추고, 다닥다닥 붙어 있던 칸 사이에 숨 쉴 틈을 둡니다.
+   ========================================================================== */
+
+/* 공통 입력칸: 버튼(둥근 10px)과 같은 결로 맞춥니다. */
+.ai-workspace input,
+.ai-workspace select,
+.ai-workspace textarea,
+.quiz-draft-workspace input,
+.quiz-draft-workspace select,
+.quiz-draft-workspace textarea,
+.embedded-quiz-workspace input,
+.embedded-quiz-workspace select,
+.embedded-quiz-workspace textarea,
+.recommendation-panel input,
+.recommendation-panel select,
+.recommendation-panel textarea,
+.investment-scenario-panel input,
+.investment-scenario-panel select,
+.investment-scenario-panel textarea {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.ai-workspace textarea,
+.quiz-draft-workspace textarea,
+.embedded-quiz-workspace textarea,
+.recommendation-panel textarea,
+.investment-scenario-panel textarea {
+  resize: vertical;
+}
+
+.ai-workspace input:focus,
+.ai-workspace select:focus,
+.ai-workspace textarea:focus,
+.quiz-draft-workspace input:focus,
+.quiz-draft-workspace select:focus,
+.quiz-draft-workspace textarea:focus,
+.embedded-quiz-workspace input:focus,
+.embedded-quiz-workspace select:focus,
+.embedded-quiz-workspace textarea:focus,
+.recommendation-panel input:focus,
+.recommendation-panel select:focus,
+.recommendation-panel textarea:focus,
+.investment-scenario-panel input:focus,
+.investment-scenario-panel select:focus,
+.investment-scenario-panel textarea:focus {
+  border-color: var(--green);
+}
+
+/* 체크박스·라디오는 위 공통 규칙에서 제외해 원래 크기로 되돌립니다. */
+.ai-workspace input[type="checkbox"],
+.ai-workspace input[type="radio"],
+.quiz-draft-workspace input[type="checkbox"],
+.quiz-draft-workspace input[type="radio"],
+.embedded-quiz-workspace input[type="checkbox"],
+.embedded-quiz-workspace input[type="radio"],
+.recommendation-panel input[type="checkbox"],
+.investment-scenario-panel input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  min-height: 17px;
+  padding: 0;
+  accent-color: var(--green);
+}
+
+/* 체크 목록을 감싸는 fieldset도 같은 둥근 테두리를 씁니다. */
+.ai-workspace fieldset,
+.quiz-draft-workspace fieldset {
+  margin: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+}
+
+.ai-workspace legend,
+.quiz-draft-workspace legend {
+  padding: 0 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-workspace .ai-disable-form > .ai-confirmation {
+  width: 100%;
+}
+
+/* ----- 교사용 AI 챗봇 ----- */
+.teacher-chat-content {
+  display: grid;
+  gap: 20px;
+}
+
+/* 예시 질문 버튼: 사이사이 간격을 두고 알약 모양으로 통일합니다. */
+.chat-quick-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chat-quick-questions button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+.teacher-chat-form {
+  display: grid;
+  gap: 18px;
+}
+
+.chat-question {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chat-question textarea {
+  min-height: 110px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chat-question small {
+  justify-self: end;
+  font-weight: 700;
+}
+
+.chat-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+.chat-options > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chat-options select {
+  min-width: 140px;
+}
+
+.chat-options .chat-policy-option {
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chat-metric-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.chat-metric-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.chat-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-form-footer small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.chat-form-footer .primary-save {
+  min-height: 46px;
+  padding: 0 22px;
+}
+
+.chat-disabled {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  color: #9c5b17;
+  background: #fff7ea;
+  font-weight: 800;
+}
+
+.chat-loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.chat-answer {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.chat-question-bubble {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eef2f4;
+}
+
+.chat-question-bubble strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chat-question-bubble p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.chat-answer-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.chat-answer-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.chat-answer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-answer-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-evidence h3,
+.chat-recommendations h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.chat-evidence dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.chat-evidence dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chat-evidence dd {
+  margin: 3px 0 0;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-recommendations ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.chat-recommendations ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-readonly-note,
+.chat-limit-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chat-history {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-history summary {
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chat-history button {
+  justify-self: start;
+}
+
+/* ----- AI 경제 운영 (자동 모니터링·밸런싱) ----- */
+.monitor-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-state.on { color: #226b43; background: #eef8f2; }
+.monitor-state.off { color: #a42f2a; background: #fff1f0; }
+
+.monitor-analysis-form {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.monitor-period {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.monitor-period label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-period input {
+  min-width: 180px;
+}
+
+/* 분석 지표 체크 목록: 줄과 칸 사이를 띄워 한눈에 고를 수 있게 합니다. */
+.monitor-metric-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 18px;
+  padding-top: 2px;
+}
+
+.monitor-metric-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* "지금 분석하기"는 지표 목록과 사이를 두고 아래 가운데에 둡니다. */
+.monitor-analysis-form .wide-action {
+  grid-column: 1;
+  justify-self: center;
+  min-width: 240px;
+  margin-top: 8px;
+  padding: 0 24px;
+}
+
+.monitor-result {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.monitor-result header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.monitor-result p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.monitor-severity {
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #eef2f4;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.monitor-severity.normal { color: #226b43; background: #eef8f2; }
+.monitor-severity.observe { color: #92610f; background: #fff6e3; }
+.monitor-severity.warn { color: #a42f2a; background: #fff1f0; }
+
+.monitor-metric-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 10px;
+}
+
+.monitor-metric-results > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.monitor-metric-results > div span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-metric-results > div strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.monitor-metric-results > div small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.monitor-metric-results > div.observe { border-color: #ecd9ae; background: #fffaef; }
+.monitor-metric-results > div.warn { border-color: #ecc2c0; background: #fff8f7; }
+
+.monitor-proposal-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.monitor-proposal-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.monitor-proposal-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.monitor-proposal-list {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-proposal-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.monitor-proposal-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.monitor-proposal-card header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.monitor-proposal-card header > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-summary {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.monitor-proposed-values {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-proposed-values > div {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.monitor-proposed-values label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-proposed-values input {
+  max-width: 220px;
+}
+
+.monitor-proposed-values small,
+.monitor-proposed-values p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.monitor-proposal-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.monitor-proposal-card footer small {
+  margin-right: auto;
+  color: var(--muted);
+}
+
+.monitor-proposal-card .apply {
+  border-color: var(--green);
+  color: #ffffff;
+  background: var(--green);
+}
+
+.monitor-proposal-card .reject {
+  border-color: #efc9c9;
+  color: #b63c3c;
+  background: #fff6f6;
+}
+
+/* ----- 게임형 퀴즈 (AI 보상 추천) ----- */
+/* 안내 문장은 한 줄을 통째로 쓰고, 입력칸 4개는 옆으로 나란히 퍼지게 합니다. */
+.recommendation-form .section-description {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* ----- 수업 준비: 퀴즈 문제은행 ----- */
+/* 안에 든 퀴즈 화면이 자체 여백을 한 번 더 갖고 있어 위 칸들보다 좁아 보였습니다. */
+.embedded-quiz-workspace .page-flow {
+  width: 100%;
+  padding: 0;
+}
+
+/* 난이도 카드가 설명 글에 비해 낮아 답답했습니다. 세로로 여유를 줍니다. */
+.economy-quiz-level {
+  min-height: 265px;
+}
+
+.economy-quiz-actions {
+  margin-top: 6px;
+}
+
+/* ----- 교사용 AI 퀴즈 (검토용 문항 생성) ----- */
+.quiz-draft-form {
+  display: grid;
+  gap: 18px;
+}
+
+/* 첫 줄에 학년·분류·유형·문항 수, 둘째 줄에 주제·학습목표를 넓게 둡니다. */
+.quiz-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.quiz-draft-grid label {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.quiz-draft-grid .quiz-wide-field {
+  grid-column: span 2;
+}
+
+.quiz-draft-grid textarea {
+  min-height: 86px;
+}
+
+/* 생성 버튼은 입력칸과 겹치지 않게 한 줄 아래 가운데에 둡니다. */
+.quiz-draft-submit {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding-top: 4px;
+  text-align: center;
+}
+
+.quiz-draft-submit small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.quiz-draft-submit .primary-save {
+  min-width: 200px;
+  min-height: 46px;
+}
+
+@media (max-width: 900px) {
+  .quiz-draft-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ==========================================================================
+   상점 상품·운영 관리(투자)·수업 준비 화면 정리 (QA 2차)
+   ========================================================================== */
+
+/* 퀴즈 시작: 문항 고르기와 진행 설정을 두 칸으로 나란히 둡니다.
+   (예전에는 wide-action의 span 3이 우연히 만들던 배치였습니다.) */
+.quiz-start {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quiz-start > .inline-notice,
+.quiz-start > .inline-error,
+.quiz-start > .wide-action {
+  grid-column: 1 / -1;
+}
+
+/* ----- 상점 상품: 상품 등록 (6) ----- */
+/* 상품명 칸은 적당한 폭에서 멈추고, 가격·재고는 그 옆에 붙어 카드 밖으로 나가지 않습니다. */
+.shop-admin-form {
+  grid-template-columns: minmax(220px, 460px) minmax(130px, 180px) minmax(130px, 180px);
+  justify-content: start;
+  gap: 20px;
+}
+
+.shop-admin-form input,
+.shop-admin-form select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+/* ----- 상점 상품: AI 가격 추천 검토 (7~10) ----- */
+/* 등록 카드 안에 상자가 한 겹 더 있어 답답했습니다. 제목이 칸 위에 바로 얹히게 테두리를 뺍니다. */
+.shop-price-review .plain-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.recommendation-result {
+  gap: 14px;
+}
+
+.recommendation-result > label {
+  max-width: 420px;
+}
+
+.recommendation-result input {
+  min-height: 42px;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+.recommendation-result .value-input {
+  max-width: 240px;
+}
+
+.recommendation-result > label > input {
+  max-width: 240px;
+}
+
+/* ----- 상점 상품: 상품 관리 (11) ----- */
+.inflation-control input {
+  min-height: 40px;
+  border-color: var(--line-strong);
+  border-radius: 10px;
+}
+
+/* ----- 수업 준비: 회차 수업·경제 개념 수업 (3·4) ----- */
+.lesson-sequence-panel select,
+.new-quiz-line select,
+.lesson-row select,
+.lesson-row input {
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.new-quiz-line select {
+  min-height: 44px;
+  min-width: 220px;
+}
+
+/* "수업 자료 보기"는 금융상품 화면에서 물려받은 위 여백 때문에 선택칸보다 아래로 처졌습니다. */
+.new-quiz-line .add-financial-product {
+  min-height: 44px;
+  margin-top: 0;
+  border-radius: 10px;
+}
+
+.add-financial-product {
+  border-radius: 10px;
+}
+
+/* ----- 퀴즈 문제은행: 난이도 카드 (5) ----- */
+/* 난이도 카드는 버튼 요소지만, 공통 버튼 규칙(높이 40px 알약)이 아니라 세로 카드로 그립니다.
+   공통 규칙(.embedded-quiz-workspace button)보다 구체적인 선택자로 되살립니다. */
+.economy-quiz-panel button.economy-quiz-level {
+  min-height: 250px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 20px 17px;
+  border-radius: 14px;
+  text-align: left;
+  font-weight: 500;
+}
+
+.economy-quiz-level-desc {
+  font-size: 13px;
+}
+
+.economy-quiz-actions {
+  margin-top: 10px;
+}
+
+/* ----- 운영 관리: 대출·신용 (12) ----- */
+/* 위 정책 입력칸들과 사이를 두고, 글씨는 다른 표들과 같은 13px로 맞춥니다. */
+.credit-grade-guide {
+  margin-top: 18px;
+}
+
+.credit-grade-guide > strong {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.credit-grade-guide .approval-table {
+  min-width: 0;
+}
+
+.credit-grade-guide .approval-table th,
+.credit-grade-guide .approval-table td {
+  padding: 9px 10px 9px 0;
+  font-size: 13px;
+}
+
+.credit-grade-guide .approval-table b {
+  font-size: 13px;
+}
+
+/* ----- 운영 관리: 투자 시나리오 (13~18) ----- */
+/* 종목 카드는 한 줄에 3개씩: 단기 3종목은 한 줄, 장기 6종목은 2행 3열이 됩니다. */
+.investment-review-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.investment-draft-preview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .investment-review-grid,
+  .investment-draft-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .investment-review-grid,
+  .investment-draft-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 승인·거절 결정 버튼은 카드 아래 가운데에 둡니다. */
+.investment-market-actions .investment-decision-actions {
+  justify-content: center;
+}
+
+.investment-news-review > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}

@@ -99,7 +99,8 @@ public class InvestmentController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         InvestmentScenarioService.InvestmentAssetTextResult result = scenarioService.rewriteAssetText(
-            subject(principal), classroomId, assetId, request.name(), request.companyProfile()
+            subject(principal), classroomId, assetId, request.name(), request.companyProfile(),
+            request.startPrice(), request.bandBps()
         );
         return new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()));
     }
@@ -219,10 +220,17 @@ public class InvestmentController {
  * 투자 시나리오 생성 요청이다. dailyVolatilityBps와 assetConditions는 교사가
  * "운영 관리 &gt; 투자"에서 정한 값이며, 없으면 서버 기본값으로 만든다.
  */
-/** 교사가 고친 기업 이름과 소개 문장이다. 기호와 가격은 여기서 바꾸지 않는다. */
+/**
+ * 교사가 고친 종목 내용이다.
+ *
+ * <p>이름과 소개는 언제든 고칠 수 있다. 1주 금액과 변동 범위는 보내면 가격 흐름을 다시
+ * 뽑으므로, 아직 시작하지 않은 시장에서만 받는다. 보내지 않으면 지금 값을 그대로 둔다.
+ */
 record InvestmentAssetTextRequest(
     @NotBlank @Size(max = 100) String name,
-    @NotBlank @Size(max = 1000) String companyProfile
+    @NotBlank @Size(max = 1000) String companyProfile,
+    @Min(1) Long startPrice,
+    @Min(1) Integer bandBps
 ) {
 }
 

@@ -1,12 +1,19 @@
-.workspace { display: grid; gap: 22px; color: #172638; }
+/*
+ * 다른 탭은 page-flow 안에서 그려져 가운데로 모이고 좌우 여백을 갖습니다. 이 화면만 그 래퍼
+ * 없이 그려져 왼쪽에 붙어 있었습니다. 같은 폭·여백을 직접 맞춰 탭 사이 통일감을 지킵니다.
+ */
+.workspace { width: min(1440px, 100%); display: grid; gap: 18px; margin: 0 auto; padding: 24px 28px 54px; color: #172638; }
 .heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .heading p, .sectionTitle p { margin: 0 0 5px; color: #e87830; font-size: 13px; font-weight: 900; letter-spacing: .08em; }
 .heading h2, .sectionTitle h3 { margin: 0; font-size: 27px; }
 .heading span { display: block; margin-top: 7px; color: #687689; }
-.primary, .secondary, .reject { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 0; border-radius: 10px; font-weight: 850; cursor: pointer; }
+.primary, .secondary, .reject, .offerPicked { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 0; border-radius: 10px; font-weight: 850; cursor: pointer; }
 .primary { color: white; background: #1f8b67; }
 .secondary { color: #25374a; background: white; border: 1px solid #d8e0e8; }
 .reject { color: #b63c3c; background: #fff0f0; }
+/* 청약 공급에 넣은 자리인지 한눈에 보이게, 고를 때와 뺄 때 버튼 색을 다르게 둡니다. */
+.offerPicked { color: #6b3fbe; background: #f0eaff; border: 1px solid #b9a2ea; }
+.offerPicked:hover { background: #e7ddff; }
 .primary:disabled, .secondary:disabled, .reject:disabled { opacity: .45; cursor: default; }
 .error { padding: 13px 16px; border-radius: 10px; color: #9c3131; background: #fff0f0; font-weight: 700; }
 .layoutControls { display: flex; align-items: flex-end; gap: 10px; padding: 14px; border: 1px solid #dfe6ec; border-radius: 14px; background: white; }
@@ -55,7 +62,14 @@
 .contractCard strong { margin-top: 3px; color: #197258; }
 .contractCard > div:last-child, .offerCard > div:last-child { display: flex; align-items: center; gap: 8px; }
 .offerCard em { padding: 5px 8px; border-radius: 999px; color: #7050b5; background: #f2edff; font-size: 11px; font-style: normal; font-weight: 900; }
-.offerForm { display: grid; grid-template-columns: 1.5fr repeat(3, minmax(100px, .65fr)) 1.1fr auto; align-items: end; gap: 10px; }
+/*
+ * 마지막 칸은 "신청 마감" 버튼입니다. auto로 두면 글자 길이에 따라 칸이 좁아져 옆 입력칸과
+ * 겹쳐 보였습니다. 버튼이 설 자리를 따로 잡아 주고, 버튼 자신도 줄어들지 않게 합니다.
+ * 입력칸은 브라우저 기본 폭이 칸보다 넓어 옆 칸을 침범했습니다. 항상 자기 칸 안에만 그립니다.
+ */
+.offerForm { display: grid; grid-template-columns: minmax(160px, 1.3fr) repeat(3, minmax(90px, .55fr)) minmax(170px, 1fr) minmax(130px, auto); align-items: end; gap: 16px; }
+.offerForm input { width: 100%; min-width: 0; box-sizing: border-box; }
+.offerForm .primary, .offerForm .secondary { white-space: nowrap; flex-shrink: 0; }
 .subscriptionOff { padding: 18px 20px; display: flex; gap: 12px; color: #687689; }
 .subscriptionOff b { color: #314256; }
 .disabledPanel { min-height: 380px; display: grid; place-content: center; justify-items: center; padding: 50px; text-align: center; }

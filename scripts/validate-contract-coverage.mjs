@@ -59,13 +59,14 @@ assertSame("WebSocket 채널 ID", sourceChannelIds, contractChannelIds);
 assertSame("이벤트 ID", sourceEventIds, contractEventIds);
 assertSame("event_type", sourceEventTypes, contractEventTypes);
 
-if (sourceApiIds.length !== 143) throw new Error(`API 수가 143개가 아닙니다: ${sourceApiIds.length}`);
-if (operationIds.length !== 143)
-  throw new Error(`operationId 수가 143개가 아닙니다: ${operationIds.length}`);
+// 143 -> 147: API-ACT-003·004, API-QZ-010, API-CLS-009을 명세에 넣었다.
+if (sourceApiIds.length !== 148) throw new Error(`API 수가 148개가 아닙니다: ${sourceApiIds.length}`);
+if (operationIds.length !== 148)
+  throw new Error(`operationId 수가 148개가 아닙니다: ${operationIds.length}`);
 if (sourceChannelIds.length !== 10)
   throw new Error(`채널 수가 10이 아닙니다: ${sourceChannelIds.length}`);
-if (sourceEventIds.length !== 48)
-  throw new Error(`이벤트 수가 48이 아닙니다: ${sourceEventIds.length}`);
+if (sourceEventIds.length !== 49)
+  throw new Error(`이벤트 수가 49가 아닙니다: ${sourceEventIds.length}`);
 
 console.log(
   JSON.stringify(

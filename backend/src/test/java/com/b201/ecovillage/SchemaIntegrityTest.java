@@ -106,9 +106,9 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_33 creates all 100 physical tables")
+    @DisplayName("DBT-000: Flyway V1_1~V1_34 creates all 101 physical tables")
     void allMigrationsCreateOneHundredTables() throws SQLException {
-        assertEquals(100, physicalTableCount());
+        assertEquals(101, physicalTableCount());
     }
 
     @Test
@@ -116,8 +116,8 @@ class SchemaIntegrityTest {
     void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
         flyway.clean();
         assertEquals(0, physicalTableCount());
-        assertEquals(33, flyway.migrate().migrationsExecuted);
-        assertEquals(100, physicalTableCount());
+        assertEquals(34, flyway.migrate().migrationsExecuted);
+        assertEquals(101, physicalTableCount());
     }
 
     @Test

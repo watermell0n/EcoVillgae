@@ -178,8 +178,11 @@ public class InvestmentScenarioService {
             List<Integer> rates = historicalRates == null
                 ? drawRates(scenario.getId(), seed.symbol(), stepCount, band)
                 : historicalRates;
+            // 기호는 자리(종목 목록)의 것을 그대로 쓴다. AI가 지은 기호로 바꾸면 교사가 정한
+            // 1주 금액·변동 범위와 AI 추천값이 어느 종목의 것인지 이어지지 않는다. AI가 바꾸는
+            // 것은 학생에게 보이는 이름과 소개뿐이다.
             InvestmentAsset asset = assetRepository.save(InvestmentAsset.active(
-                uuidGenerator.generate(), classroomId, scenario.getId(), company.symbol(),
+                uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(),
                 company.name(), company.profile(), index + 1, band.min(), band.max(), now
             ));
             long startPrice = startPrice(seed, condition);
@@ -311,7 +314,9 @@ public class InvestmentScenarioService {
         UUID classroomId,
         UUID assetId,
         String name,
-        String companyProfile
+        String companyProfile,
+        Long startPrice,
+        Integer bandBps
     ) {
         authorizationService.authorize(
             teacherSubject,
@@ -333,19 +338,76 @@ public class InvestmentScenarioService {
                 "기업 이름은 1~100자, 소개는 1~1000자로 입력해 주세요."
             );
         }
+        long resolvedPrice = firstPrice(classroomId, asset.getId());
+        if (startPrice != null || bandBps != null) {
+            resolvedPrice = repriceAsset(classroomId, asset, startPrice, bandBps);
+        }
         assetRepository.save(asset);
         assetRepository.flush();
         return new InvestmentAssetTextResult(
-            asset.getId(), asset.getSymbol(), asset.getName(), asset.getFictionalCompanyProfile()
+            asset.getId(), asset.getSymbol(), asset.getName(), asset.getFictionalCompanyProfile(),
+            resolvedPrice, asset.getMinReturnBps(), asset.getMaxReturnBps()
         );
     }
 
-    /** 문장만 고친 결과다. 가격과 변동 범위는 바뀌지 않으므로 담지 않는다. */
+    /**
+     * 1주 금액과 하루 변동 범위를 다시 정하고 가격 흐름을 새로 뽑는다.
+     *
+     * <p>이미 학생에게 가격을 공개한 뒤에는 바꾸지 않는다. 지난 가격이 그대로인데 앞으로의
+     * 흐름만 달라지면 학생이 본 근거와 결과가 어긋난다. 그래서 아직 검토 중(DRAFT)인
+     * 시장에서만 허용한다.
+     */
+    private long repriceAsset(UUID classroomId, InvestmentAsset asset, Long startPrice, Integer bandBps) {
+        InvestmentScenarioVersion scenario = scenarioRepository
+            .findByClassroomIdAndId(classroomId, asset.getScenarioVersionId())
+            .orElseThrow(() -> operation(HttpStatus.CONFLICT, "INVALID_PRICE_STEP", "투자 시나리오가 없습니다."));
+        InvestmentMarket market = marketRepository.findForUpdate(classroomId, scenario.getInvestmentMode())
+            .orElseThrow(() -> operation(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "투자 시장을 찾을 수 없습니다."));
+        if (!InvestmentMarket.DRAFT.equals(market.getStatus())) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "MARKET_NOT_DRAFT",
+                "이미 시작한 투자에서는 1주 금액과 변동 범위를 바꿀 수 없습니다. 이름과 소개만 고칠 수 있어요."
+            );
+        }
+        if (startPrice != null && startPrice < 1L) {
+            throw operation(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "1주 금액은 1 이상이어야 합니다.");
+        }
+        if (bandBps != null && (bandBps < 1 || bandBps > MAX_RETURN_BPS)) {
+            throw operation(
+                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "변동 범위는 0.01%~50.00% 사이여야 합니다."
+            );
+        }
+        Instant now = clock.instant();
+        List<InvestmentPriceStep> steps = priceStepRepository
+            .findAllByClassroomIdAndInvestmentAssetIdOrderByStepNumber(classroomId, asset.getId());
+        ReturnBand band = bandBps == null
+            ? new ReturnBand(asset.getMinReturnBps(), asset.getMaxReturnBps())
+            : new ReturnBand(-bandBps, bandBps);
+        asset.reband(band.min(), band.max(), now);
+        long price = startPrice == null ? steps.get(0).getPrice() : startPrice;
+        List<Integer> rates = drawRates(asset.getId(), asset.getSymbol(), steps.size(), band);
+        for (int index = 0; index < steps.size(); index++) {
+            InvestmentPriceStep step = steps.get(index);
+            int rate = rates.get(index);
+            if (index > 0) {
+                price = nextPrice(price, rate);
+            }
+            step.reprice(price, rate, now);
+            priceStepRepository.save(step);
+        }
+        return steps.get(0).getPrice();
+    }
+
+    /** 교사가 고친 결과다. 화면은 이 값으로 카드를 다시 그린다. */
     public record InvestmentAssetTextResult(
         UUID assetId,
         String symbol,
         String name,
-        String companyProfile
+        String companyProfile,
+        long startPrice,
+        int minReturnBps,
+        int maxReturnBps
     ) {
     }
 

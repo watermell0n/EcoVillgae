@@ -1951,6 +1951,30 @@
       }
     },
     {
+      "api_id": "API-CLS-009",
+      "method": "DELETE",
+      "path": "/classrooms/{classroom_id}",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "classrooms",
+        "classroom_teachers",
+        "classroom_students",
+        "salary_roles",
+        "classroom_modules",
+        "autonomous_schedules",
+        "autonomous_schedule_modules"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "none",
+        "fields": []
+      }
+    },
+    {
       "api_id": "API-MOD-001",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/modules/{module_code}/activation-commands",
@@ -2998,6 +3022,261 @@
       }
     },
     {
+      "api_id": "API-ACT-003",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/guided-activities/image-lessons",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "activity_sessions",
+        "activity_participants",
+        "realtime_streams",
+        "outbox_events",
+        "audit_events"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "slides",
+            "required": false,
+            "type": "array",
+            "target": "service_input.slides",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "title",
+            "required": false,
+            "type": "string",
+            "target": "service_input.title",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "image_url",
+            "required": false,
+            "type": "string",
+            "target": "service_input.image_url",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "activity_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.activity_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-ACT-004",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/guided-activities/{resource_id}/presentation-commands",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "activity_sessions",
+        "activity_participants",
+        "realtime_streams",
+        "outbox_events",
+        "audit_events"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "command",
+            "required": true,
+            "type": "string",
+            "target": "service_input.command",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "page",
+            "required": false,
+            "type": "integer",
+            "target": "service_input.page",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "activity_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.activity_id",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "page",
+            "required": true,
+            "type": "integer",
+            "target": "projection.page",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "total_pages",
+            "required": true,
+            "type": "integer",
+            "target": "projection.total_pages",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "title",
+            "required": true,
+            "type": "string",
+            "target": "projection.title",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "image_url",
+            "required": true,
+            "type": "string",
+            "target": "projection.image_url",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "has_previous",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.has_previous",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "has_next",
+            "required": true,
+            "type": "boolean",
+            "target": "projection.has_next",
+            "transform": "activity_sessions, activity_participants, realtime_streams, outbox_events, audit_events에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-DSP-001",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/guided-activities/{resource_id}/display-session-commands",
@@ -3878,6 +4157,120 @@
             "target": "projection.state_version",
             "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
             "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-SHP-005",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/store/price-inflation-commands",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "store_products",
+        "store_product_versions",
+        "store_stocks",
+        "store_orders",
+        "store_order_items"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "expected_state_version",
+            "required": false,
+            "type": "integer",
+            "target": "service_validation.state_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "expected_policy_version",
+            "required": true,
+            "type": "integer",
+            "target": "service_validation.policy_version",
+            "transform": "명시된 이름·자료형 변환 후 저장 또는 조회",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "rate_bps",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.rate_bps",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "applied_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.applied_count",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "clamped_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.clamped_count",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "unchanged_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.unchanged_count",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "store_products, store_product_versions, store_stocks, store_orders, store_order_items에서 검증·조합하는 response 필드",
+            "nullable": false,
             "visibility": "role-scoped"
           }
         ]
@@ -10747,6 +11140,104 @@
       }
     },
     {
+      "api_id": "API-QZ-010",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/nonsense-question-imports",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "quiz_questions",
+        "quiz_question_versions",
+        "quiz_options",
+        "quiz_sessions",
+        "quiz_submissions",
+        "quiz_answers",
+        "quiz_result_versions"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "screen_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.screen_id",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "ui_action_id",
+            "required": false,
+            "type": "string",
+            "target": "service_input.ui_action_id",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "client_occurred_at",
+            "required": false,
+            "type": "string",
+            "target": "service_input.client_occurred_at",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "grade",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.grade",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "question_count",
+            "required": true,
+            "type": "integer",
+            "target": "service_input.question_count",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "question_ids",
+            "required": true,
+            "type": "array",
+            "target": "projection.question_ids",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "remaining_count",
+            "required": true,
+            "type": "integer",
+            "target": "projection.remaining_count",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "bank_version",
+            "required": true,
+            "type": "string",
+            "target": "projection.bank_version",
+            "transform": "quiz_questions, quiz_question_versions, quiz_options, quiz_sessions, quiz_submissions, quiz_answers, quiz_result_versions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-VOT-001",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/votes/{resource_id}/commands",
@@ -14250,10 +14741,64 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "state_version",
+            "required": true,
+            "type": "integer",
+            "target": "projection.state_version",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "participant_count",
             "required": true,
             "type": "integer",
             "target": "projection.participant_count",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "activity_type",
+            "required": true,
+            "type": "string",
+            "target": "projection.activity_type",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "presentation_title",
+            "required": false,
+            "type": "string",
+            "target": "projection.presentation_title",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "presentation_image_url",
+            "required": false,
+            "type": "string",
+            "target": "projection.presentation_image_url",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "presentation_page",
+            "required": true,
+            "type": "integer",
+            "target": "projection.presentation_page",
+            "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "presentation_total_pages",
+            "required": true,
+            "type": "integer",
+            "target": "projection.presentation_total_pages",
             "transform": "activity_sessions, activity_participants에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"

@@ -42,6 +42,7 @@ import { consumeTeacherOidcCallback, hasOidcCallback } from "./oidc";
 import { AiWorkspace } from "./ai/AiWorkspace";
 import { QuizDraftWorkspace } from "./ai/QuizDraftWorkspace";
 import { EconomyQuizDifficultyPanel } from "./quiz/EconomyQuizDifficultyPanel";
+import { LessonSequencePanel } from "./lesson/LessonSequencePanel";
 import { DraftRecommendationPanel } from "./ai/DraftRecommendationPanel";
 import { ModuleActivationPanel, SetupPrecheckSummary } from "./ai/ModuleActivationPanel";
 import { InvestmentScenarioPanel } from "./ai/InvestmentScenarioPanel";
@@ -240,7 +241,10 @@ type ProductRow = {
   stateVersion?: number;
   // 서버의 상품 상태입니다. PUBLISHED만 학생 상점에 보입니다.
   status?: string;
-  kind?: "PHYSICAL" | "DIGITAL";
+  // 서버가 준 종류를 그대로 담습니다. 상품 종류는 바꿀 수 없어서 수정·삭제 명령에
+  // 원래 값을 되돌려 보내야 합니다. 캐릭터 상품을 PHYSICAL로 뭉개면 서버가
+  // PRODUCT_TYPE_CONFLICT로 거절합니다.
+  kind?: "PHYSICAL" | "DIGITAL" | "CHARACTER";
   vatRateBps?: number;
 };
 
@@ -269,9 +273,11 @@ type ApprovalRow = {
   target: string;
   amount: string;
   status: string;
-  tradeId?: string;
+  // 승인·거절을 어느 API로 보낼지 정합니다. 서버에서 읽어 온 행에만 있습니다.
+  kind?: "TRADE" | "LOAN" | "PROPERTY";
+  resourceId?: string;
   stateVersion?: number;
-  sample?: boolean;
+  requestedAmount?: number;
 };
 
 type ClassSettings = {
@@ -356,12 +362,9 @@ const initialStudents: StudentRow[] = studentSeed.map(([nickname, role, salary, 
 // 상품 목록은 교실을 열 때 서버에서 받아옵니다. 시작값은 빈 목록입니다.
 const initialProducts: ProductRow[] = [];
 
-const initialApprovals: ApprovalRow[] = [
-  // 금액에는 화폐 이름을 붙이지 않습니다. 화면에서 학급 화폐명을 뒤에 붙여 보여 줍니다.
-  { id: "trade-1", type: "거래", target: "김하늘 → 박서윤", amount: "30", status: "교사 승인 대기", sample: true },
-  { id: "shop-1", type: "상점", target: "숙제 패스권", amount: "2,000", status: "권리 상품 확인", sample: true },
-  { id: "vote-1", type: "투표", target: "공동기금 사용처", amount: "340", status: "결과 정산 대기", sample: true }
-];
+// 승인 대기 목록은 서버에서 읽습니다. 예시 행을 기본값으로 넣어 두면 실제로 처리할 수
+// 없는 항목이 학급마다 남아, 교사가 진짜 승인 건과 구분할 수 없습니다.
+const initialApprovals: ApprovalRow[] = [];
 
 const courseTemplates = [
   {
@@ -413,6 +416,29 @@ const initialSettings: ClassSettings = {
 
 const enabledModuleNames = ["지갑", "월급", "세금", "상점", "캐릭터", "개인 거래", "예금", "적금", "신용", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 const creditLevelLabels: Record<string, string> = { GOOD: "우수", NORMAL: "보통", CAUTION: "주의", RESTRICTED: "제한" };
+
+/**
+ * 신용 등급별 한도와 금리입니다. 서버(LoanCreditPolicy)와 같은 기준을 씁니다.
+ * 교사가 정책값을 정하는 자리에서 바로 결과를 확인할 수 있게 표로 만들어 줍니다.
+ */
+function creditGrades(maximumPrincipal: number, baseRatePercent: number) {
+  const limit = (ratio: number) => Math.floor((maximumPrincipal * ratio) / 100).toLocaleString("ko-KR");
+  const rate = (delta: number) => `${Math.max(0, Math.min(20, baseRatePercent + delta)).toFixed(2)}%`;
+  return [
+    { level: "GOOD", scoreText: "750점 이상", limitText: `${limit(100)} (100%)`, rateText: `${rate(-1)} (기준 -1%p)` },
+    { level: "NORMAL", scoreText: "600~749점", limitText: `${limit(80)} (80%)`, rateText: `${rate(0)} (기준)` },
+    { level: "CAUTION", scoreText: "450~599점", limitText: `${limit(60)} (60%)`, rateText: `${rate(2)} (기준 +2%p)` },
+    { level: "RESTRICTED", scoreText: "450점 미만", limitText: "신청 불가", rateText: "-" }
+  ];
+}
+
+/** 부동산 계약 종류를 승인 목록에 보여 줄 말로 바꿉니다. */
+function contractTypeLabel(contractType?: string) {
+  if (contractType === "SALE") return "매매";
+  if (contractType === "JEONSE") return "전세";
+  if (contractType === "RENT") return "월세";
+  return "계약";
+}
 const selectableModuleNames = enabledModuleNames.filter((moduleName) => moduleName !== "지갑");
 const studentAccessModuleNames = ["상점", "캐릭터", "개인 거래", "예금", "적금", "대출", "청약", "부동산", "단기 투자", "장기 투자", "공공 예산/투표", "퀴즈", "평가형 퀴즈"];
 
@@ -569,6 +595,8 @@ export default function TeacherConsole() {
     stateVersion: 0
   });
   const [approvals, setApprovals] = useState<ApprovalRow[]>(initialApprovals);
+  // 이미 처리한 승인 건입니다. 서버에서 읽으므로 새로고침해도 남습니다.
+  const [approvalHistory, setApprovalHistory] = useState<ApprovalRow[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [settings, setSettings] = useState<ClassSettings>(initialSettings);
   const title = useMemo(() => views.find((item) => item.key === view)?.label ?? "운영 현황", [view]);
@@ -819,12 +847,150 @@ export default function TeacherConsole() {
         version: product.version,
         stateVersion: product.state_version,
         status: product.status,
-        kind: product.product_kind === "DIGITAL" ? "DIGITAL" : "PHYSICAL",
+        kind: product.product_kind === "DIGITAL" || product.product_kind === "CHARACTER"
+          ? product.product_kind
+          : "PHYSICAL",
         vatRateBps: product.vat_rate_bps
       })));
     } catch (error) {
       addLog(`상점 상품 목록을 불러오지 못했어요. ${error instanceof Error ? error.message : ""}`, "warning");
     }
+  }
+
+  /**
+   * 교사 승인을 기다리는 항목을 모읍니다.
+   *
+   * <p>거래·대출·부동산 계약은 각각 다른 화면에서 만들어지지만 교사가 처리하는 자리는
+   * "승인·정산" 한 곳입니다. 한 갈래를 읽지 못해도 나머지는 보여 줍니다.
+   */
+  async function loadApprovals(resourceId: string) {
+    const rows: ApprovalRow[] = [];
+    const failures: string[] = [];
+
+    try {
+      const trades = await apiRequest<Array<{
+        trade_id: string;
+        proposer_nickname?: string;
+        counterpart_nickname?: string;
+        description?: string | null;
+        amount?: number;
+        item_count?: number;
+        state_version?: number;
+      }>>(`/classrooms/${resourceId}/trades/awaiting-teacher`);
+      trades.forEach((trade) => rows.push({
+        id: `trade-${trade.trade_id}`,
+        type: "거래",
+        target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`
+          + (trade.description ? ` · ${trade.description}` : "")
+          + (trade.item_count ? ` · 물건 ${trade.item_count}개` : ""),
+        amount: (trade.amount ?? 0).toLocaleString("ko-KR"),
+        status: "교사 승인 대기",
+        kind: "TRADE",
+        resourceId: trade.trade_id,
+        stateVersion: trade.state_version ?? 0
+      }));
+    } catch {
+      failures.push("거래");
+    }
+
+    try {
+      const queue = await apiRequest<{
+        applications: Array<{
+          application_id: string;
+          student_nickname?: string;
+          requested_amount?: number;
+          credit_level?: string;
+          status?: string;
+        }>;
+      }>(`/classrooms/${resourceId}/loan-approval-queue`);
+      queue.applications
+        // 대기 중인 신청은 APPLIED로 옵니다. 승인·거절이 끝난 건은 목록에서 뺍니다.
+        .filter((application) => !["APPROVED", "REJECTED", "CANCELED"].includes(application.status ?? ""))
+        .forEach((application) => rows.push({
+          id: `loan-${application.application_id}`,
+          type: "대출",
+          target: `${application.student_nickname ?? "학생"} 학생 대출 신청`
+            + (application.credit_level ? ` · 신용 ${creditLevelLabels[application.credit_level] ?? application.credit_level}` : ""),
+          amount: (application.requested_amount ?? 0).toLocaleString("ko-KR"),
+          status: "교사 승인 대기",
+          kind: "LOAN",
+          resourceId: application.application_id,
+          requestedAmount: application.requested_amount ?? 0
+        }));
+    } catch {
+      failures.push("대출");
+    }
+
+    try {
+      const contracts = await apiRequest<Array<{
+        contract_id: string;
+        contract_type?: string;
+        student_nickname?: string;
+        coordinate?: string;
+        deposit_amount?: number;
+        monthly_rent?: number;
+        sale_price?: number;
+      }>>(`/classrooms/${resourceId}/property-contracts`);
+      contracts.forEach((contract) => rows.push({
+        id: `property-${contract.contract_id}`,
+        type: "부동산",
+        target: `${contract.student_nickname ?? "학생"} · ${contract.coordinate ?? ""} ${contractTypeLabel(contract.contract_type)}`,
+        amount: (contract.sale_price || contract.deposit_amount || contract.monthly_rent || 0).toLocaleString("ko-KR"),
+        status: "교사 승인 대기",
+        kind: "PROPERTY",
+        resourceId: contract.contract_id
+      }));
+    } catch {
+      failures.push("부동산 계약");
+    }
+
+    setApprovals(rows);
+    if (failures.length) {
+      addLog(`${failures.join(", ")} 승인 대기 목록을 불러오지 못했어요.`, "warning");
+    }
+    await loadApprovalHistory(resourceId);
+  }
+
+  /** 이미 처리한 승인 건입니다. 승인·정산 화면의 "운영 기록"에 쌓입니다. */
+  async function loadApprovalHistory(resourceId: string) {
+    const rows: ApprovalRow[] = [];
+    try {
+      const decided = await apiRequest<Array<{
+        trade_id: string;
+        proposer_nickname?: string;
+        counterpart_nickname?: string;
+        amount?: number;
+        status?: string;
+      }>>(`/classrooms/${resourceId}/trades/decided`);
+      decided.forEach((trade) => rows.push({
+        id: `trade-done-${trade.trade_id}`,
+        type: "거래",
+        target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`,
+        amount: (trade.amount ?? 0).toLocaleString("ko-KR"),
+        status: trade.status === "REJECTED" ? "거절" : "승인 완료"
+      }));
+    } catch {
+      // 기록을 읽지 못해도 승인 대기 목록은 그대로 씁니다.
+    }
+    try {
+      const decided = await apiRequest<Array<{
+        application_id: string;
+        student_nickname?: string;
+        requested_amount?: number;
+        approved_amount?: number | null;
+        status?: string;
+      }>>(`/classrooms/${resourceId}/loan-decisions`);
+      decided.forEach((application) => rows.push({
+        id: `loan-done-${application.application_id}`,
+        type: "대출",
+        target: `${application.student_nickname ?? "학생"} 학생 대출 신청`,
+        amount: (application.approved_amount ?? application.requested_amount ?? 0).toLocaleString("ko-KR"),
+        status: application.status === "REJECTED" ? "거절" : "승인 완료"
+      }));
+    } catch {
+      // 위와 같습니다.
+    }
+    setApprovalHistory(rows);
   }
 
   async function openClassroom(resourceId: string, knownClassroom?: BootstrapClassroom) {
@@ -1010,6 +1176,7 @@ export default function TeacherConsole() {
         setStudents([]);
       }
       await loadStoreProducts(resourceId);
+      await loadApprovals(resourceId);
       if (serverState.failures.length) {
         addLog(`${serverState.failures.join(", ")} 정보는 불러오지 못했어요. 나머지 정보만 표시합니다.`, "warning");
       }
@@ -1043,6 +1210,26 @@ export default function TeacherConsole() {
     } catch (error) {
       addLog(`교실을 삭제하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     }
+  }
+
+  // 새로고침하면 저장된 세션을 서버에 물어보는 동안 잠깐 시간이 걸립니다. 그동안 로그인
+  // 화면을 띄우면, 이미 로그인해 둔 교사에게 로그인 창이 번쩍였다가 사라집니다.
+  // 확인이 끝나기 전까지는 기다리는 화면만 보여 줍니다.
+  if (authBusy) {
+    return (
+      <main className="auth-page">
+        <section className="login-panel">
+          <div className="brand login-brand">
+            <span>EV</span>
+            <div>
+              <strong>이코빌리지</strong>
+              <small>교사 관리 웹</small>
+            </div>
+          </div>
+          <p role="status">로그인 상태를 확인하고 있어요.</p>
+        </section>
+      </main>
+    );
   }
 
   if (stage === "login") {
@@ -1268,6 +1455,16 @@ export default function TeacherConsole() {
           )}
           {view === "control" && (
             <Control
+              lessonPanel={
+                <LessonSequencePanel
+                  classroomId={activeClassroomId}
+                  activeGuidedActivityId={modules
+                    .map((module) => module.config?.active_guided_activity_id)
+                    .find((value): value is string => typeof value === "string")}
+                  canManage={teacherRoles.includes("OWN")}
+                  onNotice={addLog}
+                />
+              }
               quizWorkspace={
                 <>
                   <EconomyQuizDifficultyPanel
@@ -1291,6 +1488,7 @@ export default function TeacherConsole() {
               currencyName={settings.currency}
               approvals={approvals}
               setApprovals={setApprovals}
+              history={approvalHistory}
               runAction={runAction}
               addLog={addLog}
               classroomId={activeClassroomId}
@@ -3298,6 +3496,27 @@ function ShopAdmin({
   const [draftProduct, setDraftProduct] = useState<ProductRow | null>(null);
   const [inflationRate, setInflationRate] = useState("10");
 
+  /**
+   * 교사가 직접 관리하는 상품만 목록에 둡니다.
+   *
+   * 캐릭터 상품은 시스템 카탈로그 항목이고, 이름·삭제를 건드리면 학생이 이미 보유하거나
+   * 착용한 아이템과 어긋납니다. spriteKey가 character_catalog.character_code에 묶여 있어
+   * 문서도 변경을 금지합니다. 원래 인덱스를 함께 들고 다녀야 수정·삭제가 올바른 상품을
+   * 가리킵니다.
+   */
+  const managedProducts = useMemo(
+    () => products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => product.kind !== "CHARACTER"),
+    [products]
+  );
+  const characterProductCount = products.length - managedProducts.length;
+  /** AI 가격 추천은 교사가 등록한 상품에만 씁니다. */
+  const teacherOwnedProducts = useMemo(
+    () => managedProducts.map(({ product }) => product),
+    [managedProducts]
+  );
+
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -3435,13 +3654,20 @@ function ShopAdmin({
     }
     setSubmitting(true);
     try {
+      // 바꿀 값을 current에 먼저 담습니다. 세 명령이 모두 unit_price를 새 버전에 쓰므로
+      // 마지막 PUBLISH까지 같은 값을 보내야 수정이 되돌려지지 않습니다.
       const wasPublished = draft.status === "PUBLISHED";
-      let current: ProductRow = draft;
+      let current: ProductRow = {
+        ...draft,
+        name: draft.name.trim(),
+        price: String(price),
+        stock: String(stock)
+      };
       if (wasPublished) {
         const unpublished = await sendProductCommand(current, "UNPUBLISH");
         current = { ...current, version: unpublished.version, status: unpublished.status };
       }
-      const updated = await sendProductCommand(current, "UPDATE", { price, stock, name: draft.name });
+      const updated = await sendProductCommand(current, "UPDATE");
       current = { ...current, version: updated.version, status: updated.status };
       if (wasPublished) await sendProductCommand(current, "PUBLISH");
       setEditingIndex(null);
@@ -3484,38 +3710,46 @@ function ShopAdmin({
     }
   }
 
+  /**
+   * 인플레이션은 서버가 한 번에 처리합니다.
+   *
+   * 전에는 상품마다 공개중지·수정·재공개 세 번을 보내서 상품 14개에 42번의 요청이 오갔습니다.
+   * 상품이 늘수록 그대로 늘어나는 구조였고, 중간에 실패하면 일부만 오른 상태로 남았습니다.
+   * 이제 요청 한 번으로 끝나고 서버가 한 트랜잭션에서 처리합니다.
+   */
   async function applyInflation() {
     const rate = Number(inflationRate);
-    if (!Number.isFinite(rate) || rate <= 0) return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
-    const targets = products.filter((product) => product.resourceId);
-    if (targets.length === 0) return addLog("가격을 올릴 상품이 없어요.", "warning");
-    if (!window.confirm(`모든 상품 가격을 ${rate}% 올릴까요?`)) return;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return addLog("인상률을 0보다 큰 숫자로 입력해 주세요.", "warning");
+    }
+    if (!window.confirm(`캐릭터 상품까지 포함해 모든 상품 가격을 ${rate}% 올릴까요?`)) return;
     setSubmitting(true);
-    const failed: string[] = [];
     try {
-      for (const product of targets) {
-        const nextPrice = Math.round(Number(product.price) * (1 + rate / 100));
-        try {
-          const wasPublished = product.status === "PUBLISHED";
-          let current = product;
-          if (wasPublished) {
-            const unpublished = await sendProductCommand(current, "UNPUBLISH");
-            current = { ...current, version: unpublished.version, status: unpublished.status };
-          }
-          const updated = await sendProductCommand(current, "UPDATE", { price: nextPrice });
-          current = { ...current, version: updated.version, status: updated.status };
-          if (wasPublished) await sendProductCommand(current, "PUBLISH");
-        } catch {
-          failed.push(product.name);
-        }
-      }
+      const stateVersionForRequest = await currentClassroomStateVersion();
+      const result = await apiRequest<{
+        applied_count: number;
+        clamped_count: number;
+        unchanged_count: number;
+        state_version: number;
+      }>(`/classrooms/${classroomId}/store/price-inflation-commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: stateVersionForRequest,
+          expected_policy_version: policyVersion,
+          // 화면은 %로 받고 서버는 bp로 받습니다. 10% -> 1000bp.
+          rate_bps: Math.round(rate * 100),
+          screen_id: "SCR-TCH-STORE",
+          ui_action_id: "UIA-STORE-PRICE-INFLATION",
+          client_occurred_at: new Date().toISOString()
+        })
+      });
       await onReload();
-      addLog(
-        failed.length === 0
-          ? `상점 상품 가격을 ${rate}% 인상했어요.`
-          : `${failed.join(", ")} 상품은 가격을 올리지 못했어요. 나머지는 ${rate}% 인상했어요.`,
-        failed.length === 0 ? "success" : "error"
-      );
+      const clamped = result.clamped_count > 0
+        ? ` ${result.clamped_count}종은 정책 상한에 걸려 상한값으로 맞췄어요.`
+        : "";
+      addLog(`상품 ${result.applied_count}종의 가격을 ${rate}% 인상했어요.${clamped}`);
+    } catch (error) {
+      addLog(`가격을 인상하지 못했어요. ${error instanceof Error ? error.message : ""}`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -3544,7 +3778,9 @@ function ShopAdmin({
           <DraftRecommendationPanel
             kind="product"
             classroomId={classroomId}
-            products={products}
+            // 캐릭터 상품은 시스템이 정한 항목이라 개별 가격 추천 대상이 아닙니다.
+            // 그 가격은 위 인플레이션으로만 움직입니다.
+            products={teacherOwnedProducts}
             policyVersions={policyVersions}
             currencyName={currencyName}
             activeStudentCount={activeStudentCount}
@@ -3559,15 +3795,26 @@ function ShopAdmin({
       </PlainSection>
       <PlainSection title="상품 관리">
         <div className="inflation-control">
-          <div><b>인플레이션 적용</b><span>모든 상품 가격을 같은 비율로 올려 서버에 저장해요.</span></div>
+          <div>
+            <b>인플레이션 적용</b>
+            <span>캐릭터 상품까지 포함해 모든 상품 가격을 같은 비율로 올려 서버에 저장해요.</span>
+          </div>
           <label>인상률 <input inputMode="decimal" value={inflationRate} onChange={(event) => setInflationRate(event.target.value)} />%</label>
           <button type="button" disabled={submitting} onClick={() => void applyInflation()}>
             {submitting ? "적용하는 중" : "적용하기"}
           </button>
         </div>
         <div className="product-list">
-          {products.length === 0 ? <p className="empty-copy">등록한 상품이 없어요. 위에서 상품을 올려 주세요.</p> : null}
-          {products.map((product, index) => {
+          {managedProducts.length === 0
+            ? <p className="empty-copy">등록한 상품이 없어요. 위에서 상품을 올려 주세요.</p>
+            : null}
+          {characterProductCount > 0 ? (
+            <p className="helper-text">
+              캐릭터 상품 {characterProductCount}종은 시스템이 정한 항목이라 여기서 고치거나 지우지
+              않습니다. 학생 이코 상점에는 그대로 보이고, 가격은 위 인플레이션으로 함께 움직입니다.
+            </p>
+          ) : null}
+          {managedProducts.map(({ product, index }) => {
             const activeDraft = editingIndex === index ? draftProduct : null;
             const isPublished = product.status === "PUBLISHED";
 
@@ -4037,7 +4284,7 @@ function FinanceAdmin({
       </PlainSection>
 
       {activeTab === "INVESTMENT" ? (
-        <div className="page-flow">
+        <>
           <PlainSection
             title="투자 운영안"
             description="단기는 다음 날 확정 결과를, 장기는 기간 동안 변동하는 시장 소식을 제공합니다. 두 방식을 함께 운영할 수 있습니다."
@@ -4068,9 +4315,9 @@ function FinanceAdmin({
               onModuleChanged={onModulesReload}
             />
           ))}
-        </div>
+        </>
       ) : activeTab === "LOAN" ? (
-        <div className="page-flow">
+        <>
           <PlainSection title="대출 정책" description="저장한 값은 이후의 새 신청부터 적용됩니다. 기간은 주 단위이며 회차별 자동 상환됩니다.">
             <div className="financial-product-editor">
               <div className="financial-product-heading"><strong>정책 버전 {loanPolicy.version || "기본"}</strong><span>대출·신용</span></div>
@@ -4084,7 +4331,24 @@ function FinanceAdmin({
                 <label>연체 신용점수(-100~0)<input type="number" min="-100" max="0" value={loanPolicy.overdueCredit} onChange={(event) => updateLoanPolicy("overdueCredit", event.target.value)} /></label>
                 <label>완납 신용점수(0~100)<input type="number" min="0" max="100" value={loanPolicy.repaidCredit} onChange={(event) => updateLoanPolicy("repaidCredit", event.target.value)} /></label>
               </div>
-              <p className="helper-text">신용 750점 이상은 한도 100%·기준 금리 -1%p, 600점 이상은 한도 80%·기준 금리, 450점 이상은 한도 60%·기준 금리 +2%p가 적용됩니다. 450점 미만은 신규 신청이 제한됩니다.</p>
+              {/* 등급마다 한도와 금리가 달라지므로, 정책을 정하면서 바로 확인할 수 있게 표로 둡니다. */}
+              <div className="credit-grade-guide">
+                <strong>신용 등급 확인</strong>
+                <table className="approval-table">
+                  <thead><tr><th>등급</th><th>신용점수</th><th>대출 한도</th><th>적용 금리</th></tr></thead>
+                  <tbody>
+                    {creditGrades(Number(loanPolicy.maximumPrincipal) || 0, Number(loanPolicy.interestRate) || 0).map((grade) => (
+                      <tr key={grade.level}>
+                        <td><b>{creditLevelLabels[grade.level] ?? grade.level}</b></td>
+                        <td>{grade.scoreText}</td>
+                        <td>{grade.limitText}</td>
+                        <td>{grade.rateText}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="helper-text">한도와 금리는 위에 저장한 값을 기준으로 등급마다 자동 적용됩니다. 제한 등급은 새 대출을 신청할 수 없습니다.</p>
+              </div>
               <div className="financial-actions"><button type="button" disabled={loanSaving} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
             </div>
           </PlainSection>
@@ -4133,7 +4397,7 @@ function FinanceAdmin({
               ))}
             </div>
           </PlainSection>
-        </div>
+        </>
       ) : (
         <PlainSection
           title={activeTab === "DEPOSIT" ? "예금 상품" : "적금 상품"}
@@ -4178,8 +4442,12 @@ function FinanceAdmin({
 const lessonCategories: string[] = [...new Set(lessonQuizCatalog.map((lesson) => lesson.module))];
 
 function Control({
+  lessonPanel,
   quizWorkspace
 }: Readonly<{
+  // 회차 자료를 순서대로 넘기는 수업 패널입니다. 학급 정보와 로그가 필요해
+  // quizWorkspace와 같이 호출 쪽에서 만들어 넘깁니다.
+  lessonPanel: ReactNode;
   quizWorkspace: ReactNode;
 }>) {
   const [category, setCategory] = useState(lessonCategories[0]);
@@ -4210,6 +4478,7 @@ function Control({
 
   return (
     <div className="page-flow">
+      {lessonPanel}
       <PlainSection
         title="경제 개념 수업"
         description="카테고리를 고르고 수업 자료를 확인한 뒤, 학생에게 보여 줄 자료만 공개해요."
@@ -4264,10 +4533,14 @@ function Control({
   );
 }
 
+/** 운영 기록 한 쪽에 담는 줄 수입니다. 이보다 많아지면 쪽 번호로 나눠 봅니다. */
+const APPROVAL_HISTORY_PAGE_SIZE = 10;
+
 function Approvals({
   currencyName,
   approvals,
   setApprovals,
+  history,
   runAction,
   addLog,
   classroomId
@@ -4275,17 +4548,99 @@ function Approvals({
   currencyName: string;
   approvals: ApprovalRow[];
   setApprovals: React.Dispatch<React.SetStateAction<ApprovalRow[]>>;
+  history: ApprovalRow[];
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   classroomId: string;
 }>) {
+  const [busyId, setBusyId] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+
   function updateApproval(id: string, status: string) {
     setApprovals((items) => items.map((item) => item.id === id ? { ...item, status } : item));
   }
 
+  /** 승인·거절을 갈래에 맞는 API로 보냅니다. 갈래마다 주소와 본문이 다릅니다. */
+  function decisionRequest(item: ApprovalRow, approve: boolean): { path: string; init: RequestInit } | null {
+    const reason = approve ? "교사 확인" : "교사 거절";
+    if (item.kind === "TRADE") {
+      return {
+        path: `/classrooms/${classroomId}/trades/${item.resourceId}/teacher-decisions`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: item.stateVersion ?? 0,
+            screen_id: "SCR-WEB-006",
+            ui_action_id: "UIA-WEB-006",
+            client_occurred_at: new Date().toISOString(),
+            decision: approve ? "APPROVE" : "REJECT",
+            reason
+          })
+        }
+      };
+    }
+    if (item.kind === "LOAN") {
+      return {
+        path: `/classrooms/${classroomId}/loan-applications/${item.resourceId}/teacher-decisions`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            decision: approve ? "APPROVE" : "REJECT",
+            // 신청한 금액을 그대로 승인합니다. 금액을 깎으려면 "운영 관리 > 대출·신용"에서 합니다.
+            approved_amount: approve ? item.requestedAmount ?? null : null,
+            reason
+          })
+        }
+      };
+    }
+    if (item.kind === "PROPERTY") {
+      return {
+        path: `/contracts/${item.resourceId}/${approve ? "approve" : "reject"}`,
+        init: {
+          method: "POST",
+          body: JSON.stringify({
+            screen_id: "SCR-WEB-006",
+            ui_action_id: "UIA-WEB-006",
+            client_occurred_at: new Date().toISOString(),
+            reason
+          })
+        }
+      };
+    }
+    return null;
+  }
+
+  async function decide(item: ApprovalRow, approve: boolean) {
+    const request = decisionRequest(item, approve);
+    if (!request) {
+      addLog("이 항목은 아직 처리 방법이 연결되지 않았어요.", "warning");
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      await runAction(
+        `${item.type} ${approve ? "승인" : "거절"}`,
+        request.path,
+        request.init,
+        () => undefined
+      );
+      updateApproval(item.id, approve ? "승인 완료" : "거절");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   const processedStatuses = new Set(["승인 완료", "처리 완료", "거절"]);
   const pendingApprovals = approvals.filter((item) => !processedStatuses.has(item.status));
-  const processedApprovals = approvals.filter((item) => processedStatuses.has(item.status));
+  // 서버에서 읽은 기록과, 방금 이 화면에서 처리해 아직 서버를 다시 읽지 않은 건을 합칩니다.
+  const justProcessed = approvals.filter((item) => processedStatuses.has(item.status));
+  const allProcessed = [...justProcessed, ...history];
+  const historyPageCount = Math.max(1, Math.ceil(allProcessed.length / APPROVAL_HISTORY_PAGE_SIZE));
+  const safeHistoryPage = Math.min(historyPage, historyPageCount);
+  const pagedHistory = allProcessed.slice(
+    (safeHistoryPage - 1) * APPROVAL_HISTORY_PAGE_SIZE,
+    safeHistoryPage * APPROVAL_HISTORY_PAGE_SIZE
+  );
 
   return (
     <div className="page-flow">
@@ -4299,50 +4654,42 @@ function Approvals({
               <td>{item.amount}{currencyName}</td>
               <td>{item.status}</td>
               <td>
-                <button onClick={() => {
-                  if (item.type === "거래" && item.tradeId) {
-                    runAction(
-                      "거래 승인",
-                      `/classrooms/${classroomId}/trades/${item.tradeId}/teacher-decisions`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          expected_state_version: item.stateVersion ?? 0,
-                          screen_id: "SCR-WEB-006",
-                          ui_action_id: "UIA-WEB-006",
-                          client_occurred_at: new Date().toISOString(),
-                          decision: "APPROVE",
-                          reason: "교사 확인"
-                        })
-                      },
-                      () => updateApproval(item.id, "승인 완료")
-                    );
-                    return;
-                  }
-                  if (item.type === "거래") {
-                    addLog("표시된 거래는 데모 데이터입니다. 실제 거래가 생성되면 그 거래 ID로 승인할 수 있습니다.", "warning");
-                    return;
-                  }
-                  updateApproval(item.id, "처리 완료");
-                  addLog(`${item.type} 항목을 처리했어요.`);
-                }}>승인</button>
-                <button onClick={() => updateApproval(item.id, "거절")}>거절</button>
+                <button disabled={busyId === item.id} onClick={() => void decide(item, true)}>승인</button>
+                <button disabled={busyId === item.id} onClick={() => void decide(item, false)}>거절</button>
               </td>
             </tr>
           ))}
           </tbody></table></div>
         )}
       </PlainSection>
-      {processedApprovals.length > 0 ? (
-        <PlainSection title="처리 내역">
-          <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>처리 상태</th></tr></thead><tbody>
-            {processedApprovals.map((item) => (
-              <tr key={item.id}><td><b>{item.type}</b></td><td>{item.target}</td><td>{item.amount}</td><td><strong className="approval-result">{item.status}</strong></td></tr>
-            ))}
-          </tbody></table></div>
-        </PlainSection>
-      ) : null}
-      <PlainSection title="운영 기록">
+      <PlainSection title="운영 기록" description="이미 승인하거나 거절한 항목입니다.">
+        {allProcessed.length === 0 ? <p className="empty-copy">아직 처리한 항목이 없어요.</p> : (
+          <>
+            <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>처리 상태</th></tr></thead><tbody>
+              {pagedHistory.map((item) => (
+                <tr key={item.id}><td><b>{item.type}</b></td><td>{item.target}</td><td>{item.amount}{currencyName}</td><td><strong className="approval-result">{item.status}</strong></td></tr>
+              ))}
+            </tbody></table></div>
+            {/* 기록이 쌓이면 화면이 끝없이 길어지므로 쪽으로 나눠 봅니다. */}
+            {historyPageCount > 1 ? (
+              <nav className="approval-pager" aria-label="운영 기록 쪽 이동">
+                <button type="button" disabled={safeHistoryPage === 1} onClick={() => setHistoryPage(safeHistoryPage - 1)}>이전</button>
+                {Array.from({ length: historyPageCount }, (_, index) => index + 1).map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    className={page === safeHistoryPage ? "active" : ""}
+                    aria-current={page === safeHistoryPage ? "page" : undefined}
+                    onClick={() => setHistoryPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button type="button" disabled={safeHistoryPage === historyPageCount} onClick={() => setHistoryPage(safeHistoryPage + 1)}>다음</button>
+              </nav>
+            ) : null}
+          </>
+        )}
         <ActionLine
           label="리포트 조회"
           value="잔액, 지출, 예금, 퀴즈 참여"

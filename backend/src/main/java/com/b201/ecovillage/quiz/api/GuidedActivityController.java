@@ -24,6 +24,7 @@ import com.b201.ecovillage.quiz.application.GuidedActivityResult;
 import com.b201.ecovillage.quiz.application.GuidedActivityStartCommand;
 import com.b201.ecovillage.quiz.application.GuidedActivityView;
 import com.b201.ecovillage.quiz.application.ImageLessonService;
+import com.b201.ecovillage.quiz.application.PresentationView;
 
 @RestController
 @RequestMapping("/classrooms/{classroomId}/guided-activities")
@@ -63,10 +64,48 @@ public class GuidedActivityController {
             classroomId,
             requestId,
             correlation,
-            request.title(),
-            request.imageUrl()
+            request.resolvedSlides().stream()
+                .map(slide -> new ImageLessonService.Slide(slide.title(), slide.imageUrl()))
+                .toList()
         );
         return new ApiResponse<>(response(result), meta(requestId, correlation));
+    }
+
+    /**
+     * 수업 중에 보여 주는 자료를 넘긴다. 커서만 옮기고 자료는 바꾸지 않는다.
+     * 학생 화면은 활동 조회를 폴링하고 있어 넘긴 결과가 다음 폴링에 따라온다.
+     */
+    @PostMapping("/{activityId}/presentation-commands")
+    public ApiResponse<PresentationResponse> movePresentation(
+        @PathVariable UUID classroomId,
+        @PathVariable UUID activityId,
+        @RequestHeader("Idempotency-Key") UUID requestId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        @Valid @RequestBody PresentationMoveRequest request,
+        Principal principal
+    ) {
+        UUID correlation = resolve(correlationId);
+        PresentationView view = imageLessonService.move(
+            subject(principal),
+            classroomId,
+            activityId,
+            request.command(),
+            request.page()
+        );
+        return new ApiResponse<>(
+            new PresentationResponse(
+                view.activityId(),
+                view.status(),
+                view.stateVersion(),
+                view.page(),
+                view.totalPages(),
+                view.title(),
+                view.imageUrl(),
+                view.hasPrevious(),
+                view.hasNext()
+            ),
+            meta(requestId, correlation)
+        );
     }
 
     @PostMapping("/{activityId}/start-commands")
@@ -147,7 +186,9 @@ public class GuidedActivityController {
                 result.participantCount(),
                 result.activityType(),
                 result.presentationTitle(),
-                result.presentationImageUrl()
+                result.presentationImageUrl(),
+                result.presentationPage(),
+                result.presentationTotalPages()
             ),
             meta(requestId, correlation)
         );

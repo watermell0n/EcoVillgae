@@ -97,6 +97,16 @@ public class LoanApplicationService {
         return jdbc.query("select a.id,a.classroom_student_id,s.nickname,a.requested_amount,a.approved_amount,coalesce(cp.score,a.credit_score_snapshot),coalesce(cp.level,a.credit_level_snapshot),a.status,a.created_at from loan_applications a join classroom_students s on s.id=a.classroom_student_id left join credit_profiles cp on cp.classroom_id=a.classroom_id and cp.classroom_student_id=a.classroom_student_id where a.classroom_id=? and a.status='APPLIED' order by a.created_at", (rs,n)->application(rs), classroomId);
     }
 
+    /**
+     * 교사가 이미 승인하거나 거절한 대출 신청이다. 승인·정산 화면의 "운영 기록"에 쌓인다.
+     * 최근 것부터 준다.
+     */
+    @Transactional(readOnly=true)
+    public List<LoanApplicationView> decided(String subject, UUID classroomId) {
+        authorization.authorize(subject,classroomId,ClassroomPermission.MANAGE_LOANS,null);
+        return jdbc.query("select a.id,a.classroom_student_id,s.nickname,a.requested_amount,a.approved_amount,coalesce(cp.score,a.credit_score_snapshot),coalesce(cp.level,a.credit_level_snapshot),a.status,a.decided_at from loan_applications a join classroom_students s on s.id=a.classroom_student_id left join credit_profiles cp on cp.classroom_id=a.classroom_id and cp.classroom_student_id=a.classroom_student_id where a.classroom_id=? and a.status in ('APPROVED','REJECTED') order by a.decided_at desc", (rs,n)->application(rs), classroomId);
+    }
+
     @Transactional
     public LoanOverviewView mine(String subject, UUID classroomId) {
         UUID studentId=student(subject); authorization.authorize(subject,classroomId,ClassroomPermission.REQUEST_LOAN,studentId); Credit value=credit(classroomId,studentId); LoanPolicyVersion policy=currentPolicy(classroomId);

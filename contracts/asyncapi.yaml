@@ -3,7 +3,7 @@ id: "urn:ecovillage:realtime-api"
 info:
   title: "이코빌리지 Realtime WebSocket API"
   version: "0.1.0"
-  description: "WEBSOCKET_SPEC.md의 논리 채널 10개와 도메인 이벤트 48개를 기계 판독 계약으로 고정합니다. 변경 명령은 HTTP로만 받고 WebSocket은 커밋된 상태를 최소 1회 전달합니다."
+  description: "WEBSOCKET_SPEC.md의 논리 채널 10개와 도메인 이벤트 49개를 기계 판독 계약으로 고정합니다. 변경 명령은 HTTP로만 받고 WebSocket은 커밋된 상태를 최소 1회 전달합니다."
 defaultContentType: "application/json"
 servers:
   production:
@@ -178,6 +178,8 @@ channels:
         $ref: "#/components/messages/EvtAct006"
       EvtAct007:
         $ref: "#/components/messages/EvtAct007"
+      EvtAct008:
+        $ref: "#/components/messages/EvtAct008"
       SubscriptionSubscribe:
         $ref: "#/components/messages/SubscriptionSubscribe"
       SubscriptionUnsubscribe:
@@ -421,6 +423,7 @@ operations:
       - $ref: "#/channels/wsAct001/messages/EvtAct005"
       - $ref: "#/channels/wsAct001/messages/EvtAct006"
       - $ref: "#/channels/wsAct001/messages/EvtAct007"
+      - $ref: "#/channels/wsAct001/messages/EvtAct008"
   receiveWsAct001Control:
     action: "receive"
     channel:
@@ -1483,6 +1486,46 @@ components:
                   - "title"
                   - "description"
                   - "effective_from"
+                additionalProperties: false
+    EvtAct008:
+      name: "activity.presentation.changed"
+      title: "EVT-ACT-008"
+      summary: "activity_id, page, total_pages, title"
+      contentType: "application/json"
+      correlationId:
+        $ref: "#/components/correlationIds/correlationId"
+      x-event-id: "EVT-ACT-008"
+      x-channel-ids:
+        - "WS-ACT-001"
+      x-origin-api-ids:
+        - "API-ACT-004"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "CLS-009"
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: "object"
+            properties:
+              event_type:
+                const: "activity.presentation.changed"
+              payload:
+                type: "object"
+                properties:
+                  activity_id:
+                    type: "string"
+                    format: "uuid"
+                  page:
+                    type: "string"
+                  total_pages:
+                    type: "string"
+                  title:
+                    type: "string"
+                required:
+                  - "activity_id"
+                  - "page"
+                  - "total_pages"
+                  - "title"
                 additionalProperties: false
     EvtQz001:
       name: "quiz.session.started"

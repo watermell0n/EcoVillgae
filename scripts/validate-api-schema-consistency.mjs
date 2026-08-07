@@ -40,16 +40,21 @@ function requireCondition(condition, message) {
   if (!condition) errors.push(message);
 }
 
-requireCondition(operations.length === 143, `expected 143 operations, found ${operations.length}`);
-requireCondition(new Set(apiIds).size === 143, "api-field-mapping has duplicate API IDs");
+// 143 -> 147: API-ACT-003·004(수업 자료 순서 진행), API-QZ-010(넌센스 문항 가져오기),
+// API-CLS-009(학급 보관)을 명세에 넣었다.
+// MVP 119 -> 118: 위 넷은 모두 MVP지만, 그 전에 부동산 API 여섯 건(API-EST-023~028)이
+// planned로 내려가고 API-FIN-013이 MVP로 올라와 순증이 -5였다. 그 변화가 반영되지 않아
+// 이 검증이 실패하고 있었다.
+requireCondition(operations.length === 148, `expected 148 operations, found ${operations.length}`);
+requireCondition(new Set(apiIds).size === 148, "api-field-mapping has duplicate API IDs");
 requireCondition(mvp.length === 119, `expected 119 MVP/support contracts, found ${mvp.length}`);
-requireCondition(planned.length === 24, `expected 24 planned contracts, found ${planned.length}`);
+requireCondition(planned.length === 29, `expected 29 planned contracts, found ${planned.length}`);
 
 const openapiStatusCount = [...openapi.matchAll(/^\s+x-implementation-status:/gm)].length;
 const openapiStrictCount = [
   ...openapi.matchAll(/^\s+x-schema-closure: "strict"$/gm),
 ].length;
-requireCondition(openapiStatusCount === 143, `OpenAPI status markers: ${openapiStatusCount}`);
+requireCondition(openapiStatusCount === 148, `OpenAPI status markers: ${openapiStatusCount}`);
 requireCondition(openapiStrictCount === mvp.length, `OpenAPI strict markers: ${openapiStrictCount}`);
 
 for (const operation of mvp) {

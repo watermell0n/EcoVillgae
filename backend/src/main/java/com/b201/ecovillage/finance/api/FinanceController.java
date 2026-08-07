@@ -386,6 +386,21 @@ public class FinanceController {
         );
     }
 
+    /** 이미 승인·거절한 대출 신청이다. 승인·정산 화면의 운영 기록이 읽는다. */
+    @GetMapping("/loan-decisions")
+    public ResponseEntity<ApiResponse<List<LoanApplicationResponse>>> loanDecisions(
+        @PathVariable UUID classroomId, Principal principal
+    ) {
+        return response(
+            HttpStatus.OK,
+            loanApplicationService.decided(subject(principal), classroomId).stream()
+                .map(FinanceController::loan)
+                .toList(),
+            uuidGenerator.generate(),
+            uuidGenerator.generate()
+        );
+    }
+
     @GetMapping("/loan-approval-queue")
     public ResponseEntity<ApiResponse<LoanApprovalQueueResponse>> loanQueue(@PathVariable UUID classroomId, Principal principal) {
         String subject = subject(principal);

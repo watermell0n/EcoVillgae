@@ -116,6 +116,24 @@ public class InvestmentPriceStep {
         revealedAt = Objects.requireNonNull(now);
     }
 
+    /**
+     * 아직 공개하지 않은 단계의 가격을 다시 정한다.
+     *
+     * <p>교사가 1주 금액이나 변동 범위를 고치면 그 뒤의 흐름을 새로 뽑아야 한다. 이미 학생에게
+     * 공개한 단계는 바꾸지 않는다. 본 가격이 나중에 달라지면 안 되기 때문이다.
+     */
+    public void reprice(long nextPrice, int nextChangeRateBps, Instant now) {
+        if (revealedAt != null) {
+            throw new IllegalStateException("The investment price step is already revealed");
+        }
+        if (nextPrice < 1L) {
+            throw new IllegalArgumentException("price must be at least 1");
+        }
+        Objects.requireNonNull(now, "now must not be null");
+        this.price = nextPrice;
+        this.changeRateBps = nextChangeRateBps;
+    }
+
     public UUID getId() {
         return id;
     }

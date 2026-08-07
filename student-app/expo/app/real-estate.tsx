@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
+import { fetchWallet } from "@/features/student/api";
 import {
   applicationStatusLabel,
   applySubscriptionOffer,
@@ -31,6 +32,18 @@ import { colors, radii } from "@/theme/tokens";
 
 const SEAT_GAP = 10;
 
+/**
+ * 화면 어디를 보고 있어도 놓치지 않도록 신청 결과를 대화상자로 알립니다.
+ * 웹의 react-native-web에는 Alert가 없어 브라우저 alert로 대신합니다.
+ */
+function announce(title: string, message: string) {
+  if (Platform.OS === "web") {
+    (globalThis as { alert?: (text: string) => void }).alert?.(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+}
+
 function toneFor(property: Property, mine: boolean) {
   if (mine) return styles.seatMine;
   if (property.status === "AVAILABLE") return styles.seatDirect;
@@ -54,15 +67,19 @@ export default function RealEstateScreen() {
   const [depositInput, setDepositInput] = useState("10");
   const [resaleInput, setResaleInput] = useState("100");
 
+  // 선생님이 계약을 승인하면 좌석판과 내 자리가 바뀝니다. 학생이 새로고침하지 않아도
+  // 몇 초 안에 반영되도록 주기적으로 다시 읽습니다.
   const layout = useQuery({
     queryKey: ["property-layout", classroomId],
     queryFn: () => fetchPropertyLayout(classroomId!),
-    enabled: Boolean(classroomId && realEstateEnabled)
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
   const mine = useQuery({
     queryKey: ["properties-mine", classroomId],
     queryFn: () => fetchMyProperties(classroomId!),
-    enabled: Boolean(classroomId && realEstateEnabled)
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
   const account = useQuery({
     queryKey: ["subscription-account", classroomId],
@@ -78,6 +95,13 @@ export default function RealEstateScreen() {
     queryKey: ["subscription-applications", classroomId],
     queryFn: () => fetchSubscriptionApplications(classroomId!),
     enabled: Boolean(classroomId && subscriptionEnabled)
+  });
+  // 계약에 낼 돈이 있는지 미리 보고 버튼을 막습니다. 눌러서 실패하는 것보다 낫습니다.
+  const wallet = useQuery({
+    queryKey: ["wallet", classroomId],
+    queryFn: () => fetchWallet(classroomId!),
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
 
   const mineIds = useMemo(() => new Set((mine.data ?? []).map((property) => property.propertyId)), [mine.data]);
@@ -105,8 +129,19 @@ export default function RealEstateScreen() {
 
   const purchase = useMutation({
     mutationFn: ({ property, contractType, applicationId }: { property: Property; contractType: ContractType; applicationId?: string }) => requestPropertyContract(property.propertyId, contractType, applicationId),
-    onSuccess: async (_result, variables) => { setNotice(`${contractTypeLabel(variables.contractType)} 계약을 신청했어요. 선생님 승인 후 반영돼요.`); await refresh(); },
-    onError: (error: Error) => setNotice(error.message)
+    onSuccess: async (_result, variables) => {
+      const message = variables.property.status === "SUBSCRIPTION_OPEN"
+        ? "당첨 자리 구매를 신청했어요. 선생님 승인 후 내 자리가 돼요."
+        : `${contractTypeLabel(variables.contractType)} 계약을 신청해 돈이 빠져나갔어요. 선생님 승인 후 내 자리에 반영돼요.`;
+      setNotice(message);
+      announce("계약 신청 완료", message);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
+    },
+    onError: (error: Error) => {
+      setNotice(error.message);
+      announce("계약 신청 실패", error.message);
+    }
   });
   const resale = useMutation({
     mutationFn: ({ propertyId, price }: { propertyId: string; price: number }) => createPropertySaleListing(propertyId, price),
@@ -145,6 +180,16 @@ export default function RealEstateScreen() {
     (["AVAILABLE", "LISTED_FOR_SALE", "LISTED_FOR_RENT"].includes(selected.status) && contractTypes.includes(selectedContractType))
       || (selected.status === "SUBSCRIPTION_OPEN" && wonApplication && selectedContractType === "SALE")
   ));
+
+  /** 이 계약에 지금 내야 하는 돈입니다. 월세·전세는 보증금을 먼저 내고, 월세는 이후 주기마다 자동으로 나갑니다. */
+  const contractCost = (() => {
+    if (!selected) return 0;
+    if (selected.status === "SUBSCRIPTION_OPEN") return 0;
+    if (selectedContractType === "SALE") return selected.salePrice;
+    return selected.depositAmount;
+  })();
+  const balance = wallet.data?.balance ?? 0;
+  const affordsContract = !wallet.isPending && balance >= contractCost;
 
   if (!realEstateEnabled) {
     return <Screen title="부동산" right={<BackButton />}><StateCard title="부동산 모듈이 꺼져 있어요"><Text style={styles.description}>선생님이 부동산 모듈을 열면 교실 좌석판을 볼 수 있어요. 청약은 부동산 모듈과 함께 켜져야 합니다.</Text></StateCard></Screen>;
@@ -195,7 +240,10 @@ export default function RealEstateScreen() {
               ? `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.contractTermDays}일`
               : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}/${selected.paymentCycleDays}일 · ${selected.contractTermDays}일`}</Text>
         </> : null}
-        {canContractSelected ? <Pressable disabled={purchase.isPending} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, purchase.isPending && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable> : null}
+        {canContractSelected ? <>
+          <Pressable disabled={purchase.isPending || !affordsContract} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract) && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
+          {!affordsContract ? <Text style={styles.description}>지금 낼 돈이 {contractCost.toLocaleString("ko-KR")} {currency}인데 내 지갑에는 {balance.toLocaleString("ko-KR")} {currency}이 있어요. 돈을 더 모은 뒤 신청할 수 있어요.</Text> : null}
+        </> : null}
         {!mineIds.has(selected.propertyId) && !canContractSelected ? <Text style={styles.description}>{selected.status === "SUBSCRIPTION_OPEN" ? "청약 당첨 후 구매를 신청할 수 있어요." : selected.isPublic ? "이 자리에는 현재 신청 가능한 매매·전세·월세 조건이 없어요." : "선생님이 아직 이 자리를 공개하지 않았어요."}</Text> : null}
       </StateCard> : null}
 
@@ -221,7 +269,20 @@ export default function RealEstateScreen() {
           return <StateCard key={offer.offerId}>
             <Text style={styles.cardTitle}>{offer.title}</Text><Text style={styles.cardMeta}>공급 {offer.supplyQuantity}석 · 신청 {offer.applicantCount}명 · {new Date(offer.closesAt).toLocaleString("ko-KR")} 마감</Text>
             <Text style={styles.offerPrice}>분양가 {offer.salePrice.toLocaleString("ko-KR")} {currency}</Text><Text style={styles.description}>조건: 납입 {offer.minimumDepositCount}회 · 예치금 {Math.max(offer.minimumBalance, offer.salePrice).toLocaleString("ko-KR")} {currency} 이상</Text>
-            {application ? <View style={styles.applicationRow}><Text style={styles.applicationStatus}>{applicationStatusLabel(application.status)}</Text>{application.status === "APPLIED" ? <Pressable onPress={() => cancelApplication.mutate(application.applicationId)} style={styles.secondary}><Text style={styles.secondaryText}>신청 취소</Text></Pressable> : null}</View> : <Pressable disabled={!account.data || hasActiveApplication || apply.isPending} onPress={() => apply.mutate(offer.offerId)} style={[styles.primary, (!account.data || hasActiveApplication || apply.isPending) && styles.disabled]}><Text style={styles.primaryText}>{hasActiveApplication ? "다른 청약 진행 중" : "청약 신청"}</Text></Pressable>}
+            {application ? <View style={styles.applicationRow}><Text style={styles.applicationStatus}>{applicationStatusLabel(application.status)}</Text>{application.status === "APPLIED" ? <Pressable onPress={() => cancelApplication.mutate(application.applicationId)} style={styles.secondary}><Text style={styles.secondaryText}>신청 취소</Text></Pressable> : null}</View> : (() => {
+              // 분양가(또는 최소 예치금) 이상을 넣어 두지 않으면 서버가 거절합니다.
+              // 눌러서 실패하기 전에 버튼을 잠그고 얼마가 모자란지 알려 줍니다.
+              const required = Math.max(offer.minimumBalance, offer.salePrice);
+              const deposited = account.data?.totalDepositAmount ?? 0;
+              const enoughDeposit = deposited >= required;
+              const enoughCount = (account.data?.depositCount ?? 0) >= offer.minimumDepositCount;
+              const blocked = !account.data || hasActiveApplication || apply.isPending || !enoughDeposit || !enoughCount;
+              return <>
+                <Pressable disabled={blocked} onPress={() => apply.mutate(offer.offerId)} style={[styles.primary, blocked && styles.disabled]}><Text style={styles.primaryText}>{hasActiveApplication ? "다른 청약 진행 중" : "청약 신청"}</Text></Pressable>
+                {account.data && !hasActiveApplication && !enoughDeposit ? <Text style={styles.description}>청약통장에 {required.toLocaleString("ko-KR")} {currency} 이상 있어야 신청할 수 있어요. 지금은 {deposited.toLocaleString("ko-KR")} {currency}예요.</Text> : null}
+                {account.data && !hasActiveApplication && enoughDeposit && !enoughCount ? <Text style={styles.description}>납입을 {offer.minimumDepositCount}회 이상 해야 신청할 수 있어요.</Text> : null}
+              </>;
+            })()}
           </StateCard>;
         }) : <StateCard title="진행 중인 청약이 없어요"><Text style={styles.description}>선생님이 청약 공급을 열면 여기에 공고가 나타나요.</Text></StateCard>}
 
