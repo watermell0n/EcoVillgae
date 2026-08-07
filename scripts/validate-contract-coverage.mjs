@@ -60,9 +60,9 @@ assertSame("이벤트 ID", sourceEventIds, contractEventIds);
 assertSame("event_type", sourceEventTypes, contractEventTypes);
 
 // 143 -> 147: API-ACT-003·004, API-QZ-010, API-CLS-009을 명세에 넣었다.
-if (sourceApiIds.length !== 148) throw new Error(`API 수가 148개가 아닙니다: ${sourceApiIds.length}`);
-if (operationIds.length !== 148)
-  throw new Error(`operationId 수가 148개가 아닙니다: ${operationIds.length}`);
+if (sourceApiIds.length !== 153) throw new Error(`API 수가 153개가 아닙니다: ${sourceApiIds.length}`);
+if (operationIds.length !== 153)
+  throw new Error(`operationId 수가 153개가 아닙니다: ${operationIds.length}`);
 if (sourceChannelIds.length !== 10)
   throw new Error(`채널 수가 10이 아닙니다: ${sourceChannelIds.length}`);
 if (sourceEventIds.length !== 49)

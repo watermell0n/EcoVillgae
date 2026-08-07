@@ -46,8 +46,9 @@ const mermaidBlocks = [
   ...source.matchAll(/```mermaid\s*\n([\s\S]*?)```/g),
 ].map((match) => match[1]);
 
-if (mermaidBlocks.length !== 6) {
-  errors.push(`ER diagram count must be 6, found ${mermaidBlocks.length}`);
+// 6 -> 7: 부동산 자리·임대·매매·청약 도메인(9장)이 자기 ER 다이어그램을 갖는다.
+if (mermaidBlocks.length !== 7) {
+  errors.push(`ER diagram count must be 7, found ${mermaidBlocks.length}`);
 }
 
 const declared = new Set();
