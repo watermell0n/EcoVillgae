@@ -194,7 +194,7 @@ button:disabled {
 .classroom-row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
+  grid-template-columns: auto minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
   align-items: center;
   gap: 24px;
   min-height: 92px;
@@ -204,6 +204,16 @@ button:disabled {
   color: var(--ink);
   background: #ffffff;
   text-align: left;
+}
+
+/* 열기·삭제 버튼은 줄의 왼쪽 끝에 둡니다. DOM 순서는 그대로 두고 자리만 옮깁니다. */
+.classroom-row .row-actions {
+  order: -1;
+}
+
+/* 임시 저장 줄에는 버튼 칸이 없으므로 원래 3칸 배치를 유지합니다. */
+.classroom-row.draft {
+  grid-template-columns: minmax(220px, 1fr) minmax(240px, 0.8fr) auto;
 }
 
 .classroom-row:hover {
@@ -1533,12 +1543,25 @@ button:disabled {
 .quiz-draft-workspace .recommendation-tabs,
 .quiz-draft-workspace .quiz-bank-toolbar,
 .ai-workspace .row-actions,
-.ai-workspace .ai-disable-form,
 .ai-workspace .section-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+/*
+ * 중지 사유 입력칸은 섹션 폭을 그대로 쓰고, 검토 버튼은 그 아래 가운데에 둡니다.
+ * 입력칸과 버튼이 한 줄에 붙어 있으면 입력칸이 좁아지고 버튼이 어디 속한지 헷갈립니다.
+ */
+.ai-workspace .ai-disable-form {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.ai-workspace .ai-disable-form > label {
+  width: 100%;
 }
 
 .quiz-draft-workspace article footer,
@@ -4683,4 +4706,653 @@ select:focus-visible {
 @keyframes lesson-sequence-rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   AI 설정·수업 준비(퀴즈) 화면 정리
+   브라우저 기본 모양으로 남아 있던 입력칸·체크 목록을 부동산·청약 탭과 같은
+   둥근 테두리로 맞추고, 다닥다닥 붙어 있던 칸 사이에 숨 쉴 틈을 둡니다.
+   ========================================================================== */
+
+/* 공통 입력칸: 버튼(둥근 10px)과 같은 결로 맞춥니다. */
+.ai-workspace input,
+.ai-workspace select,
+.ai-workspace textarea,
+.quiz-draft-workspace input,
+.quiz-draft-workspace select,
+.quiz-draft-workspace textarea,
+.embedded-quiz-workspace input,
+.embedded-quiz-workspace select,
+.embedded-quiz-workspace textarea {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.ai-workspace textarea,
+.quiz-draft-workspace textarea,
+.embedded-quiz-workspace textarea {
+  resize: vertical;
+}
+
+.ai-workspace input:focus,
+.ai-workspace select:focus,
+.ai-workspace textarea:focus,
+.quiz-draft-workspace input:focus,
+.quiz-draft-workspace select:focus,
+.quiz-draft-workspace textarea:focus,
+.embedded-quiz-workspace input:focus,
+.embedded-quiz-workspace select:focus,
+.embedded-quiz-workspace textarea:focus {
+  border-color: var(--green);
+}
+
+/* 체크박스·라디오는 위 공통 규칙에서 제외해 원래 크기로 되돌립니다. */
+.ai-workspace input[type="checkbox"],
+.ai-workspace input[type="radio"],
+.quiz-draft-workspace input[type="checkbox"],
+.quiz-draft-workspace input[type="radio"],
+.embedded-quiz-workspace input[type="checkbox"],
+.embedded-quiz-workspace input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  min-height: 17px;
+  padding: 0;
+  accent-color: var(--green);
+}
+
+/* 체크 목록을 감싸는 fieldset도 같은 둥근 테두리를 씁니다. */
+.ai-workspace fieldset,
+.quiz-draft-workspace fieldset {
+  margin: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+}
+
+.ai-workspace legend,
+.quiz-draft-workspace legend {
+  padding: 0 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-workspace .ai-disable-form > .ai-confirmation {
+  width: 100%;
+}
+
+/* ----- 교사용 AI 챗봇 ----- */
+.teacher-chat-content {
+  display: grid;
+  gap: 20px;
+}
+
+/* 예시 질문 버튼: 사이사이 간격을 두고 알약 모양으로 통일합니다. */
+.chat-quick-questions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chat-quick-questions button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+.teacher-chat-form {
+  display: grid;
+  gap: 18px;
+}
+
+.chat-question {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chat-question textarea {
+  min-height: 110px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chat-question small {
+  justify-self: end;
+  font-weight: 700;
+}
+
+.chat-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+.chat-options > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.chat-options select {
+  min-width: 140px;
+}
+
+.chat-options .chat-policy-option {
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chat-metric-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.chat-metric-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.chat-form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-form-footer small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.chat-form-footer .primary-save {
+  min-height: 46px;
+  padding: 0 22px;
+}
+
+.chat-disabled {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  color: #9c5b17;
+  background: #fff7ea;
+  font-weight: 800;
+}
+
+.chat-loading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.chat-answer {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.chat-question-bubble {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #eef2f4;
+}
+
+.chat-question-bubble strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chat-question-bubble p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.chat-answer-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.chat-answer-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.chat-answer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-answer-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-evidence h3,
+.chat-recommendations h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.chat-evidence dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.chat-evidence dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chat-evidence dd {
+  margin: 3px 0 0;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-recommendations ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.chat-recommendations ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-readonly-note,
+.chat-limit-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chat-history {
+  display: grid;
+  gap: 8px;
+}
+
+.chat-history summary {
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chat-history button {
+  justify-self: start;
+}
+
+/* ----- AI 경제 운영 (자동 모니터링·밸런싱) ----- */
+.monitor-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-state.on { color: #226b43; background: #eef8f2; }
+.monitor-state.off { color: #a42f2a; background: #fff1f0; }
+
+.monitor-analysis-form {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.monitor-period {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.monitor-period label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-period input {
+  min-width: 180px;
+}
+
+/* 분석 지표 체크 목록: 줄과 칸 사이를 띄워 한눈에 고를 수 있게 합니다. */
+.monitor-metric-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 18px;
+  padding-top: 2px;
+}
+
+.monitor-metric-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* "지금 분석하기"는 지표 목록과 사이를 두고 아래 가운데에 둡니다. */
+.monitor-analysis-form .wide-action {
+  grid-column: 1;
+  justify-self: center;
+  min-width: 240px;
+  margin-top: 8px;
+  padding: 0 24px;
+}
+
+.monitor-result {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.monitor-result header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.monitor-result p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.monitor-severity {
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: #eef2f4;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.monitor-severity.normal { color: #226b43; background: #eef8f2; }
+.monitor-severity.observe { color: #92610f; background: #fff6e3; }
+.monitor-severity.warn { color: #a42f2a; background: #fff1f0; }
+
+.monitor-metric-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 10px;
+}
+
+.monitor-metric-results > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.monitor-metric-results > div span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-metric-results > div strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.monitor-metric-results > div small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.monitor-metric-results > div.observe { border-color: #ecd9ae; background: #fffaef; }
+.monitor-metric-results > div.warn { border-color: #ecc2c0; background: #fff8f7; }
+
+.monitor-proposal-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.monitor-proposal-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.monitor-proposal-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.monitor-proposal-list {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-proposal-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.monitor-proposal-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.monitor-proposal-card header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.monitor-proposal-card header > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monitor-summary {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.monitor-proposed-values {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-proposed-values > div {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.monitor-proposed-values label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.monitor-proposed-values input {
+  max-width: 220px;
+}
+
+.monitor-proposed-values small,
+.monitor-proposed-values p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.monitor-proposal-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.monitor-proposal-card footer small {
+  margin-right: auto;
+  color: var(--muted);
+}
+
+.monitor-proposal-card .apply {
+  border-color: var(--green);
+  color: #ffffff;
+  background: var(--green);
+}
+
+.monitor-proposal-card .reject {
+  border-color: #efc9c9;
+  color: #b63c3c;
+  background: #fff6f6;
+}
+
+/* ----- 게임형 퀴즈 (AI 보상 추천) ----- */
+/* 안내 문장은 한 줄을 통째로 쓰고, 입력칸 4개는 옆으로 나란히 퍼지게 합니다. */
+.recommendation-form .section-description {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* ----- 수업 준비: 퀴즈 문제은행 ----- */
+/* 안에 든 퀴즈 화면이 자체 여백을 한 번 더 갖고 있어 위 칸들보다 좁아 보였습니다. */
+.embedded-quiz-workspace .page-flow {
+  width: 100%;
+  padding: 0;
+}
+
+/* 난이도 카드가 설명 글에 비해 낮아 답답했습니다. 세로로 여유를 줍니다. */
+.economy-quiz-level {
+  min-height: 265px;
+}
+
+.economy-quiz-actions {
+  margin-top: 6px;
+}
+
+/* ----- 교사용 AI 퀴즈 (검토용 문항 생성) ----- */
+.quiz-draft-form {
+  display: grid;
+  gap: 18px;
+}
+
+/* 첫 줄에 학년·분류·유형·문항 수, 둘째 줄에 주제·학습목표를 넓게 둡니다. */
+.quiz-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.quiz-draft-grid label {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.quiz-draft-grid .quiz-wide-field {
+  grid-column: span 2;
+}
+
+.quiz-draft-grid textarea {
+  min-height: 86px;
+}
+
+/* 생성 버튼은 입력칸과 겹치지 않게 한 줄 아래 가운데에 둡니다. */
+.quiz-draft-submit {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding-top: 4px;
+  text-align: center;
+}
+
+.quiz-draft-submit small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.quiz-draft-submit .primary-save {
+  min-width: 200px;
+  min-height: 46px;
+}
+
+@media (max-width: 900px) {
+  .quiz-draft-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
