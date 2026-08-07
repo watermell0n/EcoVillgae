@@ -1,5 +1,6 @@
 package com.b201.ecovillage.classroom.api;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -237,6 +238,20 @@ class ClassroomReadApiTest {
 
     @Test
     void studentReadsOnlyActiveModulesAndPublicPolicyMetadata() throws Exception {
+        policyVersionRepository.saveAndFlush(
+            ClassroomPolicyVersion.accessMode(
+                UUID.randomUUID(),
+                classroomId,
+                1,
+                Map.of(
+                    "mode", "CLOSED",
+                    "duration_minutes", 30,
+                    "command", "CLOSE"
+                ),
+                NOW
+            )
+        );
+
         mockMvc.perform(
             get("/classrooms/{classroomId}/modules-and-policies", classroomId)
                 .principal(() -> student.getId().toString())
@@ -249,8 +264,18 @@ class ClassroomReadApiTest {
             .andExpect(jsonPath("$.data.modules[0].config.rule_version").doesNotExist())
             .andExpect(jsonPath("$.data.modules[0].config.recommendation_action_ids")
                 .doesNotExist())
-            .andExpect(jsonPath("$.data.policy_versions.length()").value(1))
-            .andExpect(jsonPath("$.data.policy_versions[0].policy_area").value("SALARY"));
+            .andExpect(jsonPath("$.data.policy_versions.length()").value(2))
+            .andExpect(jsonPath("$.data.policy_versions[*].policy_area")
+                .value(hasItems("ACCESS_MODE", "SALARY")))
+            .andExpect(jsonPath(
+                "$.data.policy_versions[?(@.policy_area == 'ACCESS_MODE')].values.mode"
+            ).value(hasItem("CLOSED")))
+            .andExpect(jsonPath(
+                "$.data.policy_versions[?(@.policy_area == 'ACCESS_MODE')].values.duration_minutes"
+            ).doesNotExist())
+            .andExpect(jsonPath(
+                "$.data.policy_versions[?(@.policy_area == 'ACCESS_MODE')].values.command"
+            ).doesNotExist());
     }
 
     /**

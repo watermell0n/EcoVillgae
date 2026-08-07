@@ -12,12 +12,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
+import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -83,7 +85,13 @@ class AccessModeCommandServiceTest {
         when(policies.findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
             classroomId,
             "ACCESS_MODE"
-        )).thenReturn(Optional.empty());
+        )).thenReturn(Optional.of(ClassroomPolicyVersion.accessMode(
+            UUID.randomUUID(),
+            classroomId,
+            1,
+            Map.of("mode", "CLOSED"),
+            NOW.minusSeconds(60)
+        )));
         when(modules.findAllByClassroomIdAndStatusOrderByModuleCode(
             classroomId,
             "ACTIVE"
@@ -106,6 +114,7 @@ class AccessModeCommandServiceTest {
         assertEquals(NOW.plusSeconds(30 * 60), result.expiresAt());
         assertEquals("AUTONOMOUS", classroom.getAppModeOverride());
         verify(policies).save(any());
+        verify(policies).flush();
         verify(idempotency).save(any());
         verify(precheckGuard).verify(any(), any(), any());
     }
@@ -146,6 +155,13 @@ class AccessModeCommandServiceTest {
         UUID teacherId = UUID.randomUUID();
         UUID requestId = UUID.randomUUID();
         Classroom classroom = Classroom.active(classroomId, "ABCD1234", NOW);
+        ClassroomPolicyVersion existingPolicy = ClassroomPolicyVersion.accessMode(
+            UUID.randomUUID(),
+            classroomId,
+            1,
+            Map.of("mode", "CLOSED"),
+            NOW.minusSeconds(60)
+        );
         when(users.findByExternalSubject("teacher")).thenReturn(Optional.of(
             UserAccount.createTeacher(teacherId, "teacher", "Teacher", NOW)
         ));
@@ -159,7 +175,7 @@ class AccessModeCommandServiceTest {
         when(policies.findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
             classroomId,
             "ACCESS_MODE"
-        )).thenReturn(Optional.empty());
+        )).thenReturn(Optional.of(existingPolicy));
         when(classrooms.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
 
         AccessModeResult result = service.execute(new AccessModeCommand(
@@ -177,5 +193,6 @@ class AccessModeCommandServiceTest {
         assertEquals(AppAccessMode.CLOSED, result.mode());
         assertNull(result.expiresAt());
         assertEquals("CLOSED", classroom.getAppModeOverride());
+        verify(policies).flush();
     }
 }

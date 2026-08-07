@@ -87,6 +87,10 @@ type StudentActivityRow = {
   occurred_at: string;
 };
 
+type StudentActivityFilter = "ALL" | "STORE" | "FINANCE" | "INVESTMENT";
+
+const STUDENT_ACTIVITY_PAGE_SIZE = 15;
+
 // 새로고침해도 열어 둔 교실과 탭을 그대로 유지합니다. 탭마다 따로 기억하도록 sessionStorage를 씁니다.
 const CONSOLE_STATE_KEY = "ecovillage.teacher.console";
 
@@ -660,7 +664,7 @@ export default function TeacherConsole() {
       ],
       onEvent: (event) => {
         if (event.event_type === "classroom.app_mode.changed") {
-          setMode(event.payload.mode === "GUIDED" ? "선생님 수업" : "자율 활동");
+          setMode(event.payload.mode === "AUTONOMOUS" ? "자율 활동" : "선생님 수업");
         }
         if (event.event_type.startsWith("loan.") || event.event_type === "finance.product.changed") {
           setRealtimeRevision((revision) => revision + 1);
@@ -2489,8 +2493,13 @@ function Overview({
   const [studentActivities, setStudentActivities] = useState<StudentActivityRow[]>([]);
   const [liveDashboardError, setLiveDashboardError] = useState("");
   const [lastLiveRefreshAt, setLastLiveRefreshAt] = useState<string>();
+  const [activityFilter, setActivityFilter] = useState<StudentActivityFilter>("ALL");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityFeedOpen, setActivityFeedOpen] = useState(false);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(STUDENT_ACTIVITY_PAGE_SIZE);
 
   useEffect(() => setLiveStudents(students), [students]);
+  useEffect(() => setVisibleActivityCount(STUDENT_ACTIVITY_PAGE_SIZE), [activityFilter, activitySearch]);
 
   // WebSocket events update `students` immediately. This lightweight poll is the
   // safety net for school networks that temporarily block or reconnect WebSockets.
@@ -2557,6 +2566,37 @@ function Overview({
       latestActivityByStudent.set(activity.student_id, activity);
     }
   });
+  const studentById = new Map(liveStudents.flatMap((student) => (
+    student.resourceId ? [[student.resourceId, student] as const] : []
+  )));
+  const recentActivityCutoff = Date.now() - 10 * 60 * 1_000;
+  const recentActivities = studentActivities.filter(
+    (activity) => new Date(activity.occurred_at).getTime() >= recentActivityCutoff
+  );
+  const recentPurchaseCount = recentActivities.filter(
+    (activity) => activity.activity_type === "STORE_PURCHASE"
+  ).length;
+  const recentFinanceCount = recentActivities.filter(
+    (activity) => activity.activity_type === "DEPOSIT_OPEN" || activity.activity_type === "SAVINGS_OPEN"
+  ).length;
+  const recentInvestmentCount = recentActivities.filter(
+    (activity) => activity.activity_type === "INVESTMENT_BUY" || activity.activity_type === "INVESTMENT_SELL"
+  ).length;
+  const recentActiveStudentCount = new Set(recentActivities.map((activity) => activity.student_id)).size;
+  const normalizedActivitySearch = activitySearch.trim().toLocaleLowerCase("ko-KR");
+  const filteredActivities = studentActivities.filter((activity) => {
+    const matchesType = activityFilter === "ALL"
+      || activityFilter === "STORE" && activity.activity_type === "STORE_PURCHASE"
+      || activityFilter === "FINANCE" && ["DEPOSIT_OPEN", "SAVINGS_OPEN"].includes(activity.activity_type)
+      || activityFilter === "INVESTMENT" && ["INVESTMENT_BUY", "INVESTMENT_SELL"].includes(activity.activity_type);
+    if (!matchesType) return false;
+    if (!normalizedActivitySearch) return true;
+    const student = studentById.get(activity.student_id);
+    return `${student?.attendance ?? ""} ${student?.nickname ?? ""} ${activity.title} ${studentActivityDescription(activity)}`
+      .toLocaleLowerCase("ko-KR")
+      .includes(normalizedActivitySearch);
+  });
+  const visibleActivities = filteredActivities.slice(0, visibleActivityCount);
 
   function setLessonMode() {
     const isFreeMode = mode === "자율 활동";
@@ -2568,7 +2608,7 @@ function Overview({
         body: JSON.stringify({
           expected_state_version: stateVersion,
           command: isFreeMode ? "CLOSE" : "OPEN",
-          duration_minutes: 40,
+          ...(!isFreeMode && { duration_minutes: 40 }),
           client_occurred_at: new Date().toISOString()
         })
       },
@@ -2626,22 +2666,90 @@ function Overview({
           })}
         </div>
       </PlainSection>
-      <PlainSection title="최근 학생 경제 활동">
+      <PlainSection title="학생 경제 활동" description="수업 중에는 최근 흐름만 확인하고, 전체 기록은 필요할 때 펼쳐 보세요.">
         {studentActivities.length === 0 ? (
           <p className="empty-copy">아직 구매·예금·적금·투자 기록이 없습니다.</p>
         ) : (
-          <div className="student-activity-feed" role="list">
-            {studentActivities.map((activity) => {
-              const student = liveStudents.find((item) => item.resourceId === activity.student_id);
-              return (
-                <div className="student-activity-item" role="listitem" key={`${activity.activity_type}-${activity.resource_id}`}>
-                  <strong>{student ? `${student.attendance}. ${student.nickname}` : "학생"}</strong>
-                  <span>{studentActivityDescription(activity)}</span>
-                  <em>{new Date(activity.occurred_at).toLocaleString("ko-KR")}</em>
+          <>
+            <div className="student-activity-summary" aria-label="최근 10분 학생 경제 활동 요약">
+              <div><span>활동 학생</span><strong>{recentActiveStudentCount}명</strong><small>최근 10분</small></div>
+              <div><span>구매</span><strong>{recentPurchaseCount}건</strong><small>상점 이용</small></div>
+              <div><span>금융</span><strong>{recentFinanceCount}건</strong><small>예금·적금</small></div>
+              <div><span>투자</span><strong>{recentInvestmentCount}건</strong><small>매수·매도</small></div>
+            </div>
+            <div className="student-activity-disclosure">
+              <span>최근 기록 {studentActivities.length}건을 보관하고 있어요.</span>
+              <button
+                type="button"
+                className="student-activity-toggle"
+                aria-expanded={activityFeedOpen}
+                onClick={() => setActivityFeedOpen((open) => !open)}
+              >
+                {activityFeedOpen ? "전체 내역 접기" : "전체 내역 보기"}
+              </button>
+            </div>
+            {activityFeedOpen && (
+              <div className="student-activity-detail">
+                <div className="student-activity-tools">
+                  <div className="student-activity-filters" role="group" aria-label="활동 종류 필터">
+                    {([
+                      ["ALL", "전체"],
+                      ["STORE", "구매"],
+                      ["FINANCE", "예·적금"],
+                      ["INVESTMENT", "투자"]
+                    ] as const).map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={activityFilter === value ? "selected" : ""}
+                        aria-pressed={activityFilter === value}
+                        onClick={() => setActivityFilter(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="student-activity-search">
+                    <span>학생 검색</span>
+                    <input
+                      type="search"
+                      value={activitySearch}
+                      onChange={(event) => setActivitySearch(event.target.value)}
+                      placeholder="번호 또는 이름"
+                    />
+                  </label>
                 </div>
-              );
-            })}
-          </div>
+                <p className="student-activity-result-count">조건에 맞는 활동 {filteredActivities.length}건</p>
+                {filteredActivities.length === 0 ? (
+                  <p className="empty-copy">조건에 맞는 활동이 없습니다.</p>
+                ) : (
+                  <>
+                    <div className="student-activity-feed" role="list">
+                      {visibleActivities.map((activity) => {
+                        const student = studentById.get(activity.student_id);
+                        return (
+                          <div className="student-activity-item" role="listitem" key={`${activity.activity_type}-${activity.resource_id}`}>
+                            <strong>{student ? `${student.attendance}. ${student.nickname}` : "학생"}</strong>
+                            <span>{studentActivityDescription(activity)}</span>
+                            <em>{new Date(activity.occurred_at).toLocaleString("ko-KR")}</em>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {visibleActivityCount < filteredActivities.length && (
+                      <button
+                        type="button"
+                        className="student-activity-load-more"
+                        onClick={() => setVisibleActivityCount((count) => count + STUDENT_ACTIVITY_PAGE_SIZE)}
+                      >
+                        15건 더 보기
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </>
         )}
       </PlainSection>
     </div>

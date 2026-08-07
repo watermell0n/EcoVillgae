@@ -169,6 +169,7 @@ public class AccessModeCommandService {
             : AppAccessMode.AUTONOMOUS;
         if (previous != null) {
             previous.supersede(now);
+            policyRepository.flush();
         }
         ClassroomPolicyVersion policy = ClassroomPolicyVersion.accessMode(
             uuidGenerator.generate(),
