@@ -327,8 +327,10 @@ public class QuizController {
             new QuizSessionResponse(
                 view.quizSessionId(),
                 view.mode(),
+                view.contentType(),
                 view.status(),
                 view.stateVersion(),
+                view.openedAt(),
                 view.questions().stream()
                     .map(question -> new QuizSessionQuestionResponse(
                         question.resourceId(),
@@ -350,6 +352,56 @@ public class QuizController {
             ),
             requestId,
             resolvedCorrelationId
+        );
+    }
+
+    @GetMapping("/quiz-sessions")
+    public ResponseEntity<ApiResponse<QuizSessionsResponse>> findSessions(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = resolve(correlationId);
+        List<QuizSessionResponse> sessions = sessionQueryService
+            .findAll(subject(principal), classroomId)
+            .stream()
+            .map(this::sessionResponse)
+            .toList();
+        return response(
+            HttpStatus.OK,
+            new QuizSessionsResponse(sessions),
+            requestId,
+            resolvedCorrelationId
+        );
+    }
+
+    private QuizSessionResponse sessionResponse(QuizSessionView view) {
+        return new QuizSessionResponse(
+            view.quizSessionId(),
+            view.mode(),
+            view.contentType(),
+            view.status(),
+            view.stateVersion(),
+            view.openedAt(),
+            view.questions().stream()
+                .map(question -> new QuizSessionQuestionResponse(
+                    question.resourceId(),
+                    question.quizQuestionVersionId(),
+                    question.label(),
+                    question.status(),
+                    question.version(),
+                    question.stateVersion(),
+                    question.prompt(),
+                    question.options().stream()
+                        .map(option -> new QuizSessionQuestionResponse.Option(
+                            option.optionId(),
+                            option.optionKey(),
+                            option.optionText()
+                        ))
+                        .toList()
+                ))
+                .toList()
         );
     }
 

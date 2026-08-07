@@ -280,7 +280,7 @@ public class FinanceController {
             .findMine(subject(principal), classroomId)
             .stream()
             .map(view -> new SavingsAccountViewResponse(
-                view.resourceId(), view.label(), view.status(), view.installmentCount(),
+                view.resourceId(), view.productId(), view.label(), view.status(), view.installmentCount(),
                 view.paidInstallmentCount(), view.installmentAmount(), view.principalBalance(),
                 view.expectedInterestAmount(), view.openedAt(), view.maturesAt(), view.stateVersion()
             ))

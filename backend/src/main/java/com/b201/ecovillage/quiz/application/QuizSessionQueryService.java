@@ -83,10 +83,32 @@ public class QuizSessionQueryService {
                 "RESOURCE_NOT_FOUND",
                 "The quiz session could not be found."
             ));
+        return view(session);
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizSessionView> findAll(
+        String subject,
+        UUID classroomId
+    ) {
+        authorizationService.authorize(
+            subject,
+            classroomId,
+            ClassroomPermission.MANAGE_QUIZ_SESSIONS,
+            null
+        );
+        return sessionRepository
+            .findTop50ByClassroomIdOrderByCreatedAtDesc(classroomId)
+            .stream()
+            .map(this::view)
+            .toList();
+    }
+
+    private QuizSessionView view(QuizSession session) {
         List<QuizSessionQuestionView> questions = questionRepository
             .findAllByClassroomIdAndQuizSessionIdOrderBySequenceNumber(
-                classroomId,
-                sessionId
+                session.getClassroomId(),
+                session.getId()
             )
             .stream()
             .map(question -> new QuizSessionQuestionView(
@@ -105,8 +127,10 @@ public class QuizSessionQueryService {
         return new QuizSessionView(
             session.getId(),
             session.getMode(),
+            session.getContentType(),
             session.getStatus().name(),
             session.getStateVersion(),
+            session.getCreatedAt(),
             questions
         );
     }

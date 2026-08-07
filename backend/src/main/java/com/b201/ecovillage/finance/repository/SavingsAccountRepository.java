@@ -6,6 +6,8 @@ import java.util.UUID;
 import com.b201.ecovillage.finance.domain.SavingsAccountStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.b201.ecovillage.finance.domain.SavingsAccount;
 
@@ -13,6 +15,22 @@ public interface SavingsAccountRepository extends JpaRepository<SavingsAccount, 
     Optional<SavingsAccount> findByClassroomIdAndOpeningTransactionGroupId(UUID classroomId, UUID openingTransactionGroupId);
     List<SavingsAccount> findAllByClassroomIdAndClassroomStudentIdOrderByOpenedAtDesc(UUID classroomId, UUID classroomStudentId);
     List<SavingsAccount> findAllByClassroomIdAndStatus(UUID classroomId, SavingsAccountStatus status);
+
+    @Query(value = """
+        select count(*) > 0
+          from savings_accounts account
+          join financial_product_versions version
+            on version.classroom_id = account.classroom_id
+           and version.id = account.product_version_id
+         where account.classroom_id = :classroomId
+           and account.classroom_student_id = :studentId
+           and version.financial_product_id = :productId
+        """, nativeQuery = true)
+    boolean existsForLogicalProduct(
+        @Param("classroomId") UUID classroomId,
+        @Param("studentId") UUID studentId,
+        @Param("productId") UUID productId
+    );
     @org.springframework.data.jpa.repository.Query("select distinct account.classroomId from SavingsAccount account where account.status = :status")
     List<UUID> findActiveClassroomIds(@org.springframework.data.repository.query.Param("status") SavingsAccountStatus status);
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)

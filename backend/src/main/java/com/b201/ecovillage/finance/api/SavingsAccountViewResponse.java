@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record SavingsAccountViewResponse(
     UUID resourceId,
+    UUID productId,
     String label,
     String status,
     int installmentCount,

@@ -64,6 +64,18 @@ export type FinancialProduct = {
 // 학생이 가입할 수 있는 상품은 PUBLISHED 하나뿐이므로 목 데이터도 같은 값을 씁니다.
 export const SUBSCRIBABLE_PRODUCT_STATUS = "PUBLISHED";
 
+export async function updateStudentPresence(
+  classroomId: string,
+  status: "ONLINE" | "AWAY",
+  currentScreen: string
+) {
+  if (useMocks) return;
+  await apiRequest(`/classrooms/${classroomId}/students/me/presence`, {
+    method: "POST",
+    body: JSON.stringify({ status, current_screen: currentScreen })
+  });
+}
+
 export async function fetchFinancialProducts(classroomId: string): Promise<FinancialProduct[]> {
   if (useMocks) return [
     { resourceId: "mock-deposit-product", label: "3일 예금", status: SUBSCRIBABLE_PRODUCT_STATUS, version: 1, productType: "DEPOSIT", interestRateBps: 1000, termUnits: 3, minimumAmount: 30, maximumAmount: 300 },
@@ -99,6 +111,7 @@ export type DepositAccount = {
 
 export type SavingsAccount = {
   resourceId: string;
+  productId: string;
   label: string;
   status: string;
   installmentCount: number;
@@ -112,7 +125,7 @@ export async function fetchFinanceAccounts(classroomId: string) {
   if (useMocks) return { depositAccounts: [] as DepositAccount[], savingsAccounts: [] as SavingsAccount[] };
   const response = await apiRequest<{
     deposit_accounts: Array<{ resource_id?: string; label?: string; status?: string; state_version?: number; principal_amount?: number; matures_at?: string }>;
-    savings_accounts: Array<{ resource_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; matures_at?: string }>;
+    savings_accounts: Array<{ resource_id?: string; product_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; matures_at?: string }>;
   }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
   return {
     depositAccounts: response.deposit_accounts.flatMap((account) => account.resource_id ? [{
@@ -125,6 +138,7 @@ export async function fetchFinanceAccounts(classroomId: string) {
     }] : []),
     savingsAccounts: response.savings_accounts.flatMap((account) => account.resource_id ? [{
       resourceId: account.resource_id,
+      productId: account.product_id ?? "",
       label: account.label ?? "적금",
       status: account.status ?? "UNKNOWN",
       installmentCount: account.installment_count ?? 0,

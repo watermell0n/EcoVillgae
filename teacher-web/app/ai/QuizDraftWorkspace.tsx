@@ -26,8 +26,22 @@ type QuizStudent = {
 type ManagedQuizSession = {
   id: string;
   mode: "GAME" | "TEST";
+  contentType: "ECONOMY" | "NONSENSE";
   status: string;
   stateVersion: number;
+};
+
+type QuizSessionSummary = {
+  quiz_session_id: string;
+  mode: "GAME" | "TEST";
+  content_type: "ECONOMY" | "NONSENSE";
+  status: string;
+  state_version: number;
+  opened_at: string;
+  questions: Array<{
+    quiz_question_version_id?: string;
+    prompt: string;
+  }>;
 };
 
 type QuizResults = {
@@ -95,6 +109,8 @@ function sessionErrorMessage(error: unknown) {
   if (error.code === "QUESTION_NOT_PUBLISHED") return "게시되지 않았거나 분류가 다른 문항이 포함됐어요. 문제은행을 새로고침해 주세요.";
   if (error.code === "PARTICIPANT_NOT_FOUND") return "학생 명단이 바뀌었어요. 새로고침한 뒤 다시 시작해 주세요.";
   if (error.code === "QUIZ_SESSION_ALREADY_EXISTS") return "이미 시작된 퀴즈예요. 잠시 후 다시 시도해 주세요.";
+  if (error.code === "QUIZ_WORKFLOW_INCOMPLETE") return "이전 퀴즈의 마감·채점·결과 공개를 먼저 완료해 주세요.";
+  if (error.code === "ACTIVITY_ALREADY_LIVE") return "진행 중인 수업이나 퀴즈를 먼저 종료해 주세요.";
   if (error.code === "AMBIGUOUS_ANSWER") return "정답이 하나가 아닌 문항이 있어요. 문항을 수정한 뒤 다시 시작해 주세요.";
   if (error.code === "PUBLIC_DATA_ONLY") return "평가형 퀴즈는 순위를 공개할 수 없어요.";
   if (error.code === "CLASS_NOT_ACTIVE") return "학급이 활성 상태일 때만 퀴즈를 시작할 수 있어요.";
@@ -145,8 +161,8 @@ export function QuizDraftWorkspace({
   const [rewardPerPerson, setRewardPerPerson] = useState("0");
   const [leaderboardPublic, setLeaderboardPublic] = useState(true);
   const [starting, setStarting] = useState(false);
-  const [startedSession, setStartedSession] = useState<ManagedQuizSession | null>(null);
-  const [sessionResults, setSessionResults] = useState<QuizResults | null>(null);
+  const [managedSessions, setManagedSessions] = useState<ManagedQuizSession[]>([]);
+  const [sessionResultsById, setSessionResultsById] = useState<Record<string, QuizResults>>({});
   // 이미 학생 화면에 열어 준 문항입니다. 같은 문항으로 두 번 열지 않도록 잠급니다.
   const [openedVersionIds, setOpenedVersionIds] = useState<string[]>([]);
   const [openedQuizzes, setOpenedQuizzes] = useState<OpenedQuiz[]>([]);
@@ -172,6 +188,52 @@ export function QuizDraftWorkspace({
     }
   }, [classroomId]);
 
+  const loadSessions = useCallback(async () => {
+    try {
+      const response = await apiRequest<{ sessions: QuizSessionSummary[] }>(
+        `/classrooms/${classroomId}/quiz-sessions`
+      );
+      const sessions = response.sessions.map((session) => ({
+        id: session.quiz_session_id,
+        mode: session.mode,
+        contentType: session.content_type,
+        status: session.status,
+        stateVersion: session.state_version
+      }));
+      setManagedSessions(sessions);
+      const serverQuizzes: OpenedQuiz[] = response.sessions.map((session) => ({
+        sessionId: session.quiz_session_id,
+        mode: session.mode,
+        contentType: session.content_type,
+        openedAt: session.opened_at,
+        questions: session.questions.flatMap((question) => question.quiz_question_version_id ? [{
+          versionId: question.quiz_question_version_id,
+          prompt: question.prompt
+        }] : [])
+      }));
+      setOpenedQuizzes(serverQuizzes);
+      writeStored(openedQuizzesKey(classroomId), serverQuizzes);
+      setOpenedVersionIds([...new Set(serverQuizzes.flatMap((quiz) => quiz.questions.map((item) => item.versionId)))]);
+
+      const resultSessions = sessions.filter((session) => (
+        ["REVIEWING", "RESULT_PUBLISHED", "CLOSED"].includes(session.status)
+      ));
+      const loadedResults = await Promise.all(resultSessions.map(async (session) => {
+        try {
+          const results = await apiRequest<QuizResults>(
+            `/classrooms/${classroomId}/quiz-sessions/${session.id}/results`
+          );
+          return [session.id, results] as const;
+        } catch {
+          return null;
+        }
+      }));
+      setSessionResultsById(Object.fromEntries(loadedResults.filter((item): item is readonly [string, QuizResults] => item !== null)));
+    } catch (caught) {
+      setSessionError(sessionErrorMessage(caught));
+    }
+  }, [classroomId]);
+
   useEffect(() => {
     // 마지막 생성분과 연 퀴즈는 브라우저에 남겨 두고 다시 읽습니다.
     setGeneratedIds(new Set(readStored<string[]>(lastBatchKey(classroomId), [])));
@@ -181,12 +243,13 @@ export function QuizDraftWorkspace({
     setError("");
     setSelectedVersionIds([]);
     setOpenedVersionIds([]);
-    setStartedSession(null);
-    setSessionResults(null);
+    setManagedSessions([]);
+    setSessionResultsById({});
     setSessionError("");
     setSessionMessage("");
     void loadQuestions();
-  }, [classroomId, loadQuestions]);
+    void loadSessions();
+  }, [classroomId, loadQuestions, loadSessions]);
 
   // 마지막 생성분을 기록합니다. 목록에서 사라진 문항은 다음에 읽을 때 자연히 걸러집니다.
   const rememberBatch = useCallback((ids: string[]) => {
@@ -194,39 +257,11 @@ export function QuizDraftWorkspace({
     writeStored(lastBatchKey(classroomId), ids);
   }, [classroomId]);
 
-  // 이미 진행 중인 세션도 다시 읽어, 페이지를 나갔다 와도 같은 문항을
-  // 또 선택해 새 퀴즈를 열지 않도록 합니다.
+  // 모듈 config가 바뀌면 서버의 전체 세션 목록을 다시 읽습니다. 특정 마지막 세션만
+  // 복원하면 그 전에 마감한 퀴즈의 결과 공개 버튼이 사라질 수 있습니다.
   useEffect(() => {
-    if (!activeQuizSessionId) return;
-    void apiRequest<{
-      quiz_session_id: string;
-      mode: "GAME" | "TEST";
-      status: string;
-      state_version: number;
-      questions: Array<{ quiz_question_version_id?: string }>;
-    }>(`/classrooms/${classroomId}/quiz-sessions/${activeQuizSessionId}`)
-      .then((session) => {
-        setStartedSession({
-          id: session.quiz_session_id,
-          mode: session.mode,
-          status: session.status,
-          stateVersion: session.state_version
-        });
-        const fetched = session.questions.flatMap((question) => (
-          question.quiz_question_version_id ? [question.quiz_question_version_id] : []
-        ));
-        // 방금 연 퀴즈의 잠금을 응답이 늦게 오거나 비어 있다고 지우면 안 되므로 합칩니다.
-        setOpenedVersionIds((current) => [...new Set([...current, ...fetched])]);
-        if (["REVIEWING", "RESULT_PUBLISHED", "CLOSED"].includes(session.status)) {
-          void apiRequest<QuizResults>(`/classrooms/${classroomId}/quiz-sessions/${session.quiz_session_id}/results`)
-            .then(setSessionResults)
-            .catch((caught) => setSessionError(sessionErrorMessage(caught)));
-        }
-      })
-      .catch(() => {
-        // 세션 정보를 바로 읽지 못해도 새 시작 요청의 서버 검증은 유지합니다.
-      });
-  }, [activeQuizSessionId, classroomId]);
+    void loadSessions();
+  }, [activeQuizSessionId, loadSessions]);
 
   const approvedQuestions = useMemo(
     () => questions.filter((question) => question.status === "APPROVED"),
@@ -277,10 +312,14 @@ export function QuizDraftWorkspace({
     () => students.flatMap((student) => student.resourceId ? [student.resourceId] : []),
     [students]
   );
-  // 서버가 알려 주는 진행 중 세션을 우선 쓰고, 아직 반영 전이면 방금 시작한 세션을 씁니다.
-  const openSessionId = activeQuizSessionId || startedSession?.id || "";
+  const openSessionId = managedSessions.find((session) => session.status === "OPEN")?.id
+    ?? activeQuizSessionId
+    ?? "";
   const rewardValue = Number(rewardPerPerson);
-  const hasOpenSession = Boolean(openSessionId && (!startedSession || startedSession.status === "OPEN"));
+  const unfinishedSessions = managedSessions.filter((session) => (
+    ["OPEN", "SCORING", "REVIEWING"].includes(session.status)
+  ));
+  const hasOpenSession = unfinishedSessions.length > 0;
   // 이미 학생에게 열어 본 문항과 아직 쓰지 않은 문항을 나눠 보여 줍니다.
   // 사용 여부는 서버(already_used_in_session)가 기준이라 새로고침해도 그대로 유지됩니다.
   // 방금 연 퀴즈는 목록을 다시 읽기 전이라 openedVersionIds로 함께 봅니다.
@@ -311,6 +350,7 @@ export function QuizDraftWorkspace({
   const invalidReward = sessionMode === "GAME"
     && (!Number.isInteger(rewardValue) || rewardValue < 0);
   const canStart = !starting
+    && !hasOpenSession
     && selectedQuestions.length > 0
     && !mixedContentTypes
     && participantIds.length > 0
@@ -327,11 +367,6 @@ export function QuizDraftWorkspace({
 
   async function startSession() {
     if (!canStart) return;
-    // 진행 중인 퀴즈가 있으면 새 퀴즈가 그 자리를 대신합니다. 학생 화면은 활성 모듈에
-    // 기록된 세션 하나만 읽으므로, 교사가 모르고 바꾸지 않도록 먼저 확인받습니다.
-    if (hasOpenSession && !window.confirm("진행 중인 퀴즈를 새 퀴즈로 바꿀까요? 학생 화면에는 새 문항이 열립니다.")) {
-      return;
-    }
     setStarting(true);
     setSessionError("");
     setSessionMessage("");
@@ -359,8 +394,13 @@ export function QuizDraftWorkspace({
         }
       );
       const openedCount = selectedQuestions.length;
-      setStartedSession({ id: response.quiz_resource_id, mode: sessionMode, status: response.status, stateVersion: response.state_version });
-      setSessionResults(null);
+      setManagedSessions((current) => [{
+        id: response.quiz_resource_id,
+        mode: sessionMode,
+        contentType: selectedContentTypes[0],
+        status: response.status,
+        stateVersion: response.state_version
+      }, ...current]);
       // 아래 '생성된 퀴즈'에 새 칸으로 바로 올립니다. 새로고침을 기다리지 않습니다.
       const openedQuiz: OpenedQuiz = {
         sessionId: response.quiz_resource_id,
@@ -385,6 +425,7 @@ export function QuizDraftWorkspace({
       );
       // 학급 상태를 다시 읽어 진행 중인 퀴즈 세션 정보를 최신으로 맞춥니다.
       if (onReload) await onReload();
+      await loadSessions();
     } catch (caught) {
       setSessionError(sessionErrorMessage(caught));
       if (caught instanceof ApiError && caught.code === "QUESTION_NOT_PUBLISHED") {
@@ -397,34 +438,43 @@ export function QuizDraftWorkspace({
 
   async function loadSessionResults(sessionId: string) {
     const results = await apiRequest<QuizResults>(`/classrooms/${classroomId}/quiz-sessions/${sessionId}/results`);
-    setSessionResults(results);
+    setSessionResultsById((current) => ({ ...current, [sessionId]: results }));
     return results;
   }
 
-  async function closeSubmissions() {
-    if (!startedSession || startedSession.status !== "OPEN") return;
+  function updateManagedSession(sessionId: string, response: QuizSessionCommandResponse) {
+    setManagedSessions((current) => current.map((session) => (
+      session.id === sessionId
+        ? { ...session, status: response.status, stateVersion: response.state_version }
+        : session
+    )));
+  }
+
+  async function closeSubmissions(session: ManagedQuizSession) {
+    if (session.status !== "OPEN") return;
     setStarting(true);
     setSessionError("");
     try {
       const response = await apiRequest<QuizSessionCommandResponse>(
-        `/classrooms/${classroomId}/quiz-sessions/${startedSession.id}/commands`,
+        `/classrooms/${classroomId}/quiz-sessions/${session.id}/commands`,
         {
           method: "POST",
           body: JSON.stringify({
-            expected_state_version: startedSession.stateVersion,
+            expected_state_version: session.stateVersion,
             command: "CLOSE_SUBMISSIONS",
             question_version_ids: [],
             participant_ids: [],
-            mode: startedSession.mode,
-            content_type: "ECONOMY",
+            mode: session.mode,
+            content_type: session.contentType,
             reward_policy_public: {},
             leaderboard_public: false
           })
         }
       );
-      setStartedSession((current) => current ? { ...current, status: response.status, stateVersion: response.state_version } : current);
+      updateManagedSession(session.id, response);
       setSessionMessage("답안 제출을 마감했어요. 이제 결과를 계산하고 확인해 주세요.");
       if (onReload) await onReload();
+      await loadSessions();
     } catch (caught) {
       setSessionError(sessionErrorMessage(caught));
     } finally {
@@ -432,24 +482,24 @@ export function QuizDraftWorkspace({
     }
   }
 
-  async function confirmResults() {
-    if (!startedSession || startedSession.status !== "SCORING") return;
+  async function confirmResults(session: ManagedQuizSession) {
+    if (session.status !== "SCORING") return;
     setStarting(true);
     setSessionError("");
     try {
       const response = await apiRequest<QuizSessionCommandResponse>(
-        `/classrooms/${classroomId}/quiz-sessions/${startedSession.id}/result-commands`,
+        `/classrooms/${classroomId}/quiz-sessions/${session.id}/result-commands`,
         {
           method: "POST",
           body: JSON.stringify({
-            expected_state_version: startedSession.stateVersion,
+            expected_state_version: session.stateVersion,
             command: "CONFIRM",
             leaderboard_public: false
           })
         }
       );
-      setStartedSession((current) => current ? { ...current, status: response.status, stateVersion: response.state_version } : current);
-      await loadSessionResults(startedSession.id);
+      updateManagedSession(session.id, response);
+      await loadSessionResults(session.id);
       setSessionMessage("채점 결과를 계산했어요. 내용을 확인한 뒤 학생에게 공개할 수 있어요.");
     } catch (caught) {
       setSessionError(sessionErrorMessage(caught));
@@ -458,25 +508,27 @@ export function QuizDraftWorkspace({
     }
   }
 
-  async function publishResults() {
-    if (!startedSession || startedSession.status !== "REVIEWING" || !sessionResults) return;
+  async function publishResults(session: ManagedQuizSession) {
+    const sessionResults = sessionResultsById[session.id];
+    if (session.status !== "REVIEWING" || !sessionResults) return;
     setStarting(true);
     setSessionError("");
     try {
       const response = await apiRequest<QuizSessionCommandResponse>(
-        `/classrooms/${classroomId}/quiz-sessions/${startedSession.id}/result-commands`,
+        `/classrooms/${classroomId}/quiz-sessions/${session.id}/result-commands`,
         {
           method: "POST",
           body: JSON.stringify({
-            expected_state_version: startedSession.stateVersion,
+            expected_state_version: session.stateVersion,
             expected_result_version: sessionResults.result_version,
             command: "PUBLISH",
-            leaderboard_public: startedSession.mode === "GAME" && leaderboardPublic
+            leaderboard_public: session.mode === "GAME" && leaderboardPublic
           })
         }
       );
-      setStartedSession((current) => current ? { ...current, status: response.status, stateVersion: response.state_version } : current);
-      await loadSessionResults(startedSession.id);
+      updateManagedSession(session.id, response);
+      await loadSessionResults(session.id);
+      await loadSessions();
       setSessionMessage("퀴즈 결과를 학생에게 공개했어요.");
     } catch (caught) {
       setSessionError(sessionErrorMessage(caught));
@@ -866,12 +918,12 @@ export function QuizDraftWorkspace({
             ) : null}
             {hasOpenSession ? (
               <div className="inline-notice">
-                <AlertTriangle size={17} /> 진행 중인 퀴즈가 있어요. 새 문항으로 열면 학생 화면이 새 퀴즈로 바뀝니다.
+                <AlertTriangle size={17} /> 미완료 퀴즈가 있어요. 아래에서 마감·채점·결과 공개를 끝내야 새 퀴즈나 회차 수업을 시작할 수 있어요.
               </div>
             ) : null}
             <button type="button" className="wide-action" disabled={!canStart} onClick={() => void startSession()}>
               {starting ? <LoaderCircle className="spin" size={17} /> : <Play size={17} />}
-              {starting ? "퀴즈를 여는 중" : hasOpenSession ? "새 퀴즈로 바꿔 열기" : "학생 화면에 퀴즈 열기"}
+              {starting ? "퀴즈를 여는 중" : hasOpenSession ? "이전 퀴즈를 먼저 완료해 주세요" : "학생 화면에 퀴즈 열기"}
             </button>
           </div>
         )}
@@ -898,11 +950,14 @@ export function QuizDraftWorkspace({
           </p>
         ) : (
           <div className="opened-quiz-list">
-            {openedQuizzes.map((quiz, index) => (
-              <article
+            {openedQuizzes.map((quiz, index) => {
+              const managedSession = managedSessions.find((session) => session.id === quiz.sessionId);
+              const sessionResults = sessionResultsById[quiz.sessionId];
+              return (
+                <article
                 className={`opened-quiz-card${quiz.sessionId === openSessionId ? " live" : ""}`}
                 key={quiz.sessionId}
-              >
+                >
                 <header>
                   <div>
                     <strong>퀴즈 {openedQuizzes.length - index}</strong>
@@ -919,13 +974,13 @@ export function QuizDraftWorkspace({
                 </ol>
                 {/* 진행 상태와 다음 단계 버튼은 그 퀴즈 칸 안에 둡니다. 위 '퀴즈 시작'에 두면
                     어느 퀴즈를 마감하는 것인지 알 수 없습니다. */}
-                {startedSession && startedSession.id === quiz.sessionId ? (
+                {managedSession ? (
                   <div className="quiz-start-feedback" aria-live="polite">
                     <div className="inline-notice">
-                      <strong>현재 세션 · {startedSession.status === "OPEN" ? "학생 답안 제출 중" : startedSession.status === "SCORING" ? "제출 마감·채점 대기" : startedSession.status === "REVIEWING" ? "결과 검토 중" : startedSession.status === "RESULT_PUBLISHED" ? "결과 공개됨" : startedSession.status}</strong>
-                      {startedSession.status === "OPEN" ? <button type="button" disabled={starting} onClick={() => void closeSubmissions()}>답안 제출 마감</button> : null}
-                      {startedSession.status === "SCORING" ? <button type="button" disabled={starting} onClick={() => void confirmResults()}>채점 결과 계산</button> : null}
-                      {startedSession.status === "REVIEWING" ? <button type="button" disabled={starting || !sessionResults} onClick={() => void publishResults()}>결과·정답 학생 공개</button> : null}
+                      <strong>현재 세션 · {managedSession.status === "OPEN" ? "학생 답안 제출 중" : managedSession.status === "SCORING" ? "제출 마감·채점 대기" : managedSession.status === "REVIEWING" ? "결과 검토 중" : managedSession.status === "RESULT_PUBLISHED" ? "결과 공개됨" : managedSession.status === "CLOSED" ? "종료됨" : managedSession.status}</strong>
+                      {managedSession.status === "OPEN" ? <button type="button" disabled={starting} onClick={() => void closeSubmissions(managedSession)}>답안 제출 마감</button> : null}
+                      {managedSession.status === "SCORING" ? <button type="button" disabled={starting} onClick={() => void confirmResults(managedSession)}>채점 결과 계산</button> : null}
+                      {managedSession.status === "REVIEWING" ? <button type="button" disabled={starting || !sessionResults} onClick={() => void publishResults(managedSession)}>결과·정답 학생 공개</button> : null}
                     </div>
                     {sessionResults ? (
                       <div className="quiz-start-success">
@@ -935,8 +990,9 @@ export function QuizDraftWorkspace({
                     ) : null}
                   </div>
                 ) : null}
-              </article>
-            ))}
+                </article>
+              );
+            })}
 
             {unrecordedUsedQuestions.length > 0 ? (
               <article className="opened-quiz-card">

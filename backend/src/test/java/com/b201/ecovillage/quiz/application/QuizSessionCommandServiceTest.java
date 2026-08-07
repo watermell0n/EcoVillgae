@@ -168,8 +168,12 @@ class QuizSessionCommandServiceTest {
                 "teacher",
                 NOW.minusSeconds(100)
             )));
-        when(classroomRepository.findById(classroomId))
+        when(classroomRepository.findForUpdateById(classroomId))
             .thenReturn(Optional.of(Classroom.active(classroomId, "ABCD1234", NOW)));
+        when(activityRepository.findFirstByClassroomIdAndStatus(classroomId, "LIVE"))
+            .thenReturn(Optional.empty());
+        when(sessionRepository.existsByClassroomIdAndStatusIn(any(), any()))
+            .thenReturn(false);
         when(
             idempotencyRepository.findForReplay(
                 classroomId,

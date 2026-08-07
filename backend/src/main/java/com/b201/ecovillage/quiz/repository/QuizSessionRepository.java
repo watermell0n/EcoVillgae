@@ -1,6 +1,7 @@
 package com.b201.ecovillage.quiz.repository;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +19,13 @@ import com.b201.ecovillage.quiz.domain.QuizSession;
 public interface QuizSessionRepository extends JpaRepository<QuizSession, UUID> {
 
     Optional<QuizSession> findByClassroomIdAndId(UUID classroomId, UUID id);
+
+    List<QuizSession> findTop50ByClassroomIdOrderByCreatedAtDesc(UUID classroomId);
+
+    boolean existsByClassroomIdAndStatusIn(
+        UUID classroomId,
+        List<com.b201.ecovillage.quiz.domain.QuizSessionStatus> statuses
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

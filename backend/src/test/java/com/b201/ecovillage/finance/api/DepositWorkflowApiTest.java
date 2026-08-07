@@ -152,6 +152,28 @@ class DepositWorkflowApiTest {
     }
 
     @Test
+    void updatesStudentPresenceThroughHttpFallback() throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("status", "ONLINE");
+        body.put("current_screen", "은행");
+
+        mockMvc.perform(post("/classrooms/{classroomId}/students/me/presence", classroomId)
+                .principal(student)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.student_id").value(studentId.toString()))
+            .andExpect(jsonPath("$.data.status").value("ONLINE"))
+            .andExpect(jsonPath("$.data.current_screen").value("은행"));
+
+        mockMvc.perform(get("/classrooms/{classroomId}/roster-and-salaries", classroomId)
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.students[0].presence_status").value("ONLINE"))
+            .andExpect(jsonPath("$.data.students[0].current_screen").value("은행"));
+    }
+
+    @Test
     void rejectsInsufficientBalanceAndStoppedProductWithoutCreatingAnAccount()
         throws Exception {
         activateDepositModule();
@@ -286,12 +308,31 @@ class DepositWorkflowApiTest {
         assertEquals(5, jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM savings_installments WHERE classroom_id = ?", Integer.class, classroomId
         ));
+        mockMvc.perform(get("/classrooms/{classroomId}/student-activities", classroomId)
+                .principal(owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.activities[0].student_id").value(studentId.toString()))
+            .andExpect(jsonPath("$.data.activities[0].activity_type").value("SAVINGS_OPEN"))
+            .andExpect(jsonPath("$.data.activities[0].amount").value(20));
         mockMvc.perform(get("/classrooms/{classroomId}/students/me/deposit-and-savings", classroomId)
                 .principal(student))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.savings_accounts[0].product_id").value(productId.toString()))
             .andExpect(jsonPath("$.data.savings_accounts[0].paid_installment_count").value(1))
             .andExpect(jsonPath("$.data.savings_accounts[0].installment_count").value(5))
             .andExpect(jsonPath("$.data.savings_accounts[0].principal_balance").value(20));
+
+        mockMvc.perform(post("/classrooms/{classroomId}/savings-accounts", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("SAVINGS_PRODUCT_ALREADY_SUBSCRIBED"));
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM savings_accounts WHERE classroom_id = ?", Integer.class, classroomId
+        ));
     }
 
     private UUID createAndPublishProduct() throws Exception {

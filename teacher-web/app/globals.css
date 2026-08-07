@@ -2729,8 +2729,14 @@ button:disabled {
 .live-class-actions button:first-child { border-color: var(--blue); color: var(--blue); }
 
 .live-student-list { max-height: 430px; overflow: auto; }
-.live-student-row { display: grid; grid-template-columns: 12px minmax(120px, 1fr) minmax(160px, 1fr) 86px; gap: 12px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.live-student-row { display: grid; grid-template-columns: 12px minmax(120px, .8fr) minmax(130px, .7fr) minmax(260px, 1.5fr) 86px; gap: 12px; align-items: center; min-height: 56px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .live-student-row em { font-style: normal; font-size: 13px; text-align: right; }
+.live-dashboard-status { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.live-dashboard-status.error { color: #b0443d; }
+.live-student-activity { color: var(--muted); font-size: 13px; }
+.student-activity-feed { display: grid; gap: 8px; }
+.student-activity-item { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(280px, 2fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.student-activity-item em { color: var(--muted); font-size: 12px; font-style: normal; }
 
 .class-code-summary { margin-left: auto; padding-right: 20px; border-right: 1px solid var(--line); }
 .class-code-summary span { color: var(--muted); font-size: 13px; }
@@ -2766,7 +2772,8 @@ button:disabled {
   .investment-mode-grid { grid-template-columns: 1fr; }
   .live-class-toolbar { align-items: flex-start; flex-direction: column; }
   .live-student-row { grid-template-columns: 12px 1fr 82px; }
-  .live-student-row span:nth-of-type(2) { display: none; }
+  .live-student-row span:nth-of-type(2), .live-student-activity { display: none; }
+  .student-activity-item { grid-template-columns: 1fr; }
   .class-code-summary { display: none; }
   .lesson-template-preview { padding-left: 0; grid-template-columns: 1fr; }
   .lesson-template-preview em { grid-column: 1; }

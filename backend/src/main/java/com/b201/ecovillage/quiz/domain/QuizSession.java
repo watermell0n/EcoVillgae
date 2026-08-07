@@ -152,6 +152,10 @@ public class QuizSession {
         return id;
     }
 
+    public UUID getClassroomId() {
+        return classroomId;
+    }
+
     public QuizMode getMode() {
         return mode;
     }
@@ -174,6 +178,10 @@ public class QuizSession {
 
     public long getStateVersion() {
         return stateVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 
     private void transition(

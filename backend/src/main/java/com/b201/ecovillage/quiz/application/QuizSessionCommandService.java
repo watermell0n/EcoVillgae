@@ -45,6 +45,7 @@ import com.b201.ecovillage.quiz.domain.QuizQuestionStatus;
 import com.b201.ecovillage.quiz.domain.QuizQuestionVersion;
 import com.b201.ecovillage.quiz.domain.QuizSession;
 import com.b201.ecovillage.quiz.domain.QuizSessionQuestion;
+import com.b201.ecovillage.quiz.domain.QuizSessionStatus;
 import com.b201.ecovillage.quiz.repository.ActivityParticipantRepository;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 import com.b201.ecovillage.quiz.repository.QuizOptionRepository;
@@ -136,7 +137,7 @@ public class QuizSessionCommandService {
                 "AUTH_REQUIRED",
                 "A valid teacher session is required."
             ));
-        Classroom classroom = classroomRepository.findById(command.classroomId())
+        Classroom classroom = classroomRepository.findForUpdateById(command.classroomId())
             .orElseThrow(() -> operation(
                 HttpStatus.NOT_FOUND,
                 "RESOURCE_NOT_FOUND",
@@ -285,6 +286,31 @@ public class QuizSessionCommandService {
                 HttpStatus.CONFLICT,
                 "QUIZ_SESSION_ALREADY_EXISTS",
                 "The quiz session already exists."
+            );
+        }
+        ActivitySession liveActivity = activityRepository
+            .findFirstByClassroomIdAndStatus(command.classroomId(), "LIVE")
+            .orElse(null);
+        if (liveActivity != null) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "ACTIVITY_ALREADY_LIVE",
+                "A " + liveActivity.getActivityType()
+                    + " activity is still live. Finish it before starting another activity."
+            );
+        }
+        if (sessionRepository.existsByClassroomIdAndStatusIn(
+            command.classroomId(),
+            List.of(
+                QuizSessionStatus.OPEN,
+                QuizSessionStatus.SCORING,
+                QuizSessionStatus.REVIEWING
+            )
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "QUIZ_WORKFLOW_INCOMPLETE",
+                "Finish scoring and publishing the previous quiz before starting another quiz."
             );
         }
         validateStart(command);

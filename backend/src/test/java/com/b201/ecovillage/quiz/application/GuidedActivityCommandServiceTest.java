@@ -102,13 +102,13 @@ class GuidedActivityCommandServiceTest {
             "/classrooms/{classroom_id}/guided-activities/{resource_id}/start-commands",
             requestId.toString()
         )).thenReturn(Optional.empty());
-        when(classrooms.findById(classroomId)).thenReturn(Optional.of(
+        when(classrooms.findForUpdateById(classroomId)).thenReturn(Optional.of(
             Classroom.active(classroomId, "ABCD1234", NOW)
         ));
         when(activities.findByClassroomIdAndId(classroomId, activityId))
             .thenReturn(Optional.of(activity));
-        when(activities.existsByClassroomIdAndStatus(classroomId, "LIVE"))
-            .thenReturn(false);
+        when(activities.findFirstByClassroomIdAndStatus(classroomId, "LIVE"))
+            .thenReturn(Optional.empty());
         when(students.findAllForUpdate(
             classroomId,
             List.of(studentId),

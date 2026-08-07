@@ -61,6 +61,9 @@ type Running = {
 const SCREEN_ID = "SCR-TCH-004";
 
 function errorMessage(caught: unknown, fallback: string) {
+  if (caught instanceof ApiError && caught.code === "ACTIVITY_ALREADY_LIVE") {
+    return "진행 중인 퀴즈나 다른 수업이 있어요. 수업 준비·퀴즈 화면에서 해당 활동을 먼저 마감해 주세요.";
+  }
   if (caught instanceof ApiError) return caught.message;
   return fallback;
 }

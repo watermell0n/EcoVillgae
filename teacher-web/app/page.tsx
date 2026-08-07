@@ -76,6 +76,17 @@ type StudentRow = {
   lastSeenAt?: string;
 };
 
+type StudentActivityRow = {
+  resource_id: string;
+  student_id: string;
+  activity_type: "STORE_PURCHASE" | "DEPOSIT_OPEN" | "SAVINGS_OPEN" | "INVESTMENT_BUY" | "INVESTMENT_SELL";
+  title: string;
+  quantity: number | null;
+  amount: number;
+  status: string;
+  occurred_at: string;
+};
+
 // 새로고침해도 열어 둔 교실과 탭을 그대로 유지합니다. 탭마다 따로 기억하도록 sessionStorage를 씁니다.
 const CONSOLE_STATE_KEY = "ecovillage.teacher.console";
 
@@ -2474,9 +2485,78 @@ function Overview({
   addLog: (message: string, tone?: LogTone) => void;
   onReload: () => Promise<void>;
 }>) {
+  const [liveStudents, setLiveStudents] = useState(students);
+  const [studentActivities, setStudentActivities] = useState<StudentActivityRow[]>([]);
+  const [liveDashboardError, setLiveDashboardError] = useState("");
+  const [lastLiveRefreshAt, setLastLiveRefreshAt] = useState<string>();
+
+  useEffect(() => setLiveStudents(students), [students]);
+
+  // WebSocket events update `students` immediately. This lightweight poll is the
+  // safety net for school networks that temporarily block or reconnect WebSockets.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      const [rosterResult, activityResult] = await Promise.allSettled([
+        apiRequest<{
+          students?: Array<{
+            resource_id?: string;
+            attendance_number?: number;
+            nickname?: string;
+            presence_status?: StudentRow["presence"];
+            current_screen?: string;
+            last_seen_at?: string;
+          }>;
+        }>(`/classrooms/${classroomId}/roster-and-salaries`),
+        apiRequest<{ activities: StudentActivityRow[] }>(
+          `/classrooms/${classroomId}/student-activities?limit=100`
+        )
+      ]);
+      if (cancelled) return;
+      if (rosterResult.status === "fulfilled" && rosterResult.value.students) {
+        const currentById = new Map(students.flatMap((student) => (
+          student.resourceId ? [[student.resourceId, student] as const] : []
+        )));
+        setLiveStudents(rosterResult.value.students.map((student) => {
+          const current = student.resource_id ? currentById.get(student.resource_id) : undefined;
+          return {
+            ...current,
+            resourceId: student.resource_id ?? current?.resourceId,
+            attendance: String(student.attendance_number ?? current?.attendance ?? ""),
+            nickname: student.nickname ?? current?.nickname ?? "학생",
+            role: current?.role ?? "",
+            salary: current?.salary ?? "0",
+            status: current?.status ?? "정상",
+            presence: student.presence_status ?? "UNKNOWN",
+            currentScreen: student.current_screen ?? "",
+            lastSeenAt: student.last_seen_at
+          };
+        }));
+      }
+      if (activityResult.status === "fulfilled") {
+        setStudentActivities(activityResult.value.activities);
+      }
+      const failed = rosterResult.status === "rejected" || activityResult.status === "rejected";
+      setLiveDashboardError(failed ? "일부 실시간 정보를 다시 연결하고 있어요." : "");
+      setLastLiveRefreshAt(new Date().toISOString());
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [classroomId, students]);
+
   const openCount = modules.filter((module) => module.status === "열림").length;
-  const onlineCount = students.filter((student) => student.presence === "ONLINE").length;
-  const awayCount = students.filter((student) => student.presence === "AWAY").length;
+  const onlineCount = liveStudents.filter((student) => student.presence === "ONLINE").length;
+  const awayCount = liveStudents.filter((student) => student.presence === "AWAY").length;
+  const latestActivityByStudent = new Map<string, StudentActivityRow>();
+  studentActivities.forEach((activity) => {
+    if (!latestActivityByStudent.has(activity.student_id)) {
+      latestActivityByStudent.set(activity.student_id, activity);
+    }
+  });
 
   function setLessonMode() {
     const isFreeMode = mode === "자율 활동";
@@ -2528,19 +2608,57 @@ function Overview({
         </div>
       </PlainSection>
       <PlainSection title="학생 실시간 현황">
+        <p className={liveDashboardError ? "live-dashboard-status error" : "live-dashboard-status"}>
+          {liveDashboardError || `실시간 연결 중 · ${lastLiveRefreshAt ? `${new Date(lastLiveRefreshAt).toLocaleTimeString("ko-KR")} 확인` : "확인 중"}`}
+        </p>
         <div className="live-student-list" role="list">
-          {students.map((student) => (
-            <div className="live-student-row" role="listitem" key={`${student.attendance}-${student.nickname}`}>
-              <span className={`presence-dot ${(student.presence ?? "UNKNOWN").toLowerCase()}`} />
-              <strong>{student.attendance}. {student.nickname}</strong>
-              <span>{student.currentScreen || "대기 중"}</span>
-              <em>{student.presence === "ONLINE" ? "접속 중" : student.presence === "AWAY" ? "화면 이탈" : "미접속"}</em>
-            </div>
-          ))}
+          {liveStudents.map((student) => {
+            const latestActivity = student.resourceId ? latestActivityByStudent.get(student.resourceId) : undefined;
+            return (
+              <div className="live-student-row" role="listitem" key={`${student.attendance}-${student.nickname}`}>
+                <span className={`presence-dot ${(student.presence ?? "UNKNOWN").toLowerCase()}`} />
+                <strong>{student.attendance}. {student.nickname}</strong>
+                <span>{student.currentScreen || "대기 중"}</span>
+                <span className="live-student-activity">{latestActivity ? studentActivityDescription(latestActivity) : "최근 경제 활동 없음"}</span>
+                <em>{student.presence === "ONLINE" ? "접속 중" : student.presence === "AWAY" ? "화면 이탈" : "미접속"}</em>
+              </div>
+            );
+          })}
         </div>
+      </PlainSection>
+      <PlainSection title="최근 학생 경제 활동">
+        {studentActivities.length === 0 ? (
+          <p className="empty-copy">아직 구매·예금·적금·투자 기록이 없습니다.</p>
+        ) : (
+          <div className="student-activity-feed" role="list">
+            {studentActivities.map((activity) => {
+              const student = liveStudents.find((item) => item.resourceId === activity.student_id);
+              return (
+                <div className="student-activity-item" role="listitem" key={`${activity.activity_type}-${activity.resource_id}`}>
+                  <strong>{student ? `${student.attendance}. ${student.nickname}` : "학생"}</strong>
+                  <span>{studentActivityDescription(activity)}</span>
+                  <em>{new Date(activity.occurred_at).toLocaleString("ko-KR")}</em>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </PlainSection>
     </div>
   );
+}
+
+function studentActivityDescription(activity: StudentActivityRow) {
+  const quantity = activity.quantity ? ` ${activity.quantity}개` : "";
+  const amount = activity.amount > 0 ? ` · ${activity.amount.toLocaleString("ko-KR")}` : "";
+  const action = activity.activity_type === "STORE_PURCHASE"
+    ? "구매"
+    : activity.activity_type === "DEPOSIT_OPEN"
+      ? "예금 가입"
+      : activity.activity_type === "SAVINGS_OPEN"
+        ? "적금 가입"
+        : activity.activity_type === "INVESTMENT_BUY" ? "투자 매수" : "투자 매도";
+  return `${activity.title}${quantity} · ${action}${amount} · ${activity.status}`;
 }
 
 function Setup({

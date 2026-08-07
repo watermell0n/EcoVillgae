@@ -42,7 +42,7 @@ public class SavingsAccountQueryService {
                     .orElseThrow(() -> missing("The savings product version is missing."));
                 FinancialProduct product = productRepository.findById(version.getFinancialProductId())
                     .orElseThrow(() -> missing("The savings product is missing."));
-                return new SavingsAccountView(account.getId(), product.getName(), account.getStatus().name(),
+                return new SavingsAccountView(account.getId(), product.getId(), product.getName(), account.getStatus().name(),
                     account.getInstallmentCount(), account.getPaidInstallmentCount(), account.getInstallmentAmount(),
                     account.getPrincipalBalance(), account.getExpectedInterestAmount(), account.getOpenedAt(),
                     account.getMaturesAt(), account.getStateVersion());

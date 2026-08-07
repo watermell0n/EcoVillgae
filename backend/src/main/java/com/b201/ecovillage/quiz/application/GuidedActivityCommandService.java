@@ -125,14 +125,15 @@ public class GuidedActivityCommandService {
             ));
         String previousStatus = activity.getStatus();
         requireStateVersion(command.expectedStateVersion(), activity);
-        if (activityRepository.existsByClassroomIdAndStatus(
-            command.classroomId(),
-            "LIVE"
-        )) {
+        ActivitySession liveActivity = activityRepository
+            .findFirstByClassroomIdAndStatus(command.classroomId(), "LIVE")
+            .orElse(null);
+        if (liveActivity != null) {
             throw operation(
                 HttpStatus.CONFLICT,
                 "ACTIVITY_ALREADY_LIVE",
-                "Only one guided activity can be live in a classroom."
+                "A " + liveActivity.getActivityType()
+                    + " activity is still live. Finish it before starting this lesson."
             );
         }
         List<ClassroomStudent> participants = studentRepository.findAllForUpdate(
@@ -405,7 +406,7 @@ public class GuidedActivityCommandService {
     }
 
     private void requireActiveClassroom(UUID classroomId) {
-        Classroom classroom = classroomRepository.findById(classroomId)
+        Classroom classroom = classroomRepository.findForUpdateById(classroomId)
             .orElseThrow(() -> operation(
                 HttpStatus.NOT_FOUND,
                 "RESOURCE_NOT_FOUND",

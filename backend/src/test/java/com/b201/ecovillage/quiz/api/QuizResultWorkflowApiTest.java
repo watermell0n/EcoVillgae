@@ -156,6 +156,14 @@ class QuizResultWorkflowApiTest {
 
     @Test
     void confirmsPublishesRewardsOnceReportsAndRegradesWithRecovery() throws Exception {
+        mockMvc.perform(get("/classrooms/{classroomId}/quiz-sessions", classroomId)
+                .principal(teacher))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.sessions[0].quiz_session_id").value(sessionId.toString()))
+            .andExpect(jsonPath("$.data.sessions[0].status").value("SCORING"))
+            .andExpect(jsonPath("$.data.sessions[0].content_type").value("ECONOMY"))
+            .andExpect(jsonPath("$.data.sessions[0].questions[0].prompt").isNotEmpty());
+
         UUID confirmKey = UUID.randomUUID();
         JsonNode confirmed = commandResult(confirmKey, body("CONFIRM", 0, null, null));
         assertEquals("REVIEWING", confirmed.path("data").path("status").asText());

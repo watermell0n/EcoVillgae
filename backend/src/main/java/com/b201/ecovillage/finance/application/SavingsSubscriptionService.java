@@ -108,7 +108,8 @@ public class SavingsSubscriptionService {
         if (!moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(command.classroomId(), "SAVINGS", "ACTIVE")) {
             throw operation(HttpStatus.CONFLICT, "MODULE_NOT_ACTIVE", "The savings module is not active.");
         }
-        FinancialProduct product = productRepository.findByClassroomIdAndId(command.classroomId(), command.productId())
+        // Lock the logical product so two tabs cannot open the same savings product concurrently.
+        FinancialProduct product = productRepository.findForUpdateByClassroomIdAndId(command.classroomId(), command.productId())
             .filter(FinancialProduct::isPublished)
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "PRODUCT_NOT_ACTIVE", "The savings product is not published."));
         FinancialProductVersion version = versionRepository
@@ -117,6 +118,17 @@ public class SavingsSubscriptionService {
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "PRODUCT_NOT_ACTIVE", "The product has no published savings terms."));
         if (version.getVersion() != command.expectedProductVersion()) {
             throw operation(HttpStatus.CONFLICT, "PRODUCT_VERSION_CONFLICT", "The savings product terms have changed.");
+        }
+        if (accountRepository.existsForLogicalProduct(
+            command.classroomId(),
+            student.getId(),
+            product.getId()
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "SAVINGS_PRODUCT_ALREADY_SUBSCRIBED",
+                "A student can subscribe to each savings product only once."
+            );
         }
         Integer count = version.getInstallmentCount();
         Long configuredAmount = version.getInstallmentAmount();
@@ -144,7 +156,13 @@ public class SavingsSubscriptionService {
                 new LedgerTransactionPosting(liability.getId(), command.installmentAmount())), now), List.of(openAccount));
         accountRepository.flush();
         eventPublisher.publish(command.classroomId(), "STUDENT_PRIVATE", student.getId(), "savings.account.opened", "SAVINGS_ACCOUNT", account.getId(),
-            account.getStateVersion(), Map.of("account_id", account.getId().toString(), "status", account.getStatus().name()), false);
+            account.getStateVersion(), Map.of(
+                "account_id", account.getId().toString(),
+                "product_id", product.getId().toString(),
+                "product_name", product.getName(),
+                "installment_amount", command.installmentAmount(),
+                "status", account.getStatus().name()
+            ), false);
         return new FinancialResourceResult(account.getId(), account.getStatus().name(), account.getStateVersion());
     }
 

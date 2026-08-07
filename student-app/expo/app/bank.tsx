@@ -8,6 +8,7 @@ import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
 import { applyLoan, cancelLoanApplication, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, repayLoan, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
+import { ApiError } from "@/api/client";
 
 type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
 
@@ -21,14 +22,38 @@ export default function BankScreen() {
   const loan = useQuery({ queryKey: ["loan-overview", identity?.classroomId], queryFn: () => fetchLoanOverview(identity!.classroomId), enabled: Boolean(identity && access?.activeCodes.has("LOAN")) });
 
   const subscribe = useMutation({
-    mutationFn: ({ product, amount }: { product: FinancialProduct; amount: number }) => (
-      product.productType === "SAVINGS"
-        ? subscribeSavings(identity!.classroomId, product, amount)
-        : subscribeDeposit(identity!.classroomId, product, amount)
-    ),
-    onSuccess: () => {
+    mutationFn: async ({ product, amount }: { product: FinancialProduct; amount: number }) => {
+      // Always submit the latest published terms. A product may have changed while
+      // this detail card was open or while the realtime connection was reconnecting.
+      const latestProducts = await fetchFinancialProducts(identity!.classroomId);
+      queryClient.setQueryData(["financial-products", identity!.classroomId], latestProducts);
+      const latest = latestProducts.find((item) => item.resourceId === product.resourceId);
+      if (!latest) throw new Error("이 상품은 더 이상 가입할 수 없어요.");
+      return latest.productType === "SAVINGS"
+        ? subscribeSavings(identity!.classroomId, latest, latest.installmentAmount ?? amount)
+        : subscribeDeposit(identity!.classroomId, latest, latest.minimumAmount ?? amount);
+    },
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["finance", identity?.classroomId] });
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
+      Alert.alert(
+        variables.product.productType === "SAVINGS" ? "적금 가입 완료" : "예금 가입 완료",
+        variables.product.productType === "SAVINGS"
+          ? `${variables.product.label} 적금에 가입했어요.`
+          : `${variables.product.label} 예금에 돈을 맡겼어요.`
+      );
+    },
+    onError: async (error) => {
+      if (error instanceof ApiError && error.code === "PRODUCT_VERSION_CONFLICT") {
+        await products.refetch();
+        Alert.alert(
+          "상품 조건 변경",
+          "선생님이 상품 조건을 변경해서 최신 정보로 새로고침했어요. 내용을 확인한 뒤 다시 눌러 주세요."
+        );
+      } else if (error instanceof ApiError && error.code === "SAVINGS_PRODUCT_ALREADY_SUBSCRIBED") {
+        await accounts.refetch();
+        Alert.alert("이미 가입한 적금", "같은 적금 상품에는 한 번만 가입할 수 있어요.");
+      }
     }
   });
   const applyLoanMutation = useMutation({
@@ -74,6 +99,9 @@ export default function BankScreen() {
     ["PUBLISHED", "ACTIVE"].includes(product.status)
       && product.productType === activeTab
   )) ?? [];
+  const subscribedSavingsProductIds = new Set(
+    accounts.data?.savingsAccounts.map((account) => account.productId).filter(Boolean) ?? []
+  );
   const hasAccounts = Boolean(
     accounts.data && (accounts.data.depositAccounts.length > 0 || accounts.data.savingsAccounts.length > 0)
   );
@@ -151,10 +179,11 @@ export default function BankScreen() {
                   <Text style={styles.productRate}>연 {(product.interestRateBps / 100).toFixed(1)}%</Text>
                 </View>
                 <Pressable
+                  disabled={product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId)}
                   onPress={() => setSelectedProduct(product)}
-                  style={styles.passbookButton}
+                  style={[styles.passbookButton, product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId) && styles.disabled]}
                 >
-                  <Text style={styles.passbookButtonText}>정보 확인하기</Text>
+                  <Text style={styles.passbookButtonText}>{product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId) ? "가입 완료" : "정보 확인하기"}</Text>
                 </Pressable>
               </View>
             ))}
@@ -173,11 +202,17 @@ export default function BankScreen() {
                 {selectedProduct.productType === "SAVINGS" ? <Metric label="회차별 납입액" value={`${selectedProduct.installmentAmount ?? "확인 중"} ${currencyName}`} /> : null}
               </View>
               <Pressable
-                disabled={subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)}
+                disabled={subscribe.isPending
+                  || (selectedProduct.productType === "SAVINGS" && (!selectedProduct.installmentAmount || subscribedSavingsProductIds.has(selectedProduct.resourceId)))}
                 onPress={() => subscribe.mutate({ product: selectedProduct, amount: selectedProduct.productType === "SAVINGS" ? selectedProduct.installmentAmount! : selectedProduct.minimumAmount ?? 100 })}
-                style={[styles.passbookButton, (subscribe.isPending || (selectedProduct.productType === "SAVINGS" && !selectedProduct.installmentAmount)) && styles.disabled]}
+                style={[styles.passbookButton, (subscribe.isPending || (selectedProduct.productType === "SAVINGS"
+                  && (!selectedProduct.installmentAmount || subscribedSavingsProductIds.has(selectedProduct.resourceId)))) && styles.disabled]}
               >
-                <Text style={styles.passbookButtonText}>{subscribe.isPending ? "처리 중" : selectedProduct.productType === "SAVINGS" ? "이 적금 시작하기" : "이 예금에 돈 맡기기"}</Text>
+                <Text style={styles.passbookButtonText}>{subscribe.isPending
+                  ? "처리 중"
+                  : selectedProduct.productType === "SAVINGS" && subscribedSavingsProductIds.has(selectedProduct.resourceId)
+                    ? "이미 가입한 적금"
+                    : selectedProduct.productType === "SAVINGS" ? "이 적금 시작하기" : "이 예금에 돈 맡기기"}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -185,13 +220,20 @@ export default function BankScreen() {
       )}
       {products.isError ? <Text style={styles.error}>{products.error.message}</Text> : null}
       {accounts.isError ? <Text style={styles.error}>{accounts.error.message}</Text> : null}
-      {subscribe.isError ? <Text style={styles.error}>{subscribe.error.message}</Text> : null}
+      {subscribe.isError ? <Text style={styles.error}>{subscriptionErrorMessage(subscribe.error)}</Text> : null}
       {loan.isError ? <Text style={styles.error}>{loan.error.message}</Text> : null}
       {applyLoanMutation.isError ? <Text style={styles.error}>{applyLoanMutation.error.message}</Text> : null}
       {cancelLoanMutation.isError ? <Text style={styles.error}>{cancelLoanMutation.error.message}</Text> : null}
       {repaymentMutation.isError ? <Text style={styles.error}>{repaymentMutation.error.message}</Text> : null}
     </Screen>
   );
+}
+
+function subscriptionErrorMessage(error: Error) {
+  if (!(error instanceof ApiError)) return error.message;
+  if (error.code === "PRODUCT_VERSION_CONFLICT") return "상품 조건을 최신 정보로 바꿨어요. 다시 확인해 주세요.";
+  if (error.code === "SAVINGS_PRODUCT_ALREADY_SUBSCRIBED") return "같은 적금 상품에는 한 번만 가입할 수 있어요.";
+  return error.message;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
