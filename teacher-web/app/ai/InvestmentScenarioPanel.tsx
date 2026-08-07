@@ -824,11 +824,6 @@ export function InvestmentScenarioPanel({
                 : `숨겨 둔 다음 날 가격을 공개합니다. 마지막 날에는 최종 정산하고 마감합니다.`}
             </small>
           </div>
-          {missingNewsCount > 0 ? (
-            <button type="button" className="wide-action" disabled={!aiEnabled || !canManage || busy === "news"} onClick={() => void generateNews()}>
-              <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}
-            </button>
-          ) : <div className="inline-notice"><Check size={17} /> 모든 종목의 현재 단계 이야기가 준비되었습니다.</div>}
           <div className="investment-review-grid">
             {market.assets.map((asset) => (
               <article key={asset.asset_id}>
@@ -926,6 +921,12 @@ export function InvestmentScenarioPanel({
               </article>
             ))}
           </div>
+          {/* 생성 버튼은 어떤 종목의 이야기를 만드는지 보이도록 기업 카드 아래에 둡니다. */}
+          {missingNewsCount > 0 ? (
+            <button type="button" className="wide-action" disabled={!aiEnabled || !canManage || busy === "news"} onClick={() => void generateNews()}>
+              <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}
+            </button>
+          ) : <div className="inline-notice"><Check size={17} /> 모든 종목의 현재 단계 이야기가 준비되었습니다.</div>}
         </>
       ) : null}
 

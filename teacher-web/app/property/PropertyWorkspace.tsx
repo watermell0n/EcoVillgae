@@ -111,6 +111,13 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   }, [classroomId, realEstateEnabled, subscriptionEnabled]);
 
   useEffect(() => { void load(); }, [load]);
+  // 학생이 계약을 신청하면 승인 대기 목록에 떠야 합니다. 새로고침을 누르지 않아도
+  // 주기적으로 다시 읽어 교사-학생 화면이 어긋나지 않게 합니다.
+  useEffect(() => {
+    if (!realEstateEnabled) return;
+    const timer = window.setInterval(() => { void load(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [load, realEstateEnabled]);
   useEffect(() => {
     if (!selected) return;
     setSalePrice(String(selected.sale_price));
