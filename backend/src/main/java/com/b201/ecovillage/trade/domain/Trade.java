@@ -239,6 +239,15 @@ public class Trade {
         return stateVersion;
     }
 
+    /** 학생이 적어 둔 거래 설명이다. 승인 화면에서 교사가 무슨 거래인지 알아보는 근거다. */
+    public String getDescription() {
+        return description;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     private static String normalizedDescription(String value) {
         if (value == null) {
             return null;
