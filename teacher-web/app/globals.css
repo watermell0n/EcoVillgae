@@ -590,6 +590,7 @@ button:disabled {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-top: 12px;
 }
 
@@ -965,7 +966,7 @@ button:disabled {
   border: 0;
   color: var(--muted);
   background: transparent;
-  text-decoration: underline;
+  text-decoration: none;
   font-weight: 850;
 }
 
@@ -1208,8 +1209,11 @@ button:disabled {
 }
 
 .module-activation-card button {
+  /* 격자 안에서 그대로 두면 카드 폭 전체로 늘어납니다. 글자보다 조금 넉넉한 폭이면 충분합니다. */
+  width: fit-content;
+  justify-self: start;
   min-height: 40px;
-  padding: 0 14px;
+  padding: 0 22px;
   border: 0;
   border-radius: 7px;
   color: #ffffff;
@@ -3767,8 +3771,8 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
-.embedded-quiz-heading span { color: var(--ink); font-size: 22px; font-weight: 950; }
-.embedded-quiz-heading p { margin: 0; color: var(--muted); font-weight: 700; }
+.embedded-quiz-heading span { color: var(--ink); font-size: 17px; font-weight: 950; }
+.embedded-quiz-heading p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 
 .financial-fields label,
 .investment-settings label {
@@ -4484,15 +4488,15 @@ select:focus-visible {
 
 .economy-quiz-heading h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 900;
 }
 
 .economy-quiz-heading p {
   margin: 6px 0 0;
   color: #5d6b5a;
-  font-size: 14px;
-  line-height: 21px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 /*
@@ -4643,13 +4647,13 @@ select:focus-visible {
   background: #fff;
 }
 
-.lesson-sequence-heading h2 { margin: 0; font-size: 19px; font-weight: 900; }
+.lesson-sequence-heading h2 { margin: 0; font-size: 17px; font-weight: 900; }
 
 .lesson-sequence-heading p {
   margin: 6px 0 0;
   color: #5d6b5a;
-  font-size: 14px;
-  line-height: 21px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .lesson-sequence-setup,
@@ -5420,11 +5424,11 @@ select:focus-visible {
   grid-column: 1 / -1;
 }
 
-/* ----- 상점 상품: 상품 등록 (6) ----- */
-/* 상품명 칸은 적당한 폭에서 멈추고, 가격·재고는 그 옆에 붙어 카드 밖으로 나가지 않습니다. */
+/* ----- 상점 상품: 상품 등록 (6·8) ----- */
+/* 상품명·가격·재고가 카드 폭을 나눠 갖고 같은 오른쪽 끝에서 끝나, 왼쪽으로 몰려 보이지 않습니다. */
 .shop-admin-form {
-  grid-template-columns: minmax(220px, 460px) minmax(130px, 180px) minmax(130px, 180px);
-  justify-content: start;
+  grid-template-columns: minmax(0, 2.4fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  justify-content: stretch;
   gap: 20px;
 }
 
@@ -5447,7 +5451,20 @@ select:focus-visible {
 }
 
 .recommendation-result {
-  gap: 14px;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  align-items: end;
+  gap: 14px 28px;
+}
+
+/* 점검 요약과 적용 버튼은 줄 전체를 쓰고, 경고 확인 체크는 가격 칸 오른쪽에 간격을 두고 붙습니다. */
+.recommendation-result > .ai-precheck-summary,
+.recommendation-result > .wide-action {
+  grid-column: 1 / -1;
+}
+
+.recommendation-result > .warn-confirm {
+  align-self: end;
+  padding: 0 0 10px;
 }
 
 .recommendation-result > label {
@@ -5524,8 +5541,18 @@ select:focus-visible {
   font-size: 13px;
 }
 
+/* 난이도 카드 묶음과 아래 버튼들을 카드 가운데로 모읍니다. */
+.economy-quiz-levels {
+  justify-self: center;
+}
+
 .economy-quiz-actions {
+  justify-content: center;
   margin-top: 10px;
+}
+
+.economy-quiz-actions button {
+  font-size: 14px;
 }
 
 /* ----- 운영 관리: 대출·신용 (12) ----- */
