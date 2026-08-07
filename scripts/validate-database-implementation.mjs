@@ -63,6 +63,8 @@ const expectedMigrations = [
   "V1_32__guided_image_lessons.sql",
   "V1_33__loan_installment_status_constraint.sql",
   "V1_34__guided_presentation_slides.sql",
+  // V1_35는 표를 만들지 않는다. 계약 신청 시점 결제를 표시하는 컬럼 하나를 더한다.
+  "V1_35__property_contract_paid_at.sql",
 ];
 
 function unique(values) {
