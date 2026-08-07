@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
@@ -32,6 +32,18 @@ import { colors, radii } from "@/theme/tokens";
 
 const SEAT_GAP = 10;
 
+/**
+ * 화면 어디를 보고 있어도 놓치지 않도록 신청 결과를 대화상자로 알립니다.
+ * 웹의 react-native-web에는 Alert가 없어 브라우저 alert로 대신합니다.
+ */
+function announce(title: string, message: string) {
+  if (Platform.OS === "web") {
+    (globalThis as { alert?: (text: string) => void }).alert?.(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+}
+
 function toneFor(property: Property, mine: boolean) {
   if (mine) return styles.seatMine;
   if (property.status === "AVAILABLE") return styles.seatDirect;
@@ -55,15 +67,19 @@ export default function RealEstateScreen() {
   const [depositInput, setDepositInput] = useState("10");
   const [resaleInput, setResaleInput] = useState("100");
 
+  // 선생님이 계약을 승인하면 좌석판과 내 자리가 바뀝니다. 학생이 새로고침하지 않아도
+  // 몇 초 안에 반영되도록 주기적으로 다시 읽습니다.
   const layout = useQuery({
     queryKey: ["property-layout", classroomId],
     queryFn: () => fetchPropertyLayout(classroomId!),
-    enabled: Boolean(classroomId && realEstateEnabled)
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
   const mine = useQuery({
     queryKey: ["properties-mine", classroomId],
     queryFn: () => fetchMyProperties(classroomId!),
-    enabled: Boolean(classroomId && realEstateEnabled)
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
   const account = useQuery({
     queryKey: ["subscription-account", classroomId],
@@ -84,7 +100,8 @@ export default function RealEstateScreen() {
   const wallet = useQuery({
     queryKey: ["wallet", classroomId],
     queryFn: () => fetchWallet(classroomId!),
-    enabled: Boolean(classroomId && realEstateEnabled)
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
   });
 
   const mineIds = useMemo(() => new Set((mine.data ?? []).map((property) => property.propertyId)), [mine.data]);
@@ -112,8 +129,19 @@ export default function RealEstateScreen() {
 
   const purchase = useMutation({
     mutationFn: ({ property, contractType, applicationId }: { property: Property; contractType: ContractType; applicationId?: string }) => requestPropertyContract(property.propertyId, contractType, applicationId),
-    onSuccess: async (_result, variables) => { setNotice(`${contractTypeLabel(variables.contractType)} 계약을 신청했어요. 선생님 승인 후 반영돼요.`); await refresh(); },
-    onError: (error: Error) => setNotice(error.message)
+    onSuccess: async (_result, variables) => {
+      const message = variables.property.status === "SUBSCRIPTION_OPEN"
+        ? "당첨 자리 구매를 신청했어요. 선생님 승인 후 내 자리가 돼요."
+        : `${contractTypeLabel(variables.contractType)} 계약을 신청해 돈이 빠져나갔어요. 선생님 승인 후 내 자리에 반영돼요.`;
+      setNotice(message);
+      announce("계약 신청 완료", message);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
+    },
+    onError: (error: Error) => {
+      setNotice(error.message);
+      announce("계약 신청 실패", error.message);
+    }
   });
   const resale = useMutation({
     mutationFn: ({ propertyId, price }: { propertyId: string; price: number }) => createPropertySaleListing(propertyId, price),
@@ -153,13 +181,12 @@ export default function RealEstateScreen() {
       || (selected.status === "SUBSCRIPTION_OPEN" && wonApplication && selectedContractType === "SALE")
   ));
 
-  /** 이 계약에 지금 내야 하는 돈입니다. 월세는 보증금과 첫 달 월세를 함께 냅니다. */
+  /** 이 계약에 지금 내야 하는 돈입니다. 월세·전세는 보증금을 먼저 내고, 월세는 이후 주기마다 자동으로 나갑니다. */
   const contractCost = (() => {
     if (!selected) return 0;
-    const type = selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType;
-    if (type === "SALE") return selected.salePrice;
-    if (type === "JEONSE") return selected.depositAmount;
-    return selected.depositAmount + selected.monthlyRent;
+    if (selected.status === "SUBSCRIPTION_OPEN") return 0;
+    if (selectedContractType === "SALE") return selected.salePrice;
+    return selected.depositAmount;
   })();
   const balance = wallet.data?.balance ?? 0;
   const affordsContract = !wallet.isPending && balance >= contractCost;

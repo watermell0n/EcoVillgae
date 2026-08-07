@@ -245,7 +245,10 @@ export function DraftRecommendationPanel({
         valueToInputText(candidate.proposed_value, candidate.unit)
       ])));
       setWarnConfirmed(false);
-      setMessage(response.proposal_id ? "추천값을 확인한 뒤 적용해 주세요." : "적용 가능한 제안이 생성되지 않았어요.");
+      // 상품 가격은 추천 결과 카드가 바로 아래 뜨므로 같은 말을 반복하는 안내를 띄우지 않습니다.
+      setMessage(response.proposal_id
+        ? (kind === "product" ? "" : "추천값을 확인한 뒤 적용해 주세요.")
+        : "적용 가능한 제안이 생성되지 않았어요.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "추천을 불러오지 못했어요.");
     } finally {
@@ -317,7 +320,7 @@ export function DraftRecommendationPanel({
   }
 
   return (
-    <section className="plain-section">
+    <section className="plain-section recommendation-panel">
       <div className="section-title-line">
         <div>
           <span className="section-kicker">{kind === "product" ? "상점 상품" : "게임형 퀴즈"}</span>
@@ -353,7 +356,7 @@ export function DraftRecommendationPanel({
       </button>
 
       {result ? <div className="recommendation-result">
-        <SetupPrecheckSummary result={result} />
+        <SetupPrecheckSummary result={result} compact={kind === "product"} />
         {result.candidates.map((candidate) => {
           const value = candidateValue(candidate);
           const outsideAllowed = value === null
@@ -384,13 +387,12 @@ export function DraftRecommendationPanel({
       </div> : null}
       {message ? <div className="inline-notice" role="status">{message}</div> : null}
 
-      <div className="recommendation-history">
-        <h3>{kind === "product" ? "최근 가격 추천·적용 이력" : "최근 추천·적용 이력"}</h3>
+      {/* 상점 화면은 추천·적용 결과가 상품 목록에 바로 반영되므로 이력 표를 겹쳐 보여 주지 않습니다. */}
+      {kind === "product" ? null : <div className="recommendation-history">
+        <h3>최근 추천·적용 이력</h3>
         {historyError ? <p className="empty-copy">{historyError}</p> : null}
         {!historyError && historyRows.length === 0 ? (
-          <p className="empty-copy">{kind === "product"
-            ? "아직 가격 추천 이력이 없어요."
-            : "아직 추천 이력이 없어요."}</p>
+          <p className="empty-copy">아직 추천 이력이 없어요.</p>
         ) : null}
         {historyRows.length > 0 ? (
           <div className="recommendation-history-scroll">
@@ -412,7 +414,7 @@ export function DraftRecommendationPanel({
             </div>
           </div>
         ) : null}
-      </div>
+      </div>}
     </section>
   );
 }

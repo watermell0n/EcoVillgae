@@ -105,7 +105,7 @@ function prerequisiteDepth(code: string | undefined, seen: readonly string[] = [
   return 1 + Math.max(...prerequisites.map((required) => prerequisiteDepth(required, [...seen, code])));
 }
 
-export function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrecheckResponse }>) {
+export function SetupPrecheckSummary({ result, compact = false }: Readonly<{ result: SetupPrecheckResponse; compact?: boolean }>) {
   const summary = result.overall_severity === "PASS"
     ? "교실 운영을 시작할 준비가 됐습니다. 아래 설정값을 확인해 주세요."
     : result.summary;
@@ -115,8 +115,9 @@ export function SetupPrecheckSummary({ result }: Readonly<{ result: SetupPrechec
         <span>시작 전 자동 점검 · {SEVERITY_LABELS[result.overall_severity]}</span>
         <strong>{summary}</strong>
       </div>
-      {result.fallback_used ? <p>AI 설명을 불러오지 못했지만 기본 점검은 정상적으로 완료됐습니다.</p> : null}
-      {result.checks.map((check) => (
+      {/* compact는 상점 가격 추천처럼 결과 요약 한 줄만 보여 줍니다. 점검 상세는 길어서 접습니다. */}
+      {!compact && result.fallback_used ? <p>AI 설명을 불러오지 못했지만 기본 점검은 정상적으로 완료됐습니다.</p> : null}
+      {compact ? null : result.checks.map((check) => (
         <p key={check.check_id}><b>{SEVERITY_LABELS[check.severity]}</b> {check.explanation}{check.correction_guidance ? ` · ${check.correction_guidance}` : ""}</p>
       ))}
     </section>
