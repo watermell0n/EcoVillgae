@@ -1,9 +1,9 @@
 {
   "version": 1,
   "summary": {
-    "openapi_operations": 153,
-    "spring_endpoints": 122,
-    "matched_spring_endpoints": 120,
+    "openapi_operations": 156,
+    "spring_endpoints": 125,
+    "matched_spring_endpoints": 123,
     "current_known_differences": 5
   },
   "differences": [

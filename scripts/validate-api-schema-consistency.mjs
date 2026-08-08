@@ -45,19 +45,20 @@ function requireCondition(condition, message) {
 // MVP 119 -> 118: 위 넷은 모두 MVP지만, 그 전에 부동산 API 여섯 건(API-EST-023~028)이
 // planned로 내려가고 API-FIN-013이 MVP로 올라와 순증이 -5였다. 그 변화가 반영되지 않아
 // 이 검증이 실패하고 있었다.
-requireCondition(operations.length === 153, `expected 153 operations, found ${operations.length}`);
-requireCondition(new Set(apiIds).size === 153, "api-field-mapping has duplicate API IDs");
+requireCondition(operations.length === 156, `expected 156 operations, found ${operations.length}`);
+requireCondition(new Set(apiIds).size === 156, "api-field-mapping has duplicate API IDs");
 // MVP 119 -> 133: 이미 구현된 API-EST-023~028·FIN-014·MOD-004·READ-036이 planned로 남아
 // 있어 MVP로 올렸고(+9), 문서화가 빠져 있던 READ-037~039·AI-007·FIN-015를 새로 넣었다(+5).
 // planned 29 -> 20: 위에서 아홉 건이 planned에서 빠졌다.
-requireCondition(mvp.length === 133, `expected 133 MVP/support contracts, found ${mvp.length}`);
+// MVP 133 -> 136: 구현됐지만 문서에서 빠졌던 퀴즈 세션 목록·학생 활동·presence fallback을 추가했다.
+requireCondition(mvp.length === 136, `expected 136 MVP/support contracts, found ${mvp.length}`);
 requireCondition(planned.length === 20, `expected 20 planned contracts, found ${planned.length}`);
 
 const openapiStatusCount = [...openapi.matchAll(/^\s+x-implementation-status:/gm)].length;
 const openapiStrictCount = [
   ...openapi.matchAll(/^\s+x-schema-closure: "strict"$/gm),
 ].length;
-requireCondition(openapiStatusCount === 153, `OpenAPI status markers: ${openapiStatusCount}`);
+requireCondition(openapiStatusCount === 156, `OpenAPI status markers: ${openapiStatusCount}`);
 requireCondition(openapiStrictCount === mvp.length, `OpenAPI strict markers: ${openapiStrictCount}`);
 
 for (const operation of mvp) {

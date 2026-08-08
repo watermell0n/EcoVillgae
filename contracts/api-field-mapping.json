@@ -1975,6 +1975,86 @@
       }
     },
     {
+      "api_id": "API-CLS-010",
+      "method": "POST",
+      "path": "/classrooms/{classroom_id}/students/me/presence",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "classrooms",
+        "classroom_teachers",
+        "classroom_students",
+        "salary_roles",
+        "classroom_modules",
+        "autonomous_schedules",
+        "autonomous_schedule_modules"
+      ],
+      "request": {
+        "mode": "strict",
+        "schema_source": "explicit",
+        "fields": [
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "service_input.status",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "current_screen",
+            "required": false,
+            "type": "string|null",
+            "target": "service_input.current_screen",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 request 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          }
+        ]
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "student_id",
+            "required": true,
+            "type": "string",
+            "target": "projection.student_id",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "status",
+            "required": true,
+            "type": "string",
+            "target": "projection.status",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "current_screen",
+            "required": false,
+            "type": "string|null",
+            "target": "projection.current_screen",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 response 필드",
+            "nullable": true,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "last_seen_at",
+            "required": true,
+            "type": "string",
+            "target": "projection.last_seen_at",
+            "transform": "classrooms, classroom_teachers, classroom_students, salary_roles, classroom_modules, autonomous_schedules, autonomous_schedule_modules에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-MOD-001",
       "method": "POST",
       "path": "/classrooms/{classroom_id}/modules/{module_code}/activation-commands",
@@ -14523,6 +14603,69 @@
       }
     },
     {
+      "api_id": "API-READ-040",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/quiz-sessions",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "quiz_sessions",
+        "quiz_session_questions",
+        "quiz_question_versions",
+        "quiz_options"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "sessions",
+            "required": true,
+            "type": "array",
+            "target": "projection.sessions",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_question_versions, quiz_options에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
+      "api_id": "API-READ-041",
+      "method": "GET",
+      "path": "/classrooms/{classroom_id}/student-activities",
+      "implementation_status": "mvp-contract",
+      "storage_targets": [
+        "outbox_events",
+        "store_orders",
+        "trade_decisions",
+        "loan_applications",
+        "quiz_submissions"
+      ],
+      "request": {
+        "mode": "none",
+        "schema_source": "explicit",
+        "fields": []
+      },
+      "response": {
+        "mode": "strict",
+        "fields": [
+          {
+            "name": "activities",
+            "required": true,
+            "type": "array",
+            "target": "projection.activities",
+            "transform": "outbox_events, store_orders, trade_decisions, loan_applications, quiz_submissions에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          }
+        ]
+      }
+    },
+    {
       "api_id": "API-READ-017",
       "method": "GET",
       "path": "/classrooms/{classroom_id}/students/me/investment-portfolio",
@@ -14800,6 +14943,15 @@
             "visibility": "role-scoped"
           },
           {
+            "name": "content_type",
+            "required": true,
+            "type": "string",
+            "target": "projection.content_type",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_question_versions, quiz_options에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
             "name": "status",
             "required": true,
             "type": "string",
@@ -14813,6 +14965,15 @@
             "required": true,
             "type": "integer",
             "target": "projection.state_version",
+            "transform": "quiz_sessions, quiz_session_questions, quiz_question_versions, quiz_options에서 검증·조합하는 response 필드",
+            "nullable": false,
+            "visibility": "role-scoped"
+          },
+          {
+            "name": "opened_at",
+            "required": true,
+            "type": "string|null",
+            "target": "projection.opened_at",
             "transform": "quiz_sessions, quiz_session_questions, quiz_question_versions, quiz_options에서 검증·조합하는 response 필드",
             "nullable": false,
             "visibility": "role-scoped"

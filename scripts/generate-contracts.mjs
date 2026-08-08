@@ -194,7 +194,10 @@ const mvpSupportApiIds = new Set([
   "API-READ-037",
   "API-READ-038",
   "API-READ-039",
+  "API-READ-040",
+  "API-READ-041",
   "API-FIN-015",
+  "API-CLS-010",
 ]);
 
 function implementationStatus(operation) {
@@ -527,6 +530,10 @@ const requestFieldOverrides = {
     { name: "reauthentication_proof", schema: { type: "string", writeOnly: true } },
     { name: "acknowledged_blocking_items", schema: { type: "boolean", const: true } },
     { name: "reason" },
+  ],
+  "API-CLS-010": [
+    { name: "status", values: ["ONLINE", "AWAY"] },
+    { name: "current_screen", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
   ],
   "API-MOD-001": [
     { name: "expected_state_version", schema: { type: "integer", minimum: 0 } },
@@ -1217,7 +1224,7 @@ const noExpectedStateVersionApis = new Set([
 function mutationContextFor(operation) {
   // AI-007은 초안 문구만 고치고 낙관적 잠금을 expected_event_version으로 따로 받는다.
   // FIN-015는 가격 흐름을 건드리지 않는 문구 수정이라 상태 버전을 받지 않는다.
-  if (["API-AI-002", "API-AI-003", "API-AI-007", "API-FIN-015"].includes(operation.apiId)) return [];
+  if (["API-AI-002", "API-AI-003", "API-AI-007", "API-FIN-015", "API-CLS-010"].includes(operation.apiId)) return [];
   if (noExpectedStateVersionApis.has(operation.apiId)) {
     return mutationContextFields.filter((field) => field.name !== "expected_state_version");
   }
@@ -2120,9 +2127,11 @@ const responseFieldOverrides = {
   "API-READ-021": [
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
+    { name: "content_type", schema: { type: "string", enum: ["ECONOMY", "NONSENSE"] } },
     { name: "status", schema: { type: "string" } },
     // 교사 화면이 낙관적 잠금으로 다음 명령을 보내려면 현재 버전을 알아야 한다.
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "opened_at", schema: { type: ["string", "null"], format: "date-time" } },
     // 학생 앱은 답 제출에 option_id가 필요하므로 보기를 객체로 내려준다.
     {
       name: "questions",
@@ -2142,6 +2151,74 @@ const responseFieldOverrides = {
         },
       }),
     },
+  ],
+  "API-READ-040": [
+    {
+      name: "sessions",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "quiz_session_id",
+            "mode",
+            "content_type",
+            "status",
+            "state_version",
+            "opened_at",
+            "questions",
+          ],
+          properties: {
+            quiz_session_id: { type: "string", format: "uuid" },
+            mode: { type: "string", enum: ["GAME", "TEST"] },
+            content_type: { type: "string", enum: ["ECONOMY", "NONSENSE"] },
+            status: { type: "string" },
+            state_version: { type: "integer", format: "int64", minimum: 0 },
+            opened_at: { type: ["string", "null"], format: "date-time" },
+            questions: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-READ-041": [
+    {
+      name: "activities",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "resource_id",
+            "student_id",
+            "activity_type",
+            "title",
+            "quantity",
+            "amount",
+            "status",
+            "occurred_at",
+          ],
+          properties: {
+            resource_id: { type: "string", format: "uuid" },
+            student_id: { type: "string", format: "uuid" },
+            activity_type: { type: "string" },
+            title: { type: "string" },
+            quantity: { type: ["integer", "null"] },
+            amount: { type: "integer", format: "int64" },
+            status: { type: "string" },
+            occurred_at: { type: "string", format: "date-time" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-CLS-010": [
+    { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["ONLINE", "AWAY"] } },
+    { name: "current_screen", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
+    { name: "last_seen_at", schema: { type: "string", format: "date-time" } },
   ],
   "API-READ-022": [
     { name: "result_version", schema: { type: "integer", minimum: 1 } },
@@ -2616,6 +2693,8 @@ const storageByReadApi = {
   "API-READ-037": ["loan_applications", "loan_policy_versions"],
   "API-READ-038": ["trades", "trade_money_legs", "trade_item_legs", "classroom_students"],
   "API-READ-039": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "classroom_students"],
+  "API-READ-040": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
+  "API-READ-041": ["outbox_events", "store_orders", "trade_decisions", "loan_applications", "quiz_submissions"],
   "API-READ-014": ["financial_products", "financial_product_versions"],
   "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
   "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
@@ -3917,7 +3996,8 @@ function buildApiFieldMapping(operations) {
 // API-ACT-003·004(수업 자료 순서 진행), API-QZ-010(넌센스 문항 가져오기),
 // API-CLS-009(학급 보관), API-SHP-005(가격 일괄 인상)을 명세에 넣었다.
 // 148 -> 153: 문서화가 빠져 있던 교사용 조회·문구 수정 API 5개(READ-037~039, AI-007, FIN-015)를 넣었다.
-const EXPECTED_HTTP_OPERATION_COUNT = 153;
+// 153 -> 156: 퀴즈 세션 목록·학생 활동 목록·학생 presence HTTP fallback을 구현 계약에 반영했다.
+const EXPECTED_HTTP_OPERATION_COUNT = 156;
 
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);
