@@ -31,6 +31,7 @@ import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
 import com.b201.ecovillage.classroom.application.RatePolicySynchronizer;
+import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 
 @Service
@@ -43,6 +44,7 @@ public class FinancialProductCommandService {
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
+    private final ClassroomModuleRepository moduleRepository;
     private final FinancialProductRepository productRepository;
     private final FinancialProductVersionRepository versionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
@@ -55,6 +57,7 @@ public class FinancialProductCommandService {
         ClassroomAuthorizationService authorizationService,
         UserAccountRepository userRepository,
         ClassroomRepository classroomRepository,
+        ClassroomModuleRepository moduleRepository,
         FinancialProductRepository productRepository,
         FinancialProductVersionRepository versionRepository,
         IdempotencyRecordRepository idempotencyRepository,
@@ -66,6 +69,7 @@ public class FinancialProductCommandService {
         this.authorizationService = authorizationService;
         this.userRepository = userRepository;
         this.classroomRepository = classroomRepository;
+        this.moduleRepository = moduleRepository;
         this.productRepository = productRepository;
         this.versionRepository = versionRepository;
         this.idempotencyRepository = idempotencyRepository;
@@ -101,6 +105,18 @@ public class FinancialProductCommandService {
                 HttpStatus.CONFLICT,
                 "CLASS_NOT_ACTIVE",
                 "Financial products can be changed only in an active classroom."
+            );
+        }
+        String requiredModule = command.productType().name();
+        if (!moduleRepository.existsByClassroomIdAndModuleCodeAndStatus(
+            command.classroomId(),
+            requiredModule,
+            "ACTIVE"
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "MODULE_NOT_ACTIVE",
+                requiredModule + " module must be active before managing its products."
             );
         }
         if (command.productType() == com.b201.ecovillage.finance.domain.FinancialProductType.SAVINGS

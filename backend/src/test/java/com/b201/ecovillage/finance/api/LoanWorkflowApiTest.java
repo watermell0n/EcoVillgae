@@ -423,6 +423,34 @@ class LoanWorkflowApiTest {
             .andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REUSED"));
     }
 
+    @Test
+    void rejectsLoanPolicyUpdateWhileLoanModuleIsDisabled() throws Exception {
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "LOAN")
+            .orElseThrow();
+        module.disable(CREATED_AT.plusSeconds(2));
+        moduleRepository.save(module);
+
+        ObjectNode policy = objectMapper.createObjectNode();
+        policy.put("maximum_principal", 400);
+        policy.put("interest_rate_bps", 800);
+        policy.put("term_units", 28);
+        policy.put("installment_count", 4);
+        policy.put("grace_units", 3);
+        policy.put("on_time_credit", 10);
+        policy.put("overdue_credit", -30);
+        policy.put("repaid_credit", 20);
+        policy.put("expected_policy_version", 1);
+
+        mockMvc.perform(put("/classrooms/{classroomId}/loan-policy", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(policy.toString()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("MODULE_NOT_ACTIVE"));
+    }
+
     private JsonNode apply(long amount, int installments) throws Exception {
         return apply(amount, installments, UUID.randomUUID());
     }

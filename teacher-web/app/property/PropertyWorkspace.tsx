@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Check, Clock3, Grid3X3, RefreshCw, X } from "lucide-react";
 import styles from "./PropertyWorkspace.module.css";
 import {
@@ -80,6 +80,8 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // 자동 새로고침으로 같은 좌석 객체가 새 인스턴스로 바뀌어도 작성 중인 폼은 덮지 않습니다.
+  const hydratedPropertyId = useRef<string | null>(null);
 
   const selected = useMemo(
     () => layout.properties.find((property) => property.property_id === selectedId) ?? null,
@@ -119,7 +121,12 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
     return () => window.clearInterval(timer);
   }, [load, realEstateEnabled]);
   useEffect(() => {
-    if (!selected) return;
+    if (!selected) {
+      hydratedPropertyId.current = null;
+      return;
+    }
+    if (hydratedPropertyId.current === selected.property_id) return;
+    hydratedPropertyId.current = selected.property_id;
     setSalePrice(String(selected.sale_price));
     setDepositAmount(String(selected.deposit_amount));
     setMonthlyRent(String(selected.monthly_rent));

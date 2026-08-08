@@ -2714,6 +2714,90 @@ button:disabled {
   background: #f0f2ff;
 }
 
+.quiz-choice-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-choice-list li {
+  display: grid;
+  grid-template-columns: minmax(54px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.quiz-choice-list li > p {
+  margin: 0;
+}
+
+.quiz-choice-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 900;
+}
+
+.quiz-choice-list li.correct .quiz-choice-key {
+  color: #2f7a45;
+}
+
+.ai-disable-review:not(:disabled) {
+  border-color: #111111;
+}
+
+.module-disabled-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #d8dde2;
+  border-radius: 7px;
+  color: var(--muted);
+  background: #f7f8f9;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+/* 명단 관리 표는 관리 버튼까지 한 줄에 들어오도록 이름·직업·월급·상태를 앞쪽으로 당깁니다. */
+.roster-dialog .roster-manage-table th:nth-child(2),
+.roster-dialog .roster-manage-table td:nth-child(2) {
+  width: 150px;
+  max-width: 150px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(3),
+.roster-dialog .roster-manage-table td:nth-child(3) {
+  width: 160px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(4),
+.roster-dialog .roster-manage-table td:nth-child(4) {
+  width: 90px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(5),
+.roster-dialog .roster-manage-table td:nth-child(5) {
+  width: 105px;
+}
+
+.roster-dialog .roster-manage-table th:last-child,
+.roster-dialog .roster-manage-table td:last-child {
+  width: 270px;
+}
+
+.roster-dialog-footer {
+  gap: 22px;
+}
+
+.roster-dialog-footer .ghost {
+  margin-right: 12px;
+}
+
 .mode-chip.free { background: #edf8f1; color: #248653; }
 
 .live-toggle {
@@ -4436,17 +4520,17 @@ select:focus-visible {
 
 .roster-dialog .roster-manage-table th:nth-child(3),
 .roster-dialog .roster-manage-table td:nth-child(3) {
-  width: 210px;
+  width: 160px;
 }
 
 .roster-dialog .roster-manage-table th:nth-child(4),
 .roster-dialog .roster-manage-table td:nth-child(4) {
-  width: 110px;
+  width: 90px;
 }
 
 .roster-dialog .roster-manage-table th:nth-child(5),
 .roster-dialog .roster-manage-table td:nth-child(5) {
-  width: 150px;
+  width: 105px;
 }
 .image-lesson-panel {
   display: grid;

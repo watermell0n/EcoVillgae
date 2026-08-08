@@ -153,7 +153,7 @@ export function AiWorkspace({
               />
             </label>
             {!confirming ? (
-              <button type="button" className="danger-action" disabled={!reason.trim()} onClick={() => setConfirming(true)}>
+              <button type="button" className="danger-action ai-disable-review" disabled={!reason.trim()} onClick={() => setConfirming(true)}>
                 AI 사용 중지 검토
               </button>
             ) : (
