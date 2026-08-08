@@ -143,12 +143,41 @@ class DepositWorkflowApiTest {
 
     @Test
     void rejectsSubscriptionWhileDepositModuleIsDisabled() throws Exception {
+        activateDepositModule();
         UUID productId = createAndPublishProduct();
+        ClassroomModule module = moduleRepository
+            .findByClassroomIdAndModuleCode(classroomId, "DEPOSIT")
+            .orElseThrow();
+        module.disable(CREATED_AT.plusSeconds(2));
+        moduleRepository.save(module);
 
         mockMvc.perform(subscriptionRequest(UUID.randomUUID(), productId, 1_000))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.error.code").value("MODULE_NOT_ACTIVE"));
         assertEquals(5_000, walletBalance());
+    }
+
+    @Test
+    void rejectsProductManagementWhileDepositModuleIsDisabled() throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("command", "CREATE");
+        body.put("product_type", "DEPOSIT");
+        body.put("name", "Disabled deposit");
+        body.put("term_units", 7);
+        body.put("interest_rate_bps", 500);
+        body.put("early_termination_rate_bps", 100);
+        body.put("minimum_amount", 100);
+        body.put("maximum_amount", 1_000);
+
+        mockMvc.perform(post(
+                "/classrooms/{classroomId}/financial-product-commands", classroomId
+            ).principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body.toString()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("MODULE_NOT_ACTIVE"));
     }
 
     @Test

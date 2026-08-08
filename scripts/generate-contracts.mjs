@@ -142,6 +142,7 @@ const mvpSupportApiIds = new Set([
   "API-FIN-011",
   "API-FIN-012",
   "API-FIN-013",
+  "API-FIN-014",
   "API-EST-001",
   "API-EST-002",
   "API-EST-003",
@@ -164,8 +165,17 @@ const mvpSupportApiIds = new Set([
   "API-EST-020",
   "API-EST-021",
   "API-EST-022",
+  // EST-023~028은 V1_29의 학생 간 재판매·청약 취소 흐름으로 구현됐는데 이 목록에
+  // 올리지 않아 OpenAPI에 planned로 남아 있었다.
+  "API-EST-023",
+  "API-EST-024",
+  "API-EST-025",
+  "API-EST-026",
+  "API-EST-027",
+  "API-EST-028",
   "API-MOD-002",
   "API-MOD-003",
+  "API-MOD-004",
   "API-POL-001",
   "API-QZ-006",
   "API-QZ-008",
@@ -180,6 +190,14 @@ const mvpSupportApiIds = new Set([
   "API-READ-028",
   "API-READ-029",
   "API-READ-030",
+  "API-READ-036",
+  "API-READ-037",
+  "API-READ-038",
+  "API-READ-039",
+  "API-READ-040",
+  "API-READ-041",
+  "API-FIN-015",
+  "API-CLS-010",
 ]);
 
 function implementationStatus(operation) {
@@ -513,6 +531,10 @@ const requestFieldOverrides = {
     { name: "acknowledged_blocking_items", schema: { type: "boolean", const: true } },
     { name: "reason" },
   ],
+  "API-CLS-010": [
+    { name: "status", values: ["ONLINE", "AWAY"] },
+    { name: "current_screen", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
+  ],
   "API-MOD-001": [
     { name: "expected_state_version", schema: { type: "integer", minimum: 0 } },
     { name: "confirm_prerequisites", schema: { type: "boolean", const: true } },
@@ -541,6 +563,10 @@ const requestFieldOverrides = {
       optional: true,
       schema: { type: "string", maxLength: 500 },
     },
+  ],
+  // 투자 방식은 활성화를 한 번만 할 수 있어, 단기·장기를 더하거나 뺄 때 목록째로 다시 보낸다.
+  "API-MOD-004": [
+    { name: "investment_modes", schema: { type: "array", minItems: 1, items: { type: "string" } } },
   ],
   "API-POL-001": [
     { name: "price_adjustment_bps", schema: { type: "integer", format: "int32", minimum: -10000, maximum: 100000 } },
@@ -637,7 +663,21 @@ const requestFieldOverrides = {
   ],
   "API-FIN-008": [
     { name: "command", values: ["START"] },
+    // 단기·장기 시장을 따로 굴리므로 어느 쪽 명령인지 함께 받는다.
+    { name: "investment_mode", schema: { type: "string" } },
     { name: "expected_state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  // 하루 진행은 정산 결과를 함께 돌려주므로 START·PAUSE·RESUME과 다른 명령 경로다.
+  "API-FIN-014": [
+    { name: "investment_mode", schema: { type: "string" } },
+    { name: "expected_state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  // 가상 기업의 이름·소개만 고친다. 가격 흐름은 그대로 두므로 시나리오를 다시 만들지 않는다.
+  "API-FIN-015": [
+    { name: "name", schema: { type: "string", minLength: 1, maxLength: 100 } },
+    { name: "company_profile", schema: { type: "string", minLength: 1, maxLength: 1000 } },
+    { name: "start_price", optional: true, schema: { type: ["integer", "null"], format: "int64", minimum: 1 } },
+    { name: "band_bps", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
   ],
   "API-FIN-009": [
     { name: "side", values: ["BUY"] },
@@ -744,6 +784,10 @@ const requestFieldOverrides = {
     { name: "enabled", schema: { type: "boolean" } },
     { name: "amount", optional: true, schema: { type: ["integer", "null"], format: "int64", minimum: 1 } },
     { name: "cycle_days", optional: true, schema: { type: ["integer", "null"], minimum: 1, maximum: 365 } },
+  ],
+  // 학생이 자기 자리를 되파는 매물 등록. 취소(EST-025)는 DELETE라 본문이 없다.
+  "API-EST-024": [
+    { name: "sale_price", schema: { type: "integer", format: "int64", minimum: 1 } },
   ],
   "API-QZ-002": [
     { name: "grade", schema: { type: "integer", enum: [4, 5, 6] } },
@@ -1079,7 +1123,15 @@ const requestFieldOverrides = {
       values: ["PRICE", "SUPPLY", "TAX", "INTEREST_RATE", "INVESTMENT_NEWS", "REWARD", "PUBLIC_FUND"],
     },
     { name: "interest_rate_scope", optional: true, values: ["DEPOSIT", "SAVINGS", "LOAN"] },
+    // INVESTMENT_NEWS 초안은 단기·장기 중 어느 시장의 뉴스인지가 있어야 가격 단계에 붙는다.
+    { name: "investment_mode", optional: true, schema: { type: "string" } },
     { name: "teacher_context", optional: true, schema: { type: "string", maxLength: 1000 } },
+  ],
+  // 문구만 고친다. 정책 효과와 가격 단계 연결은 손대지 않으므로 본문에 없다.
+  "API-AI-007": [
+    { name: "title", schema: { type: "string", minLength: 1, maxLength: 160 } },
+    { name: "content", schema: { type: "string", minLength: 1, maxLength: 2000 } },
+    { name: "expected_event_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
   "API-AI-005": [
     // 학급 AI는 양방향 토글입니다. 끄기와 다시 켜기 모두 사유와 정책 버전을 남깁니다.
@@ -1170,7 +1222,9 @@ const noExpectedStateVersionApis = new Set([
 ]);
 
 function mutationContextFor(operation) {
-  if (["API-AI-002", "API-AI-003"].includes(operation.apiId)) return [];
+  // AI-007은 초안 문구만 고치고 낙관적 잠금을 expected_event_version으로 따로 받는다.
+  // FIN-015는 가격 흐름을 건드리지 않는 문구 수정이라 상태 버전을 받지 않는다.
+  if (["API-AI-002", "API-AI-003", "API-AI-007", "API-FIN-015", "API-CLS-010"].includes(operation.apiId)) return [];
   if (noExpectedStateVersionApis.has(operation.apiId)) {
     return mutationContextFields.filter((field) => field.name !== "expected_state_version");
   }
@@ -1282,6 +1336,18 @@ const responseFieldOverrides = {
     { name: "credit_score", schema: { type: "integer", minimum: 0, maximum: 1000 } },
     { name: "credit_level", schema: { type: "string", enum: ["GOOD", "NORMAL", "CAUTION", "RESTRICTED"] } },
     { name: "replayed", schema: { type: "boolean" } },
+  ],
+  // 하루 진행은 정산 결과를 함께 돌려주므로 START·PAUSE·RESUME과 응답 모양이 다르다.
+  "API-FIN-014": [
+    { name: "market_id", schema: { type: "string", format: "uuid" } },
+    { name: "market_status", schema: { type: "string" } },
+    { name: "investment_mode", schema: { type: "string" } },
+    { name: "current_step", schema: { type: "integer", minimum: 0 } },
+    { name: "total_steps", schema: { type: "integer", minimum: 0 } },
+    { name: "settled", schema: { type: "boolean" } },
+    { name: "settled_position_count", schema: { type: "integer", minimum: 0 } },
+    { name: "settled_amount", schema: { type: "integer", format: "int64" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
   "API-READ-018": [
     { name: "credit_score", schema: { type: "integer" } },
@@ -1597,6 +1663,14 @@ const responseFieldOverrides = {
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "replayed", schema: { type: "boolean" } },
   ],
+  "API-MOD-004": [
+    { name: "module_id", schema: { type: "string", format: "uuid" } },
+    { name: "module_code", schema: { type: "string" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "investment_modes", schema: { type: "array", items: { type: "string" } } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "replayed", schema: { type: "boolean" } },
+  ],
   "API-POL-001": [
     { name: "policy_version_id", schema: { type: "string", format: "uuid" } },
     { name: "policy_version", schema: { type: "integer", minimum: 1 } },
@@ -1899,6 +1973,89 @@ const responseFieldOverrides = {
       ["resource_id", "label", "status", "version", "state_version", "character_code", "equipped"],
     ),
   }],
+  "API-AI-007": [
+    { name: "event_id", schema: { type: "string", format: "uuid" } },
+    { name: "title", schema: { type: "string" } },
+    { name: "content", schema: { type: "string" } },
+    { name: "status", schema: { type: "string" } },
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+  ],
+  "API-FIN-015": [
+    { name: "asset_id", schema: { type: "string", format: "uuid" } },
+    { name: "symbol", schema: { type: "string" } },
+    { name: "name", schema: { type: "string" } },
+    { name: "company_profile", schema: { type: "string" } },
+    { name: "start_price", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "min_return_bps", schema: { type: "integer" } },
+    { name: "max_return_bps", schema: { type: "integer" } },
+  ],
+  // 대출 심사 기록과 개인거래 승인 기록은 목록이므로 배열 하나로 내려간다.
+  "API-READ-037": [
+    {
+      name: "loan_applications",
+      schema: projectionItems({
+        application_id: { type: "string", format: "uuid" },
+        classroom_student_id: { type: "string", format: "uuid" },
+        amount: { type: "integer", format: "int64", minimum: 0 },
+        installments: { type: "integer", minimum: 1 },
+        status: { type: "string" },
+        decided_at: { type: ["string", "null"], format: "date-time" },
+      }),
+    },
+  ],
+  "API-READ-038": [
+    {
+      name: "trades",
+      schema: projectionItems({
+        trade_id: { type: "string", format: "uuid" },
+        proposer_student_id: { type: "string", format: "uuid" },
+        proposer_nickname: { type: "string" },
+        counterpart_student_id: { type: "string", format: "uuid" },
+        counterpart_nickname: { type: "string" },
+        description: { type: ["string", "null"] },
+        amount: { type: "integer", format: "int64" },
+        item_count: { type: "integer", minimum: 0 },
+        status: { type: "string" },
+        state_version: { type: "integer", format: "int64", minimum: 0 },
+        created_at: { type: "string", format: "date-time" },
+      }),
+    },
+  ],
+  "API-READ-039": [
+    {
+      name: "trades",
+      schema: projectionItems({
+        trade_id: { type: "string", format: "uuid" },
+        proposer_student_id: { type: "string", format: "uuid" },
+        proposer_nickname: { type: "string" },
+        counterpart_student_id: { type: "string", format: "uuid" },
+        counterpart_nickname: { type: "string" },
+        description: { type: ["string", "null"] },
+        amount: { type: "integer", format: "int64" },
+        item_count: { type: "integer", minimum: 0 },
+        status: { type: "string" },
+        state_version: { type: "integer", format: "int64", minimum: 0 },
+        created_at: { type: "string", format: "date-time" },
+      }),
+    },
+  ],
+  // 단기·장기 시장을 한 번에 돌려준다. 최상위는 markets 하나뿐이다.
+  "API-READ-036": [
+    {
+      name: "markets",
+      schema: projectionItems({
+        market_id: { type: "string", format: "uuid" },
+        scenario_version_id: { type: ["string", "null"], format: "uuid" },
+        status: { type: "string" },
+        investment_mode: { type: "string" },
+        scenario_source: { type: ["string", "null"] },
+        settlement_rule: { type: ["string", "null"] },
+        current_step: { type: "integer", minimum: 0 },
+        state_version: { type: "integer", format: "int64", minimum: 0 },
+        teacher_view: { type: "boolean" },
+      }),
+    },
+  ],
   "API-READ-035": [
     { name: "profile_id", schema: { type: "string", format: "uuid" } },
     { name: "classroom_student_id", schema: { type: "string", format: "uuid" } },
@@ -1970,7 +2127,11 @@ const responseFieldOverrides = {
   "API-READ-021": [
     { name: "quiz_session_id", schema: { type: "string", format: "uuid" } },
     { name: "mode", schema: { type: "string", enum: ["GAME", "TEST"] } },
+    { name: "content_type", schema: { type: "string", enum: ["ECONOMY", "NONSENSE"] } },
     { name: "status", schema: { type: "string" } },
+    // 교사 화면이 낙관적 잠금으로 다음 명령을 보내려면 현재 버전을 알아야 한다.
+    { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
+    { name: "opened_at", schema: { type: ["string", "null"], format: "date-time" } },
     // 학생 앱은 답 제출에 option_id가 필요하므로 보기를 객체로 내려준다.
     {
       name: "questions",
@@ -1990,6 +2151,74 @@ const responseFieldOverrides = {
         },
       }),
     },
+  ],
+  "API-READ-040": [
+    {
+      name: "sessions",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "quiz_session_id",
+            "mode",
+            "content_type",
+            "status",
+            "state_version",
+            "opened_at",
+            "questions",
+          ],
+          properties: {
+            quiz_session_id: { type: "string", format: "uuid" },
+            mode: { type: "string", enum: ["GAME", "TEST"] },
+            content_type: { type: "string", enum: ["ECONOMY", "NONSENSE"] },
+            status: { type: "string" },
+            state_version: { type: "integer", format: "int64", minimum: 0 },
+            opened_at: { type: ["string", "null"], format: "date-time" },
+            questions: { type: "array", items: { type: "object", additionalProperties: true } },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-READ-041": [
+    {
+      name: "activities",
+      schema: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "resource_id",
+            "student_id",
+            "activity_type",
+            "title",
+            "quantity",
+            "amount",
+            "status",
+            "occurred_at",
+          ],
+          properties: {
+            resource_id: { type: "string", format: "uuid" },
+            student_id: { type: "string", format: "uuid" },
+            activity_type: { type: "string" },
+            title: { type: "string" },
+            quantity: { type: ["integer", "null"] },
+            amount: { type: "integer", format: "int64" },
+            status: { type: "string" },
+            occurred_at: { type: "string", format: "date-time" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ],
+  "API-CLS-010": [
+    { name: "student_id", schema: { type: "string", format: "uuid" } },
+    { name: "status", schema: { type: "string", enum: ["ONLINE", "AWAY"] } },
+    { name: "current_screen", optional: true, schema: { type: ["string", "null"], maxLength: 120 } },
+    { name: "last_seen_at", schema: { type: "string", format: "date-time" } },
   ],
   "API-READ-022": [
     { name: "result_version", schema: { type: "integer", minimum: 1 } },
@@ -2460,6 +2689,12 @@ const storageByReadApi = {
   "API-READ-012": ["inventory_items", "character_catalog", "student_character_profiles", "character_equipment"],
   "API-READ-035": ["student_character_profiles", "character_equipment"],
   "API-READ-013": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions"],
+  // 승인·정산 화면의 운영 기록. 목록만 읽고 쓰지 않는다.
+  "API-READ-037": ["loan_applications", "loan_policy_versions"],
+  "API-READ-038": ["trades", "trade_money_legs", "trade_item_legs", "classroom_students"],
+  "API-READ-039": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "classroom_students"],
+  "API-READ-040": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
+  "API-READ-041": ["outbox_events", "store_orders", "trade_decisions", "loan_applications", "quiz_submissions"],
   "API-READ-014": ["financial_products", "financial_product_versions"],
   "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
   "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
@@ -3681,8 +3916,11 @@ const acceptedResponseFields = [
   { name: "status_url", schema: { type: "string", format: "uri-reference" } },
 ];
 
+// 본문 없는 POST. 경로만으로 대상이 정해지고 Spring 쪽에도 @RequestBody가 없다.
+const bodylessPostApis = new Set(["API-AUTH-004", "API-EST-027"]);
+
 function hasRequestBody(operation) {
-  return !["GET", "DELETE"].includes(operation.method) && operation.apiId !== "API-AUTH-004";
+  return !["GET", "DELETE"].includes(operation.method) && !bodylessPostApis.has(operation.apiId);
 }
 
 function requestFieldsForManifest(operation) {
@@ -3757,7 +3995,9 @@ function buildApiFieldMapping(operations) {
 // 비교하므로 "중복되었습니다"가 함께 뜨지만, 실제 원인은 개수 하나뿐인 경우가 많다.
 // API-ACT-003·004(수업 자료 순서 진행), API-QZ-010(넌센스 문항 가져오기),
 // API-CLS-009(학급 보관), API-SHP-005(가격 일괄 인상)을 명세에 넣었다.
-const EXPECTED_HTTP_OPERATION_COUNT = 148;
+// 148 -> 153: 문서화가 빠져 있던 교사용 조회·문구 수정 API 5개(READ-037~039, AI-007, FIN-015)를 넣었다.
+// 153 -> 156: 퀴즈 세션 목록·학생 활동 목록·학생 presence HTTP fallback을 구현 계약에 반영했다.
+const EXPECTED_HTTP_OPERATION_COUNT = 156;
 
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);

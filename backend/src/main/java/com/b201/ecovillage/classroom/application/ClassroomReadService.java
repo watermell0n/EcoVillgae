@@ -246,8 +246,16 @@ public class ClassroomReadService {
             policy.getVersion(),
             policy.getVersion(),
             policy.getPolicyArea(),
-            publicView ? Map.of() : policy.getPolicyValues()
+            publicView ? publicPolicyValues(policy) : policy.getPolicyValues()
         );
+    }
+
+    private static Map<String, Object> publicPolicyValues(ClassroomPolicyVersion policy) {
+        if (!"ACCESS_MODE".equals(policy.getPolicyArea())) {
+            return Map.of();
+        }
+        Object mode = policy.getPolicyValues().get("mode");
+        return mode == null ? Map.of() : Map.of("mode", mode);
     }
 
     private static Map<String, Object> publicModuleConfig(Map<String, Object> config) {

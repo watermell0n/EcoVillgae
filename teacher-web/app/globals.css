@@ -590,6 +590,7 @@ button:disabled {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
   margin-top: 12px;
 }
 
@@ -965,7 +966,7 @@ button:disabled {
   border: 0;
   color: var(--muted);
   background: transparent;
-  text-decoration: underline;
+  text-decoration: none;
   font-weight: 850;
 }
 
@@ -1208,8 +1209,11 @@ button:disabled {
 }
 
 .module-activation-card button {
+  /* 격자 안에서 그대로 두면 카드 폭 전체로 늘어납니다. 글자보다 조금 넉넉한 폭이면 충분합니다. */
+  width: fit-content;
+  justify-self: center;
   min-height: 40px;
-  padding: 0 14px;
+  padding: 0 22px;
   border: 0;
   border-radius: 7px;
   color: #ffffff;
@@ -2710,6 +2714,90 @@ button:disabled {
   background: #f0f2ff;
 }
 
+.quiz-choice-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-choice-list li {
+  display: grid;
+  grid-template-columns: minmax(54px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.quiz-choice-list li > p {
+  margin: 0;
+}
+
+.quiz-choice-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 900;
+}
+
+.quiz-choice-list li.correct .quiz-choice-key {
+  color: #2f7a45;
+}
+
+.ai-disable-review:not(:disabled) {
+  border-color: #111111;
+}
+
+.module-disabled-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #d8dde2;
+  border-radius: 7px;
+  color: var(--muted);
+  background: #f7f8f9;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+/* 명단 관리 표는 관리 버튼까지 한 줄에 들어오도록 이름·직업·월급·상태를 앞쪽으로 당깁니다. */
+.roster-dialog .roster-manage-table th:nth-child(2),
+.roster-dialog .roster-manage-table td:nth-child(2) {
+  width: 150px;
+  max-width: 150px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(3),
+.roster-dialog .roster-manage-table td:nth-child(3) {
+  width: 160px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(4),
+.roster-dialog .roster-manage-table td:nth-child(4) {
+  width: 90px;
+}
+
+.roster-dialog .roster-manage-table th:nth-child(5),
+.roster-dialog .roster-manage-table td:nth-child(5) {
+  width: 105px;
+}
+
+.roster-dialog .roster-manage-table th:last-child,
+.roster-dialog .roster-manage-table td:last-child {
+  width: 270px;
+}
+
+.roster-dialog-footer {
+  gap: 22px;
+}
+
+.roster-dialog-footer .ghost {
+  margin-right: 12px;
+}
+
 .mode-chip.free { background: #edf8f1; color: #248653; }
 
 .live-toggle {
@@ -2734,9 +2822,25 @@ button:disabled {
 .live-dashboard-status { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
 .live-dashboard-status.error { color: #b0443d; }
 .live-student-activity { color: var(--muted); font-size: 13px; }
+.student-activity-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.student-activity-summary > div { display: grid; gap: 4px; min-height: 108px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8faf8; }
+.student-activity-summary span { color: var(--muted); font-size: 13px; font-weight: 750; }
+.student-activity-summary strong { color: var(--ink); font-size: 25px; line-height: 1.2; }
+.student-activity-summary small { align-self: end; color: var(--muted); font-size: 12px; }
+.student-activity-disclosure { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--muted); font-size: 13px; }
+.student-activity-toggle { flex: 0 0 auto; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: white; color: var(--ink); font-weight: 750; }
+.student-activity-detail { display: grid; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.student-activity-tools { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.student-activity-filters { display: flex; gap: 4px; padding: 4px; border-radius: 8px; background: #f0f3f0; }
+.student-activity-filters button { padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-weight: 750; }
+.student-activity-filters button.selected { background: white; color: var(--ink); box-shadow: 0 1px 3px rgba(31, 54, 42, .12); }
+.student-activity-search { display: grid; gap: 5px; min-width: 220px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.student-activity-search input { min-height: 38px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: white; color: var(--ink); }
+.student-activity-result-count { margin: 0; color: var(--muted); font-size: 13px; }
 .student-activity-feed { display: grid; gap: 8px; }
 .student-activity-item { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(280px, 2fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .student-activity-item em { color: var(--muted); font-size: 12px; font-style: normal; }
+.student-activity-load-more { justify-self: center; min-width: 150px; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: white; color: var(--ink); font-weight: 750; }
 
 .class-code-summary { margin-left: auto; padding-right: 20px; border-right: 1px solid var(--line); }
 .class-code-summary span { color: var(--muted); font-size: 13px; }
@@ -2773,6 +2877,9 @@ button:disabled {
   .live-class-toolbar { align-items: flex-start; flex-direction: column; }
   .live-student-row { grid-template-columns: 12px 1fr 82px; }
   .live-student-row span:nth-of-type(2), .live-student-activity { display: none; }
+  .student-activity-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .student-activity-disclosure { align-items: flex-start; flex-direction: column; }
+  .student-activity-tools, .student-activity-search { width: 100%; }
   .student-activity-item { grid-template-columns: 1fr; }
   .class-code-summary { display: none; }
   .lesson-template-preview { padding-left: 0; grid-template-columns: 1fr; }
@@ -3774,8 +3881,8 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
-.embedded-quiz-heading span { color: var(--ink); font-size: 22px; font-weight: 950; }
-.embedded-quiz-heading p { margin: 0; color: var(--muted); font-weight: 700; }
+.embedded-quiz-heading span { color: var(--ink); font-size: 17px; font-weight: 950; }
+.embedded-quiz-heading p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 
 .financial-fields label,
 .investment-settings label {
@@ -4413,17 +4520,17 @@ select:focus-visible {
 
 .roster-dialog .roster-manage-table th:nth-child(3),
 .roster-dialog .roster-manage-table td:nth-child(3) {
-  width: 210px;
+  width: 160px;
 }
 
 .roster-dialog .roster-manage-table th:nth-child(4),
 .roster-dialog .roster-manage-table td:nth-child(4) {
-  width: 110px;
+  width: 90px;
 }
 
 .roster-dialog .roster-manage-table th:nth-child(5),
 .roster-dialog .roster-manage-table td:nth-child(5) {
-  width: 150px;
+  width: 105px;
 }
 .image-lesson-panel {
   display: grid;
@@ -4491,15 +4598,15 @@ select:focus-visible {
 
 .economy-quiz-heading h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 900;
 }
 
 .economy-quiz-heading p {
   margin: 6px 0 0;
   color: #5d6b5a;
-  font-size: 14px;
-  line-height: 21px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 /*
@@ -4650,13 +4757,13 @@ select:focus-visible {
   background: #fff;
 }
 
-.lesson-sequence-heading h2 { margin: 0; font-size: 19px; font-weight: 900; }
+.lesson-sequence-heading h2 { margin: 0; font-size: 17px; font-weight: 900; }
 
 .lesson-sequence-heading p {
   margin: 6px 0 0;
   color: #5d6b5a;
-  font-size: 14px;
-  line-height: 21px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .lesson-sequence-setup,
@@ -5427,11 +5534,11 @@ select:focus-visible {
   grid-column: 1 / -1;
 }
 
-/* ----- 상점 상품: 상품 등록 (6) ----- */
-/* 상품명 칸은 적당한 폭에서 멈추고, 가격·재고는 그 옆에 붙어 카드 밖으로 나가지 않습니다. */
+/* ----- 상점 상품: 상품 등록 (6·8) ----- */
+/* 상품명·가격·재고가 카드 폭을 나눠 갖고 같은 오른쪽 끝에서 끝나, 왼쪽으로 몰려 보이지 않습니다. */
 .shop-admin-form {
-  grid-template-columns: minmax(220px, 460px) minmax(130px, 180px) minmax(130px, 180px);
-  justify-content: start;
+  grid-template-columns: minmax(0, 2.4fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  justify-content: stretch;
   gap: 20px;
 }
 
@@ -5454,7 +5561,20 @@ select:focus-visible {
 }
 
 .recommendation-result {
-  gap: 14px;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  align-items: end;
+  gap: 14px 28px;
+}
+
+/* 점검 요약과 적용 버튼은 줄 전체를 쓰고, 경고 확인 체크는 가격 칸 오른쪽에 간격을 두고 붙습니다. */
+.recommendation-result > .ai-precheck-summary,
+.recommendation-result > .wide-action {
+  grid-column: 1 / -1;
+}
+
+.recommendation-result > .warn-confirm {
+  align-self: end;
+  padding: 0 0 10px;
 }
 
 .recommendation-result > label {
@@ -5531,8 +5651,18 @@ select:focus-visible {
   font-size: 13px;
 }
 
+/* 난이도 카드 묶음과 아래 버튼들을 카드 가운데로 모읍니다. */
+.economy-quiz-levels {
+  justify-self: center;
+}
+
 .economy-quiz-actions {
+  justify-content: center;
   margin-top: 10px;
+}
+
+.economy-quiz-actions button {
+  font-size: 14px;
 }
 
 /* ----- 운영 관리: 대출·신용 (12) ----- */

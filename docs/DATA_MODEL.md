@@ -55,6 +55,7 @@ erDiagram
     COURSE_TEMPLATE_VERSIONS ||--o{ COURSE_TEMPLATE_MODULES : contains
     CLASSROOMS ||--o{ CLASSROOM_TEACHERS : assigns
     USERS ||--o{ CLASSROOM_TEACHERS : teaches
+    USERS ||--|| TEACHER_CREDENTIALS : authenticates
     CLASSROOMS ||--o{ CLASSROOM_STUDENTS : enrolls
     CLASSROOM_STUDENTS ||--|| STUDENT_CREDENTIALS : authenticates
     CLASSROOM_STUDENTS ||--o{ STUDENT_SESSIONS : opens
@@ -737,7 +738,55 @@ erDiagram
 - `report_snapshots`는 개인용·교사용·최종 리포트를 구분하며 공개 화면에서 직접 조회하지 않습니다.
 - 감사 이벤트에는 비밀번호·토큰·퀴즈 정답 원문을 저장하지 않습니다.
 
-## 9. API·상태 머신과 집계 루트
+## 9. 부동산 자리·임대·매매·청약
+
+자리(`PROPERTIES`)는 학급 좌석표의 한 칸입니다. 교사 소유로 시작해 임대·매매·청약 세 경로로
+학생에게 넘어가고, 세 경로가 모두 `PROPERTY_CONTRACTS` 한 곳으로 모입니다.
+
+```mermaid
+erDiagram
+    CLASSROOMS ||--|| PROPERTY_LAYOUTS : sizes
+    CLASSROOMS ||--o{ PROPERTIES : contains
+    CLASSROOM_STUDENTS ||--o{ PROPERTIES : owns
+
+    PROPERTIES ||--o{ PROPERTY_LEASE_LISTINGS : offered_as
+    CLASSROOM_STUDENTS ||--o{ PROPERTY_LEASE_LISTINGS : lists
+    PROPERTIES ||--o{ PROPERTY_SALE_LISTINGS : offered_for_sale
+    CLASSROOM_STUDENTS ||--o{ PROPERTY_SALE_LISTINGS : sells
+
+    CLASSROOMS ||--o{ SUBSCRIPTION_OFFERS : opens
+    USERS ||--o{ SUBSCRIPTION_OFFERS : draws
+    SUBSCRIPTION_OFFERS ||--o{ SUBSCRIPTION_OFFER_PROPERTIES : bundles
+    PROPERTIES ||--o{ SUBSCRIPTION_OFFER_PROPERTIES : listed_in
+    SUBSCRIPTION_OFFERS ||--o{ SUBSCRIPTION_APPLICATIONS : receives
+    CLASSROOM_STUDENTS ||--o{ SUBSCRIPTION_APPLICATIONS : applies
+    PROPERTIES ||--o{ SUBSCRIPTION_APPLICATIONS : assigned_to
+
+    PROPERTIES ||--o{ PROPERTY_CONTRACTS : bound_by
+    PROPERTY_LEASE_LISTINGS ||--o{ PROPERTY_CONTRACTS : becomes
+    SUBSCRIPTION_OFFERS ||--o{ PROPERTY_CONTRACTS : results_in
+    CLASSROOM_STUDENTS ||--o{ PROPERTY_CONTRACTS : occupies
+    USERS ||--o{ PROPERTY_CONTRACTS : approves
+    PROPERTY_CONTRACTS ||--o{ PROPERTY_CONTRACT_PAYMENTS : schedules
+    TRANSACTION_GROUPS ||--o{ PROPERTY_CONTRACT_PAYMENTS : settles
+
+    CLASSROOM_STUDENTS ||--|| SUBSCRIPTION_ACCOUNTS : holds
+    CLASSROOMS ||--|| SUBSCRIPTION_AUTO_DEPOSIT_POLICIES : configures
+    SUBSCRIPTION_ACCOUNTS ||--o{ SUBSCRIPTION_ACCOUNT_DEPOSITS : records
+    TRANSACTION_GROUPS ||--o{ SUBSCRIPTION_ACCOUNT_DEPOSITS : settles
+```
+
+### 9.1 주요 규칙
+
+- 자리의 소유자는 `owner_kind`로 교사와 학생을 구분하고 XOR `CHECK`로 강제합니다. 교사 소유면 `owner_student_id`가 NULL이고 학생 소유면 NOT NULL입니다. 금액·소유권 참조에 다형 FK를 쓰지 않는 2장 원칙과 같습니다.
+- 임대(`RENT`·`JEONSE`), 매매, 청약 세 경로가 모두 `PROPERTY_CONTRACTS`로 수렴합니다. 계약은 어느 경로에서 왔는지를 `lease_listing_id`·`subscription_offer_id`·`subscription_application_id` 중 하나로 남깁니다.
+- 학생이 내놓은 매물은 자리당 `ACTIVE` 판매 등록을 1건만 허용합니다(부분 유니크 인덱스). 임대 등록에는 같은 제약이 없습니다 — 계약이 끝난 자리를 다시 내놓는 흐름을 막지 않기 위해서입니다.
+- 청약 신청은 공고당 학생 1건입니다. 추첨 근거는 신청 시점의 납입 횟수·금액 스냅샷이며, 이후 계좌가 바뀌어도 당첨 판정에 소급하지 않습니다.
+- 청약 계좌는 학생당 1개, 자동납입 정책은 학급당 1개입니다. 정책이 꺼져 있으면 금액과 주기가 모두 NULL이어야 합니다.
+- 임대료 회차(`PROPERTY_CONTRACT_PAYMENTS`)와 청약 납입(`SUBSCRIPTION_ACCOUNT_DEPOSITS`)의 실제 돈 이동은 `TRANSACTION_GROUPS`가 담당합니다. 두 표는 금액을 직접 이동시키지 않고 거래 묶음을 참조만 합니다.
+- 청약 납입 이력은 불변(`I`)입니다. 환불도 새 행(`deposit_type = REFUND`)으로 남기고 기존 행을 고치지 않습니다.
+
+## 10. API·상태 머신과 집계 루트
 
 | API·이벤트 영역 | 집계 루트 | 주요 하위 엔티티 | 상태 머신 |
 | --- | --- | --- | --- |
@@ -754,7 +803,7 @@ erDiagram
 | `API-AI`, `EVT-OPS` | `ai_runs`, `async_operations` | 산출물·제안·결정 | SM-AIR-001 |
 | `API-ADM-004` | `school_ai_setting_versions` | 학교 AI 설정 버전 | 없음(불변 버전) |
 
-## 10. 요구사항 추적
+## 11. 요구사항 추적
 
 | 요구사항 | 데이터 엔티티 |
 | --- | --- |
@@ -768,7 +817,7 @@ erDiagram
 | DAT-001~006 | `report_snapshots`, `export_operations`, `audit_events`, `idempotency_records`, 보관기한 컬럼 |
 | SYS-003 | `realtime_streams`, `outbox_events`, `async_operations` |
 
-## 11. 물리 스키마 검증 결과
+## 12. 물리 스키마 검증 결과
 
 1. 87개 논리 엔티티를 [물리 스키마](PHYSICAL_SCHEMA.md)의 87개 테이블에 1:1 매핑했습니다.
 2. 전역 학급 코드, 학급 범위 복합 FK, 소유 교사·학생 번호·닉네임·세션·지갑·투표권 유일성을 정의했습니다.
@@ -777,7 +826,7 @@ erDiagram
 5. 상품·정책·금융·퀴즈·투자 버전의 불변 참조와 공개 projection 경계를 정의했습니다.
 6. 보관기한·식별 연결 제거와 원장·감사 보존 기준을 확정했습니다.
 
-## 12. 구현 상태와 후속 작업
+## 13. 구현 상태와 후속 작업
 
 Flyway `V1_1`~`V1_14`과 DBT-001~022에 87개 테이블, 캐릭터 소유·장착 분리, 전역 학급 코드, 화폐 단위명 불변성, MVP 저장 필드, 공개 GAME 순위 경계, 추천 코스 제품 데이터와 활동 공개 필드 allowlist를 반영했습니다.
 

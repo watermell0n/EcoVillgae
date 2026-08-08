@@ -2422,6 +2422,117 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/students/me/presence":
+    post:
+      operationId: "apiCls010"
+      x-api-id: "API-CLS-010"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classrooms"
+        - "classroom_teachers"
+        - "classroom_students"
+        - "salary_roles"
+        - "classroom_modules"
+        - "autonomous_schedules"
+        - "autonomous_schedule_modules"
+      x-ui-action-ids:
+        - "UIA-STU-001"
+      x-roles:
+        - "STU"
+      x-permission-ids:
+        - "PM-AUTH-001"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AUTH-003"
+        - "SYS-003"
+      tags:
+        - "Classrooms"
+      summary: "status=ONLINE|AWAY, current_screen? → 학생 ID, 접속 상태, 현재 화면, 마지막 확인 시각. WebSocket 연결이 불안정할 때 쓰는 HTTP fallback"
+      description: "사람이 검토하는 원문 기준: `API-CLS-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: status=ONLINE|AWAY, current_screen? → 학생 ID, 접속 상태, 현재 화면, 마지막 확인 시각. WebSocket 연결이 불안정할 때 쓰는 HTTP fallback."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        201:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "student_id"
+                      - "status"
+                      - "last_seen_at"
+                    properties:
+                      student_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "ONLINE"
+                          - "AWAY"
+                      current_screen:
+                        type:
+                          - "string"
+                          - "null"
+                        maxLength: 120
+                      last_seen_at:
+                        type: "string"
+                        format: "date-time"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-CLS-010 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                status:
+                  type: "string"
+                  enum:
+                    - "ONLINE"
+                    - "AWAY"
+                current_screen:
+                  type:
+                    - "string"
+                    - "null"
+                  maxLength: 120
+              required:
+                - "status"
+              additionalProperties: false
   "/classrooms/{classroom_id}/modules/{module_code}/activation-commands":
     post:
       operationId: "apiMod001"
@@ -2816,8 +2927,8 @@ paths:
     post:
       operationId: "apiMod004"
       x-api-id: "API-MOD-004"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "classroom_modules"
         - "state_transitions"
@@ -2845,7 +2956,46 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "module_id"
+                      - "module_code"
+                      - "status"
+                      - "investment_modes"
+                      - "state_version"
+                      - "replayed"
+                    properties:
+                      module_id:
+                        type: "string"
+                        format: "uuid"
+                      module_code:
+                        type: "string"
+                      status:
+                        type: "string"
+                      investment_modes:
+                        type: "array"
+                        items:
+                          type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      replayed:
+                        type: "boolean"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -2870,11 +3020,12 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-MOD-004는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-MOD-004 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
                   format: "int64"
+                  minimum: 0
                 screen_id:
                   type: "string"
                   pattern: "^SCR-[A-Z]+-\\d{3}$"
@@ -2885,10 +3036,13 @@ paths:
                   type: "string"
                   format: "date-time"
                 investment_modes:
-                  type: "string"
+                  type: "array"
+                  minItems: 1
+                  items:
+                    type: "string"
               required:
                 - "investment_modes"
-              additionalProperties: true
+              additionalProperties: false
   "/classrooms/{classroom_id}/economic-policy":
     put:
       operationId: "apiPol001"
@@ -6882,16 +7036,19 @@ paths:
                   type: "string"
                   enum:
                     - "START"
+                investment_mode:
+                  type: "string"
               required:
                 - "command"
+                - "investment_mode"
                 - "expected_state_version"
               additionalProperties: false
   "/classrooms/{classroom_id}/investment-market/day-commands":
     post:
       operationId: "apiFin014"
       x-api-id: "API-FIN-014"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "financial_products"
         - "financial_product_versions"
@@ -6929,7 +7086,57 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "market_id"
+                      - "market_status"
+                      - "investment_mode"
+                      - "current_step"
+                      - "total_steps"
+                      - "settled"
+                      - "settled_position_count"
+                      - "settled_amount"
+                      - "state_version"
+                    properties:
+                      market_id:
+                        type: "string"
+                        format: "uuid"
+                      market_status:
+                        type: "string"
+                      investment_mode:
+                        type: "string"
+                      current_step:
+                        type: "integer"
+                        minimum: 0
+                      total_steps:
+                        type: "integer"
+                        minimum: 0
+                      settled:
+                        type: "boolean"
+                      settled_position_count:
+                        type: "integer"
+                        minimum: 0
+                      settled_amount:
+                        type: "integer"
+                        format: "int64"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -6954,11 +7161,12 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-FIN-014는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-FIN-014 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
                   format: "int64"
+                  minimum: 0
                 screen_id:
                   type: "string"
                   pattern: "^SCR-[A-Z]+-\\d{3}$"
@@ -6973,7 +7181,137 @@ paths:
               required:
                 - "investment_mode"
                 - "expected_state_version"
-              additionalProperties: true
+              additionalProperties: false
+  "/classrooms/{classroom_id}/investment-market/assets/{resource_id}":
+    put:
+      operationId: "apiFin015"
+      x-api-id: "API-FIN-015"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "financial_products"
+        - "financial_product_versions"
+        - "deposit_accounts"
+        - "savings_accounts"
+        - "investment_orders"
+        - "loans"
+        - "credit_profiles"
+        - "transaction_groups"
+      x-ui-action-ids:
+        - "UIA-FIN-008"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-FIN-004"
+      x-state-machine-ids:
+        - "SM-IVT-001"
+      x-rtm-ids:
+        - "FIN-005"
+        - "AI-011"
+      tags:
+        - "Finance"
+      summary: "name, company_profile, start_price?, band_bps? → 가상 기업의 이름, 소개 문장만 고친 자산. 가격 흐름은 그대로 두므로 시나리오를 다시 만들지 않고도 어려운 낱말을 학생 눈높이로 바꿈"
+      description: "사람이 검토하는 원문 기준: `API-FIN-015` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: name, company_profile, start_price?, band_bps? → 가상 기업의 이름, 소개 문장만 고친 자산. 가격 흐름은 그대로 두므로 시나리오를 다시 만들지 않고도 어려운 낱말을 학생 눈높이로 바꿈."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/ResourceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "asset_id"
+                      - "symbol"
+                      - "name"
+                      - "company_profile"
+                      - "start_price"
+                      - "min_return_bps"
+                      - "max_return_bps"
+                    properties:
+                      asset_id:
+                        type: "string"
+                        format: "uuid"
+                      symbol:
+                        type: "string"
+                      name:
+                        type: "string"
+                      company_profile:
+                        type: "string"
+                      start_price:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      min_return_bps:
+                        type: "integer"
+                      max_return_bps:
+                        type: "integer"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-FIN-015 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                name:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 100
+                company_profile:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 1000
+                start_price:
+                  type:
+                    - "integer"
+                    - "null"
+                  format: "int64"
+                  minimum: 1
+                band_bps:
+                  type:
+                    - "integer"
+                    - "null"
+                  minimum: 1
+              required:
+                - "name"
+                - "company_profile"
+              additionalProperties: false
   "/classrooms/{classroom_id}/investment-orders":
     post:
       operationId: "apiFin009"
@@ -9440,8 +9778,8 @@ paths:
     get:
       operationId: "apiEst026"
       x-api-id: "API-EST-026"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -9475,7 +9813,34 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "property_id"
+                      - "status"
+                    properties:
+                      property_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10235,8 +10600,8 @@ paths:
     get:
       operationId: "apiEst023"
       x-api-id: "API-EST-023"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -10269,7 +10634,34 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "property_id"
+                      - "status"
+                    properties:
+                      property_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10292,8 +10684,8 @@ paths:
     post:
       operationId: "apiEst024"
       x-api-id: "API-EST-024"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -10326,7 +10718,34 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         201:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "property_id"
+                      - "status"
+                    properties:
+                      property_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10351,7 +10770,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-EST-024는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-EST-024 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -10369,14 +10788,15 @@ paths:
                 sale_price:
                   type: "integer"
                   format: "int64"
+                  minimum: 1
               required:
                 - "sale_price"
-              additionalProperties: true
+              additionalProperties: false
     delete:
       operationId: "apiEst025"
       x-api-id: "API-EST-025"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -10432,8 +10852,8 @@ paths:
     post:
       operationId: "apiEst027"
       x-api-id: "API-EST-027"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -10467,7 +10887,34 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         201:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "property_id"
+                      - "status"
+                    properties:
+                      property_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -10492,7 +10939,7 @@ paths:
           application/json:
             schema:
               type: "object"
-              description: "API-EST-027는 후속 범위이며 구현 스프린트에서 세부 DTO를 확정합니다."
+              description: "HTTP_API_SPEC.md의 API-EST-027 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
               properties:
                 expected_state_version:
                   type: "integer"
@@ -10507,13 +10954,13 @@ paths:
                 client_occurred_at:
                   type: "string"
                   format: "date-time"
-              additionalProperties: true
+              additionalProperties: false
   "/students/me/subscription-applications/{resource_id}":
     delete:
       operationId: "apiEst028"
       x-api-id: "API-EST-028"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "property_layouts"
         - "properties"
@@ -12738,6 +13185,8 @@ paths:
                     - "DEPOSIT"
                     - "SAVINGS"
                     - "LOAN"
+                investment_mode:
+                  type: "string"
                 teacher_context:
                   type: "string"
                   maxLength: 1000
@@ -13023,6 +13472,122 @@ paths:
               required:
                 - "decision"
                 - "reason"
+                - "expected_event_version"
+              additionalProperties: false
+  "/classrooms/{classroom_id}/ai/economic-events/{resource_id}/text":
+    put:
+      operationId: "apiAi007"
+      x-api-id: "API-AI-007"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "ai_runs"
+        - "ai_artifacts"
+        - "ai_proposals"
+        - "ai_decisions"
+        - "economic_event_drafts"
+        - "classroom_policy_versions"
+      x-ui-action-ids:
+        - "UIA-AI-004"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids:
+        - "PM-AI-002"
+      x-state-machine-ids:
+        - "SM-AIR-001"
+      x-rtm-ids:
+        - "AI-001"
+        - "AI-002"
+      tags:
+        - "AI"
+      summary: "title, content, expected_event_version → 어려운 낱말, 문장만 학생 눈높이로 고친 초안. 승인 전 초안만 고칠 수 있고 정책 효과와 가격 단계 연결은 그대로 둠"
+      description: "사람이 검토하는 원문 기준: `API-AI-007` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: title, content, expected_event_version → 어려운 낱말, 문장만 학생 눈높이로 고친 초안. 승인 전 초안만 고칠 수 있고 정책 효과와 가격 단계 연결은 그대로 둠."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/ResourceIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "event_id"
+                      - "title"
+                      - "content"
+                      - "status"
+                      - "state_version"
+                    properties:
+                      event_id:
+                        type: "string"
+                        format: "uuid"
+                      title:
+                        type: "string"
+                      content:
+                        type: "string"
+                      status:
+                        type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-AI-007 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                title:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 160
+                content:
+                  type: "string"
+                  minLength: 1
+                  maxLength: 2000
+                expected_event_version:
+                  type: "integer"
+                  format: "int64"
+                  minimum: 0
+              required:
+                - "title"
+                - "content"
                 - "expected_event_version"
               additionalProperties: false
   "/classrooms/{classroom_id}/export-operations":
@@ -15125,8 +15690,8 @@ paths:
     get:
       operationId: "apiRead036"
       x-api-id: "API-READ-036"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
         - "service_projection"
       x-roles:
@@ -15152,7 +15717,612 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "markets"
+                    properties:
+                      markets:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            market_id:
+                              type: "string"
+                              format: "uuid"
+                            scenario_version_id:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "uuid"
+                            investment_mode:
+                              type: "string"
+                            scenario_source:
+                              type:
+                                - "string"
+                                - "null"
+                            settlement_rule:
+                              type:
+                                - "string"
+                                - "null"
+                            current_step:
+                              type: "integer"
+                              minimum: 0
+                            teacher_view:
+                              type: "boolean"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/loan-decisions":
+    get:
+      operationId: "apiRead037"
+      x-api-id: "API-READ-037"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "loan_applications"
+        - "loan_policy_versions"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "WEB-012"
+        - "FIN-008"
+        - "FIN-009"
+      tags:
+        - "Queries"
+      summary: "이미 승인, 거절한 대출 신청 목록. 승인, 정산 화면의 운영 기록이 읽음"
+      description: "사람이 검토하는 원문 기준: `API-READ-037` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 이미 승인, 거절한 대출 신청 목록. 승인, 정산 화면의 운영 기록이 읽음."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "loan_applications"
+                    properties:
+                      loan_applications:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            application_id:
+                              type: "string"
+                              format: "uuid"
+                            classroom_student_id:
+                              type: "string"
+                              format: "uuid"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            installments:
+                              type: "integer"
+                              minimum: 1
+                            decided_at:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/trades/awaiting-teacher":
+    get:
+      operationId: "apiRead038"
+      x-api-id: "API-READ-038"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "trades"
+        - "trade_money_legs"
+        - "trade_item_legs"
+        - "classroom_students"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "WEB-011"
+        - "TRD-002"
+        - "TRD-003"
+      tags:
+        - "Queries"
+      summary: "교사 승인을 기다리는 개인거래 목록. 물건 목록 대신 양쪽 학생 이름과 오가는 금액 합계만 담음"
+      description: "사람이 검토하는 원문 기준: `API-READ-038` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 교사 승인을 기다리는 개인거래 목록. 물건 목록 대신 양쪽 학생 이름과 오가는 금액 합계만 담음."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "trades"
+                    properties:
+                      trades:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            trade_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_student_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_nickname:
+                              type: "string"
+                            counterpart_student_id:
+                              type: "string"
+                              format: "uuid"
+                            counterpart_nickname:
+                              type: "string"
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                            item_count:
+                              type: "integer"
+                              minimum: 0
+                            created_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/trades/decided":
+    get:
+      operationId: "apiRead039"
+      x-api-id: "API-READ-039"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "trades"
+        - "trade_money_legs"
+        - "trade_item_legs"
+        - "trade_decisions"
+        - "classroom_students"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "WEB-011"
+        - "TRD-002"
+        - "TRD-003"
+      tags:
+        - "Queries"
+      summary: "교사가 이미 처리한 개인거래 목록. 응답 모양은 API-READ-038과 같음"
+      description: "사람이 검토하는 원문 기준: `API-READ-039` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 교사가 이미 처리한 개인거래 목록. 응답 모양은 API-READ-038과 같음."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "trades"
+                    properties:
+                      trades:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            trade_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_student_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_nickname:
+                              type: "string"
+                            counterpart_student_id:
+                              type: "string"
+                              format: "uuid"
+                            counterpart_nickname:
+                              type: "string"
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                            item_count:
+                              type: "integer"
+                              minimum: 0
+                            created_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/quiz-sessions":
+    get:
+      operationId: "apiRead040"
+      x-api-id: "API-READ-040"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "quiz_sessions"
+        - "quiz_session_questions"
+        - "quiz_question_versions"
+        - "quiz_options"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "WEB-017"
+        - "WEB-019"
+        - "QZ-003"
+        - "QZ-004"
+      tags:
+        - "Queries"
+      summary: "학급의 퀴즈 세션 목록과 모드, 콘텐츠 유형, 상태, 버전, 시작 시각, 문항 스냅샷"
+      description: "사람이 검토하는 원문 기준: `API-READ-040` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학급의 퀴즈 세션 목록과 모드, 콘텐츠 유형, 상태, 버전, 시작 시각, 문항 스냅샷."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "sessions"
+                    properties:
+                      sessions:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "quiz_session_id"
+                            - "mode"
+                            - "content_type"
+                            - "status"
+                            - "state_version"
+                            - "opened_at"
+                            - "questions"
+                          properties:
+                            quiz_session_id:
+                              type: "string"
+                              format: "uuid"
+                            mode:
+                              type: "string"
+                              enum:
+                                - "GAME"
+                                - "TEST"
+                            content_type:
+                              type: "string"
+                              enum:
+                                - "ECONOMY"
+                                - "NONSENSE"
+                            status:
+                              type: "string"
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            opened_at:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
+                            questions:
+                              type: "array"
+                              items:
+                                type: "object"
+                                additionalProperties: true
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/student-activities":
+    get:
+      operationId: "apiRead041"
+      x-api-id: "API-READ-041"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "outbox_events"
+        - "store_orders"
+        - "trade_decisions"
+        - "loan_applications"
+        - "quiz_submissions"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "TCH-002"
+        - "DAT-003"
+      tags:
+        - "Queries"
+      summary: "최근 학생 활동을 최신순으로 조회. 학생 ID, 활동 유형, 제목, 수량, 금액, 상태, 발생 시각을 포함하고 limit은 기본 100"
+      description: "사람이 검토하는 원문 기준: `API-READ-041` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최근 학생 활동을 최신순으로 조회. 학생 ID, 활동 유형, 제목, 수량, 금액, 상태, 발생 시각을 포함하고 limit은 기본 100."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "activities"
+                    properties:
+                      activities:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "resource_id"
+                            - "student_id"
+                            - "activity_type"
+                            - "title"
+                            - "quantity"
+                            - "amount"
+                            - "status"
+                            - "occurred_at"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            student_id:
+                              type: "string"
+                              format: "uuid"
+                            activity_type:
+                              type: "string"
+                            title:
+                              type: "string"
+                            quantity:
+                              type:
+                                - "integer"
+                                - "null"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                            status:
+                              type: "string"
+                            occurred_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -15746,7 +16916,10 @@ paths:
                     required:
                       - "quiz_session_id"
                       - "mode"
+                      - "content_type"
                       - "status"
+                      - "state_version"
+                      - "opened_at"
                       - "questions"
                     properties:
                       quiz_session_id:
@@ -15757,8 +16930,22 @@ paths:
                         enum:
                           - "GAME"
                           - "TEST"
+                      content_type:
+                        type: "string"
+                        enum:
+                          - "ECONOMY"
+                          - "NONSENSE"
                       status:
                         type: "string"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      opened_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
                       questions:
                         type: "array"
                         items:

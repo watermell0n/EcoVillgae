@@ -75,7 +75,9 @@ function validateSequentialIds(prefix, expectedCount) {
 }
 
 validateSequentialIds("UK", 21);
-validateSequentialIds("CK", 41);
+// 41 -> 43: CK-042(classrooms.class_number 범위)와 CK-043(loan_installments.status)이
+// 문서에 추가됐는데 이 개수를 올리지 않아 검증이 실패하고 있었다.
+validateSequentialIds("CK", 43);
 validateSequentialIds("IX", 40);
 validateSequentialIds("DBT", 22);
 
@@ -116,5 +118,5 @@ if (errors.length > 0) {
 
 console.log(
   `Physical schema validation PASS: ${physicalTables.length} tables, ` +
-    "21 core uniqueness rules, 41 checks, 40 indexes, 22 DB tests",
+    "21 core uniqueness rules, 43 checks, 40 indexes, 22 DB tests",
 );

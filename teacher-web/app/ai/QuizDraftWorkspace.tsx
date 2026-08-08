@@ -129,6 +129,7 @@ export function QuizDraftWorkspace({
   aiEnabled,
   students,
   activeQuizSessionId,
+  registeredQuestionIds = [],
   onReload
 }: Readonly<{
   classroomId: string;
@@ -137,6 +138,8 @@ export function QuizDraftWorkspace({
   students: readonly QuizStudent[];
   // 진행 중인 퀴즈 세션 id입니다. 활성 퀴즈 모듈 config에서 옵니다.
   activeQuizSessionId?: string;
+  /** 난이도 문제은행에서 방금 등록한 문항 ID입니다. 목록을 즉시 다시 읽고 시작 목록에 담습니다. */
+  registeredQuestionIds?: readonly string[];
   onReload?: () => Promise<void>;
 }>) {
   const [grade, setGrade] = useState(initialGrade);
@@ -181,8 +184,10 @@ export function QuizDraftWorkspace({
       );
       setQuestions(response.questions);
       if (!keepError) setError("");
+      return response.questions;
     } catch (caught) {
       setError(quizErrorMessage(caught));
+      return [] as QuizQuestion[];
     } finally {
       setLoading(false);
     }
@@ -250,6 +255,20 @@ export function QuizDraftWorkspace({
     void loadQuestions();
     void loadSessions();
   }, [classroomId, loadQuestions, loadSessions]);
+
+  useEffect(() => {
+    if (registeredQuestionIds.length === 0) return;
+    let cancelled = false;
+    void loadQuestions().then((loaded) => {
+      if (cancelled) return;
+      const newVersionIds = loaded
+        .filter((question) => registeredQuestionIds.includes(question.resource_id))
+        .filter((question) => question.status === "PUBLISHED" && !question.already_used_in_session)
+        .map((question) => question.question_version_id);
+      setSelectedVersionIds((current) => [...new Set([...current, ...newVersionIds])]);
+    });
+    return () => { cancelled = true; };
+  }, [registeredQuestionIds, loadQuestions]);
 
   // 마지막 생성분을 기록합니다. 목록에서 사라진 문항은 다음에 읽을 때 자연히 걸러집니다.
   const rememberBatch = useCallback((ids: string[]) => {
@@ -782,9 +801,11 @@ export function QuizDraftWorkspace({
                 <ol className="quiz-choice-list">
                   {question.options.map((option) => (
                     <li className={option.correct ? "correct" : ""} key={option.option_id}>
-                      <span>{option.option_key}</span>
+                      <span className="quiz-choice-key">
+                        {option.option_key}
+                        {option.correct ? <CheckCircle2 size={18} aria-label="정답" /> : null}
+                      </span>
                       <p>{option.option_text}</p>
-                      {option.correct ? <CheckCircle2 size={18} /> : null}
                     </li>
                   ))}
                 </ol>

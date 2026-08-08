@@ -87,6 +87,10 @@ type StudentActivityRow = {
   occurred_at: string;
 };
 
+type StudentActivityFilter = "ALL" | "STORE" | "FINANCE" | "INVESTMENT";
+
+const STUDENT_ACTIVITY_PAGE_SIZE = 15;
+
 // 새로고침해도 열어 둔 교실과 탭을 그대로 유지합니다. 탭마다 따로 기억하도록 sessionStorage를 씁니다.
 const CONSOLE_STATE_KEY = "ecovillage.teacher.console";
 
@@ -599,6 +603,7 @@ export default function TeacherConsole() {
   const [modules, setModules] = useState<ModuleRow[]>(initialModules);
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
   const [products, setProducts] = useState<ProductRow[]>(initialProducts);
+  const [registeredControlQuizIds, setRegisteredControlQuizIds] = useState<string[]>([]);
   const [aiSettings, setAiSettings] = useState<AiSettingsSnapshot>({
     enabled: true,
     reason: "",
@@ -660,7 +665,7 @@ export default function TeacherConsole() {
       ],
       onEvent: (event) => {
         if (event.event_type === "classroom.app_mode.changed") {
-          setMode(event.payload.mode === "GUIDED" ? "선생님 수업" : "자율 활동");
+          setMode(event.payload.mode === "AUTONOMOUS" ? "자율 활동" : "선생님 수업");
         }
         if (event.event_type.startsWith("loan.") || event.event_type === "finance.product.changed") {
           setRealtimeRevision((revision) => revision + 1);
@@ -1128,6 +1133,14 @@ export default function TeacherConsole() {
         setModules([]);
       }
       setPolicyVersions(modulesState.policy_versions ?? []);
+      const accessPolicy = [...(modulesState.policy_versions ?? [])]
+        .filter((policy) => policy.policy_area === "ACCESS_MODE")
+        .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0];
+      const hasGuidedActivity = (modulesState.modules ?? []).some((module) => (
+        typeof module.config?.active_guided_activity_id === "string"
+        && module.config.active_guided_activity_id.length > 0
+      ));
+      setMode(hasGuidedActivity || accessPolicy?.values?.mode === "CLOSED" ? "선생님 수업" : "자율 활동");
       const aiPolicy = modulesState.policy_versions?.find((policy) => policy.policy_area === "AI_SETTINGS");
       const nextAiSettings: AiSettingsSnapshot = {
         enabled: aiPolicy?.values?.enabled !== false,
@@ -1378,6 +1391,7 @@ export default function TeacherConsole() {
               students={students}
               classroomId={activeClassroomId}
               stateVersion={classroomStateVersion}
+              effectiveTaxBps={Math.max(Math.round(Number(settings.incomeTax || 0) * 100), 0)}
               runAction={runAction}
               addLog={addLog}
               onReload={() => openClassroom(activeClassroomId)}
@@ -1433,7 +1447,7 @@ export default function TeacherConsole() {
               stateVersion={classroomStateVersion}
               realtimeRevision={realtimeRevision}
               currencyName={settings.currency}
-              savingsAvailable
+              savingsAvailable={settings.period === "1학기 운영"}
               // 모듈 활성화 때 확정한 기준금리를 새 상품·정책의 시작값으로 씁니다.
               depositRateBps={ratePolicyBps(policyVersions, "DEPOSIT_RATE")}
               savingsRateBps={ratePolicyBps(policyVersions, "SAVINGS_RATE")}
@@ -1481,6 +1495,7 @@ export default function TeacherConsole() {
                   <EconomyQuizDifficultyPanel
                     classroomId={activeClassroomId}
                     canManage={teacherRoles.includes("OWN")}
+                    onRegistered={setRegisteredControlQuizIds}
                   />
                   <QuizDraftWorkspace
                     classroomId={activeClassroomId}
@@ -1488,6 +1503,7 @@ export default function TeacherConsole() {
                     aiEnabled={aiSettings.enabled}
                     students={students}
                     activeQuizSessionId={activeQuizSessionId}
+                    registeredQuestionIds={registeredControlQuizIds}
                     onReload={() => openClassroom(activeClassroomId)}
                   />
                 </>
@@ -2471,6 +2487,7 @@ function Overview({
   students,
   classroomId,
   stateVersion,
+  effectiveTaxBps,
   runAction,
   addLog,
   onReload
@@ -2481,6 +2498,7 @@ function Overview({
   students: StudentRow[];
   classroomId: string;
   stateVersion: number;
+  effectiveTaxBps: number;
   runAction: (label: string, path: string, init: RequestInit, onMockSuccess: () => void) => Promise<void>;
   addLog: (message: string, tone?: LogTone) => void;
   onReload: () => Promise<void>;
@@ -2489,8 +2507,14 @@ function Overview({
   const [studentActivities, setStudentActivities] = useState<StudentActivityRow[]>([]);
   const [liveDashboardError, setLiveDashboardError] = useState("");
   const [lastLiveRefreshAt, setLastLiveRefreshAt] = useState<string>();
+  const [activityFilter, setActivityFilter] = useState<StudentActivityFilter>("ALL");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityFeedOpen, setActivityFeedOpen] = useState(false);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(STUDENT_ACTIVITY_PAGE_SIZE);
+  const [lessonModeBusy, setLessonModeBusy] = useState(false);
 
   useEffect(() => setLiveStudents(students), [students]);
+  useEffect(() => setVisibleActivityCount(STUDENT_ACTIVITY_PAGE_SIZE), [activityFilter, activitySearch]);
 
   // WebSocket events update `students` immediately. This lightweight poll is the
   // safety net for school networks that temporarily block or reconnect WebSockets.
@@ -2557,26 +2581,95 @@ function Overview({
       latestActivityByStudent.set(activity.student_id, activity);
     }
   });
+  const studentById = new Map(liveStudents.flatMap((student) => (
+    student.resourceId ? [[student.resourceId, student] as const] : []
+  )));
+  const recentActivityCutoff = Date.now() - 10 * 60 * 1_000;
+  const recentActivities = studentActivities.filter(
+    (activity) => new Date(activity.occurred_at).getTime() >= recentActivityCutoff
+  );
+  const recentPurchaseCount = recentActivities.filter(
+    (activity) => activity.activity_type === "STORE_PURCHASE"
+  ).length;
+  const recentFinanceCount = recentActivities.filter(
+    (activity) => activity.activity_type === "DEPOSIT_OPEN" || activity.activity_type === "SAVINGS_OPEN"
+  ).length;
+  const recentInvestmentCount = recentActivities.filter(
+    (activity) => activity.activity_type === "INVESTMENT_BUY" || activity.activity_type === "INVESTMENT_SELL"
+  ).length;
+  const recentActiveStudentCount = new Set(recentActivities.map((activity) => activity.student_id)).size;
+  const normalizedActivitySearch = activitySearch.trim().toLocaleLowerCase("ko-KR");
+  const filteredActivities = studentActivities.filter((activity) => {
+    const matchesType = activityFilter === "ALL"
+      || activityFilter === "STORE" && activity.activity_type === "STORE_PURCHASE"
+      || activityFilter === "FINANCE" && ["DEPOSIT_OPEN", "SAVINGS_OPEN"].includes(activity.activity_type)
+      || activityFilter === "INVESTMENT" && ["INVESTMENT_BUY", "INVESTMENT_SELL"].includes(activity.activity_type);
+    if (!matchesType) return false;
+    if (!normalizedActivitySearch) return true;
+    const student = studentById.get(activity.student_id);
+    return `${student?.attendance ?? ""} ${student?.nickname ?? ""} ${activity.title} ${studentActivityDescription(activity)}`
+      .toLocaleLowerCase("ko-KR")
+      .includes(normalizedActivitySearch);
+  });
+  const visibleActivities = filteredActivities.slice(0, visibleActivityCount);
 
-  function setLessonMode() {
+  async function setLessonMode() {
     const isFreeMode = mode === "자율 활동";
-    void runAction(
-      "수업 모드 전환",
-      `/classrooms/${classroomId}/access-mode-commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          expected_state_version: stateVersion,
-          command: isFreeMode ? "CLOSE" : "OPEN",
-          duration_minutes: 40,
-          client_occurred_at: new Date().toISOString()
-        })
-      },
-      () => {
-        setMode(isFreeMode ? "선생님 수업" : "자율 활동");
-        void onReload();
-      }
-    );
+    if (lessonModeBusy) return;
+    setLessonModeBusy(true);
+    try {
+      // 최초 OPEN(수업 종료)은 CLASSROOM_SETUP 점검 실행 ID가 필수입니다. 학급 생성 때
+      // 점검했더라도 새로고침 뒤에는 그 ID가 화면 상태에 남지 않으므로, OPEN 직전에 최신
+      // 점검을 실행하고 경고 항목까지 명시적으로 확인해 함께 보냅니다.
+      const preflight = isFreeMode ? null : await apiRequest<SetupPrecheckResponse>(
+        `/classrooms/${classroomId}/ai/balancing-analysis-operations`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            analysis_mode: "SETUP_PRECHECK",
+            trigger_context: {
+              context_type: "CLASSROOM_SETUP",
+              active_student_count: Math.max(liveStudents.length, students.length, 1),
+              system_amount_cap: 1_000_000,
+              non_reward_issuance: 0,
+              existing_reward_issuance: 0,
+              expected_recovery: 0,
+              other_periodic_issuance_per_student: 0,
+              effective_tax_bps: effectiveTaxBps
+            },
+            metric_scopes: []
+          })
+        }
+      );
+      await runAction(
+        "수업 모드 전환",
+        `/classrooms/${classroomId}/access-mode-commands`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expected_state_version: stateVersion,
+            command: isFreeMode ? "CLOSE" : "OPEN",
+            ...(!isFreeMode && {
+              duration_minutes: 40,
+              preflight_run_id: preflight?.ai_run_id,
+              preflight_warning_acknowledgements: preflight?.checks
+                .filter((check) => check.severity === "WARN")
+                .map((check) => check.check_id) ?? []
+            }),
+            client_occurred_at: new Date().toISOString()
+          })
+        },
+        () => {
+          setMode(isFreeMode ? "선생님 수업" : "자율 활동");
+          void onReload();
+        }
+      );
+    } catch (error) {
+      const code = error instanceof ApiError ? ` (${error.code})` : "";
+      addLog(`수업 종료 전 점검을 완료하지 못했어요${code}. ${error instanceof Error ? error.message : ""}`, "error");
+    } finally {
+      setLessonModeBusy(false);
+    }
   }
 
   function openStudentQuiz() {
@@ -2597,9 +2690,9 @@ function Overview({
             <span className={mode === "자율 활동" ? "mode-chip free" : "mode-chip class"}>{mode}</span>
             <p>접속 중 {onlineCount}명 · 화면 이탈 {awayCount}명 · 사용 기능 {openCount}개</p>
           </div>
-          <button type="button" className={mode === "자율 활동" ? "live-toggle is-off" : "live-toggle"} onClick={setLessonMode}>
+          <button type="button" disabled={lessonModeBusy} className={mode === "자율 활동" ? "live-toggle is-off" : "live-toggle"} onClick={() => void setLessonMode()}>
             <span aria-hidden="true" />
-            {mode === "자율 활동" ? "수업 시작" : "수업 종료"}
+            {lessonModeBusy ? "전환 중" : mode === "자율 활동" ? "수업 시작" : "수업 종료"}
           </button>
         </div>
         <div className="live-class-actions">
@@ -2626,22 +2719,90 @@ function Overview({
           })}
         </div>
       </PlainSection>
-      <PlainSection title="최근 학생 경제 활동">
+      <PlainSection title="학생 경제 활동" description="수업 중에는 최근 흐름만 확인하고, 전체 기록은 필요할 때 펼쳐 보세요.">
         {studentActivities.length === 0 ? (
           <p className="empty-copy">아직 구매·예금·적금·투자 기록이 없습니다.</p>
         ) : (
-          <div className="student-activity-feed" role="list">
-            {studentActivities.map((activity) => {
-              const student = liveStudents.find((item) => item.resourceId === activity.student_id);
-              return (
-                <div className="student-activity-item" role="listitem" key={`${activity.activity_type}-${activity.resource_id}`}>
-                  <strong>{student ? `${student.attendance}. ${student.nickname}` : "학생"}</strong>
-                  <span>{studentActivityDescription(activity)}</span>
-                  <em>{new Date(activity.occurred_at).toLocaleString("ko-KR")}</em>
+          <>
+            <div className="student-activity-summary" aria-label="최근 10분 학생 경제 활동 요약">
+              <div><span>활동 학생</span><strong>{recentActiveStudentCount}명</strong><small>최근 10분</small></div>
+              <div><span>구매</span><strong>{recentPurchaseCount}건</strong><small>상점 이용</small></div>
+              <div><span>금융</span><strong>{recentFinanceCount}건</strong><small>예금·적금</small></div>
+              <div><span>투자</span><strong>{recentInvestmentCount}건</strong><small>매수·매도</small></div>
+            </div>
+            <div className="student-activity-disclosure">
+              <span>최근 기록 {studentActivities.length}건을 보관하고 있어요.</span>
+              <button
+                type="button"
+                className="student-activity-toggle"
+                aria-expanded={activityFeedOpen}
+                onClick={() => setActivityFeedOpen((open) => !open)}
+              >
+                {activityFeedOpen ? "전체 내역 접기" : "전체 내역 보기"}
+              </button>
+            </div>
+            {activityFeedOpen && (
+              <div className="student-activity-detail">
+                <div className="student-activity-tools">
+                  <div className="student-activity-filters" role="group" aria-label="활동 종류 필터">
+                    {([
+                      ["ALL", "전체"],
+                      ["STORE", "구매"],
+                      ["FINANCE", "예·적금"],
+                      ["INVESTMENT", "투자"]
+                    ] as const).map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={activityFilter === value ? "selected" : ""}
+                        aria-pressed={activityFilter === value}
+                        onClick={() => setActivityFilter(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="student-activity-search">
+                    <span>학생 검색</span>
+                    <input
+                      type="search"
+                      value={activitySearch}
+                      onChange={(event) => setActivitySearch(event.target.value)}
+                      placeholder="번호 또는 이름"
+                    />
+                  </label>
                 </div>
-              );
-            })}
-          </div>
+                <p className="student-activity-result-count">조건에 맞는 활동 {filteredActivities.length}건</p>
+                {filteredActivities.length === 0 ? (
+                  <p className="empty-copy">조건에 맞는 활동이 없습니다.</p>
+                ) : (
+                  <>
+                    <div className="student-activity-feed" role="list">
+                      {visibleActivities.map((activity) => {
+                        const student = studentById.get(activity.student_id);
+                        return (
+                          <div className="student-activity-item" role="listitem" key={`${activity.activity_type}-${activity.resource_id}`}>
+                            <strong>{student ? `${student.attendance}. ${student.nickname}` : "학생"}</strong>
+                            <span>{studentActivityDescription(activity)}</span>
+                            <em>{new Date(activity.occurred_at).toLocaleString("ko-KR")}</em>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {visibleActivityCount < filteredActivities.length && (
+                      <button
+                        type="button"
+                        className="student-activity-load-more"
+                        onClick={() => setVisibleActivityCount((count) => count + STUDENT_ACTIVITY_PAGE_SIZE)}
+                      >
+                        15건 더 보기
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </>
         )}
       </PlainSection>
     </div>
@@ -3096,6 +3257,17 @@ function withUniqueRoleCodes(roles: SalaryRoleDraft[]): SalaryRoleDraft[] {
   });
 }
 
+/** 기존 학생에게 가장 많이 적용된 월급을 새 학생의 기본값으로 씁니다. */
+function defaultRosterSalary(students: readonly StudentRow[]) {
+  const counts = new Map<string, number>();
+  students.forEach((student) => {
+    const salary = student.salary.trim();
+    if (salary) counts.set(salary, (counts.get(salary) ?? 0) + 1);
+  });
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])[0]?.[0] ?? "150";
+}
+
 function Roster({
   settings,
   students,
@@ -3131,7 +3303,7 @@ function Roster({
     attendance: String(students.length + 1),
     nickname: "",
     role: "",
-    salary: "150",
+    salary: defaultRosterSalary(students),
     status: "정상",
     presence: "UNKNOWN"
   });
@@ -3147,6 +3319,18 @@ function Roster({
 
   function updateNewStudent(field: keyof StudentRow, value: string) {
     setNewStudent((current) => ({ ...current, [field]: value }));
+  }
+
+  function startAddingStudent() {
+    setNewStudent({
+      attendance: String(students.length + 1),
+      nickname: "",
+      role: "",
+      salary: defaultRosterSalary(students),
+      status: "정상",
+      presence: "UNKNOWN"
+    });
+    setIsAdding(true);
   }
 
   function startEdit(index: number) {
@@ -3186,7 +3370,7 @@ function Roster({
       attendance: newStudent.attendance.trim() || String(students.length + 1),
       nickname: trimmedNickname,
       role: hasSalaryModule ? trimmedRole : "",
-      salary: hasSalaryModule ? newStudent.salary.trim() || "150" : "0",
+      salary: hasSalaryModule ? newStudent.salary.trim() || defaultRosterSalary(students) : "0",
       status: "정상"
     };
 
@@ -3196,7 +3380,7 @@ function Roster({
       attendance: String(students.length + 2),
       nickname: "",
       role: "",
-      salary: "150",
+      salary: defaultRosterSalary([...students, studentToAdd]),
       status: "정상",
       presence: "UNKNOWN"
     });
@@ -3402,7 +3586,7 @@ function Roster({
                 </select>
                 <span>{visibleStudents.length}명 표시</span>
               </div>
-              <button type="button" onClick={() => setIsAdding(true)}>
+              <button type="button" onClick={startAddingStudent}>
                 <UserPlus aria-hidden="true" size={16} />
                 학생 추가
               </button>
@@ -3629,9 +3813,11 @@ function ShopAdmin({
     [products]
   );
   const characterProductCount = products.length - managedProducts.length;
-  /** AI 가격 추천은 교사가 등록한 상품에만 씁니다. */
+  /** AI 가격 추천은 교사가 등록했고 현재 학생에게 공개하지 않은 상품에만 씁니다. */
   const teacherOwnedProducts = useMemo(
-    () => managedProducts.map(({ product }) => product),
+    () => managedProducts
+      .map(({ product }) => product)
+      .filter((product) => product.status !== "PUBLISHED"),
     [managedProducts]
   );
 
@@ -4103,6 +4289,13 @@ function FinanceAdmin({
   const [loanDecisionId, setLoanDecisionId] = useState<string | null>(null);
   // 종목·가격은 AI 시나리오가 만들므로 교사가 직접 입력하는 투자 상품 초안은 두지 않습니다.
   const investmentModule = useMemo(() => investmentModuleInfo(modules), [modules]);
+  const moduleIsActive = (code: string) => modules.some((module) => (
+    module.code === code
+      && (module.serverStatus === undefined ? module.status === "열림" : module.serverStatus === "ACTIVE")
+  ));
+  const depositModuleActive = moduleIsActive("DEPOSIT");
+  const savingsModuleActive = moduleIsActive("SAVINGS");
+  const loanModuleActive = moduleIsActive("LOAN");
   useEffect(() => {
     if (!savingsAvailable && activeTab === "SAVINGS") setActiveTab("DEPOSIT");
   }, [activeTab, savingsAvailable]);
@@ -4171,7 +4364,11 @@ function FinanceAdmin({
   }, [classroomId, realtimeRevision, depositRateBps, savingsRateBps]);
 
   useEffect(() => {
-    if (!classroomId) return;
+    if (!classroomId || !loanModuleActive) {
+      setLoanApplications([]);
+      setActiveLoans([]);
+      return;
+    }
     let cancelled = false;
     void apiRequest<{
       policy: { version: number; maximum_principal: number; interest_rate_bps: number; term_units: number; installment_count: number; grace_units: number; on_time_credit: number; overdue_credit: number; repaid_credit: number };
@@ -4239,7 +4436,7 @@ function FinanceAdmin({
       setLoanAmounts(Object.fromEntries(response.applications.map((item) => [item.application_id, String(item.requested_amount)])));
     }).catch(() => undefined);
     return () => { cancelled = true; };
-  }, [classroomId, realtimeRevision]);
+  }, [classroomId, realtimeRevision, loanModuleActive]);
 
   const activeProducts = products.filter((product) => product.productType === activeTab);
 
@@ -4272,6 +4469,8 @@ function FinanceAdmin({
 
   async function saveProduct(product: FinancialProductDraft, command: "CREATE" | "UPDATE" | "PUBLISH" | "STOP") {
     if (!classroomId) return addLog("먼저 교실을 선택해 주세요.", "warning");
+    const enabled = product.productType === "DEPOSIT" ? depositModuleActive : savingsModuleActive;
+    if (!enabled) return addLog(`${product.productType === "DEPOSIT" ? "예금" : "적금"} 모듈을 먼저 활성화해 주세요.`, "warning");
     const term = Number(product.termUnits);
     const interest = Number(product.interestRate);
     const earlyInterest = Number(product.earlyTerminationRate);
@@ -4334,6 +4533,7 @@ function FinanceAdmin({
 
   async function saveLoanPolicy() {
     if (!classroomId) return addLog("먼저 교실을 선택해 주세요.", "warning");
+    if (!loanModuleActive) return addLog("대출 모듈을 먼저 활성화해 주세요.", "warning");
     const [maximum, interest, weeks, installmentCount, grace, onTime, overdue, repaid] = [loanPolicy.maximumPrincipal, loanPolicy.interestRate, loanPolicy.termWeeks, loanPolicy.installmentCount, loanPolicy.graceDays, loanPolicy.onTimeCredit, loanPolicy.overdueCredit, loanPolicy.repaidCredit].map(Number);
     const integers = [maximum, weeks, installmentCount, grace, onTime, overdue, repaid];
     if (integers.some((value) => !Number.isInteger(value)) || !Number.isFinite(interest) || maximum < 1 || interest < 0 || interest > 20 || weeks < 1 || weeks > 12 || installmentCount < 1 || installmentCount > 12 || installmentCount > weeks * 7 || grace < 0 || grace > 7 || onTime < 0 || onTime > 100 || overdue < -100 || overdue > 0 || repaid < 0 || repaid > 100) {
@@ -4370,6 +4570,7 @@ function FinanceAdmin({
 
   async function decideLoan(application: LoanApplicationRow, decision: "APPROVE" | "REJECT") {
     if (!classroomId) return;
+    if (!loanModuleActive) return addLog("대출 모듈을 먼저 활성화해 주세요.", "warning");
     const approvedAmount = Number(loanAmounts[application.applicationId] ?? application.requestedAmount);
     if (decision === "APPROVE" && (!Number.isInteger(approvedAmount) || approvedAmount < Number(loanPolicy.installmentCount) || approvedAmount > application.requestedAmount)) {
       addLog(`승인 금액은 ${loanPolicy.installmentCount} 이상, 신청 금액 이내로 입력해 주세요.`, "warning");
@@ -4437,6 +4638,7 @@ function FinanceAdmin({
       ) : activeTab === "LOAN" ? (
         <>
           <PlainSection title="대출 정책" description="저장한 값은 이후의 새 신청부터 적용됩니다. 기간은 주 단위이며 회차별 자동 상환됩니다.">
+            {!loanModuleActive ? <p className="module-disabled-notice">대출 모듈이 꺼져 있어 정책을 저장하거나 학생 신청을 처리할 수 없어요. 학급 설정에서 대출 모듈을 먼저 활성화해 주세요.</p> : null}
             <div className="financial-product-editor">
               <div className="financial-product-heading"><strong>정책 버전 {loanPolicy.version || "기본"}</strong><span>대출·신용</span></div>
               <div className="financial-fields">
@@ -4467,7 +4669,7 @@ function FinanceAdmin({
                 </table>
                 <p className="helper-text">한도와 금리는 위에 저장한 값을 기준으로 등급마다 자동 적용됩니다. 제한 등급은 새 대출을 신청할 수 없습니다.</p>
               </div>
-              <div className="financial-actions"><button type="button" disabled={loanSaving} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
+              <div className="financial-actions"><button type="button" disabled={loanSaving || !loanModuleActive} onClick={() => void saveLoanPolicy()}>{loanSaving ? "저장 중" : "대출 정책 저장"}</button></div>
             </div>
           </PlainSection>
           <PlainSection title="대출 승인 대기" description="학생의 신청 금액과 신용점수를 확인한 뒤 승인 금액을 정할 수 있습니다.">
@@ -4481,8 +4683,8 @@ function FinanceAdmin({
                     <label>승인·거절 사유<input value={loanReasons[application.applicationId] ?? ""} onChange={(event) => setLoanReasons((current) => ({ ...current, [application.applicationId]: event.target.value }))} placeholder="선택 입력" /></label>
                   </div>
                   <div className="financial-actions">
-                    <button type="button" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "APPROVE")}>승인·지급</button>
-                    <button type="button" className="ghost" disabled={loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "REJECT")}>거절</button>
+                    <button type="button" disabled={!loanModuleActive || loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "APPROVE")}>승인·지급</button>
+                    <button type="button" className="ghost" disabled={!loanModuleActive || loanDecisionId === application.applicationId} onClick={() => void decideLoan(application, "REJECT")}>거절</button>
                   </div>
                 </div>
               ))}
@@ -4521,6 +4723,11 @@ function FinanceAdmin({
           title={activeTab === "DEPOSIT" ? "예금 상품" : "적금 상품"}
           description="저장한 상품은 초안 상태이며, 학생에게 보여 주려면 공개 버튼을 누릅니다."
         >
+          {!(activeTab === "DEPOSIT" ? depositModuleActive : savingsModuleActive) ? (
+            <p className="module-disabled-notice">
+              {activeTab === "DEPOSIT" ? "예금" : "적금"} 모듈이 꺼져 있어 상품을 추가·저장·공개할 수 없어요. 학급 설정에서 모듈을 먼저 활성화해 주세요.
+            </p>
+          ) : null}
           <div className="financial-product-list">
             {activeProducts.map((product) => {
               const index = products.indexOf(product);
@@ -4539,25 +4746,20 @@ function FinanceAdmin({
                     <label>최대 금액({currencyName})<input inputMode="numeric" value={product.maximumAmount} onChange={(event) => updateProduct(index, "maximumAmount", event.target.value)} /></label>
                   </div>
                   <div className="financial-actions">
-                    <button type="button" disabled={busy} onClick={() => void saveProduct(product, product.resourceId ? "UPDATE" : "CREATE")}>{busy ? "저장 중" : "저장"}</button>
-                    <button type="button" disabled={busy || !product.resourceId} onClick={() => void saveProduct(product, "PUBLISH")}>학생에게 공개</button>
-                    <button type="button" className="ghost" disabled={busy || !product.resourceId || product.status !== "PUBLISHED"} onClick={() => void saveProduct(product, "STOP")}>공개 중지</button>
+                    <button type="button" disabled={busy || !(product.productType === "DEPOSIT" ? depositModuleActive : savingsModuleActive)} onClick={() => void saveProduct(product, product.resourceId ? "UPDATE" : "CREATE")}>{busy ? "저장 중" : "저장"}</button>
+                    <button type="button" disabled={busy || !product.resourceId || !(product.productType === "DEPOSIT" ? depositModuleActive : savingsModuleActive)} onClick={() => void saveProduct(product, "PUBLISH")}>학생에게 공개</button>
+                    <button type="button" className="ghost" disabled={busy || !product.resourceId || product.status !== "PUBLISHED" || !(product.productType === "DEPOSIT" ? depositModuleActive : savingsModuleActive)} onClick={() => void saveProduct(product, "STOP")}>공개 중지</button>
                   </div>
                 </div>
               );
             })}
           </div>
-          <button type="button" className="add-financial-product" onClick={() => addProduct(activeTab)}>+ {activeTab === "DEPOSIT" ? "예금" : "적금"} 상품 추가</button>
+          <button type="button" className="add-financial-product" disabled={!(activeTab === "DEPOSIT" ? depositModuleActive : savingsModuleActive)} onClick={() => addProduct(activeTab)}>+ {activeTab === "DEPOSIT" ? "예금" : "적금"} 상품 추가</button>
         </PlainSection>
       )}
     </div>
   );
 }
-
-// 수업 자료는 개념 카테고리로 묶어 둡니다. 카테고리를 고르고 "수업 자료 보기"를 누른 뒤에만
-// 그 카테고리의 자료가 아래에 펼쳐집니다. 교사가 내용을 확인하고 "학생에게 공개"를 눌러야
-// 학생 화면에서 볼 수 있습니다.
-const lessonCategories: string[] = [...new Set(lessonQuizCatalog.map((lesson) => lesson.module))];
 
 function Control({
   lessonPanel,
@@ -4568,81 +4770,9 @@ function Control({
   lessonPanel: ReactNode;
   quizWorkspace: ReactNode;
 }>) {
-  const [category, setCategory] = useState(lessonCategories[0]);
-  // "수업 자료 보기"로 펼쳐 둔 카테고리입니다. 누르기 전에는 자료를 보여 주지 않습니다.
-  const [openedCategory, setOpenedCategory] = useState("");
-  const [sharedLessonIds, setSharedLessonIds] = useState<string[]>([]);
-  const [notice, setNotice] = useState("");
-
-  const openedMaterials = useMemo(
-    () => lessonQuizCatalog.filter((lesson) => lesson.module === openedCategory),
-    [openedCategory]
-  );
-
-  function showMaterials() {
-    setOpenedCategory(category);
-    setNotice("");
-  }
-
-  function toggleShare(lessonId: string, title: string) {
-    setSharedLessonIds((current) => {
-      const shared = current.includes(lessonId);
-      setNotice(shared
-        ? `"${title}" 자료 공개를 내렸어요.`
-        : `"${title}" 자료를 학생에게 공개했어요.`);
-      return shared ? current.filter((item) => item !== lessonId) : [...current, lessonId];
-    });
-  }
-
   return (
     <div className="page-flow">
       {lessonPanel}
-      <PlainSection
-        title="경제 개념 수업"
-        description="카테고리를 고르고 수업 자료를 확인한 뒤, 학생에게 보여 줄 자료만 공개해요."
-      >
-        <div className="new-quiz-line">
-          <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="수업 자료 카테고리 선택">
-            {lessonCategories.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <button type="button" className="add-financial-product" onClick={showMaterials}>수업 자료 보기</button>
-        </div>
-        {notice ? <div className="inline-notice" role="status">{notice}</div> : null}
-        {!openedCategory ? (
-          <p className="empty-copy">
-            카테고리를 고르고 &quot;수업 자료 보기&quot;를 누르면 해당 카테고리의 수업 자료가 여기에 나타납니다.
-          </p>
-        ) : openedMaterials.length === 0 ? (
-          <p className="empty-copy">{openedCategory} 카테고리에 등록된 수업 자료가 아직 없어요.</p>
-        ) : (
-          <div className="lesson-list">
-            {openedMaterials.map((material) => {
-              const shared = sharedLessonIds.includes(material.id);
-              return (
-                <div className="lesson-row" key={material.id}>
-                  <span>{material.module}</span>
-                  <b>{material.title}</b>
-                  <span>{material.minutes}</span>
-                  <span>{shared ? "공개 중" : "비공개"}</span>
-                  <div className="row-actions">
-                    <button
-                      type="button"
-                      className={shared ? "ghost" : ""}
-                      onClick={() => toggleShare(material.id, material.title)}
-                    >
-                      {shared ? "공개 내리기" : "학생에게 공개"}
-                    </button>
-                  </div>
-                  <div className="lesson-template-preview">
-                    <b>{material.module}</b>
-                    <span>{material.concept}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </PlainSection>
       <section className="embedded-quiz-workspace">
         <div className="embedded-quiz-heading"><span>퀴즈 문제은행</span><p>수업 자료와 연결할 퀴즈를 만들고, 수정한 뒤 학생에게 공개할 수 있어요.</p></div>
         {quizWorkspace}
