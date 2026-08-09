@@ -223,7 +223,7 @@ public class DepositTerminationService {
                 command.requestId().toString(),
                 requestHash,
                 command.correlationId().toString(),
-                "Terminate fixed-term deposit early",
+                "예금 중도 해지",
                 postings,
                 now
             ),

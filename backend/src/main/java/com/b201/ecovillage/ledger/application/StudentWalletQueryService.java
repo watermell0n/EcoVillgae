@@ -94,14 +94,34 @@ public class StudentWalletQueryService {
         return switch (transactionType) {
             case "SALARY_PAYOUT" -> "급여 지급";
             case "STORE_PURCHASE" -> "상점 구매";
-            case "TRADE_SETTLEMENT" -> "거래 정산";
-            case "DEPOSIT_SUBSCRIPTION" -> "예금 가입";
-            case "DEPOSIT_MATURITY" -> "예금 만기";
+            case "PERSONAL_TRADE" -> "개인 거래";
+            case "DEPOSIT_OPEN" -> "예금 가입";
+            case "DEPOSIT_MATURITY" -> "예금 만기 지급";
+            case "DEPOSIT_EARLY_TERMINATION" -> "예금 중도 해지";
+            case "SAVINGS_OPEN" -> "적금 가입";
+            case "SAVINGS_INSTALLMENT" -> "적금 납입";
+            case "SAVINGS_MATURITY" -> "적금 만기 지급";
             case "LOAN_DISBURSEMENT" -> "대출 실행";
             case "LOAN_REPAYMENT" -> "대출 상환";
-            case "PROPERTY_PURCHASE" -> "부동산 구매";
-            case "PROPERTY_RENT" -> "임대료";
-            default -> transactionType.replace('_', ' ');
+            case "LOAN_PREPAYMENT" -> "대출 중도 상환";
+            case "QUIZ_REWARD" -> "퀴즈 보상";
+            case "INVESTMENT_BUY" -> "투자 매수";
+            case "INVESTMENT_SELL" -> "투자 매도";
+            case "INVESTMENT_SETTLEMENT" -> "투자 정산";
+            case "SUBSCRIPTION_DEPOSIT" -> "청약통장 납입";
+            case "SUBSCRIPTION_PROPERTY_SALE" -> "청약 당첨 자리 구매";
+            case "PROPERTY_SALE" -> "부동산 자리 구매";
+            case "PROPERTY_RENT_DEPOSIT" -> "월세 보증금 납부";
+            case "PROPERTY_JEONSE_DEPOSIT" -> "전세 보증금 납부";
+            case "PROPERTY_RENT_PAYMENT" -> "임대료 납부";
+            case "PROPERTY_DEPOSIT_REFUND" -> "보증금 반환";
+            case "PUBLIC_FUND_SPENDING" -> "공동기금 사용";
+            case "ECONOMIC_EVENT_REWARD_ISSUANCE" -> "경제 이벤트 보상";
+            case "ECONOMIC_EVENT_PUBLIC_FUND_GRANT" -> "공동기금 지원";
+            case "RECOVERY_AMOUNT_CORRECTION" -> "금액 정정";
+            case "RECOVERY_ITEM_CORRECTION" -> "항목 정정";
+            case "RECOVERY_QUIZ_REGRADING" -> "퀴즈 재채점 정정";
+            default -> "거래";
         };
     }
 

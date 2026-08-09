@@ -244,7 +244,7 @@ public class DepositSubscriptionService {
                 command.requestId().toString(),
                 requestHash,
                 command.correlationId().toString(),
-                "Open fixed-term deposit",
+                "예금 가입",
                 List.of(
                     new LedgerTransactionPosting(wallet.getId(), -command.principal()),
                     new LedgerTransactionPosting(liability.getId(), command.principal())

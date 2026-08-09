@@ -152,7 +152,7 @@ public class SavingsSubscriptionService {
         };
         transactionService.execute(groupId, LedgerTransactionCommand.original(command.classroomId(), "SAVINGS_OPEN", LedgerActorType.STUDENT,
             student.getId(), snapshot.getId(), ROUTE_KEY, command.requestId().toString(), requestHash, command.correlationId().toString(),
-            "Open savings account and pay first installment", List.of(new LedgerTransactionPosting(wallet.getId(), -command.installmentAmount()),
+            "적금 가입", List.of(new LedgerTransactionPosting(wallet.getId(), -command.installmentAmount()),
                 new LedgerTransactionPosting(liability.getId(), command.installmentAmount())), now), List.of(openAccount));
         accountRepository.flush();
         eventPublisher.publish(command.classroomId(), "STUDENT_PRIVATE", student.getId(), "savings.account.opened", "SAVINGS_ACCOUNT", account.getId(),
