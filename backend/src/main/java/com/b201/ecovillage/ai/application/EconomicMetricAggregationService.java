@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +25,8 @@ import org.springframework.stereotype.Service;
 import com.b201.ecovillage.ai.contract.BalancingContract;
 import com.b201.ecovillage.ai.contract.BalancingContract.MetricCode;
 import com.b201.ecovillage.ai.contract.BalancingContract.ValueUnit;
+import com.b201.ecovillage.ledger.domain.LedgerFlowClassifier;
+import com.b201.ecovillage.ledger.domain.LedgerFlowClassifier.Flow;
 
 @Service
 public class EconomicMetricAggregationService {
@@ -185,13 +186,13 @@ public class EconomicMetricAggregationService {
         long consumption = 0;
         long rewards = 0;
         for (GroupFlow group : groups.values()) {
-            FlowClass flowClass = classify(group.transactionType(), group.walletDelta());
-            if (flowClass == FlowClass.ISSUANCE) {
+            Flow flowClass = classify(group.transactionType(), group.walletDelta());
+            if (flowClass == Flow.ISSUANCE) {
                 issuance = Math.addExact(issuance, group.walletDelta());
                 if (isReward(group.transactionType())) {
                     rewards = Math.addExact(rewards, group.walletDelta());
                 }
-            } else if (flowClass == FlowClass.RECOVERY) {
+            } else if (flowClass == Flow.RECOVERY) {
                 long recovered = Math.negateExact(group.walletDelta());
                 recovery = Math.addExact(recovery, recovered);
                 if (isConsumption(group.transactionType())) {
@@ -573,9 +574,9 @@ public class EconomicMetricAggregationService {
         boolean investment = intersects(requestedCodes, INVESTMENT_METRICS);
         for (Map.Entry<UUID, GroupFlow> entry : groups.entrySet()) {
             String type = normalized(entry.getValue().transactionType());
-            FlowClass flow = classify(type, entry.getValue().walletDelta());
+            Flow flow = classify(type, entry.getValue().walletDelta());
             if (
-                (ledger && flow != FlowClass.RECLASSIFICATION)
+                (ledger && flow != Flow.RECLASSIFICATION)
                     || (product && type.contains("STORE"))
                     || (finance && (type.contains("DEPOSIT") || type.contains("SAVINGS") || type.contains("LOAN")))
                     || (investment && type.contains("INVESTMENT"))
@@ -606,44 +607,20 @@ public class EconomicMetricAggregationService {
         return left.stream().anyMatch(right::contains);
     }
 
-    private static FlowClass classify(String transactionType, long walletDelta) {
-        String type = normalized(transactionType);
-        if (
-            type.contains("PERSONAL_TRADE") || type.contains("TRANSFER")
-                || type.contains("DEPOSIT_OPEN") || type.contains("SAVINGS_OPEN")
-                || type.contains("INVESTMENT_BUY") || type.contains("INVESTMENT_SELL")
-        ) {
-            return FlowClass.RECLASSIFICATION;
-        }
-        if (
-            type.contains("SALARY") || type.contains("REWARD")
-                || type.contains("LOAN_DISBURSE") || type.contains("LOAN_EXECUTION")
-        ) {
-            return FlowClass.ISSUANCE;
-        }
-        if (
-            type.contains("STORE_PURCHASE") || type.contains("TAX")
-                || type.contains("LOAN_REPAY") || type.contains("FEE")
-        ) {
-            return FlowClass.RECOVERY;
-        }
-        if (walletDelta > 0) {
-            return FlowClass.ISSUANCE;
-        }
-        return walletDelta < 0 ? FlowClass.RECOVERY : FlowClass.RECLASSIFICATION;
+    private static Flow classify(String transactionType, long walletDelta) {
+        return LedgerFlowClassifier.classify(transactionType, walletDelta);
     }
 
     private static boolean isReward(String transactionType) {
-        return normalized(transactionType).contains("REWARD");
+        return LedgerFlowClassifier.isReward(transactionType);
     }
 
     private static boolean isConsumption(String transactionType) {
-        String type = normalized(transactionType);
-        return type.contains("STORE_PURCHASE") || type.contains("CONSUMPTION");
+        return LedgerFlowClassifier.isConsumption(transactionType);
     }
 
     private static String normalized(String value) {
-        return value == null ? "" : value.toUpperCase(Locale.ROOT);
+        return LedgerFlowClassifier.normalized(value);
     }
 
     private static Map<UUID, Long> zeroBalances(List<UUID> students) {
@@ -827,9 +804,4 @@ public class EconomicMetricAggregationService {
         }
     }
 
-    private enum FlowClass {
-        ISSUANCE,
-        RECOVERY,
-        RECLASSIFICATION
-    }
 }
