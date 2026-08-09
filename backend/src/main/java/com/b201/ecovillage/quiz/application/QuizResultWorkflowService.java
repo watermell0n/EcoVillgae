@@ -569,11 +569,11 @@ public class QuizResultWorkflowService {
                 command.classroomId(),
                 totalReward
             );
-            if (budget.blocked()) {
+            if (budget.blocked() && !Boolean.TRUE.equals(command.rewardWarningAcknowledged())) {
                 throw operation(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "REWARD_ISSUANCE_SHARE_EXCEEDED",
-                    "Publishing this reward would exceed 30% of total issuance."
+                    "퀴즈 보상을 지급하면 전체 발행량 중 보상 비중이 30%를 넘습니다. 교사가 확인한 뒤 공개할 수 있습니다."
                 );
             }
             transactionGroupId = uuidGenerator.generate();
@@ -950,6 +950,7 @@ public class QuizResultWorkflowService {
             command.classroomId() + "|" + command.sessionId() + "|"
                 + command.expectedStateVersion() + "|" + command.expectedResultVersion()
                 + "|" + command.command() + "|" + command.leaderboardPublic()
+                + "|" + command.rewardWarningAcknowledged()
         );
     }
 

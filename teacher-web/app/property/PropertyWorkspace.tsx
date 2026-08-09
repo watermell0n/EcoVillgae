@@ -64,6 +64,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   const [columns, setColumns] = useState("5");
   const [salePrice, setSalePrice] = useState("100");
   const [depositAmount, setDepositAmount] = useState("0");
+  const [rentDepositAmount, setRentDepositAmount] = useState("0");
   const [monthlyRent, setMonthlyRent] = useState("0");
   const [paymentCycleDays, setPaymentCycleDays] = useState("7");
   const [contractTermDays, setContractTermDays] = useState("30");
@@ -129,6 +130,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
     hydratedPropertyId.current = selected.property_id;
     setSalePrice(String(selected.sale_price));
     setDepositAmount(String(selected.deposit_amount));
+    setRentDepositAmount(String(selected.rent_deposit_amount));
     setMonthlyRent(String(selected.monthly_rent));
     setPaymentCycleDays(String(selected.payment_cycle_days || 7));
     setContractTermDays(String(selected.contract_term_days || 30));
@@ -160,11 +162,12 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
     if (!selected) return;
     const price = Number(salePrice);
     const deposit = Number(depositAmount);
+    const rentDeposit = Number(rentDepositAmount);
     const rent = Number(monthlyRent);
     const cycle = Number(paymentCycleDays);
     const term = Number(contractTermDays);
-    if (![price, deposit, rent, cycle, term].every(Number.isInteger)) return onNotice("계약 금액과 기간은 정수로 입력해 주세요.", "warning");
-    if (price < 0 || deposit < 0 || rent < 0 || cycle < 1 || term < 1) return onNotice("금액은 0 이상, 납부 주기와 계약 기간은 1일 이상이어야 해요.", "warning");
+    if (![price, deposit, rentDeposit, rent, cycle, term].every(Number.isInteger)) return onNotice("계약 금액과 기간은 정수로 입력해 주세요.", "warning");
+    if (price < 0 || deposit < 0 || rentDeposit < 0 || rent < 0 || cycle < 1 || term < 1) return onNotice("금액은 0 이상, 납부 주기와 계약 기간은 1일 이상이어야 해요.", "warning");
     if (allowsSale && price < 1) return onNotice("매매를 허용하려면 매매가를 1 이상 입력해 주세요.", "warning");
     if (allowsJeonse && deposit < 1) return onNotice("전세를 허용하려면 보증금을 1 이상 입력해 주세요.", "warning");
     if (allowsRent && rent < 1) return onNotice("월세를 허용하려면 월세 금액을 1 이상 입력해 주세요.", "warning");
@@ -174,6 +177,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
         display_name: displayName.trim() || selected.coordinate,
         sale_price: price,
         deposit_amount: deposit,
+        rent_deposit_amount: rentDeposit,
         monthly_rent: rent,
         payment_cycle_days: cycle,
         contract_term_days: term,
@@ -267,6 +271,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
               <label>매매가 ({currencyName})<input inputMode="numeric" value={salePrice} onChange={(event) => setSalePrice(event.target.value)} /></label>
               <label className={styles.check}><input type="checkbox" checked={allowsJeonse} onChange={(event) => setAllowsJeonse(event.target.checked)} />전세 허용</label>
               <label>전세 보증금 ({currencyName})<input inputMode="numeric" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></label>
+              <label>월세 보증금 ({currencyName})<input inputMode="numeric" value={rentDepositAmount} onChange={(event) => setRentDepositAmount(event.target.value)} /></label>
               <label className={styles.check}><input type="checkbox" checked={allowsRent} onChange={(event) => setAllowsRent(event.target.checked)} />월세 허용</label>
               <label>월세 ({currencyName})<input inputMode="numeric" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label>
               <label>납부 주기 (일)<input inputMode="numeric" value={paymentCycleDays} onChange={(event) => setPaymentCycleDays(event.target.value)} /></label>

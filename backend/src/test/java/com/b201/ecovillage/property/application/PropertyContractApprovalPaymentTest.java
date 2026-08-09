@@ -50,7 +50,6 @@ import com.b201.ecovillage.ledger.repository.PolicySnapshotRepository;
 class PropertyContractApprovalPaymentTest {
 
     private static final Instant NOW = Instant.parse("2026-08-10T01:00:00Z");
-    private static final String TEACHER_SUBJECT = "property-payment-teacher";
     private static final long INITIAL_BALANCE = 10_000L;
     private static final long SALE_PRICE = 3_000L;
 
@@ -68,6 +67,7 @@ class PropertyContractApprovalPaymentTest {
     private UUID classroomId;
     private UUID studentId;
     private UUID teacherId;
+    private String teacherSubject;
 
     @BeforeEach
     void setUp() {
@@ -75,6 +75,7 @@ class PropertyContractApprovalPaymentTest {
         classroomId = UUID.randomUUID();
         studentId = UUID.randomUUID();
         teacherId = UUID.randomUUID();
+        teacherSubject = "property-payment-teacher-" + classroomId;
 
         classroomRepository.saveAndFlush(Classroom.create(
             classroomId,
@@ -91,7 +92,7 @@ class PropertyContractApprovalPaymentTest {
         ));
         userRepository.saveAndFlush(UserAccount.createTeacher(
             teacherId,
-            TEACHER_SUBJECT,
+            teacherSubject,
             "부동산 교사",
             NOW
         ));
@@ -123,11 +124,11 @@ class PropertyContractApprovalPaymentTest {
     @Test
     void keepsStudentBalancePendingAndChargesOnlyWhenTeacherApproves() {
         Map<String, Object> property = propertyService.createProperty(
-            TEACHER_SUBJECT,
+            teacherSubject,
             classroomId,
             new PropertyService.PropertyInput(
                 "A1", "A1 자리", 1, 1, "GENERAL", true, true,
-                false, false, true, false, SALE_PRICE, 0, 0, 7, 28
+                false, false, true, false, SALE_PRICE, 0, 0, 0, 7, 28
             )
         );
         UUID propertyId = (UUID) property.get("property_id");
@@ -149,7 +150,7 @@ class PropertyContractApprovalPaymentTest {
         ));
 
         Map<String, Object> approved = propertyService.decideContract(
-            TEACHER_SUBJECT,
+            teacherSubject,
             contractId,
             true,
             "승인",
@@ -165,6 +166,75 @@ class PropertyContractApprovalPaymentTest {
             UUID.class,
             propertyId
         ));
+    }
+
+    @Test
+    void rebuildsSeatBoardWithoutReturningHistoricalCells() {
+        Map<String, Object> first = propertyService.replaceLayout(
+            teacherSubject,
+            classroomId,
+            2,
+            2
+        );
+        assertEquals(4, ((List<?>) first.get("properties")).size());
+
+        Map<String, Object> second = propertyService.replaceLayout(
+            teacherSubject,
+            classroomId,
+            1,
+            1
+        );
+        assertEquals(1, ((List<?>) second.get("properties")).size());
+        assertEquals(5, jdbc.queryForObject(
+            "select count(*) from properties where classroom_id=?",
+            Integer.class,
+            classroomId
+        ));
+        assertEquals(1, jdbc.queryForObject(
+            "select count(*) from properties where classroom_id=? and layout_generation=(select layout_generation from property_layouts where classroom_id=?)",
+            Integer.class,
+            classroomId,
+            classroomId
+        ));
+    }
+
+    @Test
+    void separatesRentDepositFromJeonseDepositAndExposesPendingStateToStudent() {
+        Map<String, Object> property = propertyService.createProperty(
+            teacherSubject,
+            classroomId,
+            new PropertyService.PropertyInput(
+                "B1", "B1 자리", 1, 1, "GENERAL", true, true,
+                true, true, false, false, 0, 500, 100, 20, 7, 28
+            )
+        );
+        UUID propertyId = (UUID) property.get("property_id");
+
+        Map<String, Object> rent = propertyService.requestContract(
+            studentId.toString(),
+            propertyId,
+            new PropertyService.ContractInput("RENT", null)
+        );
+        assertEquals(100L, rent.get("deposit_amount"));
+        assertEquals("PENDING", propertyService.contractsForStudent(studentId.toString(), classroomId).get(0).get("status"));
+        assertEquals(INITIAL_BALANCE, studentWalletBalance());
+
+        propertyService.decideContract(
+            teacherSubject,
+            (UUID) rent.get("contract_id"),
+            false,
+            "다시 신청해 주세요.",
+            "reject-rent"
+        );
+        assertEquals(INITIAL_BALANCE, studentWalletBalance());
+        Map<String, Object> jeonse = propertyService.requestContract(
+            studentId.toString(),
+            propertyId,
+            new PropertyService.ContractInput("JEONSE", null)
+        );
+        assertEquals(500L, jeonse.get("deposit_amount"));
+        assertEquals("PENDING", propertyService.contractsForStudent(studentId.toString(), classroomId).get(0).get("status"));
+        assertEquals(INITIAL_BALANCE, studentWalletBalance());
     }
 
     private long studentWalletBalance() {
@@ -230,6 +300,17 @@ class PropertyContractApprovalPaymentTest {
 
     private void createPropertyTables() {
         jdbc.execute("""
+            create table if not exists property_layouts (
+                classroom_id uuid primary key,
+                row_count integer not null,
+                column_count integer not null,
+                layout_generation bigint default 1 not null,
+                state_version bigint default 0 not null,
+                updated_at timestamp with time zone not null,
+                created_at timestamp with time zone not null
+            )
+            """);
+        jdbc.execute("""
             create table if not exists properties (
                 id uuid primary key,
                 classroom_id uuid not null,
@@ -237,6 +318,7 @@ class PropertyContractApprovalPaymentTest {
                 display_name varchar(120) not null,
                 row_index integer not null,
                 column_index integer not null,
+                layout_generation bigint default 1 not null,
                 property_tier varchar(40) not null,
                 is_public boolean not null,
                 is_active boolean not null,
@@ -246,6 +328,7 @@ class PropertyContractApprovalPaymentTest {
                 allows_subscription boolean not null,
                 sale_price bigint not null,
                 deposit_amount bigint not null,
+                rent_deposit_amount bigint default 0 not null,
                 monthly_rent bigint not null,
                 rent_payment_cycle_days integer not null,
                 contract_term_days integer not null,

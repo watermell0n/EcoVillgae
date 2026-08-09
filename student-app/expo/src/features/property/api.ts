@@ -17,6 +17,7 @@ export type Property = {
   allowsSubscription: boolean;
   salePrice: number;
   depositAmount: number;
+  rentDepositAmount: number;
   monthlyRent: number;
   paymentCycleDays: number;
   contractTermDays: number;
@@ -94,6 +95,7 @@ type PropertyResponse = {
   allows_subscription?: boolean;
   sale_price?: number;
   deposit_amount?: number;
+  rent_deposit_amount?: number;
   monthly_rent?: number;
   payment_cycle_days?: number;
   contract_term_days?: number;
@@ -163,14 +165,14 @@ const mockProperties: Property[] = [
     propertyId: "mock-property-a1", coordinate: "A1", displayName: "창가 1번 자리", tier: "STANDARD",
     isPublic: true, isActive: true,
     allowsRent: true, allowsJeonse: true, allowsSale: true, allowsSubscription: false,
-    salePrice: 320, depositAmount: 120, monthlyRent: 24, paymentCycleDays: 7, contractTermDays: 30,
+    salePrice: 320, depositAmount: 120, rentDepositAmount: 50, monthlyRent: 24, paymentCycleDays: 7, contractTermDays: 30,
     ownerKind: "CLASSROOM", status: "AVAILABLE"
   },
   {
     propertyId: "mock-property-b2", coordinate: "B2", displayName: "칠판 앞 자리", tier: "PREMIUM",
     isPublic: true, isActive: true,
     allowsRent: true, allowsJeonse: false, allowsSale: false, allowsSubscription: true,
-    salePrice: 0, depositAmount: 60, monthlyRent: 18, paymentCycleDays: 7, contractTermDays: 30,
+    salePrice: 0, depositAmount: 60, rentDepositAmount: 20, monthlyRent: 18, paymentCycleDays: 7, contractTermDays: 30,
     ownerKind: "CLASSROOM", status: "LISTED_FOR_RENT"
   }
 ];
@@ -190,6 +192,7 @@ function mapProperty(item: PropertyResponse): Property[] {
     allowsSubscription: item.allows_subscription ?? false,
     salePrice: item.sale_price ?? 0,
     depositAmount: item.deposit_amount ?? 0,
+    rentDepositAmount: item.rent_deposit_amount ?? 0,
     monthlyRent: item.monthly_rent ?? 0,
     paymentCycleDays: item.payment_cycle_days ?? 0,
     contractTermDays: item.contract_term_days ?? 0,
@@ -249,6 +252,12 @@ export async function fetchMyProperties(classroomId: string): Promise<Property[]
   if (useMocks) return [];
   const response = await apiRequest<PropertyResponse[]>(`/students/me/properties?classroom_id=${classroomId}`);
   return response.flatMap(mapProperty);
+}
+
+export async function fetchMyPropertyContracts(classroomId: string): Promise<PropertyContract[]> {
+  if (useMocks) return [];
+  const response = await apiRequest<ContractResponse[]>(`/students/me/property-contracts?classroom_id=${classroomId}`);
+  return response.map(mapContract);
 }
 
 export async function requestPropertyContract(

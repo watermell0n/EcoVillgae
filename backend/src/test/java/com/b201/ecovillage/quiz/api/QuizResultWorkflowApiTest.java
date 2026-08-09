@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,12 +61,14 @@ import com.b201.ecovillage.quiz.domain.ActivitySession;
 import com.b201.ecovillage.quiz.domain.QuizAnswer;
 import com.b201.ecovillage.quiz.domain.QuizContentType;
 import com.b201.ecovillage.quiz.domain.QuizMode;
+import com.b201.ecovillage.quiz.domain.QuizOption;
 import com.b201.ecovillage.quiz.domain.QuizSession;
 import com.b201.ecovillage.quiz.domain.QuizSessionQuestion;
 import com.b201.ecovillage.quiz.domain.QuizSubmission;
 import com.b201.ecovillage.quiz.repository.ActivityParticipantRepository;
 import com.b201.ecovillage.quiz.repository.ActivitySessionRepository;
 import com.b201.ecovillage.quiz.repository.QuizAnswerRepository;
+import com.b201.ecovillage.quiz.repository.QuizOptionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionQuestionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSessionRepository;
 import com.b201.ecovillage.quiz.repository.QuizSubmissionRepository;
@@ -96,6 +99,7 @@ class QuizResultWorkflowApiTest {
     @Autowired private QuizSessionQuestionRepository sessionQuestionRepository;
     @Autowired private QuizSubmissionRepository submissionRepository;
     @Autowired private QuizAnswerRepository answerRepository;
+    @Autowired private QuizOptionRepository optionRepository;
     @Autowired private LedgerAccountRepository ledgerAccountRepository;
     @Autowired private AtomicLedgerTransactionService transactionService;
     @Autowired private QuizRewardBudgetService rewardBudgetService;
@@ -531,6 +535,173 @@ class QuizResultWorkflowApiTest {
         assertEquals(2_857, rounded.rewardShareBasisPoints());
         assertTrue(rounded.warning());
         assertFalse(rounded.blocked());
+    }
+
+    @Test
+    void letsTeacherAcknowledgeRewardShareWarningAndPublish() throws Exception {
+        jdbcTemplate.update(
+            "update transaction_groups set transaction_type='QUIZ_REWARD' where classroom_id=? and transaction_type='BASE_ISSUANCE'",
+            classroomId
+        );
+        JsonNode confirmed = commandResult(
+            UUID.randomUUID(),
+            body("CONFIRM", 0, null, null)
+        );
+        long reviewingStateVersion = confirmed.path("data").path("state_version").asLong();
+        ObjectNode publish = body("PUBLISH", reviewingStateVersion, 1, true);
+
+        mockMvc.perform(resultCommandRequest(
+                classroomId,
+                sessionId,
+                UUID.randomUUID(),
+                publish
+            ))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("REWARD_ISSUANCE_SHARE_EXCEEDED"));
+
+        publish.put("reward_warning_acknowledged", true);
+        JsonNode published = commandResult(UUID.randomUUID(), publish);
+        assertEquals("RESULT_PUBLISHED", published.path("data").path("status").asText());
+    }
+
+    @Test
+    void letsGameStudentChangeAnswerUntilFinalSubmission() throws Exception {
+        UUID openSessionId = UUID.randomUUID();
+        UUID openQuestionId = UUID.randomUUID();
+        UUID questionVersionId = UUID.randomUUID();
+        UUID optionAId = UUID.randomUUID();
+        UUID optionBId = UUID.randomUUID();
+
+        activityRepository.save(ActivitySession.liveQuiz(
+            openSessionId, classroomId, teacherId, true, NOW
+        ));
+        sessionRepository.save(QuizSession.open(
+            openSessionId,
+            classroomId,
+            QuizMode.GAME,
+            QuizContentType.ECONOMY,
+            Map.of("reward_per_person", 100),
+            false,
+            NOW
+        ));
+        sessionQuestionRepository.save(QuizSessionQuestion.snapshot(
+            openQuestionId,
+            classroomId,
+            openSessionId,
+            questionVersionId,
+            1,
+            "Which answer can still be changed?",
+            List.of(
+                Map.of("option_key", "A", "option_text", "First"),
+                Map.of("option_key", "B", "option_text", "Second")
+            ),
+            "A",
+            10,
+            30,
+            NOW
+        ));
+        optionRepository.saveAll(List.of(
+            QuizOption.create(
+                optionAId, classroomId, questionVersionId, "A", "First", true, 1, NOW
+            ),
+            QuizOption.create(
+                optionBId, classroomId, questionVersionId, "B", "Second", false, 2, NOW
+            )
+        ));
+        participantRepository.save(ActivityParticipant.joined(
+            UUID.randomUUID(), classroomId, openSessionId, firstStudentId, NOW
+        ));
+
+        saveAnswerSheet(openSessionId, openQuestionId, optionAId, 0, false)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
+            .andExpect(jsonPath("$.data.state_version").value(1));
+        saveAnswerSheet(openSessionId, openQuestionId, optionBId, 1, false)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.state_version").value(2));
+
+        QuizSubmission changed = submissionRepository
+            .findTopByClassroomIdAndQuizSessionIdAndClassroomStudentIdAndModeOrderByAnswerSheetVersionDesc(
+                classroomId, openSessionId, firstStudentId, QuizMode.GAME
+            )
+            .orElseThrow();
+        assertEquals(
+            "B",
+            answerRepository.findAllByClassroomIdAndQuizSubmissionIdIn(
+                classroomId, List.of(changed.getId())
+            ).getFirst().getSelectedOptionKey()
+        );
+
+        saveAnswerSheet(openSessionId, openQuestionId, optionAId, 2, true)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+            .andExpect(jsonPath("$.data.state_version").value(3));
+        saveAnswerSheet(openSessionId, openQuestionId, optionBId, 3, false)
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("SUBMISSION_ALREADY_FINAL"));
+    }
+
+    @Test
+    void recordsFinalSubmissionEvenWhenStudentLeavesEveryAnswerBlank() throws Exception {
+        UUID openSessionId = UUID.randomUUID();
+        activityRepository.save(ActivitySession.liveQuiz(
+            openSessionId, classroomId, teacherId, true, NOW
+        ));
+        sessionRepository.save(QuizSession.open(
+            openSessionId,
+            classroomId,
+            QuizMode.GAME,
+            QuizContentType.ECONOMY,
+            Map.of("reward_per_person", 100),
+            false,
+            NOW
+        ));
+        participantRepository.save(ActivityParticipant.joined(
+            UUID.randomUUID(), classroomId, openSessionId, firstStudentId, NOW
+        ));
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("answer_sheet_version", 0);
+        body.put("submit", true);
+        body.putArray("answers");
+        mockMvc.perform(put(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/test-answer-sheet",
+                classroomId,
+                openSessionId
+            )
+            .principal(firstStudent)
+            .header("Idempotency-Key", UUID.randomUUID())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+            .andExpect(jsonPath("$.data.state_version").value(1));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveAnswerSheet(
+        UUID targetSession,
+        UUID targetQuestion,
+        UUID targetOption,
+        int answerSheetVersion,
+        boolean submit
+    ) throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("expected_state_version", 0);
+        body.put("answer_sheet_version", answerSheetVersion);
+        body.put("submit", submit);
+        ObjectNode answer = objectMapper.createObjectNode();
+        answer.put("question_id", targetQuestion.toString());
+        answer.put("option_id", targetOption.toString());
+        body.putArray("answers").add(answer);
+        return mockMvc.perform(put(
+                "/classrooms/{classroomId}/quiz-sessions/{sessionId}/test-answer-sheet",
+                classroomId,
+                targetSession
+            )
+            .principal(firstStudent)
+            .header("Idempotency-Key", UUID.randomUUID())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body.toString()));
     }
 
     private void seedScoringQuiz(QuizMode mode, Map<String, Object> rewardPolicy) {

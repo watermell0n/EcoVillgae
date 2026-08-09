@@ -221,6 +221,29 @@ export async function subscribeDeposit(classroomId: string, product: FinancialPr
   return { financialResourceId: response.financial_resource_id, status: response.status, stateVersion: response.state_version };
 }
 
+export async function terminateDeposit(classroomId: string, accountId: string, stateVersion: number) {
+  if (useMocks) return { financialResourceId: accountId, status: "EARLY_TERMINATED", stateVersion: stateVersion + 1 };
+  const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(
+    `/classrooms/${classroomId}/deposit-accounts/${accountId}/commands`,
+    {
+      method: "POST",
+      retryOnNetworkFailure: true,
+      body: JSON.stringify({
+        expected_state_version: stateVersion,
+        screen_id: "SCR-STU-BANK",
+        ui_action_id: "UIA-DEPOSIT-EARLY-TERMINATE",
+        client_occurred_at: now(),
+        command: "EARLY_TERMINATE"
+      })
+    }
+  );
+  return {
+    financialResourceId: response.financial_resource_id,
+    status: response.status,
+    stateVersion: response.state_version
+  };
+}
+
 export async function subscribeSavings(classroomId: string, product: FinancialProduct, installmentAmount: number) {
   if (useMocks) return { financialResourceId: randomUUID(), status: "ACTIVE", stateVersion: 1 };
   const response = await apiRequest<{ financial_resource_id: string; status: string; state_version: number }>(`/classrooms/${classroomId}/savings-accounts`, {

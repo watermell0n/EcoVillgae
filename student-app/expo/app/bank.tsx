@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { applyLoan, cancelLoanApplication, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, repayLoan, subscribeDeposit, subscribeSavings, type FinancialProduct } from "@/features/student/api";
+import { applyLoan, cancelLoanApplication, fetchFinanceAccounts, fetchFinancialProducts, fetchLoanOverview, repayLoan, subscribeDeposit, subscribeSavings, terminateDeposit, type DepositAccount, type FinancialProduct } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
 import { ApiError } from "@/api/client";
 
@@ -92,6 +92,16 @@ export default function BankScreen() {
       queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
     }
   });
+  const terminateDepositMutation = useMutation({
+    mutationFn: (account: DepositAccount) => terminateDeposit(identity!.classroomId, account.resourceId, account.stateVersion),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance", identity?.classroomId] });
+      queryClient.invalidateQueries({ queryKey: ["wallet", identity?.classroomId] });
+      queryClient.invalidateQueries({ queryKey: ["loan-overview", identity?.classroomId] });
+      showBankMessage("예금 중도 해지 완료", "예금 원금과 중도 해지 이율로 계산한 이자가 지갑에 들어왔어요. 신용점수는 최대 10점 내려갔어요.");
+    },
+    onError: (error: Error) => showBankMessage("예금 중도 해지 실패", error.message)
+  });
   const availableTabs = useMemo(() => {
     const codes = access?.activeCodes ?? new Set<string>();
     return [
@@ -171,6 +181,8 @@ export default function BankScreen() {
             <PassbookCover key={account.resourceId} title={account.label} subtitle="만기까지 안전하게 보관해요" color="#6FAE83" numberLabel={accountNumber("예금", account.resourceId)}>
               <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>맡긴 금액</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
               <View style={styles.accountSchedule}><Text style={styles.accountDetailLabel}>만기일</Text><Text style={styles.scheduleValue}>{formatBankDate(account.maturesAt)}</Text></View>
+              {account.status === "ACTIVE" && new Date(account.maturesAt).getTime() > Date.now() ? <Pressable accessibilityRole="button" disabled={terminateDepositMutation.isPending} onPress={() => confirmBankAction("예금 중도 해지", `만기 전에 예금을 해지할까요?\n\n맡긴 원금: ${account.principalAmount.toLocaleString("ko-KR")} ${currencyName}\n중도 해지 이율로 이자가 계산되며 신용점수가 최대 10점 내려갑니다.`, () => terminateDepositMutation.mutate(account))} style={[styles.secondaryButton, terminateDepositMutation.isPending && styles.disabled]}><Text style={styles.secondaryButtonText}>{terminateDepositMutation.isPending ? "해지 중" : "만기 전 중도 해지"}</Text></Pressable> : null}
+              {account.status === "EARLY_TERMINATED" ? <Text style={styles.passbookNotice}>중도 해지된 예금이에요.</Text> : null}
             </PassbookCover>
           ))}
           {accounts.data?.savingsAccounts.map((account) => (
