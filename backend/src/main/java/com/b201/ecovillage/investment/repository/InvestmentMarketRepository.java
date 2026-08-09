@@ -16,6 +16,8 @@ import com.b201.ecovillage.investment.domain.InvestmentMode;
 
 public interface InvestmentMarketRepository extends JpaRepository<InvestmentMarket, UUID> {
 
+    List<InvestmentMarket> findAllByClassroomIdOrderByCreatedAtDesc(UUID classroomId);
+
     /**
      * 학급이 단기와 장기를 동시에 운영하므로 학급만으로는 시장이 하나로 정해지지 않는다.
      * 방식까지 지정해야 어떤 시장인지 확정된다.

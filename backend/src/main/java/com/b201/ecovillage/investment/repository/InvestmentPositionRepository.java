@@ -14,6 +14,12 @@ import com.b201.ecovillage.investment.domain.InvestmentPosition;
 
 public interface InvestmentPositionRepository extends JpaRepository<InvestmentPosition, UUID> {
 
+    Optional<InvestmentPosition> findByClassroomIdAndClassroomStudentIdAndInvestmentAssetId(
+        UUID classroomId,
+        UUID classroomStudentId,
+        UUID investmentAssetId
+    );
+
     /** 정산 대상은 그 종목을 실제로 들고 있는 학생뿐이다. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

@@ -9,6 +9,7 @@ export type StoreProduct = {
   unitPrice: number;
   productKind: string;
   characterCode: string | null;
+  imageUrl?: string | null;
 };
 
 type StoreProductResponse = {
@@ -20,6 +21,7 @@ type StoreProductResponse = {
   unit_price: number;
   product_kind: string;
   character_code: string | null;
+  image_url?: string | null;
 };
 
 type StoreCatalogResponse = { products: StoreProductResponse[] };
@@ -51,7 +53,8 @@ export async function fetchStoreCatalog(classroomId: string) {
     stateVersion: product.state_version,
     unitPrice: product.unit_price,
     productKind: product.product_kind,
-    characterCode: product.character_code
+    characterCode: product.character_code,
+    imageUrl: product.image_url ?? null
   }));
 }
 

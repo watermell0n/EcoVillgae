@@ -169,6 +169,7 @@ public class VoteCommandService {
             case CREATE -> create(command, teacher, requestHash);
             case OPEN -> open(command, teacher, requestHash);
             case CLOSE -> close(command, teacher, requestHash);
+            case REOPEN -> reopen(command, teacher, requestHash);
             case CONFIRM_RESULT -> confirm(command, teacher, requestHash);
         };
     }
@@ -421,6 +422,95 @@ public class VoteCommandService {
             "PUBLIC_FUND_VOTE_CLOSED",
             Map.of("status", VoteStatus.OPEN.name()),
             Map.of("status", result.status(), "submitted_count", submitted)
+        );
+        return result;
+    }
+
+    private VoteCommandResult reopen(
+        VoteCommand command,
+        UserAccount teacher,
+        String requestHash
+    ) {
+        Vote vote = lockedVote(command);
+        ActivitySession activity = lockedActivity(command);
+        requireExpectedVersion(command.expectedStateVersion(), vote);
+        long submitted = ballotRepository.countByClassroomIdAndVoteId(
+            command.classroomId(),
+            command.voteId()
+        );
+        if (submitted > 0) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "VOTE_ALREADY_HAS_BALLOTS",
+                "Only a vote closed without ballots can be reopened."
+            );
+        }
+        if (activityRepository.existsByClassroomIdAndStatus(
+            command.classroomId(),
+            "LIVE"
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "ACTIVITY_ALREADY_LIVE",
+                "Only one guided activity can be live in a classroom."
+            );
+        }
+        Instant now = clock.instant();
+        try {
+            vote.reopen(now);
+            activity.reopenFromFinalizing(now);
+        } catch (IllegalStateException exception) {
+            throw invalidTransition(exception);
+        }
+        List<ActivityParticipant> participants = participantRepository
+            .findAllByClassroomIdAndActivitySessionId(
+                command.classroomId(),
+                command.voteId()
+            );
+        participants.forEach(ActivityParticipant::rejoin);
+        participantRepository.saveAll(participants);
+        voteRepository.saveAndFlush(vote);
+        activityRepository.saveAndFlush(activity);
+        VoteCommandResult result = result(vote, null, null);
+        remember(command, teacher.getId(), requestHash, result, now);
+        eventPublisher.publish(
+            command.classroomId(),
+            "VOTE",
+            command.voteId(),
+            "vote.reopened",
+            "VOTE",
+            command.voteId(),
+            vote.getStateVersion(),
+            Map.of(
+                "vote_id", vote.getId().toString(),
+                "reopened_at", now.toString()
+            ),
+            true
+        );
+        eventPublisher.publish(
+            command.classroomId(),
+            "CLASSROOM_LIFECYCLE",
+            null,
+            "classroom.app_mode.changed",
+            "VOTE",
+            command.voteId(),
+            vote.getStateVersion(),
+            Map.of(
+                "mode", "GUIDED",
+                "source", "GUIDED_ACTIVITY",
+                "starts_at", now.toString(),
+                "ends_at", now.toString(),
+                "active_activity_id", vote.getId().toString(),
+                "activity_type", activity.getActivityType()
+            ),
+            true
+        );
+        audit(
+            command,
+            teacher.getId(),
+            "PUBLIC_FUND_VOTE_REOPENED",
+            Map.of("status", VoteStatus.CLOSED.name()),
+            Map.of("status", result.status())
         );
         return result;
     }

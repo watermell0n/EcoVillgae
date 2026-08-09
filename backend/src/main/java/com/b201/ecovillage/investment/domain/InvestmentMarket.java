@@ -195,10 +195,11 @@ public class InvestmentMarket {
     }
 
     /**
-     * 학생과 AI가 볼 수 있는 시장인지 판단한다. 시나리오가 없거나 공개 단계가 없으면 아직 아니다.
+     * 학생이 볼 수 있는 시장인지 판단한다. 잠시 멈춘 시장은 잠금 상태를 알려 주고, 정산을
+     * 마친 시장은 최종 손익을 보여 줘야 하므로 초안만 제외한다.
      */
     public boolean isReadable() {
-        return OPEN.equals(status) && activeScenarioVersionId != null && currentStep >= 1;
+        return !DRAFT.equals(status) && activeScenarioVersionId != null && currentStep >= 1;
     }
 
     public UUID getId() {

@@ -92,6 +92,12 @@ public class Vote {
         closesAt = changedAt;
     }
 
+    public void reopen(Instant changedAt) {
+        transition(VoteStatus.CLOSED, VoteStatus.OPEN, changedAt);
+        opensAt = changedAt;
+        closesAt = null;
+    }
+
     public void publishResult(Instant changedAt) {
         transition(VoteStatus.CLOSED, VoteStatus.RESULT_PUBLISHED, changedAt);
     }

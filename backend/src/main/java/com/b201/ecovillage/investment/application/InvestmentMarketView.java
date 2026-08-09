@@ -35,7 +35,13 @@ public record InvestmentMarketView(
          * 무너진다. 교사에게도 시장이 초안일 때만 채운다.
          */
         List<PricePoint> plannedPriceHistory,
-        List<News> news
+        List<News> news,
+        int positionQuantity,
+        long averagePrice,
+        long currentValue,
+        long totalBoughtAmount,
+        long totalSoldAmount,
+        long profitLoss
     ) {
     }
 

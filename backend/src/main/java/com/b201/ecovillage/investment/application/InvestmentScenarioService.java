@@ -61,6 +61,7 @@ public class InvestmentScenarioService {
     private final InvestmentPriceStepRepository priceStepRepository;
     private final HistoricalIndexPathProvider historicalProvider;
     private final InvestmentCompanyFactory companyFactory;
+    private final InvestmentRealtimePublisher realtimePublisher;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -74,6 +75,7 @@ public class InvestmentScenarioService {
         InvestmentPriceStepRepository priceStepRepository,
         HistoricalIndexPathProvider historicalProvider,
         InvestmentCompanyFactory companyFactory,
+        InvestmentRealtimePublisher realtimePublisher,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -86,6 +88,7 @@ public class InvestmentScenarioService {
         this.priceStepRepository = priceStepRepository;
         this.historicalProvider = historicalProvider;
         this.companyFactory = companyFactory;
+        this.realtimePublisher = realtimePublisher;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -249,6 +252,7 @@ public class InvestmentScenarioService {
         market.start(now);
         marketRepository.save(market);
         marketRepository.flush();
+        realtimePublisher.publish(classroomId, market, "MARKET_STARTED");
         return resultOf(classroomId, market, scenario, assets);
     }
 
@@ -295,6 +299,9 @@ public class InvestmentScenarioService {
         }
         marketRepository.save(market);
         marketRepository.flush();
+        realtimePublisher.publish(
+            classroomId, market, pause ? "MARKET_PAUSED" : "MARKET_RESUMED"
+        );
         return resultOf(classroomId, market, scenario, assetRepository
             .findAllByClassroomIdAndScenarioVersionIdAndStatusOrderByDisplayOrder(
                 classroomId, scenario.getId(), InvestmentAsset.ACTIVE

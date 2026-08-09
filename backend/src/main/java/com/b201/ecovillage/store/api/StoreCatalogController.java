@@ -59,7 +59,8 @@ public class StoreCatalogController {
                     view.productKind(),
                     view.characterCode(),
                     view.description(),
-                    view.sortOrder()
+                    view.sortOrder(),
+                    view.imageUrl()
                 ))
                 .toList()
         );

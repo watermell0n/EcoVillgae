@@ -25,6 +25,7 @@ public record StoreProductCommandRequest(
     @NotNull Integer vatRateBps,
     @NotNull Integer stockQuantity,
     UUID characterSourceId,
-    Integer expectedProductVersion
+    Integer expectedProductVersion,
+    @Size(max = 2_000_000) String imageUrl
 ) {
 }

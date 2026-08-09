@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useState } from "react";
 
 import { ApiError } from "@/api/client";
@@ -40,6 +40,7 @@ function shopAreaOf(product: StoreProduct) {
 }
 
 export default function ShopScreen() {
+  const { width } = useWindowDimensions();
   const { identity } = useAuth();
   const currencyName = identity?.currencyName ?? "비빔";
   const queryClient = useQueryClient();
@@ -68,6 +69,7 @@ export default function ShopScreen() {
   });
 
   const visibleProducts = (catalog.data ?? []).filter((product) => shopAreaOf(product) === shopType);
+  const productWidth = width < 520 ? "100%" as const : width < 960 ? "47.5%" as const : "31.8%" as const;
 
   const confirmPurchase = (product: StoreProduct) => {
     const message = `${product.label}을(를) ${product.unitPrice} ${currencyName}에 구매할까요?`;
@@ -83,14 +85,14 @@ export default function ShopScreen() {
 
   return (
     <Screen title="이코 상점">
-      <View style={styles.tabs}><Pressable onPress={() => setShopType("classroom")} style={[styles.tab, shopType === "classroom" && styles.tabActive]}><Text style={styles.tabText}>교실 상점</Text></Pressable><Pressable onPress={() => setShopType("eco")} style={[styles.tab, shopType === "eco" && styles.tabActive]}><Text style={styles.tabText}>이코 상점</Text></Pressable></View>
+      <View accessibilityRole="tablist" style={styles.tabs}><Pressable accessibilityRole="tab" accessibilityState={{ selected: shopType === "classroom" }} aria-selected={shopType === "classroom"} onPress={() => setShopType("classroom")} style={[styles.tab, shopType === "classroom" && styles.tabActive]}><Text style={styles.tabText}>교실 상점</Text></Pressable><Pressable accessibilityRole="tab" accessibilityState={{ selected: shopType === "eco" }} aria-selected={shopType === "eco"} onPress={() => setShopType("eco")} style={[styles.tab, shopType === "eco" && styles.tabActive]}><Text style={styles.tabText}>이코 상점</Text></Pressable></View>
       <Text style={styles.purchasePolicy}>구매를 확인하면 교사 승인 없이 바로 결제되고 재고에 반영돼요.</Text>
       {catalog.isPending ? (
         <View style={styles.center}><ActivityIndicator color={colors.orange500} size="large" /><Text style={styles.helper}>상품을 불러오고 있어요.</Text></View>
       ) : catalog.isError ? (
         <View style={styles.center}>
           <Text style={styles.error}>상품을 불러오지 못했어요.</Text>
-          <Pressable onPress={() => catalog.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 시도</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => catalog.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 시도</Text></Pressable>
         </View>
       ) : visibleProducts.length === 0 ? (
         <View style={styles.center}>
@@ -101,17 +103,19 @@ export default function ShopScreen() {
       ) : (
         <View style={styles.grid}>
           {visibleProducts.map((product) => (
-            <View key={product.resourceId} style={styles.product}>
+            <View key={product.resourceId} style={[styles.product, { width: productWidth }]}>
               <View style={styles.productArt}>
-                {isWearable(product)
+                {product.imageUrl
+                  ? <Image accessibilityLabel={`${product.label} 사진`} resizeMode="contain" source={{ uri: product.imageUrl }} style={styles.productImage} />
+                  : isWearable(product)
                   ? <ItemSprite spriteKey={product.characterCode!} scale={2} withBase />
                   : <Text style={styles.productIcon}>🎁</Text>}
               </View>
-              <Text style={styles.productTitle}>{product.label}</Text>
+              <Text numberOfLines={2} style={styles.productTitle}>{product.label}</Text>
               <Text style={styles.productKind}>{KIND_LABEL[product.productKind] ?? "교실 상품"}</Text>
               <Text style={styles.price}>{product.unitPrice} {currencyName}</Text>
               <Pressable accessibilityRole="button" disabled={purchase.isPending} onPress={() => confirmPurchase(product)} style={[styles.buy, purchase.isPending && styles.buyDisabled]}>
-                <Text style={styles.buyText}>{purchase.isPending ? "처리 중" : "구매하기"}</Text>
+                <Text numberOfLines={1} style={styles.buyText}>{purchase.isPending ? "처리 중" : "구매하기"}</Text>
               </Pressable>
             </View>
           ))}
@@ -131,18 +135,17 @@ function showMessage(title: string, message: string) {
 
 const styles = StyleSheet.create({
   center: { minHeight: 260, alignItems: "center", justifyContent: "center", gap: 14 },
-  helper: { color: colors.muted600, fontSize: 15 },
-  error: { color: colors.red500, fontSize: 16, fontWeight: "800" },
-  retry: { paddingHorizontal: 20, paddingVertical: 11, borderRadius: radii.control, backgroundColor: colors.orange500 },
+  helper: { color: colors.muted700, fontSize: 15 },
+  error: { color: colors.red700, fontSize: 16, fontWeight: "800" },
+  retry: { minHeight: 48, justifyContent: "center", paddingHorizontal: 20, paddingVertical: 11, borderRadius: radii.control, backgroundColor: colors.orange700 },
   retryText: { color: colors.white, fontWeight: "900" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   tabs: { flexDirection: "row", gap: 8, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
   tab: { paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: "transparent" },
-  tabActive: { borderBottomColor: colors.orange500 },
+  tabActive: { borderBottomColor: colors.orange700 },
   tabText: { color: colors.ink900, fontSize: 16, fontWeight: "900" },
-  purchasePolicy: { color: colors.muted600, fontSize: 13, fontWeight: "700" },
+  purchasePolicy: { color: colors.muted700, fontSize: 13, fontWeight: "700" },
   product: {
-    width: "31.8%",
     minHeight: 240,
     padding: 20,
     borderRadius: radii.card,
@@ -152,11 +155,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   productArt: { height: 112, alignItems: "center", justifyContent: "center" },
+  productImage: { width: "100%", height: "100%", borderRadius: radii.control },
   productIcon: { fontSize: 42 },
   productTitle: { color: colors.ink900, fontSize: 19, fontWeight: "900" },
-  productKind: { color: colors.muted600, fontSize: 13 },
-  price: { color: colors.orange500, fontSize: 21, fontWeight: "900", marginTop: "auto" },
-  buy: { padding: 11, alignItems: "center", borderRadius: radii.control, backgroundColor: colors.orange500 },
+  productKind: { color: colors.muted700, fontSize: 13 },
+  price: { color: colors.orange700, fontSize: 21, fontWeight: "900", marginTop: "auto" },
+  buy: { minHeight: 48, justifyContent: "center", padding: 11, alignItems: "center", borderRadius: radii.control, backgroundColor: colors.orange700 },
   buyDisabled: { opacity: 0.5 },
   buyText: { color: colors.white, fontWeight: "900" }
 });

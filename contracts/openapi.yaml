@@ -7341,8 +7341,8 @@ paths:
         - "FIN-007"
       tags:
         - "Finance"
-      summary: "6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위"
-      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 6단계 연결 범위의 side=BUY, asset_id, quantity, expected_price_version → 현재 공개 가격 재검증 후 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL과 자동 정산은 다음 단계 범위."
+      summary: "side=BUY|SELL, asset_id, quantity, expected_price_version → 교사가 승인한 현재 투자 뉴스와 공개 가격을 재검증한 뒤 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL은 장기 투자에서만 허용하고 단기 투자는 다음 날 자동 정산. 시장 조회는 학생별 보유량, 평균단가, 평가액, 총 매수/매도액, 손익을 포함하며 CLOSED 시장도 최종 결과로 유지"
+      description: "사람이 검토하는 원문 기준: `API-FIN-009` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: side=BUY|SELL, asset_id, quantity, expected_price_version → 교사가 승인한 현재 투자 뉴스와 공개 가격을 재검증한 뒤 학생 지갑, 투자 청산 계정 원장과 주문, 보유량을 원자 체결. SELL은 장기 투자에서만 허용하고 단기 투자는 다음 날 자동 정산. 시장 조회는 학생별 보유량, 평균단가, 평가액, 총 매수/매도액, 손익을 포함하며 CLOSED 시장도 최종 결과로 유지."
       security:
         - bearerAuth: []
       parameters:
@@ -7397,11 +7397,11 @@ paths:
                         minimum: 1
                       position_quantity:
                         type: "integer"
-                        minimum: 1
+                        minimum: 0
                       average_price:
                         type: "integer"
                         format: "int64"
-                        minimum: 1
+                        minimum: 0
                       state_version:
                         type: "integer"
                         format: "int64"
@@ -7453,6 +7453,7 @@ paths:
                   type: "string"
                   enum:
                     - "BUY"
+                    - "SELL"
                 asset_id:
                   type: "string"
                   format: "uuid"
@@ -12327,8 +12328,8 @@ paths:
         - "ECO-008"
       tags:
         - "Vote"
-      summary: "command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행"
-      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|OPEN|CLOSE|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 기금 집행."
+      summary: "command=CREATE|OPEN|CLOSE|REOPEN|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 0표 마감 투표 다시 열기, 기금 집행"
+      description: "사람이 검토하는 원문 기준: `API-VOT-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: command=CREATE|OPEN|CLOSE|REOPEN|CONFIRM_RESULT, title?, description?, options?[], participant_ids?[], public_display_enabled?, selected_use? → 예산안 생성, 익명 투표 진행, 0표 마감 투표 다시 열기, 기금 집행."
       security:
         - bearerAuth: []
       parameters:
@@ -12427,6 +12428,7 @@ paths:
                     - "CREATE"
                     - "OPEN"
                     - "CLOSE"
+                    - "REOPEN"
                     - "CONFIRM_RESULT"
                 title:
                   type: "string"

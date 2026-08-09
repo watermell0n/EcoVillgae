@@ -67,7 +67,8 @@ public class StoreProductCommandController {
                 request.vatRateBps(),
                 request.stockQuantity(),
                 request.characterSourceId(),
-                request.expectedProductVersion()
+                request.expectedProductVersion(),
+                request.imageUrl()
             )
         );
         return ResponseEntity.ok(new ApiResponse<>(

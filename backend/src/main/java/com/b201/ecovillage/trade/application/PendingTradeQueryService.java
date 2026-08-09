@@ -62,6 +62,45 @@ public class PendingTradeQueryService {
         return findByStatuses(teacherSubject, classroomId, List.of(TradeStatus.AWAITING_TEACHER));
     }
 
+    @Transactional(readOnly = true)
+    public List<PendingTradeView> findMine(String studentSubject, UUID classroomId) {
+        UUID studentId = parseStudentId(studentSubject);
+        authorizationService.authorize(
+            studentSubject,
+            classroomId,
+            ClassroomPermission.DECIDE_TRADE,
+            studentId
+        );
+        return toViews(
+            classroomId,
+            tradeRepository.findAllForStudent(classroomId, studentId)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<TradeClassmateView> findClassmates(String studentSubject, UUID classroomId) {
+        UUID studentId = parseStudentId(studentSubject);
+        authorizationService.authorize(
+            studentSubject,
+            classroomId,
+            ClassroomPermission.PROPOSE_TRADE,
+            studentId
+        );
+        return studentRepository
+            .findAllByClassroomIdAndStatusOrderByRosterNumber(
+                classroomId,
+                ClassroomStudentStatus.ACTIVE
+            )
+            .stream()
+            .filter(student -> !student.getId().equals(studentId))
+            .map(student -> new TradeClassmateView(
+                student.getId(),
+                student.getRosterNumber(),
+                student.getNickname()
+            ))
+            .toList();
+    }
+
     private List<PendingTradeView> findByStatuses(String teacherSubject, UUID classroomId, List<TradeStatus> statuses) {
         authorizationService.authorize(
             teacherSubject,
@@ -69,9 +108,16 @@ public class PendingTradeQueryService {
             ClassroomPermission.APPROVE_TRADE,
             null
         );
-        List<Trade> trades = tradeRepository.findAllByClassroomIdAndStatusInOrderByCreatedAtDesc(
-            classroomId, statuses
+        return toViews(
+            classroomId,
+            tradeRepository.findAllByClassroomIdAndStatusInOrderByCreatedAtDesc(
+                classroomId,
+                statuses
+            )
         );
+    }
+
+    private List<PendingTradeView> toViews(UUID classroomId, List<Trade> trades) {
         if (trades.isEmpty()) {
             return List.of();
         }
@@ -95,6 +141,17 @@ public class PendingTradeQueryService {
                 trade.getCreatedAt()
             ))
             .toList();
+    }
+
+    private static UUID parseStudentId(String subject) {
+        try {
+            return UUID.fromString(subject);
+        } catch (RuntimeException exception) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED,
+                "A valid student session is required."
+            );
+        }
     }
 
     /** 거래로 오가는 돈이다. 방향은 화면에 "제안자 → 상대"로 이미 드러나므로 합계만 준다. */

@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.b201.ecovillage.ai.repository.EconomicEventDraftRepository;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
@@ -22,6 +23,7 @@ import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.investment.domain.InvestmentAsset;
 import com.b201.ecovillage.investment.domain.InvestmentMarket;
+import com.b201.ecovillage.investment.domain.InvestmentMode;
 import com.b201.ecovillage.investment.domain.InvestmentOrder;
 import com.b201.ecovillage.investment.domain.InvestmentPosition;
 import com.b201.ecovillage.investment.domain.InvestmentPriceStep;
@@ -59,6 +61,7 @@ public class InvestmentBuyService {
     private final InvestmentPriceStepRepository priceStepRepository;
     private final InvestmentOrderRepository orderRepository;
     private final InvestmentPositionRepository positionRepository;
+    private final EconomicEventDraftRepository eventRepository;
     private final LedgerAccountRepository ledgerAccountRepository;
     private final PolicySnapshotRepository policySnapshotRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
@@ -75,6 +78,7 @@ public class InvestmentBuyService {
         InvestmentPriceStepRepository priceStepRepository,
         InvestmentOrderRepository orderRepository,
         InvestmentPositionRepository positionRepository,
+        EconomicEventDraftRepository eventRepository,
         LedgerAccountRepository ledgerAccountRepository,
         PolicySnapshotRepository policySnapshotRepository,
         IdempotencyRecordRepository idempotencyRepository,
@@ -90,6 +94,7 @@ public class InvestmentBuyService {
         this.priceStepRepository = priceStepRepository;
         this.orderRepository = orderRepository;
         this.positionRepository = positionRepository;
+        this.eventRepository = eventRepository;
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.policySnapshotRepository = policySnapshotRepository;
         this.idempotencyRepository = idempotencyRepository;
@@ -100,13 +105,23 @@ public class InvestmentBuyService {
 
     @Transactional
     public InvestmentBuyResult buy(InvestmentBuyCommand command) {
+        return execute(command, "BUY");
+    }
+
+    /** 장기 투자 보유분을 현재 공개 가격으로 일부 또는 전부 매도한다. */
+    @Transactional
+    public InvestmentBuyResult sell(InvestmentBuyCommand command) {
+        return execute(command, "SELL");
+    }
+
+    private InvestmentBuyResult execute(InvestmentBuyCommand command, String side) {
         UUID studentId = studentId(command.studentSubject());
         authorizationService.authorize(
             command.studentSubject(), command.classroomId(),
             ClassroomPermission.PLACE_INVESTMENT_ORDER, studentId
         );
         if (command.quantity() < 1 || command.quantity() > MAX_QUANTITY_PER_ORDER) {
-            throw operation(HttpStatus.UNPROCESSABLE_ENTITY, "LIMIT_EXCEEDED", "한 번에 1~100주만 매수할 수 있습니다.");
+            throw operation(HttpStatus.UNPROCESSABLE_ENTITY, "LIMIT_EXCEEDED", "한 번에 1~100주만 주문할 수 있습니다.");
         }
         studentRepository.findById(studentId)
             .filter(student -> student.getClassroomId().equals(command.classroomId()))
@@ -115,7 +130,11 @@ public class InvestmentBuyService {
         moduleRepository.findByClassroomIdAndModuleCode(command.classroomId(), "INVESTMENT")
             .filter(module -> "ACTIVE".equals(module.getStatus()))
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "MODULE_NOT_ACTIVE", "투자 모듈이 활성화되어 있지 않습니다."));
-        String requestHash = sha256(command.assetId() + "|" + command.quantity() + "|" + command.expectedPriceVersion());
+        // 기존 BUY 요청의 재시도 호환성을 유지하고 SELL만 별도 해시 공간을 쓴다.
+        String requestHash = sha256(
+            ("BUY".equals(side) ? "" : side + "|")
+                + command.assetId() + "|" + command.quantity() + "|" + command.expectedPriceVersion()
+        );
         IdempotencyRecord replay = idempotencyRepository.findForReplay(
             command.classroomId(), studentId, ROUTE, command.requestId().toString()
         ).orElse(null);
@@ -140,6 +159,13 @@ public class InvestmentBuyService {
             .findForUpdateByActiveScenario(command.classroomId(), asset.getScenarioVersionId())
             .filter(candidate -> InvestmentMarket.OPEN.equals(candidate.getStatus()))
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "MARKET_NOT_OPEN", "현재 투자 시장이 열려 있지 않습니다."));
+        if ("SELL".equals(side) && market.getInvestmentMode() != InvestmentMode.LONG_TERM) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "SELL_NOT_ALLOWED",
+                "매도는 장기 투자에서만 할 수 있습니다. 단기 투자는 다음 날 자동 정산됩니다."
+            );
+        }
         InvestmentPriceStep price = priceStepRepository
             .findByClassroomIdAndInvestmentAssetIdAndStepNumber(
                 command.classroomId(), asset.getId(), market.getCurrentStep()
@@ -148,6 +174,15 @@ public class InvestmentBuyService {
             .orElseThrow(() -> operation(HttpStatus.CONFLICT, "PRICE_CHANGED", "현재 공개 가격을 확인할 수 없습니다."));
         if (price.getStepNumber() != command.expectedPriceVersion()) {
             throw operation(HttpStatus.CONFLICT, "PRICE_CHANGED", "가격 단계가 변경되었습니다. 최신 가격을 확인해 주세요.");
+        }
+        if (!eventRepository.existsByClassroomIdAndInvestmentPriceStepIdAndStatusIn(
+            command.classroomId(), price.getId(), List.of("APPROVED", "APPLIED")
+        )) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "NEWS_NOT_PUBLISHED",
+                "교사가 오늘의 투자 이야기를 공개한 뒤 주문할 수 있습니다."
+            );
         }
         long total;
         try {
@@ -159,6 +194,7 @@ public class InvestmentBuyService {
         String snapshotHash = sha256(
             command.classroomId() + "|" + market.getActiveScenarioVersionId() + "|"
                 + asset.getId() + "|" + price.getStepNumber() + "|" + price.getPrice()
+                + "|" + side + "|" + command.quantity()
         );
         PolicySnapshot snapshot = policySnapshotRepository
             .findByClassroomIdAndSnapshotHash(command.classroomId(), snapshotHash)
@@ -170,7 +206,8 @@ public class InvestmentBuyService {
                     "price_step", price.getStepNumber(),
                     "unit_price", price.getPrice(),
                     "quantity", command.quantity(),
-                    "total_amount", total
+                    "total_amount", total,
+                    "side", side
                 ),
                 "INTEGER", now
             )));
@@ -191,45 +228,74 @@ public class InvestmentBuyService {
             )));
         InvestmentPosition position = positionRepository.findForUpdate(
             command.classroomId(), studentId, asset.getId()
-        ).orElseGet(() -> InvestmentPosition.empty(
-            uuidGenerator.generate(), command.classroomId(), studentId, asset.getId(), now
-        ));
+        ).orElse(null);
+        if ("SELL".equals(side) && (position == null || position.getQuantity() < command.quantity())) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "INSUFFICIENT_POSITION",
+                "보유한 주식보다 많이 팔 수 없습니다."
+            );
+        }
+        if (position == null) {
+            position = InvestmentPosition.empty(
+                uuidGenerator.generate(), command.classroomId(), studentId, asset.getId(), now
+            );
+        }
+        InvestmentPosition resolvedPosition = position;
         UUID transactionGroupId = uuidGenerator.generate();
-        InvestmentOrder order = InvestmentOrder.executedBuy(
-            uuidGenerator.generate(), command.classroomId(), studentId, asset.getId(),
-            command.quantity(), price.getPrice(), price.getStepNumber(), transactionGroupId, now
-        );
+        InvestmentOrder order = "BUY".equals(side)
+            ? InvestmentOrder.executedBuy(
+                uuidGenerator.generate(), command.classroomId(), studentId, asset.getId(),
+                command.quantity(), price.getPrice(), price.getStepNumber(), transactionGroupId, now
+            )
+            : InvestmentOrder.executedSell(
+                uuidGenerator.generate(), command.classroomId(), studentId, asset.getId(),
+                command.quantity(), price.getPrice(), price.getStepNumber(), transactionGroupId, now
+            );
         LedgerDomainMutation mutation = new LedgerDomainMutation() {
             @Override
             public void validate() {
                 if (!InvestmentMarket.OPEN.equals(market.getStatus())
                     || market.getCurrentStep() != price.getStepNumber()) {
-                    throw operation(HttpStatus.CONFLICT, "PRICE_CHANGED", "매수 처리 중 가격 단계가 변경되었습니다.");
+                    throw operation(HttpStatus.CONFLICT, "PRICE_CHANGED", "주문 처리 중 가격 단계가 변경되었습니다.");
+                }
+                if ("SELL".equals(side) && resolvedPosition.getQuantity() < command.quantity()) {
+                    throw operation(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_POSITION", "보유한 주식보다 많이 팔 수 없습니다.");
                 }
             }
 
             @Override
             public void apply() {
-                position.buy(command.quantity(), price.getPrice(), now);
-                positionRepository.save(position);
+                if ("BUY".equals(side)) {
+                    resolvedPosition.buy(command.quantity(), price.getPrice(), now);
+                } else {
+                    resolvedPosition.sell(command.quantity(), now);
+                }
+                positionRepository.save(resolvedPosition);
                 orderRepository.save(order);
             }
         };
+        List<LedgerTransactionPosting> postings = "BUY".equals(side)
+            ? List.of(
+                new LedgerTransactionPosting(wallet.getId(), -total),
+                new LedgerTransactionPosting(clearing.getId(), total)
+            )
+            : List.of(
+                new LedgerTransactionPosting(clearing.getId(), -total),
+                new LedgerTransactionPosting(wallet.getId(), total)
+            );
         transactionService.execute(
             transactionGroupId,
             LedgerTransactionCommand.original(
-                command.classroomId(), "INVESTMENT_BUY", LedgerActorType.STUDENT, studentId,
+                command.classroomId(), "INVESTMENT_" + side, LedgerActorType.STUDENT, studentId,
                 snapshot.getId(), ROUTE, command.requestId().toString(), requestHash,
-                command.correlationId().toString(), "가상 투자 종목 매수",
-                List.of(
-                    new LedgerTransactionPosting(wallet.getId(), -total),
-                    new LedgerTransactionPosting(clearing.getId(), total)
-                ),
+                command.correlationId().toString(), "가상 투자 종목 " + ("BUY".equals(side) ? "매수" : "매도"),
+                postings,
                 now
             ),
             List.of(mutation)
         );
-        return result(order, position);
+        return result(order, resolvedPosition);
     }
 
     private static InvestmentBuyResult result(InvestmentOrder order, InvestmentPosition position) {

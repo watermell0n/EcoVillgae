@@ -87,6 +87,14 @@ public class ActivityParticipant {
         completedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void rejoin() {
+        if (!"COMPLETED".equals(participantStatus)) {
+            return;
+        }
+        participantStatus = "JOINED";
+        completedAt = null;
+    }
+
     public void cancel(Instant changedAt) {
         if (!"JOINED".equals(participantStatus)) {
             return;

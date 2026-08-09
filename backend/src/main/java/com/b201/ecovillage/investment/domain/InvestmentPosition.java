@@ -64,6 +64,23 @@ public class InvestmentPosition {
     }
 
     /**
+     * 장기 투자에서 보유 수량 일부 또는 전부를 현재 공개 가격으로 매도한다.
+     *
+     * <p>평균 매수가는 남은 주식의 취득 단가이므로 일부 매도 때는 그대로 두고, 전량을
+     * 매도했을 때만 0으로 비운다.
+     */
+    public void sell(int soldQuantity, Instant now) {
+        if (soldQuantity < 1 || soldQuantity > quantity) {
+            throw new IllegalArgumentException("Sell quantity exceeds the position");
+        }
+        quantity -= soldQuantity;
+        if (quantity == 0) {
+            averagePrice = 0;
+        }
+        updatedAt = Objects.requireNonNull(now);
+    }
+
+    /**
      * 보유 전량을 정산해 비운다. 정산한 수량을 돌려주므로 호출하는 쪽이 지급액을 계산한다.
      */
     public int settle(Instant now) {

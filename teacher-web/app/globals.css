@@ -1462,6 +1462,107 @@ button:disabled {
   padding-top: 4px;
 }
 
+/* 공동기금·투표 운영 */
+.public-fund-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f4fbf7;
+}
+
+.public-fund-balance span,
+.public-vote-summary span,
+.public-vote-options span {
+  color: var(--muted);
+}
+
+.public-fund-balance strong {
+  color: var(--green-700, #22704a);
+  font-size: 26px;
+}
+
+.public-vote-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.public-vote-summary > div,
+.public-vote-options > div {
+  display: grid;
+  gap: 5px;
+}
+
+.public-vote-warning {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #d99a2b;
+  border-radius: 10px;
+  color: #6f4300;
+  background: #fff8e8;
+  font-weight: 750;
+}
+
+.public-vote-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.public-vote-options > div {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.public-vote-form,
+.public-vote-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.public-vote-form {
+  gap: 14px;
+}
+
+.public-vote-form input,
+.public-vote-form textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+
+.public-vote-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.public-vote-option-edit {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr minmax(130px, .5fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--surface-soft, #f7f8f7);
+}
+
+@media (max-width: 900px) {
+  .public-vote-option-edit {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 교사가 AI 문장을 고쳐 쓰는 자리입니다. 보기 카드와 뉴스 카드에서 같은 모양을 씁니다. */
 .investment-asset-editor,
 .investment-news-review label {

@@ -29,6 +29,8 @@ type RealtimeTicketResponse = {
 };
 
 const ECONOMY_CHANNEL_ID = "WS-ECO-001";
+const INVESTMENT_CHANNEL_ID = "WS-IVT-001";
+const CHANNEL_IDS = [ECONOMY_CHANNEL_ID, INVESTMENT_CHANNEL_ID] as const;
 const MAX_RECONNECT_DELAY_MS = 15_000;
 
 async function createRealtimeTicket(classroomId: string) {
@@ -39,7 +41,7 @@ async function createRealtimeTicket(classroomId: string) {
       screen_id: "SCR-STU-001",
       ui_action_id: "UIA-STU-001",
       client_occurred_at: new Date().toISOString(),
-      channel_ids: [ECONOMY_CHANNEL_ID],
+      channel_ids: [...CHANNEL_IDS],
       resource_ids: [classroomId]
     })
   });
@@ -56,7 +58,7 @@ export class StudentEconomyRealtimeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
-  private lastSequence = 0;
+  private readonly lastSequenceByChannel = new Map<string, number>();
   private stopped = true;
   private presenceStatus: "ONLINE" | "AWAY" = "ONLINE";
   private currentScreen: string | null = null;
@@ -119,13 +121,13 @@ export class StudentEconomyRealtimeClient {
       this.reconnectAttempts = 0;
       this.startHeartbeat(Number(message.heartbeat_interval_seconds ?? 25));
       this.sendPresence();
-      this.send({
+      CHANNEL_IDS.forEach((channelId) => this.send({
         type: "subscription.subscribe",
         request_id: randomUUID(),
-        channel_id: ECONOMY_CHANNEL_ID,
+        channel_id: channelId,
         resource_id: this.options.classroomId,
-        last_sequence: this.lastSequence
-      });
+        last_sequence: this.lastSequenceByChannel.get(channelId) ?? 0
+      }));
       return;
     }
 
@@ -137,7 +139,10 @@ export class StudentEconomyRealtimeClient {
         const oldest = this.seenEventIds.values().next().value;
         if (oldest) this.seenEventIds.delete(oldest);
       }
-      this.lastSequence = Math.max(this.lastSequence, event.sequence);
+      this.lastSequenceByChannel.set(
+        event.channel_id,
+        Math.max(this.lastSequenceByChannel.get(event.channel_id) ?? 0, event.sequence)
+      );
       this.send({
         type: "event.ack",
         subscription_id: event.subscription_id,
@@ -148,7 +153,10 @@ export class StudentEconomyRealtimeClient {
     }
 
     if (message.type === "recovery.required") {
-      this.lastSequence = Math.max(this.lastSequence, Number(message.current_sequence ?? 0));
+      const channelId = typeof message.channel_id === "string" ? message.channel_id : "";
+      if (channelId) {
+        this.lastSequenceByChannel.set(channelId, Number(message.current_sequence ?? 0));
+      }
       this.options.onRecoveryRequired();
     }
   }

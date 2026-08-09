@@ -32,7 +32,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.ai.contract.InvestmentCompanyContract;
+import com.b201.ecovillage.ai.domain.EconomicEventDraft;
 import com.b201.ecovillage.ai.infrastructure.InvestmentCompanyAiClient;
+import com.b201.ecovillage.ai.repository.EconomicEventDraftRepository;
 import com.b201.ecovillage.classroom.domain.ClassroomModule;
 import com.b201.ecovillage.classroom.repository.ClassroomModuleRepository;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -50,6 +52,7 @@ import com.b201.ecovillage.investment.application.HistoricalIndexPathProvider;
 import com.b201.ecovillage.investment.domain.HistoricalIndexReference;
 import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
 import com.b201.ecovillage.investment.repository.InvestmentPositionRepository;
+import com.b201.ecovillage.investment.repository.InvestmentPriceStepRepository;
 import com.b201.ecovillage.ledger.application.AtomicLedgerTransactionService;
 import com.b201.ecovillage.ledger.application.LedgerTransactionCommand;
 import com.b201.ecovillage.ledger.application.LedgerTransactionPosting;
@@ -60,6 +63,7 @@ import com.b201.ecovillage.ledger.domain.LedgerActorType;
 import com.b201.ecovillage.ledger.domain.PolicySnapshot;
 import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 import com.b201.ecovillage.ledger.repository.PolicySnapshotRepository;
+import com.b201.ecovillage.realtime.repository.OutboxEventRepository;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -91,7 +95,10 @@ class InvestmentFlowApiTest {
     @Autowired PolicySnapshotRepository snapshotRepository;
     @Autowired AtomicLedgerTransactionService transactionService;
     @Autowired InvestmentPositionRepository positionRepository;
+    @Autowired InvestmentPriceStepRepository priceStepRepository;
+    @Autowired EconomicEventDraftRepository eventRepository;
     @Autowired InvestmentMarketRepository marketRepository;
+    @Autowired OutboxEventRepository outboxEventRepository;
 
     private UUID classroomId;
     private UUID studentId;
@@ -155,6 +162,10 @@ class InvestmentFlowApiTest {
                     """.formatted(draft.get("state_version").asLong())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.market_status").value("OPEN"));
+        assertTrue(outboxEventRepository.findAll().stream().anyMatch(event ->
+            "investment.market.status_changed".equals(event.getEventType())
+                && "MARKET_STARTED".equals(event.getPayload().get("reason"))
+        ));
 
         // 교사가 이야기를 승인하기 전에는 학생에게 종목이 보이지 않는다. 승인이 곧 공개다.
         mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
@@ -173,6 +184,48 @@ class InvestmentFlowApiTest {
             .andExpect(jsonPath("$.data.assets[0].planned_price_history.length()").value(0))
             .andReturn().getResponse().getContentAsString();
         JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
+        UUID assetId = UUID.fromString(asset.get("asset_id").asText());
+
+        // 화면에서 숨긴 것만으로는 공개 규칙이 지켜지지 않는다. 주문 API도 승인 전 매수를 막는다.
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"side":"BUY","asset_id":"%s","quantity":2,"expected_price_version":1}
+                    """.formatted(assetId)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error.code").value("NEWS_NOT_PUBLISHED"));
+
+        publishNews(assetId, 1);
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assets.length()").value(1));
+
+        // 잠근 시장도 학생에게 상태를 보여 주되 주문은 막고, 재개하면 같은 화면이 다시 거래한다.
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-market/commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"command":"PAUSE","investment_mode":"LONG_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk());
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("PAUSED"));
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-market/commands", classroomId)
+                .principal(owner)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"command":"RESUME","investment_mode":"LONG_TERM","expected_state_version":%d}
+                    """.formatted(marketStateVersion())))
+            .andExpect(status().isOk());
 
         mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
                 .principal(student)
@@ -180,7 +233,7 @@ class InvestmentFlowApiTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {"side":"BUY","asset_id":"%s","quantity":2,"expected_price_version":1}
-                    """.formatted(asset.get("asset_id").asText())))
+                    """.formatted(assetId)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.status").value("EXECUTED"))
             .andExpect(jsonPath("$.data.position_quantity").value(2))
@@ -215,6 +268,29 @@ class InvestmentFlowApiTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.assets[0].price_history.length()").value(2))
             .andExpect(jsonPath("$.data.assets[0].current_price").value(1010));
+
+        // 장기는 다음 날에도 보유량을 조정할 수 있어야 한다. 현재 뉴스 공개 후 일부를 판다.
+        publishNews(assetId, 2);
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"side":"SELL","asset_id":"%s","quantity":1,"expected_price_version":2}
+                    """.formatted(assetId)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.position_quantity").value(1))
+            .andExpect(jsonPath("$.data.total_amount").value(1010));
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
+                .param("investment_mode", "LONG_TERM")
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assets[0].position_quantity").value(1))
+            .andExpect(jsonPath("$.data.assets[0].average_price").value(1000))
+            .andExpect(jsonPath("$.data.assets[0].current_value").value(1010))
+            .andExpect(jsonPath("$.data.assets[0].total_bought_amount").value(2000))
+            .andExpect(jsonPath("$.data.assets[0].total_sold_amount").value(1010))
+            .andExpect(jsonPath("$.data.assets[0].profit_loss").value(20));
     }
 
     /**
@@ -370,6 +446,7 @@ class InvestmentFlowApiTest {
                 .principal(owner))
             .andReturn().getResponse().getContentAsString();
         JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
+        publishNews(UUID.fromString(asset.get("asset_id").asText()), 1);
         mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
                 .principal(student)
                 .header("Idempotency-Key", UUID.randomUUID())
@@ -455,6 +532,16 @@ class InvestmentFlowApiTest {
                 .principal(owner))
             .andReturn().getResponse().getContentAsString();
         JsonNode asset = objectMapper.readTree(marketBody).get("data").get("assets").get(0);
+        publishNews(UUID.fromString(asset.get("asset_id").asText()), 1);
+        mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
+                .principal(student)
+                .header("Idempotency-Key", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"side":"SELL","asset_id":"%s","quantity":1,"expected_price_version":1}
+                    """.formatted(asset.get("asset_id").asText())))
+            .andExpect(status().isUnprocessableEntity())
+            .andExpect(jsonPath("$.error.code").value("SELL_NOT_ALLOWED"));
         mockMvc.perform(post("/classrooms/{classroomId}/investment-orders", classroomId)
                 .principal(student)
                 .header("Idempotency-Key", UUID.randomUUID())
@@ -493,6 +580,16 @@ class InvestmentFlowApiTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.status").value("CLOSED"));
 
+        // 학생에게도 닫힌 시장과 최종 손익을 남겨 결과가 갑자기 사라지지 않게 한다.
+        mockMvc.perform(get("/classrooms/{classroomId}/investment-markets", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.markets[0].status").value("CLOSED"))
+            .andExpect(jsonPath("$.data.markets[0].assets[0].position_quantity").value(0))
+            .andExpect(jsonPath("$.data.markets[0].assets[0].total_bought_amount").value(2000))
+            .andExpect(jsonPath("$.data.markets[0].assets[0].total_sold_amount").value(2130))
+            .andExpect(jsonPath("$.data.markets[0].assets[0].profit_loss").value(130));
+
         // 단기 한 판은 하루지만 교사는 매일 새로 열 수 있어야 한다.
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
@@ -513,6 +610,20 @@ class InvestmentFlowApiTest {
         return marketRepository.findAll().stream()
             .filter(market -> !"CLOSED".equals(market.getStatus()))
             .findFirst().orElseThrow().getStateVersion();
+    }
+
+    private void publishNews(UUID assetId, int priceStep) {
+        var step = priceStepRepository
+            .findByClassroomIdAndInvestmentAssetIdAndStepNumber(classroomId, assetId, priceStep)
+            .orElseThrow();
+        EconomicEventDraft draft = EconomicEventDraft.draft(
+            UUID.randomUUID(), classroomId, UUID.randomUUID(), "AI", UUID.randomUUID(),
+            "공개된 투자 소식", "학생이 오늘의 기업 상황을 판단할 수 있는 소식입니다.",
+            Map.of("template_type", "INVESTMENT_NEWS"), NOW
+        );
+        draft.bindInvestmentPriceStep(step.getId());
+        draft.approve(NOW);
+        eventRepository.saveAndFlush(draft);
     }
 
     private void fundWallet() {

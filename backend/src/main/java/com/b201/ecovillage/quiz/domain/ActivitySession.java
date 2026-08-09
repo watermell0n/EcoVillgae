@@ -210,6 +210,16 @@ public class ActivitySession {
         changeStatus("FINALIZING", changedAt);
     }
 
+    public void reopenFromFinalizing(Instant changedAt) {
+        if (!"FINALIZING".equals(status)) {
+            throw new IllegalStateException(
+                "only a finalizing activity can be reopened"
+            );
+        }
+        endsAt = null;
+        changeStatus("LIVE", changedAt);
+    }
+
     public void cancel(Instant changedAt) {
         if (!"READY".equals(status) && !"LIVE".equals(status)) {
             throw new IllegalStateException("only a ready or live activity can be canceled");

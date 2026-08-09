@@ -68,6 +68,7 @@ public class InvestmentDayService {
     private final LedgerAccountRepository ledgerAccountRepository;
     private final PolicySnapshotRepository policySnapshotRepository;
     private final AtomicLedgerTransactionService transactionService;
+    private final InvestmentRealtimePublisher realtimePublisher;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -82,6 +83,7 @@ public class InvestmentDayService {
         LedgerAccountRepository ledgerAccountRepository,
         PolicySnapshotRepository policySnapshotRepository,
         AtomicLedgerTransactionService transactionService,
+        InvestmentRealtimePublisher realtimePublisher,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -95,6 +97,7 @@ public class InvestmentDayService {
         this.ledgerAccountRepository = ledgerAccountRepository;
         this.policySnapshotRepository = policySnapshotRepository;
         this.transactionService = transactionService;
+        this.realtimePublisher = realtimePublisher;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -182,6 +185,9 @@ public class InvestmentDayService {
         }
         marketRepository.save(market);
         marketRepository.flush();
+        realtimePublisher.publish(
+            classroomId, market, settleNow ? "MARKET_SETTLED" : "PRICE_ADVANCED"
+        );
 
         return new InvestmentDayResult(
             market.getId(),

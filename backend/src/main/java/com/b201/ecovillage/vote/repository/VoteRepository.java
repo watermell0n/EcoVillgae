@@ -14,6 +14,8 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
 
     Optional<Vote> findByClassroomIdAndId(UUID classroomId, UUID id);
 
+    Optional<Vote> findFirstByClassroomIdOrderByCreatedAtDesc(UUID classroomId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Vote> findForUpdateByClassroomIdAndId(UUID classroomId, UUID id);
 }

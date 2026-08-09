@@ -185,6 +185,50 @@ public class VoteController {
         );
     }
 
+    @GetMapping("/latest")
+    public ApiResponse<VoteResponse> latest(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID correlation = correlationId == null
+            ? uuidGenerator.generate()
+            : correlationId;
+        VoteView vote = queryService.latest(subject(principal), classroomId);
+        return new ApiResponse<>(toResponse(vote), new ApiMeta(requestId, correlation, clock.instant()));
+    }
+
+    private static VoteResponse toResponse(VoteView vote) {
+        return new VoteResponse(
+            vote.voteId(),
+            vote.title(),
+            vote.description(),
+            vote.anonymous(),
+            vote.status(),
+            vote.stateVersion(),
+            vote.opensAt(),
+            vote.closesAt(),
+            vote.publicFundBalance(),
+            vote.participantCount(),
+            vote.ballotCount(),
+            vote.eligible(),
+            vote.hasVoted(),
+            vote.selectedOptionId(),
+            vote.selectedUse(),
+            vote.transactionGroupId(),
+            vote.options().stream()
+                .map(option -> new VoteOptionResponse(
+                    option.optionId(),
+                    option.label(),
+                    option.description(),
+                    option.budgetAmount(),
+                    option.voteCount()
+                ))
+                .toList()
+        );
+    }
+
     private static String subject(Principal principal) {
         return principal == null ? null : principal.getName();
     }

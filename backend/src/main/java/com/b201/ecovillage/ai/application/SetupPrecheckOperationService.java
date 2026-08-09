@@ -628,7 +628,7 @@ public class SetupPrecheckOperationService {
     ) {
         String module = normalizeModule(input.moduleActivation().moduleCode());
         Map<String, Object> values = new LinkedHashMap<>();
-        if (Set.of("INCOME_TAX", "DEPOSIT", "LOAN").contains(module)) {
+        if (Set.of("INCOME_TAX", "DEPOSIT", "SAVINGS", "LOAN").contains(module)) {
             values.put("rate_bps", rules.candidates().getFirst().proposedValue());
             return values;
         }

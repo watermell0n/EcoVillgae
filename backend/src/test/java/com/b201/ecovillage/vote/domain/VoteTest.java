@@ -1,6 +1,7 @@
 package com.b201.ecovillage.vote.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,6 +49,25 @@ class VoteTest {
             IllegalStateException.class,
             () -> vote.close(CREATED_AT.plusSeconds(1))
         );
+    }
+
+    @Test
+    void reopensAClosedVoteBeforePublishingTheResult() {
+        Vote vote = Vote.ready(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "공동기금 사용처",
+            null,
+            CREATED_AT
+        );
+
+        vote.open(CREATED_AT.plusSeconds(1));
+        vote.close(CREATED_AT.plusSeconds(2));
+        vote.reopen(CREATED_AT.plusSeconds(3));
+
+        assertEquals(VoteStatus.OPEN, vote.getStatus());
+        assertEquals(CREATED_AT.plusSeconds(3), vote.getOpensAt());
+        assertNull(vote.getClosesAt());
     }
 
     @Test
