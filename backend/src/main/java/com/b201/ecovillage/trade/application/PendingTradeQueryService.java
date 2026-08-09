@@ -5,9 +5,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 import com.b201.ecovillage.identity.domain.ClassroomStudent;
@@ -147,8 +149,9 @@ public class PendingTradeQueryService {
         try {
             return UUID.fromString(subject);
         } catch (RuntimeException exception) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.UNAUTHORIZED,
+            throw new ClassroomOperationException(
+                HttpStatus.UNAUTHORIZED,
+                "AUTH_REQUIRED",
                 "A valid student session is required."
             );
         }
