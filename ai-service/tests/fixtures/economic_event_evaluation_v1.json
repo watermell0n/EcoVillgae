@@ -7,7 +7,7 @@
     {"template_type": "PUBLIC_FUND", "valid_grade": 4, "boundary_mutation": "PROMPT_INJECTION", "boundary_code": "ECONOMIC_EVENT_PROMPT_INJECTION_INPUT"},
     {"template_type": "TAX", "valid_grade": 5, "boundary_mutation": "GRADE_4", "boundary_code": "GRADE_POLICY_VIOLATION"},
     {"template_type": "INTEREST_RATE", "valid_grade": 5, "boundary_mutation": "GRADE_4", "boundary_code": "GRADE_POLICY_VIOLATION"},
-    {"template_type": "INVESTMENT_NEWS", "valid_grade": 6, "boundary_mutation": "GRADE_5", "boundary_code": "GRADE_POLICY_VIOLATION"},
+    {"template_type": "INVESTMENT_NEWS", "valid_grade": 5, "boundary_mutation": "GRADE_4", "boundary_code": "GRADE_POLICY_VIOLATION"},
     {"template_type": "REWARD", "valid_grade": 6, "boundary_mutation": "GRADE_5", "boundary_code": "GRADE_POLICY_VIOLATION"}
   ],
   "scenarios": [

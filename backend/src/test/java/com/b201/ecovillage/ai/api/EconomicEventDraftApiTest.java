@@ -396,14 +396,28 @@ class EconomicEventDraftApiTest {
     }
 
     @Test
-    void rejectsInvestmentNewsForFifthGrade() throws Exception {
+    void allowsInvestmentNewsForFifthGrade() throws Exception {
         createClassroom(5);
+        activateModule("INVESTMENT");
+        openInvestmentMarket(1);
+
+        mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
+            .andExpect(status().isAccepted());
+
+        assertEquals(1, aiClient.calls);
+    }
+
+    @Test
+    void rejectsInvestmentNewsForFourthGrade() throws Exception {
+        createClassroom(4);
         activateModule("INVESTMENT");
         openInvestmentMarket(1);
 
         mockMvc.perform(draftRequest("{\"template_type\": \"INVESTMENT_NEWS\"}"))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.error.code").value("GRADE_POLICY_VIOLATION"));
+
+        assertEquals(0, aiClient.calls);
     }
 
     @Test
