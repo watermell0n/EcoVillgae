@@ -189,11 +189,15 @@ public class InvestmentScenarioService {
                 company.name(), company.profile(), index + 1, band.min(), band.max(), now
             ));
             long startPrice = startPrice(seed, condition);
+            BigDecimal running = BigDecimal.valueOf(startPrice);
             long price = startPrice;
             for (int step = 1; step <= stepCount; step++) {
                 int rate = rates.get(step - 1);
                 if (step > 1) {
-                    price = nextPrice(price, rate);
+                    long previous = price;
+                    running = advance(running, rate);
+                    price = toTradePrice(running);
+                    rate = clampBps(realizedBps(previous, price), band);
                 }
                 priceStepRepository.save(InvestmentPriceStep.hidden(
                     uuidGenerator.generate(), classroomId, asset.getId(), step, price, rate, now
@@ -393,12 +397,16 @@ public class InvestmentScenarioService {
             : new ReturnBand(-bandBps, bandBps);
         asset.reband(band.min(), band.max(), now);
         long price = startPrice == null ? steps.get(0).getPrice() : startPrice;
+        BigDecimal running = BigDecimal.valueOf(price);
         List<Integer> rates = drawRates(asset.getId(), asset.getSymbol(), steps.size(), band);
         for (int index = 0; index < steps.size(); index++) {
             InvestmentPriceStep step = steps.get(index);
             int rate = rates.get(index);
             if (index > 0) {
-                price = nextPrice(price, rate);
+                long previous = price;
+                running = advance(running, rate);
+                price = toTradePrice(running);
+                rate = clampBps(realizedBps(previous, price), band);
             }
             step.reprice(price, rate, now);
             priceStepRepository.save(step);
@@ -581,12 +589,35 @@ public class InvestmentScenarioService {
     private record ReturnBand(int min, int max) {
     }
 
-    private static long nextPrice(long current, int rateBps) {
-        return BigDecimal.valueOf(current)
+    /**
+     * 하루 등락을 소수 자리까지 누적한 가격으로 잇는다.
+     *
+     * <p>정수로 반올림한 가격을 다음 날 기준으로 삼으면 1주 금액이 낮을 때 1% 미만
+     * 등락이 매번 반올림에서 사라져 가격이 영영 움직이지 않는다.
+     */
+    private static BigDecimal advance(BigDecimal running, int rateBps) {
+        return running
             .multiply(BigDecimal.valueOf(10_000L + rateBps))
-            .divide(BigDecimal.valueOf(10_000L), 0, RoundingMode.HALF_UP)
-            .max(BigDecimal.ONE)
-            .longValueExact();
+            .divide(BigDecimal.valueOf(10_000L), 8, RoundingMode.HALF_UP)
+            .max(BigDecimal.ONE);
+    }
+
+    /** 학생이 실제로 사고파는 가격은 정수 이코다. */
+    private static long toTradePrice(BigDecimal running) {
+        return running.setScale(0, RoundingMode.HALF_UP).max(BigDecimal.ONE).longValueExact();
+    }
+
+    /** 화면의 등락률이 실제 거래 가격 변화와 어긋나지 않도록 반올림된 가격 기준으로 다시 구한다. */
+    private static int realizedBps(long previous, long price) {
+        return BigDecimal.valueOf(price - previous)
+            .multiply(BigDecimal.valueOf(10_000L))
+            .divide(BigDecimal.valueOf(previous), 0, RoundingMode.HALF_UP)
+            .intValueExact();
+    }
+
+    /** 정수 이코 반올림 때문에 실현 등락률이 약속한 하루 변동 범위를 살짝 벗어나면 범위 안으로 담는다. */
+    private static int clampBps(int rateBps, ReturnBand band) {
+        return Math.max(band.min(), Math.min(band.max(), rateBps));
     }
 
     private static ClassroomOperationException operation(HttpStatus status, String code, String message) {
