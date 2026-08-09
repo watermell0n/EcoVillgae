@@ -13,6 +13,7 @@ export type ClassroomProperty = {
   allows_subscription: boolean;
   sale_price: number;
   deposit_amount: number;
+  rent_deposit_amount: number;
   monthly_rent: number;
   payment_cycle_days: number;
   contract_term_days: number;
@@ -94,6 +95,7 @@ export function updateClassroomProperty(property: ClassroomProperty, changes: Pa
       allows_subscription: next.allows_subscription,
       sale_price: next.sale_price,
       deposit_amount: next.deposit_amount,
+      rent_deposit_amount: next.rent_deposit_amount,
       monthly_rent: next.monthly_rent,
       payment_cycle_days: next.payment_cycle_days,
       contract_term_days: next.contract_term_days

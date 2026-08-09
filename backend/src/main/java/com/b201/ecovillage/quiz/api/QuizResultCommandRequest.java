@@ -14,6 +14,7 @@ public record QuizResultCommandRequest(
     Instant clientOccurredAt,
     @NotNull QuizResultCommandType command,
     Boolean leaderboardPublic,
-    @Min(0) Integer expectedResultVersion
+    @Min(0) Integer expectedResultVersion,
+    Boolean rewardWarningAcknowledged
 ) {
 }

@@ -247,20 +247,29 @@ public class QuizResponseService {
         if (replay != null) {
             return replay;
         }
-        requireOpenSession(
+        QuizSession session = requireOpenSession(
             command.classroomId(),
             command.sessionId(),
             studentId,
-            QuizMode.TEST,
+            null,
             command.expectedStateVersion()
         );
-        int currentVersion = submissionRepository
+        QuizMode answerMode = session.getMode();
+        var latestSubmission = submissionRepository
             .findTopByClassroomIdAndQuizSessionIdAndClassroomStudentIdAndModeOrderByAnswerSheetVersionDesc(
                 command.classroomId(),
                 command.sessionId(),
                 studentId,
-                QuizMode.TEST
-            )
+                answerMode
+            );
+        if (latestSubmission.map(QuizSubmission::isSubmitted).orElse(false)) {
+            throw operation(
+                HttpStatus.CONFLICT,
+                "SUBMISSION_ALREADY_FINAL",
+                "The quiz answer sheet has already been submitted."
+            );
+        }
+        int currentVersion = latestSubmission
             .map(QuizSubmission::getAnswerSheetVersion)
             .orElse(0);
         if (currentVersion != command.answerSheetVersion()) {
@@ -277,12 +286,20 @@ public class QuizResponseService {
                 command.classroomId(),
                 command.sessionId(),
                 studentId,
-                QuizMode.TEST,
+                answerMode,
                 currentVersion + 1,
                 command.submit(),
                 now
             )
         );
+        Integer responseTimeMs = answerMode == QuizMode.GAME
+            ? responseTime(
+                activityRepository.findByClassroomIdAndId(command.classroomId(), command.sessionId())
+                    .orElseThrow()
+                    .getStartsAt(),
+                now
+            )
+            : null;
         for (TestAnswerCommand selected : command.answers()) {
             if (
                 selected == null
@@ -319,7 +336,7 @@ public class QuizResponseService {
                     option.getOptionKey(),
                     correct,
                     correct ? question.getScoreValue() : 0,
-                    null,
+                    responseTimeMs,
                     now
                 )
             );
@@ -362,7 +379,7 @@ public class QuizResponseService {
                 "The quiz session is not accepting answers."
             );
         }
-        if (session.getMode() != mode) {
+        if (mode != null && session.getMode() != mode) {
             throw operation(
                 HttpStatus.CONFLICT,
                 "INVALID_QUIZ_MODE",

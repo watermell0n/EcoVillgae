@@ -79,6 +79,7 @@ class DepositWorkflowApiTest {
 
     @BeforeEach
     void setUp() {
+        createCreditTables();
         classroomId = UUID.randomUUID();
         studentId = UUID.randomUUID();
         UUID teacherId = UUID.randomUUID();
@@ -301,6 +302,18 @@ class DepositWorkflowApiTest {
         assertEquals("EARLY_TERMINATED", terminated.path("data").path("status").asText());
         assertEquals(5_055, walletBalance());
         assertEquals(0, liabilityBalance());
+        assertEquals(590, jdbcTemplate.queryForObject(
+            "select score from credit_profiles where classroom_id=? and classroom_student_id=?",
+            Integer.class,
+            classroomId,
+            studentId
+        ));
+        assertEquals(1, jdbcTemplate.queryForObject(
+            "select count(*) from credit_events where classroom_id=? and classroom_student_id=? and event_type='DEPOSIT_EARLY_TERMINATION'",
+            Integer.class,
+            classroomId,
+            studentId
+        ));
     }
 
     @Test
@@ -515,6 +528,39 @@ class DepositWorkflowApiTest {
             .andExpect(status().isOk())
             .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsByteArray());
+    }
+
+    private void createCreditTables() {
+        jdbcTemplate.execute("""
+            create table if not exists credit_profiles (
+                classroom_student_id uuid primary key,
+                classroom_id uuid not null,
+                level varchar(40) not null,
+                score integer not null,
+                state_version bigint default 0 not null,
+                evaluated_at timestamp with time zone not null,
+                created_at timestamp with time zone not null,
+                updated_at timestamp with time zone not null
+            )
+            """);
+        jdbcTemplate.execute("""
+            create table if not exists credit_events (
+                id uuid primary key,
+                classroom_id uuid not null,
+                classroom_student_id uuid not null,
+                event_type varchar(40) not null,
+                score_delta integer not null,
+                score_before integer not null,
+                score_after integer not null,
+                level_before varchar(40) not null,
+                level_after varchar(40) not null,
+                reason varchar(500) not null,
+                related_type varchar(40),
+                related_id uuid,
+                occurred_at timestamp with time zone not null,
+                created_at timestamp with time zone not null
+            )
+            """);
     }
 
     private void activateDepositModule() {

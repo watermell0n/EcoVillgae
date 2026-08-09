@@ -7,7 +7,7 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchQuizResults, fetchQuizSession, saveTestAnswerSheet, submitGameAnswer } from "@/features/student/api";
+import { fetchQuizResults, fetchQuizSession, saveTestAnswerSheet } from "@/features/student/api";
 import type { TestAnswerSheetEntry } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
@@ -31,15 +31,11 @@ export default function QuizScreen() {
   const { access } = useClassroom();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [started, setStarted] = useState(false);
-  // 평가형은 답안지 한 장을 계속 고쳐 쓰므로 고른 답을 문항별로 모두 들고 있어야 합니다.
+  // 게임형과 평가형 모두 답안지 한 장을 계속 고쳐 쓰므로 고른 답을 문항별로 들고 있습니다.
   // 한 문항만 보내면 앞서 고른 답이 사라지고, 학생은 다 맞혀도 0점이 됩니다.
-  const [testAnswers, setTestAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   // 서버가 가진 답안지 판본입니다. 저장할 때마다 서버가 올려 주며, 어긋나면 저장이 거절됩니다.
   const [sheetVersion, setSheetVersion] = useState(0);
-  // 게임형도 선택과 제출을 분리합니다. 제출 전에는 다른 보기를 다시 고를 수 있습니다.
-  const [gameSelections, setGameSelections] = useState<Record<string, string>>({});
-  // 게임형에서 이미 답을 낸 문항입니다. 서버가 한 문항 한 번만 받으므로 화면도 잠급니다.
-  const [gameAnsweredIds, setGameAnsweredIds] = useState<string[]>([]);
   const quizSessionId = access?.resources.quizSessionId;
   const session = useQuery({
     queryKey: ["quiz-session", identity?.classroomId, quizSessionId],
@@ -54,46 +50,29 @@ export default function QuizScreen() {
   });
   const questions = session.data?.questions ?? [];
   const question = questions[questionIndex];
-  const isTest = session.data?.mode === "TEST";
-  // 지금 문항에 고른 답입니다. 평가형은 언제든 바꿀 수 있고, 게임형은 한 번 내면 잠깁니다.
-  const selectedOptionId = (isTest ? testAnswers : gameSelections)[question?.resourceId ?? ""] ?? null;
-  const answeredThisQuestion = !isTest
-    && Boolean(question)
-    && gameAnsweredIds.includes(question.resourceId);
+  const selectedOptionId = answers[question?.resourceId ?? ""] ?? null;
 
   const answer = useMutation({
-    // 제출 경로는 퀴즈 운영 방식(게임형·평가형)에 따라 달라집니다.
     mutationFn: async (optionId: string) => {
       const classroomId = identity!.classroomId;
       const sessionId = session.data!.quizSessionId;
-      if (!isTest) {
-        await submitGameAnswer(classroomId, sessionId, question!.resourceId, optionId);
-        return;
-      }
       // 지금까지 고른 답을 모두 실어 보냅니다. 서버는 답안지를 통째로 새 판본으로 저장합니다.
-      const nextAnswers = { ...testAnswers, [question!.resourceId]: optionId };
+      const nextAnswers = { ...answers, [question!.resourceId]: optionId };
       const entries: TestAnswerSheetEntry[] = Object.entries(nextAnswers)
         .map(([questionId, selected]) => ({ questionId, optionId: selected }));
       const nextVersion = await saveTestAnswerSheet(classroomId, sessionId, entries, sheetVersion, false);
       setSheetVersion(nextVersion);
     },
     onSuccess: (_result, optionId) => {
-      if (isTest) {
-        setTestAnswers((current) => ({ ...current, [question!.resourceId]: optionId }));
-        return;
-      }
-      setGameAnsweredIds((current) => current.includes(question!.resourceId)
-        ? current
-        : [...current, question!.resourceId]);
+      setAnswers((current) => ({ ...current, [question!.resourceId]: optionId }));
     }
   });
 
   // 마지막에 답안지를 한 번 제출합니다. 이 표시가 있어야 채점 대상이 됩니다.
-  const finishTest = useMutation({
+  const finishQuiz = useMutation({
     mutationFn: async () => {
-      const entries: TestAnswerSheetEntry[] = Object.entries(testAnswers)
+      const entries: TestAnswerSheetEntry[] = Object.entries(answers)
         .map(([questionId, optionId]) => ({ questionId, optionId }));
-      if (entries.length === 0) return;
       const nextVersion = await saveTestAnswerSheet(
         identity!.classroomId,
         session.data!.quizSessionId,
@@ -102,16 +81,18 @@ export default function QuizScreen() {
         true
       );
       setSheetVersion(nextVersion);
+    },
+    onSuccess: () => {
+      setQuestionIndex(questions.length);
+      answer.reset();
     }
   });
 
   useEffect(() => {
     setQuestionIndex(0);
     setStarted(false);
-    setTestAnswers({});
-    setGameSelections({});
+    setAnswers({});
     setSheetVersion(0);
-    setGameAnsweredIds([]);
   }, [quizSessionId]);
 
   const moveQuestion = (nextIndex: number) => {
@@ -123,9 +104,7 @@ export default function QuizScreen() {
   // 마지막 문항에서는 다 푼 화면으로 넘어갑니다. 그 전에는 다음 문항으로 이동합니다.
   const finishOrAdvance = () => {
     if (questionIndex === questions.length - 1) {
-      if (isTest) finishTest.mutate();
-      setQuestionIndex(questions.length);
-      answer.reset();
+      finishQuiz.mutate();
       return;
     }
     moveQuestion(questionIndex + 1);
@@ -170,24 +149,21 @@ export default function QuizScreen() {
             <Text style={styles.question}>{question.prompt}</Text>
             <View style={styles.options}>
               {question.options.map((option, index) => {
-                const locked = !option.optionId || answer.isPending || answeredThisQuestion;
+                const locked = !option.optionId || answer.isPending || finishQuiz.isPending;
                 return (
                   <Pressable disabled={locked} key={`${option.optionId ?? option.label}-${index}`} onPress={() => {
                     if (!option.optionId) return;
-                    if (isTest) answer.mutate(option.optionId);
-                    else setGameSelections((current) => ({ ...current, [question.resourceId]: option.optionId! }));
+                    answer.mutate(option.optionId);
                   }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, locked && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>
                 );
               })}
             </View>
             {answer.isError ? <Text style={styles.error}>{answerErrorMessage(answer.error)}</Text> : null}
-            {isTest && selectedOptionId ? <Text style={styles.helper}>답을 저장했어요. 마치기 전까지 다시 고를 수 있어요.</Text> : null}
-            {!isTest && selectedOptionId && !answeredThisQuestion ? <Pressable disabled={answer.isPending} onPress={() => answer.mutate(selectedOptionId)} style={[styles.submitAnswer, answer.isPending && styles.buttonDisabled]}><Text style={styles.submitAnswerText}>{answer.isPending ? "제출 중" : "이 답 제출하기"}</Text></Pressable> : null}
-            {!isTest && answeredThisQuestion ? <Text style={styles.helper}>답을 제출했어요. 다음 문제로 넘어가 주세요.</Text> : null}
+            {selectedOptionId ? <Text style={styles.helper}>답을 저장했어요. 퀴즈를 마치기 전까지 다시 고를 수 있어요.</Text> : null}
             <View style={styles.quizActions}>
               {/* 답을 고르지 않아도 넘어갈 수 있습니다. 건너뛴 문항은 이전 문제로 돌아와 풀 수 있습니다. */}
               <Pressable disabled={questionIndex === 0 || answer.isPending} onPress={() => moveQuestion(questionIndex - 1)} style={[styles.secondaryButton, (questionIndex === 0 || answer.isPending) && styles.buttonDisabled]}><Text style={styles.secondaryButtonText}>이전 문제</Text></Pressable>
-              <Pressable disabled={answer.isPending || finishTest.isPending} onPress={() => finishOrAdvance()} style={[styles.nextButton, (answer.isPending || finishTest.isPending) && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
+              <Pressable disabled={answer.isPending || finishQuiz.isPending} onPress={() => finishOrAdvance()} style={[styles.nextButton, (answer.isPending || finishQuiz.isPending) && styles.buttonDisabled]}><Text style={styles.nextButtonText}>{finishQuiz.isPending ? "제출 중" : questionIndex === questions.length - 1 ? "퀴즈 마치기" : "다음 문제"}</Text></Pressable>
             </View>
           </View>
         </View>
@@ -224,8 +200,6 @@ const styles = StyleSheet.create({
   optionSelected: { borderColor: colors.green500, backgroundColor: colors.washMint },
   optionDisabled: { opacity: 0.52 },
   optionText: { color: colors.ink900, fontSize: 17, fontWeight: "800" },
-  submitAnswer: { alignSelf: "center", marginTop: 18, paddingHorizontal: 24, paddingVertical: 13, borderRadius: radii.control, backgroundColor: colors.orange500 },
-  submitAnswerText: { color: colors.white, fontSize: 15, fontWeight: "900" },
   quizActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 24 },
   secondaryButton: { paddingHorizontal: 18, paddingVertical: 12, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control },
   secondaryButtonText: { color: colors.muted600, fontWeight: "900" },

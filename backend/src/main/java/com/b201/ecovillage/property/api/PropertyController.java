@@ -89,6 +89,13 @@ public class PropertyController {
         return response(HttpStatus.OK, properties.mine(subject(principal), classroomId));
     }
 
+    @GetMapping("/students/me/property-contracts")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> myPropertyContracts(
+        @RequestParam("classroom_id") UUID classroomId, Principal principal
+    ) {
+        return response(HttpStatus.OK, properties.contractsForStudent(subject(principal), classroomId));
+    }
+
     @GetMapping("/classrooms/{classroomId}/property-contracts")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> pendingContracts(@PathVariable UUID classroomId, Principal principal) {
         return response(HttpStatus.OK, properties.contractsForClassroom(subject(principal), classroomId));
@@ -262,11 +269,12 @@ public class PropertyController {
         @JsonProperty("allows_jeonse") boolean allowsJeonse, @JsonProperty("allows_sale") boolean allowsSale,
         @JsonProperty("allows_subscription") boolean allowsSubscription,
         @Min(0) @JsonProperty("sale_price") long salePrice, @Min(0) @JsonProperty("deposit_amount") long depositAmount,
+        @Min(0) @JsonProperty("rent_deposit_amount") long rentDepositAmount,
         @Min(0) @JsonProperty("monthly_rent") long monthlyRent,
         @Min(1) @JsonProperty("payment_cycle_days") int paymentCycleDays,
         @Min(1) @JsonProperty("contract_term_days") int contractTermDays
     ) {
-        PropertyService.PropertyInput input() { return new PropertyService.PropertyInput(coordinate, displayName, rowIndex, columnIndex, tier, isPublic, active, allowsRent, allowsJeonse, allowsSale, allowsSubscription, salePrice, depositAmount, monthlyRent, paymentCycleDays, contractTermDays); }
+        PropertyService.PropertyInput input() { return new PropertyService.PropertyInput(coordinate, displayName, rowIndex, columnIndex, tier, isPublic, active, allowsRent, allowsJeonse, allowsSale, allowsSubscription, salePrice, depositAmount, rentDepositAmount, monthlyRent, paymentCycleDays, contractTermDays); }
     }
 
     public record PropertyUpdateRequest(
@@ -277,11 +285,12 @@ public class PropertyController {
         @JsonProperty("allows_rent") boolean allowsRent, @JsonProperty("allows_jeonse") boolean allowsJeonse,
         @JsonProperty("allows_sale") boolean allowsSale, @JsonProperty("allows_subscription") boolean allowsSubscription,
         @Min(0) @JsonProperty("sale_price") long salePrice, @Min(0) @JsonProperty("deposit_amount") long depositAmount,
+        @Min(0) @JsonProperty("rent_deposit_amount") long rentDepositAmount,
         @Min(0) @JsonProperty("monthly_rent") long monthlyRent,
         @Min(1) @JsonProperty("payment_cycle_days") int paymentCycleDays,
         @Min(1) @JsonProperty("contract_term_days") int contractTermDays
     ) {
-        PropertyService.PropertyInput input() { return new PropertyService.PropertyInput(null, displayName, null, null, tier, isPublic, active, allowsRent, allowsJeonse, allowsSale, allowsSubscription, salePrice, depositAmount, monthlyRent, paymentCycleDays, contractTermDays); }
+        PropertyService.PropertyInput input() { return new PropertyService.PropertyInput(null, displayName, null, null, tier, isPublic, active, allowsRent, allowsJeonse, allowsSale, allowsSubscription, salePrice, depositAmount, rentDepositAmount, monthlyRent, paymentCycleDays, contractTermDays); }
     }
 
     public record ContractRequest(

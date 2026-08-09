@@ -11,6 +11,7 @@ public record QuizResultCommand(
     Long expectedStateVersion,
     Integer expectedResultVersion,
     QuizResultCommandType command,
-    Boolean leaderboardPublic
+    Boolean leaderboardPublic,
+    Boolean rewardWarningAcknowledged
 ) {
 }

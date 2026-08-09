@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.finance.domain.DepositAccount;
 import com.b201.ecovillage.finance.domain.DepositAccountStatus;
 import com.b201.ecovillage.finance.domain.FinancialProductVersion;
+import com.b201.ecovillage.finance.domain.LoanCreditPolicy;
 import com.b201.ecovillage.finance.repository.DepositAccountRepository;
 import com.b201.ecovillage.finance.repository.FinancialProductVersionRepository;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
@@ -45,6 +47,7 @@ public class DepositTerminationService {
         "/classrooms/{classroom_id}/deposit-accounts/{resource_id}/commands";
     private static final String DEPOSIT_LIABILITY_KEY = "DEPOSIT_LIABILITY";
     private static final String MONEY_ISSUANCE_KEY = "MONEY_ISSUANCE";
+    private static final int EARLY_TERMINATION_CREDIT_PENALTY = -10;
 
     private final ClassroomAuthorizationService authorizationService;
     private final DepositAccountRepository accountRepository;
@@ -53,6 +56,7 @@ public class DepositTerminationService {
     private final IdempotencyRecordRepository idempotencyRepository;
     private final AtomicLedgerTransactionService transactionService;
     private final RealtimeEventPublisher eventPublisher;
+    private final JdbcTemplate jdbc;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -64,6 +68,7 @@ public class DepositTerminationService {
         IdempotencyRecordRepository idempotencyRepository,
         AtomicLedgerTransactionService transactionService,
         RealtimeEventPublisher eventPublisher,
+        JdbcTemplate jdbc,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -74,6 +79,7 @@ public class DepositTerminationService {
         this.idempotencyRepository = idempotencyRepository;
         this.transactionService = transactionService;
         this.eventPublisher = eventPublisher;
+        this.jdbc = jdbc;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -150,6 +156,7 @@ public class DepositTerminationService {
             version.getEarlyTerminationRateBps()
         );
         long payout = payout(account.getPrincipalAmount(), interest);
+        CreditSnapshot credit = creditForUpdate(command.classroomId(), studentId, now);
         LedgerAccount wallet = wallet(account, now);
         LedgerAccount liability = systemAccount(
             command.classroomId(),
@@ -201,6 +208,7 @@ public class DepositTerminationService {
             public void apply() {
                 account.earlyTerminate(groupId, now);
                 accountRepository.save(account);
+                applyCreditPenalty(command.classroomId(), studentId, account.getId(), credit, now);
             }
         };
         transactionService.execute(
@@ -237,6 +245,66 @@ public class DepositTerminationService {
             false
         );
         return result(account);
+    }
+
+    private CreditSnapshot creditForUpdate(UUID classroomId, UUID studentId, Instant now) {
+        CreditSnapshot existing = jdbc.query(
+            "select score,level from credit_profiles where classroom_id=? and classroom_student_id=? for update",
+            rs -> rs.next() ? new CreditSnapshot(rs.getInt(1), rs.getString(2)) : null,
+            classroomId,
+            studentId
+        );
+        if (existing != null) {
+            return existing;
+        }
+        jdbc.update(
+            "insert into credit_profiles(classroom_student_id,classroom_id,level,score,evaluated_at,created_at,updated_at) values(?,?,'NORMAL',600,?,?,?)",
+            studentId,
+            classroomId,
+            now,
+            now,
+            now
+        );
+        return new CreditSnapshot(600, "NORMAL");
+    }
+
+    private void applyCreditPenalty(
+        UUID classroomId,
+        UUID studentId,
+        UUID accountId,
+        CreditSnapshot before,
+        Instant now
+    ) {
+        int afterScore = Math.max(0, before.score() + EARLY_TERMINATION_CREDIT_PENALTY);
+        if (afterScore == before.score()) {
+            return;
+        }
+        String afterLevel = LoanCreditPolicy.level(afterScore);
+        jdbc.update(
+            "update credit_profiles set score=?,level=?,state_version=state_version+1,evaluated_at=?,updated_at=? where classroom_id=? and classroom_student_id=?",
+            afterScore,
+            afterLevel,
+            now,
+            now,
+            classroomId,
+            studentId
+        );
+        jdbc.update(
+            "insert into credit_events(id,classroom_id,classroom_student_id,event_type,score_delta,score_before,score_after,level_before,level_after,reason,related_type,related_id,occurred_at,created_at) values(?,?,?,?,?,?,?,?,?,?,'DEPOSIT_ACCOUNT',?,?,?)",
+            uuidGenerator.generate(),
+            classroomId,
+            studentId,
+            "DEPOSIT_EARLY_TERMINATION",
+            afterScore - before.score(),
+            before.score(),
+            afterScore,
+            before.level(),
+            afterLevel,
+            "예금을 만기 전에 해지해 신용점수가 내려갔어요.",
+            accountId,
+            now,
+            now
+        );
     }
 
     private DepositAccountResult replay(
@@ -404,4 +472,6 @@ public class DepositTerminationService {
     ) {
         return new ClassroomOperationException(status, code, message);
     }
+
+    private record CreditSnapshot(int score, String level) { }
 }

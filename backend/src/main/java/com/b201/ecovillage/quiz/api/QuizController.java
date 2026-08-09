@@ -105,7 +105,8 @@ public class QuizController {
             request.expectedStateVersion(),
             request.expectedResultVersion(),
             request.command(),
-            request.leaderboardPublic()
+            request.leaderboardPublic(),
+            request.rewardWarningAcknowledged()
         ));
         return resourceResponse(result, requestId, resolvedCorrelationId, HttpStatus.OK);
     }

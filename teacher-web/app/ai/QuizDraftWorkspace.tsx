@@ -533,7 +533,7 @@ export function QuizDraftWorkspace({
     setStarting(true);
     setSessionError("");
     try {
-      const response = await apiRequest<QuizSessionCommandResponse>(
+      const sendPublish = (rewardWarningAcknowledged: boolean) => apiRequest<QuizSessionCommandResponse>(
         `/classrooms/${classroomId}/quiz-sessions/${session.id}/result-commands`,
         {
           method: "POST",
@@ -541,10 +541,25 @@ export function QuizDraftWorkspace({
             expected_state_version: session.stateVersion,
             expected_result_version: sessionResults.result_version,
             command: "PUBLISH",
-            leaderboard_public: session.mode === "GAME" && leaderboardPublic
+            leaderboard_public: session.mode === "GAME" && leaderboardPublic,
+            reward_warning_acknowledged: rewardWarningAcknowledged
           })
         }
       );
+      let response: QuizSessionCommandResponse;
+      try {
+        response = await sendPublish(false);
+      } catch (caught) {
+        if (!(caught instanceof ApiError) || caught.code !== "REWARD_ISSUANCE_SHARE_EXCEEDED") throw caught;
+        const confirmed = window.confirm(
+          "퀴즈 보상을 지급하면 전체 발행량 중 보상 비중이 30%를 넘습니다.\n\n그래도 결과·정답을 공개하고 보상을 지급할까요?"
+        );
+        if (!confirmed) {
+          setSessionMessage("결과 공개를 취소했어요. 보상 설정을 조정한 뒤 다시 공개할 수 있어요.");
+          return;
+        }
+        response = await sendPublish(true);
+      }
       updateManagedSession(session.id, response);
       await loadSessionResults(session.id);
       await loadSessions();

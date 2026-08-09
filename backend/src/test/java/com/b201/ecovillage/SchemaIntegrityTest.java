@@ -106,7 +106,7 @@ class SchemaIntegrityTest {
     }
 
     @Test
-    @DisplayName("DBT-000: Flyway V1_1~V1_35 creates all 101 physical tables")
+    @DisplayName("DBT-000: Flyway V1_1~V1_37 creates all 101 physical tables")
     void allMigrationsCreateOneHundredTables() throws SQLException {
         assertEquals(101, physicalTableCount());
     }
@@ -116,9 +116,9 @@ class SchemaIntegrityTest {
     void databaseCanBeRecreatedFromAllMigrations() throws SQLException {
         flyway.clean();
         assertEquals(0, physicalTableCount());
-        // 34 -> 35: V1_35가 property_contracts.paid_at 컬럼을 더했다. 표는 만들지 않으므로
+        // V1_37은 현재 좌석판 세대와 월세 보증금 컬럼을 더한다. 표는 만들지 않으므로
         // 101개는 그대로다.
-        assertEquals(35, flyway.migrate().migrationsExecuted);
+        assertEquals(36, flyway.migrate().migrationsExecuted);
         assertEquals(101, physicalTableCount());
     }
 

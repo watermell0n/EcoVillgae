@@ -17,6 +17,7 @@ import {
   createPropertySaleListing,
   depositSubscription,
   fetchMyProperties,
+  fetchMyPropertyContracts,
   fetchPropertyLayout,
   fetchSubscriptionAccount,
   fetchSubscriptionApplications,
@@ -26,7 +27,8 @@ import {
   requestPropertyContract,
   selectableContractTypes,
   type ContractType,
-  type Property
+  type Property,
+  type PropertyContract
 } from "@/features/property/api";
 import { colors, radii } from "@/theme/tokens";
 
@@ -81,6 +83,12 @@ export default function RealEstateScreen() {
     enabled: Boolean(classroomId && realEstateEnabled),
     refetchInterval: 10_000
   });
+  const contracts = useQuery({
+    queryKey: ["property-contracts-mine", classroomId],
+    queryFn: () => fetchMyPropertyContracts(classroomId!),
+    enabled: Boolean(classroomId && realEstateEnabled),
+    refetchInterval: 10_000
+  });
   const account = useQuery({
     queryKey: ["subscription-account", classroomId],
     queryFn: () => fetchSubscriptionAccount(classroomId!),
@@ -111,6 +119,7 @@ export default function RealEstateScreen() {
   const seatWidth = Math.max(72, Math.min(150, Math.floor((contentWidth - (columns - 1) * SEAT_GAP) / columns)));
   const seatGridWidth = columns * seatWidth + (columns - 1) * SEAT_GAP;
   const wonApplication = selected ? applications.data?.find((item) => item.status === "WON" && item.assignedPropertyId === selected.propertyId) : undefined;
+  const selectedOffer = selected ? offers.data?.find((offer) => offer.propertyIds.includes(selected.propertyId)) : undefined;
   const hasActiveApplication = applications.data?.some((item) => ["APPLIED", "WON"].includes(item.status)) ?? false;
   const contractTypes = selected ? selectableContractTypes(selected) : [];
 
@@ -122,6 +131,7 @@ export default function RealEstateScreen() {
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ["property-layout", classroomId] }),
     queryClient.invalidateQueries({ queryKey: ["properties-mine", classroomId] }),
+    queryClient.invalidateQueries({ queryKey: ["property-contracts-mine", classroomId] }),
     queryClient.invalidateQueries({ queryKey: ["subscription-offers", classroomId] }),
     queryClient.invalidateQueries({ queryKey: ["subscription-applications", classroomId] }),
     queryClient.invalidateQueries({ queryKey: ["subscription-account", classroomId] })
@@ -129,7 +139,11 @@ export default function RealEstateScreen() {
 
   const purchase = useMutation({
     mutationFn: ({ property, contractType, applicationId }: { property: Property; contractType: ContractType; applicationId?: string }) => requestPropertyContract(property.propertyId, contractType, applicationId),
-    onSuccess: async (_result, variables) => {
+    onSuccess: async (result, variables) => {
+      queryClient.setQueryData<PropertyContract[]>(
+        ["property-contracts-mine", classroomId],
+        (current = []) => [result, ...current.filter((contract) => contract.contractId !== result.contractId)]
+      );
       const message = variables.property.status === "SUBSCRIPTION_OPEN"
         ? "당첨 자리 구매를 신청했어요. 선생님 승인 후 내 자리가 돼요."
         : `${contractTypeLabel(variables.contractType)} 계약을 신청했어요. 선생님이 승인하면 그때 결제되고 내 자리에 반영돼요.`;
@@ -186,17 +200,35 @@ export default function RealEstateScreen() {
     if (!selected) return 0;
     if (selected.status === "SUBSCRIPTION_OPEN") return 0;
     if (selectedContractType === "SALE") return selected.salePrice;
-    return selected.depositAmount;
+    return selectedContractType === "RENT" ? selected.rentDepositAmount : selected.depositAmount;
   })();
-  const selectedContractPriceLabel = !selected
+  const selectedSalePrice = selected?.status === "SUBSCRIPTION_OPEN"
+    ? selectedOffer?.salePrice
+    : selected?.salePrice;
+  const canShowSelectedPrice = Boolean(
+    selected
+      && canContractSelected
+      && (selectedContractType !== "SALE" || (selectedSalePrice ?? 0) > 0)
+  );
+  const selectedContractPriceLabel = !selected || !canShowSelectedPrice
     ? ""
     : selectedContractType === "SALE"
-      ? `매매 ${selected.salePrice.toLocaleString("ko-KR")} ${currency}`
+      ? `매매 ${(selectedSalePrice ?? 0).toLocaleString("ko-KR")} ${currency}`
       : selectedContractType === "JEONSE"
         ? `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency}`
-        : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} / 월세 ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}`;
+        : `보증금 ${selected.rentDepositAmount.toLocaleString("ko-KR")} / 월세 ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}`;
   const balance = wallet.data?.balance ?? 0;
   const affordsContract = !wallet.isPending && balance >= contractCost;
+  const requestedType = selected?.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType;
+  const latestSelectedContract = selected
+    ? contracts.data?.find((contract) => contract.propertyId === selected.propertyId && contract.contractType === requestedType)
+    : undefined;
+  const pendingSelectedContract = Boolean(
+    selected && contracts.data?.some((contract) => contract.propertyId === selected.propertyId && contract.status === "PENDING")
+  );
+  const ongoingSelectedContract = Boolean(
+    selected && contracts.data?.some((contract) => contract.propertyId === selected.propertyId && ["PENDING", "ACTIVE", "OVERDUE"].includes(contract.status))
+  );
 
   if (!realEstateEnabled) {
     return <Screen title="부동산" right={<BackButton />}><StateCard title="부동산 모듈이 꺼져 있어요"><Text style={styles.description}>선생님이 부동산 모듈을 열면 교실 좌석판을 볼 수 있어요. 청약은 부동산 모듈과 함께 켜져야 합니다.</Text></StateCard></Screen>;
@@ -228,7 +260,7 @@ export default function RealEstateScreen() {
                   >
                     <Text style={styles.seatCoordinate}>{property.coordinate}</Text>
                     <Text numberOfLines={1} style={styles.seatStatus}>{isMine ? "내 자리" : propertyStatusLabel(property.status)}</Text>
-                    {property.salePrice > 0 && ["AVAILABLE", "LISTED_FOR_SALE"].includes(property.status) ? <Text style={styles.seatPrice}>{property.salePrice} {currency}</Text> : null}
+                    {property.salePrice > 0 && (property.status === "LISTED_FOR_SALE" || (property.status === "AVAILABLE" && property.allowsSale)) ? <Text style={styles.seatPrice}>{property.salePrice} {currency}</Text> : null}
                   </Pressable>;
                 })}
               </View>
@@ -243,7 +275,7 @@ export default function RealEstateScreen() {
           <View accessibilityRole="radiogroup" style={styles.contractTypes}>{contractTypes.map((type) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: selectedContractType === type }} aria-checked={selectedContractType === type} key={type} onPress={() => setSelectedContractType(type)} style={[styles.contractType, selectedContractType === type && styles.contractTypeSelected]}><Text style={[styles.contractTypeText, selectedContractType === type && styles.contractTypeTextSelected]}>{contractTypeLabel(type)}</Text></Pressable>)}</View>
           <View style={styles.contractDetails}>
             {selectedContractType === "SALE" ? <ContractDetail label="매매 가격" value={`${selected.salePrice.toLocaleString("ko-KR")} ${currency}`} /> : <>
-              <ContractDetail label="보증금" value={`${selected.depositAmount.toLocaleString("ko-KR")} ${currency}`} />
+              <ContractDetail label="보증금" value={`${(selectedContractType === "RENT" ? selected.rentDepositAmount : selected.depositAmount).toLocaleString("ko-KR")} ${currency}`} />
               {selectedContractType === "RENT" ? <ContractDetail label="월세 금액" value={`${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}`} /> : null}
               {selectedContractType === "RENT" ? <ContractDetail label="납부 주기" value={`${selected.paymentCycleDays}일마다`} /> : null}
               <ContractDetail label="계약 기간" value={`${selected.contractTermDays}일`} />
@@ -251,7 +283,8 @@ export default function RealEstateScreen() {
           </View>
         </> : null}
         {canContractSelected ? <>
-          <Pressable accessibilityRole="button" disabled={purchase.isPending || !affordsContract} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract) && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
+          {latestSelectedContract?.status === "REJECTED" ? <Text style={styles.rejectedNotice}>이전 신청이 거부됐어요. 조건을 확인한 뒤 다시 신청할 수 있어요.</Text> : null}
+          <Pressable accessibilityRole="button" disabled={purchase.isPending || !affordsContract || ongoingSelectedContract} onPress={() => purchase.mutate({ property: selected, contractType: requestedType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract || ongoingSelectedContract) && styles.disabled]}><Text style={styles.primaryText}>{pendingSelectedContract ? "선생님 승인 대기" : ongoingSelectedContract ? "승인 내용 반영 중" : selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
           {!affordsContract ? <Text style={styles.description}>지금 낼 돈이 {contractCost.toLocaleString("ko-KR")} {currency}인데 내 지갑에는 {balance.toLocaleString("ko-KR")} {currency}이 있어요. 돈을 더 모은 뒤 신청할 수 있어요.</Text> : null}
         </> : null}
         {!mineIds.has(selected.propertyId) && !canContractSelected ? <Text style={styles.description}>{selected.status === "SUBSCRIPTION_OPEN" ? "청약 당첨 후 구매를 신청할 수 있어요." : selected.isPublic ? "이 자리에는 현재 신청 가능한 매매·전세·월세 조건이 없어요." : "선생님이 아직 이 자리를 공개하지 않았어요."}</Text> : null}
@@ -302,7 +335,7 @@ export default function RealEstateScreen() {
             <Text style={styles.cardTitle}>{applicationStatusLabel(item.status)}</Text>
             <Text style={styles.cardMeta}>신청 당시 납입 {item.depositCount}회 · 예치금 {item.depositAmount.toLocaleString("ko-KR")} {currency}</Text>
             {assigned ? <Text style={styles.assignedSeat}>당첨 자리: {assigned.coordinate} · {assigned.displayName}</Text> : null}
-            {item.status === "WON" && assigned ? <Pressable disabled={purchase.isPending} onPress={() => purchase.mutate({ property: assigned, contractType: "SALE", applicationId: item.applicationId })} style={[styles.primary, purchase.isPending && styles.disabled]}><Text style={styles.primaryText}>당첨 자리 구매 신청</Text></Pressable> : null}
+            {item.status === "WON" && assigned ? <Pressable disabled={purchase.isPending || contracts.data?.some((contract) => contract.propertyId === assigned.propertyId && contract.contractType === "SALE" && contract.status === "PENDING")} onPress={() => purchase.mutate({ property: assigned, contractType: "SALE", applicationId: item.applicationId })} style={[styles.primary, (purchase.isPending || contracts.data?.some((contract) => contract.propertyId === assigned.propertyId && contract.contractType === "SALE" && contract.status === "PENDING")) && styles.disabled]}><Text style={styles.primaryText}>{contracts.data?.some((contract) => contract.propertyId === assigned.propertyId && contract.contractType === "SALE" && contract.status === "PENDING") ? "선생님 승인 대기" : "당첨 자리 구매 신청"}</Text></Pressable> : null}
           </StateCard>;
         })}</> : null}
       </View> : <StateCard><Text style={styles.cardTitle}>청약 모듈은 꺼져 있어요</Text><Text style={styles.description}>현재는 교사 직판과 학생 간 재판매만 이용할 수 있어요.</Text></StateCard>}
@@ -330,5 +363,6 @@ const styles = StyleSheet.create({
   inlineForm: { marginTop: 8, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 }, input: { minWidth: 120, minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white, color: colors.ink900, fontSize: 17, fontWeight: "800" },
   primary: { alignSelf: "flex-start", minHeight: 48, justifyContent: "center", marginTop: 10, paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.green700 }, orangeButton: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.orange700 }, primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" }, secondary: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, secondaryText: { color: colors.ink900, fontWeight: "900" }, disabled: { opacity: .45 },
   applicationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, applicationStatus: { color: colors.purple500, fontSize: 16, fontWeight: "900" },
+  rejectedNotice: { marginTop: 10, color: colors.orange700, fontSize: 14, fontWeight: "800" },
   contractTypes: { marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 8 }, contractType: { minHeight: 44, justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.chip, backgroundColor: colors.white }, contractTypeSelected: { borderColor: colors.green700, backgroundColor: colors.washMint }, contractTypeText: { color: colors.muted700, fontWeight: "900" }, contractTypeTextSelected: { color: colors.green700 }
 });
