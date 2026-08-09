@@ -341,7 +341,7 @@ export function DraftRecommendationPanel({
           <h2>{kind === "product" ? "AI 가격 추천 검토" : "AI 보상 추천 검토"}</h2>
           <p>{kind === "product"
             ? "비공개 상품의 참조 급여와 재고·예상 수요를 기준으로 세전 가격을 추천합니다. 공개 중인 상품은 먼저 공개를 중지해야 합니다."
-            : "GAME 퀴즈의 1인 참여 보상을 추천합니다. 교사가 검토한 값만 세션에 적용됩니다."}</p>
+            : "GAME 퀴즈의 문제당 보상을 추천합니다. 교사가 검토한 값만 세션에 적용됩니다."}</p>
         </div>
       </div>
 
@@ -361,7 +361,7 @@ export function DraftRecommendationPanel({
           <label>GAME 세션 ID<input value={sessionId} onChange={(event) => setSessionId(event.target.value)} placeholder="열려 있는 퀴즈 세션 ID" /></label>
           <label>문항 수<input type="number" min="1" value={questionCount} onChange={(event) => setQuestionCount(event.target.value)} /></label>
           <label>예상 진행 횟수<input type="number" min="1" value={expectedRuns} onChange={(event) => setExpectedRuns(event.target.value)} /></label>
-          <label>현재 1인 보상<input type="number" min="0" value={currentReward} onChange={(event) => setCurrentReward(event.target.value)} /></label>
+          <label>현재 문제당 보상<input type="number" min="0" value={currentReward} onChange={(event) => setCurrentReward(event.target.value)} /></label>
         </div>
       )}
 

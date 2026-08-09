@@ -48,7 +48,7 @@ public class QuizScoringService {
         UUID sessionId,
         UUID resultVersionId,
         QuizMode mode,
-        long rewardPerParticipant,
+        long rewardPerCorrectAnswer,
         Set<UUID> invalidatedQuestionIds,
         Instant scoredAt
     ) {
@@ -114,8 +114,9 @@ public class QuizScoringService {
         List<QuizStudentResult> results = new ArrayList<>(studentIds.size());
         for (UUID studentId : studentIds) {
             Score score = scores.get(studentId);
-            long reward = mode == QuizMode.GAME && latestSubmission.containsKey(studentId)
-                ? rewardPerParticipant
+            // 게임형 보상은 문제당 보상액 × 맞힌 문제 수다. 참여만 해서는 받지 못한다.
+            long reward = mode == QuizMode.GAME
+                ? Math.multiplyExact(rewardPerCorrectAnswer, (long) score.correctCount)
                 : 0L;
             results.add(QuizStudentResult.scored(
                 uuidGenerator.generate(),
