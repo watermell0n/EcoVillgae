@@ -140,10 +140,14 @@ public class Trade {
     }
 
     public void acceptByCounterpart(UUID actorStudentId, Instant changedAt) {
-        requireCounterpart(actorStudentId);
-        requireStatus(TradeStatus.AWAITING_COUNTERPART);
+        requireCounterpartDecisionAllowed(actorStudentId);
         counterpartDecidedAt = changedAt;
         changeStatus(TradeStatus.AWAITING_TEACHER, changedAt);
+    }
+
+    public void requireCounterpartDecisionAllowed(UUID actorStudentId) {
+        requireCounterpart(actorStudentId);
+        requireStatus(TradeStatus.AWAITING_COUNTERPART);
     }
 
     public void rejectByCounterpart(UUID actorStudentId, Instant changedAt) {

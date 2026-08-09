@@ -1,5 +1,7 @@
 package com.b201.ecovillage.trade.application;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -33,7 +35,11 @@ import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
+import com.b201.ecovillage.ledger.domain.LedgerAccount;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 import com.b201.ecovillage.trade.domain.InventoryItem;
 import com.b201.ecovillage.trade.domain.Trade;
 import com.b201.ecovillage.trade.domain.TradeDecision;
@@ -66,6 +72,8 @@ public class TradeCommandService {
     private final InventoryItemRepository inventoryItemRepository;
     private final CharacterEquipmentRepository characterEquipmentRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final LedgerAccountRepository ledgerAccountRepository;
+    private final TradeTaxPolicyResolver taxPolicyResolver;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -80,6 +88,8 @@ public class TradeCommandService {
         InventoryItemRepository inventoryItemRepository,
         CharacterEquipmentRepository characterEquipmentRepository,
         IdempotencyRecordRepository idempotencyRepository,
+        LedgerAccountRepository ledgerAccountRepository,
+        TradeTaxPolicyResolver taxPolicyResolver,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -93,6 +103,8 @@ public class TradeCommandService {
         this.inventoryItemRepository = inventoryItemRepository;
         this.characterEquipmentRepository = characterEquipmentRepository;
         this.idempotencyRepository = idempotencyRepository;
+        this.ledgerAccountRepository = ledgerAccountRepository;
+        this.taxPolicyResolver = taxPolicyResolver;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -132,6 +144,10 @@ public class TradeCommandService {
         if (replay != null) {
             return replay;
         }
+        requireAvailableFunds(
+            command.classroomId(),
+            Map.of(proposerId, command.offeredAmount())
+        );
 
         Instant now = clock.instant();
         UUID tradeId = uuidGenerator.generate();
@@ -267,6 +283,15 @@ public class TradeCommandService {
         requireExpectedVersion(command.expectedStateVersion(), trade.getStateVersion());
         Instant now = clock.instant();
         if (command.decision() == CounterpartTradeDecision.ACCEPT) {
+            trade.requireCounterpartDecisionAllowed(counterpartId);
+            Map<UUID, Long> outgoingAmounts = new HashMap<>();
+            moneyLegRepository.findAllByTradeIdOrderByFromStudentId(trade.getId())
+                .forEach(leg -> outgoingAmounts.merge(
+                    leg.getFromStudentId(),
+                    leg.getAmount(),
+                    Math::addExact
+                ));
+            requireAvailableFunds(command.classroomId(), outgoingAmounts);
             trade.acceptByCounterpart(counterpartId, now);
         } else {
             trade.rejectByCounterpart(counterpartId, now);
@@ -426,6 +451,52 @@ public class TradeCommandService {
         }
         items.forEach(item -> item.releaseTradeLock(trade.getId(), now));
         inventoryItemRepository.saveAll(items);
+    }
+
+    private void requireAvailableFunds(UUID classroomId, Map<UUID, Long> outgoingAmounts) {
+        if (outgoingAmounts.values().stream().noneMatch(amount -> amount > 0)) {
+            return;
+        }
+        int taxRateBps = taxPolicyResolver.resolve(classroomId).rateBps();
+        for (Map.Entry<UUID, Long> outgoing : outgoingAmounts.entrySet()) {
+            long amount = outgoing.getValue();
+            if (amount <= 0) {
+                continue;
+            }
+            long required = requiredDebit(amount, taxRateBps);
+            long balance = ledgerAccountRepository
+                .findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+                    classroomId,
+                    outgoing.getKey(),
+                    LedgerAccountType.STUDENT_WALLET,
+                    LedgerAccountStatus.ACTIVE
+                )
+                .map(LedgerAccount::getCurrentBalance)
+                .orElse(0L);
+            if (balance < required) {
+                throw operation(
+                    HttpStatus.CONFLICT,
+                    "INSUFFICIENT_BALANCE",
+                    "A trade student cannot cover the outgoing amount and trade tax."
+                );
+            }
+        }
+    }
+
+    private static long requiredDebit(long amount, int taxRateBps) {
+        try {
+            long tax = BigDecimal.valueOf(amount)
+                .multiply(BigDecimal.valueOf(taxRateBps))
+                .divide(BigDecimal.valueOf(10_000), 0, RoundingMode.HALF_UP)
+                .longValueExact();
+            return Math.addExact(amount, tax);
+        } catch (ArithmeticException exception) {
+            throw operation(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "POLICY_VIOLATION",
+                "The trade amount or tax exceeds the supported range."
+            );
+        }
     }
 
     private TradeCommandResult replay(

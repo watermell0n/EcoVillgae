@@ -2,12 +2,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { fetchTradeClassmates } from "@/features/trade/api";
 import { useTrades, type TradeRequest } from "@/features/trade/TradeProvider";
-import { createTrade } from "@/features/student/api";
+import { createTrade, fetchWallet } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
 type Tab = "request" | "received" | "progress";
@@ -26,6 +27,12 @@ export default function TradeScreen() {
     queryFn: () => fetchTradeClassmates(identity!.classroomId),
     enabled: Boolean(identity?.classroomId)
   });
+  const wallet = useQuery({
+    queryKey: ["wallet", identity?.classroomId],
+    queryFn: () => fetchWallet(identity!.classroomId),
+    enabled: Boolean(identity?.classroomId),
+    refetchInterval: 5_000
+  });
 
   const received = useMemo(() => trades.filter((trade) => (
     trade.direction === "INCOMING" && trade.status === "AWAITING_COUNTERPART"
@@ -41,18 +48,21 @@ export default function TradeScreen() {
   }, [classmates.data, friendQuery]);
   const parsedAmount = Number(amount);
   const selectedFriend = classmates.data?.find((friend) => friend.studentId === friendId) ?? null;
-  const canRequest = Boolean(
+  const hasValidAmount = Number.isInteger(parsedAmount) && parsedAmount > 0;
+  const hasValidDetails = Boolean(
     selectedFriend
       && reason.trim()
-      && Number.isInteger(parsedAmount)
-      && parsedAmount > 0
+      && hasValidAmount
   );
+  const hasEnoughBalance = Boolean(wallet.data && parsedAmount <= wallet.data.balance);
+  const canRequest = hasValidDetails && hasEnoughBalance;
 
   const requestTrade = useMutation({
     mutationFn: async () => {
-      if (!identity?.classroomId || !canRequest) {
+      if (!identity?.classroomId || !hasValidDetails) {
         throw new Error("친구와 금액, 거래 사유를 확인해 주세요.");
       }
+      if (!hasEnoughBalance) throw new Error("보낼 금액보다 지갑 잔액이 부족해요.");
       await createTrade(identity.classroomId, friendId, reason.trim(), parsedAmount);
     },
     onSuccess: async () => {
@@ -82,6 +92,10 @@ export default function TradeScreen() {
       { text: "거래 신청", onPress: () => requestTrade.mutate() }
     ]);
   };
+  const requestError = requestTrade.error instanceof ApiError
+    && requestTrade.error.code === "INSUFFICIENT_BALANCE"
+    ? "거래 금액과 거래세를 낼 지갑 잔액이 부족해요."
+    : requestTrade.error?.message;
 
   return <Screen title="거래소" right={<BackButton />}>
     <View accessibilityRole="tablist" style={styles.tabRow}>
@@ -119,11 +133,17 @@ export default function TradeScreen() {
         <TextInput accessibilityLabel="거래 금액" keyboardType="number-pad" value={amount} onChangeText={setAmount} style={styles.amountInput} />
         <Text style={styles.amountSuffix}>{currencyName}</Text>
       </View>
+      <Text style={styles.balanceHint}>
+        {wallet.isPending ? "현재 잔액을 확인하고 있어요." : wallet.data ? `현재 잔액 ${wallet.data.balance.toLocaleString("ko-KR")} ${currencyName}` : "현재 잔액을 확인하지 못했어요."}
+      </Text>
+      {hasValidAmount && wallet.data && !hasEnoughBalance ? <Text accessibilityLiveRegion="polite" style={styles.error}>보낼 금액보다 지갑 잔액이 부족해요.</Text> : null}
+      <Text style={styles.taxHint}>친구와 선생님이 승인할 때 최신 잔액과 거래세를 다시 확인해요.</Text>
       <Text style={styles.fieldLabel}>거래 사유</Text>
       <TextInput accessibilityLabel="거래 사유" value={reason} onChangeText={setReason} placeholder="예: 모둠 활동 재료를 함께 준비해요" placeholderTextColor="#9AAABD" multiline style={styles.reasonInput} />
-      {!canRequest ? <Text style={styles.validationHint}>친구·금액·거래 사유를 모두 입력하면 신청할 수 있어요.</Text> : null}
-      {requestTrade.isError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{requestTrade.error.message}</Text> : null}
-      <Pressable accessibilityRole="button" disabled={!canRequest || requestTrade.isPending} onPress={confirmTradeRequest} style={[styles.submit, (!canRequest || requestTrade.isPending) && styles.submitDisabled]}>
+      {!hasValidDetails ? <Text style={styles.validationHint}>친구·금액·거래 사유를 모두 입력하면 신청할 수 있어요.</Text> : null}
+      {wallet.isError ? <Text style={styles.error}>{wallet.error.message}</Text> : null}
+      {requestError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{requestError}</Text> : null}
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canRequest || requestTrade.isPending }} disabled={!canRequest || requestTrade.isPending} onPress={confirmTradeRequest} style={[styles.submit, (!canRequest || requestTrade.isPending) && styles.submitDisabled]}>
         <Text style={styles.submitText}>{requestTrade.isPending ? "신청 중이에요" : "거래 신청하기"}</Text>
       </Pressable>
     </View> : null}
@@ -192,6 +212,8 @@ const styles = StyleSheet.create({
   amountField: { width: "100%", maxWidth: 360, minWidth: 0, flexDirection: "row", alignItems: "center", borderBottomWidth: 2, borderBottomColor: colors.lineSoft },
   amountInput: { flex: 1, minWidth: 0, paddingVertical: 10, color: colors.ink900, fontSize: 21, fontWeight: "900" },
   amountSuffix: { flexShrink: 0, marginLeft: 8, paddingBottom: 2, color: colors.muted700, fontSize: 16, fontWeight: "800" },
+  balanceHint: { color: colors.green700, fontSize: 14, fontWeight: "800" },
+  taxHint: { color: colors.muted700, fontSize: 13, fontWeight: "700" },
   reasonInput: { minHeight: 88, padding: 14, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white, color: colors.ink900, fontSize: 16, textAlignVertical: "top" },
   validationHint: { color: colors.muted700, fontSize: 13, fontWeight: "700" },
   submit: { alignSelf: "flex-start", minHeight: 48, justifyContent: "center", marginTop: 10, paddingHorizontal: 25, paddingVertical: 14, borderRadius: radii.control, backgroundColor: colors.green700 },

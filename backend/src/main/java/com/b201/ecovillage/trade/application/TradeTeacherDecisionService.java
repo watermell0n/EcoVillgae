@@ -14,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -23,8 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
-import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
-import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
@@ -68,14 +65,13 @@ public class TradeTeacherDecisionService {
     private static final String ROUTE_KEY =
         "/classrooms/{classroom_id}/trades/{trade_id}/teacher-decisions";
     private static final String CLASSROOM_FUND_KEY = "CLASSROOM_FUND";
-    private static final int DEFAULT_TRADE_TAX_RATE_BPS = 500;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofDays(365);
 
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
     private final ClassroomStudentRepository studentRepository;
-    private final ClassroomPolicyVersionRepository policyVersionRepository;
+    private final TradeTaxPolicyResolver taxPolicyResolver;
     private final TradeRepository tradeRepository;
     private final TradeMoneyLegRepository moneyLegRepository;
     private final TradeItemLegRepository itemLegRepository;
@@ -94,7 +90,7 @@ public class TradeTeacherDecisionService {
         UserAccountRepository userRepository,
         ClassroomRepository classroomRepository,
         ClassroomStudentRepository studentRepository,
-        ClassroomPolicyVersionRepository policyVersionRepository,
+        TradeTaxPolicyResolver taxPolicyResolver,
         TradeRepository tradeRepository,
         TradeMoneyLegRepository moneyLegRepository,
         TradeItemLegRepository itemLegRepository,
@@ -112,7 +108,7 @@ public class TradeTeacherDecisionService {
         this.userRepository = userRepository;
         this.classroomRepository = classroomRepository;
         this.studentRepository = studentRepository;
-        this.policyVersionRepository = policyVersionRepository;
+        this.taxPolicyResolver = taxPolicyResolver;
         this.tradeRepository = tradeRepository;
         this.moneyLegRepository = moneyLegRepository;
         this.itemLegRepository = itemLegRepository;
@@ -199,7 +195,7 @@ public class TradeTeacherDecisionService {
         List<TradeItemLeg> itemLegs = itemLegRepository
             .findAllByTradeIdOrderByInventoryItemId(trade.getId());
         List<InventoryItem> items = lockedItems(trade, itemLegs);
-        TradeTaxPolicy taxPolicy = currentTaxPolicy(command.classroomId());
+        TradeTaxPolicy taxPolicy = taxPolicyResolver.resolve(command.classroomId());
         SettlementAmounts amounts = calculateAmounts(moneyLegs, taxPolicy.rateBps());
         PolicySnapshot snapshot = snapshot(trade, taxPolicy, amounts, now);
         Map<UUID, LedgerAccount> wallets = wallets(trade, now);
@@ -540,38 +536,6 @@ public class TradeTeacherDecisionService {
         return items;
     }
 
-    private TradeTaxPolicy currentTaxPolicy(UUID classroomId) {
-        Optional<ClassroomPolicyVersion> current = policyVersionRepository
-            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
-                classroomId,
-                "ECONOMIC"
-            )
-            .or(() -> policyVersionRepository
-                .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
-                    classroomId,
-                    "SALARY"
-                ));
-        if (current.isEmpty()) {
-            return new TradeTaxPolicy(
-                DEFAULT_TRADE_TAX_RATE_BPS,
-                null,
-                0,
-                "SYSTEM_DEFAULT"
-            );
-        }
-        ClassroomPolicyVersion policy = current.get();
-        Object configured = policy.getPolicyValues().get("trade_tax_rate_bps");
-        int rate = configured == null
-            ? DEFAULT_TRADE_TAX_RATE_BPS
-            : rateBps(configured);
-        return new TradeTaxPolicy(
-            rate,
-            policy.getId(),
-            policy.getVersion(),
-            policy.getPolicyArea()
-        );
-    }
-
     private PolicySnapshot snapshot(
         Trade trade,
         TradeTaxPolicy policy,
@@ -725,23 +689,6 @@ public class TradeTeacherDecisionService {
         }
     }
 
-    private static int rateBps(Object value) {
-        long parsed;
-        if (value instanceof Number number) {
-            parsed = number.longValue();
-        } else {
-            try {
-                parsed = Long.parseLong(String.valueOf(value));
-            } catch (NumberFormatException exception) {
-                throw policyViolation();
-            }
-        }
-        if (parsed < 0 || parsed > 10_000) {
-            throw policyViolation();
-        }
-        return Math.toIntExact(parsed);
-    }
-
     private static void validateCommand(TeacherTradeDecisionRequest command) {
         if (
             command == null
@@ -809,14 +756,6 @@ public class TradeTeacherDecisionService {
         );
     }
 
-    private static ClassroomOperationException policyViolation() {
-        return operation(
-            HttpStatus.UNPROCESSABLE_ENTITY,
-            "POLICY_VIOLATION",
-            "The personal trade tax rate must be between 0 and 10000 bps."
-        );
-    }
-
     private static TradeCommandResult result(Trade trade) {
         return new TradeCommandResult(
             trade.getId(),
@@ -831,14 +770,6 @@ public class TradeTeacherDecisionService {
         String message
     ) {
         return new ClassroomOperationException(status, code, message);
-    }
-
-    private record TradeTaxPolicy(
-        int rateBps,
-        UUID policyVersionId,
-        int version,
-        String source
-    ) {
     }
 
     private record SettlementAmounts(

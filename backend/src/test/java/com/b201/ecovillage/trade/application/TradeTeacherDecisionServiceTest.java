@@ -26,8 +26,6 @@ import org.mockito.ArgumentCaptor;
 
 import com.b201.ecovillage.audit.application.AuditTrailService;
 import com.b201.ecovillage.classroom.application.ClassroomOperationException;
-import com.b201.ecovillage.classroom.domain.ClassroomPolicyVersion;
-import com.b201.ecovillage.classroom.repository.ClassroomPolicyVersionRepository;
 import com.b201.ecovillage.common.id.UuidV7Generator;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.domain.Classroom;
@@ -83,8 +81,7 @@ class TradeTeacherDecisionServiceTest {
         ClassroomRepository classroomRepository = mock(ClassroomRepository.class);
         ClassroomStudentRepository studentRepository =
             mock(ClassroomStudentRepository.class);
-        ClassroomPolicyVersionRepository policyRepository =
-            mock(ClassroomPolicyVersionRepository.class);
+        TradeTaxPolicyResolver taxPolicyResolver = mock(TradeTaxPolicyResolver.class);
         tradeRepository = mock(TradeRepository.class);
         TradeMoneyLegRepository moneyRepository = mock(TradeMoneyLegRepository.class);
         TradeItemLegRepository itemLegRepository = mock(TradeItemLegRepository.class);
@@ -104,7 +101,7 @@ class TradeTeacherDecisionServiceTest {
             userRepository,
             classroomRepository,
             studentRepository,
-            policyRepository,
+            taxPolicyResolver,
             tradeRepository,
             moneyRepository,
             itemLegRepository,
@@ -212,14 +209,6 @@ class TradeTeacherDecisionServiceTest {
             LedgerAccountType.CLASSROOM_FUND,
             NOW.minusSeconds(100)
         );
-        ClassroomPolicyVersion policy = ClassroomPolicyVersion.salary(
-            UUID.randomUUID(),
-            classroomId,
-            1,
-            Map.of("trade_tax_rate_bps", 1_000),
-            "TEACHER",
-            NOW.minusSeconds(100)
-        );
         PolicySnapshot snapshot = PolicySnapshot.capture(
             UUID.randomUUID(),
             classroomId,
@@ -256,18 +245,12 @@ class TradeTeacherDecisionServiceTest {
             .thenReturn(List.of(itemLeg));
         when(inventoryRepository.findAllForUpdate(classroomId, List.of(item.getId())))
             .thenReturn(List.of(item));
-        when(
-            policyRepository.findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
-                classroomId,
-                "ECONOMIC"
-            )
-        ).thenReturn(Optional.empty());
-        when(
-            policyRepository.findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
-                classroomId,
-                "SALARY"
-            )
-        ).thenReturn(Optional.of(policy));
+        when(taxPolicyResolver.resolve(classroomId)).thenReturn(new TradeTaxPolicy(
+            1_000,
+            UUID.randomUUID(),
+            1,
+            "SALARY"
+        ));
         when(snapshotRepository.findByClassroomIdAndSnapshotHash(eq(classroomId), any()))
             .thenReturn(Optional.empty());
         when(snapshotRepository.save(any())).thenReturn(snapshot);

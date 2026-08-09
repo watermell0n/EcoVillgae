@@ -141,9 +141,9 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-TRD-001 · UIA-TRD-001 | `POST /classrooms/{C}/trades` | STU | 상대 학생, 주고받을 금액·아이템, 설명 → `AWAITING_COUNTERPART`, 아이템 잠금 | PM-TRD-001 · SM-TRD-001·SM-ITM-001 | `SELF_TRADE_FORBIDDEN`, `ITEM_LOCKED`, `RESOURCE_NOT_OWNED` | TRD-001·TRD-002·TRD-005 |
+| API-TRD-001 · UIA-TRD-001 | `POST /classrooms/{C}/trades` | STU | 상대 학생, 주고받을 금액·아이템, 설명 → 제안자의 현재 잔액으로 보낼 금액·거래세 사전 검증 후 `AWAITING_COUNTERPART`, 아이템 잠금 | PM-TRD-001 · SM-TRD-001·SM-ITM-001 | `SELF_TRADE_FORBIDDEN`, `INSUFFICIENT_BALANCE`, `ITEM_LOCKED`, `RESOURCE_NOT_OWNED` | TRD-001·TRD-002·TRD-005 |
 | API-TRD-002 · UIA-TRD-002 | `POST /classrooms/{C}/trades/{R}/proposer-commands` | 제안 STU | `command=CANCEL` → 취소·아이템 잠금 해제 | PM-TRD-001 · SM-TRD-001·SM-ITM-001 | `INVALID_STATE_TRANSITION`, `RESOURCE_NOT_OWNED` | TRD-001·TRD-002 |
-| API-TRD-003 · UIA-TRD-003 | `POST /classrooms/{C}/trades/{R}/counterpart-decisions` | 상대 STU | `decision=ACCEPT\|REJECT, reason?` → 교사 대기 또는 취소·잠금 해제 | PM-TRD-002 · SM-TRD-001·SM-ITM-001 | `NOT_TRADE_COUNTERPART`, `INVALID_STATE_TRANSITION` | TRD-001·TRD-002 |
+| API-TRD-003 · UIA-TRD-003 | `POST /classrooms/{C}/trades/{R}/counterpart-decisions` | 상대 STU | `decision=ACCEPT\|REJECT, reason?` → 수락 시 양측 최신 잔액·거래세 재검증 후 교사 대기, 거절 시 취소·잠금 해제 | PM-TRD-002 · SM-TRD-001·SM-ITM-001 | `NOT_TRADE_COUNTERPART`, `INSUFFICIENT_BALANCE`, `INVALID_STATE_TRANSITION` | TRD-001·TRD-002 |
 | API-TRD-004 · UIA-TRD-004 | `POST /classrooms/{C}/trades/{R}/teacher-decisions` | OWN·COT | `decision=APPROVE\|REJECT, reason` → 세금·금액·아이템 원자 이전 또는 취소 | PM-TRD-003 · SM-TRD-001·SM-ITM-001·SM-TXN-001 | `APPROVAL_REQUIRED`, `INSUFFICIENT_BALANCE`, `OWNERSHIP_CHANGED`, `POLICY_VERSION_CONFLICT` | TRD-001·TRD-002·TRD-003·TRD-005 |
 
 ## 6. 금융 API

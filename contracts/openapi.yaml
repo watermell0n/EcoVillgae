@@ -5462,8 +5462,8 @@ paths:
         - "TRD-005"
       tags:
         - "Trades"
-      summary: "상대 학생, 주고받을 금액, 아이템, 설명 → AWAITING_COUNTERPART, 아이템 잠금"
-      description: "사람이 검토하는 원문 기준: `API-TRD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 상대 학생, 주고받을 금액, 아이템, 설명 → AWAITING_COUNTERPART, 아이템 잠금."
+      summary: "상대 학생, 주고받을 금액, 아이템, 설명 → 제안자의 현재 잔액으로 보낼 금액, 거래세 사전 검증 후 AWAITING_COUNTERPART, 아이템 잠금"
+      description: "사람이 검토하는 원문 기준: `API-TRD-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 상대 학생, 주고받을 금액, 아이템, 설명 → 제안자의 현재 잔액으로 보낼 금액, 거래세 사전 검증 후 AWAITING_COUNTERPART, 아이템 잠금."
       security:
         - bearerAuth: []
       parameters:
@@ -5803,8 +5803,8 @@ paths:
         - "TRD-002"
       tags:
         - "Trades"
-      summary: "decision=ACCEPT|REJECT, reason? → 교사 대기 또는 취소, 잠금 해제"
-      description: "사람이 검토하는 원문 기준: `API-TRD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 상대 STU.\n\n핵심 계약: decision=ACCEPT|REJECT, reason? → 교사 대기 또는 취소, 잠금 해제."
+      summary: "decision=ACCEPT|REJECT, reason? → 수락 시 양측 최신 잔액, 거래세 재검증 후 교사 대기, 거절 시 취소, 잠금 해제"
+      description: "사람이 검토하는 원문 기준: `API-TRD-003` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 상대 STU.\n\n핵심 계약: decision=ACCEPT|REJECT, reason? → 수락 시 양측 최신 잔액, 거래세 재검증 후 교사 대기, 거절 시 취소, 잠금 해제."
       security:
         - bearerAuth: []
       parameters:
