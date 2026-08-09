@@ -880,7 +880,7 @@ class AiSetupExecutionApiTest {
             }
             SetupPrecheckContract.Response base = fallbackFactory.create(
                 request,
-                "rule-engine-v2",
+                "rule-engine-v3",
                 "FAKE_PROVIDER"
             );
             SetupPrecheckContract.Output output = base.output();
