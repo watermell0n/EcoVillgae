@@ -70,7 +70,7 @@
 
 | API ID | 메서드·경로 | 설명 |
 | --- | --- | --- |
-| API-AUTH-004 | `POST /auth/token-refreshes` | STU는 SecureStore의 갱신 토큰을 `X-Refresh-Token`으로 보내고 새 액세스·갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다 |
+| API-AUTH-004 | `POST /auth/token-refreshes` | STU는 SecureStore의 갱신 토큰을 `X-Refresh-Token`으로 보내고 새 액세스·갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 같은 출처에서 교사 쿠키가 함께 전송되어도 명시적인 학생 헤더를 우선한다 |
 | API-AUTH-005 | `DELETE /auth/sessions/current` | 현재 앱 또는 웹 세션 폐기 |
 | API-AUTH-006 | `GET /auth/me` | 현재 세션·사용자·역할·학교·담당 학급과 액세스 토큰 만료 조회 |
 | API-AUTH-007 | `POST /auth/realtime-tickets` | 인증 세션과 요청 채널 범위로 60초·1회용 WebSocket 접속 티켓 발급 |
