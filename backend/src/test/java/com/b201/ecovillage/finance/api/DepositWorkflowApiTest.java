@@ -349,7 +349,27 @@ class DepositWorkflowApiTest {
             .andExpect(jsonPath("$.data.savings_accounts[0].product_id").value(productId.toString()))
             .andExpect(jsonPath("$.data.savings_accounts[0].paid_installment_count").value(1))
             .andExpect(jsonPath("$.data.savings_accounts[0].installment_count").value(5))
-            .andExpect(jsonPath("$.data.savings_accounts[0].principal_balance").value(20));
+            .andExpect(jsonPath("$.data.savings_accounts[0].principal_balance").value(20))
+            .andExpect(jsonPath("$.data.savings_accounts[0].interest_rate_bps").value(500))
+            .andExpect(jsonPath("$.data.savings_accounts[0].matures_at").isNotEmpty())
+            .andExpect(jsonPath("$.data.savings_accounts[0].next_installment_at").isNotEmpty())
+            .andExpect(jsonPath("$.data.savings_accounts[0].next_installment_status").value("SCHEDULED"));
+
+        jdbcTemplate.update("""
+            update savings_installments
+               set status='MISSED'
+             where id=(
+                 select id
+                   from savings_installments
+                  where classroom_id=? and status='SCHEDULED'
+                  order by due_at
+                  limit 1
+             )
+            """, classroomId);
+        mockMvc.perform(get("/classrooms/{classroomId}/students/me/deposit-and-savings", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.savings_accounts[0].next_installment_status").value("MISSED"));
 
         mockMvc.perform(post("/classrooms/{classroomId}/savings-accounts", classroomId)
                 .principal(student)

@@ -8,12 +8,15 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import {
   buyInvestment,
+  fetchInvestmentOrderHistory,
   fetchInvestmentMarkets,
   sellInvestment,
   type InvestmentAsset,
   type InvestmentMarket,
-  type InvestmentMode
+  type InvestmentMode,
+  type InvestmentOrderHistory
 } from "@/features/investment/api";
+import { fetchWallet } from "@/features/student/api";
 import { colors } from "@/theme/tokens";
 
 const MODE_LABELS: Record<InvestmentMode, string> = {
@@ -73,12 +76,18 @@ function changeText(asset: InvestmentAsset) {
 export default function InvestmentScreen() {
   const { identity } = useAuth();
   const classroomId = identity?.classroomId;
-  const [selected, setSelected] = useState<InvestmentMode | null>(null);
+  const [selected, setSelected] = useState<InvestmentMode | "HISTORY" | null>(null);
   const marketQuery = useQuery({
     queryKey: ["investment-markets", classroomId],
     queryFn: () => fetchInvestmentMarkets(classroomId!),
     enabled: Boolean(classroomId),
     // 실시간 연결이 막힌 학교 네트워크에서도 교사 조작을 오래 놓치지 않게 보완합니다.
+    refetchInterval: 15_000
+  });
+  const historyQuery = useQuery({
+    queryKey: ["investment-order-history", classroomId],
+    queryFn: () => fetchInvestmentOrderHistory(classroomId!),
+    enabled: Boolean(classroomId),
     refetchInterval: 15_000
   });
   const markets = marketQuery.data;
@@ -89,22 +98,24 @@ export default function InvestmentScreen() {
 
   // 선생님이 잠근 방식과 아직 공개하지 않은 시나리오는 서버에서 이미 빠져 있습니다.
   const openMarkets = markets ?? [];
+  const orderHistory = historyQuery.data ?? [];
   const active = useMemo(
     () => openMarkets.find((market) => market.investmentMode === selected) ?? openMarkets[0],
     [openMarkets, selected]
   );
+  const showHistory = selected === "HISTORY" || (openMarkets.length === 0 && orderHistory.length > 0);
 
   return (
     <Screen title="투자 광장" right={<BackButton />}>
-      {marketQuery.isPending ? (
+      {marketQuery.isPending && historyQuery.isPending ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>투자 정보를 불러오는 중이에요</Text>
         </View>
-      ) : openMarkets.length === 0 ? (
+      ) : openMarkets.length === 0 && orderHistory.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>지금 열려 있는 투자 수업이 없어요</Text>
           <Text style={styles.description}>
-            {marketQuery.isError ? error : "선생님이 단기 투자나 장기 투자를 열면 이곳에 나타나요."}
+            {marketQuery.isError && historyQuery.isError ? error : "선생님이 단기 투자나 장기 투자를 열면 이곳에 나타나요."}
           </Text>
         </View>
       ) : (
@@ -126,8 +137,16 @@ export default function InvestmentScreen() {
                 </Text>
               </Pressable>
             ))}
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: showHistory }}
+              onPress={() => setSelected("HISTORY")}
+              style={[styles.tab, showHistory && styles.tabActive]}
+            >
+              <Text style={[styles.tabText, showHistory && styles.tabTextActive]}>투자 내역</Text>
+            </Pressable>
           </View>
-          {active ? <MarketView market={active} onTraded={load} /> : null}
+          {showHistory ? <InvestmentHistoryView orders={orderHistory} /> : active ? <MarketView market={active} onTraded={load} /> : null}
         </>
       )}
     </Screen>
@@ -142,6 +161,12 @@ function MarketView({
   const queryClient = useQueryClient();
   const classroomId = identity?.classroomId;
   const currencyName = identity?.currencyName ?? "비빔";
+  const walletQuery = useQuery({
+    queryKey: ["wallet", classroomId],
+    queryFn: () => fetchWallet(classroomId!),
+    enabled: Boolean(classroomId),
+    refetchInterval: 10_000
+  });
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -153,6 +178,8 @@ function MarketView({
   const current = market.assets.find((asset) => asset.assetId === selectedAssetId) ?? market.assets[0];
   const tradable = market.status === "OPEN";
   const totalProfitLoss = market.assets.reduce((sum, asset) => sum + asset.profitLoss, 0);
+  const buyTotal = current ? current.currentPrice * quantity : 0;
+  const insufficientBalance = Boolean(walletQuery.data && walletQuery.data.balance < buyTotal);
 
   function changeQuantity(step: number) {
     setQuantityText(String(clampQuantity(String(quantity + step))));
@@ -167,6 +194,7 @@ function MarketView({
         ? await buyInvestment(classroomId, asset, quantity)
         : await sellInvestment(classroomId, asset, quantity);
       await queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
+      await queryClient.invalidateQueries({ queryKey: ["investment-order-history", classroomId] });
       await onTraded();
       setNotice(
         `${asset.name} ${quantity}주를 ${result.total_amount.toLocaleString("ko-KR")} ${currencyName}에 ${side === "BUY" ? "샀어요" : "팔았어요"}. `
@@ -326,9 +354,9 @@ function MarketView({
             </Pressable>
           </View>
           <Pressable
-            disabled={busy || !tradable}
+            disabled={busy || !tradable || walletQuery.isPending || insufficientBalance}
             onPress={() => void trade(current, quantity, "BUY")}
-            style={[styles.primaryButton, (busy || !tradable) && styles.buttonBusy]}
+            style={[styles.primaryButton, (busy || !tradable || walletQuery.isPending || insufficientBalance) && styles.buttonBusy]}
           >
             <Text style={styles.primaryText}>{busy ? "처리 중" : `${quantity}주 사기`}</Text>
           </Pressable>
@@ -347,10 +375,26 @@ function MarketView({
           <Text style={styles.totalPreview}>
             모두 {(current.currentPrice * quantity).toLocaleString("ko-KR")} {currencyName}
           </Text>
+          {insufficientBalance ? <Text style={styles.shortageNotice}>잔액이 부족해 살 수 없어요. 현재 지갑에는 {walletQuery.data?.balance.toLocaleString("ko-KR")} {currencyName}이 있어요.</Text> : null}
         </View>
       ) : null}
     </View>
   );
+}
+
+function InvestmentHistoryView({ orders }: Readonly<{ orders: InvestmentOrderHistory[] }>) {
+  const { identity } = useAuth();
+  const currencyName = identity?.currencyName ?? "비빔";
+  if (orders.length === 0) {
+    return <View style={styles.empty}><Text style={styles.emptyTitle}>아직 투자 내역이 없어요</Text><Text style={styles.description}>종목을 사고팔면 거래 가격과 수량이 여기에 남아요.</Text></View>;
+  }
+  return <View style={styles.historyList}>
+    <View style={styles.summaryRow}><Text style={styles.sectionTitle}>투자 내역</Text><Text style={styles.summaryMeta}>최근 거래부터 표시해요</Text></View>
+    {orders.map((order) => <View key={order.orderId} style={styles.historyRow}>
+      <View style={styles.historyMain}><Text style={styles.company}>{order.assetName}</Text><Text style={styles.stockNews}>{order.investmentMode === "SHORT_TERM" ? "단기 투자" : order.investmentMode === "LONG_TERM" ? "장기 투자" : "투자"} · {order.executedPriceStep}일차 · {order.executedAt ? new Date(order.executedAt).toLocaleString("ko-KR") : "시간 확인 중"}</Text></View>
+      <View style={styles.holdingRight}><Text style={[styles.historySide, order.side === "SELL" && styles.sellHistory]}>{order.side === "BUY" ? "매수" : "매도·정산"} {order.quantity}주</Text><Text style={styles.positionText}>주당 {order.executedPrice.toLocaleString("ko-KR")} · 합계 {order.totalAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
+    </View>)}
+  </View>;
 }
 
 const styles = StyleSheet.create({
@@ -398,6 +442,8 @@ const styles = StyleSheet.create({
   sellButton: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", paddingHorizontal: 22, borderWidth: 1, borderColor: colors.orange500, borderRadius: 8, backgroundColor: colors.white },
   sellText: { color: colors.orange500, fontSize: 15, fontWeight: "900" },
   pausedNotice: { width: "100%", color: colors.red500, fontSize: 14, fontWeight: "800" },
+  shortageNotice: { width: "100%", color: colors.red500, fontSize: 14, fontWeight: "800" },
+  historyList: { width: "100%", maxWidth: 960, gap: 0, paddingTop: 12 }, historyRow: { minHeight: 82, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 18, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.lineSoft, backgroundColor: colors.white }, historyMain: { flex: 1, minWidth: 0 }, historySide: { color: colors.orange500, fontSize: 15, fontWeight: "900" }, sellHistory: { color: colors.green500 },
   buttonBusy: { opacity: 0.6 },
   empty: { maxWidth: 760, gap: 10, paddingVertical: 34, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.lineSoft },
   emptyTitle: { color: colors.ink900, fontSize: 23, fontWeight: "900" },

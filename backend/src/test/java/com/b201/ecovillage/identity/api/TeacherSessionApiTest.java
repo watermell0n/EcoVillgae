@@ -102,6 +102,7 @@ class TeacherSessionApiTest {
         )
             .andExpect(status().isCreated())
             .andExpect(cookie().httpOnly("ecovillage_teacher_refresh", true))
+            .andExpect(cookie().path("ecovillage_teacher_refresh", "/"))
             .andExpect(jsonPath("$.data.access_token").isString())
             .andExpect(jsonPath("$.data.refresh_token").doesNotExist())
             .andExpect(jsonPath("$.data.session_id").isString())
@@ -142,6 +143,7 @@ class TeacherSessionApiTest {
             .andExpect(jsonPath("$.data.refresh_token").doesNotExist())
             .andExpect(jsonPath("$.data.role").value("TCH"))
             .andExpect(cookie().httpOnly("ecovillage_teacher_refresh", true))
+            .andExpect(cookie().path("ecovillage_teacher_refresh", "/"))
             .andReturn();
 
         Cookie secondRefreshCookie = refresh.getResponse().getCookie(

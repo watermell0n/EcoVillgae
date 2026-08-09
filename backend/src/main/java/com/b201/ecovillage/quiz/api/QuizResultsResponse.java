@@ -7,6 +7,7 @@ public record QuizResultsResponse(
     int resultVersion,
     String status,
     Map<String, Object> summary,
-    List<QuizLeaderboardEntryResponse> leaderboard
+    List<QuizLeaderboardEntryResponse> leaderboard,
+    List<QuizQuestionResultResponse> questions
 ) {
 }

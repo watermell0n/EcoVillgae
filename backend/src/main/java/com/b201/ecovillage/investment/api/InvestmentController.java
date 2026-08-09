@@ -38,6 +38,7 @@ import com.b201.ecovillage.investment.application.InvestmentDayResult;
 import com.b201.ecovillage.investment.application.InvestmentDayService;
 import com.b201.ecovillage.investment.application.InvestmentMarketQueryService;
 import com.b201.ecovillage.investment.application.InvestmentMarketView;
+import com.b201.ecovillage.investment.application.InvestmentOrderHistoryView;
 import com.b201.ecovillage.investment.application.InvestmentScenarioResult;
 import com.b201.ecovillage.investment.application.InvestmentScenarioService;
 
@@ -188,6 +189,20 @@ public class InvestmentController {
         );
     }
 
+    @GetMapping("/students/me/investment-portfolio")
+    public ApiResponse<InvestmentOrderHistoryListView> findMyOrders(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return new ApiResponse<>(
+            new InvestmentOrderHistoryListView(queryService.findOrderHistory(subject(principal), classroomId)),
+            new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        );
+    }
+
     @PostMapping("/investment-orders")
     public ResponseEntity<ApiResponse<InvestmentBuyResult>> order(
         @PathVariable UUID classroomId,
@@ -282,6 +297,9 @@ record InvestmentMarketCommandRequest(
 }
 
 record InvestmentMarketListView(java.util.List<InvestmentMarketView> markets) {
+}
+
+record InvestmentOrderHistoryListView(java.util.List<InvestmentOrderHistoryView> orders) {
 }
 
 record InvestmentDayCommandRequest(

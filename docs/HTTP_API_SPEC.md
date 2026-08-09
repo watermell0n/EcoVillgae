@@ -287,7 +287,7 @@
 | API-READ-042 | `GET /classrooms/{C}/trades/classmates` | STU | 같은 학급의 활성 학생 중 본인을 제외한 번호·닉네임 목록 | SCR-STU-009 / TRD-001 |
 | API-READ-043 | `GET /classrooms/{C}/trades/mine` | STU | 본인이 제안자 또는 상대방인 개인거래와 현재 승인·정산 상태 | SCR-STU-009 / TRD-001·TRD-002·TRD-003 |
 | API-READ-044 | `GET /classrooms/{C}/votes/latest` | STU·OWN·COT | 가장 최근 공동기금 투표의 공개 상태·참여 여부·선택지·결과·공동기금 잔액 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
-| API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 본인 보유량·체결·손익·수익률 | SCR-STU-018 / FIN-006·FIN-007 |
+| API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 단기·장기와 종료된 시장을 모두 포함한 본인 투자 주문 내역. 종목·매수/매도·수량·체결 단가·합계·체결 일시·가격 단계를 최신순으로 제공 | SCR-STU-018 / FIN-006·FIN-007 |
 | API-READ-018 | `GET /classrooms/{C}/students/me/loans-and-credit` | STU | 본인 대출·상환일정·연체·신용 상태 | SCR-STU-019·SCR-STU-020 / FIN-008·FIN-009·FIN-010 |
 | API-READ-019 | `GET /classrooms/{C}/loan-approval-queue` | OWN·COT | 최신 신용·활성 대출·정책과 승인 대기 | SCR-TCH-009·SCR-WEB-016 / FIN-008·FIN-010 |
 | API-READ-020 | `GET /classrooms/{C}/quiz-questions` | OWN·COT | 문제은행·버전·검토·게시 상태와 최신 선택지·정답·해설·AI 실행 출처 | SCR-WEB-017·SCR-WEB-018 / QZ-001·QZ-002·QZ-006·QZ-008 |

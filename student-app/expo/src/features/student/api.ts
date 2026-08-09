@@ -164,14 +164,17 @@ export type SavingsAccount = {
   paidInstallmentCount: number;
   installmentAmount: number;
   principalBalance: number;
+  interestRateBps: number;
   maturesAt: string;
+  nextInstallmentAt: string;
+  nextInstallmentStatus?: "SCHEDULED" | "MISSED";
 };
 
 export async function fetchFinanceAccounts(classroomId: string) {
   if (useMocks) return { depositAccounts: [] as DepositAccount[], savingsAccounts: [] as SavingsAccount[] };
   const response = await apiRequest<{
     deposit_accounts: Array<{ resource_id?: string; label?: string; status?: string; state_version?: number; principal_amount?: number; matures_at?: string }>;
-    savings_accounts: Array<{ resource_id?: string; product_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; matures_at?: string }>;
+    savings_accounts: Array<{ resource_id?: string; product_id?: string; label?: string; status?: string; installment_count?: number; paid_installment_count?: number; installment_amount?: number; principal_balance?: number; interest_rate_bps?: number; matures_at?: string; next_installment_at?: string; next_installment_status?: "SCHEDULED" | "MISSED" }>;
   }>(`/classrooms/${classroomId}/students/me/deposit-and-savings`);
   return {
     depositAccounts: response.deposit_accounts.flatMap((account) => account.resource_id ? [{
@@ -191,7 +194,10 @@ export async function fetchFinanceAccounts(classroomId: string) {
       paidInstallmentCount: account.paid_installment_count ?? 0,
       installmentAmount: account.installment_amount ?? 0,
       principalBalance: account.principal_balance ?? 0,
-      maturesAt: account.matures_at ?? ""
+      interestRateBps: account.interest_rate_bps ?? 0,
+      maturesAt: account.matures_at ?? "",
+      nextInstallmentAt: account.next_installment_at ?? "",
+      nextInstallmentStatus: account.next_installment_status
     }] : [])
   };
 }
@@ -369,6 +375,7 @@ export type QuizOption = { optionId?: string; label: string };
 export type QuizSession = {
   quizSessionId: string;
   mode: string;
+  contentType: "ECONOMY" | "NONSENSE";
   status: string;
   questions: Array<{ resourceId: string; prompt: string; options: QuizOption[] }>;
 };
@@ -381,12 +388,24 @@ export type QuizResults = {
   rank: number;
   rewardAmount: number;
   leaderboard: Array<{ rank: number; nickname: string }>;
+  questions: Array<{
+    questionId: string;
+    sequenceNumber: number;
+    prompt: string;
+    selectedOptionText?: string;
+    correctOptionText: string;
+    correct: boolean;
+    invalidated: boolean;
+    scoreAwarded: number;
+    explanation?: string;
+  }>;
 };
 
 export async function fetchQuizSession(classroomId: string, quizSessionId: string): Promise<QuizSession> {
   if (useMocks) return {
     quizSessionId,
     mode: "GAME",
+    contentType: "ECONOMY",
     status: "OPEN",
     questions: [
       { resourceId: "mock-question-1", prompt: "내가 일해서 받는 돈을 무엇이라고 할까요?", options: [{ optionId: "q1-1", label: "세금" }, { optionId: "q1-2", label: "월급" }, { optionId: "q1-3", label: "이자" }, { optionId: "q1-4", label: "투자" }] },
@@ -400,6 +419,7 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
   const response = await apiRequest<{
     quiz_session_id: string;
     mode: string;
+    content_type?: "ECONOMY" | "NONSENSE";
     status: string;
     questions: Array<{
       resource_id?: string;
@@ -412,6 +432,7 @@ export async function fetchQuizSession(classroomId: string, quizSessionId: strin
   return {
     quizSessionId: response.quiz_session_id,
     mode: response.mode,
+    contentType: response.content_type === "NONSENSE" ? "NONSENSE" : "ECONOMY",
     status: response.status,
     questions: response.questions.flatMap((question) => question.resource_id ? [{
       resourceId: question.resource_id,
@@ -429,6 +450,17 @@ export async function fetchQuizResults(classroomId: string, quizSessionId: strin
     status?: string;
     summary?: { score?: number; correct_count?: number; rank?: number; reward_amount?: number };
     leaderboard?: Array<{ rank?: number; nickname?: string }>;
+    questions?: Array<{
+      question_id?: string;
+      sequence_number?: number;
+      prompt?: string;
+      selected_option_text?: string | null;
+      correct_option_text?: string;
+      correct?: boolean;
+      invalidated?: boolean;
+      score_awarded?: number;
+      explanation?: string | null;
+    }>;
   }>(`/classrooms/${classroomId}/quiz-sessions/${quizSessionId}/results`);
   return {
     resultVersion: response.result_version ?? 0,
@@ -440,7 +472,18 @@ export async function fetchQuizResults(classroomId: string, quizSessionId: strin
     leaderboard: (response.leaderboard ?? []).map((entry) => ({
       rank: entry.rank ?? 0,
       nickname: entry.nickname ?? "학생"
-    }))
+    })),
+    questions: (response.questions ?? []).flatMap((question) => question.question_id ? [{
+      questionId: question.question_id,
+      sequenceNumber: question.sequence_number ?? 0,
+      prompt: question.prompt ?? "문제",
+      selectedOptionText: question.selected_option_text ?? undefined,
+      correctOptionText: question.correct_option_text ?? "정답 정보 없음",
+      correct: question.correct ?? false,
+      invalidated: question.invalidated ?? false,
+      scoreAwarded: question.score_awarded ?? 0,
+      explanation: question.explanation ?? undefined
+    }] : [])
   };
 }
 

@@ -12,6 +12,7 @@ import { colors, radii } from "@/theme/tokens";
 export default function MeetingScreen() {
   const { identity } = useAuth();
   const [voteOpen, setVoteOpen] = useState(false);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const currency = identity?.currencyName ?? "비빔";
   const vote = useQuery({
     queryKey: ["class-vote-latest", identity?.classroomId],
@@ -23,6 +24,7 @@ export default function MeetingScreen() {
     mutationFn: (optionId: string) => castVote(identity!.classroomId, vote.data!, optionId),
     onSuccess: async () => {
       setVoteOpen(false);
+      setSelectedOptionId(null);
       await vote.refetch();
     }
   });
@@ -35,7 +37,7 @@ export default function MeetingScreen() {
     <Screen title="마을 회의" right={<BackButton />}>
       <StateCard tone="sky">
         <Text style={styles.lead}>우리 반 공동기금을 어디에 쓸까요</Text>
-        <Text style={styles.description}>선생님이 투표를 열면 친구들과 함께 사용처를 정해요. 한 번 투표하면 바꿀 수 없어요.</Text>
+        <Text style={styles.description}>선생님이 투표를 열면 친구들과 함께 사용처를 정해요. 제출하기 전까지 선택을 바꿀 수 있어요.</Text>
       </StateCard>
 
       {vote.isPending ? (
@@ -85,7 +87,7 @@ export default function MeetingScreen() {
           ) : current.hasVoted ? (
             <Text accessibilityLiveRegion="polite" style={styles.complete}>투표를 완료했어요. 마감 후 결과가 공개됩니다.</Text>
           ) : (
-            <Pressable accessibilityRole="button" onPress={() => setVoteOpen(true)} style={styles.voteButton}>
+            <Pressable accessibilityRole="button" onPress={() => { setSelectedOptionId(null); setVoteOpen(true); }} style={styles.voteButton}>
               <Text style={styles.voteButtonText}>사용처 투표하기</Text>
             </Pressable>
           )}
@@ -93,22 +95,28 @@ export default function MeetingScreen() {
             <View style={styles.backdrop}>
               <View style={styles.sheet}>
                 <Text style={styles.sheetTitle}>{current.title}</Text>
-                <Text style={styles.description}>사용처를 하나 선택해 주세요. 제출한 뒤에는 바꿀 수 없어요.</Text>
+                <Text style={styles.description}>사용처를 하나 고른 뒤 제출해 주세요. 제출 전에는 여러 번 바꿔도 괜찮아요.</Text>
+                <View accessibilityRole="radiogroup">
                 {current.options.map((option) => (
                   <Pressable
-                    accessibilityRole="button"
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selectedOptionId === option.optionId }}
                     disabled={ballot.isPending}
                     key={option.optionId}
-                    onPress={() => ballot.mutate(option.optionId)}
-                    style={[styles.option, ballot.isPending && styles.disabled]}
+                    onPress={() => setSelectedOptionId(option.optionId)}
+                    style={[styles.option, selectedOptionId === option.optionId && styles.optionSelected, ballot.isPending && styles.disabled]}
                   >
                     <Text style={styles.optionTitle}>{option.label}</Text>
                     <Text style={styles.description}>{option.description}</Text>
                     <Text style={styles.budget}>예산 {option.budgetAmount.toLocaleString("ko-KR")} {currency}</Text>
                   </Pressable>
                 ))}
+                </View>
                 {ballot.isError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{ballot.error.message}</Text> : null}
-                <Pressable accessibilityRole="button" onPress={() => setVoteOpen(false)} style={styles.close}><Text style={styles.closeText}>닫기</Text></Pressable>
+                <View style={styles.sheetActions}>
+                  <Pressable accessibilityRole="button" disabled={ballot.isPending} onPress={() => setVoteOpen(false)} style={styles.close}><Text style={styles.closeText}>취소</Text></Pressable>
+                  <Pressable accessibilityRole="button" disabled={!selectedOptionId || ballot.isPending} onPress={() => selectedOptionId && ballot.mutate(selectedOptionId)} style={[styles.submit, (!selectedOptionId || ballot.isPending) && styles.disabled]}><Text style={styles.submitText}>{ballot.isPending ? "제출 중" : "투표 제출"}</Text></Pressable>
+                </View>
               </View>
             </View>
           </Modal>
@@ -138,10 +146,14 @@ const styles = StyleSheet.create({
   sheet: { width: "100%", maxWidth: 700, maxHeight: "90%", padding: 24, borderRadius: radii.panel, backgroundColor: colors.white },
   sheetTitle: { marginBottom: 10, color: colors.ink900, fontSize: 23, fontWeight: "900" },
   option: { marginTop: 12, padding: 16, gap: 6, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control },
+  optionSelected: { borderWidth: 2, borderColor: colors.green700, backgroundColor: colors.washMint },
   optionTitle: { flex: 1, color: colors.ink900, fontSize: 18, fontWeight: "900" },
   budget: { color: colors.purple500, fontWeight: "900" },
   disabled: { opacity: 0.5 },
   error: { marginTop: 12, color: colors.red500, fontSize: 14, fontWeight: "800" },
-  close: { alignSelf: "flex-end", marginTop: 18, paddingHorizontal: 18, paddingVertical: 11, borderRadius: radii.control, backgroundColor: "#EEF2F6" },
-  closeText: { color: colors.ink900, fontWeight: "900" }
+  sheetActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 18 },
+  close: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: radii.control, backgroundColor: "#EEF2F6" },
+  closeText: { color: colors.ink900, fontWeight: "900" },
+  submit: { paddingHorizontal: 20, paddingVertical: 11, borderRadius: radii.control, backgroundColor: colors.green700 },
+  submitText: { color: colors.white, fontWeight: "900" }
 });

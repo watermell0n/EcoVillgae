@@ -13,6 +13,7 @@ import com.b201.ecovillage.finance.domain.FinancialProductVersion;
 import com.b201.ecovillage.finance.repository.FinancialProductRepository;
 import com.b201.ecovillage.finance.repository.FinancialProductVersionRepository;
 import com.b201.ecovillage.finance.repository.SavingsAccountRepository;
+import com.b201.ecovillage.finance.repository.SavingsInstallmentRepository;
 import com.b201.ecovillage.identity.authorization.ClassroomAuthorizationService;
 import com.b201.ecovillage.identity.authorization.ClassroomPermission;
 
@@ -22,14 +23,16 @@ public class SavingsAccountQueryService {
     private final SavingsAccountRepository accountRepository;
     private final FinancialProductVersionRepository versionRepository;
     private final FinancialProductRepository productRepository;
+    private final SavingsInstallmentRepository installmentRepository;
 
     public SavingsAccountQueryService(ClassroomAuthorizationService authorizationService,
         SavingsAccountRepository accountRepository, FinancialProductVersionRepository versionRepository,
-        FinancialProductRepository productRepository) {
+        FinancialProductRepository productRepository, SavingsInstallmentRepository installmentRepository) {
         this.authorizationService = authorizationService;
         this.accountRepository = accountRepository;
         this.versionRepository = versionRepository;
         this.productRepository = productRepository;
+        this.installmentRepository = installmentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -42,10 +45,19 @@ public class SavingsAccountQueryService {
                     .orElseThrow(() -> missing("The savings product version is missing."));
                 FinancialProduct product = productRepository.findById(version.getFinancialProductId())
                     .orElseThrow(() -> missing("The savings product is missing."));
+                var nextInstallment = installmentRepository
+                    .findAllByClassroomIdAndSavingsAccountIdOrderByDueAt(classroomId, account.getId())
+                    .stream()
+                    .filter(installment -> List.of("SCHEDULED", "MISSED").contains(installment.getStatus()))
+                    .findFirst()
+                    .orElse(null);
                 return new SavingsAccountView(account.getId(), product.getId(), product.getName(), account.getStatus().name(),
                     account.getInstallmentCount(), account.getPaidInstallmentCount(), account.getInstallmentAmount(),
-                    account.getPrincipalBalance(), account.getExpectedInterestAmount(), account.getOpenedAt(),
-                    account.getMaturesAt(), account.getStateVersion());
+                    account.getPrincipalBalance(), account.getExpectedInterestAmount(), version.getInterestRateBps(),
+                    account.getOpenedAt(), account.getMaturesAt(),
+                    nextInstallment == null ? null : nextInstallment.getDueAt(),
+                    nextInstallment == null ? null : nextInstallment.getStatus(),
+                    account.getStateVersion());
             }).toList();
     }
 

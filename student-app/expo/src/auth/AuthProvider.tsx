@@ -8,7 +8,13 @@ import {
   type PropsWithChildren
 } from "react";
 
-import { hydrateStudentIdentity, loginStudent, logoutStudent, restoreStudentIdentity } from "./api";
+import {
+  hydrateStudentIdentity,
+  loginStudent,
+  logoutStudent,
+  refreshStudentIdentity,
+  restoreStudentIdentity
+} from "./api";
 import { clearSession, getOrCreateDeviceId, saveSession, saveSessionIdentity } from "./token-vault";
 import type { StudentIdentity } from "./types";
 
@@ -24,6 +30,7 @@ type AuthContextValue = {
   ready: boolean;
   login(values: LoginValues): Promise<void>;
   logout(): Promise<void>;
+  refreshIdentity(): Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -68,7 +75,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  const value = useMemo(() => ({ identity, ready, login, logout }), [identity, ready, login, logout]);
+  const refreshIdentity = useCallback(async () => {
+    if (!identity) return;
+    const refreshed = await refreshStudentIdentity(identity);
+    if (
+      refreshed.nickname === identity.nickname
+      && refreshed.studentId === identity.studentId
+    ) return;
+    await saveSessionIdentity(refreshed);
+    setIdentity(refreshed);
+  }, [identity]);
+
+  const value = useMemo(
+    () => ({ identity, ready, login, logout, refreshIdentity }),
+    [identity, ready, login, logout, refreshIdentity]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

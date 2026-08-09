@@ -36,6 +36,8 @@ export default function QuizScreen() {
   const [testAnswers, setTestAnswers] = useState<Record<string, string>>({});
   // 서버가 가진 답안지 판본입니다. 저장할 때마다 서버가 올려 주며, 어긋나면 저장이 거절됩니다.
   const [sheetVersion, setSheetVersion] = useState(0);
+  // 게임형도 선택과 제출을 분리합니다. 제출 전에는 다른 보기를 다시 고를 수 있습니다.
+  const [gameSelections, setGameSelections] = useState<Record<string, string>>({});
   // 게임형에서 이미 답을 낸 문항입니다. 서버가 한 문항 한 번만 받으므로 화면도 잠급니다.
   const [gameAnsweredIds, setGameAnsweredIds] = useState<string[]>([]);
   const quizSessionId = access?.resources.quizSessionId;
@@ -54,7 +56,7 @@ export default function QuizScreen() {
   const question = questions[questionIndex];
   const isTest = session.data?.mode === "TEST";
   // 지금 문항에 고른 답입니다. 평가형은 언제든 바꿀 수 있고, 게임형은 한 번 내면 잠깁니다.
-  const selectedOptionId = testAnswers[question?.resourceId ?? ""] ?? null;
+  const selectedOptionId = (isTest ? testAnswers : gameSelections)[question?.resourceId ?? ""] ?? null;
   const answeredThisQuestion = !isTest
     && Boolean(question)
     && gameAnsweredIds.includes(question.resourceId);
@@ -76,8 +78,10 @@ export default function QuizScreen() {
       setSheetVersion(nextVersion);
     },
     onSuccess: (_result, optionId) => {
-      setTestAnswers((current) => ({ ...current, [question!.resourceId]: optionId }));
-      if (isTest) return;
+      if (isTest) {
+        setTestAnswers((current) => ({ ...current, [question!.resourceId]: optionId }));
+        return;
+      }
       setGameAnsweredIds((current) => current.includes(question!.resourceId)
         ? current
         : [...current, question!.resourceId]);
@@ -105,6 +109,7 @@ export default function QuizScreen() {
     setQuestionIndex(0);
     setStarted(false);
     setTestAnswers({});
+    setGameSelections({});
     setSheetVersion(0);
     setGameAnsweredIds([]);
   }, [quizSessionId]);
@@ -127,7 +132,7 @@ export default function QuizScreen() {
   };
 
   return (
-    <Screen title="경제 퀴즈" right={<BackButton />}>
+    <Screen title={session.data?.contentType === "NONSENSE" ? "넌센스 퀴즈" : "경제 퀴즈"} right={<BackButton />}>
       {!quizSessionId ? (
         <StateCard title="지금은 준비된 퀴즈가 없어요"><Text style={styles.helper}>선생님이 퀴즈를 열면 이곳에서 풀 수 있어요.</Text></StateCard>
       ) : session.isPending ? (
@@ -140,11 +145,18 @@ export default function QuizScreen() {
         results.isPending ? <View style={styles.center}><ActivityIndicator color={colors.green500} /><Text style={styles.helper}>결과를 불러오고 있어요.</Text></View> : results.isError ? <StateCard title="결과를 불러오지 못했어요"><Text style={styles.error}>{results.error.message}</Text><Pressable onPress={() => results.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 불러오기</Text></Pressable></StateCard> : <StateCard tone="mint">
           <Text style={styles.lobbyEyebrow}>퀴즈 결과</Text><Text style={styles.resultScore}>{results.data?.score ?? 0}점</Text><Text style={styles.cardMeta}>정답 {results.data?.correctCount ?? 0}개 · 순위 {results.data?.rank ? `${results.data.rank}위` : "비공개"} · 보상 {(results.data?.rewardAmount ?? 0).toLocaleString("ko-KR")} {currencyName}</Text>
           {results.data?.leaderboard.length ? <View style={styles.resultBoard}>{results.data.leaderboard.map((entry) => <Text key={`${entry.rank}-${entry.nickname}`} style={styles.helper}>{entry.rank}위 · {entry.nickname}</Text>)}</View> : null}
+          {results.data?.questions.length ? <View style={styles.reviewList}>{results.data.questions.map((item) => <View key={item.questionId} style={[styles.reviewCard, item.correct && !item.invalidated ? styles.reviewCorrect : styles.reviewWrong]}>
+            <View style={styles.reviewHeading}><Text style={styles.reviewNumber}>{item.sequenceNumber}번</Text><Text style={[styles.reviewStatus, item.correct && !item.invalidated ? styles.reviewStatusCorrect : styles.reviewStatusWrong]}>{item.invalidated ? "무효 처리" : item.correct ? "정답" : item.selectedOptionText ? "오답" : "미응답"}</Text></View>
+            <Text style={styles.reviewPrompt}>{item.prompt}</Text>
+            <Text style={styles.reviewAnswer}>내 답: {item.selectedOptionText ?? "선택하지 않음"}</Text>
+            <Text style={styles.reviewCorrectAnswer}>정답: {item.correctOptionText}</Text>
+            {item.explanation ? <Text style={styles.reviewExplanation}>해설: {item.explanation}</Text> : null}
+          </View>)}</View> : null}
         </StateCard>
       ) : !started ? (
         <View style={styles.quizLobby}>
           <Text style={styles.lobbyEyebrow}>선생님이 준비한 퀴즈</Text>
-          <Text style={styles.lobbyTitle}>경제 개념 확인 퀴즈</Text>
+          <Text style={styles.lobbyTitle}>{session.data?.contentType === "NONSENSE" ? "넌센스 퀴즈" : "경제 개념 확인 퀴즈"}</Text>
           <Text style={styles.lobbyCopy}>총 {questions.length}문제예요. 배너를 눌러 시작해요.</Text>
           <Pressable onPress={() => setStarted(true)} style={styles.startButton}><Text style={styles.startButtonText}>퀴즈 시작하기</Text></Pressable>
         </View>
@@ -160,12 +172,18 @@ export default function QuizScreen() {
               {question.options.map((option, index) => {
                 const locked = !option.optionId || answer.isPending || answeredThisQuestion;
                 return (
-                  <Pressable disabled={locked} key={`${option.optionId ?? option.label}-${index}`} onPress={() => { if (option.optionId) answer.mutate(option.optionId); }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, locked && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>
+                  <Pressable disabled={locked} key={`${option.optionId ?? option.label}-${index}`} onPress={() => {
+                    if (!option.optionId) return;
+                    if (isTest) answer.mutate(option.optionId);
+                    else setGameSelections((current) => ({ ...current, [question.resourceId]: option.optionId! }));
+                  }} style={({ pressed }) => [styles.option, selectedOptionId === option.optionId && styles.optionSelected, pressed && styles.optionPressed, locked && styles.optionDisabled]}><Text style={styles.optionText}>{String.fromCharCode(9312 + index)}  {option.label}</Text></Pressable>
                 );
               })}
             </View>
             {answer.isError ? <Text style={styles.error}>{answerErrorMessage(answer.error)}</Text> : null}
             {isTest && selectedOptionId ? <Text style={styles.helper}>답을 저장했어요. 마치기 전까지 다시 고를 수 있어요.</Text> : null}
+            {!isTest && selectedOptionId && !answeredThisQuestion ? <Pressable disabled={answer.isPending} onPress={() => answer.mutate(selectedOptionId)} style={[styles.submitAnswer, answer.isPending && styles.buttonDisabled]}><Text style={styles.submitAnswerText}>{answer.isPending ? "제출 중" : "이 답 제출하기"}</Text></Pressable> : null}
+            {!isTest && answeredThisQuestion ? <Text style={styles.helper}>답을 제출했어요. 다음 문제로 넘어가 주세요.</Text> : null}
             <View style={styles.quizActions}>
               {/* 답을 고르지 않아도 넘어갈 수 있습니다. 건너뛴 문항은 이전 문제로 돌아와 풀 수 있습니다. */}
               <Pressable disabled={questionIndex === 0 || answer.isPending} onPress={() => moveQuestion(questionIndex - 1)} style={[styles.secondaryButton, (questionIndex === 0 || answer.isPending) && styles.buttonDisabled]}><Text style={styles.secondaryButtonText}>이전 문제</Text></Pressable>
@@ -206,6 +224,8 @@ const styles = StyleSheet.create({
   optionSelected: { borderColor: colors.green500, backgroundColor: colors.washMint },
   optionDisabled: { opacity: 0.52 },
   optionText: { color: colors.ink900, fontSize: 17, fontWeight: "800" },
+  submitAnswer: { alignSelf: "center", marginTop: 18, paddingHorizontal: 24, paddingVertical: 13, borderRadius: radii.control, backgroundColor: colors.orange500 },
+  submitAnswerText: { color: colors.white, fontSize: 15, fontWeight: "900" },
   quizActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 24 },
   secondaryButton: { paddingHorizontal: 18, paddingVertical: 12, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control },
   secondaryButtonText: { color: colors.muted600, fontWeight: "900" },
@@ -215,6 +235,7 @@ const styles = StyleSheet.create({
   error: { marginTop: 16, color: colors.red500, fontWeight: "700", textAlign: "center" },
   helper: { marginTop: 14, color: colors.muted600, fontSize: 15, lineHeight: 22, textAlign: "center" },
   resultScore: { marginTop: 10, color: colors.green500, fontSize: 44, fontWeight: "900" }, cardMeta: { marginTop: 8, color: colors.muted600, fontSize: 15, fontWeight: "800" }, resultBoard: { marginTop: 16, alignItems: "flex-start", gap: 4 },
+  reviewList: { width: "100%", marginTop: 24, gap: 12 }, reviewCard: { gap: 7, padding: 16, borderWidth: 1, borderRadius: radii.control }, reviewCorrect: { borderColor: "#9BCDB5", backgroundColor: "#F1FBF6" }, reviewWrong: { borderColor: "#E8B7B7", backgroundColor: "#FFF7F7" }, reviewHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, reviewNumber: { color: colors.muted600, fontSize: 13, fontWeight: "900" }, reviewStatus: { fontSize: 13, fontWeight: "900" }, reviewStatusCorrect: { color: colors.green700 }, reviewStatusWrong: { color: colors.red500 }, reviewPrompt: { color: colors.ink900, fontSize: 17, lineHeight: 24, fontWeight: "900" }, reviewAnswer: { color: colors.muted600, fontSize: 14, fontWeight: "800" }, reviewCorrectAnswer: { color: colors.green700, fontSize: 14, fontWeight: "900" }, reviewExplanation: { marginTop: 2, color: colors.ink900, fontSize: 14, lineHeight: 21 },
   retry: { alignSelf: "center", marginTop: 12, paddingHorizontal: 18, paddingVertical: 10, borderRadius: radii.control, backgroundColor: colors.green500 },
   retryText: { color: colors.white, fontWeight: "900" }
 });

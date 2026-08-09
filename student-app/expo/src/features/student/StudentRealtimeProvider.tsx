@@ -30,7 +30,7 @@ function screenLabel(pathname: string) {
 }
 
 export function StudentRealtimeProvider({ children }: PropsWithChildren) {
-  const { identity } = useAuth();
+  const { identity, refreshIdentity } = useAuth();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const clientRef = useRef<StudentEconomyRealtimeClient | null>(null);
@@ -60,6 +60,7 @@ export function StudentRealtimeProvider({ children }: PropsWithChildren) {
         void queryClient.invalidateQueries({ queryKey: ["classroom-access", classroomId] });
         void queryClient.invalidateQueries({ queryKey: ["investment-markets", classroomId] });
         void queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
+        void refreshIdentity().catch(() => undefined);
       }
     });
     clientRef.current = client;
@@ -68,7 +69,7 @@ export function StudentRealtimeProvider({ children }: PropsWithChildren) {
       clientRef.current = null;
       client.stop();
     };
-  }, [identity?.classroomId, queryClient]);
+  }, [identity?.classroomId, queryClient, refreshIdentity]);
 
   useEffect(() => {
     const status = AppState.currentState === "active" ? "ONLINE" : "AWAY";
@@ -83,11 +84,12 @@ export function StudentRealtimeProvider({ children }: PropsWithChildren) {
     const publish = () => {
       const status = AppState.currentState === "active" ? "ONLINE" : "AWAY";
       void updateStudentPresence(classroomId, status, screenLabel(pathname)).catch(() => undefined);
+      void refreshIdentity().catch(() => undefined);
     };
     publish();
     const timer = setInterval(publish, 20_000);
     return () => clearInterval(timer);
-  }, [identity?.classroomId, pathname]);
+  }, [identity?.classroomId, pathname, refreshIdentity]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -101,10 +103,11 @@ export function StudentRealtimeProvider({ children }: PropsWithChildren) {
           state === "active" ? "ONLINE" : "AWAY",
           screenLabel(pathname)
         ).catch(() => undefined);
+        if (state === "active") void refreshIdentity().catch(() => undefined);
       }
     });
     return () => subscription.remove();
-  }, [identity?.classroomId, pathname]);
+  }, [identity?.classroomId, pathname, refreshIdentity]);
 
   return children;
 }
