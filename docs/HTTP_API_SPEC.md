@@ -91,6 +91,7 @@
 | API-CLS-007 · UIA-CLS-007 | `POST /classrooms/{C}/access-mode-commands` | OWN·COT | `command=OPEN\|CLOSE\|EXTEND, duration_minutes?, preflight_run_id?, preflight_warning_acknowledgements?` → 첫 OPEN은 유효한 `CLASSROOM_SETUP` 실행 ID가 필수이고 WARN의 모든 `check_id` 확인 후 경제 설정 점검과 계산된 앱 모드·종료시각 반환 | PM-CLS-008 · SM-APP-001·SM-AIR-001 | `PREFLIGHT_CHECK_REQUIRED`, `PREFLIGHT_WARNING_ACKNOWLEDGEMENT_REQUIRED`, `PREFLIGHT_BLOCKED`, `GUIDED_MODE_ACTIVE`, `CLASS_NOT_ACTIVE`, `STATE_VERSION_CONFLICT` | CLS-003·CLS-004·CLS-005·CLS-006·AI-009 |
 | API-CLS-008 · UIA-CLS-008 | `POST /classrooms/{C}/closure-operations` | OWN | 재인증 증명, 영향 확인, 사유 → `202 operation_id`, 학급 `CLOSING` | PM-CLS-006·PM-FIN-009 · SM-CLS-001 | `REAUTHENTICATION_REQUIRED`, `CLOSURE_ALREADY_RUNNING`, `INVALID_STATE_TRANSITION` | CLS-007·CLS-008·FIN-012 |
 | API-CLS-009 · UIA-CLS-009 | `DELETE /classrooms/{C}` | OWN | 쿼리 `expected_state_version` → 개설 도중이나 운영 중인 학급을 목록에서 내려 보관 처리. 본문은 없음 | PM-CLS-001 · SM-CLS-001 | `STATE_VERSION_CONFLICT`, `INVALID_STATE_TRANSITION`, `RESOURCE_NOT_FOUND` | CLS-001 |
+| API-CLS-010 · UIA-STU-001 | `POST /classrooms/{C}/students/me/presence` | STU | `status=ONLINE\|AWAY, current_screen?` → 학생 ID·접속 상태·현재 화면·마지막 확인 시각. WebSocket 연결이 불안정할 때 쓰는 HTTP fallback | PM-AUTH-001 · SM — | `AUTH_REQUIRED`, `RESOURCE_NOT_OWNED`, `VALIDATION_ERROR` | AUTH-003·SYS-003 |
 
 ### 4.1 모듈·정책
 
@@ -281,6 +282,8 @@
 | API-READ-037 | `GET /classrooms/{C}/loan-decisions` | OWN·COT | 이미 승인·거절한 대출 신청 목록. 승인·정산 화면의 운영 기록이 읽음 | SCR-WEB-012 / FIN-008·FIN-009 |
 | API-READ-038 | `GET /classrooms/{C}/trades/awaiting-teacher` | OWN·COT | 교사 승인을 기다리는 개인거래 목록. 물건 목록 대신 양쪽 학생 이름과 오가는 금액 합계만 담음 | SCR-WEB-011 / TRD-002·TRD-003 |
 | API-READ-039 | `GET /classrooms/{C}/trades/decided` | OWN·COT | 교사가 이미 처리한 개인거래 목록. 응답 모양은 API-READ-038과 같음 | SCR-WEB-011 / TRD-002·TRD-003 |
+| API-READ-040 | `GET /classrooms/{C}/quiz-sessions` | OWN·COT | 학급의 퀴즈 세션 목록과 모드·콘텐츠 유형·상태·버전·시작 시각·문항 스냅샷 | SCR-WEB-017·SCR-WEB-019 / QZ-003·QZ-004 |
+| API-READ-041 | `GET /classrooms/{C}/student-activities?limit=` | OWN·COT | 최근 학생 활동을 최신순으로 조회. 학생 ID·활동 유형·제목·수량·금액·상태·발생 시각을 포함하고 `limit`은 기본 100 | SCR-TCH-002 / DAT-003 |
 | API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 본인 보유량·체결·손익·수익률 | SCR-STU-018 / FIN-006·FIN-007 |
 | API-READ-018 | `GET /classrooms/{C}/students/me/loans-and-credit` | STU | 본인 대출·상환일정·연체·신용 상태 | SCR-STU-019·SCR-STU-020 / FIN-008·FIN-009·FIN-010 |
 | API-READ-019 | `GET /classrooms/{C}/loan-approval-queue` | OWN·COT | 최신 신용·활성 대출·정책과 승인 대기 | SCR-TCH-009·SCR-WEB-016 / FIN-008·FIN-010 |

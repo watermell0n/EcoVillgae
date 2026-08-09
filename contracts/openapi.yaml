@@ -2422,6 +2422,117 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/students/me/presence":
+    post:
+      operationId: "apiCls010"
+      x-api-id: "API-CLS-010"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classrooms"
+        - "classroom_teachers"
+        - "classroom_students"
+        - "salary_roles"
+        - "classroom_modules"
+        - "autonomous_schedules"
+        - "autonomous_schedule_modules"
+      x-ui-action-ids:
+        - "UIA-STU-001"
+      x-roles:
+        - "STU"
+      x-permission-ids:
+        - "PM-AUTH-001"
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "AUTH-003"
+        - "SYS-003"
+      tags:
+        - "Classrooms"
+      summary: "status=ONLINE|AWAY, current_screen? → 학생 ID, 접속 상태, 현재 화면, 마지막 확인 시각. WebSocket 연결이 불안정할 때 쓰는 HTTP fallback"
+      description: "사람이 검토하는 원문 기준: `API-CLS-010` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: status=ONLINE|AWAY, current_screen? → 학생 ID, 접속 상태, 현재 화면, 마지막 확인 시각. WebSocket 연결이 불안정할 때 쓰는 HTTP fallback."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        201:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "student_id"
+                      - "status"
+                      - "last_seen_at"
+                    properties:
+                      student_id:
+                        type: "string"
+                        format: "uuid"
+                      status:
+                        type: "string"
+                        enum:
+                          - "ONLINE"
+                          - "AWAY"
+                      current_screen:
+                        type:
+                          - "string"
+                          - "null"
+                        maxLength: 120
+                      last_seen_at:
+                        type: "string"
+                        format: "date-time"
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              description: "HTTP_API_SPEC.md의 API-CLS-010 MVP 입력 계약입니다. 선언하지 않은 최상위 필드는 거절합니다."
+              properties:
+                status:
+                  type: "string"
+                  enum:
+                    - "ONLINE"
+                    - "AWAY"
+                current_screen:
+                  type:
+                    - "string"
+                    - "null"
+                  maxLength: 120
+              required:
+                - "status"
+              additionalProperties: false
   "/classrooms/{classroom_id}/modules/{module_code}/activation-commands":
     post:
       operationId: "apiMod001"
@@ -16015,6 +16126,221 @@ paths:
           $ref: "#/components/responses/InternalError"
         503:
           $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/quiz-sessions":
+    get:
+      operationId: "apiRead040"
+      x-api-id: "API-READ-040"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "quiz_sessions"
+        - "quiz_session_questions"
+        - "quiz_question_versions"
+        - "quiz_options"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "WEB-017"
+        - "WEB-019"
+        - "QZ-003"
+        - "QZ-004"
+      tags:
+        - "Queries"
+      summary: "학급의 퀴즈 세션 목록과 모드, 콘텐츠 유형, 상태, 버전, 시작 시각, 문항 스냅샷"
+      description: "사람이 검토하는 원문 기준: `API-READ-040` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 학급의 퀴즈 세션 목록과 모드, 콘텐츠 유형, 상태, 버전, 시작 시각, 문항 스냅샷."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "sessions"
+                    properties:
+                      sessions:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "quiz_session_id"
+                            - "mode"
+                            - "content_type"
+                            - "status"
+                            - "state_version"
+                            - "opened_at"
+                            - "questions"
+                          properties:
+                            quiz_session_id:
+                              type: "string"
+                              format: "uuid"
+                            mode:
+                              type: "string"
+                              enum:
+                                - "GAME"
+                                - "TEST"
+                            content_type:
+                              type: "string"
+                              enum:
+                                - "ECONOMY"
+                                - "NONSENSE"
+                            status:
+                              type: "string"
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            opened_at:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
+                            questions:
+                              type: "array"
+                              items:
+                                type: "object"
+                                additionalProperties: true
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/student-activities":
+    get:
+      operationId: "apiRead041"
+      x-api-id: "API-READ-041"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "outbox_events"
+        - "store_orders"
+        - "trade_decisions"
+        - "loan_applications"
+        - "quiz_submissions"
+      x-roles:
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "TCH-002"
+        - "DAT-003"
+      tags:
+        - "Queries"
+      summary: "최근 학생 활동을 최신순으로 조회. 학생 ID, 활동 유형, 제목, 수량, 금액, 상태, 발생 시각을 포함하고 limit은 기본 100"
+      description: "사람이 검토하는 원문 기준: `API-READ-041` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN, COT.\n\n핵심 계약: 최근 학생 활동을 최신순으로 조회. 학생 ID, 활동 유형, 제목, 수량, 금액, 상태, 발생 시각을 포함하고 limit은 기본 100."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "activities"
+                    properties:
+                      activities:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "resource_id"
+                            - "student_id"
+                            - "activity_type"
+                            - "title"
+                            - "quantity"
+                            - "amount"
+                            - "status"
+                            - "occurred_at"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            student_id:
+                              type: "string"
+                              format: "uuid"
+                            activity_type:
+                              type: "string"
+                            title:
+                              type: "string"
+                            quantity:
+                              type:
+                                - "integer"
+                                - "null"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                            status:
+                              type: "string"
+                            occurred_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
   "/classrooms/{classroom_id}/students/me/investment-portfolio":
     get:
       operationId: "apiRead017"
@@ -16590,8 +16916,10 @@ paths:
                     required:
                       - "quiz_session_id"
                       - "mode"
+                      - "content_type"
                       - "status"
                       - "state_version"
+                      - "opened_at"
                       - "questions"
                     properties:
                       quiz_session_id:
@@ -16602,12 +16930,22 @@ paths:
                         enum:
                           - "GAME"
                           - "TEST"
+                      content_type:
+                        type: "string"
+                        enum:
+                          - "ECONOMY"
+                          - "NONSENSE"
                       status:
                         type: "string"
                       state_version:
                         type: "integer"
                         format: "int64"
                         minimum: 0
+                      opened_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
                       questions:
                         type: "array"
                         items:

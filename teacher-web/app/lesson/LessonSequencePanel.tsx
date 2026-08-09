@@ -56,6 +56,7 @@ type Running = {
   page: number;
   totalPages: number;
   title: string;
+  imageUrl?: string;
 };
 
 const SCREEN_ID = "SCR-TCH-004";
@@ -124,13 +125,13 @@ export function LessonSequencePanel({
       );
       if (activity.activity_type !== "ECONOMIC_CONCEPT_IMAGE") return;
       const total = activity.presentation_total_pages ?? 1;
-      if (total <= 1) return; // 한 장 띄우기는 아래 기존 패널이 다룹니다.
       setRunning({
         activityId: activity.activity_id,
         stateVersion: activity.state_version,
         page: activity.presentation_page ?? 1,
         totalPages: total,
-        title: activity.presentation_title ?? ""
+        title: activity.presentation_title ?? "",
+        imageUrl: activity.presentation_image_url
       });
     } catch {
       // 조회 실패는 화면을 막지 않습니다. 진행 중 수업이 없는 것으로 둡니다.
@@ -185,7 +186,8 @@ export function LessonSequencePanel({
         stateVersion: result.state_version,
         page: 1,
         totalPages: slides.length,
-        title: selected.items[0].title
+        title: selected.items[0].title,
+        imageUrl: `/${selected.items[0].file}`
       });
       onNotice(`${selected.round}회차 ${selected.title} 수업을 시작했어요. 학생 화면이 첫 장으로 고정됩니다.`);
     } catch (caught) {
@@ -217,7 +219,8 @@ export function LessonSequencePanel({
         stateVersion: result.state_version,
         page: result.page,
         totalPages: result.total_pages,
-        title: result.title
+        title: result.title,
+        imageUrl: result.image_url
       });
     } catch (caught) {
       setError(errorMessage(caught, "자료를 넘기지 못했어요."));
@@ -253,10 +256,6 @@ export function LessonSequencePanel({
     }
   }
 
-  const currentItem = running && selected
-    ? selected.items[running.page - 1]
-    : null;
-
   return (
     <div className="lesson-sequence-panel">
       <div className="lesson-sequence-heading">
@@ -276,9 +275,9 @@ export function LessonSequencePanel({
             <span>{running.title}</span>
             <em>● 현재 학생 화면에 표시 중</em>
           </div>
-          {currentItem ? (
+          {running.imageUrl ? (
             <div className="lesson-sequence-preview">
-              <img src={`/${currentItem.file}`} alt={`${currentItem.title} 미리보기`} />
+              <img src={running.imageUrl} alt={`${running.title} 미리보기`} />
             </div>
           ) : null}
           <div className="lesson-sequence-actions">

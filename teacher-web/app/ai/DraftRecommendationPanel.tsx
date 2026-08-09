@@ -25,6 +25,7 @@ type ProductDraft = {
   // 서버가 PRODUCT_TYPE_CONFLICT로 거절해 가격 추천이 기존 상품에 적용되지 않습니다.
   kind?: "PHYSICAL" | "DIGITAL" | "CHARACTER";
   vatRateBps?: number;
+  status?: string;
 };
 
 type RecommendationKind = "product" | "quiz";
@@ -114,7 +115,10 @@ export function DraftRecommendationPanel({
   onStateVersionChange: (version: number) => void;
   onProductPriceApplied?: (productId: string, nextPrice: number) => void;
 }>) {
-  const serverProducts = useMemo(() => products.filter((product) => product.resourceId), [products]);
+  const serverProducts = useMemo(
+    () => products.filter((product) => product.resourceId && product.status !== "PUBLISHED"),
+    [products]
+  );
   const [productId, setProductId] = useState("");
   const [sessionId, setSessionId] = useState(quizSessionId);
   const [expectedDemand, setExpectedDemand] = useState(String(Math.max(activeStudentCount, 1)));
@@ -132,7 +136,10 @@ export function DraftRecommendationPanel({
 
   useEffect(() => setSessionId(quizSessionId), [quizSessionId]);
   useEffect(() => {
-    if (!productId && serverProducts[0]?.resourceId) setProductId(serverProducts[0].resourceId);
+    if (!serverProducts.some((product) => product.resourceId === productId)) {
+      setProductId(serverProducts[0]?.resourceId ?? "");
+      resetProposal();
+    }
   }, [productId, serverProducts]);
   useEffect(() => {
     let cancelled = false;
@@ -326,7 +333,7 @@ export function DraftRecommendationPanel({
           <span className="section-kicker">{kind === "product" ? "상점 상품" : "게임형 퀴즈"}</span>
           <h2>{kind === "product" ? "AI 가격 추천 검토" : "AI 보상 추천 검토"}</h2>
           <p>{kind === "product"
-            ? "참조 급여와 재고·예상 수요를 기준으로 세전 가격을 추천합니다. 교사가 검토한 값만 상품에 적용됩니다."
+            ? "비공개 상품의 참조 급여와 재고·예상 수요를 기준으로 세전 가격을 추천합니다. 공개 중인 상품은 먼저 공개를 중지해야 합니다."
             : "GAME 퀴즈의 1인 참여 보상을 추천합니다. 교사가 검토한 값만 세션에 적용됩니다."}</p>
         </div>
       </div>
@@ -339,7 +346,7 @@ export function DraftRecommendationPanel({
             </select></label>
             <label>예상 구매 학생 수<input type="number" min="1" value={expectedDemand} onChange={(event) => setExpectedDemand(event.target.value)} /></label>
             <label>학생 1인당 예상 구매 횟수<input type="number" min="0.1" step="0.1" value={purchaseFrequency} onChange={(event) => setPurchaseFrequency(event.target.value)} /></label>
-          </> : <p className="empty-copy">상점에서 상품을 먼저 등록하면 가격 추천을 받을 수 있어요.</p>}
+          </> : <p className="empty-copy">추천할 비공개 상품이 없어요. 상품을 등록하거나 공개 중인 상품을 먼저 내려 주세요.</p>}
         </div>
       ) : (
         <div className="recommendation-form">
