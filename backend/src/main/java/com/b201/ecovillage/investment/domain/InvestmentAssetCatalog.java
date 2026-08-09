@@ -51,14 +51,25 @@ public final class InvestmentAssetCatalog {
         return SEEDS.subList(0, mode == InvestmentMode.SHORT_TERM ? SHORT_TERM_COUNT : LONG_TERM_COUNT);
     }
 
-    /** 기준가에 종목 비중을 곱한 1주 가격이다. 10 단위로 끊어 학생이 읽기 쉽게 한다. */
+    /** 기준가에 종목 비중을 곱한 1주 가격이다. */
     public static long priceAt(long basePrice, BigDecimal priceWeight) {
-        long price = BigDecimal.valueOf(basePrice)
-            .multiply(priceWeight)
+        return roundPrice(BigDecimal.valueOf(basePrice).multiply(priceWeight));
+    }
+
+    /**
+     * 1주 가격을 학생이 읽기 쉬운 단위로 끊는다.
+     *
+     * <p>100 이상은 10 단위로 끊는다. 100 미만까지 10 단위로 끊으면 잔액이 적은 학급에서
+     * 종목별 가격 비중이 전부 같은 값으로 뭉개지므로, 그 아래는 1 단위로 둔다.
+     */
+    public static long roundPrice(BigDecimal value) {
+        if (value.compareTo(BigDecimal.valueOf(100L)) < 0) {
+            return Math.max(1L, value.setScale(0, RoundingMode.HALF_UP).longValue());
+        }
+        return Math.max(1L, value
             .divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP)
             .multiply(BigDecimal.TEN)
-            .longValue();
-        return Math.max(1L, price);
+            .longValue());
     }
 
     /** action_id에 쓸 수 있게 종목 기호를 소문자로 바꾼다. */
