@@ -119,10 +119,10 @@ export default function QuizScreen() {
       ) : session.isError ? (
         <StateCard title="퀴즈를 불러오지 못했어요"><Text style={styles.error}>{session.error.message}</Text><Pressable onPress={() => session.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 불러오기</Text></Pressable></StateCard>
       ) : ["SCORING", "REVIEWING"].includes(session.data?.status ?? "") ? (
-        <StateCard title="선생님이 결과를 확인하고 있어요"><Text style={styles.helper}>답안 제출이 마감됐어요. 결과가 공개되면 이 화면에 점수와 보상이 표시됩니다.</Text></StateCard>
+        <StateCard title="선생님이 결과를 확인하고 있어요"><Text style={styles.helper}>답안 제출이 마감됐어요. 결과가 공개되면 이 화면에 정답 개수와 보상이 표시됩니다.</Text></StateCard>
       ) : ["RESULT_PUBLISHED", "CLOSED"].includes(session.data?.status ?? "") ? (
         results.isPending ? <View style={styles.center}><ActivityIndicator color={colors.green500} /><Text style={styles.helper}>결과를 불러오고 있어요.</Text></View> : results.isError ? <StateCard title="결과를 불러오지 못했어요"><Text style={styles.error}>{results.error.message}</Text><Pressable onPress={() => results.refetch()} style={styles.retry}><Text style={styles.retryText}>다시 불러오기</Text></Pressable></StateCard> : <StateCard tone="mint">
-          <Text style={styles.lobbyEyebrow}>퀴즈 결과</Text><Text style={styles.resultScore}>{results.data?.score ?? 0}점</Text><Text style={styles.cardMeta}>정답 {results.data?.correctCount ?? 0}개 · 순위 {results.data?.rank ? `${results.data.rank}위` : "비공개"} · 보상 {(results.data?.rewardAmount ?? 0).toLocaleString("ko-KR")} {currencyName}</Text>
+          <Text style={styles.lobbyEyebrow}>퀴즈 결과</Text><Text style={styles.resultScore}>{results.data?.questions.length ?? 0}문제 중 {results.data?.correctCount ?? 0}개 정답</Text><Text style={styles.cardMeta}>순위 {results.data?.rank ? `${results.data.rank}위` : "비공개"} · 보상 {(results.data?.rewardAmount ?? 0).toLocaleString("ko-KR")} {currencyName}</Text>
           {results.data?.leaderboard.length ? <View style={styles.resultBoard}>{results.data.leaderboard.map((entry) => <Text key={`${entry.rank}-${entry.nickname}`} style={styles.helper}>{entry.rank}위 · {entry.nickname}</Text>)}</View> : null}
           {results.data?.questions.length ? <View style={styles.reviewList}>{results.data.questions.map((item) => <View key={item.questionId} style={[styles.reviewCard, item.correct && !item.invalidated ? styles.reviewCorrect : styles.reviewWrong]}>
             <View style={styles.reviewHeading}><Text style={styles.reviewNumber}>{item.sequenceNumber}번</Text><Text style={[styles.reviewStatus, item.correct && !item.invalidated ? styles.reviewStatusCorrect : styles.reviewStatusWrong]}>{item.invalidated ? "무효 처리" : item.correct ? "정답" : item.selectedOptionText ? "오답" : "미응답"}</Text></View>
@@ -145,7 +145,7 @@ export default function QuizScreen() {
             {questions.map((item, index) => <View key={item.resourceId} style={[styles.progressDot, index === questionIndex && styles.progressDotActive, index < questionIndex && styles.progressDotDone]}><Text style={[styles.progressNumber, index === questionIndex && styles.progressNumberActive]}>{index + 1}</Text></View>)}
           </View>
           <View style={styles.quizCard}>
-            <View style={styles.quizMeta}><Text style={styles.count}>{questionIndex + 1} / {questions.length}</Text><Text style={styles.reward}>정답수당 +10 {currencyName}</Text></View>
+            <View style={styles.quizMeta}><Text style={styles.count}>{questionIndex + 1} / {questions.length}</Text><Text style={styles.reward}>맞힌 만큼 보상</Text></View>
             <Text style={styles.question}>{question.prompt}</Text>
             <View style={styles.options}>
               {question.options.map((option, index) => {
