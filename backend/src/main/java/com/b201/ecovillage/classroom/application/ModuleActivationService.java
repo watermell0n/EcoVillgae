@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HexFormat;
@@ -44,11 +45,15 @@ import com.b201.ecovillage.realtime.application.RealtimeEventPublisher;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.ruleengine.application.ClassroomEconomicMetricsProvider;
 import com.b201.ecovillage.ruleengine.application.RuleEngineService;
+import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
+import com.b201.ecovillage.ruleengine.domain.RuleCandidate;
 import com.b201.ecovillage.ruleengine.domain.RuleContextType;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineRequest;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineResult;
 import com.b201.ecovillage.ruleengine.domain.RuleSeverity;
+import com.b201.ecovillage.ruleengine.domain.RuleTargetType;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -58,6 +63,9 @@ public class ModuleActivationService {
     private static final String ROUTE =
         "/classrooms/{classroom_id}/modules/{module_code}/activation-commands";
     private static final Duration IDEMPOTENCY_TTL = Duration.ofDays(365);
+    /** 시작값이 비율 하나로 끝나는 모듈이다. 규칙 엔진 추천을 그대로 rate_bps에 넣는다. */
+    private static final Set<String> RATE_POLICY_MODULES =
+        Set.of("INCOME_TAX", "DEPOSIT", "SAVINGS", "LOAN");
     private final ClassroomAuthorizationService authorizationService;
     private final UserAccountRepository userRepository;
     private final ClassroomRepository classroomRepository;
@@ -66,6 +74,7 @@ public class ModuleActivationService {
     private final SalaryRoleRepository salaryRoleRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
     private final RuleEngineService ruleEngineService;
+    private final ClassroomEconomicMetricsProvider metricsProvider;
     private final SetupPrecheckInvalidator precheckInvalidator;
     private final RealtimeEventPublisher eventPublisher;
     private final UuidV7Generator uuidGenerator;
@@ -81,6 +90,7 @@ public class ModuleActivationService {
         SalaryRoleRepository salaryRoleRepository,
         IdempotencyRecordRepository idempotencyRepository,
         RuleEngineService ruleEngineService,
+        ClassroomEconomicMetricsProvider metricsProvider,
         SetupPrecheckInvalidator precheckInvalidator,
         RealtimeEventPublisher eventPublisher,
         UuidV7Generator uuidGenerator,
@@ -95,6 +105,7 @@ public class ModuleActivationService {
         this.salaryRoleRepository = salaryRoleRepository;
         this.idempotencyRepository = idempotencyRepository;
         this.ruleEngineService = ruleEngineService;
+        this.metricsProvider = metricsProvider;
         this.precheckInvalidator = precheckInvalidator;
         this.eventPublisher = eventPublisher;
         this.uuidGenerator = uuidGenerator;
@@ -179,7 +190,7 @@ public class ModuleActivationService {
                 .orElse(null);
         Map<String, Object> initialValues = copyValues(command.initialPolicyValues());
         if (definition.initialPolicyRequired() && currentPolicy == null && initialValues.isEmpty()) {
-            initialValues = defaultInitialPolicy(classroom, moduleCode);
+            initialValues = defaultInitialPolicy(classroom, module, moduleCode);
         }
         List<String> investmentModes = investmentModes(moduleCode, initialValues);
         if (
@@ -323,6 +334,7 @@ public class ModuleActivationService {
             .collect(Collectors.toSet());
         Long confirmedValue = rateValue(values);
         Integer currentDepositRate = currentDepositRate(classroom.getId(), moduleCode);
+        ClassroomEconomicMetrics metrics = metricsProvider.of(classroom.getId(), clock.instant());
         RuleEngineRequest.Builder builder = RuleEngineRequest.builder(
             RuleContextType.MODULE_ACTIVATION,
             classroom.getGrade(),
@@ -332,16 +344,46 @@ public class ModuleActivationService {
             .activeStudentCount(classroom.getPlannedStudentCount())
             .currencyName(classroom.getCurrencyName())
             .activeModules(activeModules)
+            .metrics(metrics)
+            // 지금까지 실제로 오간 금액이다. 아직 운영 전이면 모두 0이라 예산 검증이 꺼진다.
+            .budget(metrics.realizedIssuance(), 0L, metrics.realizedRecovery())
+            .effectiveTaxBps(currentRateBps(classroom.getId(), "INCOME_TAX_RATE"))
             .moduleActivation(new RuleEngineRequest.ModuleActivation(
                 moduleCode,
                 module.getId(),
                 confirmedValue,
                 currentDepositRate
             ));
-        if (isSalaryModule(moduleCode)) {
-            builder.salaryPolicy(salaryPolicy(values));
+        // 급여는 금리·세율의 밑바탕이 되는 발행 규모를 정하므로, 급여 모듈을 켜는 중이 아니어도
+        // 이미 확정된 급여 정책을 함께 넘긴다. 이것이 없으면 발행액을 알 수 없어 예금·소득세가
+        // 학급과 무관한 기본값으로 떨어진다.
+        RuleEngineRequest.SalaryPolicy salaryPolicy = isSalaryModule(moduleCode)
+            ? salaryPolicy(values)
+            : activeSalaryPolicy(classroom.getId());
+        if (salaryPolicy != null) {
+            builder.salaryPolicy(salaryPolicy);
         }
         return ruleEngineService.evaluate(builder.build());
+    }
+
+    /** 이미 확정돼 있는 급여 정책이다. 아직 급여 모듈을 켜지 않았다면 null이다. */
+    private RuleEngineRequest.SalaryPolicy activeSalaryPolicy(UUID classroomId) {
+        return policyRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "SALARY")
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(this::salaryPolicy)
+            .orElse(null);
+    }
+
+    /** 확정된 정책의 현재 비율(bps)이다. 정책이 없으면 null이다. */
+    private Integer currentRateBps(UUID classroomId, String policyArea) {
+        return policyRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, policyArea)
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(ModuleActivationService::rateValue)
+            .filter(rate -> rate >= 0L && rate <= Integer.MAX_VALUE)
+            .map(Long::intValue)
+            .orElse(null);
     }
 
     private void validatePrerequisites(
@@ -697,13 +739,36 @@ public class ModuleActivationService {
     }
 
     /**
-     * Provides conservative, valid starting values when a teacher turns on a module from the
-     * classroom settings screen. Teachers can replace these values later through the policy UI.
+     * 교사가 학급 설정 화면에서 모듈을 그냥 켰을 때 쓸 시작값이다.
+     *
+     * <p>예전에는 학년과 운영 규모만 보고 고정된 숫자를 넣었다. 그래서 학생 수도 발행액도 다른
+     * 학급이 모두 같은 금리로 시작했다. 지금은 뼈대만 만들어 규칙 엔진에 한 번 물어보고, 이
+     * 학급의 실제 규모에서 나온 값을 시작값으로 쓴다. 교사는 나중에 정책 화면에서 바꿀 수 있다.
      */
-    private static Map<String, Object> defaultInitialPolicy(Classroom classroom, String moduleCode) {
+    private Map<String, Object> defaultInitialPolicy(
+        Classroom classroom,
+        ClassroomModule module,
+        String moduleCode
+    ) {
+        if (!isSalaryModule(moduleCode) && !RATE_POLICY_MODULES.contains(moduleCode)) {
+            return new LinkedHashMap<>();
+        }
+        Map<String, Object> draft = defaultPolicySkeleton(classroom, moduleCode);
+        RuleEngineResult rules = evaluateRules(classroom, module, moduleCode, draft);
+        return applyRecommendations(moduleCode, draft, rules);
+    }
+
+    /**
+     * 규칙 엔진에 물어보기 위한 뼈대다. 숫자는 자리만 채워 두고, 실제 값은 추천으로 덮어쓴다.
+     * 규칙 엔진이 후보를 만들려면 급여는 역할 목록이, 금리는 대상 모듈이 있어야 하기 때문이다.
+     */
+    private static Map<String, Object> defaultPolicySkeleton(
+        Classroom classroom,
+        String moduleCode
+    ) {
         return switch (moduleCode) {
-            case "ROLE_SALARY" -> Map.of(
-                "roles", List.of(Map.of(
+            case "ROLE_SALARY" -> new LinkedHashMap<>(Map.of(
+                "roles", List.of(new LinkedHashMap<>(Map.of(
                     "role_code", "DEFAULT_ROLE",
                     "name", "기본 역할",
                     "gross_amount", 1_000L,
@@ -711,30 +776,75 @@ public class ModuleActivationService {
                     "assigned_student_count", classroom.getPlannedStudentCount(),
                     "deductions", Map.of(),
                     "sort_order", 1
-                )),
-                "pay_interval_days", 7,
+                ))),
+                "pay_interval_days", payIntervalDays(classroom),
                 "first_pay_on", classroom.getActualStartsOn() == null
                     ? LocalDate.now().toString()
                     : classroom.getActualStartsOn().toString(),
                 "default_role_salary", 1_000L
-            );
-            case "INCOME_TAX" -> Map.of(
-                "rate_bps", switch (classroom.getGrade()) {
-                    case 4 -> 300L;
-                    case 5 -> 500L;
-                    default -> 1_000L;
-                }
-            );
-            case "DEPOSIT" -> Map.of(
-                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 150L : 300L
-            );
-            // 적금은 주 1회 납입이라 평균 예치 기간이 짧아 예금보다 조금 높게 시작한다.
-            case "SAVINGS" -> Map.of(
-                "rate_bps", classroom.getCourseSize() == CourseSize.SEMESTER ? 300L : 450L
-            );
-            case "LOAN" -> Map.of("rate_bps", 900L);
-            default -> Map.of();
+            ));
+            // 비율 모듈은 채울 값이 하나뿐이다. 자리표시자를 넣으면 규칙 엔진이 그 숫자를 교사가
+            // 정한 값으로 오해해 범위 위반으로 막으므로, 비워 둔 채로 추천만 받는다.
+            default -> new LinkedHashMap<>();
         };
+    }
+
+    /**
+     * 운영 기간 동안 급여가 4~8번쯤 나가도록 지급 주기를 잡는다. 한두 번만 나가면 학생이 벌고
+     * 쓰는 흐름을 겪지 못하고, 너무 잦으면 한 번의 급여가 너무 작아진다.
+     */
+    private static int payIntervalDays(Classroom classroom) {
+        LocalDate from = classroom.getActualStartsOn();
+        LocalDate to = classroom.getActualEndsOn();
+        if (from == null || to == null || to.isBefore(from)) {
+            return 7;
+        }
+        long days = ChronoUnit.DAYS.between(from, to) + 1L;
+        long interval = Math.round(days / 6.0d);
+        return (int) Math.min(14L, Math.max(1L, interval));
+    }
+
+    /**
+     * 규칙 엔진이 낸 추천값을 뼈대에 채워 넣는다. 후보가 없으면(예: 선행 조건이 아직 없어
+     * BLOCK인 경우) 뼈대를 그대로 두어 이후 검증이 평소대로 안내하게 한다.
+     */
+    private static Map<String, Object> applyRecommendations(
+        String moduleCode,
+        Map<String, Object> draft,
+        RuleEngineResult rules
+    ) {
+        if (rules.candidates().isEmpty()) {
+            return draft;
+        }
+        if (isSalaryModule(moduleCode)) {
+            List<Map<String, Object>> roles = roleMaps(draft);
+            List<RuleCandidate> salaryCandidates = rules.candidates().stream()
+                .filter(candidate -> candidate.targetType() == RuleTargetType.ROLE_SALARY)
+                .toList();
+            for (int index = 0; index < roles.size() && index < salaryCandidates.size(); index++) {
+                roles.get(index).put("gross_amount", salaryCandidates.get(index).proposedValue());
+            }
+            if (!salaryCandidates.isEmpty()) {
+                draft.put("roles", roles);
+                draft.put("default_role_salary", salaryCandidates.getFirst().proposedValue());
+            }
+            return draft;
+        }
+        RuleTargetType expected = switch (moduleCode) {
+            case "INCOME_TAX" -> RuleTargetType.INCOME_TAX_RATE;
+            case "DEPOSIT" -> RuleTargetType.DEPOSIT_RATE;
+            case "SAVINGS" -> RuleTargetType.SAVINGS_RATE;
+            case "LOAN" -> RuleTargetType.LOAN_RATE;
+            default -> null;
+        };
+        if (expected == null) {
+            return draft;
+        }
+        rules.candidates().stream()
+            .filter(candidate -> candidate.targetType() == expected)
+            .findFirst()
+            .ifPresent(candidate -> draft.put("rate_bps", candidate.proposedValue()));
+        return draft;
     }
 
     private static List<Map<String, Object>> roleMaps(Map<String, Object> values) {

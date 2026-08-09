@@ -156,7 +156,7 @@ class ModuleActivationApiTest {
             .andExpect(jsonPath("$.data.state_version").value(1))
             .andExpect(jsonPath("$.data.policy_area").value("DEPOSIT_RATE"))
             .andExpect(jsonPath("$.data.policy_version").value(1))
-            .andExpect(jsonPath("$.data.rule_version").value("rule-engine-v2"))
+            .andExpect(jsonPath("$.data.rule_version").value("rule-engine-v3"))
             .andExpect(jsonPath("$.data.replayed").value(false));
 
         assertEquals(1, policyRepository.count());

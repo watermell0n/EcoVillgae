@@ -26,7 +26,8 @@ public record RuleEngineRequest(
     SalaryPolicy salaryPolicy,
     ProductDraft productDraft,
     QuizDraft quizDraft,
-    InvestmentDraft investmentDraft
+    InvestmentDraft investmentDraft,
+    ClassroomEconomicMetrics metrics
 ) {
     public RuleEngineRequest {
         TreeSet<String> normalizedModules = new TreeSet<>();
@@ -37,6 +38,7 @@ public record RuleEngineRequest(
                 .forEach(normalizedModules::add);
         }
         activeModules = Set.copyOf(normalizedModules);
+        metrics = metrics == null ? ClassroomEconomicMetrics.empty() : metrics;
     }
 
     public static Builder builder(
@@ -159,6 +161,7 @@ public record RuleEngineRequest(
         private ProductDraft productDraft;
         private QuizDraft quizDraft;
         private InvestmentDraft investmentDraft;
+        private ClassroomEconomicMetrics metrics = ClassroomEconomicMetrics.empty();
 
         private Builder(
             RuleContextType contextType,
@@ -234,6 +237,12 @@ public record RuleEngineRequest(
             return this;
         }
 
+        /** 학급의 지금 상태다. 넘기지 않으면 규칙 엔진이 계획값만으로 계산한다. */
+        public Builder metrics(ClassroomEconomicMetrics value) {
+            metrics = value == null ? ClassroomEconomicMetrics.empty() : value;
+            return this;
+        }
+
         public RuleEngineRequest build() {
             return new RuleEngineRequest(
                 contextType,
@@ -253,7 +262,8 @@ public record RuleEngineRequest(
                 salaryPolicy,
                 productDraft,
                 quizDraft,
-                investmentDraft
+                investmentDraft,
+                metrics
             );
         }
     }

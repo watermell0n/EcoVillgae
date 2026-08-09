@@ -10,11 +10,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
 import com.b201.ecovillage.ruleengine.domain.PaymentSchedule;
 import com.b201.ecovillage.ruleengine.domain.ProductKind;
 import com.b201.ecovillage.ruleengine.domain.QuizCategory;
@@ -44,7 +46,7 @@ class RuleEngineServiceTest {
         );
 
         assertEquals(RuleSeverity.PASS, result.overallSeverity());
-        assertEquals("rule-engine-v2", result.ruleVersion());
+        assertEquals("rule-engine-v3", result.ruleVersion());
         assertTrue(result.candidates().isEmpty());
         assertReason(result, "NO_ECONOMIC_MODULES_SELECTED");
         assertEquals(4, result.metrics().paymentSchedule().paymentCount());
@@ -118,23 +120,24 @@ class RuleEngineServiceTest {
                 .build()
         );
 
-        assertCandidate(tax, RuleTargetType.INCOME_TAX_RATE, 500L, 400L, 600L, 300L, 800L);
+        assertCandidate(tax, RuleTargetType.INCOME_TAX_RATE, 500L, 400L, 600L, 200L, 1_200L);
         assertCandidate(deposit, RuleTargetType.DEPOSIT_RATE, 300L, 200L, 400L, 100L, 600L);
         assertCandidate(loan, RuleTargetType.LOAN_RATE, 700L, 600L, 800L, 500L, 1_200L);
         assertTrue(store.candidates().isEmpty());
     }
 
+    /**
+     * 학년은 세율의 값을 정하지 않는다. 발행 계획도 상점 물가도 알 수 없는 학급에서는 어느
+     * 학년이든 같은 기본 세율에서 시작하고, 학년은 교사가 손으로 정할 수 있는 폭만 넓힌다.
+     */
     @ParameterizedTest
     @CsvSource({
-        "4, 300, 200, 400, 200, 500",
-        "5, 500, 400, 600, 300, 800",
-        "6, 1000, 900, 1100, 500, 1500"
+        "4, 200, 800",
+        "5, 200, 1200",
+        "6, 200, 2000"
     })
-    void appliesTaxRecommendationProfileForEverySupportedGrade(
+    void gradeSetsOnlyTheAllowedTaxRangeNotTheRateItself(
         int grade,
-        long proposed,
-        long recommendedMin,
-        long recommendedMax,
         long allowedMin,
         long allowedMax
     ) {
@@ -153,9 +156,9 @@ class RuleEngineServiceTest {
         assertCandidate(
             result,
             RuleTargetType.INCOME_TAX_RATE,
-            proposed,
-            recommendedMin,
-            recommendedMax,
+            500L,
+            400L,
+            600L,
             allowedMin,
             allowedMax
         );
@@ -661,7 +664,10 @@ class RuleEngineServiceTest {
             .findFirst()
             .orElseThrow();
         assertEquals(RuleSeverity.PASS, basis.severity());
-        assertEquals("운영 기간 31일을 기준으로 3.00%를 추천했습니다.", basis.message());
+        assertEquals(
+            "운영 기간 31일 기준 3.00%에서 시작했습니다. 그래서 3.00%를 추천했습니다.",
+            basis.message()
+        );
         assertEquals(List.of("deposit-rate"), basis.subjectActionIds());
     }
 
@@ -904,6 +910,342 @@ class RuleEngineServiceTest {
             .filter(item -> item.actionId().equals(actionId))
             .findFirst()
             .orElseThrow(() -> new AssertionError("missing candidate " + actionId));
+    }
+
+    // --- 학급 규모와 발행액이 실제로 값을 바꾸는지 ---
+
+    /**
+     * 학생이 많고 지갑에 돈이 쌓여 있으면 같은 이율이라도 학급 전체가 받아 갈 이자가 커진다.
+     * 이자도 새로 찍는 돈이므로 발행 예산 안에서만 줄 수 있고, 그래서 금리가 내려가야 한다.
+     */
+    @Test
+    void depositRateFallsWhenInterestWouldOutgrowTheIssuanceBudget() {
+        RuleEngineResult noBalances = depositWithEconomy(25, 0L);
+        RuleEngineResult richClass = depositWithEconomy(25, 8_000L);
+
+        assertEquals(300L, onlyCandidate(noBalances).proposedValue());
+        assertEquals(150L, onlyCandidate(richClass).proposedValue());
+        // 허용 범위는 그대로다. 이미 확정한 금리가 갑자기 범위를 벗어나 막히면 안 된다.
+        assertEquals(600L, onlyCandidate(richClass).allowedMaxValue());
+    }
+
+    /**
+     * 학생이 많을수록 거래 상대가 많아 같은 돈이 더 자주 돈다(교환방정식 MV=PY). 유통속도가
+     * 오르면 통화량이 그대로여도 물가가 오르므로, 큰 학급은 금리를 조금 더 높게 잡아 돈을 묶는다.
+     */
+    @Test
+    void depositRateRisesWithClassSizeThroughMoneyVelocity() {
+        long small = onlyCandidate(depositWithEconomy(8, 0L)).proposedValue();
+        long large = onlyCandidate(depositWithEconomy(32, 0L)).proposedValue();
+
+        assertEquals(300L, small);
+        assertEquals(350L, large);
+    }
+
+    /**
+     * 반대로 이자 예산 상한은 학급 규모에 흔들리지 않아야 한다. 발행액과 예치액이 함께 학생 수에
+     * 비례해 늘어 비율이 그대로이기 때문이며, 현실에서도 인구가 늘어 금리가 오르지는 않는다.
+     */
+    @Test
+    void interestBudgetCapDoesNotDependOnClassSizeAlone() {
+        assertEquals(
+            onlyCandidate(depositWithEconomy(8, 8_000L)).proposedValue(),
+            onlyCandidate(depositWithEconomy(32, 8_000L)).proposedValue()
+        );
+    }
+
+    /** 되걷히는 돈이 적으면 학급에 돈이 쌓인다. 그때는 금리를 올려 돈을 묶어 둔다. */
+    @Test
+    void depositRateRisesWhenLittleMoneyIsRecovered() {
+        RuleEngineResult tight = service.evaluate(
+            economyBase(20)
+                .moduleActivation(module("DEPOSIT", null, null))
+                .metrics(metrics(builder -> builder.realizedIssuance(100_000L).realizedRecovery(10_000L)))
+                .build()
+        );
+
+        // 기간 기준 3.00%에 회수 부족에 따른 1.25배를 곱해 3.75%가 되고, 50bps 단위로 4.00%가 된다.
+        assertEquals(400L, onlyCandidate(tight).proposedValue());
+        assertReason(tight, "DEPOSIT_RATE_BASIS");
+    }
+
+    /** 적금은 나눠 넣어 평균 예치 기간이 짧다. 납입이 잦을수록 표면 금리가 예금 대비 높아진다. */
+    @ParameterizedTest
+    @CsvSource({
+        // 운영 일수, 납입 횟수, 추천 금리
+        "30, 4, 500",
+        "90, 12, 350"
+    })
+    void savingsRateComesFromTheAverageHoldingPeriodMultiplier(
+        int operationDays,
+        int installments,
+        long proposed
+    ) {
+        RuleEngineResult result = service.evaluate(
+            RuleEngineRequest.builder(
+                    RuleContextType.MODULE_ACTIVATION,
+                    5,
+                    START,
+                    START.plusDays(operationDays - 1L)
+                )
+                .activeStudentCount(20)
+                .moduleActivation(module("SAVINGS", null, null))
+                .build()
+        );
+
+        RuleCandidate candidate = onlyCandidate(result);
+        assertEquals(proposed, candidate.proposedValue());
+        assertEquals(100L, candidate.allowedMinValue());
+        assertEquals(800L, candidate.allowedMaxValue());
+        assertTrue(
+            result.checks().stream().anyMatch(check ->
+                check.reasonCode().equals("SAVINGS_RATE_BASIS")
+                    && check.message().contains(installments + "번 납입")
+            ),
+            () -> "적금 근거에 납입 횟수가 없다: " + result.checks()
+        );
+    }
+
+    /** 연체가 쌓인 학급에서는 떼일 위험이 커지므로 대출 금리가 올라간다. */
+    @ParameterizedTest
+    @CsvSource({
+        // 연체율(bps), 추천 대출 금리. 위험 몫은 연체율의 2배이며 1~4%p에서 끊는다.
+        "0, 550",
+        "125, 700",
+        "1000, 850",
+        "3000, 850"
+    })
+    void loanRateAddsACreditRiskPremiumFromTheMissedPaymentRate(
+        int paymentMissBps,
+        long proposed
+    ) {
+        RuleEngineResult result = service.evaluate(
+            base(RuleContextType.MODULE_ACTIVATION)
+                .activeModules(Set.of("DEPOSIT"))
+                .moduleActivation(module("LOAN", null, 300))
+                .metrics(metrics(builder -> builder.paymentMissBps(paymentMissBps)))
+                .build()
+        );
+
+        assertEquals(proposed, onlyCandidate(result).proposedValue());
+        assertReason(result, "LOAN_RATE_BASIS");
+    }
+
+    /**
+     * 세율은 "발행한 돈을 무엇으로 되걷을 것인가"에서 나온다. 상점이 열려 있으면 소비가 상당
+     * 부분을 걷어 주므로 세율이 낮아지고, 세금뿐이면 높아진다.
+     */
+    @Test
+    void taxRateComesFromTheFiscalBalanceAndFallsWhenAStoreShares() {
+        RuleEngineResult withStore = service.evaluate(
+            taxEconomy(Set.of("ROLE_SALARY", "STORE"), 5)
+        );
+        RuleEngineResult withoutStore = service.evaluate(
+            taxEconomy(Set.of("ROLE_SALARY"), 5)
+        );
+
+        assertEquals(1_000L, onlyCandidate(withStore).proposedValue());
+        assertFalse(hasReason(withStore, "TAX_IS_ONLY_RECOVERY_CHANNEL"));
+        assertEquals(1_200L, onlyCandidate(withoutStore).proposedValue());
+        assertReason(withoutStore, "TAX_IS_ONLY_RECOVERY_CHANNEL");
+    }
+
+    /** 같은 학급 재정이라도 학년이 다르면 허용 범위가 달라 최종 세율이 잘린다. */
+    @ParameterizedTest
+    @CsvSource({"4, 800", "5, 1000", "6, 1000"})
+    void taxRateIsClampedByTheGradeSafetyBand(int grade, long proposed) {
+        RuleEngineResult result = service.evaluate(
+            taxEconomy(Set.of("ROLE_SALARY", "STORE"), grade)
+        );
+
+        assertEquals(proposed, onlyCandidate(result).proposedValue());
+    }
+
+    /** 세금을 떼고도 평균 상품 2개는 살 수 있어야 한다. 물가가 높으면 세율이 그만큼 눌린다. */
+    @Test
+    void taxRateIsCappedSoTakeHomePayStillBuysTheBasicBasket() {
+        RuleEngineResult result = service.evaluate(
+            economyBase(25)
+                .activeModules(Set.of("ROLE_SALARY", "STORE"))
+                .moduleActivation(module("INCOME_TAX", null, null))
+                .salaryPolicy(salaryPolicy(1_000L, 25))
+                .metrics(metrics(builder -> builder.storeAveragePrice(480L)))
+                .build()
+        );
+
+        // 급여 1,000에서 평균 상품 2개(960)를 남겨야 하므로 세율은 4% 위로 갈 수 없다.
+        assertEquals(400L, onlyCandidate(result).proposedValue());
+    }
+
+    /** 급여는 "얼마짜리 숫자"가 아니라 "무엇을 살 수 있는 돈"이어야 한다. */
+    @Test
+    void salaryFollowsTheStorePriceLevel() {
+        RuleEngineResult result = service.evaluate(
+            economyBase(25)
+                .moduleActivation(module("ROLE_SALARY", null, null))
+                .salaryPolicy(salaryPolicy(null, 25))
+                .metrics(metrics(builder -> builder.storeAveragePrice(250L)))
+                .build()
+        );
+
+        RuleCandidate candidate = onlyCandidate(result);
+        // 평균 250원짜리 상품을 3개 살 수 있는 750원이 기준 급여다.
+        assertEquals(750L, candidate.proposedValue());
+        assertEquals(1_050L, candidate.allowedMaxValue());
+        assertTrue(
+            result.checks().stream().anyMatch(check ->
+                check.reasonCode().equals("SALARY_BASIS") && check.message().contains("250")
+            ),
+            () -> "급여 근거에 상점 평균 가격이 없다: " + result.checks()
+        );
+    }
+
+    /** 상점이 비어 있으면 물가를 알 수 없으므로 예전 기본 급여를 그대로 쓰고 그 사실을 알린다. */
+    @Test
+    void salaryFallsBackToTheDefaultWhenTheStoreIsEmpty() {
+        RuleEngineResult result = service.evaluate(
+            economyBase(25)
+                .moduleActivation(module("ROLE_SALARY", null, null))
+                .salaryPolicy(salaryPolicy(null, 25))
+                .build()
+        );
+
+        assertEquals(1_000L, onlyCandidate(result).proposedValue());
+        assertTrue(
+            result.checks().stream().anyMatch(check ->
+                check.reasonCode().equals("SALARY_BASIS") && check.message().contains("상점에 게시된 상품이 없어")
+            ),
+            () -> "상점이 비었다는 안내가 없다: " + result.checks()
+        );
+    }
+
+    /** 나갈 급여가 상점이 받아낼 수 있는 양보다 훨씬 많으면 물가가 오른다고 알려야 한다. */
+    @Test
+    void warnsWhenPlannedSalaryOutgrowsTheStoreInventory() {
+        RuleEngineResult result = service.evaluate(
+            economyBase(25)
+                .moduleActivation(module("ROLE_SALARY", null, null))
+                .salaryPolicy(salaryPolicy(1_000L, 25))
+                .metrics(metrics(builder -> builder.storeAveragePrice(250L).storeInventoryValue(5_000L)))
+                .build()
+        );
+
+        assertReason(result, "SALARY_ISSUANCE_EXCEEDS_STORE_CAPACITY");
+        assertEquals(RuleSeverity.WARN, result.overallSeverity());
+    }
+
+    private RuleEngineRequest.Builder economyBase(int studentCount) {
+        return RuleEngineRequest.builder(
+                RuleContextType.MODULE_ACTIVATION,
+                5,
+                START,
+                START.plusDays(29)
+            )
+            .activeStudentCount(studentCount)
+            .activeModules(Set.of("ROLE_SALARY"));
+    }
+
+    private RuleEngineRequest taxEconomy(Set<String> activeModules, int grade) {
+        return RuleEngineRequest.builder(
+                RuleContextType.MODULE_ACTIVATION,
+                grade,
+                START,
+                START.plusDays(29)
+            )
+            .activeStudentCount(25)
+            .activeModules(activeModules)
+            .moduleActivation(module("INCOME_TAX", null, null))
+            .salaryPolicy(salaryPolicy(1_000L, 25))
+            .metrics(metrics(builder -> builder.storeAveragePrice(300L)))
+            .build();
+    }
+
+    private RuleEngineResult depositWithEconomy(int studentCount, long medianBalance) {
+        return service.evaluate(
+            economyBase(studentCount)
+                .moduleActivation(module("DEPOSIT", null, null))
+                .salaryPolicy(salaryPolicy(1_000L, studentCount))
+                .metrics(metrics(builder -> builder.medianStudentBalance(medianBalance)))
+                .build()
+        );
+    }
+
+    private static RuleEngineRequest.SalaryPolicy salaryPolicy(
+        Long confirmedSalary,
+        int assignedStudentCount
+    ) {
+        return new RuleEngineRequest.SalaryPolicy(
+            List.of(new RuleEngineRequest.SalaryRole(
+                "DEFAULT_ROLE",
+                BigDecimal.ONE,
+                confirmedSalary,
+                assignedStudentCount,
+                true
+            )),
+            7,
+            START.plusDays(6),
+            1_000L
+        );
+    }
+
+    private static ClassroomEconomicMetrics metrics(UnaryOperator<MetricsBuilder> customizer) {
+        return customizer.apply(new MetricsBuilder()).build();
+    }
+
+    /** 지표는 항목이 많아 테스트마다 필요한 값만 바꿔 쓸 수 있게 감싼다. */
+    private static final class MetricsBuilder {
+        private long realizedIssuance;
+        private long realizedRecovery;
+        private long medianStudentBalance;
+        private long storeAveragePrice;
+        private long storeInventoryValue;
+        private Integer paymentMissBps;
+
+        private MetricsBuilder realizedIssuance(long value) {
+            realizedIssuance = value;
+            return this;
+        }
+
+        private MetricsBuilder realizedRecovery(long value) {
+            realizedRecovery = value;
+            return this;
+        }
+
+        private MetricsBuilder medianStudentBalance(long value) {
+            medianStudentBalance = value;
+            return this;
+        }
+
+        private MetricsBuilder storeAveragePrice(long value) {
+            storeAveragePrice = value;
+            return this;
+        }
+
+        private MetricsBuilder storeInventoryValue(long value) {
+            storeInventoryValue = value;
+            return this;
+        }
+
+        private MetricsBuilder paymentMissBps(Integer value) {
+            paymentMissBps = value;
+            return this;
+        }
+
+        private ClassroomEconomicMetrics build() {
+            return new ClassroomEconomicMetrics(
+                realizedIssuance,
+                realizedIssuance,
+                realizedRecovery,
+                0L,
+                0L,
+                medianStudentBalance,
+                storeAveragePrice,
+                storeInventoryValue,
+                paymentMissBps,
+                null,
+                0
+            );
+        }
     }
 
     private static void assertReason(RuleEngineResult result, String reasonCode) {
