@@ -99,8 +99,11 @@ export default function InvestmentScreen() {
   // 선생님이 잠근 방식과 아직 공개하지 않은 시나리오는 서버에서 이미 빠져 있습니다.
   const openMarkets = markets ?? [];
   const orderHistory = historyQuery.data ?? [];
+  // 투자 내역 탭을 보는 동안에는 종목 탭이 함께 강조되지 않도록 active를 비웁니다.
   const active = useMemo(
-    () => openMarkets.find((market) => market.investmentMode === selected) ?? openMarkets[0],
+    () => selected === "HISTORY"
+      ? undefined
+      : openMarkets.find((market) => market.investmentMode === selected) ?? openMarkets[0],
     [openMarkets, selected]
   );
   const showHistory = selected === "HISTORY" || (openMarkets.length === 0 && orderHistory.length > 0);
