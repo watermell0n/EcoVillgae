@@ -97,7 +97,8 @@ public class StoreCatalogQueryService {
                                 .map(CharacterCatalog::getCharacterCode)
                                 .orElse(null),
                         product.getDescription(),
-                        classroomCharacter == null ? null : classroomCharacter.getSortOrder()
+                        classroomCharacter == null ? null : classroomCharacter.getSortOrder(),
+                        product.getImageUrl()
                     );
                 }))
             .toList();

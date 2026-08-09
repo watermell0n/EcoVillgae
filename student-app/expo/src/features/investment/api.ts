@@ -26,6 +26,12 @@ export type InvestmentAsset = {
   priceVersion: number;
   priceHistory: InvestmentPricePoint[];
   news: InvestmentNews[];
+  positionQuantity: number;
+  averagePrice: number;
+  currentValue: number;
+  totalBoughtAmount: number;
+  totalSoldAmount: number;
+  profitLoss: number;
 };
 
 export type InvestmentMarket = {
@@ -59,6 +65,12 @@ type MarketResponse = {
       content: string;
       status: string;
     }>;
+    position_quantity?: number;
+    average_price?: number;
+    current_value?: number;
+    total_bought_amount?: number;
+    total_sold_amount?: number;
+    profit_loss?: number;
   }>;
 };
 
@@ -93,7 +105,13 @@ function toMarket(response: MarketResponse): InvestmentMarket {
         })),
         news: (Array.isArray(asset.news) ? asset.news : [])
           .filter((news) => ["APPROVED", "APPLIED"].includes(news.status))
-          .map((news) => ({ eventId: news.event_id, title: news.title, content: news.content }))
+          .map((news) => ({ eventId: news.event_id, title: news.title, content: news.content })),
+        positionQuantity: asset.position_quantity ?? 0,
+        averagePrice: asset.average_price ?? 0,
+        currentValue: asset.current_value ?? 0,
+        totalBoughtAmount: asset.total_bought_amount ?? 0,
+        totalSoldAmount: asset.total_sold_amount ?? 0,
+        profitLoss: asset.profit_loss ?? 0
       }))
   };
 }
@@ -126,6 +144,23 @@ export async function buyInvestment(
   asset: InvestmentAsset,
   quantity: number
 ) {
+  return placeInvestmentOrder(classroomId, asset, quantity, "BUY");
+}
+
+export async function sellInvestment(
+  classroomId: string,
+  asset: InvestmentAsset,
+  quantity: number
+) {
+  return placeInvestmentOrder(classroomId, asset, quantity, "SELL");
+}
+
+async function placeInvestmentOrder(
+  classroomId: string,
+  asset: InvestmentAsset,
+  quantity: number,
+  side: "BUY" | "SELL"
+) {
   return apiRequest<{
     order_id: string;
     status: string;
@@ -136,7 +171,7 @@ export async function buyInvestment(
     method: "POST",
     retryOnNetworkFailure: true,
     body: JSON.stringify({
-      side: "BUY",
+      side,
       asset_id: asset.assetId,
       quantity,
       expected_price_version: asset.priceVersion

@@ -4,5 +4,6 @@ public enum VoteCommandType {
     CREATE,
     OPEN,
     CLOSE,
+    REOPEN,
     CONFIRM_RESULT
 }

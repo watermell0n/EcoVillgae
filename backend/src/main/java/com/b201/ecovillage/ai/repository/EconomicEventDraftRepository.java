@@ -24,6 +24,12 @@ public interface EconomicEventDraftRepository extends JpaRepository<EconomicEven
         String status
     );
 
+    boolean existsByClassroomIdAndInvestmentPriceStepIdAndStatusIn(
+        UUID classroomId,
+        UUID investmentPriceStepId,
+        Collection<String> statuses
+    );
+
     List<EconomicEventDraft> findAllByClassroomIdAndInvestmentPriceStepIdInAndStatusIn(
         UUID classroomId,
         Collection<UUID> investmentPriceStepIds,

@@ -1,6 +1,7 @@
 package com.b201.ecovillage.ai.application;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
@@ -10,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.HexFormat;
@@ -49,7 +51,9 @@ import com.b201.ecovillage.investment.domain.InvestmentModeConfig;
 import com.b201.ecovillage.ledger.application.IdempotencyKeyReusedException;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.ruleengine.application.ClassroomEconomicMetricsProvider;
 import com.b201.ecovillage.ruleengine.application.RuleEngineService;
+import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
 import com.b201.ecovillage.ruleengine.domain.RuleCandidate;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineRequest;
 import com.b201.ecovillage.ruleengine.domain.RuleEngineResult;
@@ -69,7 +73,7 @@ public class SetupPrecheckOperationService {
     private final ClassroomModuleRepository moduleRepository;
     private final ClassroomPolicyVersionRepository policyVersionRepository;
     private final RuleEngineService ruleEngineService;
-    private final InvestmentSetupMetricsProvider investmentMetricsProvider;
+    private final ClassroomEconomicMetricsProvider metricsProvider;
     private final SetupProposalTargetSnapshotService targetSnapshotService;
     private final SetupPrecheckContractMapper contractMapper;
     private final SetupPrecheckAiClient aiClient;
@@ -93,7 +97,7 @@ public class SetupPrecheckOperationService {
         ClassroomModuleRepository moduleRepository,
         ClassroomPolicyVersionRepository policyVersionRepository,
         RuleEngineService ruleEngineService,
-        InvestmentSetupMetricsProvider investmentMetricsProvider,
+        ClassroomEconomicMetricsProvider metricsProvider,
         SetupProposalTargetSnapshotService targetSnapshotService,
         SetupPrecheckContractMapper contractMapper,
         SetupPrecheckAiClient aiClient,
@@ -116,7 +120,7 @@ public class SetupPrecheckOperationService {
         this.moduleRepository = moduleRepository;
         this.policyVersionRepository = policyVersionRepository;
         this.ruleEngineService = ruleEngineService;
-        this.investmentMetricsProvider = investmentMetricsProvider;
+        this.metricsProvider = metricsProvider;
         this.targetSnapshotService = targetSnapshotService;
         this.contractMapper = contractMapper;
         this.aiClient = aiClient;
@@ -324,6 +328,8 @@ public class SetupPrecheckOperationService {
             .filter(module -> Set.of("ACTIVE", "PENDING_CONFIGURATION").contains(module.getStatus()))
             .map(ClassroomModule::getModuleCode)
             .collect(Collectors.toSet());
+        ClassroomEconomicMetrics metrics =
+            metricsProvider.of(classroom.getId(), clock.instant());
         RuleEngineRequest.Builder builder = RuleEngineRequest.builder(
             input.contextType(),
             classroom.getGrade(),
@@ -333,14 +339,24 @@ public class SetupPrecheckOperationService {
             .activeStudentCount(value(input.activeStudentCount(), classroom.getPlannedStudentCount()))
             .currencyName(classroom.getCurrencyName())
             .activeModules(activeModules)
+            .metrics(metrics)
             .systemAmountCap(value(input.systemAmountCap(), 1_000_000L))
+            // 화면이 값을 보내지 않으면 원장에서 읽은 실제 금액을 쓴다. 교사가 직접 넣은 값이
+            // 있으면 그쪽을 존중한다.
             .budget(
-                value(input.nonRewardIssuance(), 0L),
+                value(input.nonRewardIssuance(), metrics.realizedIssuance()),
                 value(input.existingRewardIssuance(), 0L),
-                value(input.expectedRecovery(), 0L)
+                value(input.expectedRecovery(), metrics.realizedRecovery())
             )
             .otherPeriodicIssuancePerStudent(input.otherPeriodicIssuancePerStudent())
-            .effectiveTaxBps(input.effectiveTaxBps());
+            .effectiveTaxBps(input.effectiveTaxBps() == null
+                ? currentRateBps(classroom.getId(), "INCOME_TAX_RATE")
+                : input.effectiveTaxBps());
+        // 급여 정책은 발행 규모의 밑바탕이다. 화면이 보내지 않았더라도 확정된 정책이 있으면
+        // 함께 넘겨야 금리·세율이 이 학급의 실제 규모에 맞춰진다.
+        if (input.salaryPolicy() == null) {
+            activeSalaryPolicy(classroom.getId()).ifPresent(builder::salaryPolicy);
+        }
         if (input.moduleActivation() != null) {
             SetupPrecheckInput.ModuleActivation value = input.moduleActivation();
             ClassroomModule module = moduleRepository
@@ -434,8 +450,7 @@ public class SetupPrecheckOperationService {
                 confirmed.put(condition.symbol().trim().toUpperCase(Locale.ROOT), condition);
             }
         }
-        InvestmentSetupMetricsProvider.InvestmentSetupMetrics metrics =
-            investmentMetricsProvider.of(classroomId);
+        ClassroomEconomicMetrics metrics = metricsProvider.of(classroomId, clock.instant());
         // 방식마다 쓰는 종목 수가 다르다. 시나리오 생성과 같은 목록을 봐야 교사가 정한 값이
         // 빠짐없이 종목에 붙는다.
         InvestmentMode mode = InvestmentModeConfig.parse(draft.investmentMode())
@@ -444,8 +459,8 @@ public class SetupPrecheckOperationService {
             moduleId,
             draft.investmentMode(),
             metrics.moneyIssuance(),
-            metrics.averageBalance(),
-            metrics.medianBalance(),
+            metrics.averageStudentBalance(),
+            metrics.medianStudentBalance(),
             InvestmentAssetCatalog.seeds(mode).stream()
                 .map(seed -> {
                     SetupPrecheckInput.AssetCondition condition = confirmed.get(seed.symbol());
@@ -467,13 +482,73 @@ public class SetupPrecheckOperationService {
         if (!"LOAN".equals(moduleCode)) {
             return null;
         }
+        return currentRateBps(classroomId, "DEPOSIT_RATE");
+    }
+
+    /** 확정된 정책의 현재 비율(bps)입니다. 정책이 아직 없으면 null입니다. */
+    private Integer currentRateBps(UUID classroomId, String policyArea) {
         return policyVersionRepository
-            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "DEPOSIT_RATE")
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, policyArea)
             .map(ClassroomPolicyVersion::getPolicyValues)
             .map(values -> values.get("rate_bps"))
             .filter(Number.class::isInstance)
             .map(rate -> ((Number) rate).intValue())
             .orElse(null);
+    }
+
+    /**
+     * 이미 확정된 급여 정책입니다. 금리와 세율은 "얼마가 발행되는가"에서 나오므로, 화면이 급여를
+     * 보내지 않는 요청에서도 이 값이 있어야 학급 규모에 맞는 추천이 나옵니다.
+     */
+    private Optional<RuleEngineRequest.SalaryPolicy> activeSalaryPolicy(UUID classroomId) {
+        return policyVersionRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(classroomId, "SALARY")
+            .map(ClassroomPolicyVersion::getPolicyValues)
+            .map(SetupPrecheckOperationService::salaryPolicyFrom)
+            .filter(policy -> !policy.roles().isEmpty());
+    }
+
+    private static RuleEngineRequest.SalaryPolicy salaryPolicyFrom(Map<String, Object> values) {
+        List<RuleEngineRequest.SalaryRole> roles = new ArrayList<>();
+        if (values.get("roles") instanceof List<?> rawRoles) {
+            for (Object raw : rawRoles) {
+                if (!(raw instanceof Map<?, ?> role)) {
+                    continue;
+                }
+                Long gross = longValue(role.get("gross_amount"));
+                BigDecimal weight = decimalValue(role.get("weight"));
+                if (weight == null && gross != null) {
+                    weight = BigDecimal.valueOf(gross)
+                        .divide(BigDecimal.valueOf(1_000L), 4, RoundingMode.HALF_UP);
+                }
+                Long assigned = longValue(role.get("assigned_student_count"));
+                roles.add(new RuleEngineRequest.SalaryRole(
+                    role.get("role_code") == null ? null : role.get("role_code").toString(),
+                    weight,
+                    gross,
+                    assigned == null ? 0 : assigned.intValue(),
+                    !Boolean.FALSE.equals(role.get("active"))
+                ));
+            }
+        }
+        Long interval = longValue(values.get("pay_interval_days"));
+        return new RuleEngineRequest.SalaryPolicy(
+            roles,
+            interval == null ? null : interval.intValue(),
+            null,
+            longValue(values.get("default_role_salary"))
+        );
+    }
+
+    private static Long longValue(Object value) {
+        return value instanceof Number number ? number.longValue() : null;
+    }
+
+    private static BigDecimal decimalValue(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        return value instanceof Number number ? new BigDecimal(number.toString()) : null;
     }
 
     RuleEngineResult revalidate(UUID classroomId, SetupPrecheckInput input) {
@@ -553,7 +628,7 @@ public class SetupPrecheckOperationService {
     ) {
         String module = normalizeModule(input.moduleActivation().moduleCode());
         Map<String, Object> values = new LinkedHashMap<>();
-        if (Set.of("INCOME_TAX", "DEPOSIT", "LOAN").contains(module)) {
+        if (Set.of("INCOME_TAX", "DEPOSIT", "SAVINGS", "LOAN").contains(module)) {
             values.put("rate_bps", rules.candidates().getFirst().proposedValue());
             return values;
         }

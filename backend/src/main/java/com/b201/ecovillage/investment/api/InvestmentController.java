@@ -189,23 +189,26 @@ public class InvestmentController {
     }
 
     @PostMapping("/investment-orders")
-    public ResponseEntity<ApiResponse<InvestmentBuyResult>> buy(
+    public ResponseEntity<ApiResponse<InvestmentBuyResult>> order(
         @PathVariable UUID classroomId,
         @Valid @RequestBody InvestmentOrderRequest request,
         @RequestHeader("Idempotency-Key") UUID requestId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
     ) {
-        if (!"BUY".equals(request.side())) {
+        if (!List.of("BUY", "SELL").contains(request.side())) {
             throw new ClassroomOperationException(
-                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "현재 단계에서는 BUY 주문만 지원합니다."
+                HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "BUY 또는 SELL 주문만 지원합니다."
             );
         }
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
-        InvestmentBuyResult result = buyService.buy(new InvestmentBuyCommand(
+        InvestmentBuyCommand command = new InvestmentBuyCommand(
             subject(principal), classroomId, requestId, resolvedCorrelationId, request.assetId(),
             request.quantity(), request.expectedPriceVersion()
-        ));
+        );
+        InvestmentBuyResult result = "BUY".equals(request.side())
+            ? buyService.buy(command)
+            : buyService.sell(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(
             new ApiResponse<>(result, new ApiMeta(requestId, resolvedCorrelationId, clock.instant()))
         );

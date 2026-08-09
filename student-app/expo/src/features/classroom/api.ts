@@ -155,7 +155,7 @@ export const moduleGroups = {
   trade: ["TRADE"],
   quiz: ["QUIZ_GAME", "QUIZ_TEST", "QUIZ"],
   meeting: ["PUBLIC_BUDGET", "PUBLIC_FUND", "BUDGET"],
-  paystub: ["PAYSLIP", "INCOME"],
+  paystub: ["PAYSLIP", "ROLE_SALARY", "INCOME"],
   realEstate: ["REAL_ESTATE", "HOUSING_SUBSCRIPTION"],
   subscription: ["HOUSING_SUBSCRIPTION"],
   credit: ["CREDIT"]
@@ -164,6 +164,10 @@ export const moduleGroups = {
 export type ModuleGroup = keyof typeof moduleGroups;
 
 export function hasModule(access: ClassroomAccess | undefined, group: ModuleGroup) {
+  // 지갑은 선택 모듈이 아니라 모든 학생 금전 기능이 공유하는 기반 계정입니다.
+  // 백엔드는 의도적으로 WALLET 모듈 행을 만들지 않으므로 로그인해 학급 정보를
+  // 받은 학생에게는 항상 진입 경로를 열어 둡니다.
+  if (group === "wallet") return Boolean(access);
   return moduleGroups[group].some((code) => access?.activeCodes.has(code));
 }
 

@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/AuthProvider";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import {
   buyInvestment,
   fetchInvestmentMarkets,
+  sellInvestment,
   type InvestmentAsset,
   type InvestmentMarket,
   type InvestmentMode
@@ -70,22 +73,19 @@ function changeText(asset: InvestmentAsset) {
 export default function InvestmentScreen() {
   const { identity } = useAuth();
   const classroomId = identity?.classroomId;
-  const [markets, setMarkets] = useState<InvestmentMarket[] | null>(null);
   const [selected, setSelected] = useState<InvestmentMode | null>(null);
-  const [error, setError] = useState("");
-
-  const load = useCallback(async () => {
-    if (!classroomId) return;
-    try {
-      setMarkets(await fetchInvestmentMarkets(classroomId));
-      setError("");
-    } catch (cause) {
-      setMarkets([]);
-      setError(cause instanceof Error ? cause.message : "투자 정보를 불러오지 못했어요.");
-    }
-  }, [classroomId]);
-
-  useEffect(() => { void load(); }, [load]);
+  const marketQuery = useQuery({
+    queryKey: ["investment-markets", classroomId],
+    queryFn: () => fetchInvestmentMarkets(classroomId!),
+    enabled: Boolean(classroomId),
+    // 실시간 연결이 막힌 학교 네트워크에서도 교사 조작을 오래 놓치지 않게 보완합니다.
+    refetchInterval: 15_000
+  });
+  const markets = marketQuery.data;
+  const load = async () => { await marketQuery.refetch(); };
+  const error = marketQuery.error instanceof Error
+    ? marketQuery.error.message
+    : "투자 정보를 불러오지 못했어요.";
 
   // 선생님이 잠근 방식과 아직 공개하지 않은 시나리오는 서버에서 이미 빠져 있습니다.
   const openMarkets = markets ?? [];
@@ -96,7 +96,7 @@ export default function InvestmentScreen() {
 
   return (
     <Screen title="투자 광장" right={<BackButton />}>
-      {markets === null ? (
+      {marketQuery.isPending ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>투자 정보를 불러오는 중이에요</Text>
         </View>
@@ -104,7 +104,7 @@ export default function InvestmentScreen() {
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>지금 열려 있는 투자 수업이 없어요</Text>
           <Text style={styles.description}>
-            {error || "선생님이 단기 투자나 장기 투자를 열면 이곳에 나타나요."}
+            {marketQuery.isError ? error : "선생님이 단기 투자나 장기 투자를 열면 이곳에 나타나요."}
           </Text>
         </View>
       ) : (
@@ -139,6 +139,7 @@ function MarketView({
   onTraded
 }: Readonly<{ market: InvestmentMarket; onTraded: () => Promise<void> }>) {
   const { identity } = useAuth();
+  const queryClient = useQueryClient();
   const classroomId = identity?.classroomId;
   const currencyName = identity?.currencyName ?? "비빔";
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
@@ -150,23 +151,34 @@ function MarketView({
   const quantity = clampQuantity(quantityText);
 
   const current = market.assets.find((asset) => asset.assetId === selectedAssetId) ?? market.assets[0];
+  const tradable = market.status === "OPEN";
+  const totalProfitLoss = market.assets.reduce((sum, asset) => sum + asset.profitLoss, 0);
 
   function changeQuantity(step: number) {
     setQuantityText(String(clampQuantity(String(quantity + step))));
   }
 
-  async function buy(asset: InvestmentAsset, quantity: number) {
+  async function trade(asset: InvestmentAsset, quantity: number, side: "BUY" | "SELL") {
     if (!classroomId) return;
     setBusy(true);
     setNotice("");
     try {
-      const result = await buyInvestment(classroomId, asset, quantity);
+      const result = side === "BUY"
+        ? await buyInvestment(classroomId, asset, quantity)
+        : await sellInvestment(classroomId, asset, quantity);
+      await queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
       await onTraded();
       setNotice(
-        `${asset.name} ${quantity}주를 ${result.total_amount.toLocaleString("ko-KR")} ${currencyName}에 샀어요. `
+        `${asset.name} ${quantity}주를 ${result.total_amount.toLocaleString("ko-KR")} ${currencyName}에 ${side === "BUY" ? "샀어요" : "팔았어요"}. `
         + `지금 보유 ${result.position_quantity}주 · 평균단가 ${result.average_price.toLocaleString("ko-KR")} ${currencyName}`
       );
     } catch (cause) {
+      if (
+        cause instanceof ApiError
+        && ["PRICE_CHANGED", "MARKET_NOT_OPEN", "NEWS_NOT_PUBLISHED"].includes(cause.code)
+      ) {
+        await onTraded();
+      }
       setNotice(cause instanceof Error ? cause.message : "투자하지 못했어요. 잠시 후 다시 해 주세요.");
     } finally {
       setBusy(false);
@@ -188,9 +200,23 @@ function MarketView({
         <Text style={styles.sectionTitle}>{MODE_LABELS[market.investmentMode]}</Text>
         <Text style={styles.summaryMeta}>
           {market.currentStep}일차 ·{" "}
-          {market.settlementRule === "NEXT_DAY_MANDATORY" ? "다음 날 결과 확정" : "마지막 날 최종 정산"}
+          {market.status === "CLOSED"
+            ? "정산 완료"
+            : market.status === "PAUSED"
+              ? "선생님이 잠시 멈춤"
+              : market.settlementRule === "NEXT_DAY_MANDATORY" ? "다음 날 결과 확정" : "마지막 날 최종 정산"}
         </Text>
       </View>
+
+      {market.status === "CLOSED" ? (
+        <View style={styles.resultCard}>
+          <Text style={styles.resultTitle}>최종 투자 결과</Text>
+          <Text style={[styles.resultAmount, totalProfitLoss < 0 && styles.loss]}>
+            {totalProfitLoss > 0 ? "+" : ""}{totalProfitLoss.toLocaleString("ko-KR")} {currencyName}
+          </Text>
+          <Text style={styles.stockNews}>정산 금액은 지갑에 반영됐어요.</Text>
+        </View>
+      ) : null}
 
       <View style={styles.stockList}>
         {market.assets.map((asset) => {
@@ -215,6 +241,14 @@ function MarketView({
                 {returnBandText(asset) ? (
                   <Text style={styles.returnBand}>{returnBandText(asset)}</Text>
                 ) : null}
+                {asset.positionQuantity > 0 ? (
+                  <Text style={styles.positionText}>보유 {asset.positionQuantity}주</Text>
+                ) : null}
+                {asset.totalBoughtAmount > 0 ? (
+                  <Text style={[styles.positionText, asset.profitLoss < 0 && styles.loss]}>
+                    손익 {asset.profitLoss > 0 ? "+" : ""}{asset.profitLoss.toLocaleString("ko-KR")} {currencyName}
+                  </Text>
+                ) : null}
                 <Text style={[styles.stockChange, change.negative && styles.loss]}>{change.text}</Text>
               </View>
             </Pressable>
@@ -232,6 +266,20 @@ function MarketView({
           </View>
           <Text style={styles.graph}>{sparkline(current.priceHistory.map((point) => point.price))}</Text>
           <Text style={styles.stockNews}>{current.companyProfile}</Text>
+          <View style={styles.positionCard}>
+            <Text style={styles.positionHeading}>내 투자</Text>
+            <Text style={styles.positionText}>
+              보유 {current.positionQuantity}주 · 평균단가 {current.averagePrice.toLocaleString("ko-KR")} {currencyName}
+            </Text>
+            <Text style={styles.positionText}>
+              평가액 {current.currentValue.toLocaleString("ko-KR")} {currencyName}
+              {" · "}총 매수 {current.totalBoughtAmount.toLocaleString("ko-KR")} {currencyName}
+              {" · "}총 매도·정산 {current.totalSoldAmount.toLocaleString("ko-KR")} {currencyName}
+            </Text>
+            <Text style={[styles.positionProfit, current.profitLoss < 0 && styles.loss]}>
+              손익 {current.profitLoss > 0 ? "+" : ""}{current.profitLoss.toLocaleString("ko-KR")} {currencyName}
+            </Text>
+          </View>
           {current.news.map((news) => (
             <View key={news.eventId} style={styles.newsCard}>
               <Text style={styles.newsTitle}>{news.title}</Text>
@@ -246,14 +294,15 @@ function MarketView({
 
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
-      {current ? (
+      {current && market.status !== "CLOSED" ? (
         <View style={styles.decisionRow}>
+          {!tradable ? <Text style={styles.pausedNotice}>선생님이 투자를 다시 열 때까지 주문할 수 없어요.</Text> : null}
           <View style={styles.stepper}>
             <Pressable
               accessibilityLabel="한 주 줄이기"
-              disabled={busy || quantity <= MIN_QUANTITY}
+              disabled={busy || !tradable || quantity <= MIN_QUANTITY}
               onPress={() => changeQuantity(-1)}
-              style={[styles.stepperButton, (busy || quantity <= MIN_QUANTITY) && styles.buttonBusy]}
+              style={[styles.stepperButton, (busy || !tradable || quantity <= MIN_QUANTITY) && styles.buttonBusy]}
             >
               <Text style={styles.stepperText}>−</Text>
             </Pressable>
@@ -269,20 +318,32 @@ function MarketView({
             />
             <Pressable
               accessibilityLabel="한 주 늘리기"
-              disabled={busy || quantity >= MAX_QUANTITY}
+              disabled={busy || !tradable || quantity >= MAX_QUANTITY}
               onPress={() => changeQuantity(1)}
-              style={[styles.stepperButton, (busy || quantity >= MAX_QUANTITY) && styles.buttonBusy]}
+              style={[styles.stepperButton, (busy || !tradable || quantity >= MAX_QUANTITY) && styles.buttonBusy]}
             >
               <Text style={styles.stepperText}>＋</Text>
             </Pressable>
           </View>
           <Pressable
-            disabled={busy}
-            onPress={() => void buy(current, quantity)}
-            style={[styles.primaryButton, busy && styles.buttonBusy]}
+            disabled={busy || !tradable}
+            onPress={() => void trade(current, quantity, "BUY")}
+            style={[styles.primaryButton, (busy || !tradable) && styles.buttonBusy]}
           >
             <Text style={styles.primaryText}>{busy ? "처리 중" : `${quantity}주 사기`}</Text>
           </Pressable>
+          {market.investmentMode === "LONG_TERM" && current.positionQuantity > 0 ? (
+            <Pressable
+              disabled={busy || !tradable || quantity > current.positionQuantity}
+              onPress={() => void trade(current, quantity, "SELL")}
+              style={[
+                styles.sellButton,
+                (busy || !tradable || quantity > current.positionQuantity) && styles.buttonBusy
+              ]}
+            >
+              <Text style={styles.sellText}>{quantity}주 팔기</Text>
+            </Pressable>
+          ) : null}
           <Text style={styles.totalPreview}>
             모두 {(current.currentPrice * quantity).toLocaleString("ko-KR")} {currencyName}
           </Text>
@@ -319,6 +380,13 @@ const styles = StyleSheet.create({
   holdingRight: { alignItems: "flex-end", gap: 4 },
   holdingValue: { color: colors.ink900, fontSize: 18, fontWeight: "900" },
   returnBand: { color: colors.muted600, fontSize: 13, fontWeight: "800" },
+  positionText: { color: colors.muted600, fontSize: 13, fontWeight: "800", lineHeight: 19 },
+  positionCard: { gap: 5, padding: 13, borderRadius: 8, backgroundColor: colors.washMint },
+  positionHeading: { color: colors.ink900, fontSize: 15, fontWeight: "900" },
+  positionProfit: { color: colors.green500, fontSize: 17, fontWeight: "900" },
+  resultCard: { gap: 5, padding: 18, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 8, backgroundColor: colors.white },
+  resultTitle: { color: colors.ink900, fontSize: 17, fontWeight: "900" },
+  resultAmount: { color: colors.green500, fontSize: 26, fontWeight: "900" },
   decisionRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
   stepper: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.lineSoft, borderRadius: 8, backgroundColor: colors.white, overflow: "hidden" },
   stepperButton: { minWidth: 48, minHeight: 46, alignItems: "center", justifyContent: "center" },
@@ -327,6 +395,9 @@ const styles = StyleSheet.create({
   totalPreview: { color: colors.muted600, fontSize: 15, fontWeight: "800" },
   primaryButton: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", paddingHorizontal: 22, borderRadius: 8, backgroundColor: colors.orange500 },
   primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" },
+  sellButton: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", paddingHorizontal: 22, borderWidth: 1, borderColor: colors.orange500, borderRadius: 8, backgroundColor: colors.white },
+  sellText: { color: colors.orange500, fontSize: 15, fontWeight: "900" },
+  pausedNotice: { width: "100%", color: colors.red500, fontSize: 14, fontWeight: "800" },
   buttonBusy: { opacity: 0.6 },
   empty: { maxWidth: 760, gap: 10, paddingVertical: 34, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.lineSoft },
   emptyTitle: { color: colors.ink900, fontSize: 23, fontWeight: "900" },

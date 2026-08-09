@@ -680,7 +680,7 @@ const requestFieldOverrides = {
     { name: "band_bps", optional: true, schema: { type: ["integer", "null"], minimum: 1 } },
   ],
   "API-FIN-009": [
-    { name: "side", values: ["BUY"] },
+    { name: "side", values: ["BUY", "SELL"] },
     { name: "asset_id" },
     { name: "quantity", schema: { type: "integer", minimum: 1, maximum: 100 } },
     { name: "expected_price_version", schema: { type: "integer", minimum: 1 } },
@@ -1072,7 +1072,7 @@ const requestFieldOverrides = {
   "API-VOT-001": [
     {
       name: "command",
-      values: ["CREATE", "OPEN", "CLOSE", "CONFIRM_RESULT"],
+      values: ["CREATE", "OPEN", "CLOSE", "REOPEN", "CONFIRM_RESULT"],
     },
     { name: "title", optional: true },
     { name: "description", optional: true },
@@ -1290,8 +1290,8 @@ const responseFieldOverrides = {
     { name: "executed_price", schema: { type: "integer", format: "int64", minimum: 1 } },
     { name: "price_version", schema: { type: "integer", minimum: 1 } },
     { name: "total_amount", schema: { type: "integer", format: "int64", minimum: 1 } },
-    { name: "position_quantity", schema: { type: "integer", minimum: 1 } },
-    { name: "average_price", schema: { type: "integer", format: "int64", minimum: 1 } },
+    { name: "position_quantity", schema: { type: "integer", minimum: 0 } },
+    { name: "average_price", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "state_version", schema: { type: "integer", format: "int64", minimum: 0 } },
   ],
   "API-FIN-010": [

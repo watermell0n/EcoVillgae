@@ -162,6 +162,18 @@ public class VoteQueryService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public VoteView latest(String subject, UUID classroomId) {
+        UUID voteId = voteRepository.findFirstByClassroomIdOrderByCreatedAtDesc(classroomId)
+            .map(Vote::getId)
+            .orElseThrow(() -> operation(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "The classroom has no public fund vote."
+            ));
+        return get(subject, classroomId, voteId);
+    }
+
     private static Map<UUID, Long> counts(List<VoteBallot> ballots) {
         Map<UUID, Long> result = new LinkedHashMap<>();
         ballots.forEach(ballot -> result.merge(

@@ -26,6 +26,7 @@ import com.b201.ecovillage.trade.application.PendingTradeQueryService;
 import com.b201.ecovillage.trade.application.PendingTradeView;
 import com.b201.ecovillage.trade.application.ProposerTradeCommandRequest;
 import com.b201.ecovillage.trade.application.TradeCommandResult;
+import com.b201.ecovillage.trade.application.TradeClassmateView;
 import com.b201.ecovillage.trade.application.TradeCommandService;
 import com.b201.ecovillage.trade.application.TeacherTradeDecisionRequest;
 import com.b201.ecovillage.trade.application.TradeTeacherDecisionService;
@@ -155,6 +156,34 @@ public class TradeController {
         );
         return ResponseEntity.ok(new ApiResponse<>(
             trades, new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        ));
+    }
+
+    @GetMapping("/classmates")
+    public ResponseEntity<ApiResponse<List<TradeClassmateView>>> classmates(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return ResponseEntity.ok(new ApiResponse<>(
+            pendingTradeQueryService.findClassmates(subject(principal), classroomId),
+            new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+        ));
+    }
+
+    @GetMapping("/mine")
+    public ResponseEntity<ApiResponse<List<PendingTradeView>>> mine(
+        @PathVariable UUID classroomId,
+        @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
+        Principal principal
+    ) {
+        UUID requestId = uuidGenerator.generate();
+        UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
+        return ResponseEntity.ok(new ApiResponse<>(
+            pendingTradeQueryService.findMine(subject(principal), classroomId),
+            new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         ));
     }
 

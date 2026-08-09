@@ -482,7 +482,8 @@ public class AiProposalCommandService {
             intNumber(product.get("vat_rate_bps")),
             intNumber(product.get("stock_quantity")),
             uuidOrNull(metadata.get("character_source_id")),
-            Math.toIntExact(target.targetVersion())
+            Math.toIntExact(target.targetVersion()),
+            null
         ));
         return DomainApplication.none();
     }

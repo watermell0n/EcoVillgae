@@ -34,6 +34,19 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
         Collection<com.b201.ecovillage.trade.domain.TradeStatus> statuses
     );
 
+    @Query("""
+        select trade
+          from Trade trade
+         where trade.classroomId = :classroomId
+           and (trade.proposerStudentId = :studentId
+             or trade.counterpartStudentId = :studentId)
+         order by trade.createdAt desc
+        """)
+    List<Trade> findAllForStudent(
+        @Param("classroomId") UUID classroomId,
+        @Param("studentId") UUID studentId
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select trade

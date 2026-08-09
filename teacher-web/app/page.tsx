@@ -17,6 +17,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Vote,
   X
 } from "lucide-react";
 import {
@@ -51,7 +52,7 @@ import { INVESTMENT_MODE_LABELS, investmentModuleInfo } from "./types";
 import { TeacherRealtimeClient } from "./realtime";
 import { PropertyWorkspace } from "./property/PropertyWorkspace";
 
-type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "property" | "quiz" | "control" | "approvals" | "ai";
+type ViewKey = "overview" | "setup" | "roster" | "shop" | "finance" | "property" | "publicFund" | "quiz" | "control" | "approvals" | "ai";
 type TeacherStage = "login" | "classrooms" | "create" | "console";
 type CreateStep = "basic" | "period" | "complete";
 type LogTone = "success" | "warning" | "error";
@@ -273,6 +274,7 @@ type StoreCatalogProduct = {
   vat_rate_bps: number;
   stock_quantity: number;
   product_kind: string;
+  image_url?: string | null;
 };
 
 type AiSettingsSnapshot = {
@@ -317,6 +319,7 @@ const views = [
   { key: "shop" as const, label: "상점 상품", icon: ShoppingBag },
   { key: "finance" as const, label: "운영 관리", icon: Landmark },
   { key: "property" as const, label: "부동산·청약", icon: Grid3X3 },
+  { key: "publicFund" as const, label: "공동기금·투표", icon: Vote },
   { key: "control" as const, label: "수업 준비·퀴즈", icon: MonitorPlay },
   { key: "approvals" as const, label: "승인·정산", icon: ClipboardCheck },
   { key: "ai" as const, label: "AI 설정", icon: Bot }
@@ -857,8 +860,8 @@ export default function TeacherConsole() {
         name: product.label,
         price: String(product.unit_price),
         stock: String(product.stock_quantity),
-        imageName: "",
-        imageSrc: "",
+        imageName: product.image_url ? "등록된 사진" : "",
+        imageSrc: product.image_url ?? "",
         resourceId: product.resource_id,
         version: product.version,
         stateVersion: product.state_version,
@@ -1465,6 +1468,18 @@ export default function TeacherConsole() {
               currencyName={settings.currency}
               realEstateEnabled={modules.some((module) => module.code === "REAL_ESTATE" && module.status === "열림")}
               subscriptionEnabled={modules.some((module) => module.code === "HOUSING_SUBSCRIPTION" && module.status === "열림")}
+              onNotice={addLog}
+            />
+          )}
+          {view === "publicFund" && (
+            <PublicFundAdmin
+              classroomId={activeClassroomId}
+              currencyName={settings.currency}
+              students={students}
+              enabled={modules.some((module) => (
+                ["PUBLIC_FUND", "PUBLIC_BUDGET"].includes(module.code ?? "")
+                  && module.status === "열림"
+              ))}
               onNotice={addLog}
             />
           )}
@@ -3829,6 +3844,14 @@ function ShopAdmin({
       return;
     }
 
+    if (file.size > 1_400_000) {
+      event.target.value = "";
+      setPreview("");
+      setFileName("선택된 사진 없음");
+      addLog("상품 사진은 1.4MB 이하의 이미지 파일만 등록할 수 있어요.", "warning");
+      return;
+    }
+
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = () => setPreview(String(reader.result));
@@ -3868,7 +3891,8 @@ function ShopAdmin({
           vat_rate_bps: 0,
           stock_quantity: numericStock,
           character_source_id: null,
-          expected_product_version: null
+          expected_product_version: null,
+          image_url: preview || null
         })
       });
       onStateVersionChange(response.state_version);
@@ -3923,7 +3947,8 @@ function ShopAdmin({
           vat_rate_bps: product.vatRateBps ?? 0,
           stock_quantity: overrides.stock ?? Number(product.stock),
           character_source_id: null,
-          expected_product_version: product.version ?? 1
+          expected_product_version: product.version ?? 1,
+          image_url: product.imageSrc || null
         })
       }
     );
@@ -4782,6 +4807,208 @@ function Control({
 }
 
 /** 운영 기록 한 쪽에 담는 줄 수입니다. 이보다 많아지면 쪽 번호로 나눠 봅니다. */
+type PublicFundVoteView = {
+  vote_id: string;
+  title: string;
+  description?: string | null;
+  status: "READY" | "OPEN" | "CLOSED" | "RESULT_PUBLISHED";
+  state_version: number;
+  public_fund_balance: number;
+  participant_count: number;
+  ballot_count: number;
+  options: Array<{ option_id: string; label: string; description?: string | null; budget_amount: number; vote_count?: number | null }>;
+};
+
+function PublicFundAdmin({
+  classroomId,
+  currencyName,
+  students,
+  enabled,
+  onNotice
+}: Readonly<{
+  classroomId: string;
+  currencyName: string;
+  students: StudentRow[];
+  enabled: boolean;
+  onNotice: (message: string, tone?: LogTone) => void;
+}>) {
+  const [vote, setVote] = useState<PublicFundVoteView | null>(null);
+  const [fundBalance, setFundBalance] = useState(0);
+  const [title, setTitle] = useState("우리 반 공동기금 사용처");
+  const [description, setDescription] = useState("공동기금을 어디에 사용할지 함께 결정해요.");
+  const [options, setOptions] = useState([
+    { label: "학급 활동 준비", description: "모두가 참여하는 학급 활동에 사용해요.", budget: "0" },
+    { label: "교실 환경 개선", description: "교실에서 함께 쓰는 물품을 준비해요.", budget: "0" }
+  ]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load() {
+    setError("");
+    const to = new Date();
+    const from = new Date(to.getTime() - 365 * 24 * 60 * 60 * 1_000);
+    const [voteResult, reportResult] = await Promise.allSettled([
+      apiRequest<PublicFundVoteView>(`/classrooms/${classroomId}/votes/latest`),
+      apiRequest<{ public_fund_balance?: number }>(
+        `/classrooms/${classroomId}/reports?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`
+      )
+    ]);
+    if (voteResult.status === "fulfilled") {
+      setVote(voteResult.value);
+      setFundBalance(voteResult.value.public_fund_balance);
+    } else if (voteResult.reason instanceof ApiError && voteResult.reason.code === "RESOURCE_NOT_FOUND") {
+      setVote(null);
+    } else {
+      setError(voteResult.reason instanceof Error ? voteResult.reason.message : "투표를 불러오지 못했어요.");
+    }
+    if (reportResult.status === "fulfilled" && typeof reportResult.value.public_fund_balance === "number") {
+      setFundBalance(reportResult.value.public_fund_balance);
+    }
+  }
+
+  useEffect(() => {
+    if (enabled) void load();
+  }, [classroomId, enabled]);
+
+  function updateOption(index: number, field: "label" | "description" | "budget", value: string) {
+    setOptions((current) => current.map((option, optionIndex) => (
+      optionIndex === index ? { ...option, [field]: value } : option
+    )));
+  }
+
+  async function createVote() {
+    const participantIds = students.flatMap((student) => student.resourceId ? [student.resourceId] : []);
+    const normalized = options.map((option) => ({
+      label: option.label.trim(),
+      description: option.description.trim(),
+      budget_amount: Number(option.budget)
+    }));
+    if (!title.trim() || participantIds.length === 0 || normalized.length < 2 || normalized.some((option) => (
+      !option.label || !Number.isInteger(option.budget_amount) || option.budget_amount < 0
+    ))) {
+      setError("제목, 두 개 이상의 사용처, 참여 학생과 사용 금액을 확인해 주세요.");
+      return;
+    }
+    const voteId = crypto.randomUUID();
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/classrooms/${classroomId}/votes/${voteId}/commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: null,
+          screen_id: "SCR-TCH-FUND",
+          ui_action_id: "UIA-FUND-001",
+          client_occurred_at: new Date().toISOString(),
+          command: "CREATE",
+          title: title.trim(),
+          description: description.trim(),
+          options: normalized,
+          participant_ids: participantIds,
+          public_display_enabled: false,
+          selected_use: null
+        })
+      });
+      setVote(await apiRequest<PublicFundVoteView>(`/classrooms/${classroomId}/votes/${voteId}`));
+      onNotice("공동기금 사용처 투표를 만들었어요. 투표 시작을 누르면 학생에게 공개됩니다.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "투표를 만들지 못했어요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function command(commandName: "OPEN" | "CLOSE" | "REOPEN" | "CONFIRM_RESULT") {
+    if (!vote) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/classrooms/${classroomId}/votes/${vote.vote_id}/commands`, {
+        method: "POST",
+        body: JSON.stringify({
+          expected_state_version: vote.state_version,
+          screen_id: "SCR-TCH-FUND",
+          ui_action_id: `UIA-FUND-${commandName}`,
+          client_occurred_at: new Date().toISOString(),
+          command: commandName,
+          selected_use: commandName === "CONFIRM_RESULT" ? "공동기금 투표 결과에 따른 사용" : null
+        })
+      });
+      await load();
+      onNotice(commandName === "OPEN"
+        ? "투표를 시작해 학생 페이지에 공개했어요."
+        : commandName === "CLOSE"
+          ? "투표를 마감했어요. 결과를 확인한 뒤 공동기금 사용을 확정해 주세요."
+          : commandName === "REOPEN"
+            ? "0표로 마감된 투표를 다시 열어 학생에게 공개했어요."
+            : "투표 결과를 공개하고 선택된 금액을 공동기금에서 사용 처리했어요.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "투표 상태를 변경하지 못했어요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function confirmResult() {
+    if (!vote || vote.status !== "CLOSED" || vote.ballot_count === 0) return;
+    const highestCount = Math.max(...vote.options.map((option) => option.vote_count ?? 0));
+    const tiedOptions = vote.options.filter((option) => (option.vote_count ?? 0) === highestCount);
+    const winner = tiedOptions[0];
+    if (!winner) return;
+    const remainingBalance = fundBalance - winner.budget_amount;
+    if (remainingBalance < 0) {
+      globalThis.alert("현재 공동기금 잔액이 당선 사용처의 금액보다 적습니다. 잔액과 투표 내용을 다시 확인해 주세요.");
+      return;
+    }
+    const tieNotice = tiedOptions.length > 1
+      ? `\n\n동률 ${tiedOptions.length}개 중 목록에서 먼저 등록한 ‘${winner.label}’이 선정됩니다.`
+      : "";
+    const confirmed = globalThis.confirm(
+      `공동기금 사용을 확정할까요?\n\n당선 사용처: ${winner.label}\n득표: ${highestCount}표\n사용 금액: ${winner.budget_amount.toLocaleString("ko-KR")} ${currencyName}\n확정 후 잔액: ${remainingBalance.toLocaleString("ko-KR")} ${currencyName}${tieNotice}\n\n확정하면 되돌릴 수 없습니다.`
+    );
+    if (confirmed) void command("CONFIRM_RESULT");
+  }
+
+  if (!enabled) {
+    return <div className="page-flow"><PlainSection title="공동기금·투표"><p className="empty-copy">학급 설정에서 공동기금·투표 모듈을 먼저 켜 주세요.</p></PlainSection></div>;
+  }
+
+  return <div className="page-flow">
+    <PlainSection title="공동기금 현황" description="투표 결과를 확정하면 선택된 사용처의 금액이 공동기금에서 지출됩니다.">
+      <div className="public-fund-balance"><span>현재 공동기금</span><strong>{fundBalance.toLocaleString("ko-KR")} {currencyName}</strong></div>
+    </PlainSection>
+    {vote && vote.status !== "RESULT_PUBLISHED" ? <PlainSection title="진행 중인 투표">
+      <div className="public-vote-summary"><div><b>{vote.title}</b><span>{vote.description}</span></div><strong>{vote.status === "READY" ? "시작 전" : vote.status === "OPEN" ? "투표 중" : "마감"}</strong></div>
+      <div className="public-vote-options">{vote.options.map((option) => <div key={option.option_id}><b>{option.label}</b><span>{option.description}</span><strong>{option.budget_amount.toLocaleString("ko-KR")} {currencyName}{option.vote_count != null ? ` · ${option.vote_count}표` : ""}</strong></div>)}</div>
+      <p className="helper-text">참여 {vote.ballot_count}/{vote.participant_count}명</p>
+      <p className="helper-text">동률이면 목록에서 먼저 등록한 사용처가 선정됩니다.</p>
+      {vote.status === "CLOSED" && vote.ballot_count === 0 ? <p className="public-vote-warning" role="status">참여한 학생이 없어 결과를 확정할 수 없습니다. 투표를 다시 열어 주세요.</p> : null}
+      <div className="row-actions">
+        {vote.status === "READY" ? <button type="button" disabled={busy} onClick={() => void command("OPEN")}>투표 시작</button> : null}
+        {vote.status === "OPEN" ? <button type="button" disabled={busy} onClick={() => void command("CLOSE")}>투표 마감</button> : null}
+        {vote.status === "CLOSED" && vote.ballot_count === 0 ? <button type="button" className="ghost" disabled={busy} onClick={() => void command("REOPEN")}>투표 다시 열기</button> : null}
+        {vote.status === "CLOSED" && vote.ballot_count > 0 ? <button type="button" disabled={busy} onClick={confirmResult}>결과 공개·공동기금 사용 확정</button> : null}
+        <button type="button" className="ghost" disabled={busy} onClick={() => void load()}>새로고침</button>
+      </div>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+    </PlainSection> : <PlainSection title="새 사용처 투표 만들기">
+      {vote?.status === "RESULT_PUBLISHED" ? <p className="helper-text">이전 투표 결과가 확정됐습니다. 새 투표를 만들 수 있어요.</p> : null}
+      <div className="public-vote-form">
+        <label>투표 제목<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+        <label>안내 문구<textarea value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+        {options.map((option, index) => <div className="public-vote-option-edit" key={index}>
+          <label>사용처<input value={option.label} onChange={(event) => updateOption(index, "label", event.target.value)} /></label>
+          <label>설명<input value={option.description} onChange={(event) => updateOption(index, "description", event.target.value)} /></label>
+          <label>사용 금액<input inputMode="numeric" value={option.budget} onChange={(event) => updateOption(index, "budget", event.target.value)} /></label>
+          {options.length > 2 ? <button type="button" className="danger-text" onClick={() => setOptions((current) => current.filter((_, optionIndex) => optionIndex !== index))}>삭제</button> : null}
+        </div>)}
+        <div className="row-actions"><button type="button" className="ghost" onClick={() => setOptions((current) => [...current, { label: "", description: "", budget: "0" }])}>사용처 추가</button><button type="button" disabled={busy} onClick={() => void createVote()}>{busy ? "만드는 중" : "투표 만들기"}</button></div>
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
+      </div>
+    </PlainSection>}
+  </div>;
+}
+
 const APPROVAL_HISTORY_PAGE_SIZE = 10;
 
 function Approvals({

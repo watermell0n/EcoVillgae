@@ -236,6 +236,35 @@ class StoreProductCommandApiTest {
     }
 
     @Test
+    void keepsUploadedProductImageAndExposesItInStudentCatalog() throws Exception {
+        String imageUrl = "data:image/png;base64,iVBORw0KGgo=";
+        ObjectNode create = body(
+            "CREATE",
+            null,
+            null,
+            "Photo product",
+            250,
+            0,
+            10,
+            0,
+            0
+        );
+        create.put("image_url", imageUrl);
+        JsonNode created = execute(UUID.randomUUID(), create);
+        UUID productId = UUID.fromString(created.path("data").path("product_id").asText());
+
+        execute(
+            UUID.randomUUID(),
+            body("PUBLISH", productId, 1, "Photo product", 250, 0, 10, 0, 0)
+        );
+
+        mockMvc.perform(get("/classrooms/{classroomId}/store/catalog", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.products[0].image_url").value(imageUrl));
+    }
+
+    @Test
     void rejectsStaleClassroomPolicyAndProductVersionsAndPolicyRanges()
         throws Exception {
         policyRepository.save(ClassroomPolicyVersion.policy(

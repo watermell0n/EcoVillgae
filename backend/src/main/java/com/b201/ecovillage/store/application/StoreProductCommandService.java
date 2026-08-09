@@ -206,6 +206,9 @@ public class StoreProductCommandService {
             teacherId,
             now
         );
+        if (command.imageUrl() != null) {
+            product.updateImage(command.imageUrl(), now);
+        }
         productRepository.save(product);
         attachApprovedCharacter(command, productId);
         StoreProductVersion version = versionRepository.save(version(
@@ -253,6 +256,9 @@ public class StoreProductCommandService {
         }
 
         product.updateDescription(command.name(), command.description(), now);
+        if (command.imageUrl() != null) {
+            product.updateImage(command.imageUrl(), now);
+        }
         stock.replaceAvailableQuantity(command.stockQuantity(), now);
         attachApprovedCharacter(command, product.getId());
 
@@ -584,7 +590,7 @@ public class StoreProductCommandService {
                 + command.vatRateBps() + "|" + command.stockQuantity() + "|"
                 + command.characterSourceId() + "|" + command.expectedStateVersion()
                 + "|" + command.expectedPolicyVersion() + "|"
-                + command.expectedProductVersion()
+                + command.expectedProductVersion() + "|" + normalized(command.imageUrl())
         );
     }
 

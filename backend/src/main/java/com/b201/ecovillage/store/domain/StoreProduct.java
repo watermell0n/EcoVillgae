@@ -29,6 +29,9 @@ public class StoreProduct {
     @Column(columnDefinition = "text")
     private String description;
 
+    @Column(name = "image_url", columnDefinition = "text")
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "product_kind", nullable = false, updatable = false, length = 40)
     private StoreProductKind productKind;
@@ -106,6 +109,11 @@ public class StoreProduct {
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
+    public void updateImage(String imageUrl, Instant changedAt) {
+        this.imageUrl = normalizedImageUrl(imageUrl);
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
     public void publish(Instant changedAt) {
         if (status == StoreProductStatus.PUBLISHED) {
             throw new IllegalStateException("product is already published");
@@ -157,6 +165,10 @@ public class StoreProduct {
         return description;
     }
 
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
     public StoreProductKind getProductKind() {
         return productKind;
     }
@@ -186,5 +198,19 @@ public class StoreProduct {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String normalizedImageUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (!normalized.startsWith("data:image/")) {
+            throw new IllegalArgumentException("imageUrl must be an image data URL");
+        }
+        if (normalized.length() > 2_000_000) {
+            throw new IllegalArgumentException("imageUrl exceeds the maximum size");
+        }
+        return normalized;
     }
 }

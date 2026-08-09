@@ -14,6 +14,7 @@ public record StoreCatalogProductResponse(
     String productKind,
     String characterCode,
     String description,
-    Integer sortOrder
+    Integer sortOrder,
+    String imageUrl
 ) {
 }

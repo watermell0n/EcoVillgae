@@ -287,6 +287,63 @@ class AiSetupExecutionApiTest {
     }
 
     @Test
+    void appliesEditedSavingsRateInsteadOfOriginalRecommendation() throws Exception {
+        moduleId = UUID.randomUUID();
+        moduleRepository.save(ClassroomModule.disabled(
+            moduleId,
+            classroomId,
+            "SAVINGS",
+            NOW
+        ));
+        entityManager.flush();
+        entityManager.createNativeQuery("""
+            update classrooms
+               set scale_label = 'SEMESTER', actual_ends_on = '2026-12-31'
+             where id = :classroomId
+            """)
+            .setParameter("classroomId", classroomId)
+            .executeUpdate();
+        entityManager.clear();
+
+        MvcResult analysis = analyze(moduleAnalysisBody("SAVINGS"));
+        JsonNode data = objectMapper.readTree(
+            analysis.getResponse().getContentAsString()
+        ).path("data");
+        UUID proposalId = UUID.fromString(data.path("proposal_id").asText());
+        long proposed = data.path("candidates").get(0).path("proposed_value").asLong();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> range = ((List<Map<String, Object>>) proposalRepository
+            .findById(proposalId)
+            .orElseThrow()
+            .getAllowedRanges()
+            .get("items"))
+            .getFirst();
+        long maximum = ((Number) range.get("allowed_max_value")).longValue();
+        long edited = proposed < maximum ? proposed + 50 : proposed - 50;
+
+        apply(proposalId, UUID.randomUUID(), """
+            {
+              "command": "APPLY",
+              "edited_values": [
+                { "action_id": "savings-rate", "proposed_value": %d }
+              ],
+              "reason": "Apply the teacher-edited savings rate.",
+              "expected_policy_version": 0
+            }
+            """.formatted(edited))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.applied_values[0].proposed_value").value(edited));
+
+        ClassroomPolicyVersion policy = policyRepository
+            .findByClassroomIdAndPolicyAreaAndSupersededAtIsNull(
+                classroomId,
+                "SAVINGS_RATE"
+            )
+            .orElseThrow();
+        assertEquals(edited, ((Number) policy.getPolicyValues().get("rate_bps")).longValue());
+    }
+
+    @Test
     void fallsBackToRuleResultWhenFastApiFails() throws Exception {
         aiClient.mode = Mode.FAIL;
 
@@ -838,18 +895,22 @@ class AiSetupExecutionApiTest {
     }
 
     private String moduleAnalysisBody() {
+        return moduleAnalysisBody("DEPOSIT");
+    }
+
+    private String moduleAnalysisBody(String moduleCode) {
         return """
             {
               "analysis_mode": "SETUP_PRECHECK",
               "trigger_context": {
                 "context_type": "MODULE_ACTIVATION",
                 "module_activation": {
-                  "module_code": "DEPOSIT",
+                  "module_code": "%s",
                   "target_id": "%s"
                 }
               }
             }
-            """.formatted(moduleId);
+            """.formatted(moduleCode, moduleId);
     }
 
     private static String randomClassroomCode() {
@@ -880,7 +941,7 @@ class AiSetupExecutionApiTest {
             }
             SetupPrecheckContract.Response base = fallbackFactory.create(
                 request,
-                "rule-engine-v2",
+                "rule-engine-v3",
                 "FAKE_PROVIDER"
             );
             SetupPrecheckContract.Output output = base.output();

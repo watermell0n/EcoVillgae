@@ -87,12 +87,16 @@ function shortDateTime(value: string) {
   return `${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
+// 기본값을 매개변수에 직접 쓰면 렌더마다 새 배열이 만들어져 아래 useMemo가 무의미해지고,
+// 상품 선택 보정 effect가 매 렌더 돌면서 무한 렌더로 이어집니다. 참조를 고정합니다.
+const EMPTY_PRODUCTS: readonly ProductDraft[] = [];
+
 // kind는 화면에서 바꾸지 않고 배치하는 쪽이 정합니다.
 // 상품 가격 추천은 '상점 상품' 탭, GAME 보상 추천은 'AI 설정' 탭에 놓습니다.
 export function DraftRecommendationPanel({
   kind,
   classroomId,
-  products = [],
+  products = EMPTY_PRODUCTS,
   policyVersions,
   quizSessionId = "",
   activeStudentCount,
@@ -135,12 +139,15 @@ export function DraftRecommendationPanel({
   const [historyError, setHistoryError] = useState("");
 
   useEffect(() => setSessionId(quizSessionId), [quizSessionId]);
+  // 선택한 상품이 목록에서 사라졌을 때만 고르는 값을 되돌립니다. 상품을 쓰지 않는 퀴즈 보상
+  // 추천에서는 돌 필요가 없습니다.
   useEffect(() => {
+    if (kind !== "product") return;
     if (!serverProducts.some((product) => product.resourceId === productId)) {
       setProductId(serverProducts[0]?.resourceId ?? "");
       resetProposal();
     }
-  }, [productId, serverProducts]);
+  }, [kind, productId, serverProducts]);
   useEffect(() => {
     let cancelled = false;
     async function restoreHistory() {

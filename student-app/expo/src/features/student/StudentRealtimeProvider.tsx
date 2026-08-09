@@ -44,10 +44,22 @@ export function StudentRealtimeProvider({ children }: PropsWithChildren) {
         if (event.event_type === "finance.product.changed") {
           void queryClient.invalidateQueries({ queryKey: ["financial-products", classroomId] });
         }
+        if (event.event_type.startsWith("investment.")) {
+          void queryClient.invalidateQueries({ queryKey: ["investment-markets", classroomId] });
+          void queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
+        }
+        if (
+          event.event_type === "economic_event.published"
+          && event.payload.template_type === "INVESTMENT_NEWS"
+        ) {
+          void queryClient.invalidateQueries({ queryKey: ["investment-markets", classroomId] });
+        }
       },
       onRecoveryRequired: () => {
         void queryClient.invalidateQueries({ queryKey: ["financial-products", classroomId] });
         void queryClient.invalidateQueries({ queryKey: ["classroom-access", classroomId] });
+        void queryClient.invalidateQueries({ queryKey: ["investment-markets", classroomId] });
+        void queryClient.invalidateQueries({ queryKey: ["wallet", classroomId] });
       }
     });
     clientRef.current = client;

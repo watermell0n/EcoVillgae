@@ -87,9 +87,7 @@ public class InvestmentOrder {
         return order;
     }
 
-    /**
-     * 정산으로 실행된 매도다. 학생이 낸 주문이 아니라 교사가 다음 날로 넘길 때 서버가 만든다.
-     */
+    /** 학생의 장기 투자 매도 또는 교사의 다음 날 진행에 따른 자동 정산 매도다. */
     public static InvestmentOrder executedSell(
         UUID id,
         UUID classroomId,
@@ -110,6 +108,7 @@ public class InvestmentOrder {
 
     public UUID getId() { return id; }
     public UUID getTransactionGroupId() { return transactionGroupId; }
+    public String getSide() { return side; }
     public String getStatus() { return status; }
     public int getQuantity() { return quantity; }
     public long getExecutedPrice() { return executedPrice; }

@@ -20,6 +20,7 @@ public record StoreProductCommand(
     int vatRateBps,
     int stockQuantity,
     UUID characterSourceId,
-    Integer expectedProductVersion
+    Integer expectedProductVersion,
+    String imageUrl
 ) {
 }

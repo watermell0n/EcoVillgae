@@ -188,6 +188,13 @@ export default function RealEstateScreen() {
     if (selectedContractType === "SALE") return selected.salePrice;
     return selected.depositAmount;
   })();
+  const selectedContractPrice = !selected
+    ? 0
+    : selectedContractType === "SALE"
+      ? selected.salePrice
+      : selectedContractType === "JEONSE"
+        ? selected.depositAmount
+        : selected.monthlyRent;
   const balance = wallet.data?.balance ?? 0;
   const affordsContract = !wallet.isPending && balance >= contractCost;
 
@@ -197,7 +204,7 @@ export default function RealEstateScreen() {
 
   return (
     <Screen title="부동산·청약" subtitle="교실 좌석 소유권" right={<BackButton />}>
-      {notice ? <Pressable onPress={() => setNotice(null)} style={styles.notice}><Text style={styles.noticeText}>{notice}</Text><Text style={styles.noticeClose}>닫기</Text></Pressable> : null}
+      {notice ? <Pressable accessibilityRole="button" accessibilityLiveRegion="polite" onPress={() => setNotice(null)} style={styles.notice}><Text style={styles.noticeText}>{notice}</Text><Text style={styles.noticeClose}>닫기</Text></Pressable> : null}
 
       <StateCard tone="sky">
         <Text style={styles.lead}>교실 자리를 직접 보고 골라요</Text>
@@ -231,9 +238,9 @@ export default function RealEstateScreen() {
       </View>
 
       {selected ? <StateCard tone={mineIds.has(selected.propertyId) ? "mint" : "cream"}>
-        <View style={styles.detailHead}><View><Text style={styles.cardTitle}>{selected.coordinate} · {selected.displayName}</Text><Text style={styles.cardMeta}>{mineIds.has(selected.propertyId) ? "내가 소유한 자리" : propertyStatusLabel(selected.status)}</Text></View>{selected.salePrice > 0 ? <Text style={styles.detailPrice}>{selected.salePrice.toLocaleString("ko-KR")} {currency}</Text> : null}</View>
+        <View style={styles.detailHead}><View><Text style={styles.cardTitle}>{selected.coordinate} · {selected.displayName}</Text><Text style={styles.cardMeta}>{mineIds.has(selected.propertyId) ? "내가 소유한 자리" : propertyStatusLabel(selected.status)}</Text></View>{selectedContractPrice > 0 ? <Text style={styles.detailPrice}>{selectedContractPrice.toLocaleString("ko-KR")} {currency}{selectedContractType === "RENT" ? `/${selected.paymentCycleDays}일` : ""}</Text> : null}</View>
         {!mineIds.has(selected.propertyId) && selected.status !== "SUBSCRIPTION_OPEN" && contractTypes.length ? <>
-          <View style={styles.contractTypes}>{contractTypes.map((type) => <Pressable key={type} onPress={() => setSelectedContractType(type)} style={[styles.contractType, selectedContractType === type && styles.contractTypeSelected]}><Text style={[styles.contractTypeText, selectedContractType === type && styles.contractTypeTextSelected]}>{contractTypeLabel(type)}</Text></Pressable>)}</View>
+          <View accessibilityRole="radiogroup" style={styles.contractTypes}>{contractTypes.map((type) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: selectedContractType === type }} aria-checked={selectedContractType === type} key={type} onPress={() => setSelectedContractType(type)} style={[styles.contractType, selectedContractType === type && styles.contractTypeSelected]}><Text style={[styles.contractTypeText, selectedContractType === type && styles.contractTypeTextSelected]}>{contractTypeLabel(type)}</Text></Pressable>)}</View>
           <Text style={styles.description}>{selectedContractType === "SALE"
             ? `매매가 ${selected.salePrice.toLocaleString("ko-KR")} ${currency}`
             : selectedContractType === "JEONSE"
@@ -241,7 +248,7 @@ export default function RealEstateScreen() {
               : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}/${selected.paymentCycleDays}일 · ${selected.contractTermDays}일`}</Text>
         </> : null}
         {canContractSelected ? <>
-          <Pressable disabled={purchase.isPending || !affordsContract} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract) && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={purchase.isPending || !affordsContract} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract) && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
           {!affordsContract ? <Text style={styles.description}>지금 낼 돈이 {contractCost.toLocaleString("ko-KR")} {currency}인데 내 지갑에는 {balance.toLocaleString("ko-KR")} {currency}이 있어요. 돈을 더 모은 뒤 신청할 수 있어요.</Text> : null}
         </> : null}
         {!mineIds.has(selected.propertyId) && !canContractSelected ? <Text style={styles.description}>{selected.status === "SUBSCRIPTION_OPEN" ? "청약 당첨 후 구매를 신청할 수 있어요." : selected.isPublic ? "이 자리에는 현재 신청 가능한 매매·전세·월세 조건이 없어요." : "선생님이 아직 이 자리를 공개하지 않았어요."}</Text> : null}
@@ -294,18 +301,18 @@ export default function RealEstateScreen() {
 
 const styles = StyleSheet.create({
   lead: { color: colors.ink900, fontSize: 20, fontWeight: "900" },
-  description: { color: colors.muted600, fontSize: 15, lineHeight: 22 },
+  description: { color: colors.muted700, fontSize: 15, lineHeight: 22 },
   notice: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingHorizontal: 16, paddingVertical: 13, borderRadius: radii.control, backgroundColor: "#FFF5D8" },
   noticeText: { flex: 1, color: colors.ink900, fontSize: 15, fontWeight: "800" },
-  noticeClose: { color: colors.orange500, fontWeight: "900" },
+  noticeClose: { color: colors.orange700, fontWeight: "900" },
   section: { gap: 12 }, sectionHead: { gap: 8 }, sectionTitle: { color: colors.ink900, fontSize: 22, fontWeight: "900" }, subTitle: { marginTop: 4, color: colors.ink900, fontSize: 18, fontWeight: "900" },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12 }, directText: { color: colors.green500, fontWeight: "800" }, resaleText: { color: colors.orange500, fontWeight: "800" }, subscriptionText: { color: colors.purple500, fontWeight: "800" }, ownedText: { color: colors.muted600, fontWeight: "800" },
-  board: { width: "60%", alignSelf: "center", alignItems: "center", padding: 9, borderWidth: 4, borderColor: "#91A7B5", borderRadius: 6, backgroundColor: colors.white }, boardText: { color: colors.muted600, fontSize: 12, fontWeight: "900", letterSpacing: 8 },
+  legend: { flexDirection: "row", flexWrap: "wrap", gap: 12 }, directText: { color: colors.green700, fontWeight: "800" }, resaleText: { color: colors.orange700, fontWeight: "800" }, subscriptionText: { color: colors.purple500, fontWeight: "800" }, ownedText: { color: colors.muted700, fontWeight: "800" },
+  board: { width: "60%", alignSelf: "center", alignItems: "center", padding: 9, borderWidth: 4, borderColor: "#91A7B5", borderRadius: 6, backgroundColor: colors.white }, boardText: { color: colors.muted700, fontSize: 12, fontWeight: "900", letterSpacing: 8 },
   seatScrollContent: { minWidth: "100%", alignItems: "center" }, seatStage: { gap: 18 }, seatGrid: { flexDirection: "row", flexWrap: "wrap", gap: SEAT_GAP }, seat: { minHeight: 88, alignItems: "center", justifyContent: "center", padding: 8, borderWidth: 1.5, borderRadius: 13 }, seatDirect: { borderColor: colors.green500, backgroundColor: colors.washMint }, seatResale: { borderColor: colors.orange500, backgroundColor: "#FFF3E4" }, seatSubscription: { borderColor: colors.purple500, backgroundColor: "#F2EDFF" }, seatOwned: { borderColor: "#AAB6C1", backgroundColor: "#F0F3F6" }, seatMine: { borderColor: "#2B82B5", backgroundColor: colors.washBlue }, seatSelected: { borderWidth: 3 }, pressed: { opacity: .75 },
-  seatCoordinate: { color: colors.ink900, fontSize: 17, fontWeight: "900" }, seatStatus: { marginTop: 3, color: colors.muted600, fontSize: 11, fontWeight: "800" }, seatPrice: { marginTop: 4, color: colors.ink900, fontSize: 11, fontWeight: "900" },
-  detailHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, detailPrice: { color: colors.green500, fontSize: 20, fontWeight: "900" }, cardTitle: { color: colors.ink900, fontSize: 18, fontWeight: "900" }, cardMeta: { color: colors.muted600, fontSize: 14, fontWeight: "700" }, offerPrice: { color: colors.purple500, fontSize: 18, fontWeight: "900" }, balance: { color: colors.purple500, fontSize: 30, fontWeight: "900" },
+  seatCoordinate: { color: colors.ink900, fontSize: 17, fontWeight: "900" }, seatStatus: { marginTop: 3, color: colors.muted700, fontSize: 11, fontWeight: "800" }, seatPrice: { marginTop: 4, color: colors.ink900, fontSize: 11, fontWeight: "900" },
+  detailHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, detailPrice: { color: colors.green700, fontSize: 20, fontWeight: "900" }, cardTitle: { color: colors.ink900, fontSize: 18, fontWeight: "900" }, cardMeta: { color: colors.muted700, fontSize: 14, fontWeight: "700" }, offerPrice: { color: colors.purple500, fontSize: 18, fontWeight: "900" }, balance: { color: colors.purple500, fontSize: 30, fontWeight: "900" },
   inlineForm: { marginTop: 8, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 }, input: { minWidth: 120, minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white, color: colors.ink900, fontSize: 17, fontWeight: "800" },
-  primary: { alignSelf: "flex-start", minHeight: 46, justifyContent: "center", marginTop: 10, paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.green500 }, orangeButton: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.orange500 }, primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" }, secondary: { alignSelf: "flex-start", minHeight: 42, justifyContent: "center", marginTop: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, secondaryText: { color: colors.ink900, fontWeight: "900" }, disabled: { opacity: .45 },
+  primary: { alignSelf: "flex-start", minHeight: 48, justifyContent: "center", marginTop: 10, paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.green700 }, orangeButton: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.orange700 }, primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" }, secondary: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, secondaryText: { color: colors.ink900, fontWeight: "900" }, disabled: { opacity: .45 },
   applicationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, applicationStatus: { color: colors.purple500, fontSize: 16, fontWeight: "900" },
-  contractTypes: { marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 8 }, contractType: { paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.chip, backgroundColor: colors.white }, contractTypeSelected: { borderColor: colors.green500, backgroundColor: colors.washMint }, contractTypeText: { color: colors.muted600, fontWeight: "900" }, contractTypeTextSelected: { color: colors.green500 }
+  contractTypes: { marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 8 }, contractType: { minHeight: 44, justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.chip, backgroundColor: colors.white }, contractTypeSelected: { borderColor: colors.green700, backgroundColor: colors.washMint }, contractTypeText: { color: colors.muted700, fontWeight: "900" }, contractTypeTextSelected: { color: colors.green700 }
 });
