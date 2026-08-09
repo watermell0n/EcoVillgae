@@ -162,7 +162,7 @@ class TeacherSessionApiTest {
     }
 
     @Test
-    void rejectsTeacherRefreshTokenInStudentHeaderAndAmbiguousTransport() throws Exception {
+    void rejectsTeacherRefreshTokenInStudentHeaderWithoutFallingBackToCookie() throws Exception {
         MvcResult login = login();
         Cookie teacherCookie = login.getResponse().getCookie("ecovillage_teacher_refresh");
         assertNotNull(teacherCookie);
@@ -181,8 +181,8 @@ class TeacherSessionApiTest {
                 .header("X-Refresh-Token", "stu_unrelated-token")
                 .cookie(teacherCookie)
         )
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error.code").value("AMBIGUOUS_REFRESH_TOKEN"));
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error.code").value("INVALID_REFRESH_TOKEN"));
     }
 
     @Test

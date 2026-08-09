@@ -522,8 +522,8 @@ paths:
       x-rtm-ids: []
       tags:
         - "Authentication"
-      summary: "STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다"
-      description: "사람이 검토하는 원문 기준: `API-AUTH-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 갱신 토큰 보유 사용자.\n\n핵심 계약: STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 두 전송 수단을 함께 보내면 거절한다.\n\n학생 앱은 X-Refresh-Token 헤더를 사용하고 새 갱신 토큰을 본문으로 받습니다. 교사 웹은 HttpOnly 갱신 쿠키를 사용하며 갱신 토큰을 본문으로 받지 않습니다."
+      summary: "STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 같은 출처에서 교사 쿠키가 함께 전송되어도 명시적인 학생 헤더를 우선한다"
+      description: "사람이 검토하는 원문 기준: `API-AUTH-004` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: 갱신 토큰 보유 사용자.\n\n핵심 계약: STU는 SecureStore의 갱신 토큰을 X-Refresh-Token으로 보내고 새 액세스, 갱신 토큰을 본문으로 받는다. TCH는 HttpOnly 쿠키를 보내고 새 액세스 토큰만 본문으로 받으며 갱신 쿠키는 회전된다. 같은 출처에서 교사 쿠키가 함께 전송되어도 명시적인 학생 헤더를 우선한다.\n\n학생 앱은 X-Refresh-Token 헤더를 사용하고 새 갱신 토큰을 본문으로 받습니다. 교사 웹은 HttpOnly 갱신 쿠키를 사용하며 갱신 토큰을 본문으로 받지 않습니다."
       security:
         - refreshCookie: []
         - refreshHeader: []

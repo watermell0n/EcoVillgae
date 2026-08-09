@@ -1,4 +1,4 @@
-import { apiRequest, refreshStudentTokens } from "@/api/client";
+import { ApiError, apiRequest, refreshStudentTokens } from "@/api/client";
 import {
   getRefreshToken,
   getStoredIdentity,
@@ -131,8 +131,15 @@ export async function restoreStudentIdentity(): Promise<StudentIdentity | null> 
     return storedIdentity;
   }
 
-  await refreshStudentTokens();
-  return hydrateStudentIdentity(storedIdentity);
+  try {
+    await refreshStudentTokens();
+    return await hydrateStudentIdentity(storedIdentity);
+  } catch (error) {
+    // Temporary network or server failures must not erase a valid browser
+    // session. Authentication failures still bubble up so stale tokens clear.
+    if (error instanceof ApiError && [401, 403].includes(error.status)) throw error;
+    return storedIdentity;
+  }
 }
 
 export async function logoutStudent() {

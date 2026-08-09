@@ -512,6 +512,7 @@ class StudentSessionApiTest {
             post("/auth/token-refreshes")
                 .header("Idempotency-Key", UUID.randomUUID())
                 .header("X-Refresh-Token", refreshToken)
+                .cookie(new Cookie("ecovillage_teacher_refresh", "tch_ambient-cookie"))
         )
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.role").value("STU"))

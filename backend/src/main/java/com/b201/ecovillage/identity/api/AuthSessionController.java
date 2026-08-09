@@ -67,17 +67,12 @@ public class AuthSessionController {
     ) {
         String studentHeaderToken = trimToNull(headerToken);
         String teacherCookieToken = trimToNull(refreshCookie(request));
-        if (studentHeaderToken != null && teacherCookieToken != null) {
-            throw new TeacherAuthenticationException(
-                HttpStatus.BAD_REQUEST,
-                "AMBIGUOUS_REFRESH_TOKEN",
-                "학생용 갱신 헤더와 교사용 갱신 쿠키를 동시에 보낼 수 없습니다.",
-                false
-            );
-        }
-        SessionRefreshResult result = teacherCookieToken != null
-            ? sessionRefreshService.refreshTeacher(teacherCookieToken)
-            : sessionRefreshService.refreshStudent(studentHeaderToken);
+        // Teacher and student clients share one public origin in production, so
+        // the browser can attach an ambient teacher cookie to a student refresh.
+        // Prefer the explicit student credential instead of rejecting the reload.
+        SessionRefreshResult result = studentHeaderToken != null
+            ? sessionRefreshService.refreshStudent(studentHeaderToken)
+            : sessionRefreshService.refreshTeacher(teacherCookieToken);
         SessionRefreshResponse data = new SessionRefreshResponse(
             result.accessToken(),
             "STU".equals(result.role()) ? result.refreshToken() : null,
