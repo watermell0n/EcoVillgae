@@ -39,6 +39,8 @@ import com.b201.ecovillage.investment.repository.InvestmentAssetRepository;
 import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
 import com.b201.ecovillage.investment.repository.InvestmentPriceStepRepository;
 import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionRepository;
+import com.b201.ecovillage.ruleengine.application.ClassroomEconomicMetricsProvider;
+import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
 
 @Service
 public class InvestmentScenarioService {
@@ -62,6 +64,7 @@ public class InvestmentScenarioService {
     private final HistoricalIndexPathProvider historicalProvider;
     private final InvestmentCompanyFactory companyFactory;
     private final InvestmentRealtimePublisher realtimePublisher;
+    private final ClassroomEconomicMetricsProvider metricsProvider;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -76,6 +79,7 @@ public class InvestmentScenarioService {
         HistoricalIndexPathProvider historicalProvider,
         InvestmentCompanyFactory companyFactory,
         InvestmentRealtimePublisher realtimePublisher,
+        ClassroomEconomicMetricsProvider metricsProvider,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -89,6 +93,7 @@ public class InvestmentScenarioService {
         this.historicalProvider = historicalProvider;
         this.companyFactory = companyFactory;
         this.realtimePublisher = realtimePublisher;
+        this.metricsProvider = metricsProvider;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -170,6 +175,7 @@ public class InvestmentScenarioService {
             mode, source, reference, now
         ));
         List<InvestmentScenarioResult.Asset> createdAssets = new ArrayList<>();
+        long fallbackBasePrice = fallbackBasePrice(classroomId, mode, now);
         // 기업 이름은 시나리오마다 AI가 새로 짓는다. 교사가 정한 값은 종목 목록의 자리에
         // 묶여 있으므로 자리와 순서는 그대로 두고 보여 줄 이름만 바뀐다.
         List<InvestmentCompanyFactory.Company> companies = companyFactory.create(classroom, mode);
@@ -188,7 +194,7 @@ public class InvestmentScenarioService {
                 uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(),
                 company.name(), company.profile(), index + 1, band.min(), band.max(), now
             ));
-            long startPrice = startPrice(seed, condition);
+            long startPrice = startPrice(seed, condition, fallbackBasePrice);
             BigDecimal running = BigDecimal.valueOf(startPrice);
             long price = startPrice;
             for (int step = 1; step <= stepCount; step++) {
@@ -573,13 +579,39 @@ public class InvestmentScenarioService {
         return List.copyOf(rates);
     }
 
-    private static long startPrice(InvestmentAssetCatalog.Seed seed, AssetCondition condition) {
+    private static long startPrice(
+        InvestmentAssetCatalog.Seed seed,
+        AssetCondition condition,
+        long fallbackBasePrice
+    ) {
         if (condition != null && condition.startPrice() != null) {
             return condition.startPrice();
         }
-        return InvestmentAssetCatalog.priceAt(
-            InvestmentAssetCatalog.DEFAULT_BASE_PRICE, seed.priceWeight()
-        );
+        return InvestmentAssetCatalog.priceAt(fallbackBasePrice, seed.priceWeight());
+    }
+
+    /**
+     * 교사가 1주 시작가를 정하지 않았을 때 쓰는 학급 기준가다.
+     *
+     * <p>규칙 엔진 추천과 같은 공식으로, 학생 대표 잔액(중앙값, 없으면 평균) 가운데 단기는
+     * 30%·장기는 20%로 한 종목을 3주쯤 살 수 있게 잡는다. 추천 조회가 실패해도 고정 기준가
+     * 대신 학급 살림 규모에 맞는 가격이 되게 한다. 잔액을 아직 알 수 없는 새 학급이면 기본
+     * 기준가를 대표 잔액으로 본다.
+     */
+    private long fallbackBasePrice(UUID classroomId, InvestmentMode mode, Instant now) {
+        ClassroomEconomicMetrics metrics = metricsProvider.of(classroomId, now);
+        long representative = metrics.medianStudentBalance() > 0L
+            ? metrics.medianStudentBalance()
+            : metrics.averageStudentBalance() > 0L
+                ? metrics.averageStudentBalance()
+                : InvestmentAssetCatalog.DEFAULT_BASE_PRICE;
+        BigDecimal share = mode == InvestmentMode.SHORT_TERM
+            ? new BigDecimal("0.30")
+            : new BigDecimal("0.20");
+        return Math.max(1L, BigDecimal.valueOf(representative)
+            .multiply(share)
+            .divide(BigDecimal.valueOf(3L), 0, RoundingMode.HALF_UP)
+            .longValueExact());
     }
 
     /** 교사가 종목마다 정한 값이다. 보내지 않은 항목은 null로 두고 서버 기본값을 쓴다. */

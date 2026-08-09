@@ -131,11 +131,14 @@ class InvestmentFlowApiTest {
 
     @Test
     void generatesHistoricalScenarioStartsMarketAndExecutesStudentBuy() throws Exception {
+        // 이 테스트는 2일차 1010 같은 고정 금액을 검증하므로 시작가를 1000으로 못 박는다.
+        // (보내지 않으면 학급 잔액 기준으로 계산돼 지갑 시딩 금액에 따라 달라진다.)
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"investment_mode":"LONG_TERM","prefer_historical_index":true}
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":true,
+                     "asset_conditions":[{"symbol":"GREEN","start_price":1000}]}
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.scenario_source").value("HISTORICAL_INDEX"))
@@ -331,8 +334,9 @@ class InvestmentFlowApiTest {
             .andExpect(jsonPath("$.data.assets[0].min_return_bps").value(-300))
             .andExpect(jsonPath("$.data.assets[0].max_return_bps").value(300))
             .andExpect(jsonPath("$.data.assets[1].initial_price").value(620))
-            // 보내지 않은 종목은 서버 기본 시작가와 기본 변동 범위를 쓴다.
-            .andExpect(jsonPath("$.data.assets[2].initial_price").value(800));
+            // 보내지 않은 종목은 학급 잔액으로 계산한 기본 시작가를 쓴다.
+            // 지갑 중앙값 10,000 × 20%(장기) ÷ 3주 = 667 → FOOD 비중 0.8 → 10 단위 반올림 530.
+            .andExpect(jsonPath("$.data.assets[2].initial_price").value(530));
 
         String body = mockMvc.perform(get("/classrooms/{classroomId}/investment-market", classroomId)
                 .param("investment_mode", "LONG_TERM")
@@ -438,11 +442,13 @@ class InvestmentFlowApiTest {
 
     @Test
     void settlesEveryHoldingAndClosesTheMarketOnTheFinalDay() throws Exception {
+        // 지갑 잔액을 8,000으로 검증하므로 매수가가 흔들리지 않게 시작가를 1000으로 못 박는다.
         mockMvc.perform(put("/classrooms/{classroomId}/investment-market/scenario", classroomId)
                 .principal(owner)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"investment_mode":"LONG_TERM","prefer_historical_index":true}
+                    {"investment_mode":"LONG_TERM","prefer_historical_index":true,
+                     "asset_conditions":[{"symbol":"GREEN","start_price":1000}]}
                     """))
             .andExpect(status().isOk());
         mockMvc.perform(post("/classrooms/{classroomId}/investment-market/commands", classroomId)
