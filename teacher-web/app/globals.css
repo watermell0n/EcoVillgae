@@ -1550,7 +1550,7 @@ button:disabled {
 .public-vote-option-edit {
   display: grid;
   grid-template-columns: 1fr 1.4fr minmax(130px, .5fr) auto;
-  align-items: end;
+  align-items: flex-end;
   gap: 10px;
   padding: 14px;
   border-radius: 10px;

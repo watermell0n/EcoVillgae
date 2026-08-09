@@ -1,6 +1,6 @@
 import { randomUUID } from "expo-crypto";
 
-import { apiRequest } from "@/api/client";
+import { ApiError, apiRequest } from "@/api/client";
 
 const useMocks = process.env.EXPO_PUBLIC_USE_MOCK_STUDENT_FEATURES === "true";
 
@@ -44,6 +44,52 @@ export async function fetchWallet(classroomId: string): Promise<Wallet> {
       occurredAt: transaction.occurred_at ?? now()
     }))
   };
+}
+
+export type Payslip = {
+  resourceId: string;
+  periodKey: string;
+  roleName: string;
+  grossAmount: number;
+  deductionAmount: number;
+  taxAmount: number;
+  netAmount: number;
+  issuedAt: string;
+};
+
+export async function fetchPayslips(classroomId: string): Promise<Payslip[]> {
+  if (useMocks) return [{
+    resourceId: "mock-payslip",
+    periodKey: "1일차",
+    roleName: "환경 지킴이",
+    grossAmount: 175,
+    deductionAmount: 0,
+    taxAmount: 17,
+    netAmount: 158,
+    issuedAt: now()
+  }];
+  const response = await apiRequest<{
+    payslips: Array<{
+      resource_id: string;
+      period_key: string;
+      role_name: string;
+      gross_amount: number;
+      deduction_amount: number;
+      tax_amount: number;
+      net_amount: number;
+      issued_at: string;
+    }>;
+  }>(`/classrooms/${classroomId}/students/me/payslips?limit=24`);
+  return response.payslips.map((item) => ({
+    resourceId: item.resource_id,
+    periodKey: item.period_key,
+    roleName: item.role_name,
+    grossAmount: item.gross_amount,
+    deductionAmount: item.deduction_amount,
+    taxAmount: item.tax_amount,
+    netAmount: item.net_amount,
+    issuedAt: item.issued_at
+  }));
 }
 
 export type FinancialProduct = {
@@ -473,12 +519,15 @@ export type Vote = {
   status: string;
   stateVersion: number;
   publicFundBalance: number;
+  eligible: boolean;
   hasVoted: boolean;
-  options: Array<{ optionId: string; label: string; description: string; budgetAmount: number }>;
+  selectedOptionId?: string;
+  selectedUse?: string;
+  options: Array<{ optionId: string; label: string; description: string; budgetAmount: number; voteCount?: number }>;
 };
 
 export async function fetchVote(classroomId: string, voteId: string): Promise<Vote> {
-  if (useMocks) return { voteId, title: "공동기금 사용처 투표", description: "우리 반 공동기금을 어디에 쓸지 골라요.", status: "OPEN", stateVersion: 1, publicFundBalance: 340, hasVoted: false, options: [{ optionId: "mock-snack", label: "간식 타임", description: "다 같이 먹을 간식을 준비해요.", budgetAmount: 180 }, { optionId: "mock-movie", label: "영화 보기", description: "우리 반이 함께 볼 영화를 골라요.", budgetAmount: 300 }] };
+  if (useMocks) return mockVote(voteId);
   const response = await apiRequest<{
     vote_id: string;
     title: string;
@@ -486,9 +535,51 @@ export async function fetchVote(classroomId: string, voteId: string): Promise<Vo
     status: string;
     state_version: number;
     public_fund_balance: number;
+    eligible?: boolean | null;
     has_voted?: boolean | null;
-    options: Array<{ option_id: string; label: string; description?: string | null; budget_amount: number }>;
+    selected_option_id?: string | null;
+    selected_use?: string | null;
+    options: Array<{ option_id: string; label: string; description?: string | null; budget_amount: number; vote_count?: number | null }>;
   }>(`/classrooms/${classroomId}/votes/${voteId}`);
+  return mapVote(response);
+}
+
+export async function fetchLatestVote(classroomId: string): Promise<Vote | null> {
+  if (useMocks) return mockVote("mock-vote");
+  try {
+    const response = await apiRequest<{
+      vote_id: string;
+      title: string;
+      description?: string | null;
+      status: string;
+      state_version: number;
+      public_fund_balance: number;
+      eligible?: boolean | null;
+      has_voted?: boolean | null;
+      selected_option_id?: string | null;
+      selected_use?: string | null;
+      options: Array<{ option_id: string; label: string; description?: string | null; budget_amount: number; vote_count?: number | null }>;
+    }>(`/classrooms/${classroomId}/votes/latest`);
+    return mapVote(response);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "RESOURCE_NOT_FOUND") return null;
+    throw error;
+  }
+}
+
+function mapVote(response: {
+  vote_id: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  state_version: number;
+  public_fund_balance: number;
+  eligible?: boolean | null;
+  has_voted?: boolean | null;
+  selected_option_id?: string | null;
+  selected_use?: string | null;
+  options: Array<{ option_id: string; label: string; description?: string | null; budget_amount: number; vote_count?: number | null }>;
+}): Vote {
   return {
     voteId: response.vote_id,
     title: response.title,
@@ -496,8 +587,34 @@ export async function fetchVote(classroomId: string, voteId: string): Promise<Vo
     status: response.status,
     stateVersion: response.state_version,
     publicFundBalance: response.public_fund_balance,
+    eligible: response.eligible ?? true,
     hasVoted: response.has_voted ?? false,
-    options: response.options.map((option) => ({ optionId: option.option_id, label: option.label, description: option.description ?? "", budgetAmount: option.budget_amount }))
+    selectedOptionId: response.selected_option_id ?? undefined,
+    selectedUse: response.selected_use ?? undefined,
+    options: response.options.map((option) => ({
+      optionId: option.option_id,
+      label: option.label,
+      description: option.description ?? "",
+      budgetAmount: option.budget_amount,
+      voteCount: option.vote_count ?? undefined
+    }))
+  };
+}
+
+function mockVote(voteId: string): Vote {
+  return {
+    voteId,
+    title: "공동기금 사용처 투표",
+    description: "우리 반 공동기금을 어디에 쓸지 골라요.",
+    status: "OPEN",
+    stateVersion: 1,
+    publicFundBalance: 340,
+    eligible: true,
+    hasVoted: false,
+    options: [
+      { optionId: "mock-snack", label: "간식 타임", description: "다 같이 먹을 간식을 준비해요.", budgetAmount: 180 },
+      { optionId: "mock-movie", label: "영화 보기", description: "우리 반이 함께 볼 영화를 골라요.", budgetAmount: 300 }
+    ]
   };
 }
 

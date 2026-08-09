@@ -4,10 +4,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/auth/AuthProvider";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
+import { useClassroom } from "@/features/classroom/ClassroomProvider";
 import { colors, radii } from "@/theme/tokens";
 
 export default function ProfileScreen() {
   const { identity, logout } = useAuth();
+  const { enabled } = useClassroom();
 
   async function handleLogout() {
     await logout();
@@ -27,9 +29,11 @@ export default function ProfileScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/wallet")} style={styles.link}>
           <Text style={styles.linkText}>내 지갑</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => router.push("/paystub")} style={styles.link}>
-          <Text style={styles.linkText}>월급명세서</Text>
-        </Pressable>
+        {enabled("paystub") ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push("/paystub")} style={styles.link}>
+            <Text style={styles.linkText}>월급명세서</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Pressable accessibilityRole="button" onPress={handleLogout} style={styles.logout}>
         <Text style={styles.logoutText}>안전하게 로그아웃</Text>

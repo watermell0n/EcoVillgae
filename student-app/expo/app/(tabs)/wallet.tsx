@@ -13,7 +13,8 @@ export default function WalletScreen() {
   const wallet = useQuery({
     queryKey: ["wallet", identity?.classroomId],
     queryFn: () => fetchWallet(identity!.classroomId),
-    enabled: Boolean(identity?.classroomId)
+    enabled: Boolean(identity?.classroomId),
+    refetchInterval: 5_000
   });
 
   return (

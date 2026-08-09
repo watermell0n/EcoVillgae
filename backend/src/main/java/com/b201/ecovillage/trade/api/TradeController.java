@@ -144,7 +144,7 @@ public class TradeController {
 
     /** 교사 승인을 기다리는 거래 목록이다. 승인·정산 화면이 읽는다. */
     @GetMapping("/awaiting-teacher")
-    public ResponseEntity<ApiResponse<List<PendingTradeView>>> awaitingTeacher(
+    public ResponseEntity<ApiResponse<TradeListResponse>> awaitingTeacher(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -155,12 +155,12 @@ public class TradeController {
             subject(principal), classroomId
         );
         return ResponseEntity.ok(new ApiResponse<>(
-            trades, new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
+            new TradeListResponse(trades), new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         ));
     }
 
     @GetMapping("/classmates")
-    public ResponseEntity<ApiResponse<List<TradeClassmateView>>> classmates(
+    public ResponseEntity<ApiResponse<TradeClassmateListResponse>> classmates(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -168,13 +168,15 @@ public class TradeController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         return ResponseEntity.ok(new ApiResponse<>(
-            pendingTradeQueryService.findClassmates(subject(principal), classroomId),
+            new TradeClassmateListResponse(
+                pendingTradeQueryService.findClassmates(subject(principal), classroomId)
+            ),
             new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         ));
     }
 
     @GetMapping("/mine")
-    public ResponseEntity<ApiResponse<List<PendingTradeView>>> mine(
+    public ResponseEntity<ApiResponse<TradeListResponse>> mine(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -182,14 +184,14 @@ public class TradeController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         return ResponseEntity.ok(new ApiResponse<>(
-            pendingTradeQueryService.findMine(subject(principal), classroomId),
+            new TradeListResponse(pendingTradeQueryService.findMine(subject(principal), classroomId)),
             new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         ));
     }
 
     /** 교사가 이미 처리한 거래다. 운영 기록이 읽는다. */
     @GetMapping("/decided")
-    public ResponseEntity<ApiResponse<List<PendingTradeView>>> decided(
+    public ResponseEntity<ApiResponse<TradeListResponse>> decided(
         @PathVariable UUID classroomId,
         @RequestHeader(name = "X-Correlation-Id", required = false) UUID correlationId,
         Principal principal
@@ -197,7 +199,7 @@ public class TradeController {
         UUID requestId = uuidGenerator.generate();
         UUID resolvedCorrelationId = correlationId == null ? uuidGenerator.generate() : correlationId;
         return ResponseEntity.ok(new ApiResponse<>(
-            pendingTradeQueryService.findDecided(subject(principal), classroomId),
+            new TradeListResponse(pendingTradeQueryService.findDecided(subject(principal), classroomId)),
             new ApiMeta(requestId, resolvedCorrelationId, clock.instant())
         ));
     }

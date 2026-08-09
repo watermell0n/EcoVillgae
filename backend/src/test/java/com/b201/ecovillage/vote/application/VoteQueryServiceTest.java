@@ -3,6 +3,7 @@ package com.b201.ecovillage.vote.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.b201.ecovillage.classroom.application.ClassroomOperationException;
 import com.b201.ecovillage.identity.authorization.AuthorizationDecision;
 import com.b201.ecovillage.identity.authorization.AuthorizationScope;
 import com.b201.ecovillage.identity.authorization.ClassroomActorRole;
@@ -33,6 +35,57 @@ import com.b201.ecovillage.vote.repository.VoteRepository;
 class VoteQueryServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-07-30T03:00:00Z");
+
+    @Test
+    void hidesReadyVoteFromStudentsUntilTeacherOpensIt() {
+        UUID classroomId = UUID.randomUUID();
+        UUID voteId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        ClassroomAuthorizationService authorizationService =
+            mock(ClassroomAuthorizationService.class);
+        VoteRepository voteRepository = mock(VoteRepository.class);
+        VoteQueryService service = new VoteQueryService(
+            authorizationService,
+            voteRepository,
+            mock(VoteOptionRepository.class),
+            mock(VoteEligibilityRepository.class),
+            mock(VoteBallotRepository.class),
+            mock(LedgerAccountRepository.class),
+            mock(TransactionBusinessRefRepository.class),
+            mock(TransactionGroupRepository.class)
+        );
+        Vote vote = Vote.ready(
+            voteId,
+            classroomId,
+            "Class fund use",
+            null,
+            NOW
+        );
+        when(authorizationService.authorize(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.eq(classroomId),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq(studentId)
+        )).thenReturn(new AuthorizationDecision(
+            "ALLOW",
+            "PM-ACT-001",
+            ClassroomActorRole.STU,
+            AuthorizationScope.SELF,
+            voteId,
+            0,
+            null,
+            NOW
+        ));
+        when(voteRepository.findByClassroomIdAndId(classroomId, voteId))
+            .thenReturn(Optional.of(vote));
+
+        ClassroomOperationException failure = assertThrows(
+            ClassroomOperationException.class,
+            () -> service.get(studentId.toString(), classroomId, voteId)
+        );
+
+        assertEquals("RESOURCE_NOT_FOUND", failure.getCode());
+    }
 
     @Test
     void hidesLiveOptionCountsAndIndividualChoiceFromStudents() {

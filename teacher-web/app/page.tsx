@@ -704,6 +704,14 @@ export default function TeacherConsole() {
     writeStoredConsoleState({ classroomId: activeClassroomId, view });
   }, [stage, activeClassroomId, view]);
 
+  // 학생이 거래를 수락한 뒤 교사가 교실을 다시 열지 않아도 승인 대기 목록에 나타나게 합니다.
+  useEffect(() => {
+    if (stage !== "console" || view !== "approvals" || !activeClassroomId) return;
+    void loadApprovals(activeClassroomId);
+    const timer = window.setInterval(() => void loadApprovals(activeClassroomId, true), 5_000);
+    return () => window.clearInterval(timer);
+  }, [stage, view, activeClassroomId]);
+
   // 뒤로가기로 되돌아온 변경은 다시 히스토리에 쌓지 않습니다.
   const restoringHistory = useRef(false);
 
@@ -882,12 +890,12 @@ export default function TeacherConsole() {
    * <p>거래·대출·부동산 계약은 각각 다른 화면에서 만들어지지만 교사가 처리하는 자리는
    * "승인·정산" 한 곳입니다. 한 갈래를 읽지 못해도 나머지는 보여 줍니다.
    */
-  async function loadApprovals(resourceId: string) {
+  async function loadApprovals(resourceId: string, quiet = false) {
     const rows: ApprovalRow[] = [];
     const failures: string[] = [];
 
     try {
-      const trades = await apiRequest<Array<{
+      const response = await apiRequest<{ trades: Array<{
         trade_id: string;
         proposer_nickname?: string;
         counterpart_nickname?: string;
@@ -895,8 +903,8 @@ export default function TeacherConsole() {
         amount?: number;
         item_count?: number;
         state_version?: number;
-      }>>(`/classrooms/${resourceId}/trades/awaiting-teacher`);
-      trades.forEach((trade) => rows.push({
+      }> }>(`/classrooms/${resourceId}/trades/awaiting-teacher`);
+      response.trades.forEach((trade) => rows.push({
         id: `trade-${trade.trade_id}`,
         type: "거래",
         target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`
@@ -964,7 +972,7 @@ export default function TeacherConsole() {
     }
 
     setApprovals(rows);
-    if (failures.length) {
+    if (failures.length && !quiet) {
       addLog(`${failures.join(", ")} 승인 대기 목록을 불러오지 못했어요.`, "warning");
     }
     await loadApprovalHistory(resourceId);
@@ -974,14 +982,14 @@ export default function TeacherConsole() {
   async function loadApprovalHistory(resourceId: string) {
     const rows: ApprovalRow[] = [];
     try {
-      const decided = await apiRequest<Array<{
+      const response = await apiRequest<{ trades: Array<{
         trade_id: string;
         proposer_nickname?: string;
         counterpart_nickname?: string;
         amount?: number;
         status?: string;
-      }>>(`/classrooms/${resourceId}/trades/decided`);
-      decided.forEach((trade) => rows.push({
+      }> }>(`/classrooms/${resourceId}/trades/decided`);
+      response.trades.forEach((trade) => rows.push({
         id: `trade-done-${trade.trade_id}`,
         type: "거래",
         target: `${trade.proposer_nickname ?? "학생"} → ${trade.counterpart_nickname ?? "학생"}`,
@@ -4843,8 +4851,8 @@ function PublicFundAdmin({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function load() {
-    setError("");
+  async function load(quiet = false) {
+    if (!quiet) setError("");
     const to = new Date();
     const from = new Date(to.getTime() - 365 * 24 * 60 * 60 * 1_000);
     const [voteResult, reportResult] = await Promise.allSettled([
@@ -4858,7 +4866,7 @@ function PublicFundAdmin({
       setFundBalance(voteResult.value.public_fund_balance);
     } else if (voteResult.reason instanceof ApiError && voteResult.reason.code === "RESOURCE_NOT_FOUND") {
       setVote(null);
-    } else {
+    } else if (!quiet) {
       setError(voteResult.reason instanceof Error ? voteResult.reason.message : "투표를 불러오지 못했어요.");
     }
     if (reportResult.status === "fulfilled" && typeof reportResult.value.public_fund_balance === "number") {
@@ -4867,7 +4875,10 @@ function PublicFundAdmin({
   }
 
   useEffect(() => {
-    if (enabled) void load();
+    if (!enabled) return;
+    void load();
+    const timer = window.setInterval(() => void load(true), 5_000);
+    return () => window.clearInterval(timer);
   }, [classroomId, enabled]);
 
   function updateOption(index: number, field: "label" | "description" | "budget", value: string) {
@@ -5119,7 +5130,7 @@ function Approvals({
 
   return (
     <div className="page-flow">
-      <PlainSection title="승인 대기">
+      <PlainSection title="승인 대기" description="학생이 거래를 수락하면 이 목록이 5초 안에 자동으로 갱신됩니다.">
         {pendingApprovals.length === 0 ? <p className="empty-copy">승인할 항목이 없어요.</p> : (
           <div className="approval-table-scroll"><table className="approval-table"><thead><tr><th>구분</th><th>내용</th><th>금액</th><th>상태</th><th>처리</th></tr></thead><tbody>
           {pendingApprovals.map((item) => (

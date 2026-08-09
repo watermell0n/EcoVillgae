@@ -82,6 +82,14 @@ public class VoteQueryService {
                 "RESOURCE_NOT_FOUND",
                 "The vote could not be found."
             ));
+        if (authorization.actorType() == ClassroomActorRole.STU
+            && vote.getStatus() == VoteStatus.READY) {
+            throw operation(
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "There is no open public fund vote."
+            );
+        }
         List<VoteOption> options = optionRepository
             .findAllByClassroomIdAndVoteIdOrderBySortOrder(classroomId, voteId);
         List<VoteBallot> ballots = ballotRepository.findAllByClassroomIdAndVoteId(
