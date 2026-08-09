@@ -128,6 +128,9 @@ function toMarket(raw: Partial<InvestmentMarket> | null | undefined): Investment
 
 function messageOf(error: unknown) {
   if (error instanceof ApiError && error.code === "RESOURCE_NOT_FOUND") return "아직 생성된 투자 시나리오가 없습니다.";
+  if (error instanceof ApiError && error.code === "GRADE_POLICY_VIOLATION") {
+    return "AI 투자 이야기는 5~6학년 학급에서 사용할 수 있어요. 현재 학급의 학년 설정을 확인해 주세요.";
+  }
   if (error instanceof ApiError && error.code === "INVESTMENT_MODE_NOT_ENABLED") {
     return "이 방식을 사용하도록 먼저 켜 주세요.";
   }
@@ -227,6 +230,7 @@ function AssetTextEditor({
  */
 export function InvestmentScenarioPanel({
   classroomId,
+  grade,
   mode,
   enabledModes,
   moduleActive,
@@ -238,6 +242,7 @@ export function InvestmentScenarioPanel({
   onModuleChanged
 }: Readonly<{
   classroomId: string;
+  grade: number;
   mode: InvestmentMode;
   enabledModes: readonly InvestmentMode[];
   moduleActive: boolean;
@@ -251,6 +256,7 @@ export function InvestmentScenarioPanel({
   onModuleChanged: () => void | Promise<void>;
 }>) {
   const modeEnabled = enabledModes.includes(mode);
+  const newsGradeSupported = grade >= 5 && grade <= 6;
   const [market, setMarket] = useState<InvestmentMarket | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
@@ -287,6 +293,9 @@ export function InvestmentScenarioPanel({
   const missingNewsCount = market && ["OPEN", "PAUSED"].includes(market.status)
     ? Math.max(0, market.assets.length - market.assets.filter((asset) => asset.news.length > 0).length)
     : 0;
+  const draftNewsCount = market?.assets.filter((asset) => (
+    asset.news.some((news) => news.status === "DRAFT")
+  )).length ?? 0;
   const plannedPath = useMemo(
     () => market?.assets.filter((asset) => asset.planned_price_history.length > 0) ?? [],
     [market]
@@ -552,6 +561,10 @@ export function InvestmentScenarioPanel({
 
   async function generateNews() {
     if (!market || missingNewsCount === 0) return;
+    if (!newsGradeSupported) {
+      setMessage("AI 투자 이야기는 5~6학년 학급에서 사용할 수 있어요. 학급의 학년 설정을 확인해 주세요.");
+      return;
+    }
     setBusy("news");
     setMessage("");
     try {
@@ -626,6 +639,10 @@ export function InvestmentScenarioPanel({
    * 누르지 않고 한 번에 다시 시도할 수 있어야 합니다.
    */
   async function regenerate(news: InvestmentNews) {
+    if (!newsGradeSupported) {
+      setMessage("AI 투자 이야기는 5~6학년 학급에서 사용할 수 있어요. 학급의 학년 설정을 확인해 주세요.");
+      return;
+    }
     setBusy(news.event_id);
     setMessage("");
     try {
@@ -910,7 +927,13 @@ export function InvestmentScenarioPanel({
                         >
                           <Pencil size={15} /> 문장 수정
                         </button>
-                        <button type="button" className={aiFailed ? "" : "ghost-action"} disabled={!aiEnabled || !canManage || Boolean(busy)} onClick={() => void regenerate(news)}>
+                        <button
+                          type="button"
+                          className={aiFailed ? "" : "ghost-action"}
+                          disabled={!newsGradeSupported || !aiEnabled || !canManage || Boolean(busy)}
+                          title={newsGradeSupported ? undefined : "AI 투자 이야기는 5~6학년 학급에서 사용할 수 있어요."}
+                          onClick={() => void regenerate(news)}
+                        >
                           <RefreshCw size={15} /> {busy === news.event_id ? "다시 생성 중" : "AI로 다시 생성"}
                         </button>
                         <button type="button" className="ghost-action" disabled={!canManage || Boolean(busy)} onClick={() => void decide(news, "REJECT")}>거절</button>
@@ -923,10 +946,37 @@ export function InvestmentScenarioPanel({
           </div>
           {/* 생성 버튼은 어떤 종목의 이야기를 만드는지 보이도록 기업 카드 아래에 둡니다. */}
           {missingNewsCount > 0 ? (
-            <button type="button" className="wide-action" disabled={!aiEnabled || !canManage || busy === "news"} onClick={() => void generateNews()}>
-              <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}
-            </button>
-          ) : <div className="inline-notice"><Check size={17} /> 모든 종목의 현재 단계 이야기가 준비되었습니다.</div>}
+            <>
+              <div className="investment-news-guide" role="note">
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>생성만 하면 학생에게 보이지 않습니다</strong>
+                  <p>현재 단계에 이야기 {missingNewsCount}개가 필요합니다. 생성 후 종목별 내용을 확인하고 <b>승인·공개</b>를 눌러 주세요.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="wide-action"
+                disabled={!newsGradeSupported || !aiEnabled || !canManage || busy === "news"}
+                title={newsGradeSupported ? undefined : "AI 투자 이야기는 5~6학년 학급에서 사용할 수 있어요."}
+                onClick={() => void generateNews()}
+              >
+                <Sparkles size={16} /> {busy === "news" ? "AI 이야기 생성 중" : `현재 단계 AI 이야기 ${missingNewsCount}개 생성`}
+              </button>
+            </>
+          ) : null}
+          {draftNewsCount > 0 ? (
+            <div className="investment-news-guide is-warning" role="status">
+              <AlertTriangle size={18} />
+              <div>
+                <strong>초안 {draftNewsCount}개가 아직 학생에게 비공개 상태입니다</strong>
+                <p>각 종목의 이야기 카드에서 내용을 검토한 뒤 <b>승인·공개</b>를 눌러야 학생 화면에 표시됩니다.</p>
+              </div>
+            </div>
+          ) : null}
+          {missingNewsCount === 0 && draftNewsCount === 0 ? (
+            <div className="inline-notice"><Check size={17} /> 모든 종목의 현재 단계 이야기가 승인되어 학생에게 공개되었습니다.</div>
+          ) : null}
         </>
       ) : null}
 

@@ -1455,6 +1455,7 @@ export default function TeacherConsole() {
           {view === "finance" && (
             <FinanceAdmin
               classroomId={activeClassroomId}
+              grade={Number(settings.grade)}
               stateVersion={classroomStateVersion}
               realtimeRevision={realtimeRevision}
               currencyName={settings.currency}
@@ -4283,6 +4284,7 @@ function defaultFinancialProducts(
 
 function FinanceAdmin({
   classroomId,
+  grade,
   stateVersion,
   realtimeRevision,
   currencyName,
@@ -4297,6 +4299,7 @@ function FinanceAdmin({
   onModulesReload
 }: Readonly<{
   classroomId: string;
+  grade: number;
   stateVersion: number;
   realtimeRevision: number;
   currencyName: string;
@@ -4651,11 +4654,24 @@ function FinanceAdmin({
             <p className="helper-text">
               종목 이름과 가격 흐름은 AI가 시나리오로 만듭니다. 교사는 만들어진 흐름을 확인한 뒤 승인하거나 다시 생성합니다.
             </p>
+            <div className={`investment-teacher-guide ${grade < 5 ? "is-blocked" : ""}`} role="note">
+              <strong>AI 투자 이야기 공개 절차</strong>
+              <p>
+                현재 학급은 <b>{grade}학년</b>입니다. AI 투자 이야기는 5~6학년 학급에서 사용할 수 있습니다.
+              </p>
+              <ol>
+                <li>투자 시장을 시작하고 현재 단계의 AI 이야기 초안을 생성합니다.</li>
+                <li>종목별 제목과 내용을 확인한 뒤 반드시 <b>승인·공개</b>를 누릅니다.</li>
+                <li>승인 전 초안은 학생 화면에 보이지 않습니다.</li>
+                <li>다음 날 가격을 공개한 뒤 새 단계의 이야기를 다시 생성하고 승인합니다.</li>
+              </ol>
+            </div>
           </PlainSection>
           {(["SHORT_TERM", "LONG_TERM"] as const).map((mode) => (
             <InvestmentScenarioPanel
               key={mode}
               classroomId={classroomId}
+              grade={grade}
               mode={mode}
               enabledModes={investmentModule.enabledModes}
               moduleActive={investmentModule.active}

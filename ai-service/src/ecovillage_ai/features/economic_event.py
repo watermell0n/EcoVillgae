@@ -35,6 +35,7 @@ ALLOWED_TEMPLATES_BY_GRADE = {
         EventTemplateType.PUBLIC_FUND,
         EventTemplateType.TAX,
         EventTemplateType.INTEREST_RATE,
+        EventTemplateType.INVESTMENT_NEWS,
     },
     6: set(EventTemplateType),
 }

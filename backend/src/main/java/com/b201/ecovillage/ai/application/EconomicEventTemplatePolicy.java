@@ -28,7 +28,7 @@ public class EconomicEventTemplatePolicy {
         TemplateType.TAX, 5,
         TemplateType.INTEREST_RATE, 5,
         TemplateType.REWARD, 6,
-        TemplateType.INVESTMENT_NEWS, 6
+        TemplateType.INVESTMENT_NEWS, 5
     );
 
     /**
