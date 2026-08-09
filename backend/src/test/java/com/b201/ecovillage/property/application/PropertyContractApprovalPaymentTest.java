@@ -388,5 +388,25 @@ class PropertyContractApprovalPaymentTest {
                 updated_at timestamp with time zone not null
             )
             """);
+        // 좌석판 재생성 가드가 진행 중 청약을 함께 확인하므로 조회 대상 테이블을 만들어 둔다.
+        jdbc.execute("""
+            create table if not exists subscription_offers (
+                id uuid primary key,
+                classroom_id uuid not null,
+                status varchar(40) not null,
+                created_at timestamp with time zone not null,
+                updated_at timestamp with time zone not null
+            )
+            """);
+        jdbc.execute("""
+            create table if not exists subscription_applications (
+                id uuid primary key,
+                classroom_id uuid not null,
+                classroom_student_id uuid not null,
+                status varchar(40) not null,
+                created_at timestamp with time zone not null,
+                updated_at timestamp with time zone not null
+            )
+            """);
     }
 }

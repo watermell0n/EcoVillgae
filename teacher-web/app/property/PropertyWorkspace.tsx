@@ -27,7 +27,7 @@ type Props = {
   onNotice: (message: string, tone?: "success" | "warning" | "error") => void;
 };
 
-const emptyLayout: PropertyLayout = { row_count: 0, column_count: 0, state_version: 0, properties: [] };
+const emptyLayout: PropertyLayout = { row_count: 0, column_count: 0, state_version: 0, properties: [], can_rebuild_layout: true, rebuild_blocked_reason: null };
 
 function defaultCloseTime() {
   const date = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -88,6 +88,8 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
     () => layout.properties.find((property) => property.property_id === selectedId) ?? null,
     [layout.properties, selectedId]
   );
+  // 학생의 청약·계약 이력이 생기면 서버가 좌석판 재생성을 거절합니다. 버튼도 함께 잠급니다.
+  const canRebuild = layout.can_rebuild_layout !== false;
 
   const load = useCallback(async () => {
     if (!realEstateEnabled) return;
@@ -191,6 +193,7 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
   }
 
   async function rebuildLayout() {
+    if (!canRebuild) return onNotice(layout.rebuild_blocked_reason ?? "학생의 청약·계약 이력이 있어 좌석판을 다시 만들 수 없어요.", "warning");
     const nextRows = Number(rows); const nextColumns = Number(columns);
     if (!Number.isInteger(nextRows) || !Number.isInteger(nextColumns) || nextRows < 1 || nextColumns < 1 || nextRows * nextColumns > 200) {
       return onNotice("행·열은 1 이상, 전체 자리는 200개 이하로 입력해 주세요.", "warning");
@@ -235,9 +238,10 @@ export function PropertyWorkspace({ classroomId, currencyName, realEstateEnabled
       <div className={styles.layoutControls}>
         <label>행<input inputMode="numeric" value={rows} onChange={(event) => setRows(event.target.value)} /></label>
         <label>열<input inputMode="numeric" value={columns} onChange={(event) => setColumns(event.target.value)} /></label>
-        <button type="button" className={styles.primary} disabled={busy} onClick={() => void rebuildLayout()}>좌석판 만들기</button>
+        <button type="button" className={styles.primary} disabled={busy || !canRebuild} title={canRebuild ? undefined : layout.rebuild_blocked_reason ?? undefined} onClick={() => void rebuildLayout()}>좌석판 만들기</button>
         <div className={styles.legend}><i data-tone="direct" />직판 <i data-tone="resale" />재판매 <i data-tone="subscription" />청약 <i data-tone="owned" />학생 소유</div>
       </div>
+      {canRebuild ? null : <p className={styles.help}>{layout.rebuild_blocked_reason ?? "학생의 청약·계약 이력이 있어 좌석판을 다시 만들 수 없어요."}</p>}
 
       {layout.properties.length ? (
         <div className={styles.mainGrid}>

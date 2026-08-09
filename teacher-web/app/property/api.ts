@@ -28,6 +28,8 @@ export type PropertyLayout = {
   column_count: number;
   state_version: number;
   properties: ClassroomProperty[];
+  can_rebuild_layout?: boolean;
+  rebuild_blocked_reason?: string | null;
 };
 
 export type PendingPropertyContract = {

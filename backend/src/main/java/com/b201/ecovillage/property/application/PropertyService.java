@@ -93,7 +93,33 @@ public class PropertyService {
         // A teacher needs the hidden/inactive cells to edit the layout. Students
         // must never receive removed or private cells in the seat map.
         result.put("properties", propertyViews(classroomId, false, studentOrNull(subject) != null));
+        RebuildBlock blocked = rebuildBlock(classroomId);
+        result.put("can_rebuild_layout", blocked == null);
+        result.put("rebuild_blocked_reason", blocked == null ? null : blocked.message());
         return result;
+    }
+
+    /**
+     * 좌석판을 다시 만들 수 없는 이유다. 학생의 청약이 진행 중이거나 자리 계약 이력이
+     * 하나라도 있으면 좌석판을 갈아엎을 수 없다. 다시 만들 수 있으면 null을 돌려준다.
+     */
+    private RebuildBlock rebuildBlock(UUID classroomId) {
+        Integer activeContracts = jdbc.queryForObject("select count(*) from property_contracts where classroom_id=? and status in ('PENDING','ACTIVE','OVERDUE')", Integer.class, classroomId);
+        if (activeContracts != null && activeContracts > 0) {
+            return new RebuildBlock("ACTIVE_PROPERTY_CONTRACT_EXISTS", "계약 진행 중인 자리가 있어 자리표를 다시 만들 수 없습니다.");
+        }
+        Integer contractHistory = jdbc.queryForObject("select count(*) from property_contracts where classroom_id=? and status <> 'REJECTED'", Integer.class, classroomId);
+        if (contractHistory != null && contractHistory > 0) {
+            return new RebuildBlock("PROPERTY_CONTRACT_HISTORY_EXISTS", "자리 계약 이력이 있어 자리표를 다시 만들 수 없습니다.");
+        }
+        Integer subscriptions = jdbc.queryForObject("select (select count(*) from subscription_offers where classroom_id=? and status='OPEN')+(select count(*) from subscription_applications where classroom_id=? and status in ('APPLIED','WON'))", Integer.class, classroomId, classroomId);
+        if (subscriptions != null && subscriptions > 0) {
+            return new RebuildBlock("ACTIVE_SUBSCRIPTION_EXISTS", "진행 중인 청약이 있어 자리표를 다시 만들 수 없습니다.");
+        }
+        return null;
+    }
+
+    private record RebuildBlock(String code, String message) {
     }
 
     @Transactional
@@ -103,9 +129,9 @@ public class PropertyService {
         if (rows < 1 || rows > 26 || columns < 1 || columns > 26 || rows * columns > 200) {
             throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_LAYOUT", "자리표는 최대 26행, 26열, 200자리까지 만들 수 있습니다.");
         }
-        Integer activeContracts = jdbc.queryForObject("select count(*) from property_contracts where classroom_id=? and status in ('PENDING','ACTIVE','OVERDUE')", Integer.class, classroomId);
-        if (activeContracts != null && activeContracts > 0) {
-            throw error(HttpStatus.CONFLICT, "ACTIVE_PROPERTY_CONTRACT_EXISTS", "계약 진행 중인 자리가 있어 자리표를 다시 만들 수 없습니다.");
+        RebuildBlock blocked = rebuildBlock(classroomId);
+        if (blocked != null) {
+            throw error(HttpStatus.CONFLICT, blocked.code(), blocked.message());
         }
         Long currentGeneration = jdbc.query(
             "select layout_generation from property_layouts where classroom_id=? for update",
@@ -494,7 +520,7 @@ public class PropertyService {
 
     private void collectSubscription(SubscriptionAccount account,long amount,String type,String idempotencyKey,Instant now) {
         LedgerAccount wallet=wallet(account.classroomId(),account.studentId(),now); LedgerAccount liability=system(account.classroomId(),SUBSCRIPTION_LIABILITY,LedgerAccountType.SUBSCRIPTION_LIABILITY,now);
-        transactions.execute(LedgerTransactionCommand.original(account.classroomId(),"SUBSCRIPTION_DEPOSIT",LedgerActorType.STUDENT,account.studentId(),null,"/students/me/subscription-account/deposits",idempotencyKey,idempotencyKey,uuids.generate().toString(),"Housing subscription account deposit",List.of(new LedgerTransactionPosting(wallet.getId(),-amount),new LedgerTransactionPosting(liability.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){Instant next=account.autoAmount()==null?null:now.plus(account.autoCycleDays(),ChronoUnit.DAYS);jdbc.update("update subscription_accounts set total_deposit_amount=total_deposit_amount+?,deposit_count=deposit_count+1,last_deposited_at=?,next_auto_deposit_at=?,state_version=state_version+1,updated_at=? where classroom_student_id=?",amount,now,next,now,account.studentId());jdbc.update("insert into subscription_account_deposits(id,classroom_id,classroom_student_id,amount,deposited_at,deposit_type,transaction_group_id,created_at) values(?,?,?,?,?,?,(select id from transaction_groups where classroom_id=? and request_id=? order by created_at desc limit 1),?)",uuids.generate(),account.classroomId(),account.studentId(),amount,now,type,account.classroomId(),idempotencyKey,now);}}));
+        transactions.execute(LedgerTransactionCommand.original(account.classroomId(),"SUBSCRIPTION_DEPOSIT",LedgerActorType.STUDENT,account.studentId(),null,"/students/me/subscription-account/deposits",idempotencyKey,idempotencyKey,uuids.generate().toString(),"청약통장 납입",List.of(new LedgerTransactionPosting(wallet.getId(),-amount),new LedgerTransactionPosting(liability.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){Instant next=account.autoAmount()==null?null:now.plus(account.autoCycleDays(),ChronoUnit.DAYS);jdbc.update("update subscription_accounts set total_deposit_amount=total_deposit_amount+?,deposit_count=deposit_count+1,last_deposited_at=?,next_auto_deposit_at=?,state_version=state_version+1,updated_at=? where classroom_student_id=?",amount,now,next,now,account.studentId());jdbc.update("insert into subscription_account_deposits(id,classroom_id,classroom_student_id,amount,deposited_at,deposit_type,transaction_group_id,created_at) values(?,?,?,?,?,?,(select id from transaction_groups where classroom_id=? and request_id=? order by created_at desc limit 1),?)",uuids.generate(),account.classroomId(),account.studentId(),amount,now,type,account.classroomId(),idempotencyKey,now);}}));
     }
 
     private void settleSubscriptionSale(Contract contract,UUID actorId,String idempotencyKey,Instant now,Runnable mutation) {
@@ -502,11 +528,14 @@ public class PropertyService {
         if(account==null||account.totalDepositAmount()<contract.salePrice()) throw error(HttpStatus.UNPROCESSABLE_ENTITY,"SUBSCRIPTION_BALANCE_INSUFFICIENT","청약통장 잔액이 분양가보다 부족합니다.");
         LedgerAccount liability=system(contract.classroomId(),SUBSCRIPTION_LIABILITY,LedgerAccountType.SUBSCRIPTION_LIABILITY,now);
         LedgerAccount recipient=landlordAccount(contract.classroomId(),contract.landlordKind(),contract.landlordStudentId(),now);
-        transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),"SUBSCRIPTION_PROPERTY_SALE",LedgerActorType.TEACHER,actorId,null,"/contracts/{contract_id}/approve",idempotencyKey,idempotencyKey,uuids.generate().toString(),"Housing subscription property purchase",List.of(new LedgerTransactionPosting(liability.getId(),-contract.salePrice()),new LedgerTransactionPosting(recipient.getId(),contract.salePrice())),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){jdbc.update("update subscription_accounts set total_deposit_amount=total_deposit_amount-?,state_version=state_version+1,updated_at=? where classroom_student_id=?",contract.salePrice(),now,contract.occupantStudentId());mutation.run();}}));
+        transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),"SUBSCRIPTION_PROPERTY_SALE",LedgerActorType.TEACHER,actorId,null,"/contracts/{contract_id}/approve",idempotencyKey,idempotencyKey,uuids.generate().toString(),"청약 당첨 자리 구매",List.of(new LedgerTransactionPosting(liability.getId(),-contract.salePrice()),new LedgerTransactionPosting(recipient.getId(),contract.salePrice())),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){jdbc.update("update subscription_accounts set total_deposit_amount=total_deposit_amount-?,state_version=state_version+1,updated_at=? where classroom_student_id=?",contract.salePrice(),now,contract.occupantStudentId());mutation.run();}}));
     }
 
-    private void settle(Contract contract,long amount,String transactionType,UUID actorId,String idempotencyKey,Instant now,Runnable mutation) { if(amount==0){mutation.run();return;} LedgerAccount payer=wallet(contract.classroomId(),contract.occupantStudentId(),now); LedgerAccount recipient=landlordAccount(contract.classroomId(),contract.landlordKind(),contract.landlordStudentId(),now); transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),transactionType,actorId.equals(contract.occupantStudentId())?LedgerActorType.STUDENT:LedgerActorType.TEACHER,actorId,null,"/properties/contracts",idempotencyKey,idempotencyKey,uuids.generate().toString(),transactionType,List.of(new LedgerTransactionPosting(payer.getId(),-amount),new LedgerTransactionPosting(recipient.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){mutation.run();}})); }
-    private void settleReverse(Contract contract,long amount,UUID actorId,String idempotencyKey,Instant now,Runnable mutation) { if(amount==0){mutation.run();return;} LedgerAccount payer=landlordAccount(contract.classroomId(),contract.landlordKind(),contract.landlordStudentId(),now); LedgerAccount recipient=wallet(contract.classroomId(),contract.occupantStudentId(),now); transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),"PROPERTY_DEPOSIT_REFUND",actorId.equals(contract.occupantStudentId())?LedgerActorType.STUDENT:LedgerActorType.TEACHER,actorId,null,"/contracts/{contract_id}/terminate",idempotencyKey,idempotencyKey,uuids.generate().toString(),"Return property deposit",List.of(new LedgerTransactionPosting(payer.getId(),-amount),new LedgerTransactionPosting(recipient.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){mutation.run();}})); }
+    private void settle(Contract contract,long amount,String transactionType,UUID actorId,String idempotencyKey,Instant now,Runnable mutation) { if(amount==0){mutation.run();return;} LedgerAccount payer=wallet(contract.classroomId(),contract.occupantStudentId(),now); LedgerAccount recipient=landlordAccount(contract.classroomId(),contract.landlordKind(),contract.landlordStudentId(),now); transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),transactionType,actorId.equals(contract.occupantStudentId())?LedgerActorType.STUDENT:LedgerActorType.TEACHER,actorId,null,"/properties/contracts",idempotencyKey,idempotencyKey,uuids.generate().toString(),settleLabel(transactionType),List.of(new LedgerTransactionPosting(payer.getId(),-amount),new LedgerTransactionPosting(recipient.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){mutation.run();}})); }
+    private void settleReverse(Contract contract,long amount,UUID actorId,String idempotencyKey,Instant now,Runnable mutation) { if(amount==0){mutation.run();return;} LedgerAccount payer=landlordAccount(contract.classroomId(),contract.landlordKind(),contract.landlordStudentId(),now); LedgerAccount recipient=wallet(contract.classroomId(),contract.occupantStudentId(),now); transactions.execute(LedgerTransactionCommand.original(contract.classroomId(),"PROPERTY_DEPOSIT_REFUND",actorId.equals(contract.occupantStudentId())?LedgerActorType.STUDENT:LedgerActorType.TEACHER,actorId,null,"/contracts/{contract_id}/terminate",idempotencyKey,idempotencyKey,uuids.generate().toString(),"보증금 반환",List.of(new LedgerTransactionPosting(payer.getId(),-amount),new LedgerTransactionPosting(recipient.getId(),amount)),now),List.of(new LedgerDomainMutation(){public void validate(){} public void apply(){mutation.run();}})); }
+
+    /** 학생 거래 내역에 그대로 보이는 문구라 거래 유형 코드를 한국어로 바꾼다. */
+    private static String settleLabel(String transactionType){return switch(transactionType){case "PROPERTY_SALE"->"부동산 자리 구매";case "PROPERTY_RENT_DEPOSIT"->"월세 보증금 납부";case "PROPERTY_JEONSE_DEPOSIT"->"전세 보증금 납부";case "PROPERTY_RENT_PAYMENT"->"임대료 납부";default->transactionType;};}
 
     private LedgerAccount wallet(UUID classroomId,UUID studentId,Instant now){return ledger.findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(classroomId,studentId,LedgerAccountType.STUDENT_WALLET,LedgerAccountStatus.ACTIVE).orElseGet(()->ledger.save(LedgerAccount.studentWallet(uuids.generate(),classroomId,studentId,now)));}
     private LedgerAccount system(UUID classroomId,String key,LedgerAccountType type,Instant now){return ledger.findByClassroomIdAndSystemOwnerKeyAndAccountTypeAndStatus(classroomId,key,type,LedgerAccountStatus.ACTIVE).orElseGet(()->ledger.save(LedgerAccount.systemAccount(uuids.generate(),classroomId,key,type,now)));}
