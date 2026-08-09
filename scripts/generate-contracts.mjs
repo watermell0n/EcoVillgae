@@ -196,6 +196,9 @@ const mvpSupportApiIds = new Set([
   "API-READ-039",
   "API-READ-040",
   "API-READ-041",
+  "API-READ-042",
+  "API-READ-043",
+  "API-READ-044",
   "API-FIN-015",
   "API-CLS-010",
 ]);
@@ -940,6 +943,7 @@ const requestFieldOverrides = {
     { name: "product_id", optional: true },
     { name: "name" },
     { name: "description", optional: true },
+    { name: "image_url", optional: true, schema: { type: "string", maxLength: 2000000 } },
     { name: "product_kind", values: ["DIGITAL", "PHYSICAL", "CHARACTER"] },
     { name: "unit_price", schema: { type: "integer", format: "int64", minimum: 0 } },
     { name: "vat_rate_bps", schema: { type: "integer", minimum: 0, maximum: 10000 } },
@@ -1938,7 +1942,33 @@ const responseFieldOverrides = {
     { name: "balance", schema: { type: "integer", format: "int64" } },
     { name: "recent_transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) },
   ],
-  "API-READ-008": [{ name: "payslips", schema: projectionItems({ net_amount: { type: "integer", format: "int64" }, issued_at: { type: "string", format: "date-time" } }) }],
+  "API-READ-008": [{
+    name: "payslips",
+    schema: projectionItems({
+      period_key: { type: "string" },
+      role_name: { type: "string" },
+      status: { type: "string" },
+      version: { type: "integer", minimum: 0 },
+      state_version: { type: "integer", format: "int64", minimum: 0 },
+      gross_amount: { type: "integer", format: "int64", minimum: 0 },
+      deduction_amount: { type: "integer", format: "int64", minimum: 0 },
+      tax_amount: { type: "integer", format: "int64", minimum: 0 },
+      net_amount: { type: "integer", format: "int64", minimum: 0 },
+      issued_at: { type: "string", format: "date-time" },
+    }, [
+      "resource_id",
+      "period_key",
+      "role_name",
+      "status",
+      "version",
+      "state_version",
+      "gross_amount",
+      "deduction_amount",
+      "tax_amount",
+      "net_amount",
+      "issued_at",
+    ]),
+  }],
   "API-READ-009": [{ name: "transactions", schema: projectionItems({ amount: { type: "integer", format: "int64" }, occurred_at: { type: "string", format: "date-time" } }) }],
   "API-READ-010": [{
     name: "products",
@@ -2037,6 +2067,16 @@ const responseFieldOverrides = {
         state_version: { type: "integer", format: "int64", minimum: 0 },
         created_at: { type: "string", format: "date-time" },
       }),
+    },
+  ],
+  "API-READ-042": [
+    {
+      name: "classmates",
+      schema: projectionItems({
+        student_id: { type: "string", format: "uuid" },
+        roster_number: { type: "integer", minimum: 1 },
+        nickname: { type: "string" },
+      }, ["student_id", "roster_number", "nickname"]),
     },
   ],
   // 단기·장기 시장을 한 번에 돌려준다. 최상위는 markets 하나뿐이다.
@@ -2626,6 +2666,9 @@ const responseFieldOverrides = {
   ],
 };
 
+responseFieldOverrides["API-READ-043"] = responseFieldOverrides["API-READ-038"];
+responseFieldOverrides["API-READ-044"] = responseFieldOverrides["API-READ-023"];
+
 const resourceIdByDomain = {
   MOD: "module_id",
   POL: "policy_version_id",
@@ -2695,6 +2738,17 @@ const storageByReadApi = {
   "API-READ-039": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "classroom_students"],
   "API-READ-040": ["quiz_sessions", "quiz_session_questions", "quiz_question_versions", "quiz_options"],
   "API-READ-041": ["outbox_events", "store_orders", "trade_decisions", "loan_applications", "quiz_submissions"],
+  "API-READ-042": ["classroom_students"],
+  "API-READ-043": ["trades", "trade_money_legs", "trade_item_legs", "trade_decisions", "classroom_students"],
+  "API-READ-044": [
+    "votes",
+    "vote_options",
+    "vote_eligibilities",
+    "vote_ballots",
+    "ledger_accounts",
+    "transaction_groups",
+    "transaction_business_refs",
+  ],
   "API-READ-014": ["financial_products", "financial_product_versions"],
   "API-READ-015": ["deposit_accounts", "savings_accounts", "savings_installments"],
   "API-READ-020": ["quiz_questions", "quiz_question_versions", "quiz_options"],
@@ -3997,7 +4051,7 @@ function buildApiFieldMapping(operations) {
 // API-CLS-009(학급 보관), API-SHP-005(가격 일괄 인상)을 명세에 넣었다.
 // 148 -> 153: 문서화가 빠져 있던 교사용 조회·문구 수정 API 5개(READ-037~039, AI-007, FIN-015)를 넣었다.
 // 153 -> 156: 퀴즈 세션 목록·학생 활동 목록·학생 presence HTTP fallback을 구현 계약에 반영했다.
-const EXPECTED_HTTP_OPERATION_COUNT = 156;
+const EXPECTED_HTTP_OPERATION_COUNT = 159;
 
 function assertGeneration(httpOperations, channels, events, openapi, asyncapi, fieldMapping) {
   const apiIds = httpOperations.map((operation) => operation.apiId);

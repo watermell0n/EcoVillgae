@@ -127,7 +127,7 @@
 
 | API ID · UIA | 메서드·경로 | 역할 | 핵심 입력 → 결과 | PM · SM | 대표 오류 | RTM |
 | --- | --- | --- | --- | --- | --- | --- |
-| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `expected_state_version, expected_policy_version`, 수정 시 `expected_product_version`, `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·가격·부가세·재고·유형 → `product_id, status, state_version, version` | PM-SHP-001 · SM-CLS-001 | `STATE_VERSION_CONFLICT`, `POLICY_VERSION_CONFLICT`, `PRODUCT_VERSION_CONFLICT`, `PRICE_OUT_OF_RANGE`, `INVALID_STOCK`, `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED` | ECO-005·ECO-007 |
+| API-SHP-001 · UIA-SHP-001 | `POST /classrooms/{C}/store/product-commands` | OWN | `expected_state_version, expected_policy_version`, 수정 시 `expected_product_version`, `command=CREATE\|UPDATE\|PUBLISH\|UNPUBLISH`, 상품·이미지·가격·부가세·재고·유형 → `product_id, status, state_version, version` | PM-SHP-001 · SM-CLS-001 | `STATE_VERSION_CONFLICT`, `POLICY_VERSION_CONFLICT`, `PRODUCT_VERSION_CONFLICT`, `PRICE_OUT_OF_RANGE`, `INVALID_STOCK`, `INVALID_TAX_RATE`, `CHARACTER_NOT_APPROVED` | ECO-005·ECO-007 |
 | API-SHP-002 · UIA-SHP-002 | `POST /classrooms/{C}/store/orders` | STU | `product_id, quantity, expected_product_version` → 결제·세금·지급 또는 수령 대기 주문 | PM-SHP-002 · SM-SHP-001·SM-TXN-001 | `INSUFFICIENT_BALANCE`, `OUT_OF_STOCK`, `PRICE_CHANGED`, `APP_MODE_BLOCKED` | ECO-001·ECO-005·ECO-006 |
 | API-SHP-003 · UIA-SHP-003 | `POST /classrooms/{C}/store/orders/{R}/ready-for-pickup-commands` | OWN·COT | 준비 완료 → `PAID → READY_FOR_PICKUP` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `ORDER_NOT_PHYSICAL` | ECO-005 |
 | API-SHP-004 · UIA-SHP-004 | `POST /classrooms/{C}/store/orders/{R}/receipt-confirmations` | OWN·COT | 학생 확인 정보 → `READY_FOR_PICKUP → RECEIVED` | PM-SHP-003 · SM-SHP-001 | `INVALID_STATE_TRANSITION`, `STUDENT_MISMATCH` | ECO-005 |
@@ -284,6 +284,9 @@
 | API-READ-039 | `GET /classrooms/{C}/trades/decided` | OWN·COT | 교사가 이미 처리한 개인거래 목록. 응답 모양은 API-READ-038과 같음 | SCR-WEB-011 / TRD-002·TRD-003 |
 | API-READ-040 | `GET /classrooms/{C}/quiz-sessions` | OWN·COT | 학급의 퀴즈 세션 목록과 모드·콘텐츠 유형·상태·버전·시작 시각·문항 스냅샷 | SCR-WEB-017·SCR-WEB-019 / QZ-003·QZ-004 |
 | API-READ-041 | `GET /classrooms/{C}/student-activities?limit=` | OWN·COT | 최근 학생 활동을 최신순으로 조회. 학생 ID·활동 유형·제목·수량·금액·상태·발생 시각을 포함하고 `limit`은 기본 100 | SCR-TCH-002 / DAT-003 |
+| API-READ-042 | `GET /classrooms/{C}/trades/classmates` | STU | 같은 학급의 활성 학생 중 본인을 제외한 번호·닉네임 목록 | SCR-STU-009 / TRD-001 |
+| API-READ-043 | `GET /classrooms/{C}/trades/mine` | STU | 본인이 제안자 또는 상대방인 개인거래와 현재 승인·정산 상태 | SCR-STU-009 / TRD-001·TRD-002·TRD-003 |
+| API-READ-044 | `GET /classrooms/{C}/votes/latest` | STU·OWN·COT | 가장 최근 공동기금 투표의 공개 상태·참여 여부·선택지·결과·공동기금 잔액 | SCR-STU-012·SCR-TCH-006 / ECO-008 |
 | API-READ-017 | `GET /classrooms/{C}/students/me/investment-portfolio` | STU | 본인 보유량·체결·손익·수익률 | SCR-STU-018 / FIN-006·FIN-007 |
 | API-READ-018 | `GET /classrooms/{C}/students/me/loans-and-credit` | STU | 본인 대출·상환일정·연체·신용 상태 | SCR-STU-019·SCR-STU-020 / FIN-008·FIN-009·FIN-010 |
 | API-READ-019 | `GET /classrooms/{C}/loan-approval-queue` | OWN·COT | 최신 신용·활성 대출·정책과 승인 대기 | SCR-TCH-009·SCR-WEB-016 / FIN-008·FIN-010 |

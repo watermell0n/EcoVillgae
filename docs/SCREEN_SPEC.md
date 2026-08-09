@@ -217,6 +217,7 @@
 | UIA-AUTH-002 | SCR-STU-002 재설정 요청 | STU | 기존 본인 확인 절차 통과 | PM-AUTH-002 |
 | UIA-AUTH-003 | SCR-WEB-006 비밀번호 재설정 처리 | OWN·COT | 담당 학급 요청, 닉네임 변경 없음 | PM-AUTH-002 |
 | UIA-AUTH-004 | SCR-TCH-001·SCR-WEB-001 학교 계정으로 로그인 | 인증 전 교사 | OIDC Authorization Code + PKCE 완료 후 ID 토큰 검증, 등록·활성 교사이면 세션 발급 | PM-AUTH-003·PM-RBAC-001 |
+| UIA-STU-001 | SCR-STU-003 접속 상태 전송 | STU | 로그인된 학생의 `ONLINE·AWAY` 상태와 현재 화면을 교사에게 전달 | PM-AUTH-001 |
 | UIA-CLS-001 | SCR-WEB-003 경제교실 개설 | OWN | 화폐 단위명 필수·형식·금칙어 검증, 서버 학급 코드 생성 후 `ACTIVE`. 모듈 목록은 비어 있을 수 있고 선택 모듈은 `DISABLED`로 등록한 뒤 각 활성화 단계에서 초기 정책을 확정 | PM-CLS-001·PM-CLS-005·PM-CLS-007 / SM-CLS-001·SM-MOD-001 |
 | UIA-CLS-002 | SCR-WEB-004 기본·코스 저장 | OWN | `ACTIVE`, 진행 활동·정산과 충돌 없음 | PM-CLS-005 |
 | UIA-CLS-003 | SCR-WEB-006 학생·선택형 역할급여 저장 | OWN | 학급 `ACTIVE`, 학급 범위·중복 번호 검증. 역할·급여 비활성 시 학생 역할은 `null` | PM-CLS-004·PM-CLS-005 |

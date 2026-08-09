@@ -155,7 +155,7 @@ export const moduleGroups = {
   trade: ["TRADE"],
   quiz: ["QUIZ_GAME", "QUIZ_TEST", "QUIZ"],
   meeting: ["PUBLIC_BUDGET", "PUBLIC_FUND", "BUDGET"],
-  paystub: ["PAYSLIP", "ROLE_SALARY", "INCOME"],
+  paystub: ["PAYSLIP", "ROLE_SALARY", "SALARY", "INCOME"],
   realEstate: ["REAL_ESTATE", "HOUSING_SUBSCRIPTION"],
   subscription: ["HOUSING_SUBSCRIPTION"],
   credit: ["CREDIT"]

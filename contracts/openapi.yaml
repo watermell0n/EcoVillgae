@@ -4233,8 +4233,8 @@ paths:
         - "ECO-007"
       tags:
         - "Store"
-      summary: "expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version"
-      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version."
+      summary: "expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 이미지, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version"
+      description: "사람이 검토하는 원문 기준: `API-SHP-001` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: OWN.\n\n핵심 계약: expected_state_version, expected_policy_version, 수정 시 expected_product_version, command=CREATE|UPDATE|PUBLISH|UNPUBLISH, 상품, 이미지, 가격, 부가세, 재고, 유형 → product_id, status, state_version, version."
       security:
         - bearerAuth: []
       parameters:
@@ -4332,6 +4332,9 @@ paths:
                   type: "string"
                 description:
                   type: "string"
+                image_url:
+                  type: "string"
+                  maxLength: 2000000
                 product_kind:
                   type: "string"
                   enum:
@@ -15004,12 +15007,41 @@ paths:
                               type: "integer"
                               format: "int64"
                               minimum: 0
+                            period_key:
+                              type: "string"
+                            role_name:
+                              type: "string"
+                            gross_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            deduction_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            tax_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
                             net_amount:
                               type: "integer"
                               format: "int64"
+                              minimum: 0
                             issued_at:
                               type: "string"
                               format: "date-time"
+                          required:
+                            - "resource_id"
+                            - "period_key"
+                            - "role_name"
+                            - "status"
+                            - "version"
+                            - "state_version"
+                            - "gross_amount"
+                            - "deduction_amount"
+                            - "tax_amount"
+                            - "net_amount"
+                            - "issued_at"
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -16320,6 +16352,389 @@ paths:
                             occurred_at:
                               type: "string"
                               format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/trades/classmates":
+    get:
+      operationId: "apiRead042"
+      x-api-id: "API-READ-042"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "classroom_students"
+      x-roles:
+        - "STU"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-009"
+        - "TRD-001"
+      tags:
+        - "Queries"
+      summary: "같은 학급의 활성 학생 중 본인을 제외한 번호, 닉네임 목록"
+      description: "사람이 검토하는 원문 기준: `API-READ-042` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 같은 학급의 활성 학생 중 본인을 제외한 번호, 닉네임 목록."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "classmates"
+                    properties:
+                      classmates:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            student_id:
+                              type: "string"
+                              format: "uuid"
+                            roster_number:
+                              type: "integer"
+                              minimum: 1
+                            nickname:
+                              type: "string"
+                          required:
+                            - "student_id"
+                            - "roster_number"
+                            - "nickname"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/trades/mine":
+    get:
+      operationId: "apiRead043"
+      x-api-id: "API-READ-043"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "trades"
+        - "trade_money_legs"
+        - "trade_item_legs"
+        - "trade_decisions"
+        - "classroom_students"
+      x-roles:
+        - "STU"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-009"
+        - "TRD-001"
+        - "TRD-002"
+        - "TRD-003"
+      tags:
+        - "Queries"
+      summary: "본인이 제안자 또는 상대방인 개인거래와 현재 승인, 정산 상태"
+      description: "사람이 검토하는 원문 기준: `API-READ-043` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인이 제안자 또는 상대방인 개인거래와 현재 승인, 정산 상태."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "trades"
+                    properties:
+                      trades:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            trade_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_student_id:
+                              type: "string"
+                              format: "uuid"
+                            proposer_nickname:
+                              type: "string"
+                            counterpart_student_id:
+                              type: "string"
+                              format: "uuid"
+                            counterpart_nickname:
+                              type: "string"
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            amount:
+                              type: "integer"
+                              format: "int64"
+                            item_count:
+                              type: "integer"
+                              minimum: 0
+                            created_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
+        400:
+          $ref: "#/components/responses/BadRequest"
+        401:
+          $ref: "#/components/responses/Unauthorized"
+        403:
+          $ref: "#/components/responses/Forbidden"
+        404:
+          $ref: "#/components/responses/NotFound"
+        409:
+          $ref: "#/components/responses/Conflict"
+        422:
+          $ref: "#/components/responses/UnprocessableEntity"
+        429:
+          $ref: "#/components/responses/TooManyRequests"
+        500:
+          $ref: "#/components/responses/InternalError"
+        503:
+          $ref: "#/components/responses/ServiceUnavailable"
+  "/classrooms/{classroom_id}/votes/latest":
+    get:
+      operationId: "apiRead044"
+      x-api-id: "API-READ-044"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
+      x-storage-targets:
+        - "votes"
+        - "vote_options"
+        - "vote_eligibilities"
+        - "vote_ballots"
+        - "ledger_accounts"
+        - "transaction_groups"
+        - "transaction_business_refs"
+      x-roles:
+        - "STU"
+        - "OWN"
+        - "COT"
+      x-permission-ids: []
+      x-state-machine-ids: []
+      x-rtm-ids:
+        - "STU-012"
+        - "TCH-006"
+        - "ECO-008"
+      tags:
+        - "Queries"
+      summary: "가장 최근 공동기금 투표의 공개 상태, 참여 여부, 선택지, 결과, 공동기금 잔액"
+      description: "사람이 검토하는 원문 기준: `API-READ-044` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU, OWN, COT.\n\n핵심 계약: 가장 최근 공동기금 투표의 공개 상태, 참여 여부, 선택지, 결과, 공동기금 잔액."
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/XCorrelationId"
+        - $ref: "#/components/parameters/ClassroomIdPath"
+      responses:
+        200:
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "vote_id"
+                      - "title"
+                      - "anonymous"
+                      - "status"
+                      - "state_version"
+                      - "public_fund_balance"
+                      - "participant_count"
+                      - "ballot_count"
+                      - "options"
+                    properties:
+                      vote_id:
+                        type: "string"
+                        format: "uuid"
+                      title:
+                        type: "string"
+                      description:
+                        type:
+                          - "string"
+                          - "null"
+                      anonymous:
+                        type: "boolean"
+                        const: true
+                      status:
+                        type: "string"
+                        enum:
+                          - "READY"
+                          - "OPEN"
+                          - "CLOSED"
+                          - "RESULT_PUBLISHED"
+                      state_version:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      opens_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      closes_at:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "date-time"
+                      public_fund_balance:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      participant_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      ballot_count:
+                        type: "integer"
+                        format: "int64"
+                        minimum: 0
+                      eligible:
+                        type:
+                          - "boolean"
+                          - "null"
+                      has_voted:
+                        type:
+                          - "boolean"
+                          - "null"
+                      selected_option_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      selected_use:
+                        type:
+                          - "string"
+                          - "null"
+                      transaction_group_id:
+                        type:
+                          - "string"
+                          - "null"
+                        format: "uuid"
+                      options:
+                        type: "array"
+                        items:
+                          type: "object"
+                          required:
+                            - "option_id"
+                            - "label"
+                            - "budget_amount"
+                          properties:
+                            option_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            description:
+                              type:
+                                - "string"
+                                - "null"
+                            budget_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            vote_count:
+                              type:
+                                - "integer"
+                                - "null"
+                              format: "int64"
+                              minimum: 0
                           additionalProperties: false
                     additionalProperties: false
                   meta:

@@ -65,6 +65,8 @@ const expectedMigrations = [
   "V1_34__guided_presentation_slides.sql",
   // V1_35는 표를 만들지 않는다. 계약 신청 시점 결제를 표시하는 컬럼 하나를 더한다.
   "V1_35__property_contract_paid_at.sql",
+  // 교사가 등록한 상품 이미지를 학생 상점까지 전달한다.
+  "V1_36__store_product_images.sql",
 ];
 
 function unique(values) {

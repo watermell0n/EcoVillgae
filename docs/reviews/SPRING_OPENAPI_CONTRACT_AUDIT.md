@@ -16,18 +16,16 @@
 
 | 항목 | 수 |
 | --- | ---: |
-| OpenAPI 작업 | 156 |
-| Spring 엔드포인트 | 125 |
-| OpenAPI와 연결된 Spring 엔드포인트 | 123 |
-| 기준선에 기록한 차이 | 5 |
+| OpenAPI 작업 | 159 |
+| Spring 엔드포인트 | 129 |
+| OpenAPI와 연결된 Spring 엔드포인트 | 127 |
+| 기준선에 기록한 차이 | 3 |
 
 ## 현재 차이
 
 | 종류 | API/경로 | 상세 |
 | --- | --- | --- |
 | RESPONSE_FIELDS_DIFFER | API-READ-037 | missing=loan_applications; extra=application_id,approved_amount,created_at,credit_level,credit_score,requested_amount,status,student_id,student_nickname |
-| RESPONSE_FIELDS_DIFFER | API-READ-038 | missing=trades; extra=amount,counterpart_nickname,counterpart_student_id,created_at,description,item_count,proposer_nickname,proposer_student_id,state_version,status,trade_id |
-| RESPONSE_FIELDS_DIFFER | API-READ-039 | missing=trades; extra=amount,counterpart_nickname,counterpart_student_id,created_at,description,item_count,proposer_nickname,proposer_student_id,state_version,status,trade_id |
 | SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-password-sessions | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherPasswordSessionController.java#create |
 | SPRING_ROUTE_NOT_IN_OPENAPI | POST /auth/teacher-registrations | backend/src/main/java/com/b201/ecovillage/identity/api/TeacherRegistrationController.java#create |
 

@@ -39,12 +39,14 @@ export async function fetchTradeClassmates(classroomId: string): Promise<TradeCl
     { studentId: "00000000-0000-0000-0000-000000000002", rosterNumber: 2, nickname: "박서윤" },
     { studentId: "00000000-0000-0000-0000-000000000003", rosterNumber: 3, nickname: "이도윤" }
   ];
-  const response = await apiRequest<Array<{
-    student_id: string;
-    roster_number: number;
-    nickname: string;
-  }>>(`/classrooms/${classroomId}/trades/classmates`);
-  return response.map((student) => ({
+  const response = await apiRequest<{
+    classmates: Array<{
+      student_id: string;
+      roster_number: number;
+      nickname: string;
+    }>;
+  }>(`/classrooms/${classroomId}/trades/classmates`);
+  return response.classmates.map((student) => ({
     studentId: student.student_id,
     rosterNumber: student.roster_number,
     nickname: student.nickname
@@ -53,8 +55,8 @@ export async function fetchTradeClassmates(classroomId: string): Promise<TradeCl
 
 export async function fetchMyTrades(classroomId: string): Promise<StudentTrade[]> {
   if (useMocks) return [];
-  const response = await apiRequest<TradeResponse[]>(`/classrooms/${classroomId}/trades/mine`);
-  return response.map((trade) => ({
+  const response = await apiRequest<{ trades: TradeResponse[] }>(`/classrooms/${classroomId}/trades/mine`);
+  return response.trades.map((trade) => ({
     id: trade.trade_id,
     proposerStudentId: trade.proposer_student_id,
     proposerNickname: trade.proposer_nickname ?? "학생",

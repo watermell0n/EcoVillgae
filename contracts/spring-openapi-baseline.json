@@ -1,10 +1,10 @@
 {
   "version": 1,
   "summary": {
-    "openapi_operations": 156,
-    "spring_endpoints": 125,
-    "matched_spring_endpoints": 123,
-    "current_known_differences": 5
+    "openapi_operations": 159,
+    "spring_endpoints": 129,
+    "matched_spring_endpoints": 127,
+    "current_known_differences": 3
   },
   "differences": [
     {
@@ -26,52 +26,6 @@
         "status",
         "student_id",
         "student_nickname"
-      ]
-    },
-    {
-      "kind": "RESPONSE_FIELDS_DIFFER",
-      "api_id": "API-READ-038",
-      "route": "GET /classrooms/{}/trades/awaiting-teacher",
-      "dto": "PendingTradeView",
-      "dto_source": "backend/src/main/java/com/b201/ecovillage/trade/application/PendingTradeView.java",
-      "missing_in_spring": [
-        "trades"
-      ],
-      "extra_in_spring": [
-        "amount",
-        "counterpart_nickname",
-        "counterpart_student_id",
-        "created_at",
-        "description",
-        "item_count",
-        "proposer_nickname",
-        "proposer_student_id",
-        "state_version",
-        "status",
-        "trade_id"
-      ]
-    },
-    {
-      "kind": "RESPONSE_FIELDS_DIFFER",
-      "api_id": "API-READ-039",
-      "route": "GET /classrooms/{}/trades/decided",
-      "dto": "PendingTradeView",
-      "dto_source": "backend/src/main/java/com/b201/ecovillage/trade/application/PendingTradeView.java",
-      "missing_in_spring": [
-        "trades"
-      ],
-      "extra_in_spring": [
-        "amount",
-        "counterpart_nickname",
-        "counterpart_student_id",
-        "created_at",
-        "description",
-        "item_count",
-        "proposer_nickname",
-        "proposer_student_id",
-        "state_version",
-        "status",
-        "trade_id"
       ]
     },
     {

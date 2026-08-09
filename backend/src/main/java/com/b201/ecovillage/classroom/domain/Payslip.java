@@ -139,6 +139,10 @@ public class Payslip {
         return classroomStudentId;
     }
 
+    public UUID getSalaryRoleId() {
+        return salaryRoleId;
+    }
+
     public String getPeriodKey() {
         return periodKey;
     }
@@ -165,6 +169,10 @@ public class Payslip {
 
     public UUID getTransactionGroupId() {
         return transactionGroupId;
+    }
+
+    public Instant getIssuedAt() {
+        return issuedAt;
     }
 
     private static String requiredText(String value, int maxLength, String fieldName) {

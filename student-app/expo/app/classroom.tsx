@@ -6,7 +6,7 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { StateCard } from "@/components/StateCard";
 import { useClassroom } from "@/features/classroom/ClassroomProvider";
-import { fetchGuidedActivity } from "@/features/student/api";
+import { fetchGuidedActivity, fetchLatestVote } from "@/features/student/api";
 import { colors, radii } from "@/theme/tokens";
 
 export default function ClassroomScreen() {
@@ -14,10 +14,16 @@ export default function ClassroomScreen() {
   const { access, enabled } = useClassroom();
   const activityId = access?.resources.guidedActivityId;
   const quizSessionId = access?.resources.quizSessionId;
-  const voteId = access?.resources.voteId;
   const activity = useQuery({ queryKey: ["guided-activity", identity?.classroomId, activityId], queryFn: () => fetchGuidedActivity(identity!.classroomId, activityId!), enabled: Boolean(identity && activityId) });
+  const meetingEnabled = enabled("meeting");
+  const latestVote = useQuery({
+    queryKey: ["class-vote-latest", identity?.classroomId],
+    queryFn: () => fetchLatestVote(identity!.classroomId),
+    enabled: Boolean(identity?.classroomId && meetingEnabled),
+    refetchInterval: 5_000
+  });
   const quizOpen = Boolean(quizSessionId) && enabled("quiz");
-  const meetingOpen = Boolean(voteId) && enabled("meeting");
+  const meetingOpen = Boolean(latestVote.data?.status === "OPEN" && latestVote.data.eligible && !latestVote.data.hasVoted);
 
   return <Screen title="선생님 수업" right={<BackButton />}>
     {activityId

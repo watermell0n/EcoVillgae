@@ -99,7 +99,7 @@ const definitionSources = [
     name: "화면 행동",
     // 73 -> 77: UIA-ACT-003·004(수업 자료 순서 진행), UIA-CLS-009(학급 보관),
     // UIA-QZ-010(넌센스 문항 가져오기), UIA-SHP-005(가격 일괄 인상)을 정의했다.
-    expected: 78,
+    expected: 79,
     files: ["docs/SCREEN_SPEC.md"],
     pattern: /^\| (UIA-[A-Z]+-\d{3}) \|/gm,
     reference: /(?<![A-Z0-9-])(UIA-[A-Z]+-\d{3})(?!\d)/g,
@@ -107,7 +107,8 @@ const definitionSources = [
   {
     name: "HTTP API",
     // 151 -> 156: API-ACT-003·004, API-CLS-009, API-QZ-010, API-SHP-005를 명세에 넣었다.
-    expected: 156,
+    // 159개 작업 계약과 API-CMN-001~008 공통 규칙을 함께 정의한다.
+    expected: 167,
     files: ["docs/API_COMMON_RULES.md", "docs/HTTP_API_SPEC.md"],
     pattern: /^\| (API-[A-Z]+-\d{3})(?: \|| ·)/gm,
     reference: /(?<![A-Z0-9-])(API-[A-Z]+-\d{3})(?!\d)/g,
