@@ -51,8 +51,8 @@ requireCondition(new Set(apiIds).size === 159, "api-field-mapping has duplicate 
 // 있어 MVP로 올렸고(+9), 문서화가 빠져 있던 READ-037~039·AI-007·FIN-015를 새로 넣었다(+5).
 // planned 29 -> 20: 위에서 아홉 건이 planned에서 빠졌다.
 // MVP 133 -> 136: 구현됐지만 문서에서 빠졌던 퀴즈 세션 목록·학생 활동·presence fallback을 추가했다.
-requireCondition(mvp.length === 139, `expected 139 MVP/support contracts, found ${mvp.length}`);
-requireCondition(planned.length === 20, `expected 20 planned contracts, found ${planned.length}`);
+requireCondition(mvp.length === 140, `expected 140 MVP/support contracts, found ${mvp.length}`);
+requireCondition(planned.length === 19, `expected 19 planned contracts, found ${planned.length}`);
 
 const openapiStatusCount = [...openapi.matchAll(/^\s+x-implementation-status:/gm)].length;
 const openapiStrictCount = [

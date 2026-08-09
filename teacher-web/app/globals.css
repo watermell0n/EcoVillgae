@@ -1606,6 +1606,33 @@ button:disabled {
   background: var(--surface-soft, #f7f8f7);
 }
 
+.public-vote-action {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+}
+
+.public-vote-primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+.public-vote-secondary {
+  color: var(--muted);
+}
+
+.public-vote-delete {
+  border-color: #e7b7b7;
+  color: #b83e3e;
+  background: #fff7f7;
+}
+
 @media (max-width: 900px) {
   .public-vote-option-edit {
     grid-template-columns: 1fr;
@@ -2067,7 +2094,7 @@ button:disabled {
   display: grid;
   grid-template-columns: 80px 1fr 1.4fr 110px auto;
   gap: 10px;
-  align-items: end;
+  align-items: flex-end;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2284,7 +2311,7 @@ button:disabled {
 
 .inflation-control {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   gap: 16px;
   margin-bottom: 18px;
   padding: 16px 0;
@@ -5712,7 +5739,7 @@ select:focus-visible {
 
 .recommendation-result {
   grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-  align-items: end;
+  align-items: flex-end;
   gap: 14px 28px;
 }
 

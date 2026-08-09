@@ -13,7 +13,10 @@ public record SavingsAccountViewResponse(
     long installmentAmount,
     long principalBalance,
     long expectedInterestAmount,
+    int interestRateBps,
     Instant openedAt,
     Instant maturesAt,
+    Instant nextInstallmentAt,
+    String nextInstallmentStatus,
     long stateVersion
 ) { }

@@ -121,6 +121,10 @@ public class QuizAnswer {
         return quizSessionQuestionId;
     }
 
+    public String getSelectedOptionKey() {
+        return selectedOptionKey;
+    }
+
     public boolean isCorrect() {
         return Boolean.TRUE.equals(correct);
     }

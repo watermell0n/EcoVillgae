@@ -106,6 +106,19 @@ export async function hydrateStudentIdentity(storedIdentity: StudentIdentity): P
   };
 }
 
+/** Refresh mutable profile fields after a teacher edits the roster. */
+export async function refreshStudentIdentity(identity: StudentIdentity): Promise<StudentIdentity> {
+  const me = await fetchCurrentStudent();
+  if (me.role !== "STU") {
+    throw new Error("학생 계정 정보를 확인할 수 없습니다.");
+  }
+  return {
+    ...identity,
+    nickname: me.display_name || identity.nickname,
+    studentId: me.user_id || identity.studentId
+  };
+}
+
 export async function restoreStudentIdentity(): Promise<StudentIdentity | null> {
   const [storedIdentity, refreshToken] = await Promise.all([
     getStoredIdentity(),

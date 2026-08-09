@@ -43,6 +43,21 @@ export type InvestmentMarket = {
   assets: InvestmentAsset[];
 };
 
+export type InvestmentOrderHistory = {
+  orderId: string;
+  assetId: string;
+  symbol: string;
+  assetName: string;
+  investmentMode: InvestmentMode | "UNKNOWN";
+  side: "BUY" | "SELL";
+  quantity: number;
+  executedPrice: number;
+  totalAmount: number;
+  executedPriceStep: number;
+  status: string;
+  executedAt: string;
+};
+
 type MarketResponse = {
   status: InvestmentMarket["status"];
   investment_mode: InvestmentMode;
@@ -127,6 +142,39 @@ export async function fetchInvestmentMarkets(classroomId: string): Promise<Inves
     `/classrooms/${classroomId}/investment-markets`
   );
   return (response.markets ?? []).map(toMarket);
+}
+
+export async function fetchInvestmentOrderHistory(classroomId: string): Promise<InvestmentOrderHistory[]> {
+  const response = await apiRequest<{
+    orders?: Array<{
+      order_id?: string;
+      asset_id?: string;
+      symbol?: string;
+      asset_name?: string;
+      investment_mode?: InvestmentMode | "UNKNOWN";
+      side?: "BUY" | "SELL";
+      quantity?: number;
+      executed_price?: number;
+      total_amount?: number;
+      executed_price_step?: number;
+      status?: string;
+      executed_at?: string;
+    }>;
+  }>(`/classrooms/${classroomId}/students/me/investment-portfolio`);
+  return (response.orders ?? []).flatMap((order) => order.order_id && order.asset_id ? [{
+    orderId: order.order_id,
+    assetId: order.asset_id,
+    symbol: order.symbol ?? "-",
+    assetName: order.asset_name ?? "종목 정보 없음",
+    investmentMode: order.investment_mode ?? "UNKNOWN",
+    side: order.side === "SELL" ? "SELL" : "BUY",
+    quantity: order.quantity ?? 0,
+    executedPrice: order.executed_price ?? 0,
+    totalAmount: order.total_amount ?? 0,
+    executedPriceStep: order.executed_price_step ?? 0,
+    status: order.status ?? "EXECUTED",
+    executedAt: order.executed_at ?? ""
+  }] : []);
 }
 
 export async function fetchInvestmentMarket(

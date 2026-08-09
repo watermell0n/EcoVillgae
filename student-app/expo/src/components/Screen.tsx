@@ -27,7 +27,10 @@ export function Screen({ children, title, subtitle, right, scroll = true }: Scre
   const { enabled } = useClassroom();
   const [profileOpen, setProfileOpen] = useState(false);
   const wallet = useQuery({ queryKey: ["wallet", identity?.classroomId], queryFn: () => fetchWallet(identity!.classroomId), enabled: Boolean(identity?.classroomId && tablet), refetchInterval: 10_000 });
-  const move = (path: "/character" | "/wallet" | "/paystub" | "/profile") => { setProfileOpen(false); router.push(path); };
+  const move = (path: "/character" | "/wallet" | "/paystub" | "/profile") => {
+    setProfileOpen(false);
+    router.push(path === "/wallet" ? "/(tabs)/wallet" : path);
+  };
   const signOut = async () => { setProfileOpen(false); await logout(); router.replace("/login"); };
   const content = <View style={tablet ? styles.tabletContent : styles.mobileContent}>{!tablet ? <View style={styles.mobileHeader}><View><Text style={styles.title}>{title}</Text>{subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}</View>{right}</View> : null}{children}</View>;
 

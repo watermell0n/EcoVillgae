@@ -209,6 +209,21 @@ public class QuizController {
                         entry.nickname(),
                         entry.characterCode()
                     ))
+                    .toList(),
+                view.questions().stream()
+                    .map(question -> new QuizQuestionResultResponse(
+                        question.questionId(),
+                        question.sequenceNumber(),
+                        question.prompt(),
+                        question.selectedOptionKey(),
+                        question.selectedOptionText(),
+                        question.correctOptionKey(),
+                        question.correctOptionText(),
+                        question.correct(),
+                        question.invalidated(),
+                        question.scoreAwarded(),
+                        question.explanation()
+                    ))
                     .toList()
             ),
             requestId,

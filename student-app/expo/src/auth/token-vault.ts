@@ -10,9 +10,21 @@ const DEVICE_ID_KEY = "ecovillage.student.deviceId";
 
 let accessToken: string | null = null;
 
-// SecureStore is native-only. The Expo web preview must persist the session
-// across a browser refresh as well, otherwise students are sent to login again.
-function webStorage() {
+// A browser tab represents one student's session. Keeping refresh tokens in
+// localStorage made every tab share the last student who logged in. sessionStorage
+// still survives a refresh, while isolating different students in different tabs.
+function webSessionStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+// The device id identifies the browser installation, not the signed-in student,
+// so it remains shared by tabs. The server links it separately for each student.
+function webDeviceStorage() {
   if (typeof window === "undefined") return null;
   try {
     return window.localStorage;
@@ -21,14 +33,18 @@ function webStorage() {
   }
 }
 
+function webStorageFor(key: string) {
+  return key === DEVICE_ID_KEY ? webDeviceStorage() : webSessionStorage();
+}
+
 async function getStoredValue(key: string) {
-  if (Platform.OS === "web") return webStorage()?.getItem(key) ?? null;
+  if (Platform.OS === "web") return webStorageFor(key)?.getItem(key) ?? null;
   return SecureStore.getItemAsync(key);
 }
 
 async function setStoredValue(key: string, value: string) {
   if (Platform.OS === "web") {
-    webStorage()?.setItem(key, value);
+    webStorageFor(key)?.setItem(key, value);
     return;
   }
 
@@ -37,7 +53,7 @@ async function setStoredValue(key: string, value: string) {
 
 async function deleteStoredValue(key: string) {
   if (Platform.OS === "web") {
-    webStorage()?.removeItem(key);
+    webStorageFor(key)?.removeItem(key);
     return;
   }
 

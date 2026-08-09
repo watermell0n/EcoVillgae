@@ -19,4 +19,9 @@ public interface InvestmentOrderRepository extends JpaRepository<InvestmentOrder
         UUID classroomStudentId,
         UUID investmentAssetId
     );
+
+    List<InvestmentOrder> findAllByClassroomIdAndClassroomStudentIdOrderBySubmittedAtDesc(
+        UUID classroomId,
+        UUID classroomStudentId
+    );
 }

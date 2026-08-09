@@ -109,6 +109,48 @@ public class InvestmentMarketQueryService {
             .toList();
     }
 
+    /** All executed orders for the signed-in student, including closed markets. */
+    @Transactional(readOnly = true)
+    public List<InvestmentOrderHistoryView> findOrderHistory(String subject, UUID classroomId) {
+        Access access = authorize(subject, classroomId);
+        if (access.studentId() == null) {
+            throw operation(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED", "학생 투자 내역입니다.");
+        }
+        List<InvestmentOrder> orders = orderRepository
+            .findAllByClassroomIdAndClassroomStudentIdOrderBySubmittedAtDesc(
+                classroomId,
+                access.studentId()
+            );
+        Map<UUID, InvestmentAsset> assets = assetRepository.findAllById(
+            orders.stream().map(InvestmentOrder::getInvestmentAssetId).distinct().toList()
+        ).stream().collect(Collectors.toMap(InvestmentAsset::getId, asset -> asset));
+        Map<UUID, InvestmentScenarioVersion> scenarios = scenarioRepository.findAllById(
+            assets.values().stream().map(InvestmentAsset::getScenarioVersionId).distinct().toList()
+        ).stream().collect(Collectors.toMap(InvestmentScenarioVersion::getId, scenario -> scenario));
+
+        return orders.stream().map(order -> {
+            InvestmentAsset asset = assets.get(order.getInvestmentAssetId());
+            InvestmentScenarioVersion scenario = asset == null
+                ? null
+                : scenarios.get(asset.getScenarioVersionId());
+            long total = Math.multiplyExact(order.getExecutedPrice(), order.getQuantity());
+            return new InvestmentOrderHistoryView(
+                order.getId(),
+                order.getInvestmentAssetId(),
+                asset == null ? "-" : asset.getSymbol(),
+                asset == null ? "종목 정보 없음" : asset.getName(),
+                scenario == null ? "UNKNOWN" : scenario.getInvestmentMode().name(),
+                order.getSide(),
+                order.getQuantity(),
+                order.getExecutedPrice(),
+                total,
+                order.getExecutedPriceStep(),
+                order.getStatus(),
+                order.getExecutedAt()
+            );
+        }).toList();
+    }
+
     /** 각 방식에서 학생에게 공개된 가장 최근 시장 하나를 남긴다. 새 초안이 생겨도 직전 정산
      * 결과는 새 시장이 실제로 시작할 때까지 계속 볼 수 있어야 한다. */
     private List<InvestmentMarket> latestStudentMarkets(UUID classroomId) {

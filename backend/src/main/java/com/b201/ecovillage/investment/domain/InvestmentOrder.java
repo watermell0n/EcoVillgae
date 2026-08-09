@@ -107,11 +107,15 @@ public class InvestmentOrder {
     }
 
     public UUID getId() { return id; }
+    public UUID getClassroomStudentId() { return classroomStudentId; }
+    public UUID getInvestmentAssetId() { return investmentAssetId; }
     public UUID getTransactionGroupId() { return transactionGroupId; }
     public String getSide() { return side; }
     public String getStatus() { return status; }
     public int getQuantity() { return quantity; }
     public long getExecutedPrice() { return executedPrice; }
     public int getExecutedPriceStep() { return executedPriceStep; }
+    public Instant getSubmittedAt() { return submittedAt; }
+    public Instant getExecutedAt() { return executedAt; }
     public long getStateVersion() { return stateVersion; }
 }

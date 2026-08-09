@@ -197,7 +197,12 @@ class QuizResultWorkflowApiTest {
             .andExpect(jsonPath("$.data.result_version").value(1))
             .andExpect(jsonPath("$.data.summary.score").value(10))
             .andExpect(jsonPath("$.data.summary.reward_amount").value(100))
-            .andExpect(jsonPath("$.data.leaderboard.length()").value(2));
+            .andExpect(jsonPath("$.data.leaderboard.length()").value(2))
+            .andExpect(jsonPath("$.data.questions.length()").value(1))
+            .andExpect(jsonPath("$.data.questions[0].prompt").value("What is saving?"))
+            .andExpect(jsonPath("$.data.questions[0].selected_option_text").value("Keep money"))
+            .andExpect(jsonPath("$.data.questions[0].correct_option_text").value("Keep money"))
+            .andExpect(jsonPath("$.data.questions[0].correct").value(true));
 
         mockMvc.perform(get(
                 "/classrooms/{classroomId}/quiz-sessions/{sessionId}/results",
@@ -206,7 +211,10 @@ class QuizResultWorkflowApiTest {
             ).principal(() -> secondStudentId.toString()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.summary.score").value(0))
-            .andExpect(jsonPath("$.data.summary.correct_count").value(0));
+            .andExpect(jsonPath("$.data.summary.correct_count").value(0))
+            .andExpect(jsonPath("$.data.questions[0].selected_option_text").value("Spend everything"))
+            .andExpect(jsonPath("$.data.questions[0].correct_option_text").value("Keep money"))
+            .andExpect(jsonPath("$.data.questions[0].correct").value(false));
 
         UUID reportKey = UUID.randomUUID();
         ObjectNode report = objectMapper.createObjectNode();

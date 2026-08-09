@@ -15576,9 +15576,24 @@ paths:
                             principal_balance:
                               type: "integer"
                               format: "int64"
+                            interest_rate_bps:
+                              type: "integer"
                             matures_at:
                               type: "string"
                               format: "date-time"
+                            next_installment_at:
+                              type:
+                                - "string"
+                                - "null"
+                              format: "date-time"
+                            next_installment_status:
+                              type:
+                                - "string"
+                                - "null"
+                              enum:
+                                - "SCHEDULED"
+                                - "MISSED"
+                                - null
                           additionalProperties: false
                     additionalProperties: false
                   meta:
@@ -16762,10 +16777,12 @@ paths:
     get:
       operationId: "apiRead017"
       x-api-id: "API-READ-017"
-      x-implementation-status: "planned"
-      x-schema-closure: "planned"
+      x-implementation-status: "mvp-contract"
+      x-schema-closure: "strict"
       x-storage-targets:
-        - "service_projection"
+        - "investment_orders"
+        - "investment_assets"
+        - "investment_scenario_versions"
       x-roles:
         - "STU"
       x-permission-ids: []
@@ -16776,8 +16793,8 @@ paths:
         - "FIN-007"
       tags:
         - "Queries"
-      summary: "본인 보유량, 체결, 손익, 수익률"
-      description: "사람이 검토하는 원문 기준: `API-READ-017` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 본인 보유량, 체결, 손익, 수익률."
+      summary: "단기, 장기와 종료된 시장을 모두 포함한 본인 투자 주문 내역. 종목, 매수/매도, 수량, 체결 단가, 합계, 체결 일시, 가격 단계를 최신순으로 제공"
+      description: "사람이 검토하는 원문 기준: `API-READ-017` in `docs/HTTP_API_SPEC.md`.\n\n허용 역할: STU.\n\n핵심 계약: 단기, 장기와 종료된 시장을 모두 포함한 본인 투자 주문 내역. 종목, 매수/매도, 수량, 체결 단가, 합계, 체결 일시, 가격 단계를 최신순으로 제공."
       security:
         - bearerAuth: []
       parameters:
@@ -16785,7 +16802,82 @@ paths:
         - $ref: "#/components/parameters/ClassroomIdPath"
       responses:
         200:
-          $ref: "#/components/responses/Success"
+          description: "MVP 작업별 명시적 성공 응답"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required:
+                  - "data"
+                  - "meta"
+                properties:
+                  data:
+                    type: "object"
+                    required:
+                      - "orders"
+                    properties:
+                      orders:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            order_id:
+                              type: "string"
+                              format: "uuid"
+                            asset_id:
+                              type: "string"
+                              format: "uuid"
+                            symbol:
+                              type: "string"
+                            asset_name:
+                              type: "string"
+                            investment_mode:
+                              type: "string"
+                              enum:
+                                - "SHORT_TERM"
+                                - "LONG_TERM"
+                                - "UNKNOWN"
+                            side:
+                              type: "string"
+                              enum:
+                                - "BUY"
+                                - "SELL"
+                            quantity:
+                              type: "integer"
+                              minimum: 1
+                            executed_price:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
+                            total_amount:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 1
+                            executed_price_step:
+                              type: "integer"
+                              minimum: 1
+                            executed_at:
+                              type: "string"
+                              format: "date-time"
+                          additionalProperties: false
+                    additionalProperties: false
+                  meta:
+                    $ref: "#/components/schemas/Meta"
+                additionalProperties: false
         400:
           $ref: "#/components/responses/BadRequest"
         401:
@@ -17510,6 +17602,57 @@ paths:
                             nickname:
                               type: "string"
                             character_code:
+                              type:
+                                - "string"
+                                - "null"
+                          additionalProperties: false
+                      questions:
+                        type: "array"
+                        items:
+                          type: "object"
+                          properties:
+                            resource_id:
+                              type: "string"
+                              format: "uuid"
+                            label:
+                              type: "string"
+                            status:
+                              type: "string"
+                            version:
+                              type: "integer"
+                              minimum: 0
+                            state_version:
+                              type: "integer"
+                              format: "int64"
+                              minimum: 0
+                            question_id:
+                              type: "string"
+                              format: "uuid"
+                            sequence_number:
+                              type: "integer"
+                              minimum: 1
+                            prompt:
+                              type: "string"
+                            selected_option_key:
+                              type:
+                                - "string"
+                                - "null"
+                            selected_option_text:
+                              type:
+                                - "string"
+                                - "null"
+                            correct_option_key:
+                              type: "string"
+                            correct_option_text:
+                              type: "string"
+                            correct:
+                              type: "boolean"
+                            invalidated:
+                              type: "boolean"
+                            score_awarded:
+                              type: "integer"
+                              minimum: 0
+                            explanation:
                               type:
                                 - "string"
                                 - "null"

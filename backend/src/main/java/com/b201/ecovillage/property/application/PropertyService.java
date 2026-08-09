@@ -190,7 +190,10 @@ public class PropertyService {
         if (property.status().equals("LISTED_FOR_RENT") && type.equals("SALE")) throw error(HttpStatus.CONFLICT, "LEASE_LISTING_ONLY", "임대 매물은 월세 또는 전세로만 신청할 수 있습니다.");
         if (type.equals("RENT") && !(listing == null ? property.rent() : listing.leaseType().equals("RENT"))) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RENT_NOT_ALLOWED", "월세 계약이 허용되지 않은 자리입니다.");
         if (type.equals("JEONSE") && !(listing == null ? property.jeonse() : listing.leaseType().equals("JEONSE"))) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "JEONSE_NOT_ALLOWED", "전세 계약이 허용되지 않은 자리입니다.");
-        if (type.equals("SALE") && !property.sale()) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "SALE_NOT_ALLOWED", "매매가 허용되지 않은 자리입니다.");
+        boolean subscriptionSale = type.equals("SALE") && property.status().equals("SUBSCRIPTION_OPEN");
+        // A subscription winner purchases through the offer price. The seat does not
+        // also need the ordinary sale toggle, which is only for direct listings.
+        if (type.equals("SALE") && !subscriptionSale && !property.sale()) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "SALE_NOT_ALLOWED", "매매가 허용되지 않은 자리입니다.");
         if (type.equals("SALE")) requireNoOwnedProperty(property.classroomId(), studentId);
         if (type.equals("SALE") && property.status().equals("SUBSCRIPTION_OPEN")) requireWinner(property, studentId, input.subscriptionApplicationId());
         if (!type.equals("SALE") && property.status().equals("SUBSCRIPTION_OPEN")) throw error(HttpStatus.CONFLICT, "SUBSCRIPTION_SALE_ONLY", "청약 자리는 당첨자 매매만 가능합니다.");
@@ -205,19 +208,13 @@ public class PropertyService {
         if (type.equals("RENT") && rent < 1) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_RENT_PRICE", "월세 금액을 먼저 설정해 주세요.");
         if (type.equals("JEONSE") && deposit < 1) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_JEONSE_DEPOSIT", "전세 보증금을 먼저 설정해 주세요.");
         Instant now = clock.instant(); UUID id = uuids.generate();
-        // 청약 당첨 매매는 이미 청약통장에 예치된 돈으로 승인 시점에 정산하므로 신청 시점에는 걷지 않는다.
-        long charge = property.status().equals("SUBSCRIPTION_OPEN") ? 0 : type.equals("SALE") ? salePrice : deposit;
-        Runnable insertPending = () -> jdbc.update("insert into property_contracts(id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,paid_at,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?,?)", id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, charge > 0 ? now : null, now, now, now);
-        if (charge == 0) {
-            insertPending.run();
-        } else {
-            // 돈은 신청 버튼을 누르는 순간 빠져나간다. 승인은 자리 상태만 바꾸고, 거절하면 그대로 환불된다.
-            if (wallet(property.classroomId(), studentId, now).getCurrentBalance() < charge) {
-                throw error(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "지갑 잔액이 부족해 계약을 신청할 수 없습니다. 필요한 금액은 " + charge + "입니다.");
-            }
-            Contract pending = new Contract(id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, null, null, null, "PENDING", now);
-            settle(pending, charge, type.equals("SALE") ? "PROPERTY_SALE" : type.equals("RENT") ? "PROPERTY_RENT_DEPOSIT" : "PROPERTY_JEONSE_DEPOSIT", studentId, "property-request-" + id, now, insertPending);
+        // Requests only reserve a pending contract. Money moves atomically when the
+        // teacher approves it, so a rejected request never needs a compensating refund.
+        long requiredWalletBalance = subscriptionSale ? 0 : type.equals("SALE") ? salePrice : deposit;
+        if (requiredWalletBalance > 0 && wallet(property.classroomId(), studentId, now).getCurrentBalance() < requiredWalletBalance) {
+            throw error(HttpStatus.CONFLICT, "INSUFFICIENT_BALANCE", "지갑 잔액이 부족해 계약을 신청할 수 없습니다. 필요한 금액은 " + requiredWalletBalance + "입니다.");
         }
+        jdbc.update("insert into property_contracts(id,classroom_id,property_id,lease_listing_id,subscription_offer_id,subscription_application_id,contract_type,occupant_student_id,landlord_kind,landlord_student_id,deposit_amount,monthly_rent,sale_price,payment_cycle_days,contract_term_days,paid_at,status,status_changed_at,created_at,updated_at) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,null,'PENDING',?,?,?)", id, property.classroomId(), propertyId, listing == null ? null : listing.id(), property.subscriptionOfferId(), input.subscriptionApplicationId(), type, studentId, property.ownerKind(), property.ownerStudentId(), type.equals("SALE") ? 0 : deposit, type.equals("RENT") ? rent : 0, type.equals("SALE") ? salePrice : 0, type.equals("RENT") ? cycle : null, type.equals("SALE") ? null : term, now, now, now);
         return contractView(contract(property.classroomId(), id, false));
     }
 
@@ -229,7 +226,8 @@ public class PropertyService {
         UUID teacherId = teacher(subject); Instant now = clock.instant();
         if (!approve) {
             Runnable rejectContract = () -> jdbc.update("update property_contracts set status='REJECTED',decision_reason=?,approved_by_user_id=?,approved_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", reason, teacherId, now, now, now, contractId);
-            // 신청 시점에 이미 돈을 낸 계약은 거절과 동시에 학생 지갑으로 돌려준다.
+            // Backward compatibility for pending contracts created before approval-time
+            // settlement was introduced. New requests always have paid_at = null.
             long refund = contract.paidAt() == null ? 0 : contract.contractType().equals("SALE") ? contract.salePrice() : contract.depositAmount();
             if (refund > 0) settleReverse(contract, refund, teacherId, idempotencyKey, now, rejectContract);
             else rejectContract.run();
@@ -242,12 +240,12 @@ public class PropertyService {
                 throw error(HttpStatus.CONFLICT, "PROPERTY_OWNER_CHANGED", "신청 후 자리 소유자가 바뀌어 계약을 승인할 수 없습니다.");
             }
             Runnable completeSale = () -> {
-                jdbc.update("update property_contracts set status='COMPLETED',approved_by_user_id=?,decision_reason=?,approved_at=?,started_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", teacherId, reason, now, now, now, now, contract.id());
+                jdbc.update("update property_contracts set status='COMPLETED',approved_by_user_id=?,decision_reason=?,approved_at=?,started_at=?,paid_at=coalesce(paid_at,?),state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", teacherId, reason, now, now, now, now, now, contract.id());
                 jdbc.update("update properties set owner_kind='STUDENT',owner_student_id=?,is_public=false,status='STUDENT_OWNED',subscription_winner_student_id=null,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", contract.occupantStudentId(), now, now, property.id());
                 jdbc.update("update property_sale_listings set status='PURCHASED',state_version=state_version+1,updated_at=? where property_id=? and status='ACTIVE'", now, property.id());
                 if (contract.subscriptionApplicationId() != null) jdbc.update("update subscription_applications set status='PURCHASED',updated_at=? where id=?", now, contract.subscriptionApplicationId());
             };
-            // paid_at이 있으면 신청 시점에 이미 돈이 옮겨졌으므로 승인은 상태 전이만 한다.
+            // paid_at is only present on legacy pending contracts that paid at request time.
             if (contract.subscriptionApplicationId() != null) settleSubscriptionSale(contract, teacherId, idempotencyKey, now, completeSale);
             else if (contract.paidAt() != null) completeSale.run();
             else settle(contract, contract.salePrice(), "PROPERTY_SALE", teacherId, idempotencyKey, now, completeSale);
@@ -255,7 +253,7 @@ public class PropertyService {
             Runnable activateLease = () -> {
                 Instant end = now.plus(contract.contractTermDays(), ChronoUnit.DAYS);
                 Instant next = contract.contractType().equals("RENT") ? now.plus(contract.paymentCycleDays(), ChronoUnit.DAYS) : null;
-                jdbc.update("update property_contracts set status='ACTIVE',approved_by_user_id=?,decision_reason=?,approved_at=?,started_at=?,ends_at=?,next_payment_at=?,state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", teacherId, reason, now, now, end, next, now, now, contract.id());
+                jdbc.update("update property_contracts set status='ACTIVE',approved_by_user_id=?,decision_reason=?,approved_at=?,started_at=?,ends_at=?,next_payment_at=?,paid_at=coalesce(paid_at,?),state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", teacherId, reason, now, now, end, next, now, now, now, contract.id());
                 jdbc.update("update properties set status='RENTED',state_version=state_version+1,status_changed_at=?,updated_at=? where id=?", now, now, property.id());
                 if (next != null) jdbc.update("insert into property_contract_payments(id,classroom_id,property_contract_id,due_at,amount,status,created_at,updated_at) values(?,?,?,?,?,'SCHEDULED',?,?)", uuids.generate(), contract.classroomId(), contract.id(), next, contract.monthlyRent(), now, now);
             };

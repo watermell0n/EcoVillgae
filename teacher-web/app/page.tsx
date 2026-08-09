@@ -5027,9 +5027,9 @@ function PublicFundAdmin({
           <label>사용처<input value={option.label} onChange={(event) => updateOption(index, "label", event.target.value)} /></label>
           <label>설명<input value={option.description} onChange={(event) => updateOption(index, "description", event.target.value)} /></label>
           <label>사용 금액<input inputMode="numeric" value={option.budget} onChange={(event) => updateOption(index, "budget", event.target.value)} /></label>
-          {options.length > 2 ? <button type="button" className="danger-text" onClick={() => setOptions((current) => current.filter((_, optionIndex) => optionIndex !== index))}>삭제</button> : null}
+          <button type="button" className="public-vote-action public-vote-delete" onClick={() => setOptions((current) => current.filter((_, optionIndex) => optionIndex !== index))}>삭제</button>
         </div>)}
-        <div className="row-actions"><button type="button" className="ghost" onClick={() => setOptions((current) => [...current, { label: "", description: "", budget: "0" }])}>사용처 추가</button><button type="button" disabled={busy} onClick={() => void createVote()}>{busy ? "만드는 중" : "투표 만들기"}</button></div>
+        <div className="row-actions"><button type="button" className="public-vote-action public-vote-secondary" onClick={() => setOptions((current) => [...current, { label: "", description: "", budget: "0" }])}>사용처 추가</button><button type="button" className="public-vote-action public-vote-primary" disabled={busy} onClick={() => void createVote()}>{busy ? "만드는 중" : "투표 만들기"}</button></div>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
       </div>
     </PlainSection>}

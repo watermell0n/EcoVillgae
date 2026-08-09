@@ -282,7 +282,8 @@ public class FinanceController {
             .map(view -> new SavingsAccountViewResponse(
                 view.resourceId(), view.productId(), view.label(), view.status(), view.installmentCount(),
                 view.paidInstallmentCount(), view.installmentAmount(), view.principalBalance(),
-                view.expectedInterestAmount(), view.openedAt(), view.maturesAt(), view.stateVersion()
+                view.expectedInterestAmount(), view.interestRateBps(), view.openedAt(), view.maturesAt(),
+                view.nextInstallmentAt(), view.nextInstallmentStatus(), view.stateVersion()
             ))
             .toList();
         return response(

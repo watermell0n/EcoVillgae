@@ -167,6 +167,27 @@ class StudentSessionApiTest {
     }
 
     @Test
+    void currentUserReflectsRosterNicknameChangeWithoutNewLogin() throws Exception {
+        MvcResult login = mockMvc.perform(
+            validLoginRequest(CLASSROOM_CODE, NICKNAME, PASSWORD, UUID.randomUUID())
+                .header("Idempotency-Key", UUID.randomUUID())
+        ).andExpect(status().isCreated()).andReturn();
+        String accessToken = JsonPath.read(
+            login.getResponse().getContentAsString(),
+            "$.data.access_token"
+        );
+
+        ClassroomStudent student = classroomStudentRepository.findById(studentId).orElseThrow();
+        student.changeNickname("새 경제왕", CREATED_AT.plusSeconds(1));
+        classroomStudentRepository.saveAndFlush(student);
+
+        mockMvc.perform(get("/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.display_name").value("새 경제왕"));
+    }
+
+    @Test
     void registersFirstTimeStudentAtRequestedAttendanceNumberUsingFourCharacterPassword()
         throws Exception {
         String nickname = "새학생";
@@ -298,6 +319,57 @@ class StudentSessionApiTest {
                 .filter(session -> session.getStatus() == StudentSessionStatus.REVOKED)
                 .allMatch(session -> session.getRevokedAt() != null)
         );
+    }
+
+    @Test
+    void keepsDifferentStudentsActiveWhenTheyShareOneBrowserDevice() throws Exception {
+        UUID secondStudentId = UUID.randomUUID();
+        String secondNickname = "경제꿈나무";
+        classroomStudentRepository.save(
+            ClassroomStudent.enroll(secondStudentId, classroomId, 8, secondNickname, CREATED_AT)
+        );
+        studentCredentialRepository.save(
+            StudentCredential.issue(
+                secondStudentId,
+                classroomId,
+                passwordEncoder.encode(PASSWORD),
+                CREATED_AT
+            )
+        );
+        UUID sharedDeviceId = UUID.randomUUID();
+
+        MvcResult firstLogin = mockMvc.perform(
+            validLoginRequest(CLASSROOM_CODE, 7, NICKNAME, PASSWORD, sharedDeviceId)
+                .header("Idempotency-Key", UUID.randomUUID())
+        ).andExpect(status().isCreated()).andReturn();
+        MvcResult secondLogin = mockMvc.perform(
+            validLoginRequest(CLASSROOM_CODE, 8, secondNickname, PASSWORD, sharedDeviceId)
+                .header("Idempotency-Key", UUID.randomUUID())
+        ).andExpect(status().isCreated()).andReturn();
+
+        assertEquals(2, studentSessionRepository.findAll().stream()
+            .filter(session -> session.getStatus() == StudentSessionStatus.ACTIVE)
+            .count());
+        assertEquals(2, deviceLinkRepository.count());
+
+        String firstRefreshToken = JsonPath.read(
+            firstLogin.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+        String secondRefreshToken = JsonPath.read(
+            secondLogin.getResponse().getContentAsString(),
+            "$.data.refresh_token"
+        );
+        mockMvc.perform(post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", firstRefreshToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"));
+        mockMvc.perform(post("/auth/token-refreshes")
+                .header("Idempotency-Key", UUID.randomUUID())
+                .header("X-Refresh-Token", secondRefreshToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.role").value("STU"));
     }
 
     @Test
@@ -492,15 +564,26 @@ class StudentSessionApiTest {
             String password,
             UUID deviceId
         ) {
+        return validLoginRequest(classroomCode, 7, nickname, password, deviceId);
+    }
+
+    private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
+        validLoginRequest(
+            String classroomCode,
+            int attendanceNumber,
+            String nickname,
+            String password,
+            UUID deviceId
+        ) {
         String body = """
             {
               "classroom_code": "%s",
-              "attendance_number": 7,
+              "attendance_number": %d,
               "nickname": "%s",
               "password": "%s",
               "device_id": "%s"
             }
-            """.formatted(classroomCode, nickname, password, deviceId);
+            """.formatted(classroomCode, attendanceNumber, nickname, password, deviceId);
 
         return post("/auth/student-sessions")
             .contentType(MediaType.APPLICATION_JSON)

@@ -12,6 +12,18 @@ import { ApiError } from "@/api/client";
 
 type BankTab = "ACCOUNT" | "DEPOSIT" | "SAVINGS" | "LOAN";
 
+function formatBankDate(value?: string) {
+  if (!value) return "일정을 확인 중이에요";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "일정을 확인 중이에요";
+  return date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function accountNumber(prefix: "예금" | "적금", resourceId: string) {
+  const suffix = resourceId.replace(/[^a-zA-Z0-9]/g, "").slice(-6).toUpperCase();
+  return `${prefix} ${suffix || "000000"}`;
+}
+
 export default function BankScreen() {
   const { identity } = useAuth();
   const currencyName = identity?.currencyName ?? "비빔";
@@ -126,12 +138,12 @@ export default function BankScreen() {
   );
   const canSubmitLoan = Boolean(loan.data?.canApply && Number.isInteger(requestedLoanAmount) && requestedLoanAmount >= loan.data.installmentCount && requestedLoanAmount <= loan.data.availableLimit);
   const productTermLabel = (product: FinancialProduct) => product.productType === "SAVINGS"
-    ? `${product.termUnits ?? product.installmentCount ?? "-"}주`
+    ? `${product.installmentCount ?? (product.termUnits ? Math.ceil(product.termUnits / 7) : "-")}주`
     : `${product.termUnits ?? "-"}일`;
   const expectedMaturity = (product: FinancialProduct) => {
     if (!product.termUnits) return "상품 조건 확인 중";
     const date = new Date();
-    date.setDate(date.getDate() + (product.productType === "SAVINGS" ? product.termUnits * 7 : product.termUnits));
+    date.setDate(date.getDate() + product.termUnits);
     return date.toLocaleDateString("ko-KR");
   };
   const confirmSubscription = (product: FinancialProduct) => {
@@ -155,18 +167,24 @@ export default function BankScreen() {
       </View>
       {activeTab === "ACCOUNT" ? (
         <View style={styles.accountsSection}>
-          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : !hasAccounts ? <Text style={styles.emptyText}>아직 만든 예금·적금 통장이 없어요. 위의 예금 또는 적금 탭에서 원하는 상품을 선택해 주세요.</Text> : accounts.data?.depositAccounts.map((account, index) => (
-            <PassbookCover key={account.resourceId} title={account.label} subtitle={account.label.includes("적금") ? "납입 내역을 확인해요" : "만기까지 안전하게 보관해요"} color={account.label.includes("적금") ? "#D89A57" : "#6FAE83"}>
-              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>{account.label.includes("적금") ? "지금까지 납입한 금액" : "만기 예상 금액"}</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
-              <View style={styles.accountSchedule}><Text>{account.label.includes("적금") ? "1회차 납입 완료" : "만기일"}</Text><Text>{account.label.includes("적금") ? "다음 납입을 기다리고 있어요" : account.maturesAt || "만기일을 확인 중이에요"}</Text></View>
-              <Text style={styles.passbookNumber}>통장 {String(index + 1).padStart(2, "0")}</Text>
+          {accounts.isPending ? <ActivityIndicator color={colors.green500} /> : !hasAccounts ? <Text style={styles.emptyText}>아직 만든 예금·적금 통장이 없어요. 위의 예금 또는 적금 탭에서 원하는 상품을 선택해 주세요.</Text> : accounts.data?.depositAccounts.map((account) => (
+            <PassbookCover key={account.resourceId} title={account.label} subtitle="만기까지 안전하게 보관해요" color="#6FAE83" numberLabel={accountNumber("예금", account.resourceId)}>
+              <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>맡긴 금액</Text><Text style={styles.accountDetailValue}>{account.principalAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
+              <View style={styles.accountSchedule}><Text style={styles.accountDetailLabel}>만기일</Text><Text style={styles.scheduleValue}>{formatBankDate(account.maturesAt)}</Text></View>
             </PassbookCover>
           ))}
-          {accounts.data?.savingsAccounts.map((account, index) => (
-            <PassbookCover key={account.resourceId} title={account.label} subtitle={`${account.paidInstallmentCount}/${account.installmentCount}회 납입 완료`} color="#D89A57">
+          {accounts.data?.savingsAccounts.map((account) => (
+            <PassbookCover key={account.resourceId} title={account.label} subtitle={`${account.paidInstallmentCount}/${account.installmentCount}회 납입 완료`} color="#D89A57" numberLabel={accountNumber("적금", account.resourceId)}>
               <View style={styles.accountDetail}><Text style={styles.accountDetailLabel}>지금까지 납입한 금액</Text><Text style={styles.accountDetailValue}>{account.principalBalance.toLocaleString("ko-KR")} {currencyName}</Text></View>
-              <View style={styles.accountSchedule}><Text>다음 회차 납입 금액</Text><Text>{account.installmentAmount.toLocaleString("ko-KR")} {currencyName}</Text></View>
-              <Text style={styles.passbookNumber}>적금 통장 {String(index + 1).padStart(2, "0")}</Text>
+              <View style={styles.savingsTerms}>
+                <Metric label="가입 금리" value={`연 ${(account.interestRateBps / 100).toFixed(1)}%`} />
+                <Metric label="만기일" value={formatBankDate(account.maturesAt)} />
+                <Metric
+                  label={account.nextInstallmentStatus === "MISSED" ? "미납일" : "다음 납입일"}
+                  value={formatBankDate(account.nextInstallmentAt)}
+                />
+                <Metric label="다음 납입 금액" value={`${account.installmentAmount.toLocaleString("ko-KR")} ${currencyName}`} />
+              </View>
             </PassbookCover>
           ))}
         </View>
@@ -207,11 +225,10 @@ export default function BankScreen() {
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId)}
                   onPress={() => setSelectedProduct(product)}
-                  style={[styles.passbookButton, product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId) && styles.disabled]}
+                  style={styles.passbookButton}
                 >
-                  <Text style={styles.passbookButtonText}>{product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId) ? "가입 완료" : "정보 확인하기"}</Text>
+                  <Text style={styles.passbookButtonText}>{product.productType === "SAVINGS" && subscribedSavingsProductIds.has(product.resourceId) ? "가입 정보 보기" : "정보 확인하기"}</Text>
                 </Pressable>
               </View>
             ))}
@@ -372,6 +389,8 @@ const styles = StyleSheet.create({
   accountDetailLabel: { color: colors.muted700, fontSize: 13, fontWeight: "800" },
   accountDetailValue: { color: colors.ink900, fontSize: 24, fontWeight: "900" },
   accountSchedule: { gap: 4 },
+  scheduleValue: { color: colors.ink900, fontSize: 16, fontWeight: "900" },
+  savingsTerms: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   loanGrid: { flexDirection: "row", gap: 12 },
   loanMetric: { flex: 1, gap: 4, padding: 12, borderWidth: 1, borderColor: "#E8E2D2", borderRadius: 6 },
   loanMetricDetail: { color: colors.muted700, fontSize: 13, fontWeight: "700" },

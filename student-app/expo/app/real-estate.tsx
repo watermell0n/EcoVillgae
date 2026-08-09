@@ -132,7 +132,7 @@ export default function RealEstateScreen() {
     onSuccess: async (_result, variables) => {
       const message = variables.property.status === "SUBSCRIPTION_OPEN"
         ? "당첨 자리 구매를 신청했어요. 선생님 승인 후 내 자리가 돼요."
-        : `${contractTypeLabel(variables.contractType)} 계약을 신청해 돈이 빠져나갔어요. 선생님 승인 후 내 자리에 반영돼요.`;
+        : `${contractTypeLabel(variables.contractType)} 계약을 신청했어요. 선생님이 승인하면 그때 결제되고 내 자리에 반영돼요.`;
       setNotice(message);
       announce("계약 신청 완료", message);
       await refresh();
@@ -188,13 +188,13 @@ export default function RealEstateScreen() {
     if (selectedContractType === "SALE") return selected.salePrice;
     return selected.depositAmount;
   })();
-  const selectedContractPrice = !selected
-    ? 0
+  const selectedContractPriceLabel = !selected
+    ? ""
     : selectedContractType === "SALE"
-      ? selected.salePrice
+      ? `매매 ${selected.salePrice.toLocaleString("ko-KR")} ${currency}`
       : selectedContractType === "JEONSE"
-        ? selected.depositAmount
-        : selected.monthlyRent;
+        ? `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency}`
+        : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} / 월세 ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}`;
   const balance = wallet.data?.balance ?? 0;
   const affordsContract = !wallet.isPending && balance >= contractCost;
 
@@ -238,14 +238,17 @@ export default function RealEstateScreen() {
       </View>
 
       {selected ? <StateCard tone={mineIds.has(selected.propertyId) ? "mint" : "cream"}>
-        <View style={styles.detailHead}><View><Text style={styles.cardTitle}>{selected.coordinate} · {selected.displayName}</Text><Text style={styles.cardMeta}>{mineIds.has(selected.propertyId) ? "내가 소유한 자리" : propertyStatusLabel(selected.status)}</Text></View>{selectedContractPrice > 0 ? <Text style={styles.detailPrice}>{selectedContractPrice.toLocaleString("ko-KR")} {currency}{selectedContractType === "RENT" ? `/${selected.paymentCycleDays}일` : ""}</Text> : null}</View>
+        <View style={styles.detailHead}><View><Text style={styles.cardTitle}>{selected.coordinate} · {selected.displayName}</Text><Text style={styles.cardMeta}>{mineIds.has(selected.propertyId) ? "내가 소유한 자리" : propertyStatusLabel(selected.status)}</Text></View>{selectedContractPriceLabel ? <Text style={styles.detailPrice}>{selectedContractPriceLabel}</Text> : null}</View>
         {!mineIds.has(selected.propertyId) && selected.status !== "SUBSCRIPTION_OPEN" && contractTypes.length ? <>
           <View accessibilityRole="radiogroup" style={styles.contractTypes}>{contractTypes.map((type) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: selectedContractType === type }} aria-checked={selectedContractType === type} key={type} onPress={() => setSelectedContractType(type)} style={[styles.contractType, selectedContractType === type && styles.contractTypeSelected]}><Text style={[styles.contractTypeText, selectedContractType === type && styles.contractTypeTextSelected]}>{contractTypeLabel(type)}</Text></Pressable>)}</View>
-          <Text style={styles.description}>{selectedContractType === "SALE"
-            ? `매매가 ${selected.salePrice.toLocaleString("ko-KR")} ${currency}`
-            : selectedContractType === "JEONSE"
-              ? `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.contractTermDays}일`
-              : `보증금 ${selected.depositAmount.toLocaleString("ko-KR")} ${currency} · ${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}/${selected.paymentCycleDays}일 · ${selected.contractTermDays}일`}</Text>
+          <View style={styles.contractDetails}>
+            {selectedContractType === "SALE" ? <ContractDetail label="매매 가격" value={`${selected.salePrice.toLocaleString("ko-KR")} ${currency}`} /> : <>
+              <ContractDetail label="보증금" value={`${selected.depositAmount.toLocaleString("ko-KR")} ${currency}`} />
+              {selectedContractType === "RENT" ? <ContractDetail label="월세 금액" value={`${selected.monthlyRent.toLocaleString("ko-KR")} ${currency}`} /> : null}
+              {selectedContractType === "RENT" ? <ContractDetail label="납부 주기" value={`${selected.paymentCycleDays}일마다`} /> : null}
+              <ContractDetail label="계약 기간" value={`${selected.contractTermDays}일`} />
+            </>}
+          </View>
         </> : null}
         {canContractSelected ? <>
           <Pressable accessibilityRole="button" disabled={purchase.isPending || !affordsContract} onPress={() => purchase.mutate({ property: selected, contractType: selected.status === "SUBSCRIPTION_OPEN" ? "SALE" : selectedContractType, applicationId: wonApplication?.applicationId })} style={[styles.primary, (purchase.isPending || !affordsContract) && styles.disabled]}><Text style={styles.primaryText}>{selected.status === "SUBSCRIPTION_OPEN" ? "당첨 자리 구매 신청" : `${contractTypeLabel(selectedContractType)} 계약 신청`}</Text></Pressable>
@@ -293,10 +296,22 @@ export default function RealEstateScreen() {
           </StateCard>;
         }) : <StateCard title="진행 중인 청약이 없어요"><Text style={styles.description}>선생님이 청약 공급을 열면 여기에 공고가 나타나요.</Text></StateCard>}
 
-        {applications.data?.some((item) => ["WON", "LOST", "PURCHASED"].includes(item.status)) ? <><Text style={styles.subTitle}>청약 결과</Text>{applications.data.filter((item) => ["WON", "LOST", "PURCHASED"].includes(item.status)).map((item) => <StateCard key={item.applicationId} tone={item.status === "WON" || item.status === "PURCHASED" ? "mint" : undefined}><Text style={styles.cardTitle}>{applicationStatusLabel(item.status)}</Text><Text style={styles.cardMeta}>신청 당시 납입 {item.depositCount}회 · 예치금 {item.depositAmount.toLocaleString("ko-KR")} {currency}</Text>{item.status === "WON" && item.assignedPropertyId ? <Pressable onPress={() => setSelectedId(item.assignedPropertyId!)} style={styles.primary}><Text style={styles.primaryText}>당첨 자리 확인</Text></Pressable> : null}</StateCard>)}</> : null}
+        {applications.data?.some((item) => ["WON", "LOST", "PURCHASED"].includes(item.status)) ? <><Text style={styles.subTitle}>청약 결과</Text>{applications.data.filter((item) => ["WON", "LOST", "PURCHASED"].includes(item.status)).map((item) => {
+          const assigned = layout.data?.properties.find((property) => property.propertyId === item.assignedPropertyId);
+          return <StateCard key={item.applicationId} tone={item.status === "WON" || item.status === "PURCHASED" ? "mint" : undefined}>
+            <Text style={styles.cardTitle}>{applicationStatusLabel(item.status)}</Text>
+            <Text style={styles.cardMeta}>신청 당시 납입 {item.depositCount}회 · 예치금 {item.depositAmount.toLocaleString("ko-KR")} {currency}</Text>
+            {assigned ? <Text style={styles.assignedSeat}>당첨 자리: {assigned.coordinate} · {assigned.displayName}</Text> : null}
+            {item.status === "WON" && assigned ? <Pressable disabled={purchase.isPending} onPress={() => purchase.mutate({ property: assigned, contractType: "SALE", applicationId: item.applicationId })} style={[styles.primary, purchase.isPending && styles.disabled]}><Text style={styles.primaryText}>당첨 자리 구매 신청</Text></Pressable> : null}
+          </StateCard>;
+        })}</> : null}
       </View> : <StateCard><Text style={styles.cardTitle}>청약 모듈은 꺼져 있어요</Text><Text style={styles.description}>현재는 교사 직판과 학생 간 재판매만 이용할 수 있어요.</Text></StateCard>}
     </Screen>
   );
+}
+
+function ContractDetail({ label, value }: Readonly<{ label: string; value: string }>) {
+  return <View style={styles.contractDetailRow}><Text style={styles.contractDetailLabel}>{label}</Text><Text style={styles.contractDetailValue}>{value}</Text></View>;
 }
 
 const styles = StyleSheet.create({
@@ -310,7 +325,8 @@ const styles = StyleSheet.create({
   board: { width: "60%", alignSelf: "center", alignItems: "center", padding: 9, borderWidth: 4, borderColor: "#91A7B5", borderRadius: 6, backgroundColor: colors.white }, boardText: { color: colors.muted700, fontSize: 12, fontWeight: "900", letterSpacing: 8 },
   seatScrollContent: { minWidth: "100%", alignItems: "center" }, seatStage: { gap: 18 }, seatGrid: { flexDirection: "row", flexWrap: "wrap", gap: SEAT_GAP }, seat: { minHeight: 88, alignItems: "center", justifyContent: "center", padding: 8, borderWidth: 1.5, borderRadius: 13 }, seatDirect: { borderColor: colors.green500, backgroundColor: colors.washMint }, seatResale: { borderColor: colors.orange500, backgroundColor: "#FFF3E4" }, seatSubscription: { borderColor: colors.purple500, backgroundColor: "#F2EDFF" }, seatOwned: { borderColor: "#AAB6C1", backgroundColor: "#F0F3F6" }, seatMine: { borderColor: "#2B82B5", backgroundColor: colors.washBlue }, seatSelected: { borderWidth: 3 }, pressed: { opacity: .75 },
   seatCoordinate: { color: colors.ink900, fontSize: 17, fontWeight: "900" }, seatStatus: { marginTop: 3, color: colors.muted700, fontSize: 11, fontWeight: "800" }, seatPrice: { marginTop: 4, color: colors.ink900, fontSize: 11, fontWeight: "900" },
-  detailHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, detailPrice: { color: colors.green700, fontSize: 20, fontWeight: "900" }, cardTitle: { color: colors.ink900, fontSize: 18, fontWeight: "900" }, cardMeta: { color: colors.muted700, fontSize: 14, fontWeight: "700" }, offerPrice: { color: colors.purple500, fontSize: 18, fontWeight: "900" }, balance: { color: colors.purple500, fontSize: 30, fontWeight: "900" },
+  detailHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 }, detailPrice: { maxWidth: "55%", color: colors.green700, fontSize: 18, fontWeight: "900", textAlign: "right" }, cardTitle: { color: colors.ink900, fontSize: 18, fontWeight: "900" }, cardMeta: { color: colors.muted700, fontSize: 14, fontWeight: "700" }, offerPrice: { color: colors.purple500, fontSize: 18, fontWeight: "900" }, balance: { color: colors.purple500, fontSize: 30, fontWeight: "900" },
+  contractDetails: { marginTop: 12, overflow: "hidden", borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, contractDetailRow: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }, contractDetailLabel: { color: colors.muted700, fontSize: 14, fontWeight: "800" }, contractDetailValue: { color: colors.ink900, fontSize: 15, fontWeight: "900", textAlign: "right" }, assignedSeat: { marginTop: 10, color: colors.green700, fontSize: 17, fontWeight: "900" },
   inlineForm: { marginTop: 8, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 }, input: { minWidth: 120, minHeight: 48, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white, color: colors.ink900, fontSize: 17, fontWeight: "800" },
   primary: { alignSelf: "flex-start", minHeight: 48, justifyContent: "center", marginTop: 10, paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.green700 }, orangeButton: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18, borderRadius: radii.control, backgroundColor: colors.orange700 }, primaryText: { color: colors.white, fontSize: 15, fontWeight: "900" }, secondary: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.lineSoft, borderRadius: radii.control, backgroundColor: colors.white }, secondaryText: { color: colors.ink900, fontWeight: "900" }, disabled: { opacity: .45 },
   applicationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, applicationStatus: { color: colors.purple500, fontSize: 16, fontWeight: "900" },

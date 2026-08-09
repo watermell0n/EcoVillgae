@@ -291,6 +291,19 @@ class InvestmentFlowApiTest {
             .andExpect(jsonPath("$.data.assets[0].total_bought_amount").value(2000))
             .andExpect(jsonPath("$.data.assets[0].total_sold_amount").value(1010))
             .andExpect(jsonPath("$.data.assets[0].profit_loss").value(20));
+
+        mockMvc.perform(get("/classrooms/{classroomId}/students/me/investment-portfolio", classroomId)
+                .principal(student))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.orders.length()").value(2))
+            .andExpect(jsonPath("$.data.orders[0].asset_id").value(assetId.toString()))
+            .andExpect(jsonPath("$.data.orders[0].investment_mode").value("LONG_TERM"))
+            .andExpect(jsonPath("$.data.orders[0].side").value("SELL"))
+            .andExpect(jsonPath("$.data.orders[0].quantity").value(1))
+            .andExpect(jsonPath("$.data.orders[0].executed_price").value(1010))
+            .andExpect(jsonPath("$.data.orders[0].total_amount").value(1010))
+            .andExpect(jsonPath("$.data.orders[1].side").value("BUY"))
+            .andExpect(jsonPath("$.data.orders[1].total_amount").value(2000));
     }
 
     /**
