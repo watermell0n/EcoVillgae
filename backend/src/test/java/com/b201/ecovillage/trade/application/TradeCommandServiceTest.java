@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,9 +32,15 @@ import com.b201.ecovillage.identity.domain.ClassroomStudentStatus;
 import com.b201.ecovillage.identity.repository.ClassroomRepository;
 import com.b201.ecovillage.identity.repository.ClassroomStudentRepository;
 import com.b201.ecovillage.ledger.domain.IdempotencyRecord;
+import com.b201.ecovillage.ledger.domain.LedgerAccount;
+import com.b201.ecovillage.ledger.domain.LedgerAccountStatus;
+import com.b201.ecovillage.ledger.domain.LedgerAccountType;
 import com.b201.ecovillage.ledger.repository.IdempotencyRecordRepository;
+import com.b201.ecovillage.ledger.repository.LedgerAccountRepository;
 import com.b201.ecovillage.trade.domain.Trade;
 import com.b201.ecovillage.trade.domain.InventoryItem;
+import com.b201.ecovillage.trade.domain.TradeMoneyLeg;
+import com.b201.ecovillage.trade.domain.TradeStatus;
 import com.b201.ecovillage.trade.repository.InventoryItemRepository;
 import com.b201.ecovillage.trade.repository.TradeDecisionRepository;
 import com.b201.ecovillage.trade.repository.TradeItemLegRepository;
@@ -46,9 +53,14 @@ class TradeCommandServiceTest {
 
     private TradeRepository tradeRepository;
     private TradeMoneyLegRepository moneyLegRepository;
+    private ClassroomStudentRepository studentRepository;
     private IdempotencyRecordRepository idempotencyRepository;
     private InventoryItemRepository inventoryRepository;
     private CharacterEquipmentRepository equipmentRepository;
+    private LedgerAccountRepository accountRepository;
+    private TradeTaxPolicyResolver taxPolicyResolver;
+    private LedgerAccount proposerWallet;
+    private ClassroomStudent counterpartStudent;
     private TradeCommandService service;
     private CreateTradeCommand command;
     private AtomicReference<Trade> savedTrade;
@@ -59,8 +71,7 @@ class TradeCommandServiceTest {
         ClassroomAuthorizationService authorizationService =
             mock(ClassroomAuthorizationService.class);
         ClassroomRepository classroomRepository = mock(ClassroomRepository.class);
-        ClassroomStudentRepository studentRepository =
-            mock(ClassroomStudentRepository.class);
+        studentRepository = mock(ClassroomStudentRepository.class);
         tradeRepository = mock(TradeRepository.class);
         moneyLegRepository = mock(TradeMoneyLegRepository.class);
         TradeItemLegRepository itemLegRepository = mock(TradeItemLegRepository.class);
@@ -68,6 +79,8 @@ class TradeCommandServiceTest {
         inventoryRepository = mock(InventoryItemRepository.class);
         equipmentRepository = mock(CharacterEquipmentRepository.class);
         idempotencyRepository = mock(IdempotencyRecordRepository.class);
+        accountRepository = mock(LedgerAccountRepository.class);
+        taxPolicyResolver = mock(TradeTaxPolicyResolver.class);
 
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         UuidV7Generator uuidGenerator = new UuidV7Generator(clock, new SecureRandom());
@@ -82,6 +95,8 @@ class TradeCommandServiceTest {
             inventoryRepository,
             equipmentRepository,
             idempotencyRepository,
+            accountRepository,
+            taxPolicyResolver,
             uuidGenerator,
             clock
         );
@@ -110,13 +125,20 @@ class TradeCommandServiceTest {
             "proposer",
             NOW
         );
-        ClassroomStudent counterpart = ClassroomStudent.enroll(
+        counterpartStudent = ClassroomStudent.enroll(
             counterpartId,
             classroomId,
             2,
             "counterpart",
             NOW
         );
+        proposerWallet = LedgerAccount.studentWallet(
+            UUID.randomUUID(),
+            classroomId,
+            proposerId,
+            NOW.minusSeconds(10)
+        );
+        proposerWallet.post(1_000, NOW.minusSeconds(5));
 
         when(classroomRepository.findById(classroomId))
             .thenReturn(Optional.of(Classroom.active(classroomId, "ABCD1234", NOW)));
@@ -126,7 +148,7 @@ class TradeCommandServiceTest {
                 any(),
                 eq(ClassroomStudentStatus.ACTIVE)
             )
-        ).thenReturn(List.of(proposer, counterpart));
+        ).thenReturn(List.of(proposer, counterpartStudent));
         when(
             idempotencyRepository.findForReplay(
                 eq(classroomId),
@@ -135,6 +157,18 @@ class TradeCommandServiceTest {
                 eq(requestId.toString())
             )
         ).thenReturn(Optional.empty());
+        when(taxPolicyResolver.resolve(classroomId)).thenReturn(new TradeTaxPolicy(
+            500,
+            null,
+            0,
+            "SYSTEM_DEFAULT"
+        ));
+        when(accountRepository.findByClassroomIdAndClassroomStudentIdAndAccountTypeAndStatus(
+            classroomId,
+            proposerId,
+            LedgerAccountType.STUDENT_WALLET,
+            LedgerAccountStatus.ACTIVE
+        )).thenReturn(Optional.of(proposerWallet));
         savedTrade = new AtomicReference<>();
         when(tradeRepository.saveAndFlush(any())).thenAnswer(invocation -> {
             Trade trade = invocation.getArgument(0);
@@ -213,5 +247,69 @@ class TradeCommandServiceTest {
         );
 
         assertEquals("ITEM_LOCKED", exception.getCode());
+    }
+
+    @Test
+    void rejectsProposalWhenAmountAndTaxExceedCurrentWalletBalance() {
+        proposerWallet.post(-500, NOW.minusSeconds(1));
+
+        ClassroomOperationException exception = assertThrows(
+            ClassroomOperationException.class,
+            () -> service.create(command)
+        );
+
+        assertEquals("INSUFFICIENT_BALANCE", exception.getCode());
+        verify(tradeRepository, never()).saveAndFlush(any());
+        verify(moneyLegRepository, never()).save(any());
+    }
+
+    @Test
+    void preventsCounterpartAcceptanceWhenEitherStudentCanNoLongerPay() {
+        UUID proposerId = UUID.fromString(command.studentSubject());
+        UUID tradeId = UUID.randomUUID();
+        Trade trade = Trade.propose(
+            tradeId,
+            command.classroomId(),
+            proposerId,
+            command.counterpartStudentId(),
+            command.description(),
+            NOW.plusSeconds(3_600),
+            NOW.minusSeconds(10)
+        );
+        TradeMoneyLeg moneyLeg = TradeMoneyLeg.create(
+            UUID.randomUUID(),
+            command.classroomId(),
+            tradeId,
+            proposerId,
+            command.counterpartStudentId(),
+            command.offeredAmount(),
+            NOW.minusSeconds(10)
+        );
+        proposerWallet.post(-500, NOW.minusSeconds(1));
+        when(studentRepository.findById(command.counterpartStudentId()))
+            .thenReturn(Optional.of(counterpartStudent));
+        when(tradeRepository.findForUpdate(command.classroomId(), tradeId))
+            .thenReturn(Optional.of(trade));
+        when(moneyLegRepository.findAllByTradeIdOrderByFromStudentId(tradeId))
+            .thenReturn(List.of(moneyLeg));
+        CounterpartTradeDecisionRequest accept = new CounterpartTradeDecisionRequest(
+            command.counterpartStudentId().toString(),
+            command.classroomId(),
+            tradeId,
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            trade.getStateVersion(),
+            CounterpartTradeDecision.ACCEPT,
+            "동의합니다."
+        );
+
+        ClassroomOperationException exception = assertThrows(
+            ClassroomOperationException.class,
+            () -> service.decideByCounterpart(accept)
+        );
+
+        assertEquals("INSUFFICIENT_BALANCE", exception.getCode());
+        assertEquals(TradeStatus.AWAITING_COUNTERPART, trade.getStatus());
+        verify(tradeRepository, never()).saveAndFlush(trade);
     }
 }

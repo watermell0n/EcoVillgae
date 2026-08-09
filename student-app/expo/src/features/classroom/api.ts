@@ -177,6 +177,9 @@ export function hasModule(access: ClassroomAccess | undefined, group: ModuleGrou
  */
 export function isModuleSuspended(access: ClassroomAccess | undefined, group: ModuleGroup) {
   if (!hasModule(access, group)) return false;
+  // 지갑은 선택하거나 중지할 수 있는 모듈이 아닙니다. WALLET 행이 없는 것이 정상이라
+  // 빈 코드 목록의 every()가 true가 되어 광장으로 되돌아가는 일을 막습니다.
+  if (group === "wallet") return false;
   const openCodes = moduleGroups[group].filter((code) => access?.activeCodes.has(code));
   return openCodes.every((code) => access?.suspendedCodes.has(code));
 }
