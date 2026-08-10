@@ -142,7 +142,7 @@ public class DepositMaturityProcessor {
                 accountId.toString(),
                 accountId.toString(),
                 uuidGenerator.generate().toString(),
-                "Settle fixed-term deposit maturity",
+                "예금 만기 지급",
                 postings,
                 now
             ),

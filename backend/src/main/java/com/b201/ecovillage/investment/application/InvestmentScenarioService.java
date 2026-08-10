@@ -39,6 +39,8 @@ import com.b201.ecovillage.investment.repository.InvestmentAssetRepository;
 import com.b201.ecovillage.investment.repository.InvestmentMarketRepository;
 import com.b201.ecovillage.investment.repository.InvestmentPriceStepRepository;
 import com.b201.ecovillage.investment.repository.InvestmentScenarioVersionRepository;
+import com.b201.ecovillage.ruleengine.application.ClassroomEconomicMetricsProvider;
+import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
 
 @Service
 public class InvestmentScenarioService {
@@ -62,6 +64,7 @@ public class InvestmentScenarioService {
     private final HistoricalIndexPathProvider historicalProvider;
     private final InvestmentCompanyFactory companyFactory;
     private final InvestmentRealtimePublisher realtimePublisher;
+    private final ClassroomEconomicMetricsProvider metricsProvider;
     private final UuidV7Generator uuidGenerator;
     private final Clock clock;
 
@@ -76,6 +79,7 @@ public class InvestmentScenarioService {
         HistoricalIndexPathProvider historicalProvider,
         InvestmentCompanyFactory companyFactory,
         InvestmentRealtimePublisher realtimePublisher,
+        ClassroomEconomicMetricsProvider metricsProvider,
         UuidV7Generator uuidGenerator,
         Clock clock
     ) {
@@ -89,6 +93,7 @@ public class InvestmentScenarioService {
         this.historicalProvider = historicalProvider;
         this.companyFactory = companyFactory;
         this.realtimePublisher = realtimePublisher;
+        this.metricsProvider = metricsProvider;
         this.uuidGenerator = uuidGenerator;
         this.clock = clock;
     }
@@ -170,6 +175,7 @@ public class InvestmentScenarioService {
             mode, source, reference, now
         ));
         List<InvestmentScenarioResult.Asset> createdAssets = new ArrayList<>();
+        long fallbackBasePrice = fallbackBasePrice(classroomId, mode, now);
         // 기업 이름은 시나리오마다 AI가 새로 짓는다. 교사가 정한 값은 종목 목록의 자리에
         // 묶여 있으므로 자리와 순서는 그대로 두고 보여 줄 이름만 바뀐다.
         List<InvestmentCompanyFactory.Company> companies = companyFactory.create(classroom, mode);
@@ -188,12 +194,16 @@ public class InvestmentScenarioService {
                 uuidGenerator.generate(), classroomId, scenario.getId(), seed.symbol(),
                 company.name(), company.profile(), index + 1, band.min(), band.max(), now
             ));
-            long startPrice = startPrice(seed, condition);
+            long startPrice = startPrice(seed, condition, fallbackBasePrice);
+            BigDecimal running = BigDecimal.valueOf(startPrice);
             long price = startPrice;
             for (int step = 1; step <= stepCount; step++) {
                 int rate = rates.get(step - 1);
                 if (step > 1) {
-                    price = nextPrice(price, rate);
+                    long previous = price;
+                    running = advance(running, rate);
+                    price = toTradePrice(running);
+                    rate = clampBps(realizedBps(previous, price), band);
                 }
                 priceStepRepository.save(InvestmentPriceStep.hidden(
                     uuidGenerator.generate(), classroomId, asset.getId(), step, price, rate, now
@@ -393,12 +403,16 @@ public class InvestmentScenarioService {
             : new ReturnBand(-bandBps, bandBps);
         asset.reband(band.min(), band.max(), now);
         long price = startPrice == null ? steps.get(0).getPrice() : startPrice;
+        BigDecimal running = BigDecimal.valueOf(price);
         List<Integer> rates = drawRates(asset.getId(), asset.getSymbol(), steps.size(), band);
         for (int index = 0; index < steps.size(); index++) {
             InvestmentPriceStep step = steps.get(index);
             int rate = rates.get(index);
             if (index > 0) {
-                price = nextPrice(price, rate);
+                long previous = price;
+                running = advance(running, rate);
+                price = toTradePrice(running);
+                rate = clampBps(realizedBps(previous, price), band);
             }
             step.reprice(price, rate, now);
             priceStepRepository.save(step);
@@ -565,13 +579,39 @@ public class InvestmentScenarioService {
         return List.copyOf(rates);
     }
 
-    private static long startPrice(InvestmentAssetCatalog.Seed seed, AssetCondition condition) {
+    private static long startPrice(
+        InvestmentAssetCatalog.Seed seed,
+        AssetCondition condition,
+        long fallbackBasePrice
+    ) {
         if (condition != null && condition.startPrice() != null) {
             return condition.startPrice();
         }
-        return InvestmentAssetCatalog.priceAt(
-            InvestmentAssetCatalog.DEFAULT_BASE_PRICE, seed.priceWeight()
-        );
+        return InvestmentAssetCatalog.priceAt(fallbackBasePrice, seed.priceWeight());
+    }
+
+    /**
+     * 교사가 1주 시작가를 정하지 않았을 때 쓰는 학급 기준가다.
+     *
+     * <p>규칙 엔진 추천과 같은 공식으로, 학생 대표 잔액(중앙값, 없으면 평균) 가운데 단기는
+     * 30%·장기는 20%로 한 종목을 3주쯤 살 수 있게 잡는다. 추천 조회가 실패해도 고정 기준가
+     * 대신 학급 살림 규모에 맞는 가격이 되게 한다. 잔액을 아직 알 수 없는 새 학급이면 기본
+     * 기준가를 대표 잔액으로 본다.
+     */
+    private long fallbackBasePrice(UUID classroomId, InvestmentMode mode, Instant now) {
+        ClassroomEconomicMetrics metrics = metricsProvider.of(classroomId, now);
+        long representative = metrics.medianStudentBalance() > 0L
+            ? metrics.medianStudentBalance()
+            : metrics.averageStudentBalance() > 0L
+                ? metrics.averageStudentBalance()
+                : InvestmentAssetCatalog.DEFAULT_BASE_PRICE;
+        BigDecimal share = mode == InvestmentMode.SHORT_TERM
+            ? new BigDecimal("0.30")
+            : new BigDecimal("0.20");
+        return Math.max(1L, BigDecimal.valueOf(representative)
+            .multiply(share)
+            .divide(BigDecimal.valueOf(3L), 0, RoundingMode.HALF_UP)
+            .longValueExact());
     }
 
     /** 교사가 종목마다 정한 값이다. 보내지 않은 항목은 null로 두고 서버 기본값을 쓴다. */
@@ -581,12 +621,35 @@ public class InvestmentScenarioService {
     private record ReturnBand(int min, int max) {
     }
 
-    private static long nextPrice(long current, int rateBps) {
-        return BigDecimal.valueOf(current)
+    /**
+     * 하루 등락을 소수 자리까지 누적한 가격으로 잇는다.
+     *
+     * <p>정수로 반올림한 가격을 다음 날 기준으로 삼으면 1주 금액이 낮을 때 1% 미만
+     * 등락이 매번 반올림에서 사라져 가격이 영영 움직이지 않는다.
+     */
+    private static BigDecimal advance(BigDecimal running, int rateBps) {
+        return running
             .multiply(BigDecimal.valueOf(10_000L + rateBps))
-            .divide(BigDecimal.valueOf(10_000L), 0, RoundingMode.HALF_UP)
-            .max(BigDecimal.ONE)
-            .longValueExact();
+            .divide(BigDecimal.valueOf(10_000L), 8, RoundingMode.HALF_UP)
+            .max(BigDecimal.ONE);
+    }
+
+    /** 학생이 실제로 사고파는 가격은 정수 이코다. */
+    private static long toTradePrice(BigDecimal running) {
+        return running.setScale(0, RoundingMode.HALF_UP).max(BigDecimal.ONE).longValueExact();
+    }
+
+    /** 화면의 등락률이 실제 거래 가격 변화와 어긋나지 않도록 반올림된 가격 기준으로 다시 구한다. */
+    private static int realizedBps(long previous, long price) {
+        return BigDecimal.valueOf(price - previous)
+            .multiply(BigDecimal.valueOf(10_000L))
+            .divide(BigDecimal.valueOf(previous), 0, RoundingMode.HALF_UP)
+            .intValueExact();
+    }
+
+    /** 정수 이코 반올림 때문에 실현 등락률이 약속한 하루 변동 범위를 살짝 벗어나면 범위 안으로 담는다. */
+    private static int clampBps(int rateBps, ReturnBand band) {
+        return Math.max(band.min(), Math.min(band.max(), rateBps));
     }
 
     private static ClassroomOperationException operation(HttpStatus status, String code, String message) {

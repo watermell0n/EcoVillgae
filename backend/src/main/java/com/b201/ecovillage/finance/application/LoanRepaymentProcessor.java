@@ -250,7 +250,7 @@ public class LoanRepaymentProcessor {
                 idempotencyKey,
                 installment.installmentId().toString(),
                 correlationId,
-                "Collect scheduled loan repayment",
+                "대출 상환",
                 postings,
                 now
             ),
@@ -352,7 +352,7 @@ public class LoanRepaymentProcessor {
                 requestId.toString(),
                 "PREPAY_ALL|" + loanId,
                 correlationId.toString(),
-                "Prepay all remaining loan installments",
+                "대출 중도 상환",
                 postings,
                 now
             ),

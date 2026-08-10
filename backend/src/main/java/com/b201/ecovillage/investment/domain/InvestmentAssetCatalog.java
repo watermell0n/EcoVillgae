@@ -10,13 +10,14 @@ import java.util.Locale;
  *
  * <p>1주 시작가는 교사가 정한다. 여기 있는 가격 비중은 "어느 기업이 상대적으로 비싼가"만
  * 정하며, 규칙 엔진이 학급 지표로 뽑은 기준가에 이 비중을 곱해 종목별 시작가를 추천한다.
- * 교사가 아무 값도 확정하지 않으면 기본 기준가({@value #DEFAULT_BASE_PRICE})를 쓴다.
+ * 교사가 아무 값도 확정하지 않으면 학생 잔액으로 기준가를 새로 잡고, 잔액마저 알 수 없는
+ * 새 학급에서는 기본 기준가({@value #DEFAULT_BASE_PRICE})를 대표 잔액으로 본다.
  *
  * <p>시나리오 생성과 규칙 엔진이 같은 종목 목록을 봐야 하므로 한곳에 둔다.
  */
 public final class InvestmentAssetCatalog {
 
-    /** 교사가 시작가를 정하지 않았을 때 쓰는 기준가다. */
+    /** 학급 잔액을 아직 알 수 없을 때 대표 잔액으로 보는 기준가다. */
     public static final long DEFAULT_BASE_PRICE = 1_000L;
 
     /** 단기 투자에 쓰는 종목 수다. 하루 만에 판단해야 하므로 적게 둔다. */
@@ -50,14 +51,25 @@ public final class InvestmentAssetCatalog {
         return SEEDS.subList(0, mode == InvestmentMode.SHORT_TERM ? SHORT_TERM_COUNT : LONG_TERM_COUNT);
     }
 
-    /** 기준가에 종목 비중을 곱한 1주 가격이다. 10 단위로 끊어 학생이 읽기 쉽게 한다. */
+    /** 기준가에 종목 비중을 곱한 1주 가격이다. */
     public static long priceAt(long basePrice, BigDecimal priceWeight) {
-        long price = BigDecimal.valueOf(basePrice)
-            .multiply(priceWeight)
+        return roundPrice(BigDecimal.valueOf(basePrice).multiply(priceWeight));
+    }
+
+    /**
+     * 1주 가격을 학생이 읽기 쉬운 단위로 끊는다.
+     *
+     * <p>100 이상은 10 단위로 끊는다. 100 미만까지 10 단위로 끊으면 잔액이 적은 학급에서
+     * 종목별 가격 비중이 전부 같은 값으로 뭉개지므로, 그 아래는 1 단위로 둔다.
+     */
+    public static long roundPrice(BigDecimal value) {
+        if (value.compareTo(BigDecimal.valueOf(100L)) < 0) {
+            return Math.max(1L, value.setScale(0, RoundingMode.HALF_UP).longValue());
+        }
+        return Math.max(1L, value
             .divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP)
             .multiply(BigDecimal.TEN)
-            .longValue();
-        return Math.max(1L, price);
+            .longValue());
     }
 
     /** action_id에 쓸 수 있게 종목 기호를 소문자로 바꾼다. */

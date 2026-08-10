@@ -5011,11 +5011,11 @@ function PublicFundAdmin({
       <p className="helper-text">동률이면 목록에서 먼저 등록한 사용처가 선정됩니다.</p>
       {vote.status === "CLOSED" && vote.ballot_count === 0 ? <p className="public-vote-warning" role="status">참여한 학생이 없어 결과를 확정할 수 없습니다. 투표를 다시 열어 주세요.</p> : null}
       <div className="row-actions">
-        {vote.status === "READY" ? <button type="button" disabled={busy} onClick={() => void command("OPEN")}>투표 시작</button> : null}
-        {vote.status === "OPEN" ? <button type="button" disabled={busy} onClick={() => void command("CLOSE")}>투표 마감</button> : null}
-        {vote.status === "CLOSED" && vote.ballot_count === 0 ? <button type="button" className="ghost" disabled={busy} onClick={() => void command("REOPEN")}>투표 다시 열기</button> : null}
-        {vote.status === "CLOSED" && vote.ballot_count > 0 ? <button type="button" disabled={busy} onClick={confirmResult}>결과 공개·공동기금 사용 확정</button> : null}
-        <button type="button" className="ghost" disabled={busy} onClick={() => void load()}>새로고침</button>
+        {vote.status === "READY" ? <button type="button" className="public-vote-action public-vote-primary" disabled={busy} onClick={() => void command("OPEN")}>투표 시작</button> : null}
+        {vote.status === "OPEN" ? <button type="button" className="public-vote-action public-vote-primary" disabled={busy} onClick={() => void command("CLOSE")}>투표 마감</button> : null}
+        {vote.status === "CLOSED" && vote.ballot_count === 0 ? <button type="button" className="public-vote-action public-vote-secondary" disabled={busy} onClick={() => void command("REOPEN")}>투표 다시 열기</button> : null}
+        {vote.status === "CLOSED" && vote.ballot_count > 0 ? <button type="button" className="public-vote-action public-vote-primary" disabled={busy} onClick={confirmResult}>결과 공개·공동기금 사용 확정</button> : null}
+        <button type="button" className="public-vote-action public-vote-secondary" disabled={busy} onClick={() => void load()}>새로고침</button>
       </div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
     </PlainSection> : <PlainSection title="새 사용처 투표 만들기">

@@ -394,7 +394,17 @@ export function InvestmentScenarioPanel({
     setMessage("");
     try {
       const recommended = await fetchRecommendedConditions();
-      const assetConditions = recommended ? conditionsOf(recommended.candidates) : [];
+      const assetConditions = recommended?.candidates ? conditionsOf(recommended.candidates) : [];
+      // 추천을 못 받았을 때 조용히 기본값으로 만들면 교사가 알아차릴 수 없다. 확인을 받는다.
+      if (assetConditions.length === 0) {
+        const proceed = window.confirm(
+          "1주 금액·변동 범위 추천값을 불러오지 못했습니다.\n\n학급 잔액 기준으로 계산한 서버 기본값으로 시나리오를 만들까요?"
+        );
+        if (!proceed) {
+          setMessage("시나리오 생성을 취소했어요. 잠시 뒤 다시 시도해 주세요.");
+          return;
+        }
+      }
       const result = await apiRequest<ScenarioResult>(`/classrooms/${classroomId}/investment-market/scenario`, {
         method: "PUT",
         body: JSON.stringify({
@@ -415,7 +425,7 @@ export function InvestmentScenarioPanel({
         : "AI가 만든 가격 흐름의";
       const applied = assetConditions.length > 0
         ? " 1주 금액과 변동 범위는 AI 추천값으로 채웠어요. 종목마다 고칠 수 있습니다."
-        : "";
+        : " 추천값을 불러오지 못해 학급 잔액 기준 기본값으로 만들었어요. 종목마다 고칠 수 있습니다.";
       setMessage(regenerate
         ? `초안을 거절하고 ${source} 새 시나리오를 만들었습니다.${applied}`
         : `${source} ${MODE_LABELS[mode]} 시나리오를 만들었습니다.${applied} 가격 흐름을 확인한 뒤 승인해 주세요.`);

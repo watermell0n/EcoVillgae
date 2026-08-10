@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
+import com.b201.ecovillage.investment.domain.InvestmentAssetCatalog;
 import com.b201.ecovillage.ruleengine.domain.ClassroomEconomicMetrics;
 import com.b201.ecovillage.ruleengine.domain.PaymentSchedule;
 import com.b201.ecovillage.ruleengine.domain.ProductKind;
@@ -1170,7 +1171,7 @@ public class RuleEngineService {
         for (RuleEngineRequest.InvestmentAsset asset : draft.assets()) {
             BigDecimal weight = asset.priceWeight() == null ? BigDecimal.ONE : asset.priceWeight();
             long proposed = clamp(
-                roundToTen(BigDecimal.valueOf(basePrice).multiply(weight)),
+                InvestmentAssetCatalog.roundPrice(BigDecimal.valueOf(basePrice).multiply(weight)),
                 1L,
                 allowedMax
             );
@@ -1179,8 +1180,8 @@ public class RuleEngineService {
                 RuleTargetType.INVESTMENT_CONDITION,
                 activation.targetId(),
                 proposed,
-                clamp(roundToTen(BigDecimal.valueOf(proposed).multiply(new BigDecimal("0.8"))), 1L, proposed),
-                clamp(roundToTen(BigDecimal.valueOf(proposed).multiply(new BigDecimal("1.2"))), proposed, allowedMax),
+                clamp(InvestmentAssetCatalog.roundPrice(BigDecimal.valueOf(proposed).multiply(new BigDecimal("0.8"))), 1L, proposed),
+                clamp(InvestmentAssetCatalog.roundPrice(BigDecimal.valueOf(proposed).multiply(new BigDecimal("1.2"))), proposed, allowedMax),
                 1L,
                 allowedMax,
                 RuleValueUnit.AMOUNT,
@@ -1793,13 +1794,6 @@ public class RuleEngineService {
 
     private static long roundAmount(BigDecimal value) {
         return value.setScale(0, RoundingMode.HALF_UP).longValue();
-    }
-
-    /** 1주 가격은 10 단위로 끊어 학생이 읽기 쉽게 한다. */
-    private static long roundToTen(BigDecimal value) {
-        return value.divide(BigDecimal.TEN, 0, RoundingMode.HALF_UP)
-            .multiply(BigDecimal.TEN)
-            .longValue();
     }
 
     /** 상한은 넘지 않아야 하므로 내림으로 끊는다. 반올림하면 예산을 조금 넘길 수 있다. */

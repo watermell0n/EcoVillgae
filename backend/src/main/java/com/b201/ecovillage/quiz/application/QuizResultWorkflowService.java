@@ -418,13 +418,13 @@ public class QuizResultWorkflowService {
             published,
             now
         ));
-        long rewardPerParticipant = rewardPerParticipant(session);
+        long rewardPerCorrectAnswer = rewardPerCorrectAnswer(session);
         List<QuizStudentResult> nextResults = scoringService.score(
             command.classroomId(),
             command.sessionId(),
             next.getId(),
             session.getMode(),
-            rewardPerParticipant,
+            rewardPerCorrectAnswer,
             allInvalidated,
             now
         );
@@ -516,7 +516,7 @@ public class QuizResultWorkflowService {
                 "The quiz has no scored questions."
             );
         }
-        long reward = rewardPerParticipant(session);
+        long reward = rewardPerCorrectAnswer(session);
         QuizResultVersion result = resultRepository.save(QuizResultVersion.reviewing(
             uuidGenerator.generate(),
             command.classroomId(),
@@ -587,7 +587,7 @@ public class QuizResultWorkflowService {
                     command.correlationId(),
                     requestHash,
                     results,
-                    "Quiz result reward version " + result.getVersion(),
+                    "퀴즈 보상",
                     now,
                     RESULT_ROUTE + "/reward-transactions"
                 ),
@@ -731,7 +731,8 @@ public class QuizResultWorkflowService {
             ));
     }
 
-    private long rewardPerParticipant(QuizSession session) {
+    /** 교사가 정한 문제당 보상액이다. 학생은 맞힌 문제 수만큼 곱해 받는다. */
+    private long rewardPerCorrectAnswer(QuizSession session) {
         Object value = session.getRewardPolicyPublic().get("reward_per_person");
         if (value == null) {
             value = session.getRewardPolicyPublic().get("base_reward");

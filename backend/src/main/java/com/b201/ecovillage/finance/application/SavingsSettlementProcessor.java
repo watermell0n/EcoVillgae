@@ -59,7 +59,7 @@ public class SavingsSettlementProcessor {
 
     private void pay(SavingsAccount account, SavingsInstallment installment, LedgerAccount wallet, LedgerAccount liability, Instant now) {
         UUID groupId = uuids.generate();
-        transactions.execute(groupId, LedgerTransactionCommand.original(account.getClassroomId(), "SAVINGS_INSTALLMENT", LedgerActorType.SYSTEM, account.getClassroomId(), null, "/system/savings-accounts/{account_id}/installments", installment.getId().toString(), installment.getId().toString(), uuids.generate().toString(), "Collect scheduled savings installment", List.of(new LedgerTransactionPosting(wallet.getId(), -installment.getScheduledAmount()), new LedgerTransactionPosting(liability.getId(), installment.getScheduledAmount())), now), List.of(new LedgerDomainMutation() {
+        transactions.execute(groupId, LedgerTransactionCommand.original(account.getClassroomId(), "SAVINGS_INSTALLMENT", LedgerActorType.SYSTEM, account.getClassroomId(), null, "/system/savings-accounts/{account_id}/installments", installment.getId().toString(), installment.getId().toString(), uuids.generate().toString(), "적금 납입", List.of(new LedgerTransactionPosting(wallet.getId(), -installment.getScheduledAmount()), new LedgerTransactionPosting(liability.getId(), installment.getScheduledAmount())), now), List.of(new LedgerDomainMutation() {
             @Override public void validate() { if (wallet.getCurrentBalance() < installment.getScheduledAmount()) throw new IllegalStateException("wallet balance changed"); }
             @Override public void apply() { installment.pay(groupId, now); account.recordInstallment(now); }
         }));
@@ -71,7 +71,7 @@ public class SavingsSettlementProcessor {
         UUID groupId = uuids.generate();
         java.util.ArrayList<LedgerTransactionPosting> postings = new java.util.ArrayList<>(List.of(new LedgerTransactionPosting(liability.getId(), -account.getPrincipalBalance()), new LedgerTransactionPosting(wallet.getId(), account.maturityAmount())));
         if (issuance != null) postings.add(new LedgerTransactionPosting(issuance.getId(), -interest));
-        transactions.execute(groupId, LedgerTransactionCommand.original(account.getClassroomId(), "SAVINGS_MATURITY", LedgerActorType.SYSTEM, account.getClassroomId(), null, "/system/savings-accounts/{account_id}/maturity", account.getId().toString(), account.getId().toString(), uuids.generate().toString(), "Settle savings maturity", postings, now), List.of(new LedgerDomainMutation() {
+        transactions.execute(groupId, LedgerTransactionCommand.original(account.getClassroomId(), "SAVINGS_MATURITY", LedgerActorType.SYSTEM, account.getClassroomId(), null, "/system/savings-accounts/{account_id}/maturity", account.getId().toString(), account.getId().toString(), uuids.generate().toString(), "적금 만기 지급", postings, now), List.of(new LedgerDomainMutation() {
             @Override public void validate() { if (liability.getCurrentBalance() < account.getPrincipalBalance()) throw new IllegalStateException("savings liability cannot cover principal"); }
             @Override public void apply() { account.mature(groupId, now); }
         }));

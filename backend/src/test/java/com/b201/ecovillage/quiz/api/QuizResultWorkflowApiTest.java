@@ -190,7 +190,9 @@ class QuizResultWorkflowApiTest {
         JsonNode replayed = commandResult(publishKey, publishBody);
         assertEquals(published.path("data"), replayed.path("data"));
         assertEquals(1, count("transaction_groups", "transaction_type = 'QUIZ_REWARD'"));
-        assertEquals(100L, walletBalance(secondStudentId));
+        // 보상은 문제당 보상액 × 맞힌 문제 수라 오답만 낸 학생은 받지 못한다.
+        assertEquals(10_100L, walletBalance(firstStudentId));
+        assertEquals(0L, walletBalance(secondStudentId));
 
         mockMvc.perform(get(
                 "/classrooms/{classroomId}/quiz-sessions/{sessionId}/results",
@@ -306,14 +308,16 @@ class QuizResultWorkflowApiTest {
 
         assertEquals(1, count("regrading_runs", "1 = 1"));
         assertEquals(2, count("quiz_result_versions", "1 = 1"));
-        assertEquals(2, count("transaction_groups", "transaction_type = 'QUIZ_REWARD'"));
+        // 유일한 문항이 무효 처리되면 맞힌 문제가 없어 재지급 거래가 생기지 않는다.
+        assertEquals(1, count("transaction_groups", "transaction_type = 'QUIZ_REWARD'"));
         assertEquals(1, count(
             "transaction_groups",
             "transaction_type = 'RECOVERY_QUIZ_REGRADING'"
         ));
-        assertEquals(100L, walletBalance(secondStudentId));
+        assertEquals(10_000L, walletBalance(firstStudentId));
+        assertEquals(0L, walletBalance(secondStudentId));
         assertEquals(
-            200L,
+            0L,
             rewardBudgetService.evaluate(classroomId, 0L).existingRewardIssuance()
         );
 
@@ -373,7 +377,7 @@ class QuizResultWorkflowApiTest {
 
         assertEquals(1, count("transaction_groups", "transaction_type = 'QUIZ_REWARD'"));
         assertEquals(10_100L, walletBalance(firstStudentId));
-        assertEquals(100L, walletBalance(secondStudentId));
+        assertEquals(0L, walletBalance(secondStudentId));
     }
 
     @Test
@@ -883,13 +887,15 @@ class QuizResultWorkflowApiTest {
     }
 
     private long walletBalance(UUID studentId) {
-        return jdbcTemplate.queryForObject(
+        // 보상을 한 번도 받지 못한 학생은 지갑 계정 자체가 없을 수 있다. 그 잔액은 0으로 본다.
+        Long balance = jdbcTemplate.query(
             "SELECT current_balance FROM ledger_accounts WHERE classroom_id = ? "
                 + "AND classroom_student_id = ? AND account_type = 'STUDENT_WALLET'",
-            Long.class,
+            resultSet -> resultSet.next() ? resultSet.getLong(1) : null,
             classroomId,
             studentId
         );
+        return balance == null ? 0L : balance;
     }
 
     private static String classroomCode() {

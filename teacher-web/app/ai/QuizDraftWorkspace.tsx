@@ -905,7 +905,7 @@ export function QuizDraftWorkspace({
               </label>
               {sessionMode === "GAME" ? (
                 <>
-                  <label>1인 참여 보상
+                  <label>문제당 보상 · 맞힌 문제 수만큼 지급해요
                     <input
                       type="number"
                       min="0"
